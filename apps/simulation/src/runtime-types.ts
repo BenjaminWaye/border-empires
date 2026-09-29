@@ -90,6 +90,14 @@ export type LockedCombatResolution = {
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;
+  // Shield flags (docs/muster-fronts-proposal.md §4): the defender's flag
+  // that matched this attack's commitment, if any, and how much it matched --
+  // computed at lock-creation time (buildLockedCombatResolution) alongside the
+  // rest of the combat roll, but only actually spent at resolution time
+  // (resolveLock, mirroring consumeOriginMuster's own resolve-time timing for
+  // the attacker's side) since the shield tile's live amount may have moved
+  // between the two.
+  shield?: { tileKey: string; x: number; y: number; matched: number };
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";
@@ -284,6 +292,8 @@ export type SimulationTileWireDelta = {
   shardSiteJson?: string | undefined;
   watchtowerJson?: string | undefined;
   waystationJson?: string | undefined;
+  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
+  afcJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

@@ -87,3 +87,14 @@ export type PlayerCombatSummary = {
   domainIds: string[];
   weaponsFactoryCounts: { titanium: number; umbrite: number };
 };
+
+/**
+ * Server-to-server PLAYER_MESSAGE from the simulation's onboarding-milestone
+ * tracker to the gateway's player-funnel store (/admin/players/insights).
+ * The gateway consumes it and never relays it to a client.
+ */
+export const ONBOARDING_MILESTONE_MESSAGE_TYPE = "ONBOARDING_MILESTONE";
+
+export type OnboardingMilestonePayload =
+  | { type: typeof ONBOARDING_MILESTONE_MESSAGE_TYPE; kind: "TEN_TILES"; at: number; ownedTiles: number }
+  | { type: typeof ONBOARDING_MILESTONE_MESSAGE_TYPE; kind: "FIRST_CONTACT"; at: number; withPlayerId: string; withIsAi: boolean };

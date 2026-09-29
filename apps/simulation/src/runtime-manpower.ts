@@ -14,6 +14,7 @@ import {
 import { terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
 type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
@@ -48,6 +49,10 @@ export const playerManpowerCapFromSummary = (
   cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
   cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   if (ancillaryFactoryCapacityBonusByTown) cap += [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0);
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // flat SETTLEMENT-tier baseline per AFC, not terrain-scaled -- deliberately
+  // NOT part of the ownedTownTierByTile loop above (an AFC is not a town).
+  cap += summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
@@ -74,6 +79,9 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const logisticsGuildStandaloneBonus = logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE;
   const railDepotNetworkBonus = railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD;
   const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
+  // AFC flat baseline (see playerManpowerCapFromSummary above): added
+  // unconditionally, never weighted by manpowerRegenWeightForSettlementIndex.
+  const afcBonus = summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
     STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
@@ -81,6 +89,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
       logisticsGuildStandaloneBonus +
       railDepotNetworkBonus +
       populationBureauBonus +
+      afcBonus +
       galacticWonderManpowerRegenBonusPerMinute
   );
 };
@@ -145,23 +154,23 @@ export const playerManpowerBreakdownFromSummary = (
   });
   const capLinesWithGarrisonHall =
     garrisonHallCount > 0
-      ? [...capLines, { label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
+      ? [...capLines, { label: "Ancillary Depot", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
   if (ancillaryFactoryCapacityBonusByTown && ancillaryFactoryCapacityBonusByTown.size > 0) {
-    capLinesWithGarrisonHall.push({ label: "Ancillary Factory", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
+    capLinesWithGarrisonHall.push({ label: "Ancillary Depot", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
   }
   if (logisticsGuildCount > 0) {
-    regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
+    regenLines.push({ label: "Ancillary Factory", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
   }
   if (railDepotNetworkLogisticsGuildCount > 0) {
     regenLines.push({
-      label: "Rail Depot Network",
+      label: "Neural Works Network",
       amount: railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD
     });
   }
   if (populationBureauManpowerBuildingCount > 0) {
     regenLines.push({
-      label: "Population Bureau",
+      label: "Census Directorate",
       amount: populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING
     });
   }
@@ -172,9 +181,13 @@ export const playerManpowerBreakdownFromSummary = (
     assemblyWorksNetworkGarrisonHallCount > 0
       ? [
           ...capLinesWithGarrisonHall,
-          { label: "Assembly Works Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
+          { label: "Reserve Lattice Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
         ]
       : capLinesWithGarrisonHall;
+  if (summary.ownedAfcTileKeys.size > 0) {
+    capLinesWithRailDepotNetwork.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap });
+    regenLines.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute });
+  }
   // Starting Capital is always present (§4.3) — unlike the old floor-based
   // "Base minimum" fallback, it's listed unconditionally alongside any town
   // lines rather than only appearing when there are no towns.
@@ -191,7 +204,10 @@ export const effectiveManpowerAt = (
   nowMs: number
 ): number => {
   if (!Number.isFinite(player.manpower)) return cap;
-  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(cap, Math.max(0, player.manpower));
+  const ceiling = manpowerCeiling(player, cap);
+  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(ceiling, Math.max(0, player.manpower));
+  // Waystation overflow above the cap: held as-is (up to the ceiling), no regen until spent back under the cap.
+  if (player.manpower >= cap) return Math.min(ceiling, player.manpower);
   const updatedAt = player.manpowerUpdatedAt ?? nowMs;
   const elapsedMinutes = Math.max(0, (nowMs - updatedAt) / 60_000);
   const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;

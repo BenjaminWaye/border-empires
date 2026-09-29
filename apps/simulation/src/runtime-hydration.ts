@@ -74,6 +74,7 @@ export const createPlayersFromRecoveredState = (
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
+          ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
           ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
             ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }
@@ -141,7 +142,8 @@ export const createTilesFromInitialState = (
       // In Phase 3 we accept the field (see RecoveredTileState) and ignore it
       // so a Phase-4 snapshot can be loaded by a Phase-3-era binary safely.
       ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
-      ...(tile.muster ? { muster: tile.muster } : {})
+      ...(tile.muster ? { muster: tile.muster } : {}),
+      ...(tile.afc ? { afc: tile.afc } : {})
     });
   }
   return mergedTiles;

@@ -37,7 +37,6 @@ export const createAiPlayerStateMetrics = () => {
   const manpowerRegenByPlayer = new Map<string, number>();
   const musterFlagsByPlayer = new Map<string, number>();
   const musterStagedByPlayer = new Map<string, number>();
-  const musterCapacityByPlayer = new Map<string, number>();
 
   return {
     snapshot: () => ({
@@ -50,8 +49,7 @@ export const createAiPlayerStateMetrics = () => {
       simAiPlayerManpowerCapGauge: Object.fromEntries(manpowerCapByPlayer),
       simAiPlayerManpowerRegenPerMinuteGauge: Object.fromEntries(manpowerRegenByPlayer),
       simAiPlayerMusterFlagsGauge: Object.fromEntries(musterFlagsByPlayer),
-      simAiPlayerMusterStagedManpowerGauge: Object.fromEntries(musterStagedByPlayer),
-      simAiPlayerMusterFlagCapacityGauge: Object.fromEntries(musterCapacityByPlayer)
+      simAiPlayerMusterStagedManpowerGauge: Object.fromEntries(musterStagedByPlayer)
     }),
     // Called once per AI player per metricsTicker tick (1s cadence) — see
     // simulation-service.ts. All values come from the lean
@@ -68,7 +66,6 @@ export const createAiPlayerStateMetrics = () => {
         manpowerRegenPerMinute: number;
         musterFlags: number;
         musterStagedManpower: number;
-        musterFlagCapacity: number;
       }
     ): void {
       goldByPlayer.set(playerId, values.gold);
@@ -80,7 +77,6 @@ export const createAiPlayerStateMetrics = () => {
       manpowerRegenByPlayer.set(playerId, values.manpowerRegenPerMinute);
       musterFlagsByPlayer.set(playerId, values.musterFlags);
       musterStagedByPlayer.set(playerId, values.musterStagedManpower);
-      musterCapacityByPlayer.set(playerId, values.musterFlagCapacity);
     },
     incrementSimAiExpand(playerId: string): void {
       expandTotalByPlayer.set(playerId, (expandTotalByPlayer.get(playerId) ?? 0) + 1);
@@ -107,8 +103,7 @@ export const applyAiPlayerDebugSnapshotToMetrics = (
       manpowerCap: player.manpowerCap,
       manpowerRegenPerMinute: player.manpowerRegenPerMinute,
       musterFlags: player.musterFlagCount,
-      musterStagedManpower: player.musterStagedManpower,
-      musterFlagCapacity: player.musterFlagCapacity
+      musterStagedManpower: player.musterStagedManpower
     });
   }
 };

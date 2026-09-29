@@ -37,7 +37,7 @@ export const queuedSettlementProgressForTile = (
   return {
     title: isPlanned ? "Settlement planned" : "Settlement queued",
     detail: isPlanned
-      ? "Waiting locally for gold/manpower and a free server queue slot before this is submitted."
+      ? "Waiting locally for coin/manpower and a free server queue slot before this is submitted."
       : "This frontier tile is confirmed by the server and will settle automatically -- even if you log off.",
     remainingLabel: remainingLabelFor(queueState, index),
     progress: 0,

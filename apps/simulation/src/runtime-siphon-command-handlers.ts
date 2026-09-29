@@ -8,7 +8,7 @@
 // a siphon ends.
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { SIPHON_SHARE } from "@border-empires/game-domain";
+import { playerHasAbilityTech, SIPHON_SHARE } from "@border-empires/game-domain";
 import { SIPHON_UNTIL_CANCELLED_ENDS_AT, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
@@ -68,8 +68,8 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("logistics")) {
-    rejectCommand(context, command, "SIPHON_INVALID", "requires Logistics");
+  if (!playerHasAbilityTech(actor.techIds, "siphon")) {
+    rejectCommand(context, command, "SIPHON_INVALID", "requires Transposition Array Module");
     return;
   }
   const siphonNow = context.now();

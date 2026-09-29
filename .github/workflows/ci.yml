@@ -37,6 +37,9 @@ jobs:
       - name: Check file line limits
         run: pnpm check:file-lines
 
+      - name: Check documentation contracts
+        run: pnpm check:docs
+
       # `pnpm -r lint` type-checks every package against its real dependency
       # packages (not path-mapped source), so shared/game-domain/client-protocol/
       # sim-protocol must be built first or downstream packages fail with

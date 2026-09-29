@@ -1,3 +1,5 @@
+import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+
 // Durable, bounded 24-hour source for the personal Activity dashboard's
 // high-signal milestones. Unlike DomainPlayer.eventLog this is not snapshot
 // state: it is a global rolling tail persisted alongside territory/combat
@@ -16,7 +18,7 @@ type PersonalImpactBase = {
 
 export type PersonalImpactWaystationActivated = PersonalImpactBase & {
   kind: "WAYSTATION_ACTIVATED";
-  grantedEffect: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  grantedEffect: WaystationGrantedEffect;
   revealedAtX?: number;
   revealedAtY?: number;
   grantedTechId?: string;
@@ -24,6 +26,9 @@ export type PersonalImpactWaystationActivated = PersonalImpactBase & {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  grantedManpower?: number;
   populationBurst?: number;
 };
 

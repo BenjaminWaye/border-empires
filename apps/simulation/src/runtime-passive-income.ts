@@ -56,7 +56,7 @@ export const applyPassiveIncomeForPlayer = (
   const economy = ctx.cachedEconomySnapshot(player);
   const goldPerMinute = economy.incomePerMinute;
   const summary = ctx.summaryForPlayer(player.id);
-  const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+  const storageCap = computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
 
   let anyCredited = false;
   const goldEarned = goldPerMinute * elapsedMinutes;

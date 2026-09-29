@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt, visualLandBiomeAt } from "@border-empires/shared";
+import { isForestTile } from "../client-constants.js";
 
 import type { Tile } from "../client-types.js";
 
@@ -75,6 +76,36 @@ describe("client runtime display support", () => {
     const { terrainLabel } = createSubject([createTile({ x: 11, y: 11, landBiome: "GRASS", regionType: "DEEP_FOREST" })]);
 
     expect(terrainLabel(11, 11, "LAND")).toBe("GRASS");
+  });
+
+  // Regression: the label read only the mechanical biome, so every look-only
+  // biome the map draws (JUNGLE/MARSH/SNOW/PLAINS, and v9 GRASSLAND) was
+  // labelled plain GRASS or TUNDRA.
+  const findVisual = (biome: string): { x: number; y: number } => {
+    for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
+        // Forest labels win over PLAINS/GRASSLAND, but JUNGLE (always dark-canopy
+        // forest), MARSH and SNOW are named even on forest tiles.
+        const forestOk = biome === "JUNGLE" || biome === "MARSH" || biome === "SNOW" || !isForestTile(x, y);
+        if (terrainAt(x, y) === "LAND" && visualLandBiomeAt(x, y) === biome && forestOk) return { x, y };
+      }
+    }
+    throw new Error(`expected at least one ${biome} tile`);
+  };
+  it.each(["JUNGLE", "MARSH", "SNOW", "PLAINS", "GRASSLAND"])("labels a v9 %s tile by the biome the map draws", (biome) => {
+    setWorldSeed(9001, "continents", 9);
+    const { terrainLabel } = createSubject();
+    const sample = findVisual(biome);
+    expect(terrainLabel(sample.x, sample.y, "LAND")).toBe(biome);
+  });
+
+  it("labels v8 look-only biomes (the live season's JUNGLE/SNOW) too", () => {
+    setWorldSeed(9001, "continents", 8);
+    const { terrainLabel } = createSubject();
+    for (const biome of ["JUNGLE", "SNOW"]) {
+      const sample = findVisual(biome);
+      expect(terrainLabel(sample.x, sample.y, "LAND")).toBe(biome);
+    }
   });
 
   // The RELAY_BEACON waiver-aware FOOD-slot display used to live inside

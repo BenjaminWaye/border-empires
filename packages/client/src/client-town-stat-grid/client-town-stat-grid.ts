@@ -1,6 +1,6 @@
 // Pure HTML builder for a settled own-town's overview stat grid — pulled
 // out of client-tile-menu-view.ts's flat prose-line list so Population,
-// Gold, and Manpower (the numbers that change what you do next) read as a
+// Coin, and Manpower (the numbers that change what you do next) read as a
 // scannable dashboard instead of a paragraph, while Support/Food (usually
 // just "full") drop into a compact row below instead of full-size cards.
 // Kept presentation-only and unit-testable: every number is precomputed by
@@ -58,7 +58,7 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
   const townModifiers = input.townModifiers ?? [];
   const goldTerrainContext = townModifiers
     .filter((modifier) => modifier.goldOutputPercent !== 0)
-    .map((modifier) => `<span class="tile-stat-context"><strong>${escapeHtml(modifier.label)}</strong> · gold ${signedPercent(modifier.goldOutputPercent)}</span>`)
+    .map((modifier) => `<span class="tile-stat-context"><strong>${escapeHtml(modifier.label)}</strong> · coin ${signedPercent(modifier.goldOutputPercent)}</span>`)
     .join("");
   const manpowerTerrainContext = townModifiers
     .filter((modifier) => modifier.manpowerCapacityPercent !== 0 || modifier.manpowerRegenPercent !== 0)
@@ -73,7 +73,7 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
         `<span class="tile-stat-sub is-${input.growthTone}">${escapeHtml(input.growthText)}</span>` +
       `</div>` +
       `<div class="tile-stat tile-stat-span2">` +
-        `<span class="tile-stat-label">Gold production</span>` +
+        `<span class="tile-stat-label">Coin production</span>` +
         `<span class="tile-stat-value">${escapeHtml(input.goldPerDayLabel)}<span class="tile-stat-unit">/ day</span></span>` +
         goldTerrainContext +
       `</div>` +

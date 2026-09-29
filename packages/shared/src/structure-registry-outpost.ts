@@ -5,6 +5,7 @@ import {
 } from "./config.js";
 import {
   SIEGE_TIER_LADDER,
+  structureBuildManpowerCost,
 } from "./structure-costs/structure-costs.js";
 import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
@@ -70,7 +71,14 @@ export const RELAY_BEACON_SPEC: StructureSpec = {
   variant: "RELAY_BEACON",
   cost: {
     gold: 0,
-    manpower: 30,
+    // Post-free-tier base cost (docs/replenishment-update-plan.md D12/D23):
+    // real per-build manpower is resolved live from
+    // structureBuildManpowerCostScaled/relayBeaconManpowerCost, which
+    // knows the player's existing count (free for the first 5, 0 here is
+    // stale) -- this field is a static display/reference fallback only,
+    // read straight from STRUCTURE_COST_DEFINITIONS so it can never drift
+    // from that real per-build number's own base case again.
+    manpower: structureBuildManpowerCost("RELAY_BEACON"),
   },
   buildMs: RELAY_BEACON_BUILD_MS,
   techIds: [],

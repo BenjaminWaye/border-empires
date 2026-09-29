@@ -1,3 +1,5 @@
+import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+
 // Shared response types for the personal Activity dashboard's 24h "Yours"
 // timeline (docs/activity-dashboard-plan.md), mirroring
 // activity-dashboard-types.ts's placement: kept in game-domain so
@@ -49,7 +51,7 @@ export type PersonalActivityWaystationCard = {
   occurredAt: number;
   x: number;
   y: number;
-  grantedEffect: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  grantedEffect: WaystationGrantedEffect;
   revealedAtX?: number;
   revealedAtY?: number;
   grantedTechId?: string;
@@ -57,6 +59,9 @@ export type PersonalActivityWaystationCard = {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  grantedManpower?: number;
   populationBurst?: number;
 };
 

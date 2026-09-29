@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, requiredMusterForFort, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -29,27 +29,23 @@ describe("structureBuildGoldCost", () => {
   });
 });
 
-// Design doc "escalating build cost": Titanium/Umbrite Weapons Factory are the one
-// place `scaling` multiplies the real (manpower) cost instead of the
-// (globally zeroed) gold cost every other structure's `scaling` describes.
+// 2026-09-25: per-copy escalating manpower cost was removed for Titanium/
+// Umbrite Weapons Factory (see the design discussion above
+// RELAY_BEACON_FIRST_TIER_COUNT in structure-costs.ts) -- cost is now flat
+// regardless of how many the player already owns.
 describe("structureBuildManpowerCostScaled", () => {
-  test("escalates Titanium Weapons Factory manpower cost with existing empire-wide count", () => {
+  test("Titanium Weapons Factory manpower cost is flat regardless of existing empire-wide count", () => {
     const base = structureBuildManpowerCost("TITANIUM_WEAPONS_FACTORY");
     expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 2)).toBe(Math.ceil(base * 1.15 ** 2));
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 5)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)
-    );
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)).toBe(base);
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 5)).toBe(base);
   });
 
-  test("escalates Umbrite Weapons Factory manpower cost with existing empire-wide count", () => {
+  test("Umbrite Weapons Factory manpower cost is flat regardless of existing empire-wide count", () => {
     const base = structureBuildManpowerCost("UMBRITE_WEAPONS_FACTORY");
     expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 3)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)
-    );
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 1)).toBe(base);
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 3)).toBe(base);
   });
 
   test("leaves every other structure's manpower cost flat regardless of existing count", () => {
@@ -101,12 +97,27 @@ describe("structureCostDefinition", () => {
 });
 
 describe("FORT_TIER_LADDER", () => {
-  test("WOODEN_FORT costs 0 gold, 0 titanium, 150 manpower, 1.35x defense", () => {
+  // docs/replenishment-update-plan.md D17: WOODEN_FORT (the Palisade) is
+  // "ECONOMIC" kind in the structure registry, not "FORT" kind, so it never
+  // actually goes through this ladder at build time (STRUCTURE_COST_
+  // DEFINITIONS.WOODEN_FORT.manpowerCost, read via econSpec, is what's
+  // charged) -- but the two used to disagree (150 here vs. 30 charged). Both
+  // now read the same WOODEN_FORT_MANPOWER constant, so this is 30, matching
+  // what a player actually pays and what its build time (D9) derives from.
+  test("WOODEN_FORT costs 0 gold, 0 titanium, 30 manpower, 1.35x defense", () => {
     const tier = FORT_TIER_LADDER.WOODEN_FORT;
     expect(tier.gold).toBe(0);
     expect(tier.titanium).toBe(0);
-    expect(tier.manpower).toBe(150);
+    expect(tier.manpower).toBe(30);
     expect(tier.defenseMult).toBe(1.35);
+  });
+
+  test("WOODEN_FORT's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS, via structureBuildManpowerCost)", () => {
+    expect(FORT_TIER_LADDER.WOODEN_FORT.manpower).toBe(structureBuildManpowerCost("WOODEN_FORT"));
+  });
+
+  test("FORT's ladder manpower matches its STRUCTURE_COST_DEFINITIONS base-tier cost", () => {
+    expect(FORT_TIER_LADDER.FORT.manpower).toBe(structureBuildManpowerCost("FORT"));
   });
 
   // Fort-tier TITANIUM cost is a resource-slot occupation (structure-slots.ts:
@@ -188,6 +199,8 @@ describe("nextFortTierForUpgrade", () => {
 });
 
 describe("SIEGE_TIER_LADDER", () => {
+  // D13: siege tiers now scale their manpower (60/120/240) instead of 60 at
+  // every tier, so build time (D9) scales with it too.
   test("SIEGE_OUTPOST costs 0 gold, 45 umbrite, 0 titanium, 60 manpower, 1.6x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_OUTPOST;
     expect(tier.gold).toBe(0);
@@ -197,22 +210,26 @@ describe("SIEGE_TIER_LADDER", () => {
     expect(tier.attackMult).toBe(1.6);
   });
 
-  test("SIEGE_TOWER costs 0 gold, 90 umbrite, 60 titanium, 60 manpower, 1.8x attack", () => {
+  test("SIEGE_TOWER costs 0 gold, 90 umbrite, 60 titanium, 120 manpower, 1.8x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(90);
     expect(tier.titanium).toBe(60);
-    expect(tier.manpower).toBe(60);
+    expect(tier.manpower).toBe(120);
     expect(tier.attackMult).toBe(1.8);
   });
 
-  test("DREAD_TOWER costs 0 gold, 140 umbrite, 120 titanium, 60 manpower, 2.0x attack", () => {
+  test("DREAD_TOWER costs 0 gold, 140 umbrite, 120 titanium, 240 manpower, 2.0x attack", () => {
     const tier = SIEGE_TIER_LADDER.DREAD_TOWER;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(140);
     expect(tier.titanium).toBe(120);
-    expect(tier.manpower).toBe(60);
+    expect(tier.manpower).toBe(240);
     expect(tier.attackMult).toBe(2.0);
+  });
+
+  test("SIEGE_OUTPOST's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS)", () => {
+    expect(SIEGE_TIER_LADDER.SIEGE_OUTPOST.manpower).toBe(structureBuildManpowerCost("SIEGE_OUTPOST"));
   });
 
   test("bestSiegeTierForTech returns SIEGE_OUTPOST with no siege tech", () => {
@@ -296,6 +313,38 @@ describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
   test("required muster equals the max of every tier's loss range", () => {
     for (const variant of ["WOODEN_FORT", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
       expect(requiredMusterForFort(variant)).toBe(attackManpowerLossRangeForFort(variant).max);
+    }
+  });
+});
+
+// docs/replenishment-update-plan.md D12/D23: first 5 owned cost a discounted
+// flat 50 MP, then a flat 100 MP for every beacon beyond that (2026-09-25:
+// no longer free/instant, and no longer grows per beacon -- see the design
+// discussion in structure-costs.ts).
+describe("relayBeaconManpowerCost", () => {
+  test("the first 5 beacons a player owns cost a discounted flat 50 manpower", () => {
+    for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
+      expect(relayBeaconManpowerCost(owned)).toBe(50);
+    }
+  });
+
+  test("the 6th beacon costs 100 manpower, matching structureBuildManpowerCostScaled", () => {
+    expect(relayBeaconManpowerCost(5)).toBe(100);
+    expect(structureBuildManpowerCostScaled("RELAY_BEACON", 5)).toBe(100);
+  });
+
+  test("stays flat at 100 manpower for every beacon beyond the 6th", () => {
+    expect(relayBeaconManpowerCost(6)).toBe(100);
+    expect(relayBeaconManpowerCost(7)).toBe(100);
+    expect(relayBeaconManpowerCost(20)).toBe(100);
+  });
+
+  test("cost only ever increases with owned count", () => {
+    let previous = 0;
+    for (let owned = 0; owned < 12; owned += 1) {
+      const cost = relayBeaconManpowerCost(owned);
+      expect(cost).toBeGreaterThanOrEqual(previous);
+      previous = cost;
     }
   });
 });

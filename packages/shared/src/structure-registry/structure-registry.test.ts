@@ -4,6 +4,8 @@ import { STRUCTURE_REGISTRY, STRUCTURE_REGISTRY_SIZE } from "../structure-regist
 import type { StructureSpec } from "./structure-registry.js";
 import {
   structureBuildDurationMs,
+  structureBuildDurationMsForManpowerCost,
+  structureBuildManpowerCostScaled,
   structureCostDefinition,
   FORT_TIER_LADDER,
   SIEGE_TIER_LADDER,
@@ -19,7 +21,7 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 60 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
   // covers Bank's former unlock slot on the coinage tech), minus
   // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
@@ -27,8 +29,9 @@ test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
   // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
-  // WEAPONS_WORKSHOP above) = 61.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(61);
+  // WEAPONS_WORKSHOP above) = 61, minus SEED_GRANARY (removed from the
+  // game, Manifest/Coin rework) = 60.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(60);
 });
 
 test("all registered types are unique", () => {
@@ -155,22 +158,40 @@ describe("economic structure cost parity against structureCostDefinition", () =>
 });
 
 // ── Build duration parity ─────────────────────────────────────────
-
-describe("buildMs parity with structureBuildDurationMs", () => {
-  const KNOWN_TYPES = new Set([
-    "FORT", "OBSERVATORY", "SIEGE_OUTPOST",
-    ...Object.keys(STRUCTURE_REGISTRY).filter((t) => {
-      const s = STRUCTURE_REGISTRY[t];
-      return s.kind === "ECONOMIC" || s === STRUCTURE_REGISTRY["RELAY_BEACON"];
-    }),
-  ]);
-
+// docs/replenishment-update-plan.md D9: build time now follows manpower
+// cost (100 MP = 1 hour) instead of each spec's static buildMs. Retired the
+// old "spec.buildMs === structureBuildDurationMs(type)" parity check below
+// this comment used to enforce -- that invariant can no longer hold by
+// construction: a StructureSpec's buildMs is a single static number set
+// once when the spec object is built, but D9's duration is a function of
+// the exact manpower cost a given build actually pays, which for a
+// tier-resolved structure (Fort/Siege family) or a count-scaling one
+// (Titanium/Umbrite Weapons Factory, Relay Beacon) depends on the tier or
+// existing-count at build time -- something no static per-type field can
+// represent. runtime-structure-command-handlers.ts's handleBuildStructureCommand
+// reflects this: it derives duration fresh from the resolved manpowerCost
+// via structureBuildDurationMsForManpowerCost, and no longer reads
+// spec.buildMs for duration at all. spec.buildMs itself is left as a
+// pre-replenishment reference value (still read by a few client-side
+// optimistic-UI/display paths), not a live source of truth.
+describe("structureBuildDurationMs derives from the real (existingCount=0) manpower cost", () => {
+  // Tier-upgrade-only variants: never a structureType a BUILD_STRUCTURE
+  // command actually carries (the command always says "FORT"/"SIEGE_OUTPOST"
+  // and the server resolves the tier server-side via FORT_TIER_LADDER/
+  // SIEGE_TIER_LADDER) -- structureBuildDurationMs/STRUCTURE_COST_DEFINITIONS
+  // were never meant to be keyed by these, same as before this change.
+  const TIER_UPGRADE_ONLY_TYPES = new Set(["TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_TOWER", "DREAD_TOWER"]);
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-    if (!KNOWN_TYPES.has(type)) continue;
-
-    test(`${type}: buildMs matches`, () => {
-      const expected = structureBuildDurationMs(type as any);
-      expect(spec.buildMs).toBe(expected);
+    if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type)) continue;
+    test(`${type}: matches manpowerCost x MANPOWER_COST_MS_PER_POINT`, () => {
+      // structureBuildManpowerCostScaled, not the flat structureBuildManpowerCost:
+      // RELAY_BEACON's first (existingCount=0) beacon costs a discounted flat
+      // rate (D12), which only the scaled function reflects -- the flat one
+      // still reports its post-first-tier base cost (see its comment in
+      // structure-costs.ts).
+      expect(structureBuildDurationMs(type as any)).toBe(
+        structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type as any, 0))
+      );
     });
   }
 });
@@ -274,12 +295,6 @@ describe("prerequisiteStructureTypes parity", () => {
     ).toEqual(["CRYSTAL_SYNTHESIZER"]);
   });
 
-  test("SEED_GRANARY requires GRANARY", () => {
-    expect(
-      STRUCTURE_REGISTRY["SEED_GRANARY"].prerequisiteStructureTypes,
-    ).toEqual(["GRANARY"]);
-  });
-
   test("IMPERIAL_EXCHANGE requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["IMPERIAL_EXCHANGE"].prerequisiteStructureTypes,
@@ -343,7 +358,7 @@ describe("upkeep parity", () => {
   };
 
   const noUpkeepTypes = new Set([
-    "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
+    "WATERWORKS", "CENSUS_HALL", "CLEARING_HOUSE",
     "AETHER_TOWER", "RAIL_DEPOT",
     "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
     "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",

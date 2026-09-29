@@ -5,6 +5,7 @@ import {
   bestSiegeTierForTech,
   nextFortTierForUpgrade,
   nextSiegeTierForUpgrade,
+  structureBuildDurationMsForManpowerCost,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -106,7 +107,6 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
   if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  if (structureType === "SEED_GRANARY") return "GRANARY";
   return undefined;
 }
 
@@ -393,9 +393,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     // structureBuildManpowerCostScaled is a flat pass-through to
-    // structureBuildManpowerCost for every type except TITANIUM_WEAPONS_FACTORY/
-    // UMBRITE_WEAPONS_FACTORY, which escalate with the player's existing
-    // empire-wide count (design doc "escalating build cost").
+    // structureBuildManpowerCost for every type except RELAY_BEACON, whose
+    // first RELAY_BEACON_FIRST_TIER_COUNT owned cost a discounted flat rate
+    // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
   // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
@@ -407,7 +407,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   if (actor.points < goldCost) {
-    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
   }
   if (actor.manpower < manpowerCost) {
@@ -427,13 +427,23 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
 
+  // docs/replenishment-update-plan.md D9: build time follows manpower cost
+  // (100 MP = 1 hour) instead of spec's old flat per-type buildMs -- reuses
+  // manpowerCost, already resolved above for the exact tier/count this build
+  // actually charges, so a Fort-family upgrade or a scaling structure's Nth
+  // copy gets a duration that matches what it paid, not a flat per-type
+  // number. RELAY_BEACON keeps today's "no speed-mult lever" behavior (its
+  // spec.kind is "OUTPOST" but it's excluded from the OUTPOST branch below,
+  // same exclusion the cost-resolution branch above already used) -- a free
+  // beacon (manpowerCost 0) now builds instantly, matching D12.
+  const structureDurationMs = structureBuildDurationMsForManpowerCost(manpowerCost);
   const buildMs = spec.kind === "FORT"
-    ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
+    ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
     : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"
-      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
+      ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
       : spec.kind === "ECONOMIC"
-        ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
-        : spec.buildMs;
+        ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
+        : structureDurationMs;
   const completesAt = context.now() + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
   const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "RELAY_BEACON";

@@ -18,14 +18,14 @@ import { displayTownPopulationTierLabel } from "../client-town-growth/client-tow
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
-import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
+import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { OptimisticStructureKind, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
@@ -47,7 +47,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; upkeepLastTick?: { foodCoverage?: number } };
+    state: { me: string; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -118,7 +118,7 @@ export const menuOverviewForTile = (
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
-  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml }));
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [] }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
@@ -129,7 +129,7 @@ export const menuOverviewForTile = (
   }).forEach(pushLine);
   if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
-    pushLine("Settlements provide starter gold and manpower until they grow into towns.");
+    pushLine("Settlements provide starter coin and manpower until they grow into towns.");
   }
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
@@ -156,7 +156,7 @@ export const menuOverviewForTile = (
     if (!hasOwnedLandState) {
       pushLine("Neutral town. Claim and settle this tile to start its economy.");
     } else if (!isSettled) {
-      pushLine("Settle this tile to activate the town's economy and start gold income.");
+      pushLine("Settle this tile to activate the town's economy and start coin income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       // No prose income line — the unified `Production: X/m` row below shows the same value.
     } else if (
@@ -169,7 +169,7 @@ export const menuOverviewForTile = (
       pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
     }
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
-      pushLine("Connect this town to other towns to gain bonus gold production.");
+      pushLine("Connect this town to other towns to gain bonus coin production.");
     }
     showsTownStatGrid = hasOwnedLandState && isSettled && hasOwnerEconomyData;
     if (showsTownStatGrid) {
@@ -252,21 +252,21 @@ export const menuOverviewForTile = (
     // tile.dock?.goldPerMinute is never populated over the wire; dockDisplayGoldPerMinute mirrors dockBaseGoldPerMinuteForPlayer's real fallback instead of a flat constant.
     const supportedByCustomsHouse = deps.dockSupportedByCustomsHouseForTile?.(tile) ?? false;
     const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByCustomsHouse);
-    pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
+    pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} coin/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
       : `Connected to ${connectedDockCount} dock${connectedDockCount === 1 ? "" : "s"}.`);
-    if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
+    if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus coin production.");
     if (tile.dock?.modifiers?.length) {
       for (const modifier of tile.dock.modifiers) {
-        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${(modifier.deltaGoldPerMinute * 1440).toFixed(1)} gold/day)`);
+        pushLine(`${modifier.label}: +${modifier.percent.toFixed(0)}% (+${(modifier.deltaGoldPerMinute * 1440).toFixed(1)} coin/day)`);
       }
     }
   }
   if (ownTownEconomyPartial) {
     pushOwnTownLoadingRow("Production");
   } else if (productionHtml && hasOwnedLandState && isSettled && !showsTownStatGrid) {
-    // The stat grid's own Gold card already covers this for a town tile
+    // The stat grid's own Coin card already covers this for a town tile
     // with full owner-economy data — this line stays for everything else
     // (resource-producing non-town tiles, docks-in-progress, partial
     // foreign-town public views, etc.).
@@ -286,7 +286,7 @@ export const menuOverviewForTile = (
       // the current count/bonus instead.
       if (town.town?.mintworksCount) {
         const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
-        pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town gold production).`);
+        pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
       if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
       if (!tile.economicStructure) pushLine("Town buildings like mintworks and granaries must be built on support tiles.");
@@ -350,7 +350,7 @@ export const menuOverviewForTile = (
       } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {
         pushLine("Structure is disabled while recovering from overload and currently contributes no output or upkeep.");
       } else if (tile.economicStructure.inactiveReason === "upkeep") {
-        pushLine("Structure shut down after gold upkeep ran out and must be manually re-enabled before it contributes output or upkeep again.");
+        pushLine("Structure shut down after coin upkeep ran out and must be manually re-enabled before it contributes output or upkeep again.");
       } else if (tile.economicStructure.inactiveReason === "manual") {
         pushLine("Structure is manually disabled and currently contributes no output or upkeep until you re-enable it.");
       } else if (tile.economicStructure.status === "inactive") {
@@ -411,7 +411,7 @@ export const tileMenuViewForTile = (
     playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
-    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
+    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
     state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
@@ -455,6 +455,7 @@ export const tileMenuViewForTile = (
   if (actionTabs.actions.length > 0) tabs.push("actions");
   if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
+  if (deps.musterCommit) tabs.push("commit");
   tabs.push("overview");
   const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
   const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
@@ -488,6 +489,6 @@ export const tileMenuViewForTile = (
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
-    ...(combatBreakdown ? { combatBreakdown } : {})
+    ...(combatBreakdown ? { combatBreakdown } : {}), ...(deps.musterCommit ? { commit: deps.musterCommit } : {})
   };
 };

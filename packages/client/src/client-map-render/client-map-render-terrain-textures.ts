@@ -76,6 +76,7 @@ export const initTerrainTextures = (): void => {
   terrainTextures.set("GRASS_LIGHTER", makeTerrainTexture([154, 184, 92], { grain: 10, grass: true }));
   terrainTextures.set("GRASS_DARK", makeTerrainTexture([94, 124, 48], { grain: 10, grass: true }));
   terrainTextures.set("PLAINS", makeTerrainTexture([189, 174, 92], { grain: 9, grass: true, waveA: 0.12, waveB: 0.1 }));
+  terrainTextures.set("PLAINS_BRIGHT", makeTerrainTexture([132, 182, 66], { grain: 9, grass: true, waveA: 0.12, waveB: 0.1 }));
   terrainTextures.set("JUNGLE", makeTerrainTexture([46, 100, 45], { grain: 12, grass: true, mottle: true }));
   terrainTextures.set("MARSH", makeTerrainTexture([90, 108, 72], { grain: 8, mottle: true, waveA: 0.2, waveB: 0.16 }));
   terrainTextures.set("SNOW", makeTerrainTexture([235, 240, 245], { grain: 6, waveA: 0.08, waveB: 0.06 }));

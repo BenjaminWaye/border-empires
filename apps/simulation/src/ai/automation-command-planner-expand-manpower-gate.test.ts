@@ -50,6 +50,12 @@ describe("automation planner EXPAND manpower gate", () => {
         ["51,50", target]
       ]),
       dockLinksByDockTileKey,
+      // docs/replenishment-update-plan.md D12/D23: this test isolates the
+      // EXPAND manpower gate, not build choice -- past the free-beacon
+      // count (5) so the (10,10) dock/settled tile doesn't give the planner
+      // a free, always-affordable Relay Beacon to build instead of proving
+      // "no command" when nothing else is actionable.
+      ownedStructureCounts: { RELAY_BEACON: 5 },
       clientSeq: 2,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"

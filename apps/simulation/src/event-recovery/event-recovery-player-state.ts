@@ -31,6 +31,10 @@ export type RecoveredPlayerState = {
   // silently and permanently wipes it (the source tile's one-shot
   // `activated` guard means it can never be re-granted).
   waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
+  // Waystation MANPOWER reward's above-cap allowance -- see
+  // runtime-manpower-ceiling.ts. Without it a restart would clamp the
+  // overflowed manpower back down to the cap.
+  waystationManpowerOverflow?: number;
   wonderLastFreeRushBuyAt?: number;
   // Galactic meta-layer v0 (§5, §12) — see DomainPlayer in game-domain.
   galacticWonderManpowerRegenBonusPerMinute?: number;
