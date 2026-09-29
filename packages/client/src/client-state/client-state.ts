@@ -10,7 +10,7 @@ import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -254,7 +254,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, ...createInitialAfcDeliveryState(), // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -551,7 +551,7 @@ export const createInitialState = () => ({
     length: 1 as 1 | 2 | 3
   },
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
-  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F0/F1: win-chance paint hook + drag endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-map-input-arrow-gesture-wiring.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),

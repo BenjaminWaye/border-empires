@@ -1,5 +1,5 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
-import { cloneStrategicProduction } from "./player-runtime-summary.js";
+import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction } from "./player-runtime-summary.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
@@ -29,6 +29,11 @@ export type RuntimePlayerDebugSnapshot = Array<{
   incomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount: number;
+  /** Breakdown of activeDevelopmentProcessCount, so a busy-slot report can be matched to what's actually holding the slots. */
+  pendingSettlementCount: number;
+  overduePendingSettlementCount: number;
+  structureProcessCount: number;
+  overdueSettlementsResolved: number;
   /** True iff a *player-issued* frontier lock would block the AI planner. */
   plannerBlocked: boolean;
   /** True iff any lock exists for this player (player-issued OR territory-automation). */
@@ -37,6 +42,7 @@ export type RuntimePlayerDebugSnapshot = Array<{
 }>;
 
 type PlayerDebugInput = {
+  now: () => number;
   locksByTile: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
   refreshManpowerOnly: (player: DomainPlayer) => void;
@@ -49,6 +55,7 @@ type PlayerDebugInput = {
 };
 
 export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): RuntimePlayerDebugSnapshot {
+  const nowMs = input.now();
   const plannerBlockedIds = new Set<string>();
   const anyLockIds = new Set<string>();
   for (const lock of input.locksByTile.values()) {
@@ -77,7 +84,11 @@ export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): Runtim
         townCount: summary.townCount,
         incomePerMinute: input.estimatedIncomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
+        pendingSettlementCount: summary.pendingSettlementsByTile.size,
+        overduePendingSettlementCount: [...summary.pendingSettlementsByTile.values()].filter((record) => record.resolvesAt < nowMs).length,
+        structureProcessCount: summary.structureProcessCount,
+        overdueSettlementsResolved: summary.overdueSettlementsResolved,
         plannerBlocked: plannerBlockedIds.has(player.id),
         hasAnyLock: anyLockIds.has(player.id),
         allies: [...player.allies].sort()

@@ -101,6 +101,6 @@ describe("crystal targeting cost gates", () => {
 
     beginCrystalTargeting(state, "world_engine_strike", depsWithFeed(feed, selected));
 
-    expect(feed).toContain("Worldbreaker Shot needs 1,000 gold.");
+    expect(feed).toContain("Worldbreaker Shot needs 1,000 coin.");
   });
 });

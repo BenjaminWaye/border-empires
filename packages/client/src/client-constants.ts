@@ -67,7 +67,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Manpower Is Your Real Currency",
-    body: "Manpower — regenerated from your settlements and towns — is what expansion, settling, and building actually cost. Run low and growth stalls, so watch your manpower bar before your gold. Gold is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
+    body: "Manpower — regenerated from your settlements and towns — is what expansion, settling, and building actually cost. Run low and growth stalls, so watch your manpower bar before your coin. Coin is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
   },
   {
     title: "Resource Slots, Not Stockpiles",
@@ -79,11 +79,11 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Research & Abilities",
-    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost gold (plus Shard at higher tiers), not Food/Titanium/Crystal/Umbrite. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
+    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost coin (plus Shard at higher tiers), not Food/Titanium/Crystal/Umbrite. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Population is what raises your manpower cap for war, so growing towns matters as much as growing gold. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
+    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for coin."
   },
   {
     title: "Win the Season",
@@ -136,7 +136,7 @@ export const settleDurationMsForTile = (x: number, y: number): number => {
 
 export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
-  const costLabel = `${EXPAND_MANPOWER_COST} manpower + ${FRONTIER_CLAIM_COST} gold`;
+  const costLabel = `${EXPAND_MANPOWER_COST} manpower + ${FRONTIER_CLAIM_COST} coin`;
   if (isForestTile(x, y)) return `${costLabel} • ${seconds}s (Forest)`;
   if (isHillsTile(x, y)) return `${costLabel} • ${seconds}s (Hills)`;
   return `${costLabel} • ${seconds}s`;

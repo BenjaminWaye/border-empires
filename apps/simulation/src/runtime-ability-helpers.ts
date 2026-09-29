@@ -20,7 +20,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
-  return player.techIds.has("cryptography") || revealTargetCount > 0 ? 1 : 0;
+  return player.techIds.has("beacon-towers") || revealTargetCount > 0 ? 1 : 0;
 }
 
 export function getAbilityCooldownUntil(
@@ -81,7 +81,13 @@ export function isStructurePowered(
   // gates (monument abilities, Observatory abilities). Optional so existing
   // callers that haven't threaded it through yet default to "nothing
   // dormant" rather than a hard type error.
-  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean = () => false
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean = () => false,
+  // Aether EMP (runtime-aether-emp-command-handler.ts) knocks out Ambaric
+  // Transformers by stamping disabledUntil on the tower's own record rather
+  // than touching its status, matching how fort.disabledUntil is handled
+  // (lazily checked against "now" everywhere, no separate reactivation tick
+  // needed). Optional/defaulted for existing callers that predate EMP.
+  now: number = 0
 ): boolean {
   const tile = tiles.get(tileKey);
   const structure = tile?.economicStructure;
@@ -90,6 +96,7 @@ export function isStructurePowered(
   for (const candidate of tiles.values()) {
     const tower = candidate.economicStructure;
     if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
+    if ((tower.disabledUntil ?? 0) > now) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AETHER_TOWER_RADIUS) continue;
     if (isStructureDormant(ownerId, simulationTileKey(candidate.x, candidate.y), "economicStructure")) continue;
     return true;
@@ -102,7 +109,8 @@ export function isTileShieldedByEnemyAegisDome(
   isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
-  targetY: number
+  targetY: number,
+  now = 0
 ): boolean {
   for (const candidate of tiles.values()) {
     const dome = candidate.economicStructure;
@@ -110,7 +118,7 @@ export function isTileShieldedByEnemyAegisDome(
     if (!dome.ownerId || dome.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > AEGIS_DOME_PROTECTION_RADIUS) continue;
     const domeKey = simulationTileKey(candidate.x, candidate.y);
-    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME", isStructureDormant)) continue;
+    if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME", isStructureDormant, now)) continue;
     if (isStructureDormant(dome.ownerId, domeKey, "economicStructure")) continue;
     return true;
   }
@@ -133,10 +141,15 @@ export function isTileShieldedByEnemyObservatory(
   targetY: number,
   now: number
 ): boolean {
+  // Protects only the tower OWNER's tiles: unowned land, the actor's own land
+  // and a third player's land near someone else's tower are never shielded.
+  // Reads full world state, so a tower the actor can't see still blocks.
+  const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
+  if (!targetOwnerId || targetOwnerId === actorId) return false;
   for (const candidate of tiles.values()) {
     const observatory = candidate.observatory;
     if (!observatory || observatory.status !== "active") continue;
-    if (!observatory.ownerId || observatory.ownerId === actorId) continue;
+    if (observatory.ownerId !== targetOwnerId || candidate.ownerId !== targetOwnerId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > OBSERVATORY_PROTECTION_RADIUS) continue;
     if ((observatory.cooldownUntil ?? 0) > now) continue;
     const observatoryKey = simulationTileKey(candidate.x, candidate.y);
@@ -186,7 +199,8 @@ export function isTileBombardBlockedByRadar(
   isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean,
   actorId: string,
   targetX: number,
-  targetY: number
+  targetY: number,
+  now = 0
 ): boolean {
   for (const candidate of tiles.values()) {
     const s = candidate.economicStructure;
@@ -194,7 +208,7 @@ export function isTileBombardBlockedByRadar(
     if (!s.ownerId || s.ownerId === actorId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
     const radarKey = simulationTileKey(candidate.x, candidate.y);
-    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant)) continue;
+    if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant, now)) continue;
     if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;
     return true;
   }

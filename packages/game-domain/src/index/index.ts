@@ -1,6 +1,8 @@
 // Re-export domain modules promoted into game-domain.
 export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
+export * from "../server-game-constants/ability-defs.js";
+export * from "../ability-gating/ability-gating.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../world-pulse-types.js";
@@ -223,6 +225,15 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
+      }
+    | undefined;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  afc?:
+    | {
+        ownerId: string;
+        status: NonNullable<Tile["afc"]>["status"];
+        activatedAt?: number | undefined;
+        modules?: string[] | undefined;
       }
     | undefined;
   economicStructure?:
