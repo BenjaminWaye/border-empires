@@ -299,7 +299,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1790450114928, // frozen, 1ms after the newest existing entry
     introducedIn: "2026.09.28.3",
     title: "See what's docked on your AFC",
-    why: "tile.afc.modules already tracked every module you'd commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
+    why: "tile.afc.modules already tracked every module you've commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
     changes: [
       "Tapping an AFC now lists every module you've commissioned, grouped under Economy, Manpower, War, and Aether -- regardless of whether that module has 3D or 2D map art yet",
       "An inactive AFC shows a \"Dormant\" banner over its module list, rather than hiding the list -- modules stay visible even when they're not currently doing anything"
@@ -337,6 +337,43 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Palisades now really defend in combat: 1.35x defense, attackers need 150 mustered manpower and risk losing 100-150 of it",
       "While a Palisade or Fort upgrades to its next tier, the current one keeps standing and defending until the upgrade completes; cancelling an upgrade, or losing the tile mid-upgrade, now keeps the current fort instead of destroying it",
       "Existing Palisades are carried over automatically"
+    ]
+  },
+  {
+    createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.3",
+    title: "Empire names are now unique, and new players start with a noble house name",
+    why: "Any number of players could pick the same name, so alliance and truce requests (which find a player by name) could reach the wrong empire, and two rivals could look identical on the leaderboard.",
+    changes: [
+      "Two empires can no longer share a name: picking one that's taken (ignoring capitals and spacing) is rejected with a free alternative suggested, like \"House Ashgrove II\"",
+      "New players now start with a free noble house name already filled in, such as \"House Valmont\", which you can change in the name step",
+      "Names you already have are kept, even if someone else has the same one"
+    ]
+  },
+  {
+    createdAt: 1790706701002, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.4",
+    title: "You can now jump into a game as a guest with one click",
+    why: "Every new player had to sign up before they could even see the game, and Google sign-in doesn't work inside the browsers built into Instagram, TikTok or Discord, which is where most invite links get opened.",
+    changes: [
+      "The sign-in screen now leads with \"Play now\": one click starts a guest empire with no account, and takes you straight into the season",
+      "Guests are named \"House Noname 1\", \"House Noname 2\" and so on, so everyone can tell who is a guest, and skip the name and colour step",
+      "Guests can't make alliances or truces, and a guest empire lives in the browser it was started in",
+      "If the guest spots, or the whole season, are full you're taken back to the sign-in screen with the reason shown",
+      "Rally invite links now offer \"Play now\" as well as signing in, and on a browser where you've signed in before, \"Play now\" is shown as the secondary button"
+    ]
+  },
+  {
+    createdAt: 1790706701003, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.5",
+    title: "Guests can now save their empire to a real account",
+    why: "A guest empire disappeared as soon as the browser data was cleared and could never make alliances, so there was no way to keep playing an empire you had started with \"Play now\".",
+    changes: [
+      "A gold \"Guest\" badge appears in the game: tap it to save your empire with Google or an emailed link, and keep the same empire, alliances and season emails",
+      "Saving is offered automatically when you try to make an alliance or truce, and once after about ten minutes of play",
+      "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
+      "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
+      "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
     ]
   }
 ];

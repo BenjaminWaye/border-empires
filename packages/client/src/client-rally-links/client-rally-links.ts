@@ -241,7 +241,7 @@ const mountRallyInviteBanner = (deps: { firebaseAuth?: Auth; wsUrl: string }, co
       }
       const expiry = formatExpiry(body.expiresAt);
       status.textContent =
-        `${body.ownerName} invited you to a rally -- sign in to spawn right next to them. ` +
+        `${body.ownerName} invited you to a rally -- play now or sign in to spawn right next to them. ` +
         `${body.usesRemaining} joins remaining${expiry ? `, ${expiry}` : ""}.`;
       renderAuthStatus();
     })
