@@ -370,6 +370,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
     ]
+  },
+  {
+    createdAt: 1790706701004, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.2",
+    title: "Fishing sites have a new look",
+    why: "Fishing tiles were drawn as a few plain boxes. They now use a modelled fishing site that reads better on the map and lets the water or shore show through underneath.",
+    changes: [
+      "Every fishing resource tile in the 3D map now shows a low-poly fishing site with boats, a hut, a drying rack and a flag",
+      "The site has no ground plate, so the terrain beneath it stays visible",
+      "Each site turns to face the water, with its vats and cranes on the water side and the hut on the land side",
+      "The 2D fallback renderer is unchanged"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
