@@ -2,7 +2,7 @@ import {
   buildAetherWallSegments,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  FORT_BUILD_MS,
+  FORT_BUILD_MS, FORT_VARIANT_LABELS,
   RELAY_BEACON_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
@@ -113,7 +113,7 @@ export const missingResourceSlotReason = (state: ClientState, type: SlotStructur
 };
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
-  if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
+  if (tile.fort) return { label: FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"], durationMs: structureBuildDurationMs("FORT") };
   if (tile.observatory) return { label: "Aether Tower", durationMs: structureBuildDurationMs("OBSERVATORY") };
   if (tile.siegeOutpost) return { label: "Siege Battery", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };

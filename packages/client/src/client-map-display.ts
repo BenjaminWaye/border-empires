@@ -379,7 +379,7 @@ export const structureInfoForKey = (
       title: "Palisade",
       detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
       glyph: "🪵",
-      placement: "Build on an owned border tile or dock with no town, resource, or other structure.",
+      placement: "Build on a settled tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });

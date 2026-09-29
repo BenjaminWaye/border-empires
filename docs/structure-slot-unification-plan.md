@@ -67,14 +67,19 @@ The `fort` field *is* the fortification layer already; only Palisade is misfiled
 - Read sites (about 30 files, sim, game-domain, and client): `economicStructure?.type === "WOODEN_FORT"`
   becomes `fort?.variant === "WOODEN_FORT"`. This includes upkeep, resource slots, combat multipliers,
   capture, removal, AI candidate filtering, territory automation, overlays, and menus.
-- Legacy normalization, applied at hydration **and** on replayed `TILE_DELTA_BATCH`
-  events (recovery replays old `economicStructureJson` payloads): a Palisade in
-  `economicStructure` moves to `fort`. It is idempotent and every move is counted.
-  If `fort` is already occupied (a Palisade→Fort upgrade in progress), the upgrade wins and
-  the Palisade is dropped, which is what completion would have done. That case gets its own counter.
-- The client display bugs are fixed here too. `fortificationOverlayKindForTile` and `structureKeyForTile`
-  render and label the fortification and the primary structure independently.
-- No wire-shape change: `fortJson` already carries `variant`.
+- Legacy normalization (`migrateLegacyPalisades`): runs **once** on the fully recovered state,
+  after snapshot load and event replay, in startup recovery beside the Relay Beacon rename
+  self-heal. Normalizing each replayed event instead would be wrong: an old "Palisade
+  removed" delta clears `economicStructure`, which would leave a ghost Palisade behind in `fort`.
+  - A Palisade in `economicStructure` moves to `fort`.
+  - A Palisade under an in-flight Fort upgrade becomes that upgrade's `upgradingFrom`.
+  - A Palisade under a standing fort is dropped.
+  - The pass is idempotent and logs a count per branch at boot.
+- The client display bugs are fixed here too:
+  - `fortificationOverlayKindForTile` plus `stackedRelayBeaconForTile` drive both renderers.
+  - `structureKeysForTile` lists every structure on the tile.
+  - Optimistic client state writes a pending Palisade into `fort`, and cancel only undoes the one structure action.
+- No wire-shape change: `fortJson` already carries `variant`. `upgradingFrom` rides along inside it.
 
 Behavior changes (intentional, each confirmed by the owner):
 1. A Palisade no longer deletes a Relay Beacon or Harbor Exchange. It stacks.
