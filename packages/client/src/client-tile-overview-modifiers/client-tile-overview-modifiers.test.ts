@@ -435,7 +435,7 @@ describe("tileOverviewModifiersForTile", () => {
       economicStructure: { ownerId: "me", type: "WATERWORKS", status: "active" }
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason.includes("Farmstead food"))).toBe(false);
-    expect(modifiers.some((m) => m.reason.includes("FOOD slots per boosted Farmstead"))).toBe(true);
+    expect(modifiers.some((m) => m.reason.includes("FOOD slots per boosted Hydrogarden"))).toBe(true);
   });
 
   it("spells out both ends of the Clearing House's Mintworks gold-bonus boost instead of an ambiguous +25%", () => {

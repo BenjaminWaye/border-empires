@@ -40,7 +40,7 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         firstThreeTownPopGrowthMult: 1.25
       }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Mercantile Charter", effect: "+50% gold production", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Mercantile Charter", effect: "+50% coin production", tone: "positive" });
     expect(modifiers).toContainEqual({ reason: "Mercantile Charter", effect: "+25% population growth", tone: "positive" });
   });
 

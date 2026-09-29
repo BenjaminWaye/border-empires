@@ -28,6 +28,15 @@ describe("abandonedStructureFields", () => {
     expect(kept.economicStructure?.type).toBe("MINTWORKS");
   });
 
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // same survives-abandonment treatment as every other structure above.
+  it("keeps an Automated Fabrication Complex", () => {
+    const kept = abandonedStructureFields(
+      tileWith({ afc: { ownerId: "p1", status: "active", activatedAt: 0 } } as Partial<DomainTileState>)
+    );
+    expect(kept.afc).toEqual({ ownerId: "p1", status: "active", activatedAt: 0 });
+  });
+
   it("razes siege outposts and relay beacons, matching what a capture razes", () => {
     const kept = abandonedStructureFields(
       tileWith({

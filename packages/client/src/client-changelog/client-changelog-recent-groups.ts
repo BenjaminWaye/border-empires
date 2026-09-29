@@ -1,9 +1,13 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND } from "./client-changelog-muster-stand.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_REWARDS } from "./client-changelog-waystation-rewards.js";
+import { CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT } from "./client-changelog-win-chance-paint.js";
+import { CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY } from "./client-changelog-2d-arrow-gesture-parity.js";
+import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX } from "./client-changelog-arrow-gesture-lingering-fix.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -11,5 +15,9 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP,
   ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND,
-  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_REWARDS
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_REWARDS,
+  ...CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT,
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK,
+  ...CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY,
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX
 ];

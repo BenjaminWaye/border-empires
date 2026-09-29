@@ -31,7 +31,7 @@ export const installDebugSeasonEndOverlay = (state: ClientState, renderHud: () =
       {
         id: "ECONOMIC_HEGEMONY",
         name: "Economic Dominance",
-        description: "Reach 500 gold/min income.",
+        description: "Reach 500 coin/min income.",
         leaderPlayerId: "player-2",
         leaderName: "Rival",
         progressLabel: "420/min",

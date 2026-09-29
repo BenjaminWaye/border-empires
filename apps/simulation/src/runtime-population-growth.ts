@@ -14,36 +14,17 @@ import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierF
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
-export function seedGranaryGrowthMultForTile(input: {
+export function granaryGrowthMultForTile(input: {
   tile: DomainTileState;
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Granary/Seed Granary stops granting its growth bonus.
+  // dormant Granary stops granting its growth bonus.
   dormantEconomicStructureKeys?: ReadonlySet<string>;
 }): number {
   const dormantEconomicStructureKeys = input.dormantEconomicStructureKeys ?? new Set<string>();
   const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles, false, dormantEconomicStructureKeys);
-  const hasSeedGranary = hasSupportedStructure(input.playerId, input.tile, "SEED_GRANARY", input.tiles, false, dormantEconomicStructureKeys);
-  const hasAnyGranary = hasGranary || hasSeedGranary;
-  if (!hasAnyGranary) return 1;
-  if (!hasSeedGranary) return granaryGrowthMultiplier(hasAnyGranary, false);
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = input.tiles.get(`${input.tile.x + dx},${input.tile.y + dy}`);
-      if (
-        neighbor?.ownerId === input.playerId &&
-        neighbor.ownershipState === "SETTLED" &&
-        neighbor.economicStructure?.type === "SEED_GRANARY" &&
-        neighbor.economicStructure.status === "active" &&
-        !dormantEconomicStructureKeys.has(`${input.tile.x + dx},${input.tile.y + dy}`)
-      ) {
-        return granaryGrowthMultiplier(hasAnyGranary, true);
-      }
-    }
-  }
-  return granaryGrowthMultiplier(hasAnyGranary, false);
+  return granaryGrowthMultiplier(hasGranary);
 }
 
 export function tickPopulationGrowth(input: {
@@ -233,7 +214,7 @@ export function tickPopulationGrowth(input: {
         continue;
       }
 
-      const granaryGrowthMult = seedGranaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
+      const granaryGrowthMult = granaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
