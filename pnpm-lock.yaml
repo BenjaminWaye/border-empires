@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      playwright-core:
+        specifier: 1.56.1
+        version: 1.56.1
       ws:
         specifier: ^8.18.0
         version: 8.19.0
@@ -38,6 +41,9 @@ importers:
       fastify:
         specifier: ^4.29.1
         version: 4.29.1
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1668,6 +1674,9 @@ packages:
     resolution: {integrity: sha512-e6rvdUCiQCAuumZslxRJWR/Doq4VpPR82kqclvcS0efgt430SlGIk05vdCN58+VrzgtIcfNODjozVielycD4Sw==}
     engines: {node: '>=16'}
 
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -1751,6 +1760,11 @@ packages:
 
   pino@9.14.0:
     resolution: {integrity: sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==}
+    hasBin: true
+
+  playwright-core@1.56.1:
+    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+    engines: {node: '>=18'}
     hasBin: true
 
   postcss@8.5.8:
@@ -3475,6 +3489,8 @@ snapshots:
     dependencies:
       is-inside-container: 1.0.0
 
+  jose@6.2.12: {}
+
   js-tokens@4.0.0: {}
 
   json-schema-ref-resolver@1.0.1:
@@ -3600,6 +3616,8 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 3.1.0
+
+  playwright-core@1.56.1: {}
 
   postcss@8.5.8:
     dependencies:

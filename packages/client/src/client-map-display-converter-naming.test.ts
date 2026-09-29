@@ -9,13 +9,13 @@ import { economicStructureName } from "./client-map-display.js";
 describe("economicStructureName — converter-mode-flip naming", () => {
   it("returns direction-neutral names for the Umbrite/Titanium converter family", () => {
     expect(economicStructureName("UMBRITE_SYNTHESIZER")).toBe("Umbrite Works");
-    expect(economicStructureName("ADVANCED_UMBRITE_SYNTHESIZER")).toBe("Advanced Umbrite Works");
+    expect(economicStructureName("ADVANCED_UMBRITE_SYNTHESIZER")).toBe("High-Yield Umbrite Works");
     expect(economicStructureName("TITANIUM_WORKS")).toBe("Titanium Works");
-    expect(economicStructureName("ADVANCED_TITANIUM_WORKS")).toBe("Advanced Titanium Works");
+    expect(economicStructureName("ADVANCED_TITANIUM_WORKS")).toBe("High-Yield Titanium Works");
   });
 
   it("leaves the already direction-neutral Aether Condenser name unchanged", () => {
     expect(economicStructureName("CRYSTAL_SYNTHESIZER")).toBe("Aether Condenser");
-    expect(economicStructureName("ADVANCED_CRYSTAL_SYNTHESIZER")).toBe("Advanced Aether Condenser");
+    expect(economicStructureName("ADVANCED_CRYSTAL_SYNTHESIZER")).toBe("High-Yield Aether Condenser");
   });
 });

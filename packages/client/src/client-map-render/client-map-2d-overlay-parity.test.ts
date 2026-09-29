@@ -9,7 +9,6 @@ const overlayAsset = (filename: string): string => resolve(here, "../../public/o
 
 describe("2D overlay parity with the 3D renderer", () => {
   const structureOverlayEntries = [
-    ["SEED_GRANARY", "seed-granary-overlay.svg"],
     ["CENSUS_HALL", "census-hall-overlay.svg"],
     ["WEAPONS_WORKSHOP", "weapons-workshop-overlay.svg"],
     ["TITANIUM_WEAPONS_FACTORY", "titanium-weapons-factory-overlay.svg"],

@@ -43,7 +43,7 @@ describe("client-map-3d reach-overlay placement throttle", () => {
   it("keeps reachOverlay3D.update(nowMs) called every renderLoop frame, unthrottled, so already-placed pylons keep animating between placement recomputes", () => {
     const renderLoopAt = source.indexOf("const renderLoop = (): void =>");
     expect(renderLoopAt).toBeGreaterThan(-1);
-    const block = source.slice(renderLoopAt, renderLoopAt + 3500);
+    const block = source.slice(renderLoopAt, renderLoopAt + 4200);
     expect(block).toContain("reachOverlay3D.update(nowMs)");
     // Placement recompute call must still be present (now internally throttled).
     expect(block).toContain("renderReachOverlay3DPylons(nowMs)");

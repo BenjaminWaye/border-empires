@@ -12,7 +12,9 @@ import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringi
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
-import { initialSocialNameForSeedPlayer, resolveGatewayAuthIdentity, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
+import { initialSocialNameForSeedPlayer, socialRegistrationNameFor } from "../auth-identity/auth-identity.js";
+import type { FirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
+import { createGatewayFirebaseVerifier, createGatewayIdentityResolver } from "../gateway-identity-resolver/gateway-identity-resolver.js";
 import { reconcileGatewayAuthBinding, type ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
@@ -127,6 +129,7 @@ type RealtimeGatewayAppOptions = {
   sqlitePath?: string;
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
+  firebaseProjectId?: string; firebaseTokenVerifier?: FirebaseTokenVerifier;
   simulationSeedProfile?: SimulationSeedProfile;
   allowNonAuthoritativeInitialState?: boolean;
   aiPlayerCount?: number;
@@ -671,14 +674,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (entry.expiresAt <= nowMs) cache.delete(key);
     }
   };
+  const resolveIdentityForToken = createGatewayIdentityResolver({
+    ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
+    getAuthIdentities: () => legacySnapshotBootstrap?.authIdentities,
+    verifyFirebaseToken: createGatewayFirebaseVerifier({ ...(options.firebaseTokenVerifier ? { injected: options.firebaseTokenVerifier } : {}), ...(options.firebaseProjectId ? { projectId: options.firebaseProjectId } : {}), onReject: () => gatewayMetrics.incrementAuthVerificationRejectedTotal(), onRejectReason: (reason) => app.log.debug({ reason }, "gateway_auth_token_rejected") })
+  });
   const resolveHttpBearerIdentity = async (authorizationHeader: string | undefined): Promise<ResolvedGatewayAuthBinding | undefined> => {
     const token = authorizationHeader?.startsWith("Bearer ") ? authorizationHeader.slice("Bearer ".length).trim() : "";
     if (!token) return undefined;
-    const resolved = resolveGatewayAuthIdentity(token, {
-      allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
-      ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
-      ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
-    });
+    const resolved = await resolveIdentityForToken(token);
     if (!resolved) return undefined;
     return cachedReconcileGatewayAuthBinding(resolved);
   };
@@ -1861,11 +1865,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               }
             }
             loginPhase.notify(socket, "Connecting...", "Connecting to the game simulation.");
-            const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
-              allowDirectPlayerIdToken: Boolean(options.defaultHumanPlayerId),
-              ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
-              ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
-            });
+            const resolvedPlayerIdentity = await resolveIdentityForToken(message.token);
             if (!resolvedPlayerIdentity) {
               recordGatewayEvent("warn", "gateway_auth_rejected_unmapped_token", {
                 channel
@@ -2739,8 +2739,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
           } else if (message.type === "REVEAL_EMPIRE_STATS") {
             await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
-          } else if (message.type === "AETHER_LANCE") {
-            await dispatchDurableCommand("AETHER_LANCE", { x: message.x, y: message.y }, true);
+          } else if (message.type === "AETHER_LANCE" || message.type === "AETHER_EMP") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {
             await dispatchDurableCommand("CAST_AETHER_BRIDGE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_WALL") {
@@ -2753,10 +2753,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("SIPHON_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "PURGE_SIPHON" || message.type === "CANCEL_SIPHON") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
-          } else if (message.type === "CREATE_MOUNTAIN") {
-            await dispatchDurableCommand("CREATE_MOUNTAIN", { x: message.x, y: message.y }, true);
-          } else if (message.type === "REMOVE_MOUNTAIN") {
-            await dispatchDurableCommand("REMOVE_MOUNTAIN", { x: message.x, y: message.y }, true);
+          } else if (message.type === "CREATE_MOUNTAIN" || message.type === "REMOVE_MOUNTAIN") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
+          } else if (message.type === "RETORT_RECAST") {
+            await dispatchDurableCommand("RETORT_RECAST", { x: message.x, y: message.y, targetResource: message.targetResource }, true);
           } else if (message.type === "AIRPORT_BOMBARD") {
             await dispatchDurableCommand(
               "AIRPORT_BOMBARD",

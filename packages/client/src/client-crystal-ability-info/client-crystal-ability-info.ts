@@ -162,7 +162,7 @@ export const crystalAbilityInfoForKey = (
   if (key === "aether_wall") {
     return {
       title: "Aether Wall",
-      detail: "Projects a one-way crystal barrier along up to 3 border edges. Units cannot cross from the faced side until it expires.",
+      detail: "Projects a temporary crystal wall along up to 3 border edges. Nothing can cross those edges in either direction until it expires.",
       glyph: "║",
       target: "Select one of your settled border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
       costBits: [],
@@ -185,9 +185,9 @@ export const crystalAbilityInfoForKey = (
   if (key === "aether_emp") {
     return {
       title: "Aether EMP",
-      detail: "Blasts an enemy powered structure with a crystal surge, forcing it offline long enough to collapse the local power network.",
+      detail: "Blasts an enemy tile with a crystal surge, knocking out every Ambaric Transformer that empire holds nearby -- and everything those Transformers power (Sky Docks, Resonance Grids, monuments) with them.",
       glyph: "⚡",
-      target: "Enemy powered Aether Tower, Sky Dock, Resonance Grid, or monument within observatory range.",
+      target: "Enemy owned tile within observatory range, near one or more Ambaric Transformers.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_EMP_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_EMP_DURATION_MS)

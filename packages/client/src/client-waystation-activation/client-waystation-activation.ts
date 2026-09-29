@@ -97,7 +97,7 @@ const modifierForEffect = (info: WaystationActivationInfo): string | undefined =
     return info.grantedResource ? `+1 ${RESOURCE_LABEL[info.grantedResource]} Resource Slot` : undefined;
   }
   if (info.grantedEffect === "GOLD") {
-    return info.grantedGold ? `+${info.grantedGold.toLocaleString()} Gold` : undefined;
+    return info.grantedGold ? `+${info.grantedGold.toLocaleString()} Coin` : undefined;
   }
   if (info.grantedEffect === "MANPOWER") {
     return `+${(info.grantedManpower ?? WAYSTATION_MANPOWER_GRANT).toLocaleString()} Manpower (can exceed your cap)`;

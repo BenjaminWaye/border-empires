@@ -1,9 +1,11 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
+import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeyForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
+import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -49,14 +51,13 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 // their catalog label — sourced from STRUCTURE_DISPLAY_NAMES (client-structure-display-names.ts),
 // the single canonical name map, rather than a second hardcoded copy.
 const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> = {
-  SEED_GRANARY: economicStructureName("SEED_GRANARY"),
   GRANARY: economicStructureName("GRANARY"),
   CLEARING_HOUSE: economicStructureName("CLEARING_HOUSE")
 };
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  // Mintworks gold production used to be recomputed here from
+  // Mintworks coin production used to be recomputed here from
   // tile.mintworksCount AND separately as part of the town's
   // townModifierTotals (menuOverviewForTile, client-tile-menu-view.ts) —
   // both fed off the same live count, so the town-center tile always showed
@@ -64,16 +65,10 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   // single source of truth for town-wide aggregates now; don't duplicate it.
   // A plain Granary (Incubation Engine) grants its instant one-time
   // population burst on completion PLUS a flat ongoing growth-rate
-  // multiplier (GRANARY_ONGOING_GROWTH_MULT, reintroduced 2026-08-26 —
-  // see granaryGrowthMultiplier's doc comment in game-domain for the
-  // commit 7a51b06b "double-dip" history this revises). A Seed Granary's
-  // buffed-radius bonus stacks multiplicatively on top of that base when
-  // it applies, matching granaryGrowthMultiplier's server-side formula.
-  if (tile.hasSeedGranary && tile.seedGranaryActive) {
-    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.SEED_GRANARY!, structureModifiersFor("SEED_GRANARY").filter((m) => m.statLabel === "Population growth")));
-  } else if (tile.hasGranary && tile.granaryActive && tile.seedGranaryBuffed) {
-    modifiers.push({ reason: `${SUPPORT_STRUCTURE_LABELS.GRANARY} (Seed Granary boost)`, effect: "+43% population growth", tone: "positive" });
-  } else if (tile.hasGranary && tile.granaryActive) {
+  // multiplier (GRANARY_ONGOING_GROWTH_MULT, reintroduced 2026-08-26 — see
+  // granaryGrowthMultiplier's doc comment in game-domain for the commit
+  // 7a51b06b "double-dip" history this revises).
+  if (tile.hasGranary && tile.granaryActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.GRANARY!, structureModifiersFor("GRANARY").filter((m) => m.statLabel === "Population growth")));
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
@@ -90,17 +85,18 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 // return [] from the catalog (no numeric effect of their own), so nothing
 // renders for them here — that's intended, not a gap.
 const FARM_RESOURCE_LABEL_OVERRIDES: Partial<Record<string, string>> = {
-  FARMSTEAD: "Farmstead (farm food only)",
-  WATERWORKS: "Waterworks (radius support)"
+  FARMSTEAD: "Hydrogarden (farm food only)",
+  WATERWORKS: "Hydroworks (radius support)"
 };
 
-// Farmstead's "Farm food" and Waterworks's "Farmstead food (10-tile radius)"
-// lines duplicate the same static build-menu copy (client-map-display.ts)
-// with no new information — they never reflect the tile's actual boosted
-// output, so they're excluded here rather than repeated as a "modifier".
+// Hydrogarden's "Farm food" and Hydroworks's "Hydrogarden food (10-tile
+// radius)" lines duplicate the same static build-menu copy
+// (client-map-display.ts) with no new information — they never reflect the
+// tile's actual boosted output, so they're excluded here rather than
+// repeated as a "modifier".
 const REDUNDANT_STATIC_STAT_LABELS_BY_TYPE: Partial<Record<string, string>> = {
   FARMSTEAD: "Farm food",
-  WATERWORKS: "Farmstead food (10-tile radius)"
+  WATERWORKS: "Hydrogarden food (10-tile radius)"
 };
 
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
@@ -136,12 +132,12 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tile.town.connectedTownBonus !== 0
           ? {
               reason: connectedLabel(tile.town.connectedTownCount),
-              effect: `${percentLabel(tile.town.connectedTownBonus * 100)} gold production`,
+              effect: `${percentLabel(tile.town.connectedTownBonus * 100)} coin production`,
               tone: tile.town.connectedTownBonus > 0 ? "positive" : "negative"
             }
           : {
               reason: connectedLabel(tile.town.connectedTownCount),
-              effect: "+0% gold production — build a Trade Nexus to enable",
+              effect: "+0% coin production — build a Trade Nexus to enable",
               tone: "neutral"
             }
       );
@@ -159,7 +155,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       const supportRatio = tile.town.supportCurrent / tile.town.supportMax;
       modifiers.push({
         reason: `Support ${tile.town.supportCurrent}/${tile.town.supportMax}`,
-        effect: `${percentLabel((supportRatio - 1) * 100)} gold production`,
+        effect: `${percentLabel((supportRatio - 1) * 100)} coin production`,
         tone: "negative"
       });
     }
@@ -189,7 +185,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     if (tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
       modifiers.push({
         reason: "Mercantile Charter",
-        effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} gold production`,
+        effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} coin production`,
         tone: tile.town.firstThreeTownGoldMult > 1 ? "positive" : "negative"
       });
     }
@@ -205,7 +201,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   for (const modifier of tile.dock?.modifiers ?? []) {
     modifiers.push({
       reason: modifier.label,
-      effect: `${percentLabel(modifier.percent)} gold production`,
+      effect: `${percentLabel(modifier.percent)} coin production`,
       tone: modifier.deltaGoldPerMinute > 0 ? "positive" : modifier.deltaGoldPerMinute < 0 ? "negative" : "neutral"
     });
   }
@@ -270,7 +266,7 @@ export const waystationOverviewLines = (
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
     lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free tech, +1 resource slot, gold, or manpower." });
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free tech, +1 resource slot, Coin, or manpower." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));
@@ -296,7 +292,7 @@ const grantedEffectLabel = (
     case "RESOURCE_SLOT":
       return waystation.grantedResource ? `+1 ${deps.prettyToken(waystation.grantedResource)} resource slot` : undefined;
     case "GOLD":
-      return waystation.grantedGold ? `+${waystation.grantedGold.toLocaleString()} gold` : undefined;
+      return waystation.grantedGold ? `+${waystation.grantedGold.toLocaleString()} Coin` : undefined;
     case "MANPOWER":
       return waystation.grantedManpower ? `+${waystation.grantedManpower.toLocaleString()} manpower` : undefined;
     default:
@@ -314,7 +310,12 @@ const grantedEffectLabel = (
 export const tileFeatureLeadLines = (
   tile: Tile,
   ownerKind: TileOwnerKind,
-  deps: { me: string; prettyToken: (value: string) => string; structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string }
+  deps: {
+    me: string;
+    prettyToken: (value: string) => string;
+    structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
+    techCatalog: readonly TechInfo[];
+  }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const structureKey = structureKeyForTile(tile);
@@ -327,5 +328,6 @@ export const tileFeatureLeadLines = (
     const shards = `${n} shard${n === 1 ? "" : "s"}`;
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
+  lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
   return lines;
 };

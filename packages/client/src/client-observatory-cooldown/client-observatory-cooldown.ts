@@ -22,6 +22,8 @@ export const hostileObservatoryProtectingTileAt = (
   for (const candidate of tiles) {
     if (!candidate.observatory || candidate.observatory.status !== "active") continue;
     if (!candidate.ownerId || candidate.ownerId === me || allies.includes(candidate.ownerId)) continue;
+    // A tower only protects its owner's own tiles (server: isTileShieldedByEnemyObservatory).
+    if (target.ownerId !== candidate.ownerId) continue;
     if (candidate.fogged) continue;
     if (!observatoryProtectionActive(candidate.observatory, nowMs)) continue;
     if (chebyshevDistanceWrapped(candidate.x, candidate.y, target.x, target.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
