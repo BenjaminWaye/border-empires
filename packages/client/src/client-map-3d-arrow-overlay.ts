@@ -26,7 +26,7 @@ import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Group, Mesh,
 // renders underneath as a solid dark-grey outline.
 
 const BASE_HALF_WIDTH = 0.22; // wide at the muster flag's end
-const NECK_HALF_WIDTH = 0.05; // narrowest point, where the shaft meets the arrowhead
+const NECK_HALF_WIDTH = 0.135; // narrowest point, where the shaft meets the arrowhead -- halved taper (half the base-to-neck narrowing of the original 0.05)
 const HEAD_LENGTH = 0.34; // the arrowhead's own share of the total length, base-to-tip
 const ARROW_TIP_OPACITY = 0.9; // gradient's value at the tip; 0 at the base
 const OUTLINE_COLOR = "#3a3a3a";
