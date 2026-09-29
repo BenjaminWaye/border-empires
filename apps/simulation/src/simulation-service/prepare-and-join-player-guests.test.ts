@@ -27,6 +27,7 @@ const buildDeps = (initial: SimulationSeasonState, options: { maxSeasonGuests?: 
         players.add(playerId);
         return true;
       }),
+      ensurePlayerHasAfc: vi.fn(() => false),
       hasPlayer: (playerId: string) => players.has(playerId),
       humanPlayerCount: () => players.size,
       emitShardRainHelloFor: vi.fn(),

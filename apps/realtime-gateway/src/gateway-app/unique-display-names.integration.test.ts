@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
-import { connect, firebaseToken, type Client, type Message } from "./gateway-test-client.js";
+import { connect, createTestFirebaseTokens, type Client, type Message } from "./gateway-test-client.js";
 
 // A store whose reads yield to the event loop for real. The in-memory store
 // resolves entirely in microtasks, so one SET_PROFILE would always finish
@@ -24,10 +24,12 @@ class SlowProfileStore extends InMemoryGatewayPlayerProfileStore {
 }
 
 const startApp = async (options: { slowProfileStore?: boolean } = {}) => {
+  const { verifier, sign } = await createTestFirebaseTokens();
   const app = await createRealtimeGatewayApp({
     logger: false,
     port: 0,
     commandStore: new InMemoryGatewayCommandStore(),
+    firebaseTokenVerifier: verifier,
     ...(options.slowProfileStore ? { profileStore: new SlowProfileStore() } : {}),
     simulationClient: {
       preparePlayer: async (playerId: string) => ({ playerId, spawned: false, joined: false }),
@@ -43,12 +45,16 @@ const startApp = async (options: { slowProfileStore?: boolean } = {}) => {
     }
   });
   const started = await app.start();
-  return { app, wsUrl: started.wsUrl };
+  return { app, wsUrl: started.wsUrl, sign };
 };
 
-const login = async (wsUrl: string, claims: Record<string, unknown>): Promise<{ client: Client; init: Message }> => {
+const login = async (
+  wsUrl: string,
+  claims: Record<string, unknown> & { sub: string },
+  sign: (claims: Record<string, unknown> & { sub: string }) => Promise<string>
+): Promise<{ client: Client; init: Message }> => {
   const client = await connect(wsUrl);
-  client.socket.send(JSON.stringify({ type: "AUTH", token: firebaseToken(claims) }));
+  client.socket.send(JSON.stringify({ type: "AUTH", token: await sign(claims) }));
   const init = await client.waitFor("INIT", (message) => message.type === "INIT");
   return { client, init };
 };
@@ -66,11 +72,11 @@ describe("unique display names", () => {
   });
 
   it("suggests a free house name at INIT for a new player with no real name, and keeps a real free name", async () => {
-    const { app, wsUrl } = await startApp();
+    const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
 
-    const anonymous = await login(wsUrl, { user_id: "uid-anon" });
-    const named = await login(wsUrl, { user_id: "uid-named", name: "Ada Lovelace" });
+    const anonymous = await login(wsUrl, { sub: "uid-anon" }, sign);
+    const named = await login(wsUrl, { sub: "uid-named", name: "Ada Lovelace" }, sign);
 
     expect((anonymous.init.player as { suggestedName?: string }).suggestedName).toMatch(/^House [A-Z][a-z]+$/);
     expect((named.init.player as { suggestedName?: string }).suggestedName).toBe("Ada Lovelace");
@@ -79,10 +85,10 @@ describe("unique display names", () => {
   });
 
   it("rejects a name another player holds, however it is cased or spaced, and offers a free one", async () => {
-    const { app, wsUrl } = await startApp();
+    const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
-    const first = await login(wsUrl, { user_id: "uid-1" });
-    const second = await login(wsUrl, { user_id: "uid-2" });
+    const first = await login(wsUrl, { sub: "uid-1" }, sign);
+    const second = await login(wsUrl, { sub: "uid-2" }, sign);
 
     setProfile(first.client, "House Ashgrove", "#112233");
     await first.client.waitFor("first saved", saved("House Ashgrove"));
@@ -98,10 +104,10 @@ describe("unique display names", () => {
   });
 
   it("lets exactly one of two simultaneous claims on the same name win", async () => {
-    const { app, wsUrl } = await startApp({ slowProfileStore: true });
+    const { app, wsUrl, sign } = await startApp({ slowProfileStore: true });
     openApps.push(app);
-    const a = await login(wsUrl, { user_id: "uid-a" });
-    const b = await login(wsUrl, { user_id: "uid-b" });
+    const a = await login(wsUrl, { sub: "uid-a" }, sign);
+    const b = await login(wsUrl, { sub: "uid-b" }, sign);
 
     setProfile(a.client, "House Valmont", "#111111");
     setProfile(b.client, "House Valmont", "#222222");
@@ -116,9 +122,9 @@ describe("unique display names", () => {
   });
 
   it("never blocks a player on the name they already hold", async () => {
-    const { app, wsUrl } = await startApp();
+    const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
-    const player = await login(wsUrl, { user_id: "uid-keeper" });
+    const player = await login(wsUrl, { sub: "uid-keeper" }, sign);
 
     setProfile(player.client, "House Corthorne", "#123456");
     await player.client.waitFor("saved", saved("House Corthorne"));
@@ -131,9 +137,9 @@ describe("unique display names", () => {
   });
 
   it("rejects reserved names", async () => {
-    const { app, wsUrl } = await startApp();
+    const { app, wsUrl, sign } = await startApp();
     openApps.push(app);
-    const player = await login(wsUrl, { user_id: "uid-reserved" });
+    const player = await login(wsUrl, { sub: "uid-reserved" }, sign);
 
     for (const name of ["Barbarians", "AI 3"]) {
       const before = player.client.messages.length;

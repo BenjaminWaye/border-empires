@@ -1,6 +1,10 @@
 // Shared WebSocket helpers for gateway integration tests. Every message is
 // recorded from the moment the socket opens, so a reply that arrives before a
 // waiter is attached is never missed.
+import { SignJWT, generateKeyPair } from "jose";
+
+import { createFirebaseTokenVerifier, type FirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
+
 export type TestWebSocket = {
   send(data: string): void;
   close(): void;
@@ -54,5 +58,30 @@ export const connect = async (url: string): Promise<Client> => {
   };
 };
 
-export const firebaseToken = (claims: Record<string, unknown>): string =>
-  ["e30", Buffer.from(JSON.stringify(claims)).toString("base64url"), "sig"].join(".");
+export const TEST_FIREBASE_PROJECT = "border-empires";
+
+// Real signature verification is on by default (see
+// gateway-auth-verification.integration.test.ts), so a login test needs an
+// actually-signed token, not a base64-decoded stand-in. Generates one
+// throwaway RS256 key pair and hands back both a verifier that trusts it
+// (pass as firebaseTokenVerifier to createRealtimeGatewayApp) and a signer
+// for building tokens that verifier accepts. claims uses sub, not user_id --
+// the verifier only reads sub.
+export const createTestFirebaseTokens = async (): Promise<{
+  verifier: FirebaseTokenVerifier;
+  sign: (claims: Record<string, unknown> & { sub: string }) => Promise<string>;
+}> => {
+  const { privateKey, publicKey } = await generateKeyPair("RS256");
+  const issuer = `https://securetoken.google.com/${TEST_FIREBASE_PROJECT}`;
+  return {
+    verifier: createFirebaseTokenVerifier({ projectId: TEST_FIREBASE_PROJECT, keySet: async () => publicKey, onReject: () => undefined }),
+    sign: (claims) =>
+      new SignJWT(claims)
+        .setProtectedHeader({ alg: "RS256", kid: "k1" })
+        .setIssuer(issuer)
+        .setAudience(TEST_FIREBASE_PROJECT)
+        .setIssuedAt()
+        .setExpirationTime(Math.floor(Date.now() / 1000) + 3600)
+        .sign(privateKey)
+  };
+};
