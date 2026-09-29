@@ -6,7 +6,10 @@ import { recordClientDebugEvent } from "../client-debug/client-debug.js";
 // in the Download diagnostics bundle. This exists so the post-download freeze
 // can be attributed from real device data instead of inferred.
 
-const SUMMARY_DELAY_AFTER_DISPATCH_MS = 20_000;
+// Finish shortly after the map is ready (staged 3D build done), or at the cap
+// if it never reports ready (2D renderer, failure).
+const SUMMARY_DELAY_AFTER_DISPATCH_MS = 60_000;
+const SUMMARY_DELAY_AFTER_MAP_READY_MS = 2_000;
 const MAX_LONG_TASKS = 40;
 /** Parses at or above this size are timed (INIT and big chunk batches). */
 export const TIMED_PARSE_MIN_CHARS = 64 * 1024;
@@ -77,6 +80,10 @@ export const markLoginTimeline = (name: string, facts: Record<string, number | s
   Object.assign(active.facts, facts);
   if (name === "initDispatchEnd" && !active.summaryTimer) {
     active.summaryTimer = setTimeout(() => finishLoginTimeline("complete"), SUMMARY_DELAY_AFTER_DISPATCH_MS);
+  }
+  if (name === "mapReady") {
+    if (active.summaryTimer) clearTimeout(active.summaryTimer);
+    active.summaryTimer = setTimeout(() => finishLoginTimeline("complete"), SUMMARY_DELAY_AFTER_MAP_READY_MS);
   }
 };
 

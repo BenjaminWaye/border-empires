@@ -48,7 +48,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but coin-only.";
   if (actionId === "build_observatory")
-    return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions within ${OBSERVATORY_PROTECTION_RADIUS} tiles — protection pauses while this tower is on cooldown.`;
+    return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and protects your own tiles within ${OBSERVATORY_PROTECTION_RADIUS} tiles from hostile Aether abilities (Purge, EMP, Siphon, terrain shaping, Aether Bridge landings) — it never covers unclaimed land or other players' tiles. Protection pauses while this tower is on cooldown, except against Siphon.`;
   if (actionId === "build_siege_camp") {
     // Only show upgrade text when a siege outpost already exists.
     if (tile.siegeOutpost) {

@@ -367,7 +367,7 @@ export const structureInfoForKey = (
   if (type === "OBSERVATORY") {
     return structure({
       title: "Aether Tower",
-      detail: "Aether Towers add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
+      detail: "Aether Towers add local vision, protect your own nearby tiles (never unclaimed or other players' land) against hostile Aether abilities, and let you cast crystal abilities inside their radius.",
       glyph: "◉",
       placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
       costBits: costBitsFor(type),

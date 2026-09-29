@@ -34,16 +34,16 @@ const deps = {
 };
 
 describe("menuOverviewForTile — Aether Tower cooldown vs. protection status", () => {
-  it("says an on-cooldown Aether Tower is not currently blocking hostile crystal actions", () => {
+  it("says an on-cooldown Aether Tower is not currently protecting nearby tiles", () => {
     const lines = menuOverviewForTile(ownObservatoryTile(Date.now() + 90_000), deps);
     expect(
-      lines.some((line) => line.html.includes("on cooldown") && line.html.includes("not blocking hostile crystal actions"))
+      lines.some((line) => line.html.includes("on cooldown") && line.html.includes("not protecting its owner's nearby tiles"))
     ).toBe(true);
-    expect(lines.some((line) => line.html === "Aether Tower is active here and blocks hostile crystal actions nearby.")).toBe(false);
+    expect(lines.some((line) => line.html === "Aether Tower is active here and protects its owner\'s nearby tiles from hostile Aether abilities.")).toBe(false);
   });
 
-  it("says a ready Aether Tower blocks hostile crystal actions nearby", () => {
+  it("says a ready Aether Tower protects its owner's nearby tiles", () => {
     const lines = menuOverviewForTile(ownObservatoryTile(Date.now() - 1_000), deps);
-    expect(lines.some((line) => line.html === "Aether Tower is active here and blocks hostile crystal actions nearby.")).toBe(true);
+    expect(lines.some((line) => line.html === "Aether Tower is active here and protects its owner\'s nearby tiles from hostile Aether abilities.")).toBe(true);
   });
 });
