@@ -20,8 +20,8 @@ const buildDeps = (canvas: HTMLCanvasElement) => ({
   renderHud: () => {}
 });
 
-const mouseDownAt = (canvas: HTMLCanvasElement, x: number, y: number): void => {
-  const ev = new MouseEvent("mousedown", { button: 2 });
+const mouseDownAt = (canvas: HTMLCanvasElement, x: number, y: number, init: MouseEventInit = { button: 2 }): void => {
+  const ev = new MouseEvent("mousedown", init);
   Object.defineProperty(ev, "offsetX", { value: x });
   Object.defineProperty(ev, "offsetY", { value: y });
   canvas.dispatchEvent(ev);
@@ -102,5 +102,43 @@ describe("bindArrowGestureInput (F5 orphaned-drag cancellation)", () => {
     window.dispatchEvent(new Event("blur"));
 
     expect((state as { arrowGesture?: unknown }).arrowGesture).toBeUndefined();
+  });
+});
+
+describe("bindArrowGestureInput (Mac trackpad ctrl+click arming)", () => {
+  const setup = () => {
+    const canvas = document.createElement("canvas");
+    const tiles = new Map([["1,1", { x: 1, y: 1, muster: { mode: "HOLD" as const }, ownerId: "me" }]]);
+    const state = { me: "me", connection: "connected" as const, tiles, arrowGesture: undefined as unknown };
+    bindArrowGestureInput(state as never, buildDeps(canvas) as never);
+    return { canvas, state };
+  };
+
+  it("arms on ctrl+left press of an owned flag (macOS reports ctrl+click as button 0)", () => {
+    const { canvas, state } = setup();
+    mouseDownAt(canvas, 1, 1, { button: 0, ctrlKey: true });
+    expect(state.arrowGesture).toBeDefined();
+  });
+
+  it("does not stop a ctrl+left press from reaching the pan handler when it isn't on a flag", () => {
+    const { canvas, state } = setup();
+    let reached = false;
+    canvas.addEventListener("mousedown", () => { reached = true; });
+    mouseDownAt(canvas, 5, 5, { button: 0, ctrlKey: true });
+    expect(state.arrowGesture).toBeUndefined();
+    expect(reached).toBe(true);
+  });
+
+  it("a plain left press on a flag does not arm the gesture", () => {
+    const { canvas, state } = setup();
+    mouseDownAt(canvas, 1, 1, { button: 0 });
+    expect(state.arrowGesture).toBeUndefined();
+  });
+
+  it("releases with the button that armed it", () => {
+    const { canvas, state } = setup();
+    mouseDownAt(canvas, 1, 1, { button: 0, ctrlKey: true });
+    window.dispatchEvent(new MouseEvent("mouseup", { button: 0 }));
+    expect(state.arrowGesture).toBeUndefined();
   });
 });
