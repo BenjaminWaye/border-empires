@@ -203,11 +203,11 @@ branch:
   "Execution notes" for what shipped.
 - **§4 "Additional AFCs may be established on owned land near a
   Settlement"**: the Settlement-proximity part is dropped. **Decided
-  (2026-09-29): additional AFCs are bought with Coin** (290, ×1.5 per AFC
-  already owned) and land on any valid owned SETTLED tile the player picks.
-  See §4 "Building additional AFCs". Not yet implemented; one balance
-  decision (whether extra AFCs stack the Settlement-tier baseline) is
-  still open there.
+  (2026-09-29): additional AFCs are bought with Coin** (290, doubling for
+  each AFC already owned) and land on any valid owned SETTLED tile the
+  player picks. The Settlement-tier AFC baseline counts **once** per
+  player, not once per AFC. See §4 "Building additional AFCs". Not yet
+  implemented.
 
 ---
 
@@ -340,7 +340,7 @@ least one AFC and can afford it. It is not tied to modules docked.
 #### Cost
 
 ```
-afcBuildCost(ownedAfcCount) = techGoldCostForResearchedCount(8) × 1.5^(ownedAfcCount − 1)
+afcBuildCost(ownedAfcCount) = techGoldCostForResearchedCount(8) × 2^(ownedAfcCount − 1)
 ```
 
 - `techGoldCostForResearchedCount(8)` = **290**: the price of a player's
@@ -351,29 +351,43 @@ afcBuildCost(ownedAfcCount) = techGoldCostForResearchedCount(8) × 1.5^(ownedAfc
   any tech-curve retune.
 - It does **not** scale with research count. The first additional AFC is
   always 290. Only the AFC count escalates it.
-- Resulting prices: 2nd **290**, 3rd **435**, 4th **653**, 5th **979**,
-  6th **1,468**. Round to the nearest whole Coin.
+- Each AFC costs **double** the previous one (user decision 2026-09-29:
+  the 3rd AFC costs 2× the 2nd). Prices: 2nd **290**, 3rd **580**, 4th
+  **1,160**, 5th **2,320**, 6th **4,640**. All are whole numbers, so no
+  rounding is needed.
 - `ownedAfcCount` = `summary.ownedAfcTileKeys.size`, so **captured AFCs
   count**. Capturing an enemy AFC and then building at the cheap tier
   isn't possible. Losing an AFC lowers the count, so rebuilding after a
   loss is priced at the lower tier.
 - Constants: `AFC_BUILD_COST_ANCHOR_TECH_COUNT = 8`,
-  `AFC_BUILD_COST_GROWTH = 1.5`.
+  `AFC_BUILD_COST_GROWTH = 2`.
 
-#### Open balance decision: does each extra AFC add a baseline?
+#### Extra AFCs do not add a baseline (decided 2026-09-29)
 
-Every AFC currently adds a full Settlement-tier baseline: Coin income
+Today every AFC adds a full Settlement-tier baseline: Coin income
 (`player-update-economy.ts`, the `tile.afc?.ownerId === player.id`
 bucket) plus Manpower cap and regen (`runtime-manpower.ts`,
-`ownedAfcTileKeys.size × TOWN_MANPOWER_BY_TIER.SETTLEMENT`). Left as is,
-a 290-Coin AFC is also a cheap purchasable Settlement. That turns
-"spread risk" into an economy engine and undercuts settling towns.
+`ownedAfcTileKeys.size × TOWN_MANPOWER_BY_TIER.SETTLEMENT`). Kept as is,
+a 290-Coin AFC would also be a cheap purchasable Settlement.
 
-**Recommendation:** count the baseline once, `min(ownedAfcCount, 1)`, so
-extra AFCs are purely risk-spreading module hosts. That also changes
-today's behaviour for players who capture a second AFC, which should be
-called out in the changelog. **Confirm with the user before
-implementing**; if the answer is "keep stacking", revisit the 290 price.
+**Decided: the baseline counts once, however many AFCs a player owns.**
+Extra AFCs are purely risk-spreading module hosts.
+- Manpower: replace `ownedAfcTileKeys.size ×` with
+  `Math.min(ownedAfcTileKeys.size, 1) ×` in all three
+  `runtime-manpower.ts` sites (cap, regen, and the cap-breakdown line), so
+  the displayed breakdown matches the math.
+- Coin: `player-update-economy.ts` adds the AFC bucket per tile inside the
+  per-tile loop. Change it to add the bucket once per player (for example,
+  a `countedAfcBaseline` flag set on the first owned AFC tile), so the
+  income breakdown shows one "Automated Fabrication Complex" line, not
+  one per AFC.
+- As long as a player owns at least one AFC, losing some of them doesn't
+  drop the baseline. Losing the last one does, same as today.
+- **Behaviour change for existing games:** a player who has captured an
+  enemy AFC while keeping their own currently gets two baselines and will
+  drop to one. Call this out in the changelog entry.
+- Regression tests: a player with 3 AFCs has the same Manpower
+  cap/regen and AFC Coin bucket as with 1; with 0 AFCs, none.
 
 #### Implementation outline
 
@@ -414,16 +428,20 @@ implementing**; if the answer is "keep stacking", revisit the 290 price.
    - each invalid-tile case
    - escalation after the 2nd, 3rd, and 4th AFC
    - captured AFC counts toward the price
-4. **AI**: out of scope. The planner does not build AFCs. Note it in
+4. **Baseline counts once**: the `runtime-manpower.ts` and
+   `player-update-economy.ts` changes in "Extra AFCs do not add a
+   baseline" above, with their regression tests. This is independent of
+   the build command and can land first on its own.
+5. **AI**: out of scope. The planner does not build AFCs. Note it in
    `docs/agents/topics/ai-planner.md` if the planner's structure list
    would otherwise need to know.
-5. **Client button**: a new file (e.g.
+6. **Client button**: a new file (e.g.
    `packages/client/src/client-afc-build-action.ts`) contributes the
    "Build AFC" action on owned AFC tiles and the overview-panel button.
    Don't grow `client-tile-action-logic.ts`, which is far over the
    500-line limit. Disable the button with a reason when the player
    can't afford it.
-6. **Client targeting mode**: copy `client-muster-march-targeting.ts`.
+7. **Client targeting mode**: copy `client-muster-march-targeting.ts`.
    - `state.afcLandingTargeting: { active: boolean }` in `client-state.ts`.
    - `armAfcLandingTargeting` / `handleAfcLandingTargetClick`.
    - The click is consumed in `client-action-flow.ts` next to the
@@ -432,10 +450,12 @@ implementing**; if the answer is "keep stacking", revisit the 290 price.
    - Valid-tile highlight in the 3D and 2D renderers, sharing one
      `isValidAfcLandingTile(tile, me)` predicate with the button so the
      client never offers a tile the server will reject.
-7. **Drop animation**: see the delivery-animation plan's "AFC drop"
+8. **Drop animation**: see the delivery-animation plan's "AFC drop"
    section.
-8. **Changelog**: player-facing entry covering the button, the price
-   curve, the landing pick, and the baseline decision's outcome.
+9. **Changelog**: player-facing entry covering the button, the price
+   curve, the landing pick, and that extra AFCs don't add Coin/Manpower
+   baseline (including the drop from two baselines to one for anyone
+   holding a captured AFC).
 
 ## 5. Great Projects
 
