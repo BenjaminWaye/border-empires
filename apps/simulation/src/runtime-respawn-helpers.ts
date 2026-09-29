@@ -216,7 +216,17 @@ export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string)
     }
   }
   if (!anchor) return false; // no firmly-held (SETTLED) tile yet -- retry on a later connect
-  const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
+  // Also exclude ownerless FRONTIER tiles -- chooseLegacySpawnPlacement's
+  // candidate filter only checks terrain/ownerId/town/dockId, so an
+  // unowned-but-revealed FRONTIER tile (the very next tile any nearby empire
+  // would organically expand into, via MARCH/EXPAND) would otherwise be
+  // fair game. This migration is meant to purely backfill infrastructure,
+  // never to race a live expansion for the same land.
+  const frontierTileKeys = new Set<string>();
+  for (const tile of ctx.tiles.values()) {
+    if (!tile.ownerId && tile.ownershipState === "FRONTIER") frontierTileKeys.add(simulationTileKey(tile.x, tile.y));
+  }
+  const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys(), ...frontierTileKeys]);
   const spawn = chooseLegacySpawnPlacement({
     playerId,
     tiles: ctx.tiles.values(),

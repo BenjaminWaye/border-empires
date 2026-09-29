@@ -119,6 +119,31 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(withinPlayer2Ring).toBe(false);
   });
 
+  // Regression test: the very first placement candidate chooseLegacySpawnPlacement
+  // tries is often the nearest ownerless FRONTIER tile (terrain LAND, no owner) --
+  // exactly the tile a nearby MARCH/EXPAND would organically claim next. Without
+  // excluding those, this migration grant would race a live expansion for the
+  // same land (caught by apps/realtime-gateway's
+  // rewrite-stack-muster-march-expand-transit.integration.test.ts, whose tiny
+  // fixture world has only one nearby free tile, which is FRONTIER).
+  it("never lands on an ownerless FRONTIER tile", () => {
+    const anchor = { x: 15, y: 15 };
+    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
+    const nearestFrontierTile: DomainTileState = { x: anchor.x, y: anchor.y + 1, terrain: "LAND", ownershipState: "FRONTIER" };
+    const excluded = new Set([`${anchor.x},${anchor.y}`, `${nearestFrontierTile.x},${nearestFrontierTile.y}`]);
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      initialState: { tiles: [settledTile, nearestFrontierTile, ...emptyLandGrid(excluded)], activeLocks: [] }
+    });
+
+    const granted = runtime.ensurePlayerHasAfc("player-1");
+    expect(granted).toBe(true);
+    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
+    expect(afcTile).toBeDefined();
+    expect(afcTile!.x === nearestFrontierTile.x && afcTile!.y === nearestFrontierTile.y).toBe(false);
+  });
+
   it("is idempotent across repeated calls", () => {
     const anchor = { x: 15, y: 15 };
     const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
