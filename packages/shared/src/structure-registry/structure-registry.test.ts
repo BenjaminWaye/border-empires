@@ -72,31 +72,24 @@ test("covers all outpost variants", () => {
   }
 });
 
-test("WOODEN_FORT is present", () => {
+test("WOODEN_FORT (Palisade) is fort-ladder tier 0 stored in tile.fort", () => {
   const spec = STRUCTURE_REGISTRY["WOODEN_FORT"];
   expect(spec).toBeDefined();
-  expect(spec.kind).toBe("ECONOMIC");
-  expect(spec.tileField).toBe("economicStructure");
+  expect(spec.kind).toBe("FORT");
+  expect(spec.tileField).toBe("fort");
+  expect(spec.techIds).toEqual([]);
 });
 
 // ── Cost parity: forts (against FORT_TIER_LADDER) ──────────────────
 
 describe("fort cost parity against FORT_TIER_LADDER", () => {
   for (const [variant, tier] of Object.entries(FORT_TIER_LADDER)) {
-    // WOODEN_FORT is excluded: STRUCTURE_REGISTRY["WOODEN_FORT"] is the
-    // standalone base-build ECONOMIC spec (structure-registry-economic.ts,
-    // 30 manpower), not the FORT_TIER_LADDER.WOODEN_FORT entry (150
-    // manpower) — that ladder entry only describes the upgrade-target cost
-    // once you already have a Wooden Fort. Same key, two different specs;
-    // pre-existing in this not-yet-wired Phase 2 registry, not something
-    // this pass reconciles.
-    if (variant === "WOODEN_FORT") continue;
     test(`${variant}: cost matches tier ladder`, () => {
       const spec = STRUCTURE_REGISTRY[variant];
       expect(spec).toBeDefined();
       expect(spec.cost.gold).toBe(tier.gold);
       expect(spec.cost.manpower).toBe(tier.manpower);
-      expect(spec.cost.strategic).toEqual({ TITANIUM: tier.titanium });
+      expect(spec.cost.strategic).toEqual(tier.titanium > 0 ? { TITANIUM: tier.titanium } : undefined);
     });
   }
 });

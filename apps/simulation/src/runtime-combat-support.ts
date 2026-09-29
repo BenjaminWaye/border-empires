@@ -4,6 +4,8 @@ import {
   BREAKTHROUGH_DURATION_MS,
   attackManpowerLoss,
   commitOddsMultiplier,
+  defendingFortVariant,
+  isFortDefending,
   requiredMusterForFort,
   rollFrontierCombat,
   shieldDefenseMultiplier,
@@ -164,17 +166,12 @@ export const originTileHeldByActiveFort = (
 ): boolean => {
   const origin = tiles.get(originKey);
   if (!origin || origin.terrain !== "LAND" || origin.ownerId !== playerId) return false;
-  const activeFort =
+  return (
     origin.fort?.ownerId === playerId &&
-    origin.fort.status === "active" &&
+    isFortDefending(origin.fort) &&
     (origin.fort.disabledUntil ?? 0) <= now() &&
-    !isStructureDormant(playerId, originKey, "fort");
-  const activeWoodenFort =
-    origin.economicStructure?.ownerId === playerId &&
-    origin.economicStructure.type === "WOODEN_FORT" &&
-    origin.economicStructure.status === "active" &&
-    !isStructureDormant(playerId, originKey, "economicStructure");
-  return activeFort || activeWoodenFort;
+    !isStructureDormant(playerId, originKey, "fort")
+  );
 };
 
 export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: string, targetX: number, targetY: number): number => {
@@ -235,7 +232,7 @@ const targetHasActiveFortFor = (
 ): boolean =>
   Boolean(
     previousTarget?.fort &&
-      previousTarget.fort.status === "active" &&
+      isFortDefending(previousTarget.fort) &&
       previousTarget.fort.ownerId === defenderOwnerId &&
       defenderOwnerId &&
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
@@ -289,7 +286,7 @@ const resolveAttackCombat = (
         ownershipState: previousTarget.ownershipState,
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
-        fortVariant: targetHasActiveFort ? previousTarget.fort?.variant : undefined,
+        fortVariant: targetHasActiveFort ? defendingFortVariant(previousTarget.fort) : undefined,
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
@@ -304,7 +301,7 @@ const resolveAttackCombat = (
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
   const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
-  const base = requiredMusterForFort(targetHasActiveFort ? previousTarget?.fort?.variant : undefined);
+  const base = requiredMusterForFort(targetHasActiveFort ? defendingFortVariant(previousTarget?.fort) : undefined);
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within
   // SHIELD_RADIUS_TILES, or any mode on its own tile) matches the attacker's

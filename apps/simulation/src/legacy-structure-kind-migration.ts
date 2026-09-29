@@ -51,3 +51,61 @@ export const migrateLegacyStructureKinds = (tiles: RecoveredSimulationState["til
   }
   return migrated;
 };
+
+type RecoveredTile = RecoveredSimulationState["tiles"][number];
+
+export type LegacyPalisadeMigrationResult = {
+  moved: number;
+  // A fort under construction on the tile is a Palisade->Fort upgrade in
+  // flight: the Palisade becomes its upgradingFrom, so it keeps defending
+  // until the Fort completes, exactly as before.
+  mergedIntoUpgrade: number;
+  // Any other fort already on the tile supersedes the Palisade.
+  droppedUnderFort: number;
+  // Fort-family structures have no "inactive" state (dormancy comes from
+  // resource slots instead), so a manually-deactivated Palisade comes back active.
+  reactivated: number;
+};
+
+const palisadeFortFromLegacy = (
+  legacy: NonNullable<RecoveredTile["economicStructure"]>
+): NonNullable<RecoveredTile["fort"]> => ({
+  ownerId: legacy.ownerId,
+  variant: "WOODEN_FORT",
+  status: legacy.status === "inactive" ? "active" : legacy.status,
+  ...(legacy.status === "removing" ? { previousStatus: "active" as const } : {}),
+  ...(legacy.completesAt !== undefined ? { completesAt: legacy.completesAt } : {}),
+  ...(legacy.activatedAt !== undefined ? { activatedAt: legacy.activatedAt } : {}),
+  ...(legacy.disabledUntil !== undefined ? { disabledUntil: legacy.disabledUntil } : {})
+});
+
+// Palisades (WOODEN_FORT) used to be stored in tile.economicStructure, the
+// same single slot as Relay Beacons / Harbor Exchanges, so building one on a
+// beacon tile deleted the beacon. They're fort-ladder tier 0 in tile.fort now
+// (docs/structure-slot-unification-plan.md, PR 1). Runs on the fully recovered
+// state (after event replay), same self-heal contract as above.
+export const migrateLegacyPalisades = (tiles: RecoveredSimulationState["tiles"]): LegacyPalisadeMigrationResult => {
+  const result: LegacyPalisadeMigrationResult = { moved: 0, mergedIntoUpgrade: 0, droppedUnderFort: 0, reactivated: 0 };
+  for (const tile of tiles) {
+    const legacy = tile.economicStructure;
+    if (legacy?.type !== "WOODEN_FORT") continue;
+    const palisadeStanding = legacy.status === "active" || legacy.status === "inactive";
+    if (tile.fort?.status === "under_construction" && tile.fort.ownerId === legacy.ownerId && palisadeStanding && !tile.fort.upgradingFrom) {
+      tile.fort = { ...tile.fort, upgradingFrom: "WOODEN_FORT" };
+      result.mergedIntoUpgrade += 1;
+    } else if (tile.fort) {
+      result.droppedUnderFort += 1;
+    } else {
+      if (legacy.status === "inactive") result.reactivated += 1;
+      tile.fort = palisadeFortFromLegacy(legacy);
+      result.moved += 1;
+    }
+    delete tile.economicStructure;
+  }
+  if (result.moved + result.mergedIntoUpgrade + result.droppedUnderFort > 0) {
+    console.log(
+      `[legacy-structure-kind-migration] palisades moved=${result.moved} mergedIntoUpgrade=${result.mergedIntoUpgrade} droppedUnderFort=${result.droppedUnderFort} reactivated=${result.reactivated}`
+    );
+  }
+  return result;
+};

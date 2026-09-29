@@ -326,6 +326,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1790712449220,
+    introducedIn: "2026.09.29.3",
+    title: "Palisades and Forts now stack with Relay Beacons, and forts keep defending while they upgrade",
+    why: "Building a Palisade on a Relay Beacon or Harbor Exchange silently destroyed it, a Fort built on a Relay Beacon made the beacon vanish from the map, and the tile info only ever named one of the two. Palisades also never actually applied the defense their build menu advertised, and upgrading any fort left the tile undefended until the new tier finished.",
+    changes: [
+      "A Palisade now stacks on a Relay Beacon or Harbor Exchange exactly like a Fort does, instead of replacing it (a beacon already lost this way can't be restored)",
+      "A Relay Beacon that shares its tile with a Palisade or Fort is now drawn on the map, on both the 3D and the 2D map",
+      "The tile info's \"Built:\" line now lists every structure on the tile, e.g. \"Built: Fort, Relay Beacon\"",
+      "Palisades now really defend in combat: 1.35x defense, attackers need 150 mustered manpower and risk losing 100-150 of it",
+      "While a Palisade or Fort upgrades to its next tier, the current one keeps standing and defending until the upgrade completes; cancelling an upgrade, or losing the tile mid-upgrade, now keeps the current fort instead of destroying it",
+      "Existing Palisades are carried over automatically"
+    ]
+  },
+  {
     createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.29.3",
     title: "Empire names are now unique, and new players start with a noble house name",
@@ -360,6 +374,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
       "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
       "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.29.6",
+    title: "Module deliveries now target their AFC socket",
+    why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
+    changes: [
+      "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
     ]
   }
 ];
