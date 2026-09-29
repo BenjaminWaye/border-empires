@@ -365,6 +365,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
     introducedIn: "2026.09.29.6",
+    title: "Module deliveries now target their AFC socket",
+    why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
+    changes: [
+      "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.29.7",
     title: "Economy panel no longer shows a gold cap",
     why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
     changes: [

@@ -388,14 +388,18 @@ Every AFC arrival then looks the same.
 7. **Changelog** is shared with the build-AFC feature's entry. There is no
    separate entry unless the animation ships on its own branch first.
 
-## Explicitly out of scope here (Phase 2 backlog, not silently dropped)
+## Follow-up status (updated 2026-09-29)
 
-- **Exact per-socket landing position.** Needs a new query on
-  `AfcOverlayGroup` (something like `attachmentFor(worldTileX, worldTileY,
-  techId): {x,y,z,yaw} | undefined`, populated during each `addAfc` call
-  and read back by the FX-queue drain the same frame or the next) so the
-  streak lands precisely where the module will sit rather than at the
-  AFC's own center point.
+- **Exact per-socket landing: implemented.** Rendered module families expose
+  their current socket through `AfcOverlayGroup`; the 3D delivery queue uses
+  it, while families without 3D art retain a centre-of-AFC fallback.
+- **Additional-AFC price curve: implemented as shared logic.**
+  `afcBuildCost(ownedAfcCount)` derives the 290 Coin anchor from the ninth
+  tech price and doubles for every AFC already owned. The command, picker,
+  and whole-AFC arrival remain open.
+
+## Explicitly out of scope here (remaining Phase 2 backlog)
+
 - **Per-module bespoke "power-on" visuals** — the §9 table's 19 visual
   directions (furnace drums, lens presses, neural vats, coil arcs, ...).
   Natural follow-up once the shared mechanism ships and the team has a
