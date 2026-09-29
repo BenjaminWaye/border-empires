@@ -5,7 +5,16 @@ import { APPROACH_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
 
-const combatJson = (overrides: Partial<{ attackerOwnerId: string; defenderOwnerId: string; attackerWon: boolean; originX: number; originY: number }> = {}) =>
+const combatJson = (
+  overrides: Partial<{
+    attackerOwnerId: string;
+    defenderOwnerId: string;
+    attackerWon: boolean;
+    originX: number;
+    originY: number;
+    shield: { x: number; y: number };
+  }> = {}
+) =>
   JSON.stringify({
     attackerOwnerId: "attacker",
     defenderOwnerId: "victim",
@@ -64,5 +73,28 @@ describe("registerActiveBattleFromTileDelta", () => {
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: "not json" }, 5000);
 
     expect(state.activeBattles.size).toBe(0);
+  });
+
+  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
+  // the server names the defender's shield tile (coordinates only, never the
+  // matched amount) instead of correcting the pre-attack odds preview.
+  it("carries the shield tile's coordinates through when present", () => {
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson({ shield: { x: 5, y: 8 } }) }, 5000);
+
+    const battle = state.activeBattles.get("5,5")!;
+    expect(battle.shieldX).toBe(5);
+    expect(battle.shieldY).toBe(8);
+  });
+
+  it("leaves shieldX/shieldY undefined when no shield fired", () => {
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, 5000);
+
+    const battle = state.activeBattles.get("5,5")!;
+    expect(battle.shieldX).toBeUndefined();
+    expect(battle.shieldY).toBeUndefined();
   });
 });

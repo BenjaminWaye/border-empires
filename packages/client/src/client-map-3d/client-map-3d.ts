@@ -42,7 +42,7 @@ import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
-import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
+import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import { createWinChancePaintOverlay } from "../client-map-3d-win-chance-paint-overlay.js"; import { createArrowOverlay, syncArrowOverlayFrame } from "../client-map-3d-arrow-overlay.js"; import { createShieldAreaOverlay } from "../client-map-3d-shield-area-overlay.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "../client-known-shield-flags.js";
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js"; import { createBarbarianLossOverlay, buildBarbarianLossBattles } from "../client-map-3d-barbarian-loss-overlay.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
@@ -62,7 +62,7 @@ import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { syncDockRouteOverlay } from "../client-map-3d-dock-route-sync.js";
 import { createBarbarianOverlay, wasSettledCapture } from "../client-map-3d-barbarian-overlay.js";
-import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js";
+import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js"; import { createWaystationOverlay } from "../client-map-3d-waystation-overlay.js"; import { createAfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
 import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js"; import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createFarmlandOverlay } from "../client-map-3d-farmland/client-map-3d-farmland.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
@@ -126,7 +126,7 @@ type ClientThreeTerrainRendererDeps = {
 };
 
 // Device-sized rather than fixed at the desktop worst case; see client-map-3d-tile-budget.ts.
-const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM);
+const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM); const AFC_MAX_INSTANCES = 48; // AFCs are rare (per-House + captures), unlike ordinary structures -- no need for the full tile budget
 const MAX_BRIDGE_PYLONS = 16; const MAX_WALL_PYLONS = 24; const MAX_WALL_ARCS = 12;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
@@ -198,7 +198,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const shardRainBadgeOverlay = createShardRainBadgeOverlay(scene); const allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]; // shares the clear/commit/tick/dispose loops below — see client-map-3d-shard-rain-badge-overlay.ts
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
-  const musterOverlay = createMusterOverlay(scene);
+  const musterOverlay = createMusterOverlay(scene); const winChancePaintOverlay = createWinChancePaintOverlay(scene); const arrowOverlay = createArrowOverlay(scene); const shieldAreaOverlay = createShieldAreaOverlay(scene); // F1: right-click-drag arrow gesture visual; F3: known-shield coverage-area overlay (client-known-shield-flags.ts)
   const battleOverlayFx = createPopupMarineOverlayFx(scene); const barbarianLossOverlay = createBarbarianLossOverlay(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
@@ -217,7 +217,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene); const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const dockRouteOverlay = createDockRouteOverlay(scene);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
-  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const waystationOverlay = createWaystationOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
+  const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const waystationOverlay = createWaystationOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt); const afcOverlayGroup = createAfcOverlayGroup(scene, AFC_MAX_INSTANCES, atmosphere.buildingEnvironmentTexture);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const relayBeaconOverlay = createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const tradeNexusOverlay = createTradeNexusOverlay(scene, MAX_VISIBLE_TILES); const siegeTowerOverlay = createSiegeTowerOverlay(scene, MAX_VISIBLE_TILES, siegeTowerRotationMode, atmosphere.buildingEnvironmentTexture);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const farmlandOverlay = createFarmlandOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const umbriteWeaponsFactoryOverlay = createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
@@ -321,7 +321,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MINTWORKS" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" },
     { kind: "CENSUS_HALL" },
     { kind: "TITANIUM_WEAPONS_FACTORY" },
     { kind: "UMBRITE_WEAPONS_FACTORY" },
@@ -907,12 +906,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     upgradeReadyBadgeOverlay.clear();
-    musterOverlay.clear();
+    musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
     supplyLineOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
-    shardOverlay.clear(); watchtowerOverlay.clear(); waystationOverlay.clear(); naturalWonderOverlays.clear();
+    shardOverlay.clear(); watchtowerOverlay.clear(); waystationOverlay.clear(); naturalWonderOverlays.clear(); afcOverlayGroup.clear();
     fortOverlay.clear(); relayBeaconOverlay.clear(); tradeNexusOverlay.clear(); siegeTowerOverlay.clear();
     resourceOverlay.clear(); farmlandOverlay.clear(); titaniumDepositOverlay.clear(); umbriteDepositOverlay.clear(); umbriteExtractionRigOverlay.clear(); umbriteWeaponsFactoryOverlay.clear();
     attackOverlay.clear();
@@ -1219,7 +1218,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.afc && terrain === "LAND" && visibility === "visible") { afcOverlayGroup.addAfc(x, z, surfaceY, wx, wy, tile.afc.modules ?? []); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1280,7 +1279,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
-        }
+        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = tileShieldCoverage(wx, wy, knownShieldFlags); if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
         if (demoStructureEntry && terrain === "LAND") {
           if (demoStructureEntry.kind === "UMBRITE_RIG") {
@@ -1448,7 +1447,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const overlay of allBadgeOverlays) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
-    musterOverlay.commit();
+    musterOverlay.commit(); winChancePaintOverlay.commit(); shieldAreaOverlay.commit();
     syncCaptureOverlays(
       deps.state,
       deps.keyFor,
@@ -1460,7 +1459,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
-    shardOverlay.commit(); watchtowerOverlay.commit(); waystationOverlay.commit(); naturalWonderOverlays.commit();
+    shardOverlay.commit(); watchtowerOverlay.commit(); waystationOverlay.commit(); naturalWonderOverlays.commit(); afcOverlayGroup.commit();
     fortOverlay.commit(); relayBeaconOverlay.commit(); tradeNexusOverlay.commit(); siegeTowerOverlay.commit();
     resourceOverlay.commit(); farmlandOverlay.commit(); titaniumDepositOverlay.commit(); umbriteDepositOverlay.commit(); umbriteExtractionRigOverlay.commit(); umbriteWeaponsFactoryOverlay.commit();
     attackOverlay.commit();
@@ -1652,11 +1651,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
+    syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
     const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget);
-    renderReachOverlay3DPylons(nowMs);
+    renderReachOverlay3DPylons(nowMs); afcOverlayGroup.update(nowMs);
     frontierDecayPulse.render(Date.now(), ownershipOverlay); barbarianFrontierTint.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
@@ -1739,7 +1738,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
-    musterOverlay.dispose();
+    musterOverlay.dispose(); winChancePaintOverlay.dispose(); arrowOverlay.dispose(); shieldAreaOverlay.dispose();
     battleOverlayFx.dispose(); barbarianLossOverlay.dispose();
     supplyLineOverlay.dispose(); musterTransitOverlay.dispose();
     aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();
@@ -1757,7 +1756,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aegisLockFx.dispose(); unsettleFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
-    shardOverlay.dispose(); watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose();
+    shardOverlay.dispose(); watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose(); afcOverlayGroup.dispose();
     fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose(); siegeTowerOverlay.dispose();
     resourceOverlay.dispose(); farmlandOverlay.dispose(); titaniumDepositOverlay.dispose(); umbriteDepositOverlay.dispose(); umbriteExtractionRigOverlay.dispose(); umbriteWeaponsFactoryOverlay.dispose();
     attackOverlay.dispose();

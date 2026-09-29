@@ -206,6 +206,15 @@ export const createStructureOverlay = (
   for (const [k, fn] of Object.entries(populationBureauPart.layouts)) {
     layouts[k as PopulationBureauPartStructureKind] = ignoreResource(fn);
   }
+  // Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
+  // ASSEMBLY_WORKS ("Reserve Lattice") and RAIL_DEPOT ("Neural Works") swap
+  // 3D art -- they live in different families (manpower/infrastructure), so
+  // this is done post-merge rather than inside either family file. No new
+  // 3D assets this pass, per user decision.
+  const assemblyWorksLayout = layouts.ASSEMBLY_WORKS as UniformLayoutFn;
+  const railDepotLayout = layouts.RAIL_DEPOT as UniformLayoutFn;
+  layouts.ASSEMBLY_WORKS = railDepotLayout;
+  layouts.RAIL_DEPOT = assemblyWorksLayout;
 
   const addInstance = (
     sceneX: number,

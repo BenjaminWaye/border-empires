@@ -70,6 +70,11 @@ const spawnAndAnnounce = (
     deps.deleteCachedSnapshot(playerId);
     deps.log.info({ playerId }, logMessage);
   }
+  // Migration for empires settled before AFCs existed (docs/manifest-afc-settlement-migration-plan.md).
+  // A no-op for anyone who already has one -- including a player who was
+  // JUST spawned above, whose brand-new AFC already satisfies the guard.
+  const afcGranted = deps.runtime.ensurePlayerHasAfc(playerId);
+  if (afcGranted) deps.deleteCachedSnapshot(playerId);
   emitPerConnectHellos(
     {
       emitShardRainHelloFor: (id) => deps.runtime.emitShardRainHelloFor(id),

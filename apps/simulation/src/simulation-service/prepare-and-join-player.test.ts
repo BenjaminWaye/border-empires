@@ -5,6 +5,7 @@ import { createInitialSeasonState } from "../season-lifecycle.js";
 const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => ({
   runtime: {
     ensurePlayerHasSpawnTerritory: vi.fn(() => true),
+    ensurePlayerHasAfc: vi.fn(() => false),
     hasPlayer: vi.fn(() => false),
     humanPlayerCount: vi.fn(() => 0)
   } as unknown as Parameters<typeof joinSeasonHandler>[0]["runtime"],
@@ -105,5 +106,25 @@ describe("preparePlayerHandler pending season", () => {
     const [, response] = callback.mock.calls[0]!;
     expect(response).toMatchObject({ ok: true, joined: true, spawned: true });
     expect(response.pending).toBeUndefined();
+  });
+
+  // Regression test for the AFC settlement-migration grant
+  // (docs/manifest-afc-settlement-migration-plan.md): every reconnect must
+  // give a legacy (pre-AFC) empire a chance to pick one up, not just a
+  // brand-new spawn -- so ensurePlayerHasAfc must be called on this same
+  // path regardless of whether ensurePlayerHasSpawnTerritory itself spawned
+  // anything this round.
+  it("checks for a migration AFC grant on every active-season prepare, spawned or not", () => {
+    const seasonState = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000_000 });
+    const deps = buildDeps(seasonState);
+    deps.runtime.hasPlayer = vi.fn(() => true);
+    deps.runtime.ensurePlayerHasSpawnTerritory = vi.fn(() => false); // already has territory -- not a fresh spawn
+    deps.runtime.ensurePlayerHasAfc = vi.fn(() => true); // a legacy empire that just got migrated
+    const callback = vi.fn();
+
+    preparePlayerHandler(deps, { request: { player_id: "legacy-player" } }, callback);
+
+    expect(deps.runtime.ensurePlayerHasAfc).toHaveBeenCalledWith("legacy-player");
+    expect(deps.deleteCachedSnapshot).toHaveBeenCalledWith("legacy-player");
   });
 });

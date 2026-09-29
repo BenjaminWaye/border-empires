@@ -71,6 +71,7 @@ export type GatewayMetricsSnapshot = {
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
+  authVerificationRejectedTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
@@ -117,6 +118,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
+  let authVerificationRejectedTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
@@ -166,6 +168,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     loginQueuedTotal,
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
+    authVerificationRejectedTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
     tileDetailSelfHealTotal,
@@ -259,6 +262,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementLoginAbandonedBeforeAttachTotal(count = 1): void {
       loginAbandonedBeforeAttachTotal += Math.max(0, Math.floor(count));
+    },
+    incrementAuthVerificationRejectedTotal(count = 1): void {
+      authVerificationRejectedTotal += Math.max(0, Math.floor(count));
     },
     incrementSimulationSubmitTimeoutTolerated(count = 1): void {
       simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
@@ -376,6 +382,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`,
         "# TYPE gateway_login_abandoned_before_attach_total counter",
         `gateway_login_abandoned_before_attach_total ${formatMetricValue(sample.loginAbandonedBeforeAttachTotal)}`,
+        "# TYPE gateway_auth_verification_rejected_total counter",
+        `gateway_auth_verification_rejected_total ${formatMetricValue(sample.authVerificationRejectedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",

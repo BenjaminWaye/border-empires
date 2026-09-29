@@ -1,47 +1,13 @@
 import { anonymizedEmpireNameForId, isOpaquePlayerId } from "@border-empires/shared";
 
-const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
-  const parts = token.split(".");
-  if (parts.length < 2) return undefined;
-  try {
-    const json = Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
-    const parsed = JSON.parse(json) as Record<string, unknown>;
-    return parsed && typeof parsed === "object" ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
+import type { FirebaseTokenVerifier } from "./firebase-token-verifier.js";
 
-// A guest is a Firebase anonymous account (sign_in_provider "anonymous") that
-// has never been linked to a real sign-in. Linking Google or an email keeps the
-// uid, but the sign_in_provider claim describes how the session was started
-// and is not guaranteed to change when a provider is linked, so it cannot be
-// trusted on its own to say the player is still a guest: treating a player who
-// just saved their empire as a guest would leave them locked out of alliances
-// forever. A linked account always carries an email and a non-empty
-// firebase.identities, and a genuine anonymous account carries neither.
-const isAnonymousSignIn = (payload: Record<string, unknown>): boolean => {
-  const firebase = payload.firebase;
-  if (typeof firebase !== "object" || firebase === null) return false;
-  const { sign_in_provider: signInProvider, identities } = firebase as { sign_in_provider?: unknown; identities?: unknown };
-  if (signInProvider !== "anonymous") return false;
-  if (typeof payload.email === "string" && payload.email.length > 0) return false;
-  return !(typeof identities === "object" && identities !== null && Object.keys(identities).length > 0);
-};
-
-const decodeFirebaseTokenFallback = (
-  token: string
-): { uid: string; email?: string; name?: string; isGuest?: boolean } | undefined => {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return undefined;
-  const uid = typeof payload.user_id === "string" ? payload.user_id : typeof payload.sub === "string" ? payload.sub : "";
-  if (!uid) return undefined;
-  const decoded: { uid: string; email?: string; name?: string; isGuest?: boolean } = { uid };
-  if (typeof payload.email === "string") decoded.email = payload.email;
-  if (typeof payload.name === "string") decoded.name = payload.name;
-  if (isAnonymousSignIn(payload)) decoded.isGuest = true;
-  return decoded;
-};
+// A Firebase ID token is a compact JWT: exactly three dot-separated segments.
+// Anything shaped like one is never trusted until it verifies (signature,
+// issuer, audience, expiry); it is not decoded or used as a direct player id.
+// isGuest (below) is likewise computed inside the verifier from the verified
+// payload, not re-decoded here -- see firebase-token-verifier.ts.
+const looksLikeJwt = (token: string): boolean => token.split(".").length === 3;
 
 const normalizeDisplayName = (value: string | undefined): string | undefined => {
   const trimmed = value?.trim();
@@ -85,34 +51,43 @@ export type GatewayResolvedIdentity = {
   isGuest?: boolean;
 };
 
-export const resolveGatewayAuthIdentity = (
+export const resolveGatewayAuthIdentity = async (
   token: string,
   options: {
     allowDirectPlayerIdToken?: boolean;
     defaultHumanPlayerId?: string;
     authIdentities?: Array<{ uid: string; playerId: string; name?: string; email?: string }>;
+    verifyFirebaseToken?: FirebaseTokenVerifier;
   } = {}
-): GatewayResolvedIdentity | undefined => {
-  const directMappedIdentity = options.authIdentities?.find(
-    (identity) => identity.uid === token || identity.email === token || identity.playerId === token
-  );
-  if (directMappedIdentity) {
-    return {
-      playerId: directMappedIdentity.playerId,
-      playerName: normalizeDisplayName(directMappedIdentity.name) ?? fallbackDisplayNameForToken(token),
-      authUid: directMappedIdentity.uid,
-      ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email } : {})
-    };
+): Promise<GatewayResolvedIdentity | undefined> => {
+  // Dev/test shortcut: a token that is literally a known uid/email/player id.
+  // Only honored where direct player-id tokens are (i.e. a configured default
+  // human player, which managed runtimes refuse) -- uids are visible to every
+  // client, so outside dev this would let anyone log in as anyone.
+  if (options.allowDirectPlayerIdToken === true) {
+    const directMappedIdentity = options.authIdentities?.find(
+      (identity) => identity.uid === token || identity.email === token || identity.playerId === token
+    );
+    if (directMappedIdentity) {
+      return {
+        playerId: directMappedIdentity.playerId,
+        playerName: normalizeDisplayName(directMappedIdentity.name) ?? fallbackDisplayNameForToken(token),
+        authUid: directMappedIdentity.uid,
+        ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email } : {})
+      };
+    }
   }
 
-  const decoded = decodeFirebaseTokenFallback(token);
-  if (!decoded) {
+  if (!looksLikeJwt(token)) {
     if (options.allowDirectPlayerIdToken !== true) return undefined;
     return {
       playerId: token,
       playerName: fallbackDisplayNameForToken(token)
     };
   }
+
+  const decoded = options.verifyFirebaseToken ? await options.verifyFirebaseToken(token) : undefined;
+  if (!decoded) return undefined;
 
   const playerName =
     normalizeDisplayName(decoded.name) ??
