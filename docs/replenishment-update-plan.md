@@ -19,10 +19,20 @@ Status: active proposal
 > only) marches the shielding flag's company to the fight so the player
 > sees why the result went worse than expected — a deliberate substitute
 > for correcting the win-chance preview, not a stopgap for it (see E
-> below). The client win-chance preview itself still doesn't subtract a
-> shield's effect (by design), and the AI planner doesn't yet account for
-> shields at all; "auto-commit to match the defense" is still plan only.
-> The arrow-gesture UX (F) and Phases 4–5 are plan only, not started.
+> below). **Phase 3b (arrow-gesture UX, F) is implemented** (2026-09-29,
+> `agent/replenishment-plan-next`), in both renderers, with several
+> deliberate deviations from this doc's original D8/F wording — see F's
+> own section below for the full list (straight-line arrow instead of the
+> real MARCH route; no "Defend here" tap gesture; no front highlight; no
+> persistent post-confirm order arrow; win-chance shown as labels along
+> the drag instead of a per-tile paint recomputed on slider change). The
+> client win-chance preview still doesn't subtract a shield's effect from
+> its *base* number (by design, the reveal substitutes for that — see E),
+> though F3 does now show a lower number specifically for tiles within a
+> *known* shield's coverage (a narrower, client-safe version of the same
+> idea). The AI planner doesn't yet account for shields or the arrow
+> gesture at all; "auto-commit to match the defense" is still plan only.
+> Phases 4–5 are plan only, not started.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -466,26 +476,80 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
   depends on the drag-arrow gesture (F), not yet built — until then a flag's
   only limit is the manpower pool.
 
-### F. Arrow gesture UX (D8)
+### F. Arrow gesture UX (D8) ✅ done (2026-09-29), several documented deviations
 
-- Desktop right-drag and mobile long-press + drag draw an arrow along the real
-  MARCH route (green / amber / red, cursor label). A confirm sheet has size,
-  Efficient/Fast and Go.
-- Defend: tap your own tile → "Defend here". No new warning; the existing
-  attack alerts already tell the player.
-- The arrow persists as the flag's order, **visible only to its owner (and
-  allies, if we want that)**. Enemies see only the battles on their tiles
-  (D19).
-- **Win-chance map paint:** while the sheet is open, each target tile in view
-  shows its win chance for the current slider and effort. It's one short
-  calculation per tile (`(commit / base)² × base_odds` plus modifiers), done on
-  the client for tiles in view only and recomputed on slider change. It uses
-  only what the client can see (fort tier, siege, exposure). Hidden enemy
-  modifiers stay out, so the number is labelled "expected".
-- **Both renderers** (2D canvas and true-3D) for the arrow, shield area, front
-  highlight and win-chance paint.
-- Touches `client-map-input.ts`: right-click today only cancels, and plain drag
-  must keep panning.
+Implemented end-to-end in both renderers on `agent/replenishment-plan-next`
+(commits `6e6e94902`…`7972be757`), verified with a mix of unit tests, a live
+WS-frame capture showing the gateway accept a real `SET_MUSTER` sent from the
+gesture, and Storybook screenshots. What shipped, and where it differs from
+this section's original wording:
+
+- **Gesture input:** desktop right-click-drag and mobile long-press
+  (~450ms) + drag both arm the same shared, input-method-agnostic state
+  machine (`client-map-input-arrow-gesture.ts`) from an owned muster flag's
+  tile, release it on mouseup/touchend, and open a confirm sheet (manpower
+  slider + Normal/Extra/Double presets, reusing the existing muster-commit
+  tab's presets rather than new "Efficient/Fast" ones) + Go. Go sends the
+  same `SET_MUSTER` March-To command the tile menu's commit tab already
+  sends. **Deviation:** the doc's "Efficient/Fast" preset names became
+  "Normal/Extra/Double" (the presets already shipped with Phase 2's commit
+  rule) — reused rather than renamed to avoid a second, parallel preset
+  vocabulary.
+- **Arrow visual: straight line, not the real MARCH route.** The user
+  corrected this mid-implementation, overriding this doc's original
+  wording: the arrow paints a literal straight line from the flag's tile to
+  wherever the drag currently is (HOI4-style), not a tile-snapped
+  pathfinding route. Shape: wide base, tapers to a narrow neck, flares back
+  to base-width for the arrowhead, opacity gradient (0 at the base → 0.9 at
+  the tip), dark-grey 0.5-opacity outline. 2D canvas equivalent is a plain
+  line + triangular arrowhead (no taper/gradient/outline — that's 3D-only
+  styling, not ported to 2D).
+- **Win-chance: percentage labels along the crossed tiles, not a per-tile
+  paint recomputed on slider change.** Originally shipped as a tinted
+  square on the target tile + its 8 neighbors (F0); redesigned per later
+  feedback into a "XX%" text label (dark shadow, red/amber/green) on every
+  *enemy-owned* tile the arrow's line actually crosses (Bresenham,
+  `tilesAlongLine`), capped at 20 labels. **Deviation:** it does not
+  recompute per the confirm sheet's manpower slider — the label reflects
+  win chance at the *tile's base commit cost*, computed once while dragging
+  (before the sheet opens), same math (`(commit/base)² × base_odds` plus
+  modifiers) but not slider-live. It uses only what the client can already
+  see (own tiles, fog-of-war-visible enemy tiles, and F3's known-shield
+  adjustment below) — no hidden-modifier leak, matching the doc's intent.
+- **Shield area (F3, beyond this doc's original scope):** your own Hold-mode
+  flags (and any flag whose coverage you've learned some other way — your
+  own vision, or a past shield-reveal) highlight the tiles they'd shield,
+  in both renderers, and the win-chance label darkens for a target inside a
+  *known* shield's radius. This is narrower than "the win-chance preview
+  accounts for shields" (still not done for the general/hidden case, per
+  E's design) but does close the gap for the specific case where the
+  client legitimately already knows about a shield.
+- **NOT implemented — real gaps, not just wording differences:**
+  - **"Defend: tap your own tile → 'Defend here'"** — no such gesture
+    exists. F3 only added the *visualization* of a Hold-mode flag's
+    existing shield coverage; arming a flag into Hold/shield mode is still
+    done however it already was before this workstream (the muster
+    tile-actions/commit-tab UI), not via a new tap-to-defend gesture.
+  - **Front highlight** — not built. Grepped the client source; no
+    front/frontier-highlight code exists from this workstream.
+  - **"The arrow persists as the flag's order"** — it doesn't. The arrow is
+    a live drag-only visual; it's cleared the moment the confirm sheet
+    sends (or cancels). There is no persistent on-map indicator of a
+    flag's standing March-To order once you've confirmed it and moved on
+    — same as before this workstream (the flag's own tile menu is still
+    the only place to see/change an active order).
+- **Both renderers:** confirmed complete for everything that *did* ship
+  (arrow, gesture input, win-chance labels, shield-area highlight) — F4
+  closed the renderer-parity gap the earlier F0–F3 commits had explicitly
+  disclosed. The 3D-only taper/gradient/outline arrow styling is the one
+  remaining intentional renderer *difference* (not a gap — the 2D line is a
+  deliberately simpler equivalent).
+- Touches `client-map-input/client-map-input.ts`: extended (not rewritten)
+  via new sibling files (`client-map-input-arrow-gesture-wiring.ts` /
+  `-touch-wiring.ts`) to stay under the file's line cap; the pre-existing
+  right-click-cancels and drag-pans behavior is preserved and coexists with
+  the new gesture (an in-progress arrow drag suppresses ordinary pan/tap
+  tracking for the same pointer, restored on release/cancel).
 
 ### G. The visit loop UI
 
@@ -520,7 +584,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
 | **3a. Shield flags (server + reveal)** ✅ done (2026-09-26/28) | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, the matching-commitment defense multiplier, and the reactive shield reveal (combat broadcast + force-reveal + 3D reinforcement march) are all shipped. By design, not wired into the client's win-chance preview (the reveal substitutes for that); the AI planner still doesn't account for shields at all (deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
-| **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
+| **3b. Arrow UX (client)** ✅ done (2026-09-29) | F (gestures, arrow, sheet, win-chance labels), both renderers — shipped with documented deviations (straight-line arrow not the MARCH route, no Defend-here gesture, no front highlight, no persistent order arrow, win-chance not slider-live); see F's own section for the full list | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 

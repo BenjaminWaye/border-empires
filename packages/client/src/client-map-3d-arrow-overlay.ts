@@ -143,10 +143,10 @@ export const createArrowOverlay = (scene: Scene): ArrowOverlay => {
   outlineGeometry.setIndex(Array.from(INDICES));
   const outlinePositions = (outlineGeometry.attributes.position as Float32BufferAttribute).array as Float32Array;
   const outlineMaterial = new MeshBasicMaterial({
+    toneMapped: false,
     color: OUTLINE_COLOR,
     opacity: OUTLINE_OPACITY,
     transparent: true,
-    toneMapped: false,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide

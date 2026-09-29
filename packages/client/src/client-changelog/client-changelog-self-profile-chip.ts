@@ -1,13 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP: ClientChangelogEntry[] = [
-  {
-    createdAt: 1789933799384,
-    introducedIn: "2026.09.25.1",
-    title: "Press your name in the top bar to open your profile",
-    why: "Other players' names already opened their profile, but your own name in the top toolbar was plain text.",
-    changes: [
-      "The Player chip in the top toolbar is now a button that opens your profile screen"
-    ]
-  }
-];
+// All entries aged out of the "keeps only the latest week" window and were
+// moved to client-changelog-data-earlier-93.ts (historical record, left
+// unreferenced) -- see the maintenance note atop client-changelog-data.ts.
+export const CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP: ClientChangelogEntry[] = [];
