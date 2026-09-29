@@ -191,6 +191,15 @@ branch:
 - **§7 item 1** ("Make Crystal costs real and server-authoritative for
   every Aether cast") is **incorrect** — Crystal costs are already real and
   server-authoritative. Skip this item when working through §7.
+- **Existing (pre-AFC) empires never receive an AFC** — found during a
+  2026-09-28 review: only a genuinely fresh spawn or a full
+  elimination-respawn ever creates `tile.afc`
+  (`runtime-respawn-helpers.ts`'s three sites); nothing migrates an
+  already-settled empire's original town. **Decided (2026-09-29): add a new
+  AFC on free land near the player's existing settlement** the next time
+  they reconnect — the settlement itself is left untouched, not converted.
+  See `docs/manifest-afc-settlement-migration-plan.md` for the design
+  (not yet implemented).
 
 ---
 
