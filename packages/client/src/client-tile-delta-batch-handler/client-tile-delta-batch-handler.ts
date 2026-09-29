@@ -13,6 +13,7 @@ import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/clie
 import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
+import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -60,10 +61,12 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   }
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
+  const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
+      previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
       previousTileByKey.set(
         updateKey,
         existing
@@ -162,6 +165,12 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
       }
     }
+    recordAfcModuleDeliveries(
+      state,
+      detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),
+      keyFor,
+      performance.now()
+    );
     emitTownCaptureIfCaptured({
       tileUpdates,
       previousTileByKey,
