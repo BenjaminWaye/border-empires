@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import { queueAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -57,6 +58,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   }
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
+  const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
@@ -72,6 +74,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
           : undefined
       );
       previousWaystationByKey.set(updateKey, existing?.waystation ? { activated: existing.waystation.activated } : undefined);
+      previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
     }
   }
   applyGatewayTileDeltaBatch(
@@ -152,6 +155,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
       }
     }
+    queueAfcModuleDeliveries({ tileUpdates, previousModulesByKey: previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, queue: state.afcModuleDeliveryFxQueue, deliveredAtByKey: state.afcModuleDeliveredAtByKey, nowMs });
     emitTownCaptureIfCaptured({
       tileUpdates,
       previousTileByKey,

@@ -57,6 +57,14 @@ export const AFC_BAY_INNER_RADIUS = 0.14;
 // (top of the bay pad).
 export const AFC_MODULE_DOCK_HEIGHT = 0.04;
 
+// Offset (map tiles) and outward yaw of socket `k` from the AFC center.
+// Single source of truth for the ring layout: the socket geometry, the
+// docked-module attachments and the module-delivery FX all read this.
+export const afcSocketPlacement = (k: number): { readonly dx: number; readonly dz: number; readonly yaw: number } => {
+  const yaw = (k * Math.PI) / 4;
+  return { dx: Math.cos(yaw) * AFC_SOCKET_RING_RADIUS, dz: Math.sin(yaw) * AFC_SOCKET_RING_RADIUS, yaw };
+};
+
 export type AfcModuleSocketAttachment = {
   readonly socketIndex: number;
   readonly x: number;
@@ -412,13 +420,13 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     const rec = records[instanceIndex]!;
     const out: AfcModuleSocketAttachment[] = [];
     for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
-      const a = (k * Math.PI) / 4;
+      const { dx, dz, yaw } = afcSocketPlacement(k);
       out.push({
         socketIndex: k,
-        x: rec.x + Math.cos(a) * AFC_SOCKET_RING_RADIUS,
+        x: rec.x + dx,
         y: rec.y + AFC_MODULE_DOCK_HEIGHT,
-        z: rec.z + Math.sin(a) * AFC_SOCKET_RING_RADIUS,
-        yaw: a,
+        z: rec.z + dz,
+        yaw,
         bayInnerRadius: AFC_BAY_INNER_RADIUS
       });
     }

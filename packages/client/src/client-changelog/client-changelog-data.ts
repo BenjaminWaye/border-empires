@@ -380,6 +380,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "If your empire has a settled tile but no AFC, you'll be granted one on free land near your existing settlement the next time you connect -- your settlement itself is untouched"
     ]
+  },
+  {
+    createdAt: 1790716363000, // frozen at authoring time
+    introducedIn: "2026.09.29.2",
+    title: "Modules now dock in the right slot on your Fabrication Complex, with a landing animation",
+    why: "Only the first module docked into its slot: every later module was rotated around the map origin instead of its own dock, so it ended up far from your Fabrication Complex. Unlocking a module also gave no feedback, and modules without their own 3D model rendered nothing.",
+    changes: [
+      "Fixed modules after the first missing their slot -- each module now sits in its own slot on the Fabrication Complex",
+      "Researching an AFC module now plays a delivery animation on the true-3D map: a cargo streak lands on the exact slot the module docks into, with an impact flash and a dust cloud around the complex",
+      "Modules that don't have their own 3D model yet now dock as a plain generic cartridge instead of leaving their slot empty",
+      "The 2D map has no per-module visuals, so the Fabrication Complex glyph briefly flares when a module lands"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

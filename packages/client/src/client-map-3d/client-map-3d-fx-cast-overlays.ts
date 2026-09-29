@@ -18,8 +18,11 @@ import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3
 import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
+import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
+import { AFC_MODULE_DOCK_HEIGHT, afcSocketPlacement } from "../client-map-3d-fabrication-complex.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 
+const AFC_DELIVERY_FX_MAX_AGE_MS = 10_000;
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 export const AEGIS_LOCK_FIELD_RADIUS_TILES = 30;
@@ -41,6 +44,7 @@ export type FxCastOverlayLayers = {
   astralDockLaunchFx: ReturnType<typeof createRevealEmpireFxLayer>;
   aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
   unsettleFx: ReturnType<typeof createUnsettleFxLayer>;
+  afcModuleDeliveryFx: ReturnType<typeof createAfcModuleDeliveryFxLayer>;
 };
 
 export type FxCastOverlayDeps = {
@@ -66,6 +70,7 @@ export type FxCastOverlaySyncs = {
   readonly syncWorldEngineStrikeShakeQueue: (nowMs: number) => void;
   readonly syncImperialExchangeLevyFxQueue: () => void;
   readonly syncUnsettleFxQueue: () => void;
+  readonly syncAfcModuleDeliveryFxQueue: () => void;
   readonly syncAstralDockLaunchFxQueue: () => void;
   readonly syncAegisLockFxQueue: () => void;
 };
@@ -196,6 +201,20 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  // The streak lands on the exact socket the module docks into (the same ring
+  // layout the AFC overlay places its docked modules with).
+  const syncAfcModuleDeliveryFxQueue = (): void => {
+    while (state.afcModuleDeliveryFxQueue.length > 0) {
+      const delivery = state.afcModuleDeliveryFxQueue.shift()!;
+      // Queued while the 2D renderer was active (nothing drains it there) and
+      // now stale: don't replay old deliveries when switching to 3D.
+      if (Date.now() - delivery.queuedAt > AFC_DELIVERY_FX_MAX_AGE_MS) continue;
+      const { sceneX, sceneZ } = sceneXZ(delivery.x, delivery.y);
+      const { dx, dz } = afcSocketPlacement(delivery.slot);
+      layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(delivery.x, delivery.y), performance.now(), { dx, dy: AFC_MODULE_DOCK_HEIGHT, dz });
+    }
+  };
+
   const syncAstralDockLaunchFxQueue = (): void => {
     while (state.astralDockLaunchFxQueue.length > 0) {
       const cast = state.astralDockLaunchFxQueue.shift()!;
@@ -232,6 +251,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncWorldEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
     syncUnsettleFxQueue,
+    syncAfcModuleDeliveryFxQueue,
     syncAstralDockLaunchFxQueue,
     syncAegisLockFxQueue
   };

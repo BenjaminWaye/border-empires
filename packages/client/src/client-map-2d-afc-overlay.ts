@@ -16,19 +16,26 @@ import type { Tile } from "./client-types.js";
  * "the Bleed" changelog entry) that the 2D accessibility fallback may be
  * visually simpler than 3D as long as that's stated plainly.
  */
+export const AFC_2D_DELIVERY_PULSE_MS = 1400;
+
 export const drawAfc2D = (
   ctx: CanvasRenderingContext2D,
   tile: Pick<Tile, "x" | "y" | "afc">,
   px: number,
   py: number,
   size: number,
-  nowMs: number
+  nowMs: number,
+  // performance.now() of this AFC's latest module delivery, if any (see
+  // afcModuleDeliveredAtByKey): 2D shows no per-module visuals, so a delivery
+  // just flares the core and brass rim for AFC_2D_DELIVERY_PULSE_MS.
+  deliveredAtMs?: number
 ): void => {
   const afc = tile.afc;
   if (!afc) return;
   const cx = px + size / 2;
   const cy = py + size / 2;
   const phase = ((tile.x * 41_777) ^ (tile.y * 29_989)) % 1000 / 1000;
+  const deliveryT = deliveredAtMs === undefined ? 0 : Math.max(0, 1 - (nowMs - deliveredAtMs) / AFC_2D_DELIVERY_PULSE_MS);
   const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 320 + phase * Math.PI * 2);
 
   // Shadow footprint.
@@ -70,7 +77,7 @@ export const drawAfc2D = (
   const coreColor = active ? `rgba(96, 224, 255, ${0.75 + pulsePhase * 0.25})` : "rgba(120, 150, 160, 0.6)";
   ctx.fillStyle = coreColor;
   ctx.beginPath();
-  ctx.arc(cx, cy, size * (active ? 0.09 + pulsePhase * 0.015 : 0.07), 0, Math.PI * 2);
+  ctx.arc(cx, cy, size * (active ? 0.09 + pulsePhase * 0.015 + deliveryT * 0.07 : 0.07), 0, Math.PI * 2);
   ctx.fill();
   if (active) {
     ctx.save();
@@ -80,5 +87,11 @@ export const drawAfc2D = (
     ctx.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+  if (deliveryT > 0) {
+    ctx.strokeStyle = `rgba(255, 190, 110, ${0.9 * deliveryT})`;
+    ctx.lineWidth = Math.max(1, size * 0.05);
+    octagon(size * (0.34 + (1 - deliveryT) * 0.16));
+    ctx.stroke();
   }
 };
