@@ -42,13 +42,13 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       if (currentVariant === "TITANIUM_BASTION") return `Upgrade this Titanium Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
       // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
     }
-    return tile.economicStructure?.type === "WOODEN_FORT"
+    return tile.fort?.variant === "WOODEN_FORT"
       ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but coin-only.";
   if (actionId === "build_observatory")
-    return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions within ${OBSERVATORY_PROTECTION_RADIUS} tiles — protection pauses while this tower is on cooldown.`;
+    return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and protects your own tiles within ${OBSERVATORY_PROTECTION_RADIUS} tiles from hostile Aether abilities (Purge, EMP, Siphon, terrain shaping, Aether Bridge landings) — it never covers unclaimed land or other players' tiles. Protection pauses while this tower is on cooldown, except against Siphon.`;
   if (actionId === "build_siege_camp") {
     // Only show upgrade text when a siege outpost already exists.
     if (tile.siegeOutpost) {

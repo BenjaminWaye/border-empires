@@ -45,3 +45,7 @@ export const tileShieldCoverage = (x: number, y: number, knownFlags: readonly Kn
   }
   return best;
 };
+
+/** The shield-area tint is a targeting aid: only while dragging the attack arrow, and only on tiles someone else owns. */
+export const isShieldCoverageShownOn = (arrowGesture: unknown, tileOwnerId: string | undefined, me: string): boolean =>
+  Boolean(arrowGesture) && Boolean(tileOwnerId) && tileOwnerId !== me;

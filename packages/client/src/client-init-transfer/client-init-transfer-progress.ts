@@ -1,5 +1,7 @@
 import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
 import { estimateInitBuildMs } from "./client-init-transfer-build-estimate.js";
+import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
+import { estimateMapPrepMs } from "../client-map-prep/client-map-prep-estimate.js";
 
 type InitTransferProgressState = {
   authSessionReady: boolean;
@@ -61,7 +63,7 @@ const estimateDownloadRemainingMs = (progress: InitTransferProgress, now: number
 export const describeInitTransfer = (
   progress: InitTransferProgress,
   now: number = Date.now(),
-  buildEstimateMs: number = estimateInitBuildMs(progress.totalChars)
+  buildEstimateMs: number = estimateInitBuildMs(progress.totalChars) + (prefersTrue3DRendererMode ? estimateMapPrepMs() : 0)
 ): InitTransferView => {
   if (progress.phase === "building") {
     return {

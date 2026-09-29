@@ -367,7 +367,7 @@ export const structureInfoForKey = (
   if (type === "OBSERVATORY") {
     return structure({
       title: "Aether Tower",
-      detail: "Aether Towers add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
+      detail: "Aether Towers add local vision, protect your own nearby tiles (never unclaimed or other players' land) against hostile Aether abilities, and let you cast crystal abilities inside their radius.",
       glyph: "◉",
       placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
       costBits: costBitsFor(type),
@@ -379,7 +379,7 @@ export const structureInfoForKey = (
       title: "Palisade",
       detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
       glyph: "🪵",
-      placement: "Build on an owned border tile or dock with no town, resource, or other structure.",
+      placement: "Build on a settled tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });

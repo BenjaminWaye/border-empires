@@ -4,8 +4,12 @@ import {
   drawCenteredOverlayWithAlpha
 } from "../client-map-render/client-map-render-centered-overlay.js";
 import {
+  fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
+  fortificationOverlayKindForTile,
   siegeBatteryFacingRadiansForTile,
+  stackedRelayBeaconForTile,
+  type FortificationOpening,
   type FortificationOverlayDeps,
   type FortificationOverlayKind
 } from "./client-fortification-overlays.js";
@@ -27,7 +31,7 @@ export const drawFortificationOverlay2D = (
   facingDeps: FortificationOverlayDeps
 ): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const alpha = fortificationOverlayAlphaForTile(tile);
+  const alpha = fortificationOverlayAlphaForTile(tile, kind);
   if (kind === "SIEGE_OUTPOST") {
     const facingRad = siegeBatteryFacingRadiansForTile(tile, facingDeps);
     // Canvas rotate() is visually clockwise for +angle in this y-down screen
@@ -37,4 +41,24 @@ export const drawFortificationOverlay2D = (
     return;
   }
   drawCenteredOverlayWithAlpha(ctx, overlay, px, py, size, 1, alpha);
+};
+
+// The tile's fortification overlay plus, when a Relay Beacon shares the tile
+// with a Palisade/Fort, the beacon drawn on top so the fort doesn't hide it.
+// 2D counterpart to addFortificationInstancesForTile (client-map-3d-fortification-instances.ts).
+export const drawTileFortificationOverlays2D = (
+  ctx: CanvasRenderingContext2D,
+  tile: Tile,
+  px: number,
+  py: number,
+  size: number,
+  deps: FortificationOverlayDeps,
+  overlayImageFor: (kind: FortificationOverlayKind, opening: FortificationOpening) => HTMLImageElement | undefined
+): void => {
+  const kind = fortificationOverlayKindForTile(tile);
+  if (!kind) return;
+  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps);
+  if (stackedRelayBeaconForTile(tile)) {
+    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps);
+  }
 };

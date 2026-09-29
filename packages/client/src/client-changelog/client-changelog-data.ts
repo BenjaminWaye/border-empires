@@ -20,6 +20,29 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
+    introducedIn: "2026.09.29.1",
+    title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
+    why: "Only Aether Purge and Aether EMP were checked against enemy Aether Towers. Aether Bridge landings and Create/Remove Mountain went through even next to an enemy tower, and a tower also blocked abilities on land it didn't own.",
+    changes: [
+      "An Aether Tower now protects only its owner's own tiles within its radius -- never unclaimed land or another player's tiles -- and the tower description says so",
+      "Aether Bridge can't land on enemy land their Aether Tower protects; landing on unclaimed land is never blocked",
+      "Create/Remove Mountain are blocked on land protected by its owner's Aether Tower, like Aether Purge and EMP",
+      "Hidden enemy Aether Towers block these abilities too -- you'll see \"blocked by an Aether Tower\" when that happens"
+    ]
+  },
+  {
+    createdAt: 1790702571174,
+    introducedIn: "2026.09.28.1",
+    title: "Login now shows each step of building your map",
+    why: "After your world downloaded, the login screen sat on \"Building your map\" with a full progress bar while the map was built in one long freeze, so it looked stuck.",
+    changes: [
+      "After the download, the login screen now walks through each step of building your map (setting up graphics, shaping the land, placing towns, preparing shaders, drawing the map) with \"Step 2 of 5\" and about how long is left",
+      "The time estimate learns how fast your device builds each step, so it gets more accurate after your first login",
+      "Logging in with a large empire freezes the screen for less time: the minimap is drawn in small pieces after the map appears, and the Empire Integrity panel is no longer recalculated on every screen refresh"
+    ]
+  },
+  {
     createdAt: 1790450114908,
     introducedIn: "2026.09.26.1",
     title: "Planets you won in older seasons reappear in Space View",
@@ -155,7 +178,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114920, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    createdAt: 1790702571173, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
     introducedIn: "2026.09.22.2",
     title: "Seed Granary removed",
     why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
@@ -232,7 +255,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114920, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1790702571173, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.27.2",
     title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
     why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",
@@ -276,7 +299,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1790450114928, // frozen, 1ms after the newest existing entry
     introducedIn: "2026.09.28.3",
     title: "See what's docked on your AFC",
-    why: "tile.afc.modules already tracked every module you'd commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
+    why: "tile.afc.modules already tracked every module you've commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
     changes: [
       "Tapping an AFC now lists every module you've commissioned, grouped under Economy, Manpower, War, and Aether -- regardless of whether that module has 3D or 2D map art yet",
       "An inactive AFC shows a \"Dormant\" banner over its module list, rather than hiding the list -- modules stay visible even when they're not currently doing anything"
@@ -289,6 +312,77 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Only a fresh spawn or a full elimination-respawn ever created an AFC -- an empire that settled before AFCs shipped had no way to ever get one, and so no way to commission Manifest modules at all.",
     changes: [
       "If your empire has a settled tile but no AFC, you'll be granted one on free land near your existing settlement the next time you connect -- your settlement itself is untouched"
+    ]
+  },
+  {
+    createdAt: 1790706701000,
+    introducedIn: "2026.09.29.2",
+    title: "Modules now visibly land on your AFC",
+    why: "Researching an AFC Module used to just make it appear on your AFC with no feedback, so it was easy to miss that the delivery had happened at all.",
+    changes: [
+      "True-3D renderer: when a Manifest Module docks on your AFC, a cargo streak now burns down onto the complex and lands in a flash, shockwave and dust cloud",
+      "2D canvas renderer (accessibility fallback): the AFC glyph briefly flares with a brass ring instead -- 2D has no per-module visuals, so it does not play the full sequence",
+      "Only your own AFCs animate, and a delivery that happened while you were offline is not replayed when you reconnect"
+    ]
+  },
+  {
+    createdAt: 1790712449220,
+    introducedIn: "2026.09.29.3",
+    title: "Palisades and Forts now stack with Relay Beacons, and forts keep defending while they upgrade",
+    why: "Building a Palisade on a Relay Beacon or Harbor Exchange silently destroyed it, a Fort built on a Relay Beacon made the beacon vanish from the map, and the tile info only ever named one of the two. Palisades also never actually applied the defense their build menu advertised, and upgrading any fort left the tile undefended until the new tier finished.",
+    changes: [
+      "A Palisade now stacks on a Relay Beacon or Harbor Exchange exactly like a Fort does, instead of replacing it (a beacon already lost this way can't be restored)",
+      "A Relay Beacon that shares its tile with a Palisade or Fort is now drawn on the map, on both the 3D and the 2D map",
+      "The tile info's \"Built:\" line now lists every structure on the tile, e.g. \"Built: Fort, Relay Beacon\"",
+      "Palisades now really defend in combat: 1.35x defense, attackers need 150 mustered manpower and risk losing 100-150 of it",
+      "While a Palisade or Fort upgrades to its next tier, the current one keeps standing and defending until the upgrade completes; cancelling an upgrade, or losing the tile mid-upgrade, now keeps the current fort instead of destroying it",
+      "Existing Palisades are carried over automatically"
+    ]
+  },
+  {
+    createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.3",
+    title: "Empire names are now unique, and new players start with a noble house name",
+    why: "Any number of players could pick the same name, so alliance and truce requests (which find a player by name) could reach the wrong empire, and two rivals could look identical on the leaderboard.",
+    changes: [
+      "Two empires can no longer share a name: picking one that's taken (ignoring capitals and spacing) is rejected with a free alternative suggested, like \"House Ashgrove II\"",
+      "New players now start with a free noble house name already filled in, such as \"House Valmont\", which you can change in the name step",
+      "Names you already have are kept, even if someone else has the same one"
+    ]
+  },
+  {
+    createdAt: 1790706701002, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.4",
+    title: "You can now jump into a game as a guest with one click",
+    why: "Every new player had to sign up before they could even see the game, and Google sign-in doesn't work inside the browsers built into Instagram, TikTok or Discord, which is where most invite links get opened.",
+    changes: [
+      "The sign-in screen now leads with \"Play now\": one click starts a guest empire with no account, and takes you straight into the season",
+      "Guests are named \"House Noname 1\", \"House Noname 2\" and so on, so everyone can tell who is a guest, and skip the name and colour step",
+      "Guests can't make alliances or truces, and a guest empire lives in the browser it was started in",
+      "If the guest spots, or the whole season, are full you're taken back to the sign-in screen with the reason shown",
+      "Rally invite links now offer \"Play now\" as well as signing in, and on a browser where you've signed in before, \"Play now\" is shown as the secondary button"
+    ]
+  },
+  {
+    createdAt: 1790706701003, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.5",
+    title: "Guests can now save their empire to a real account",
+    why: "A guest empire disappeared as soon as the browser data was cleared and could never make alliances, so there was no way to keep playing an empire you had started with \"Play now\".",
+    changes: [
+      "A gold \"Guest\" badge appears in the game: tap it to save your empire with Google or an emailed link, and keep the same empire, alliances and season emails",
+      "Saving is offered automatically when you try to make an alliance or truce, and once after about ten minutes of play",
+      "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
+      "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
+      "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.29.6",
+    title: "Module deliveries now target their AFC socket",
+    why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
+    changes: [
+      "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
     ]
   }
 ];

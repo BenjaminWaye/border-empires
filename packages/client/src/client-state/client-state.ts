@@ -10,7 +10,7 @@ import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -98,7 +98,7 @@ export const createInitialState = () => ({
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
   ...createInitialAuthBusyState(),
-  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
+  seasonFull: false, seasonFullNotifyAcknowledged: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
   profileSetupRequired: false,
   gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -254,7 +254,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, ...createInitialAfcDeliveryState(), // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,

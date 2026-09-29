@@ -12,11 +12,7 @@ import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-me
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
-import {
-  fortificationOpeningForTile,
-  fortificationOverlayKindForTile
-} from "./client-fortification-overlays/client-fortification-overlays.js";
-import { drawFortificationOverlay2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
+import { drawTileFortificationOverlays2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
@@ -453,7 +449,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs);
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk));
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
@@ -468,18 +464,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
-        const fortificationKind = fortificationOverlayKindForTile(t);
-        if (fortificationKind) {
-          const opening = fortificationOpeningForTile(t, {
-            tiles: state.tiles,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY
-          });
-          const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
-          drawFortificationOverlay2D(deps.ctx, t, fortificationKind, overlay, px, py, size,
-            { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
-        }
+        drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
+          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor);
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
         // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
@@ -515,7 +501,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-        const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
         // Structures handled by the 3D structure overlay — skip the 2D
         // image / fallback so the canvas stays clean over them.
@@ -526,8 +511,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const handled3DStructure =
           isTrue3DRendererActive() &&
           isStructureHandledBy3D(t.economicStructure.type);
-        if (fortificationKind || handled3DStructure) {
-          // 3D-rendered (forts + 3D-overlay structures); no 2D fallback.
+        // A Relay Beacon is drawn by the fortification overlay pass; any other
+        // economic structure still gets drawn when a fort shares its tile.
+        if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
@@ -1033,7 +1019,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs);
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk));
 
         if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
