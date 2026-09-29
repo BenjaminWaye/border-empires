@@ -10,7 +10,7 @@ describe("buildDetailTextForAction fort tier text", () => {
   const fortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active" } };
   const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "TITANIUM_BASTION" } };
   const thunderTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "THUNDER_BASTION" } };
-  const woodenFortTile: Tile = { ...emptyTile, economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" } };
+  const woodenFortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" } };
 
   it("shows 'Fortify this tile' for a tile with no fort (no regression to upgrade text)", () => {
     const detail = buildDetailTextForAction("build_fortification", emptyTile);

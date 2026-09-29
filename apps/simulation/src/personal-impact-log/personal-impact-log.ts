@@ -70,7 +70,7 @@ export type PersonalImpactLog = {
   prune: (now: number) => void;
   entries: () => readonly PersonalImpactEvent[];
   gauge: () => PersonalImpactLogGauge;
-  restore: (events: readonly PersonalImpactEvent[], now: number) => void;
+  restore: (events: readonly PersonalImpactEvent[], now: number, capHits?: number) => void;
 };
 
 export const createPersonalImpactLog = (options: { now?: () => number } = {}): PersonalImpactLog => {
@@ -93,12 +93,13 @@ export const createPersonalImpactLog = (options: { now?: () => number } = {}): P
     }
   };
 
-  const restore = (restored: readonly PersonalImpactEvent[], at: number): void => {
+  const restore = (restored: readonly PersonalImpactEvent[], at: number, restoredCapHits = 0): void => {
     const cutoff = at - PERSONAL_IMPACT_WINDOW_MS;
     events = restored
       .filter((event) => event.occurredAt >= cutoff)
       .sort((left, right) => left.occurredAt - right.occurredAt)
       .slice(-PERSONAL_IMPACT_LOG_MAX_ENTRIES);
+    capHits = Math.max(capHits, Number.isFinite(restoredCapHits) ? Math.max(0, restoredCapHits) : 0);
   };
 
   return {

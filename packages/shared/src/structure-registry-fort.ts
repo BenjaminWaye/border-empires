@@ -1,6 +1,7 @@
 import {
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
+  WOODEN_FORT_BUILD_MS,
 } from "./config.js";
 import {
   FORT_TIER_LADDER,
@@ -13,8 +14,7 @@ import type { FortVariant } from "./types.js";
 
 /**
  * Placement check shared by all fort variants.
- * Forts allow upgrading from an existing fort (same tile field)
- * and from WOODEN_FORT (via the economic handler's upgrade path).
+ * Forts upgrade in place over an existing fort-family structure (including a Palisade).
  */
 const fortPlacement: StructureSpec["placement"] = [
   ownerOwnsTile,
@@ -44,7 +44,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
     cost: {
       gold: tier.gold,
       manpower: tier.manpower,
-      strategic: { TITANIUM: tier.titanium },
+      ...(tier.titanium > 0 ? { strategic: { TITANIUM: tier.titanium } } : {}),
     },
     buildMs: FORT_BUILD_MS,
     techIds,
@@ -55,14 +55,11 @@ function fortSpec(variant: FortVariant): StructureSpec {
   };
 }
 
-// docs/replenishment-update-plan.md D17: WOODEN_FORT is dropped here --
-// STRUCTURE_REGISTRY (structure-registry-index.ts) spreads ECONOMIC_SPECS
-// after FORT_SPECS, so ECONOMIC_SPECS.WOODEN_FORT (structure-registry-
-// economic.ts's econSpec, reading the real STRUCTURE_COST_DEFINITIONS
-// entry) always won anyway -- this fortSpec("WOODEN_FORT") copy was dead,
-// unreachable weight carrying a manpower figure (once 150, now unified to
-// match at 30) nothing ever charged.
-export const FORT_SPECS: Record<Exclude<FortVariant, "WOODEN_FORT">, StructureSpec> = {
+// WOODEN_FORT (Palisade) is fort-ladder tier 0 and lives in tile.fort like
+// every other fortification, so it stacks on a Relay Beacon / Harbor Exchange
+// exactly as a Fort does (docs/structure-slot-unification-plan.md, PR 1).
+export const FORT_SPECS: Record<FortVariant, StructureSpec> = {
+  WOODEN_FORT: { ...fortSpec("WOODEN_FORT"), buildMs: WOODEN_FORT_BUILD_MS },
   FORT: fortSpec("FORT"),
   TITANIUM_BASTION: fortSpec("TITANIUM_BASTION"),
   THUNDER_BASTION: fortSpec("THUNDER_BASTION"),

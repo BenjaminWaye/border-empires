@@ -27,6 +27,7 @@ import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
+import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
 import { normalizeHex, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
@@ -102,6 +103,7 @@ import { createSeededAiTruceResponder, memoizeWithTtl } from "../seeded-ai-truce
 import { createLoginQueue } from "../login-queue/login-queue.js";
 import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js"; import { resolveDukeAuthUidsBestEffort } from "../galaxy-holdings/galaxy-holdings.js";
+import type { RealtimeGatewayAppOptions } from "./realtime-gateway-app-options.js";
 
 import { applyPlayerMessageToSnapshot, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
@@ -116,45 +118,6 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   isGuest?: boolean;
 };
 
-type SimulationClient = ReturnType<typeof createSimulationClient>;
-
-type RealtimeGatewayAppOptions = {
-  host?: string;
-  port?: number;
-  logger?: boolean;
-  simulationAddress?: string;
-  simulationWakeAddress?: string;
-  simulationClient?: SimulationClient;
-  commandStore?: GatewayCommandStore;
-  profileStore?: GatewayPlayerProfileStore;
-  growthBaselineStore?: PlayerGrowthBaselineStore;
-  authBindingStore?: GatewayAuthBindingStore;
-  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"]; galaxySenateStore?: Awaited<ReturnType<typeof wireGalaxySenate>>["galaxySenateStore"];
-  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: Awaited<ReturnType<typeof wireGalaxyFleets>>["galaxyFleetStore"]; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore;
-  socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
-  sqlitePath?: string;
-  applySchema?: boolean;
-  defaultHumanPlayerId?: string;
-  firebaseProjectId?: string; firebaseTokenVerifier?: FirebaseTokenVerifier;
-  simulationSeedProfile?: SimulationSeedProfile;
-  allowNonAuthoritativeInitialState?: boolean;
-  aiPlayerCount?: number;
-  snapshotDir?: string;
-  createCommandId?: () => string;
-  now?: () => number;
-  simulationPrepareTimeoutMs?: number;
-  simulationSubscribeTimeoutMs?: number;
-  simulationSubmitTimeoutMs?: number;
-  simulationRpcRetryAttempts?: number;
-  adminApiToken?: string;
-  adminEmail?: string;
-  emailAlerts?: EmailAlertConfig;
-  playOrigin?: string;
-  simMetricsUrl?: string;
-  // Getter for the sim worker's lag-diagnostics ring buffer; surfaced in the debug-bundle for triage.
-  simDiagnostics?: () => unknown[];
-  wsHeartbeatIntervalMs?: number;
-};
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   sendJsonToSocket(socket, payload);
@@ -302,6 +265,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const simSubmitHealth = createSimSubmitHealthState();
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
+  let activityCalibrationStore: Awaited<ReturnType<typeof createGatewayActivityCalibrationStore>>;
+  try {
+    activityCalibrationStore = await createGatewayActivityCalibrationStore({
+      ...(options.sqlitePath ? { sqlitePath: options.sqlitePath } : {}),
+      ...(options.applySchema ? { applySchema: true } : {})
+    });
+    const restoredCalibration = await activityCalibrationStore?.load();
+    if (restoredCalibration) gatewayMetrics.restoreActivityCalibrationState(restoredCalibration);
+  } catch (error) {
+    app.log.warn({ err: error }, "activity calibration persistence unavailable; using process-local metrics");
+    activityCalibrationStore = undefined;
+  }
   const slowLoginAlerter = createSlowLoginAlerter({
     ...(process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK
       ? { webhookUrl: process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK }
@@ -342,6 +317,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let lastCpuSampleAt = Date.now();
   let lastCpuUsage = process.cpuUsage();
   let lastGatewayMetricsLogAt = 0;
+  let lastActivityCalibrationPersistedAt = 0;
+  let activityCalibrationPersistInFlight = false;
   const pendingGcDurationsMs: number[] = [];
   const gatewayBootstrapStringifier = createGatewayStringifier();
   const inlineBootstrapStringifyTileLimit = Math.max(
@@ -1734,6 +1711,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     sweepExpiredCacheEntries(profileCache, Date.now());
     refreshGatewaySnapshotCacheMetrics();
     const now = Date.now();
+    if (activityCalibrationStore && !activityCalibrationPersistInFlight && now - lastActivityCalibrationPersistedAt >= 15_000) {
+      activityCalibrationPersistInFlight = true;
+      lastActivityCalibrationPersistedAt = now;
+      void activityCalibrationStore.save(gatewayMetrics.exportActivityCalibrationState())
+        .catch((error: unknown) => app.log.warn({ err: error }, "activity calibration persistence failed"))
+        .finally(() => { activityCalibrationPersistInFlight = false; });
+    }
     if (gatewayMetricsLogIntervalMs > 0 && now - lastGatewayMetricsLogAt >= gatewayMetricsLogIntervalMs) {
       lastGatewayMetricsLogAt = now;
       const sample = gatewayMetrics.snapshot();
@@ -1777,6 +1761,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
     databaseKeepAlive.stop();
     playerFunnel.stop();
+    if (activityCalibrationStore) {
+      try {
+        await activityCalibrationStore.save(gatewayMetrics.exportActivityCalibrationState());
+      } catch (error) {
+        app.log.warn({ err: error }, "final activity calibration persistence failed");
+      }
+    }
     gcObserver?.disconnect(); wsHeartbeat.stop(); stopSimulationStream();
   });
 
