@@ -11,7 +11,13 @@ export const DEFAULT_FIREBASE_PROJECT_ID = "border-empires";
 
 const CLOCK_TOLERANCE_SECONDS = 30;
 
-export type VerifiedFirebaseToken = { uid: string; email?: string; name?: string };
+// isGuest is true for a Firebase anonymous-provider token that has not been
+// linked to a real sign-in. Computed here, from the verified payload, rather
+// than by re-decoding the raw token elsewhere -- the whole point of this
+// module is that no claim is trusted before signature verification. A linked
+// account always carries an email or at least one linked identity; a genuine
+// anonymous account carries neither.
+export type VerifiedFirebaseToken = { uid: string; email?: string; name?: string; isGuest?: boolean };
 
 export type FirebaseTokenRejectReason =
   | "malformed"
@@ -84,6 +90,12 @@ export const createFirebaseTokenVerifier = (options: FirebaseTokenVerifierOption
       // Anonymous-provider tokens carry neither email nor name; both stay optional.
       if (typeof payload.email === "string") verified.email = payload.email;
       if (typeof payload.name === "string") verified.name = payload.name;
+      const firebaseClaim = payload.firebase;
+      if (typeof firebaseClaim === "object" && firebaseClaim !== null) {
+        const { sign_in_provider: signInProvider, identities } = firebaseClaim as { sign_in_provider?: unknown; identities?: unknown };
+        const hasLinkedIdentity = typeof identities === "object" && identities !== null && Object.keys(identities).length > 0;
+        if (signInProvider === "anonymous" && !verified.email && !hasLinkedIdentity) verified.isGuest = true;
+      }
       return verified;
     } catch (error) {
       return reject(rejectReasonFor(error));

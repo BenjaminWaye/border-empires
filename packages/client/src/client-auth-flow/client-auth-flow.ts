@@ -6,7 +6,6 @@ import {
   sendSignInLinkToEmail,
   setPersistence,
   signInWithEmailAndPassword,
-  signInWithEmailLink,
   signInWithPopup,
   updateProfile,
   type User
@@ -31,6 +30,10 @@ import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
+import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
+import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from "../client-guest-save/client-guest-save.js";
+import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save/client-guest-save-panel.js";
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
@@ -67,40 +70,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     emailLinkSentTo: "",
     emailLinkPending: false
   };
-  const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
-
-  // Safari private browsing / ITP (and email-link taps opened from Mail in a
-  // locked-down WebKit context) can throw on any localStorage access rather
-  // than just returning null. An unguarded throw here during bootstrap used
-  // to abort the entire client init with no diagnostics, and because the
-  // sign-in link's query string is never cleared on that path, every reload
-  // of the same link reproduced the identical crash (Safari's "a problem
-  // repeatedly occurred" page). These wrappers make storage access degrade
-  // gracefully instead of crashing; normal browsers with working storage are
-  // unaffected.
-  const safeLocalStorageGet = (key: string): string | null => {
-    try {
-      return window.localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  };
-
-  const safeLocalStorageSet = (key: string, value: string): void => {
-    try {
-      window.localStorage.setItem(key, value);
-    } catch {
-      // Storage unavailable — same-device autofill just won't work.
-    }
-  };
-
-  const safeLocalStorageRemove = (key: string): void => {
-    try {
-      window.localStorage.removeItem(key);
-    } catch {
-      // Storage unavailable — nothing to clean up.
-    }
-  };
+  initGuestSave({ firebaseAuth, googleProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
 
   const clearEmailLinkUrl = (): void => {
     try {
@@ -132,6 +102,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authRegisterBtn: dom.authRegisterBtn,
       authEmailLinkBtn: dom.authEmailLinkBtn,
       authGoogleBtn: dom.authGoogleBtn,
+      authPlayNowBtn: dom.authPlayNowBtn,
       authEmailEl: dom.authEmailEl,
       authPasswordEl: dom.authPasswordEl,
       authDisplayNameEl: dom.authDisplayNameEl,
@@ -149,6 +120,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthPanelState,
       setAuthStatus
     });
+    syncGuestSaveBadge(state);
     dom.authBusyDiagnosticsBtn.onclick = () => {
       try {
         downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
@@ -207,8 +179,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     setAuthStatus("Completing email link sign-in...");
     syncAuthOverlay();
     try {
-      const cred = await signInWithEmailLink(firebaseAuth, email, window.location.href);
-      logSignUpIfNewUser(analytics, cred, "email-link");
+      // A guest's link must LINK the email to the guest account, not sign in (see linkOrSignInWithEmailLink).
+      const href = window.location.href;
+      const result = await linkOrSignInWithEmailLink(firebaseAuth, email, href);
+      if (result.kind === "signed-in") logSignUpIfNewUser(analytics, result.credential, "email-link");
+      else void completeGuestEmailLink(result, email, href);
       authSession.emailLinkPending = false;
       authSession.emailLinkSentTo = "";
       safeLocalStorageRemove(EMAIL_LINK_STORAGE_KEY);
@@ -265,6 +240,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   };
 
   const bindAuthUi = (): void => {
+    bindGuestPlay({ state, firebaseAuth, analytics, userAgent: () => navigator.userAgent, setAuthBusy, setAuthStatus, syncAuthOverlay, playNowBtn: dom.authPlayNowBtn });
     dom.authLoginBtn.onclick = () => {
       void authEmailAndPassword("login");
     };
@@ -392,6 +368,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           state.authUserLabel = "";
           state.authEmail = "";
           state.profileSetupRequired = false;
+          state.authIsGuest = false;
           authSession.token = "";
           authSession.uid = "";
           setAuthBusy(false);
@@ -413,6 +390,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         clearStoredMapReveal(authEmail ?? null);
         state.mapRevealEligible = false;
         state.authEmail = authEmail ?? "";
+        state.authIsGuest = user.isAnonymous;
+        if (!user.isAnonymous) markReturningAccount();
         state.mapRevealEnabled = getMapRevealEnabled({
           enabledForAccount: state.mapRevealEligible,
           authEmail: authEmail ?? null
@@ -427,6 +406,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         state.authUserLabel = authLabelForUser(user);
         state.authBusyTitle = "Securing session";
         state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";
+        if (user.isAnonymous) state.authBusyDetail = "Loading your guest session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
