@@ -107,15 +107,10 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     }
   }
 
-  const { completesAt: _, ...activeStructure } = structure;
-  const clearingWoodenFort =
-    spec.tileField === "fort" &&
-    latest.economicStructure?.type === "WOODEN_FORT" &&
-    latest.economicStructure?.ownerId === ownerId;
+  const { completesAt: _, upgradingFrom: _replacedTier, ...activeStructure } = structure as typeof structure & { upgradingFrom?: unknown };
 
   const completedTile = {
     ...latest,
-    ...(clearingWoodenFort ? { economicStructure: undefined } : {}),
     [spec.tileField]: {
       ...activeStructure,
       status: "active",

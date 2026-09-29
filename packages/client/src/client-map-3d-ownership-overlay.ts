@@ -56,22 +56,15 @@ const HILL_DRAPE_CLEARANCE = 0.012;
 // extra hill tiles rather than crashing).
 const DEFAULT_MAX_HILL_TILES = 2000;
 
-// Settled previously sat at 0.85 -- strong enough to read unambiguously, but
-// strong enough that a large empire's interior tiles read as a wall-to-wall
-// color wash over the terrain rather than "territory with terrain still
-// visible underneath" (2026-09 design review). Dropped to 0.6, the lowest
-// value that still keeps settled reliably legible against every biome without
-// needing the terrain-obscuring strength 0.85 had.
-// Frontier was previously dropped to 0.32 to let biome detail show through,
-// but on grass terrain that reads as visually indistinguishable from unowned
-// land (confirmed live: a tile with correct owner data and ownershipState
-// FRONTIER rendered with no visible tint at 0.32), then raised to 0.5 to fix
-// that -- which closed most of the settled/frontier gap once settled also
-// came down. Now 0.3, keeping frontier clearly distinct from both unowned
-// land and settled territory (a wider, more legible three-way gap: unowned
-// tint 0 -> frontier 0.3 -> settled 0.6) rather than the two nearly meeting
-// in the middle.
-const SETTLED_OPACITY = 0.6;
+// Settled stays at 0.85 (project owner rule: only frontier opacity is fair
+// game). Restored from 0.6 (2026-09-14): at 0.6, 40% of the dark olive terrain
+// bled into every empire colour -- measured amber #e0a020 rendering as
+// #a6861e, and a pink/grass border sitting at 1.07 luminance contrast -- which
+// is what made two-empire clashes read as muddy. Terrain relief shows through
+// less as the trade-off; that is the accepted cost of decisive ownership.
+// Frontier is 0.3, keeping frontier clearly distinct from both unowned land
+// and settled territory: unowned 0 -> frontier 0.3 -> settled 0.85.
+const SETTLED_OPACITY = 0.85;
 // Exported so the waypoint claim-sweep in client-map-3d.ts matches the
 // real ownership tint exactly — any drift would show as a visible pop
 // the moment the sweep hands off to the ownership overlay.

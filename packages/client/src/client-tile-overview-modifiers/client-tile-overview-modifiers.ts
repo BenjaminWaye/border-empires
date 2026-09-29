@@ -1,10 +1,10 @@
-import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
-import { structureKeyForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
+import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
 import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -206,10 +206,9 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     });
   }
 
-  if (tile.fort?.status === "active" && (tile.fort.disabledUntil ?? 0) <= nowMs) {
-    const variant = tile.fort.variant === "TITANIUM_BASTION" || tile.fort.variant === "THUNDER_BASTION" ? tile.fort.variant : "FORT";
-    const label = variant === "THUNDER_BASTION" ? "Thunder Bastion" : variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
-    modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
+  if (tile.fort && isFortDefending(tile.fort) && (tile.fort.disabledUntil ?? 0) <= nowMs) {
+    const variant = defendingFortVariant(tile.fort) ?? "FORT";
+    modifiers.push(...toTileOverviewModifiers(FORT_VARIANT_LABELS[variant], structureModifiersFor(variant)));
   }
   if (tile.siegeOutpost?.status === "active") {
     const variant = tile.siegeOutpost.variant === "SIEGE_TOWER" || tile.siegeOutpost.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : "SIEGE_OUTPOST";
@@ -318,8 +317,8 @@ export const tileFeatureLeadLines = (
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
-  const structureKey = structureKeyForTile(tile);
-  if (structureKey) lines.push({ html: `Built: ${deps.structureInfoButtonHtml(structureKey)}` });
+  const structureKeys = structureKeysForTile(tile);
+  if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key)).join(", ")}` });
   lines.push(...waystationOverviewLines(tile, deps));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });

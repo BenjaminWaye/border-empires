@@ -8,6 +8,7 @@ import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_REWARDS } from "./client-changelog-
 import { CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT } from "./client-changelog-win-chance-paint.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY } from "./client-changelog-2d-arrow-gesture-parity.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX } from "./client-changelog-arrow-gesture-lingering-fix.js";
+import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH } from "./client-changelog-arrow-gesture-mac-shield-wash.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -19,5 +20,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT,
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK,
   ...CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY,
-  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX,
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH
 ];

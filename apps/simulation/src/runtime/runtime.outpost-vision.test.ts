@@ -112,7 +112,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
   });
 
-  it("building a Palisade (WOODEN_FORT) on a Relay Beacon tile is accepted — it replaces the beacon, unlike Siege Outpost above", async () => {
+  it("building a Palisade (WOODEN_FORT) on a Relay Beacon tile stacks with the beacon instead of replacing it", async () => {
     vi.useFakeTimers();
     try {
       const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -162,9 +162,11 @@ describe("SimulationRuntime outpost vision bonus", () => {
       await Promise.resolve();
 
       expect(rejections).toEqual([]);
-      // The Relay Beacon's vision bonus is gone: it was overwritten by the
-      // Palisade build (both live in the same economicStructure tile field).
-      expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+      const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+      expect(tile?.economicStructureJson).toContain('"type":"RELAY_BEACON"');
+      expect(tile?.fortJson).toContain('"variant":"WOODEN_FORT"');
+      expect(tile?.fortJson).toContain('"status":"active"');
+      expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
     } finally {
       vi.useRealTimers();
     }

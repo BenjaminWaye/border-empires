@@ -326,6 +326,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1790712449220,
+    introducedIn: "2026.09.29.3",
+    title: "Palisades and Forts now stack with Relay Beacons, and forts keep defending while they upgrade",
+    why: "Building a Palisade on a Relay Beacon or Harbor Exchange silently destroyed it, a Fort built on a Relay Beacon made the beacon vanish from the map, and the tile info only ever named one of the two. Palisades also never actually applied the defense their build menu advertised, and upgrading any fort left the tile undefended until the new tier finished.",
+    changes: [
+      "A Palisade now stacks on a Relay Beacon or Harbor Exchange exactly like a Fort does, instead of replacing it (a beacon already lost this way can't be restored)",
+      "A Relay Beacon that shares its tile with a Palisade or Fort is now drawn on the map, on both the 3D and the 2D map",
+      "The tile info's \"Built:\" line now lists every structure on the tile, e.g. \"Built: Fort, Relay Beacon\"",
+      "Palisades now really defend in combat: 1.35x defense, attackers need 150 mustered manpower and risk losing 100-150 of it",
+      "While a Palisade or Fort upgrades to its next tier, the current one keeps standing and defending until the upgrade completes; cancelling an upgrade, or losing the tile mid-upgrade, now keeps the current fort instead of destroying it",
+      "Existing Palisades are carried over automatically"
+    ]
+  },
+  {
     createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.29.3",
     title: "Empire names are now unique, and new players start with a noble house name",
@@ -372,8 +386,39 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790706701005, // frozen when the rally-link preview entry was merged
+    createdAt: 1790706701004, // frozen, 1ms after the newest existing entry (this branch's photo-mode/opacity work predates "Modules now visibly land on your AFC" but merged in after it)
     introducedIn: "2026.09.29.7",
+    title: "Photo mode for clean map screenshots",
+    why: "Sharing a screenshot of a border fight meant cropping around the top bar, minimap and tip popups, so it was hard to show the game off.",
+    changes: [
+      "Add ?photo=1 to the game address to hide the top bar, minimap, panels and tip popups and show only the map",
+      "Add &photoX=<tile>&photoY=<tile>&photoZoom=<zoom> to start on a specific spot; the view unlocks as soon as you drag, scroll or press a key",
+      "Works in both the 3D map and the 2D fallback map"
+    ]
+  },
+  {
+    createdAt: 1790706701005, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Empire colours on the 3D map are vivid again",
+    why: "Territory was drawn so see-through that the dark terrain underneath dulled every empire's colour, so a border between two empires was hard to spot at a glance.",
+    changes: [
+      "In the 3D map, land you have settled now shows your empire colour at full strength instead of a muddy blend with the ground (a gold empire is gold again, not olive)",
+      "Newly claimed frontier land stays lighter so it is still easy to tell from settled land"
+    ]
+  },
+  {
+    createdAt: 1790706701006, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Photo mode is now a Settings toggle too",
+    why: "Turning on Photo Mode meant typing a web address or opening the browser console, so it was easy to forget how and only realistic for whoever wrote it down.",
+    changes: [
+      "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
+      "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
+    ]
+  },
+  {
+    createdAt: 1790724338615, // frozen while resolving the develop merge
+    introducedIn: "2026.09.30.1",
     title: "Rally links now show a proper preview card when you share them",
     why: "A rally link pasted into WhatsApp, Discord, iMessage or X used to appear as plain \"Border Empires\" with no picture, so a friend had no idea why they should click it.",
     changes: [
