@@ -364,7 +364,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: Date.now(),
-    introducedIn: "2026.09.29.3",
+    introducedIn: "2026.09.29.6",
     title: "Module deliveries now target their AFC socket",
     why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
     changes: [
