@@ -187,8 +187,8 @@ export const canAffordStructure = (
   if (requiredTechId && !techSet.has(requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
   // Same existingOwnedCount the runtime scales by (it passes
-  // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so the
-  // escalating Titanium/Umbrite Weapons Factory costs stay in lockstep here.
+  // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so
+  // Relay Beacon's first-N-free rule stays in lockstep here.
   if (!canAffordManpower(player, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
   const resourceCost = structureCostDefinition(structureType).resourceCost;
   if (!resourceCost) return true;

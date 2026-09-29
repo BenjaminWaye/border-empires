@@ -16,12 +16,11 @@ export type EconomicStructureKind =
   | "MINE"
   | "TITANIUM_WORKS"
   | "OBSERVATORY"
-  | "SEED_GRANARY"
   | "MINTWORKS";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
   "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
-  "OBSERVATORY", "SEED_GRANARY", "MINTWORKS"
+  "OBSERVATORY", "MINTWORKS"
 ]);
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
@@ -100,12 +99,6 @@ export const registerEconomicStructures = (
   const granaryBandMaterial = new MeshStandardMaterial({ color: "#a77836", roughness: 0.88, metalness: 0, flatShading: true });
   const granaryCupolaMaterial = new MeshStandardMaterial({ color: "#e3d7c6", roughness: 0.9, metalness: 0, flatShading: true });
   const granarySackMaterial = new MeshStandardMaterial({ color: "#b58541", roughness: 0.92, metalness: 0, flatShading: true });
-  const seedSiloMaterial = new MeshStandardMaterial({ color: "#cfc4ac", roughness: 0.88, metalness: 0, flatShading: true });
-  const seedSiloBandMaterial = new MeshStandardMaterial({ color: "#8a7e6a", roughness: 0.92, metalness: 0, flatShading: true });
-  const seedSiloCapMaterial = new MeshStandardMaterial({ color: "#b0683a", roughness: 0.55, metalness: 0.5, flatShading: true });
-  const seedLabWallMaterial = new MeshStandardMaterial({ color: "#7a6a52", roughness: 0.9, metalness: 0, flatShading: true });
-  const seedLabRoofMaterial = new MeshStandardMaterial({ color: "#3a2e26", roughness: 0.92, metalness: 0, flatShading: true });
-  const seedLabGlowMaterial = new MeshStandardMaterial({ color: "#7ad26a", roughness: 0.4, metalness: 0, flatShading: true, emissive: "#3aa648", emissiveIntensity: 0.6 });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   const barnBodyGeo = new BoxGeometry(0.32, 0.22, 0.22);
@@ -152,12 +145,6 @@ export const registerEconomicStructures = (
   const granaryCupolaGeo = new BoxGeometry(0.05, 0.07, 0.05);
   const granaryCupolaRoofGeo = new ConeGeometry(0.045, 0.04, 4);
   const granarySackGeo = new BoxGeometry(0.06, 0.05, 0.05);
-  const seedSiloBodyGeo = new CylinderGeometry(0.06, 0.065, 0.30, 12);
-  const seedSiloBandGeo = new CylinderGeometry(0.064, 0.068, 0.022, 12);
-  const seedSiloCapGeo = new ConeGeometry(0.07, 0.07, 12);
-  const seedLabBodyGeo = new BoxGeometry(0.18, 0.14, 0.14);
-  const seedLabRoofGeo = new ConeGeometry(0.13, 0.07, 4);
-  const seedLabWindowGeo = new BoxGeometry(0.012, 0.06, 0.08);
 
   // ─── Slots ─────────────────────────────────────────────────────────
   // Farmstead
@@ -203,13 +190,6 @@ export const registerEconomicStructures = (
   builder.makeSlot("granaryCupola", granaryCupolaGeo, granaryCupolaMaterial, C);
   builder.makeSlot("granaryCupolaRoof", granaryCupolaRoofGeo, granaryAnnexRoofMaterial, C);
   builder.makeSlot("granarySack", granarySackGeo, granarySackMaterial, C * 2);
-  // Seed granary
-  builder.makeSlot("seedSiloBody", seedSiloBodyGeo, seedSiloMaterial, C * 3);
-  builder.makeSlot("seedSiloBand", seedSiloBandGeo, seedSiloBandMaterial, C * 3);
-  builder.makeSlot("seedSiloCap", seedSiloCapGeo, seedSiloCapMaterial, C * 3);
-  builder.makeSlot("seedLabBody", seedLabBodyGeo, seedLabWallMaterial, C);
-  builder.makeSlot("seedLabRoof", seedLabRoofGeo, seedLabRoofMaterial, C);
-  builder.makeSlot("seedLabWindow", seedLabWindowGeo, seedLabGlowMaterial, C);
 
   // Mintworks slots are registered by registerMintworksStructures
   // (client-map-3d-structure-mintworks.ts) so this file stays under the
@@ -279,22 +259,6 @@ export const registerEconomicStructures = (
     builder.addPiece("observatoryCrystal", sx, sy, sz, -0.09, 0.27, -0.05, 0.9, 1.6, 0.9, 0, 0, -Math.PI * 0.12);
   };
 
-  const addSeedGranary: EconomicStructureLayout = (sx, sy, sz) => {
-    const silos: ReadonlyArray<readonly [number, number]> = [
-      [-0.18, -0.08],
-      [0.00, -0.10],
-      [0.18, -0.08]
-    ];
-    for (const [ox, oz] of silos) {
-      builder.addPiece("seedSiloBody", sx, sy, sz, ox, 0.15, oz);
-      builder.addPiece("seedSiloBand", sx, sy, sz, ox, 0.22, oz);
-      builder.addPiece("seedSiloCap", sx, sy, sz, ox, 0.335, oz);
-    }
-    builder.addPiece("seedLabBody", sx, sy, sz, 0, 0.07, 0.16);
-    builder.addPiece("seedLabRoof", sx, sy, sz, 0, 0.175, 0.16, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("seedLabWindow", sx, sy, sz, 0, 0.07, 0.235);
-  };
-
   // Mintworks lives in its own module (client-map-3d-structure-mintworks.ts)
   // so this file stays under the 500-line file cap. Registered here so the
   // mint slots pool with the rest of the economic family.
@@ -307,7 +271,6 @@ export const registerEconomicStructures = (
       MINE: addMine,
       TITANIUM_WORKS: addTitaniumWorks,
       OBSERVATORY: addObservatory,
-      SEED_GRANARY: addSeedGranary,
       MINTWORKS: mintworks.layout
     },
     shared: {

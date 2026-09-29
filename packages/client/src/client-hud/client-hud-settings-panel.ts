@@ -18,21 +18,30 @@ export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 export const settingsNotificationsPageHtml = (): string => emailNotificationsSettingsPageHtml();
 
 export type SettingsPanelState = AuthDebugState &
-  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail">;
+  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive">;
 
 // Moved out of renderClientHud's closure (was a nested function reading
 // `state` from outer scope) so it can be composed here like every other
 // settings card builder.
+//
+// Photo mode's toggle (see client-photo-mode/client-photo-mode.ts) lives in
+// this same card, right under Reveal Full Map: the two are meant to be used
+// together for a clean marketing/border-clash capture (reveal the map, then
+// hide the HUD), and gating photo mode behind the same fog-admin eligibility
+// keeps it out of normal player UI the same way map reveal already is.
 export const mapRevealCardHtml = (
-  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled">
+  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "photoModeActive">
 ): string => {
   if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return "";
   const buttonLabel = state.mapRevealEnabled ? "Restore Fog" : "Reveal Full Map";
   const statusLabel = effectiveFogDisabled(state) ? "Map reveal is on for this browser." : "Map reveal is off.";
+  const photoModeButtonLabel = state.photoModeActive ? "Exit Photo Mode" : "Enter Photo Mode";
   return `
     <div class="auth-map-reveal">
       <button type="button" class="panel-btn" data-map-reveal>${buttonLabel}</button>
       <p>${statusLabel}</p>
+      <button type="button" class="panel-btn" data-photo-mode-toggle>${photoModeButtonLabel}</button>
+      <p>Hides the top bar, minimap and panels for a clean screenshot. Press Esc or the on-screen button to bring the HUD back.</p>
     </div>
   `;
 };
@@ -98,7 +107,7 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
 };
 
 export const settingsGameplayPageHtml = (
-  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "authEmail">
+  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "authEmail" | "photoModeActive">
 ): string => {
   const mapRevealHtml = mapRevealCardHtml(state);
   return `

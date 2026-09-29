@@ -1,4 +1,3 @@
-import { musterFlagCap } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 // Lean row shape for the per-second metrics ticker (metrics-ai-player-state.ts).
@@ -26,33 +25,31 @@ export type RuntimeAiPlayerMetricsRow = {
   musterFlagCount: number;
   /** Manpower currently staged inside this player's muster flags (already out of the pool). */
   musterStagedManpower: number;
-  /** Sum of each flag's enforced cap; capacity - staged is the headroom the muster tick can still pull from the pool. */
-  musterFlagCapacity: number;
 };
 
-export type MusterFlagTotals = Pick<RuntimeAiPlayerMetricsRow, "musterFlagCount" | "musterStagedManpower" | "musterFlagCapacity">;
+export type MusterFlagTotals = Pick<RuntimeAiPlayerMetricsRow, "musterFlagCount" | "musterStagedManpower">;
 
 /**
  * O(flags) — a player owns at most MUSTER_MAX_TILES (single digits) flags, and
  * `musterKeys` is the runtime's incrementally-maintained per-owner index, so
- * this never scans the world. Mirrors tickMuster's per-flag cap formula so the
- * capacity figure is the same one that gates inflow.
+ * this never scans the world.
+ *
+ * D20 (docs/replenishment-update-plan.md): a flag no longer has an enforced
+ * cap, so there's no more "capacity" total to report here -- removed
+ * 2026-09-26 along with musterFlagCap itself.
  */
 export const musterFlagTotalsForPlayer = (
   playerId: string,
   musterKeys: ReadonlySet<string> | undefined,
-  tiles: ReadonlyMap<string, Pick<DomainTileState, "muster">>,
-  manpowerCap: number
+  tiles: ReadonlyMap<string, Pick<DomainTileState, "muster">>
 ): MusterFlagTotals => {
   let musterFlagCount = 0;
   let musterStagedManpower = 0;
-  let musterFlagCapacity = 0;
   for (const key of musterKeys ?? []) {
     const muster = tiles.get(key)?.muster;
     if (!muster || muster.ownerId !== playerId) continue;
     musterFlagCount++;
     musterStagedManpower += muster.amount;
-    musterFlagCapacity += musterFlagCap(manpowerCap, muster.capLevel);
   }
-  return { musterFlagCount, musterStagedManpower, musterFlagCapacity };
+  return { musterFlagCount, musterStagedManpower };
 };

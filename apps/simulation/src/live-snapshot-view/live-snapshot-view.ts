@@ -12,8 +12,7 @@ import {
   buildFirstThreeTownKeysByPlayer,
   buildWaterworksKeysByPlayer,
   buildFoundryKeysByPlayer,
-  townKeysWithNearbyWar,
-  computeSeedGranaryBuffedTileKeys
+  townKeysWithNearbyWar
 } from "../snapshot-tile-cache.js";
 import { buildTownSummary } from "../live-town-summary.js";
 import type { EconomyPlayer } from "../economy-network/economy-network.js";
@@ -26,7 +25,6 @@ import {
 
 // Re-exports for callers that import from this module path
 export { buildLivePlayerEconomySnapshot } from "../live-economy-snapshot.js";
-export { computeSeedGranaryBuffedTileKeysForTest } from "../snapshot-tile-cache.js";
 
 type EnrichmentContext = {
   collectedAtByTile: Map<string, number>;
@@ -40,7 +38,6 @@ type EnrichmentContext = {
   nearbyWarTownKeys: ReturnType<typeof townKeysWithNearbyWar>;
   fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
-  seedGranaryBuffedTileKeys: ReadonlySet<string>;
   waterworksKeysByPlayer: Map<string, Set<string>>;
   foundryKeysByPlayer: Map<string, Set<string>>;
   // §5.4: dormant economicStructure tile keys ("x,y") per player.
@@ -133,11 +130,6 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
   const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
   const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
-  // Hoisted out of the per-tile map below: computeSeedGranaryBuffedTileKeys
-  // is WeakMap-cached on runtimeState, but calling it inside the map still
-  // paid a function-call + cache lookup per tile across all global-visibility
-  // tiles (up to 202k). One call up front is equivalent and free.
-  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
@@ -153,7 +145,6 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         tile.ownerId ? townNetworksByPlayerId.get(tile.ownerId) : undefined,
         tile.ownerId ? firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
         nearbyWarTownKeys,
-        seedGranaryBuffedTileKeys,
         (tile.ownerId ? dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
       );
       const town = toSharedVisibilityTownSummary(fullTown);
@@ -218,7 +209,6 @@ const buildEnrichmentContext = (
   }
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
   const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
   return {
@@ -234,7 +224,6 @@ const buildEnrichmentContext = (
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
     fedTownKeys: playerEconomy.fedTownKeys,
-    seedGranaryBuffedTileKeys,
     waterworksKeysByPlayer,
     foundryKeysByPlayer
   };
@@ -258,7 +247,6 @@ const buildEnrichedTile = (
     tile.ownerId ? ctx.townNetworksByPlayerId.get(tile.ownerId) : undefined,
     tile.ownerId ? ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) : undefined,
     ctx.nearbyWarTownKeys,
-    ctx.seedGranaryBuffedTileKeys,
     (tile.ownerId ? ctx.dormantEconomicStructureKeysByPlayer.get(tile.ownerId) : undefined) ?? new Set<string>()
   );
   const yieldFields = buildSnapshotTileYieldFields(tile, ctx.collectedAtByTile, ctx.playerYieldCollectionEpochByPlayer, town, {

@@ -143,6 +143,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "retort_recast_food") return "⚗";
   if (id === "retort_recast_titanium") return "⚗";
   if (id === "retort_recast_crystal") return "⚗";
+  if (id === "retort_recast_umbrite") return "⚗";
   if (id === "aegis_lock") return "⬢";
   if (id === "imperial_exchange_levy") return "¤";
   if (id === "world_engine_strike") return "✹";
@@ -171,6 +172,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "actions") return "Actions";
   if (tab === "buildings") return "Buildings";
   if (tab === "crystal") return "Crystal";
+  if (tab === "commit") return "Attack";
   return "Progress";
 };
 
@@ -214,7 +216,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         <div class="tile-progress-meta">
           <span>Remaining</span>
           <strong>${view.progress.remainingLabel}</strong>
-          ${view.progress.rushBuyLabel ? `<button class="tile-progress-rush-buy" type="button" data-progress-action="${view.progress.rushBuyActionId ?? "rush_buy"}" title="Rush-buy: finish now for gold">${view.progress.rushBuyLabel}</button>` : ""}
+          ${view.progress.rushBuyLabel ? `<button class="tile-progress-rush-buy" type="button" data-progress-action="${view.progress.rushBuyActionId ?? "rush_buy"}" title="Rush-buy: finish now for coin">${view.progress.rushBuyLabel}</button>` : ""}
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         ${view.progress.battle ? battleOddsBarHtml(view.progress.battle) : ""}
@@ -236,6 +238,34 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
               </div>`
             : ""
         }
+      </div>
+    `;
+  }
+  if (activeTab === "commit") {
+    const commit = view.commit;
+    if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
+    const oddsText = commit.winChancePercent != null
+      ? `${commit.winChancePercent}% win chance`
+      : commit.hasTarget
+        ? "Win chance unavailable — open Launch Attack on the target tile once to preview odds"
+        : "Set a march target to preview odds";
+    return `
+      <div class="muster-commit-card">
+        <div class="muster-commit-row">
+          <label for="muster-commit-slider">Commit manpower</label>
+          <input id="muster-commit-slider" type="range" min="${commit.floor}" max="${commit.cap}" step="1" value="${commit.commitManpower}" data-muster-commit-slider data-muster-commit-floor="${commit.floor}" data-muster-commit-base-odds="${commit.baseWinChancePercent ?? ""}" />
+          <span class="muster-commit-value" data-muster-commit-value>${commit.commitManpower}</span>
+        </div>
+        <div class="muster-commit-presets">
+          ${commit.presets
+            .map(
+              (preset) =>
+                `<button type="button" class="muster-commit-preset-btn" data-muster-commit-preset="${preset.amount}">${preset.label} (${preset.amount})</button>`
+            )
+            .join("")}
+        </div>
+        <div class="muster-commit-odds" data-muster-commit-odds>${oddsText}</div>
+        <button type="button" class="muster-commit-save-btn" data-muster-commit-save>Save commitment</button>
       </div>
     `;
   }

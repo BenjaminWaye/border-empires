@@ -2,6 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { SETTLE_COST, SETTLE_MANPOWER_COST, grassShadeAt, isHillsTileAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 export type SettleActorLike = { points: number; manpower: number };
 export type SettleRejection = { code: "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_GOLD"; message: string };
@@ -15,7 +16,7 @@ export const settleRejectionForActor = (actor: SettleActorLike): SettleRejection
     return { code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to settle` };
   }
   if (actor.points < SETTLE_COST) {
-    return { code: "INSUFFICIENT_GOLD", message: "insufficient gold to settle" };
+    return { code: "INSUFFICIENT_GOLD", message: "insufficient coin to settle" };
   }
   return null;
 };
@@ -27,7 +28,7 @@ export const applySettleCost = (actor: SettleActorLike): void => {
 
 export const refundSettleCost = (actor: SettleActorLike, goldCost: number, manpowerCap: number): void => {
   actor.points += goldCost;
-  actor.manpower = Math.min(manpowerCap, actor.manpower + SETTLE_MANPOWER_COST);
+  creditManpower(actor, SETTLE_MANPOWER_COST, manpowerCap);
 };
 
 export const SETTLE_DURATION_MS = 60_000;

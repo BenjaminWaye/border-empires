@@ -57,7 +57,7 @@ const revealEmpireStatsDurationMs = async (bulkTileCount: number): Promise<numbe
     { x: 11, y: 0, terrain: "LAND", ownerId: "viewer", ownershipState: "SETTLED", resource: "GEMS" }
   );
 
-  const viewer = { ...makePlayer("viewer"), techIds: new Set<string>(["surveying"]) };
+  const viewer = { ...makePlayer("viewer"), techIds: new Set<string>(["beacon-towers"]) };
   const runtime = new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([

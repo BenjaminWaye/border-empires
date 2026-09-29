@@ -146,4 +146,17 @@ describe("SqliteGatewayPlayerProfileStore", () => {
       })
     );
   });
+
+  it("stores a guest's provisional profile as incomplete, and a later normal setup completes it without a rename season", async () => {
+    const store = await createStore(() => 1_000);
+
+    await store.setProfile("guest-1", "House Noname 1", "#123456", undefined, undefined, { profileComplete: false });
+    await expect(store.get("guest-1")).resolves.toMatchObject({ name: "House Noname 1", tileColor: "#123456", profileComplete: false });
+    await expect(store.listAllNamed()).resolves.toEqual([expect.objectContaining({ playerId: "guest-1", name: "House Noname 1" })]);
+
+    await store.setProfile("guest-1", "House Ashgrove", "#654321");
+    const completed = await store.get("guest-1");
+    expect(completed).toMatchObject({ name: "House Ashgrove", tileColor: "#654321", profileComplete: true });
+    expect(completed?.nameChangedSeasonId).toBeUndefined();
+  });
 });

@@ -12,6 +12,7 @@ import { SYNTHESIZER_TYPE_SET } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 /** Shared dependencies for the uncapture/converter-toggle command handlers. */
 export type RuntimeEconomicStructureCommandContext = {
@@ -51,10 +52,7 @@ export function handleUncaptureTileCommand(context: RuntimeEconomicStructureComm
   if (target.muster?.ownerId && target.muster.amount > 0) {
     const musterOwner = context.players.get(target.muster.ownerId);
     if (musterOwner) {
-      musterOwner.manpower = Math.min(
-        context.playerManpowerCap(musterOwner),
-        musterOwner.manpower + target.muster.amount
-      );
+      creditManpower(musterOwner, target.muster.amount, context.playerManpowerCap(musterOwner));
     }
   }
   // Abandoning a tile releases the territory, not the buildings on it: a
@@ -117,7 +115,7 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
     }
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, structure.converterMode ?? "SYNTHESIZE");
     if (actor.points < upkeep) {
-      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient gold for structure upkeep"); return;
+      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient coin for structure upkeep"); return;
     }
     actor.points -= upkeep;
   }
@@ -179,7 +177,7 @@ export function handleSetConverterStructureModeCommand(context: RuntimeEconomicS
   if (payload.mode === "SYNTHESIZE") {
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, "SYNTHESIZE");
     if (actor.points < upkeep) {
-      context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "insufficient gold for structure upkeep"); return;
+      context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "insufficient coin for structure upkeep"); return;
     }
     actor.points -= upkeep;
     nextUpkeepAt = context.now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;

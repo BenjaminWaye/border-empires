@@ -32,7 +32,7 @@ import {
   requestAttackPreviewForTarget,
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
-  attackPreviewBreakdownForTarget,
+  attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget, captureCombatSnapshotForAttack
 } from "./client-attack-preview-logic.js";
 export {
@@ -41,7 +41,7 @@ export {
   requestAttackPreviewForTarget,
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
-  attackPreviewBreakdownForTarget,
+  attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
 };
 
@@ -321,7 +321,7 @@ export const requestSettlement = (
     return false;
   }
   if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`); deps.renderHud(); return false; }
-  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`); deps.renderHud(); return false; }
+  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} coin to settle this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
@@ -797,7 +797,7 @@ export const attackQueueFailureReason = (
   }
 ): string => {
   if (tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId)) return "That empire is still under spawn protection.";
-  if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} gold.`;
+  if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} coin.`;
   if (!deps.pickOriginForTarget(tile.x, tile.y)) {
     return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
   }
@@ -987,7 +987,7 @@ export const processActionQueue = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
-    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number) => void; // commitManpower: D6 commitment choice, above the floor
     sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {

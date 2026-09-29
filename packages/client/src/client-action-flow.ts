@@ -23,7 +23,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -141,7 +141,7 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
-import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js"; import { buildMusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
@@ -172,6 +172,7 @@ import type {
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
+import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -629,8 +630,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
       sendGameMessage
     });
 
@@ -1056,7 +1057,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
-      combatBreakdownForTile: attackPreviewBreakdownForTarget,
+      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor }),
       state,
       pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });
@@ -1263,11 +1264,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check gold and development slots.", "warn");
+      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check coin and development slots.", "warn");
       pushFeed(
         queued > 0
           ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No settlements queued — check gold / slots.",
+          : "No settlements queued — check coin / slots.",
         "combat",
         queued > 0 ? "info" : "warn"
       );
@@ -1282,10 +1283,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold."); else pushFeed(
+        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin."); else pushFeed(
           out.queued > 0
             ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
-            : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
+            : "No frontier claims queued. Targets must touch your territory and you need enough coin.",
           "combat",
           out.queued > 0 ? "info" : "warn"
         );
@@ -1313,7 +1314,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             if (out.queued > 0) {
               processActionQueue();
             } else {
-              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough coin.");
             }
           } else {
             // Not adjacent yet, but still inside reach (that's the only way
@@ -1505,14 +1506,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    const retortTargetResource =
-      actionId === "retort_recast_food"
-        ? "FARM"
-        : actionId === "retort_recast_titanium"
-          ? "TITANIUM"
-          : actionId === "retort_recast_crystal"
-            ? "GEMS"
-            : undefined;
+    const retortTargetResource = retortTargetResourceForAction(actionId);
     if (retortTargetResource) {
       if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
         state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });
@@ -1552,7 +1546,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
-    if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
+    hideTileActionMenu();
   };
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
@@ -1647,7 +1641,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.musterMarchTargeting.active) { handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed, sendGameMessage }); renderHud(); return; }
+    if (state.musterMarchTargeting.active) { const { originX, originY } = state.musterMarchTargeting; handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed, sendGameMessage }); triggerWinChancePaintOnMarchArm(state, originX, originY, wx, wy, vis, keyFor, performance.now()); renderHud(); return; }
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a

@@ -1,10 +1,11 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   STRUCTURE_REGISTRY,
-  bestFortTierForTech,
   bestSiegeTierForTech,
-  nextFortTierForUpgrade,
+  defendingFortVariant,
+  fortTierForBuild,
   nextSiegeTierForUpgrade,
+  structureBuildDurationMsForManpowerCost,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -18,7 +19,7 @@ import {
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
-import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
@@ -106,7 +107,6 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
   if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  if (structureType === "SEED_GRANARY") return "GRANARY";
   return undefined;
 }
 
@@ -193,16 +193,7 @@ function hasFreeResourceSlots(
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
   const demand = context.resourceSlotDemandForPlayer(command.playerId);
-  // A Relay Beacon's own FOOD demand is frequently waived to 0 (the
-  // player's earliest RELAY_BEACON_FREE_FOOD_SLOT_COUNT beacons never count
-  // against demand at all -- slot-waivers.ts), so crediting back its raw,
-  // unwaived requirement here would double-count a slot that was never
-  // actually consumed and let a Palisade build bypass this gate with zero
-  // real free FOOD capacity. Building WOODEN_FORT over a Relay Beacon
-  // therefore gets no netting credit for the beacon it's replacing.
-  const alreadyOnThisTile = structureType === "WOODEN_FORT" && target.economicStructure?.type === "RELAY_BEACON"
-    ? emptyResourceSlotTotals()
-    : totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
+  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
   for (const req of requirements) {
     const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
     if (freeExcludingThisTile < req.count) {
@@ -325,14 +316,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const hasTech = (id: string) => actor.techIds.has(id);
   const buildingFort = spec.kind === "FORT";
-  const buildingWoodenFort = structureType === "WOODEN_FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;
-  if (spec.kind === "FORT") {
-    upgrading = target.economicStructure?.ownerId === command.playerId &&
-      target.economicStructure.type === "WOODEN_FORT" &&
-      activeOrInactive(target.economicStructure);
-  } else if (spec.kind === "ECONOMIC") {
+  if (spec.kind === "ECONOMIC") {
     const base = upgradeBaseType(structureType);
     upgrading = !!base &&
       target.economicStructure?.ownerId === command.playerId &&
@@ -342,21 +328,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
-  // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
-  // ignores an existing Relay Beacon in economicStructure, and a Relay
-  // Beacon build ignores an existing Fort. A Fort and a Harbor Exchange
-  // (CUSTOMS_HOUSE) are allowed to share a tile too -- there's no design
-  // reason a dock with a Harbor Exchange shouldn't also be fortifiable.
-  //
-  // WOODEN_FORT (Palisade) is itself kind "ECONOMIC" and lives in
-  // economicStructure like a Relay Beacon or Harbor Exchange does, so it
-  // can't share the tile the way a full Fort can (same tile field, only one
-  // value fits). Building a Palisade onto a Relay Beacon or Harbor Exchange
-  // tile replaces the existing structure instead of being rejected outright
-  // -- consistent with how any other economic-slot build overwrites the
-  // field below (`[spec.tileField]: {...}`).
+  // A fortification (Palisade or any Fort tier, all in tile.fort) may share a
+  // tile with a Relay Beacon or a Harbor Exchange (CUSTOMS_HOUSE): a fort
+  // build ignores either one in economicStructure, and a Relay Beacon build
+  // ignores an existing fortification.
   const economicConflict = !!target.economicStructure &&
-    !((buildingFort || buildingWoodenFort) &&
+    !(buildingFort &&
       (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "CUSTOMS_HOUSE"));
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
@@ -364,8 +341,16 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
 
-  if (spec.kind === "FORT" && target.fort && !nextFortTierForUpgrade(target.fort.variant, hasTech)) {
-    rejectCommand(context, command, "BUILD_INVALID", target.fort.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first");
+  const fortTier = spec.kind === "FORT" ? fortTierForBuild(structureType, target.fort?.variant, hasTech) : undefined;
+  if (spec.kind === "FORT" && !fortTier) {
+    rejectCommand(
+      context,
+      command,
+      "BUILD_INVALID",
+      structureType === "WOODEN_FORT"
+        ? "tile already has a fortification"
+        : target.fort?.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first"
+    );
     return;
   }
   if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost && !nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)) {
@@ -378,8 +363,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   let manpowerCost: number;
   let strategicCost = spec.cost.strategic as StrategicCost | undefined;
   let slotStructureType: SlotStructureType = structureType;
-  if (spec.kind === "FORT") {
-    const fortTier = target.fort ? nextFortTierForUpgrade(target.fort.variant, hasTech)! : bestFortTierForTech(hasTech);
+  if (fortTier) {
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
     strategicCost = { TITANIUM: fortTier.titanium };
@@ -393,9 +377,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     // structureBuildManpowerCostScaled is a flat pass-through to
-    // structureBuildManpowerCost for every type except TITANIUM_WEAPONS_FACTORY/
-    // UMBRITE_WEAPONS_FACTORY, which escalate with the player's existing
-    // empire-wide count (design doc "escalating build cost").
+    // structureBuildManpowerCost for every type except RELAY_BEACON, whose
+    // first RELAY_BEACON_FIRST_TIER_COUNT owned cost a discounted flat rate
+    // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
   // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
@@ -407,7 +391,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   if (actor.points < goldCost) {
-    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
   }
   if (actor.manpower < manpowerCost) {
@@ -427,23 +411,36 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   actor.points -= goldCost;
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
 
+  // docs/replenishment-update-plan.md D9: build time follows manpower cost
+  // (100 MP = 1 hour) instead of spec's old flat per-type buildMs -- reuses
+  // manpowerCost, already resolved above for the exact tier/count this build
+  // actually charges, so a Fort-family upgrade or a scaling structure's Nth
+  // copy gets a duration that matches what it paid, not a flat per-type
+  // number. RELAY_BEACON keeps today's "no speed-mult lever" behavior (its
+  // spec.kind is "OUTPOST" but it's excluded from the OUTPOST branch below,
+  // same exclusion the cost-resolution branch above already used) -- a free
+  // beacon (manpowerCost 0) now builds instantly, matching D12.
+  const structureDurationMs = structureBuildDurationMsForManpowerCost(manpowerCost);
   const buildMs = spec.kind === "FORT"
-    ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
+    ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
     : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"
-      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
+      ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
       : spec.kind === "ECONOMIC"
-        ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
-        : spec.buildMs;
+        ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
+        : structureDurationMs;
   const completesAt = context.now() + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
   const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "RELAY_BEACON";
   let resolvedVariant: string | undefined;
-  if (spec.kind === "FORT") {
-    resolvedVariant = target.fort ? nextFortTierForUpgrade(target.fort.variant, hasTech)?.variant : bestFortTierForTech(hasTech).variant;
+  if (fortTier) {
+    resolvedVariant = fortTier.variant;
   } else if (isSiegeFamily) {
     resolvedVariant = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)?.variant : bestSiegeTierForTech(hasTech).variant;
   }
 
+  // A fort upgrade leaves the current fort standing (and defending) until the
+  // new tier completes, so its identity carries over onto the construction.
+  const standingFort = fortTier && target.fort && defendingFortVariant(target.fort) ? target.fort : undefined;
   const startedTile = {
     ...target,
     [spec.tileField]: {
@@ -451,6 +448,13 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       status: "under_construction",
       ...(resolvedVariant ? { variant: resolvedVariant } : {}),
       ...(isEcoStruct ? { type: structureType } : {}),
+      ...(standingFort
+        ? {
+            upgradingFrom: defendingFortVariant(standingFort),
+            ...(standingFort.activatedAt !== undefined ? { activatedAt: standingFort.activatedAt } : {}),
+            ...(standingFort.disabledUntil !== undefined ? { disabledUntil: standingFort.disabledUntil } : {})
+          }
+        : {}),
       completesAt
     }
   } as DomainTileState;

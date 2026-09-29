@@ -21,7 +21,7 @@ import {
 } from "@border-empires/sim-protocol";
 import type { ActivityDashboardSnapshot, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
-import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
+import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeOptions, type PrepareLikeRequest, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
 import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
@@ -129,11 +129,11 @@ type ProtoSimulationEvent = {
 type SimulationClientLike = {
   SubmitCommand: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
   PreparePlayer: (
-    request: { player_id: string; rally_anchor_json?: string },
+    request: PrepareLikeRequest,
     callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
   ) => void;
   JoinSeason?: (
-    request: { player_id: string; rally_anchor_json?: string },
+    request: PrepareLikeRequest,
     callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
   ) => void;
   SubscribePlayer: (
@@ -681,8 +681,8 @@ export type FetchTileDetailResult = {
 // method surface is declared once instead of twice.
 export type SimulationClientMethods = {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
-  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor, options?: PrepareLikeOptions) => Promise<PrepareLikeResult>;
+  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor, options?: PrepareLikeOptions) => Promise<PrepareLikeResult>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
@@ -721,17 +721,17 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
-  preparePlayer(playerId, rallyAnchor) {
+  preparePlayer(playerId, rallyAnchor, options) {
     const preparePlayerRpc =
       (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
       (client as SimulationClientLike & { preparePlayer?: SimulationClientLike["PreparePlayer"] }).preparePlayer?.bind(client);
-    return preparePlayerRpcCall(preparePlayerRpc, playerId, rallyAnchor);
+    return preparePlayerRpcCall(preparePlayerRpc, playerId, rallyAnchor, options);
   },
-  joinSeason(playerId, rallyAnchor) {
+  joinSeason(playerId, rallyAnchor, options) {
     const joinSeasonRpc =
       (typeof client.JoinSeason === "function" ? client.JoinSeason.bind(client) : undefined) ??
       (client as SimulationClientLike & { joinSeason?: SimulationClientLike["JoinSeason"] }).joinSeason?.bind(client);
-    return joinSeasonRpcCall(joinSeasonRpc, playerId, rallyAnchor);
+    return joinSeasonRpcCall(joinSeasonRpc, playerId, rallyAnchor, options);
   },
   subscribePlayer(playerId, subscriptionJson = "{}") {
     return new Promise<PlayerSubscriptionSnapshot>((resolve, reject) => {

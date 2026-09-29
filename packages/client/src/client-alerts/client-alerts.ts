@@ -186,8 +186,8 @@ export const notifyInsufficientGoldForFrontierAction = (
   action: "claim" | "attack"
 ): void => {
   const label = action === "claim" ? "Frontier claim" : "Attack";
-  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
-  showCaptureAlert(state, "Insufficient gold", detail, "error");
+  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} coin. You have ${formatGoldAmount(state.gold)}.`;
+  showCaptureAlert(state, "Insufficient coin", detail, "error");
 };
 
 // Mirrors notifyInsufficientGoldForFrontierAction, but for manpower, and

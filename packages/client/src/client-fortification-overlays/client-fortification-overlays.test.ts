@@ -5,7 +5,8 @@ import {
   fortificationOverlayAlphaForTile,
   isFortificationOverlayTile,
   nearestSiegeOutpostTileForBattle,
-  siegeAimAwareFacingRadiansForTile
+  siegeAimAwareFacingRadiansForTile,
+  stackedRelayBeaconForTile
 } from "./client-fortification-overlays.js";
 import type { Tile } from "../client-types.js";
 
@@ -60,7 +61,7 @@ describe("fortification overlay selection", () => {
   it("treats wooden forts and Relay Beacons as fortification overlay tiles", () => {
     const woodenFort = {
       ...landTile(1, 1),
-      economicStructure: { ownerId: "p1", type: "WOODEN_FORT" as const, status: "under_construction" as const }
+      fort: { ownerId: "p1", status: "under_construction" as const, variant: "WOODEN_FORT" as const }
     };
     const relayBeacon = {
       ...landTile(2, 1),
@@ -73,6 +74,32 @@ describe("fortification overlay selection", () => {
     expect(fortificationOverlayKindForTile(relayBeacon)).toBe("RELAY_BEACON");
     expect(fortificationOverlayAlphaForTile(woodenFort)).toBe(0.82);
     expect(fortificationOverlayAlphaForTile(relayBeacon)).toBe(0.64);
+  });
+
+  it("reports a Relay Beacon stacked under a fort separately, so the fort doesn't hide it", () => {
+    const stacked = {
+      ...landTile(3, 1),
+      fort: { ownerId: "p1", status: "active" as const, variant: "FORT" as const },
+      economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "inactive" as const }
+    };
+    const beaconOnly = { ...landTile(4, 1), economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "active" as const } };
+
+    expect(fortificationOverlayKindForTile(stacked)).toBe("FORT");
+    expect(stackedRelayBeaconForTile(stacked)).toBe(true);
+    expect(stackedRelayBeaconForTile(beaconOnly)).toBe(false);
+    // Each overlay fades by its own structure's status.
+    expect(fortificationOverlayAlphaForTile(stacked, "FORT")).toBe(1);
+    expect(fortificationOverlayAlphaForTile(stacked, "RELAY_BEACON")).toBe(0.78);
+  });
+
+  it("draws a fort mid-upgrade as the standing tier at full strength", () => {
+    const upgrading = {
+      ...landTile(5, 1),
+      fort: { ownerId: "p1", status: "under_construction" as const, variant: "FORT" as const, upgradingFrom: "WOODEN_FORT" as const }
+    };
+
+    expect(fortificationOverlayKindForTile(upgrading)).toBe("WOODEN_FORT");
+    expect(fortificationOverlayAlphaForTile(upgrading, "WOODEN_FORT")).toBe(1);
   });
 
   it("keeps Relay Beacons non-directional", () => {

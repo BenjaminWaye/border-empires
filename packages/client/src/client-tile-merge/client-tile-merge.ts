@@ -56,6 +56,7 @@ export type CommonTileFieldsUpdate = {
   siegeOutpost?: Tile["siegeOutpost"];
   sabotage?: Tile["sabotage"];
   muster?: Tile["muster"];
+  afc?: Tile["afc"];
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
   yieldCap?: Tile["yieldCap"];
@@ -152,6 +153,10 @@ export const applyCommonTileFields = (
   if ("muster" in normalizedUpdate) {
     if (normalizedUpdate.muster) merged.muster = normalizedUpdate.muster;
     else delete merged.muster;
+  }
+  if ("afc" in normalizedUpdate) {
+    if (normalizedUpdate.afc) merged.afc = normalizedUpdate.afc;
+    else delete merged.afc;
   }
   if ("yield" in normalizedUpdate) {
     if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;

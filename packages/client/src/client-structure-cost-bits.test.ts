@@ -21,11 +21,20 @@ describe("costBitsFor", () => {
     expect(costBitsFor("FARMSTEAD")).toEqual(["80 manpower"]);
   });
 
-  it("does not add a resource line to the hardcoded fort/siege tier upgrades", () => {
-    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["1,800 gold", "480 manpower"]);
-    expect(costBitsFor("THUNDER_BASTION")).toEqual(["4,200 gold", "960 manpower"]);
-    expect(costBitsFor("SIEGE_TOWER")).toEqual(["1,800 gold", "60 manpower"]);
-    expect(costBitsFor("DREAD_TOWER")).toEqual(["4,200 gold", "60 manpower"]);
+  // docs/replenishment-update-plan.md D17: these used to be hand-maintained
+  // literals here, independent of FORT_TIER_LADDER/SIEGE_TIER_LADDER (the
+  // tables the server actually charges from) -- and had already drifted:
+  // gold is 0 in both real ladders (manpower-economy-rewrite-plan.md §12
+  // zeroed build gold costs), not the 1,800/4,200 these used to claim. Now
+  // read live from the same ladders, so there's nothing left to drift.
+  it("reads the fort tier upgrades' real cost from FORT_TIER_LADDER, no gold shown since build gold is zeroed", () => {
+    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["480 manpower"]);
+    expect(costBitsFor("THUNDER_BASTION")).toEqual(["960 manpower"]);
+  });
+
+  it("reads the siege tier upgrades' real cost from SIEGE_TIER_LADDER (D13: siege scales 60/120/240)", () => {
+    expect(costBitsFor("SIEGE_TOWER")).toEqual(["120 manpower"]);
+    expect(costBitsFor("DREAD_TOWER")).toEqual(["240 manpower"]);
   });
 });
 

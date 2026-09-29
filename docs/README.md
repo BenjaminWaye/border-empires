@@ -15,6 +15,7 @@ remain authoritative for runtime behavior.
 | Deploying or using Fly/Vercel | [`agents/deploys.md`](agents/deploys.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |
+| Documentation review and upkeep | [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md) |
 | AI planning | [`agents/topics/ai-planner.md`](agents/topics/ai-planner.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
@@ -44,6 +45,8 @@ those in the issue or PR until they prove recurring.
   remove the implementation plan in the same follow-up.
 - Before retiring a document, check inbound links and update them. Git history
   remains the recovery path for obsolete execution detail.
+- Follow [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md)
+  quarterly and after material runtime or workflow changes.
 
 ## Historical records
 
@@ -55,3 +58,8 @@ instructions.
 
 [`agent-work-readiness-plan.md`](agent-work-readiness-plan.md) tracks the
 repository's documentation and agent-workflow cleanup in phases.
+
+## Templates
+
+[`templates/README.md`](templates/README.md) provides compliant starting
+points for new proposals, decisions, and recurring runbooks.

@@ -39,3 +39,65 @@ describe("tileActionMenuHtml overview line rendering", () => {
     expect(html).toContain('<div class="tile-overview-line tile-overview-line-effect"><span>6 connected towns</span></div>');
   });
 });
+
+// docs/replenishment-update-plan.md D6: the commit-choice tab on a muster
+// flag's own tile menu.
+describe("tileActionMenuHtml commit tab rendering", () => {
+  const commitView: TileMenuView = {
+    ...baseView,
+    tabs: ["commit"],
+    commit: {
+      mode: "MARCH",
+      hasTarget: true,
+      targetX: 11,
+      targetY: 10,
+      floor: 60,
+      cap: 720,
+      commitManpower: 120,
+      winChancePercent: 74,
+      baseWinChancePercent: 55,
+      presets: [
+        { key: "normal", label: "Normal", amount: 60 },
+        { key: "extra", label: "Extra", amount: 90 },
+        { key: "double", label: "Double", amount: 120 }
+      ]
+    }
+  };
+
+  it("renders the slider bounded by the floor and the manpower cap, at the current commitment", () => {
+    const html = tileActionMenuHtml(commitView, "commit", false);
+    expect(html).toContain('min="60"');
+    expect(html).toContain('max="720"');
+    expect(html).toContain('value="120"');
+  });
+
+  it("renders all three presets with their computed amounts", () => {
+    const html = tileActionMenuHtml(commitView, "commit", false);
+    expect(html).toContain("Normal (60)");
+    expect(html).toContain("Extra (90)");
+    expect(html).toContain("Double (120)");
+  });
+
+  it("shows the cached win chance when one is available", () => {
+    const html = tileActionMenuHtml(commitView, "commit", false);
+    expect(html).toContain("74% win chance");
+  });
+
+  it("prompts to preview odds when no preview is cached yet but a target is set", () => {
+    const view: TileMenuView = { ...commitView, commit: { ...commitView.commit!, winChancePercent: undefined } };
+    const html = tileActionMenuHtml(view, "commit", false);
+    expect(html).toContain("open Launch Attack on the target tile once to preview odds");
+  });
+
+  it("prompts to set a march target when the flag has none", () => {
+    const view: TileMenuView = { ...commitView, commit: { ...commitView.commit!, hasTarget: false, winChancePercent: undefined, targetX: undefined, targetY: undefined } };
+    const html = tileActionMenuHtml(view, "commit", false);
+    expect(html).toContain("Set a march target to preview odds");
+  });
+
+  it("shows an empty state when the tile has no muster flag at all", () => {
+    const view: TileMenuView = { ...baseView, tabs: ["commit"], commit: undefined };
+    const html = tileActionMenuHtml(view, "commit", false);
+    expect(html).toContain("No muster flag here.");
+  });
+});

@@ -247,6 +247,12 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
     "# TYPE sim_auto_fill_tiles_total counter",
     `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`,
+    "# TYPE sim_guest_join_rejected_full_total counter",
+    `sim_guest_join_rejected_full_total ${formatMetricValue(sample.simGuestJoinRejectedFullTotal)}`,
+    "# TYPE sim_guest_upgraded_total counter",
+    `sim_guest_upgraded_total ${formatMetricValue(sample.simGuestUpgradedTotal)}`,
+    "# TYPE sim_season_guest_players gauge",
+    `sim_season_guest_players ${formatMetricValue(sample.simSeasonGuestPlayers)}`,
     "# TYPE sim_auth_recovery_respawn_total counter",
     `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
     "# TYPE sim_auth_recovery_respawn_guarded_total counter",
@@ -302,10 +308,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   lines.push("# TYPE sim_ai_player_muster_staged_manpower gauge");
   for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterStagedManpowerGauge)) {
     lines.push(`sim_ai_player_muster_staged_manpower{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
-  }
-  lines.push("# TYPE sim_ai_player_muster_flag_capacity gauge");
-  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
-    lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
 
   return lines.join("\n");

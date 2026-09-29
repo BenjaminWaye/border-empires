@@ -258,6 +258,9 @@ export type SimulationMetricsSnapshot = {
   /** Full-visibility snapshots built inline (worker pool bypassed to avoid 202k-tile structured-clone block). */
   simFullVisInlineBuildTotal: number;
   simAutoFillTilesTotal: number;
+  simGuestJoinRejectedFullTotal: number;
+  simGuestUpgradedTotal: number;
+  simSeasonGuestPlayers: number;
   /** auth_recovery respawn placed via ensurePlayerHasSpawnTerritory (overwrites the player's prior empire). */
   simAuthRecoveryRespawnTotal: number;
   /** auth_recovery respawn suppressed by the world-sanity guard (ctx.tiles empty at check time). */
@@ -289,6 +292,4 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerMusterFlagsGauge: Record<string, number>;
   /** Manpower staged inside the player's muster flags (gauge) — already out of the pool. */
   simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
-  /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
-  simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
 };

@@ -55,6 +55,8 @@ describe("attackerOutpostMult", () => {
       now: () => 0,
       players: new Map([[ATTACKER_ID, { id: ATTACKER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() }]]),
       tiles,
+      musterTilesByOwner: new Map(),
+      musterReservedByKey: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
@@ -99,6 +101,8 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
         [DEFENDER_ID, { id: DEFENDER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() }]
       ]),
       tiles,
+      musterTilesByOwner: new Map(),
+      musterReservedByKey: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
@@ -162,6 +166,8 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
         [DEFENDER_ID, { id: DEFENDER_ID, isAi: false, points: 100, manpower: 0, techIds: new Set(), allies: new Set() }]
       ]),
       tiles,
+      musterTilesByOwner: new Map(),
+      musterReservedByKey: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
@@ -181,8 +187,9 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
 
   it("threads the already-computed plunder values into recordCombatManpowerLoss instead of recomputing them", () => {
     // Force a deterministic attacker win and a nonzero, deterministic
-    // manpower loss -- both rollFrontierCombat and rollSettledAttackManpowerLoss
-    // fall back to Math.random() when called with no explicit randomValue.
+    // manpower loss -- rollFrontierCombat falls back to Math.random() when
+    // called with no explicit randomValue; loss itself is now fixed =
+    // commitment (D6), no randomness involved.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const recordCombatManpowerLoss = vi.fn();
     const context = makeSettledContext(recordCombatManpowerLoss);

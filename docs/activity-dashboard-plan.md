@@ -625,8 +625,8 @@ introduced.
 #### Phase 4a — production-metrics calibration pass (2026-09-26)
 
 **Evidence at the start of this pass.** PR #2114 (`feat: unify the Activity
-dashboard`) was still open against `develop`, so this pass must not depend on
-its client surface or change user-facing thresholds. The rewrite stack already
+dashboard`) is merged into `develop`; this pass still does not change
+user-facing thresholds. The rewrite stack already
 has bounded source gauges: `territory-flip-log.ts`, `combat-manpower-log.ts`,
 and `personal-impact-log.ts` each expose `entryCount`, timestamps, and
 `capHits`; `personal-activity-cap.ts` produces an explicit truncation-note
@@ -652,11 +652,14 @@ ranking, or any materiality threshold:
   `gateway_activity_timeline_payload_bytes` and
   `gateway_activity_timeline_card_count` (p50/p95/p99), plus
   `gateway_activity_timeline_truncated_total`.
-- `apps/realtime-gateway/src/activity-api/activity-api-route.ts` records the
-  UTF-8 JSON byte size only when it builds a fresh cached `GET /api/activity`
-  response. Export it as `gateway_world_pulse_payload_bytes` (p50/p95/p99).
-  This is the current World Pulse source response; cache hits intentionally do
-  not distort the producer-size sample.
+- `apps/realtime-gateway/src/gateway-app/handle-world-pulse-message.ts`
+  records the UTF-8 JSON byte size of the actual authenticated `WORLD_PULSE`
+  WebSocket response. Export it as `gateway_world_pulse_payload_bytes`
+  (p50/p95/p99). `activity-api-route.ts` separately records a freshly-built
+  public source response as `gateway_activity_api_payload_bytes`; cache hits
+  intentionally do not distort that source-size sample. These must never
+  share a series: the public source and the player-safe projection have
+  different shapes and budgets.
 
 All gateway quantiles retain only the existing fixed-size sample arrays. The
 simulation change retains four numbers only. No metric has a player id,
@@ -673,9 +676,10 @@ text-only, and this pass does not affect checklist layering, Feed/Alerts,
 `apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.test.ts`,
 and `apps/realtime-gateway/src/activity-api/activity-api-route.test.ts` to
 prove each metric is emitted, a non-truncated timeline does not increment the
-counter, a truncated one does, and cached World Pulse responses do not add a
-second source-size sample. Existing log tests remain the regression coverage
-for TTL/cap behavior.
+counter, a truncated one does, a cached activity API response does not add a
+second source-size sample, and World Pulse response bytes cannot be mixed
+into that source series. Existing log tests remain the regression coverage for
+TTL/cap behavior.
 
 **Rollout and calibration criteria.** Deploy this metrics-only change through
 the normal rewrite-stack staging path and observe at least seven days (or a
@@ -696,6 +700,50 @@ remove the three gateway observations and four simulation exposition lines);
 the dashboard behavior, log caps, persistence, and client contracts remain
 unchanged. Do not respond by disabling the existing hard caps or extending
 retention.
+
+#### Phase 4b — zero-cash restart-safe calibration ✅ shipped (PR #2138)
+
+The deployed rewrite stack exposes Prometheus text but does not configure a
+retained collector. Therefore the bounded in-process quantile arrays and
+counters reset on every process restart, including a normal deploy. No-cost
+operation must not pretend that a scrape endpoint alone provides a seven-day
+window.
+
+The zero-cash implementation is a gateway-owned
+`activity-calibration-store/` SQLite module, constructed beside the existing
+gateway stores and wired in `gateway-app.ts`. It owns one singleton JSON row
+containing only the fixed calibration numbers already held by
+`metrics/metrics.ts` plus the scalar truncation counter. It flushes from the
+existing one-second gateway metrics tick no more than once every 15 seconds;
+it does not write on a dashboard request, retain payload/card text, player
+ids, coordinates, raw activity rows, or extend a snapshot.
+
+**Delivered progress.** Gateway restoration validates every persisted scalar,
+rejects corrupt rows without preventing startup, keeps each sample series at
+its existing fixed limit, and performs its first normal write only after the
+15-second cadence. Closing a healthy gateway performs one final best-effort
+flush. This is calibration continuity only: it neither changes materiality
+thresholds nor changes the existing 24-hour activity-retention policy.
+
+The simulation counterpart uses the existing bounded `season_activity_logs`
+row rather than introducing another scalar table: `personalImpactCapHits` is
+saved beside the already-persisted personal-impact tail and restored into the
+log’s cap-hit gauge before the first metrics tick. This preserves the one
+counter that otherwise reset while keeping the three entry-count gauges
+derived from their restored bounded logs. Gateway and simulation metrics now
+represent a bounded restart-safe calibration window, not an unbounded
+process-lifetime total; this is documented here instead of silently implying
+long-term retention. Both paths fail open to current in-memory metrics if
+their optional persistence operation fails.
+
+Regression coverage in `activity-calibration-store.test.ts` proves SQLite
+round trips and corrupt-row rejection; `metrics/metrics.test.ts` proves
+restart restoration stays at the fixed sample bound; and
+`personal-impact-log.test.ts` proves cap-hit carry restoration without extra
+events. Roll back by disabling the optional gateway store wiring; never block
+the gateway, simulation, or dashboard on calibration persistence. This
+remains operational continuity only: a seven-day threshold change still
+requires a retained collector or a manually captured seven-day evidence set.
 
 ## 7. Tests and release gates
 

@@ -44,6 +44,7 @@ import type { EconomyFocusKey } from "./client-economy-model.js";
 import { renderEconomyPanelHtml } from "./client-economy-html/client-economy-html.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
 import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
+import { startClientAcquisitionFunnel } from "./client-acquisition-funnel/client-acquisition-funnel.js";
 import { resolveDevAuthPlayerId } from "./client-app-runtime-env/client-dev-auth-bypass.js";
 import { createClientRuntimeFlowSupport } from "./client-app-runtime-flow-support.js";
 import { createClientViewSupport } from "./client-app-runtime-view-support.js";
@@ -106,6 +107,7 @@ import {
 import { createInitialState, storageSet } from "./client-state/client-state.js";
 import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
+import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
   ActiveAetherBridgeView,
@@ -139,8 +141,10 @@ const state = createInitialState();
 // re-jumping to a stale linked tile.
 clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
+startPhotoMode(state, window.location.search); // ?photo=1 — clean-capture mode, see client-photo-mode.ts
 const { firebaseAuth, googleProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
+startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
 const devAuthPlayerId = resolveDevAuthPlayerId(window.location.hostname, window.location.search);
 
 dom.miniMapBase.width = dom.miniMapEl.width;

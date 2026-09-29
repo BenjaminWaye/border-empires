@@ -149,20 +149,20 @@ describe("GET /api/activity", () => {
     expect(dashboardCalls).toBe(1);
   });
 
-  it("records World Pulse source bytes only for a fresh response", async () => {
+  it("records activity API bytes only for a fresh response", async () => {
     const app = Fastify();
-    const observeWorldPulsePayloadBytes = vi.fn();
+    const observeActivityApiPayloadBytes = vi.fn();
     registerActivityApiRoute(app, {
       getActivityDashboardSnapshot: async () => dashboard,
       getSocialSnapshot: () => socialSnapshot,
       getPowerScore: async () => powerScore,
       growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
-      observeWorldPulsePayloadBytes
+      observeActivityApiPayloadBytes
     });
     await app.inject({ method: "GET", url: "/api/activity" });
     await app.inject({ method: "GET", url: "/api/activity" });
-    expect(observeWorldPulsePayloadBytes).toHaveBeenCalledOnce();
-    expect(observeWorldPulsePayloadBytes.mock.calls[0]![0]).toBeGreaterThan(0);
+    expect(observeActivityApiPayloadBytes).toHaveBeenCalledOnce();
+    expect(observeActivityApiPayloadBytes.mock.calls[0]![0]).toBeGreaterThan(0);
   });
 
   it("returns 503 with an error body if the sim RPC fails", async () => {

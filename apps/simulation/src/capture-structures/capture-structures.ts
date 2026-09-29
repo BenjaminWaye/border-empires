@@ -1,13 +1,17 @@
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
+import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
 
-type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
+type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "afc">;
 
 // activatedAt is refreshed to the capture moment (not just carried over from
 // the previous owner) — the dormancy tie-break rule (docs/manpower-economy-
 // rewrite-plan.md §5.4) is "newest built OR captured loses power first," so a
 // freshly-captured structure needs to read as freshly-activated too.
 const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["fort"] => {
-  if (!tile?.fort || tile.fort.status === "under_construction") return undefined;
+  if (!tile?.fort) return undefined;
+  // An in-flight upgrade is lost, but the tier it was upgrading from was
+  // still standing and is captured like any active fort.
+  if (tile.fort.status === "under_construction") return standingFortAfterLostUpgrade(tile.fort, nextOwnerId, now);
   if (tile.fort.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
     return { ...fort, ownerId: nextOwnerId, status: "active", activatedAt: now };
@@ -54,6 +58,17 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
   };
 };
 
+// Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+// survives capture and transfers to the new owner, same treatment as
+// capturedFort above -- it's a durable structure carrying live economy
+// value (flat Manpower/Coin baseline, reach anchor), not something that
+// should sit dead until re-settled by hand. status is always "active" (no
+// under_construction/removing lifecycle exists for an AFC yet).
+const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["afc"] => {
+  if (!tile?.afc) return undefined;
+  return { ...tile.afc, ownerId: nextOwnerId, activatedAt: now };
+};
+
 /**
  * What survives when a player *abandons* a tile (UNCAPTURE_TILE) rather than
  * losing it in combat. Same razing rules as a capture -- siege outposts and
@@ -67,18 +82,20 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
  * capturedStructureFields above.
  */
 export const abandonedStructureFields = (tile: DomainTileState): CapturableStructureFields => ({
-  fort: tile.fort?.status === "under_construction" ? undefined : tile.fort,
+  fort: tile.fort?.status === "under_construction" ? standingFortAfterLostUpgrade(tile.fort) : tile.fort,
   observatory: tile.observatory?.status === "under_construction" ? undefined : tile.observatory,
   siegeOutpost: undefined,
   economicStructure:
     tile.economicStructure?.status === "under_construction" || tile.economicStructure?.type === "RELAY_BEACON"
       ? undefined
-      : tile.economicStructure
+      : tile.economicStructure,
+  afc: tile.afc
 });
 
 export const capturedStructureFields = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): CapturableStructureFields => ({
   fort: capturedFort(tile, nextOwnerId, now),
   observatory: capturedObservatory(tile, nextOwnerId, now),
   siegeOutpost: undefined,
-  economicStructure: capturedEconomicStructure(tile, nextOwnerId, now)
+  economicStructure: capturedEconomicStructure(tile, nextOwnerId, now),
+  afc: capturedAfc(tile, nextOwnerId, now)
 });
