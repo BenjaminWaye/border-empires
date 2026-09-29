@@ -1,7 +1,9 @@
 # Guest play ("Play now" without an account)
 
-Status: 2026-09-27. PR 1 (server) implemented, self-reviewed, and pushed on
-`agent/guest-play`. See **Progress** at the bottom.
+Status: 2026-09-29. All four pieces (server support, unique names, "Play
+now", "save your empire") built, self-reviewed, merged with current
+`develop`, and consolidated into one PR against `develop`. See
+**Progress** at the bottom.
 
 ## Goal
 
@@ -31,12 +33,16 @@ TikTok, Discord) can't do Google sign-in at all
 3. "Play now" is the primary button on the sign-in card; sign-in options
    sit below it.
 
-## Prerequisite
+## Prerequisite — done
 
-The gateway does not verify Firebase ID token signatures
-(`auth-identity.ts` `decodeFirebaseTokenFallback`). That must be fixed
-before guest play launches (PR 2). It is tracked as a separate task. PR 1
-does not depend on it: PR 1 adds no way to become a guest.
+The gateway used to trust the raw, unverified JWT payload for login
+(`auth-identity.ts` `decodeFirebaseTokenFallback`). A separate session
+fixed this and it landed on `develop` (real signature/issuer/audience/
+expiry verification via `jose` + Google's JWKS, see
+`firebase-token-verifier.ts`, merged into this branch 2026-09-29). Guest
+detection was adapted to compute `isGuest` from the *verified* claims
+inside that same module, rather than re-decoding the token elsewhere —
+see **Progress**.
 
 ## How it works
 
@@ -570,3 +576,62 @@ Implemented in `client-guest-play.ts` (`startGuestPlay` calls
 card markup). Visually checked against the local stack at desktop and phone
 width. Changelog entry updated to describe this instead of silence.
 
+
+### Sync with `develop` and consolidation into one PR — 2026-09-29
+
+`develop` had moved 123 commits ahead while this was built (real token
+verification landing among them — see **Prerequisite**). Rather than open
+four separate, still-unmerged PRs and land them in dependency order (the
+"avoid stacked PRs" lesson applies to a PR whose *base has already
+merged*; nothing here had merged yet, so there was no orphaning risk to
+avoid), all four branches were consolidated onto `agent/guest-save-empire`
+and merged once against current `develop`, to become a single PR.
+
+Five real conflicts, all resolved by keeping both sides' work rather than
+picking one:
+- `auth-identity.ts`: the token-verification session replaced raw JWT
+  decoding with real verification and dropped the `firebase` claim from
+  its output shape entirely. Fixed at the right layer: extended
+  `VerifiedFirebaseToken` with `isGuest`, computed inside
+  `firebase-token-verifier.ts` from the *verified* payload (same
+  anonymous-provider / no-email / no-linked-identity rule as before, just
+  now operating on a trusted payload instead of an unverified one). Guest
+  detection is stronger for this, not weaker. `auth-identity-guest.test.ts`
+  was rewritten to test at this new layer (pass-through of `isGuest`
+  through `resolveGatewayAuthIdentity`, now async and verifier-injected).
+- `gateway-app.ts` (x2), `http-routes.ts`: additive, both sides' lines
+  kept. `http-routes.ts` needed more: develop extracted the rally-link
+  routes into `register-rally-link-routes.ts` (byte-identical to this
+  branch's own code otherwise), so the `isGuest` pass-through on
+  `preparePlayer` was re-applied there instead.
+- `client-changelog-data.ts`: both sides computed new entries' `createdAt`
+  as "1ms after the newest entry" from the same shared ancestor, so
+  timestamps collided. Kept every entry from both sides; this branch's
+  three were renumbered to sit after develop's now-highest value.
+- `client-network.ts`: additive import lines, both kept.
+
+Two test-only regressions surfaced only after the merge (build and typecheck
+were clean; these failed at runtime):
+- `prepare-and-join-player-guests.test.ts`'s mock `runtime` didn't
+  implement `ensurePlayerHasAfc`, a method develop's own AFC-migration
+  commits added to the real spawn path (`spawnAndAnnounce` now calls it
+  unconditionally after every spawn). Added the mock method.
+- Three gateway integration tests (`guest-play`, `guest-profile`,
+  `unique-display-names`) built fake unsigned tokens, which the old
+  raw-decode path accepted but real signature verification now rejects
+  outright (every login timed out waiting for INIT). Converted to sign
+  real RS256-signed tokens against a throwaway key pair and inject a
+  matching verifier, via a new shared `createTestFirebaseTokens()` helper
+  in `gateway-test-client.ts` (mirrors the pattern in develop's own
+  `gateway-auth-verification.integration.test.ts`).
+
+Verified on the merged tree: full `pnpm build` (all packages), full
+`pnpm ci:local` equivalent run individually per step (file-lines, docs,
+changelog check, lint for every package, simulation test + perf + slow
+suites, gateway test suite, client test suite, `test:scripts`) — all green.
+Total: simulation 2870+14 (perf)+2 (slow) tests, gateway 1205, client 3465,
+plus the root script tests. Nothing skipped except three long-standing
+`.skip`s unrelated to this work.
+
+Opened as a single PR against `develop`; PR #2131 (which only covered PR 1
+in isolation) closed as superseded.
