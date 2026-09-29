@@ -59,7 +59,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -1840,7 +1840,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resolveFrontierCapture,
         openSingleTileActionMenu,
         renderHud,
-        requestViewRefresh
+        requestViewRefresh, pushFeed
       });
       return;
     }
@@ -2296,7 +2296,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
+      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;

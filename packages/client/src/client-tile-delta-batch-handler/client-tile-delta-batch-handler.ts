@@ -1,7 +1,8 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { queueAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
+import { arrowGestureConfirmInvalidatedByTileDeltaBatch } from "../client-arrow-gesture-confirm-invalidate.js";
+import { hideArrowGestureConfirmSheet } from "../client-arrow-gesture-confirm-sheet.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
@@ -12,6 +13,7 @@ import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/clie
 import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
+import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -35,6 +37,7 @@ export type TileDeltaBatchHandlerDeps = {
   openSingleTileActionMenu: (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; preserveTab?: boolean }) => void;
   renderHud: () => void;
   requestViewRefresh: () => void;
+  pushFeed: (msg: string, type?: string, severity?: string) => void;
 };
 
 /** Handles a gateway TILE_DELTA_BATCH message: merges tiles, resolves any queued
@@ -63,6 +66,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
+      previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
       previousTileByKey.set(
         updateKey,
         existing
@@ -74,7 +78,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
           : undefined
       );
       previousWaystationByKey.set(updateKey, existing?.waystation ? { activated: existing.waystation.activated } : undefined);
-      previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
     }
   }
   applyGatewayTileDeltaBatch(
@@ -126,6 +129,13 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
   }
   if (resolvedQueuedFrontierCapture) deps.resolveFrontierCapture("TILE_DELTA_BATCH");
+  // F5: dismiss a stale arrow-gesture confirm sheet if this batch reveals the
+  // armed origin flag is no longer ours (see client-arrow-gesture-confirm-invalidate.ts).
+  if (Array.isArray(tileUpdates) && arrowGestureConfirmInvalidatedByTileDeltaBatch(state, tileUpdates, keyFor)) {
+    state.pendingArrowGestureConfirm = undefined;
+    hideArrowGestureConfirmSheet();
+    deps.pushFeed("Arrow gesture cancelled — that flag is no longer yours.", "combat", "info");
+  }
   // Re-render the tile action menu if the delta touched the currently selected
   // own tile (e.g. SET_MUSTER returns a tile delta that changes muster state).
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey && Array.isArray(tileUpdates)) {
@@ -155,7 +165,12 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
       }
     }
-    queueAfcModuleDeliveries({ tileUpdates, previousModulesByKey: previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, queue: state.afcModuleDeliveryFxQueue, deliveredAtByKey: state.afcModuleDeliveredAtByKey, nowMs });
+    recordAfcModuleDeliveries(
+      state,
+      detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),
+      keyFor,
+      performance.now()
+    );
     emitTownCaptureIfCaptured({
       tileUpdates,
       previousTileByKey,

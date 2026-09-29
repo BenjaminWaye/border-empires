@@ -18,11 +18,10 @@ import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3
 import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
-import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
-import { AFC_MODULE_DOCK_HEIGHT, afcSocketPlacement } from "../client-map-3d-fabrication-complex.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
+import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
+import { AFC_MODULE_DOCK_HEIGHT, AFC_SOCKET_COUNT, afcSocketPlacement } from "../client-map-3d-fabrication-complex.js";
 
-const AFC_DELIVERY_FX_MAX_AGE_MS = 10_000;
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 export const AEGIS_LOCK_FIELD_RADIUS_TILES = 30;
@@ -44,7 +43,7 @@ export type FxCastOverlayLayers = {
   astralDockLaunchFx: ReturnType<typeof createRevealEmpireFxLayer>;
   aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
   unsettleFx: ReturnType<typeof createUnsettleFxLayer>;
-  afcModuleDeliveryFx: ReturnType<typeof createAfcModuleDeliveryFxLayer>;
+  afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -201,17 +200,17 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
-  // The streak lands on the exact socket the module docks into (the same ring
-  // layout the AFC overlay places its docked modules with).
   const syncAfcModuleDeliveryFxQueue = (): void => {
     while (state.afcModuleDeliveryFxQueue.length > 0) {
       const delivery = state.afcModuleDeliveryFxQueue.shift()!;
-      // Queued while the 2D renderer was active (nothing drains it there) and
-      // now stale: don't replay old deliveries when switching to 3D.
-      if (Date.now() - delivery.queuedAt > AFC_DELIVERY_FX_MAX_AGE_MS) continue;
       const { sceneX, sceneZ } = sceneXZ(delivery.x, delivery.y);
-      const { dx, dz } = afcSocketPlacement(delivery.slot);
-      layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(delivery.x, delivery.y), performance.now(), { dx, dy: AFC_MODULE_DOCK_HEIGHT, dz });
+      // The streak lands on the exact socket the module docks into (same ring
+      // layout the AFC overlay docks modules with); a module past the last
+      // socket has none, so it lands at the AFC's center. performance.now() to
+      // match the FX layer's update(nowMs) clock.
+      const socket = delivery.slot < AFC_SOCKET_COUNT ? afcSocketPlacement(delivery.slot) : undefined;
+      const landing = socket ? { dx: socket.dx, dy: AFC_MODULE_DOCK_HEIGHT, dz: socket.dz } : undefined;
+      layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now(), landing);
     }
   };
 

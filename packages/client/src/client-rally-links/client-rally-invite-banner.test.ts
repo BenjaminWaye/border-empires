@@ -111,4 +111,25 @@ describe("mountRallyInvitePanel", () => {
     await vi.waitFor(() => expect(status.textContent).toContain("3 joins remaining."));
     expect(status.textContent).not.toContain(", .");
   });
+
+  // A rally link is mostly opened from a chat app's in-app browser, where
+  // Google sign-in does not work: the invite has to offer "Play now".
+  it("tells the invited player they can play now, not only sign in", async () => {
+    window.history.pushState(null, "", "/r/test-code-123");
+    document.body.innerHTML = `
+      <div id="hud"><div id="auth-overlay"><div id="auth-card"><section class="auth-panel">
+        <div class="auth-panel-head"><div class="auth-panel-title">Sign in to your empire</div></div>
+      </section></div></div></div>
+    `;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: "test-code-123", ownerName: "Alice", usesRemaining: 3, expiresAt: Date.now() + 3_600_000 }) })
+    );
+
+    mountRallyInvitePanel({ wsUrl: "ws://127.0.0.1:3001/ws" });
+
+    const status = document.querySelector("[data-rally-invite-status]")!;
+    await vi.waitFor(() => expect(status.textContent).toContain("Alice invited you to a rally"));
+    expect(status.textContent).toContain("play now or sign in to spawn right next to them");
+  });
 });

@@ -1,10 +1,12 @@
 import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { displayNameKey, isDisplayNameTaken, suggestAlternativeName } from "../display-name-uniqueness/display-name-uniqueness.js";
 
 // Extracted from gateway-app.ts's dispatcher switch to keep that (already
 // oversized) file from growing -- mirrors handle-set-tile-color-message.ts.
 // Validates + persists a SET_PROFILE (display name + color) request, applying
 // the once-per-season rename/color-change throttle, then broadcasts the new
 // style to every connected player and updates the sender's own HUD state.
+// Display names are unique (NAME_TAKEN), like colours (COLOR_TAKEN).
 
 type StoredProfileLike = {
   name?: string;
@@ -21,6 +23,9 @@ export type SetProfileMessageDeps = {
   canToggleFog: boolean;
   buildTakenColorSet: (excludePlayerId: string) => Promise<Set<string>>;
   incrementColorCollisionRejectedTotal: () => void;
+  buildTakenNameSet: (excludePlayerId: string) => Promise<Set<string>>;
+  incrementDisplayNameCollisionRejectedTotal: () => void;
+  runExclusive: <T>(task: () => Promise<T>) => Promise<T>;
   profileStore: {
     get: (playerId: string) => Promise<StoredProfileLike | undefined>;
     setProfile: (
@@ -50,6 +55,7 @@ export type SetProfileMessageDeps = {
 export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Promise<void> => {
   const {
     playerId, displayName, color, canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal,
+    buildTakenNameSet, incrementDisplayNameCollisionRejectedTotal, runExclusive,
     profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId, renamePlayer, sendJson,
     allSockets, socketsForPlayer, queueOrSendSessionPayload, preSerializeBroadcast
   } = deps;
@@ -100,14 +106,33 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
 
   const nameChangedSeasonId = isRename ? currentSeasonId : undefined;
   const colorChangedSeasonId = isColorChange ? currentSeasonId : undefined;
-  const storedProfile = await profileStore.setProfile(playerId, displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
-  invalidateProfileCache(playerId);
-  const override = profileOverrides.upsert(playerId, {
-    ...(storedProfile.name ? { name: storedProfile.name } : {}),
-    ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
-    ...(typeof storedProfile.profileComplete === "boolean" ? { profileComplete: storedProfile.profileComplete } : {})
+  // Grandfathering: a name the player already holds is never re-checked, so
+  // duplicates that existed before names became unique keep working (same
+  // rule as colorUnchanged above).
+  const nameChanged = displayNameKey(existingProfile?.name ?? "") !== displayNameKey(displayName);
+  // The uniqueness check and the write it protects must not interleave with
+  // another player's SET_PROFILE, so both run inside one exclusive section.
+  const saved = await runExclusive(async () => {
+    if (nameChanged) {
+      const takenNames = await buildTakenNameSet(playerId);
+      if (isDisplayNameTaken(displayName, takenNames)) return { takenNames } as const;
+    }
+    const storedProfile = await profileStore.setProfile(playerId, displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
+    invalidateProfileCache(playerId);
+    const saveOverride = profileOverrides.upsert(playerId, {
+      ...(storedProfile.name ? { name: storedProfile.name } : {}),
+      ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
+      ...(typeof storedProfile.profileComplete === "boolean" ? { profileComplete: storedProfile.profileComplete } : {})
+    });
+    renamePlayer(playerId, saveOverride.name ?? displayName);
+    return { override: saveOverride } as const;
   });
-  renamePlayer(playerId, override.name ?? displayName);
+  if ("takenNames" in saved) {
+    incrementDisplayNameCollisionRejectedTotal();
+    sendJson({ type: "ERROR", code: "NAME_TAKEN", message: "That name is already taken by another empire.", suggestion: suggestAlternativeName(displayName, saved.takenNames) });
+    return;
+  }
+  const { override } = saved;
   taken.add(normalized);
   const suggestedColors = pickSuggestedPalette(6, taken);
   const stylePayload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId, name: override.name ?? displayName, tileColor: override.tileColor ?? normalized });

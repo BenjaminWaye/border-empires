@@ -1,61 +1,80 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
-import { queueAfcModuleDeliveries, snapshotAfcModules, type AfcModuleDeliveryFxEntry } from "./client-afc-module-delivery-detect.js";
+import {
+  AFC_DELIVERY_2D_PULSE_MS,
+  detectAfcModuleDeliveries,
+  recordAfcModuleDeliveries,
+  snapshotAfcModules,
+  type AfcModuleDeliveryFxEntry
+} from "./client-afc-module-delivery-detect.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
-const afcTile = (ownerId: string, modules?: string[]): Tile =>
-  ({ x: 4, y: 7, terrain: "LAND", ownerId, afc: { ownerId, status: "active", ...(modules ? { modules } : {}) } }) as Tile;
+const afcTile = (x: number, y: number, ownerId: string, modules?: string[]): Tile =>
+  ({ x, y, ownerId, afc: { ownerId, status: "active", ...(modules ? { modules } : {}) } }) as Tile;
 
-const deliveredAtByKey = new Map<string, number>();
-const run = (before: Tile | undefined, after: Tile, me = "me"): AfcModuleDeliveryFxEntry[] => {
-  const queue: AfcModuleDeliveryFxEntry[] = [];
-  queueAfcModuleDeliveries({
-    tileUpdates: [{ x: 4, y: 7 }],
-    previousModulesByKey: new Map([[keyFor(4, 7), snapshotAfcModules(before)]]),
-    tiles: new Map([[keyFor(4, 7), after]]),
+const run = (previous: Tile | undefined, next: Tile, me = "p1") =>
+  detectAfcModuleDeliveries({
+    tileUpdates: [{ x: next.x, y: next.y }],
+    previousAfcModulesByKey: new Map([[keyFor(next.x, next.y), snapshotAfcModules(previous)]]),
+    tiles: new Map([[keyFor(next.x, next.y), next]]),
     me,
     keyFor,
-    queue,
-    deliveredAtByKey,
     nowMs: 100
   });
-  return queue;
-};
 
-describe("queueAfcModuleDeliveries", () => {
-  it("queues a delivery for the socket the new module docks into", () => {
-    expect(run(afcTile("me", ["masonry"]), afcTile("me", ["masonry", "leatherworking"]))).toEqual([
-      { x: 4, y: 7, slot: 1, techId: "leatherworking", queuedAt: 100 }
-    ]);
+describe("detectAfcModuleDeliveries", () => {
+  it("queues one delivery when an owned AFC gains a module", () => {
+    expect(run(afcTile(4, 5, "p1", ["masonry"]), afcTile(4, 5, "p1", ["masonry", "alchemy"]))).toEqual([{ x: 4, y: 5, slot: 1, techId: "alchemy", queuedAt: 100 }]);
   });
 
-  it("stamps the AFC tile for the 2D pulse only when a delivery lands", () => {
-    deliveredAtByKey.clear();
-    run(afcTile("me", ["masonry"]), afcTile("me", ["masonry"]));
-    expect(deliveredAtByKey.size).toBe(0);
-    run(afcTile("me", ["masonry"]), afcTile("me", ["masonry", "leatherworking"]));
-    expect(deliveredAtByKey.has(keyFor(4, 7))).toBe(true);
+  it("treats an AFC with no modules field as an empty set (first module docks)", () => {
+    expect(run(afcTile(4, 5, "p1"), afcTile(4, 5, "p1", ["masonry"]))).toEqual([{ x: 4, y: 5, slot: 0, techId: "masonry", queuedAt: 100 }]);
   });
 
-  it("queues one delivery per module when several land in one batch, each in its own slot", () => {
-    const queue = run(afcTile("me"), afcTile("me", ["masonry", "leatherworking", "workshops"]));
-    expect(queue.map((e) => [e.techId, e.slot])).toEqual([["masonry", 0], ["leatherworking", 1], ["workshops", 2]]);
+  it("queues one entry per module when several dock in the same batch", () => {
+    const out = run(afcTile(4, 5, "p1", []), afcTile(4, 5, "p1", ["masonry", "alchemy"]));
+    expect(out.map((e) => e.techId)).toEqual(["masonry", "alchemy"]);
   });
 
-  it("queues nothing for a tile first seen in this batch", () => {
-    expect(run(undefined, afcTile("me", ["masonry"]))).toEqual([]);
+  it("queues nothing for a tile seen for the first time (no previous snapshot)", () => {
+    expect(run(undefined, afcTile(4, 5, "p1", ["masonry"]))).toEqual([]);
   });
 
-  it("queues nothing for someone else's AFC", () => {
-    expect(run(afcTile("them"), afcTile("them", ["masonry"]))).toEqual([]);
+  it("queues nothing when the AFC itself just arrived (previous tile had no AFC)", () => {
+    expect(run({ x: 4, y: 5, ownerId: "p1" } as Tile, afcTile(4, 5, "p1", ["masonry"]))).toEqual([]);
+  });
+
+  it("queues nothing for another player's AFC", () => {
+    expect(run(afcTile(4, 5, "p2", []), afcTile(4, 5, "p2", ["masonry"]))).toEqual([]);
   });
 
   it("queues nothing when the module list is unchanged", () => {
-    expect(run(afcTile("me", ["masonry"]), afcTile("me", ["masonry"]))).toEqual([]);
+    expect(run(afcTile(4, 5, "p1", ["masonry"]), afcTile(4, 5, "p1", ["masonry"]))).toEqual([]);
+  });
+});
+
+describe("recordAfcModuleDeliveries", () => {
+  const newState = () => ({ afcModuleDeliveryFxQueue: [] as AfcModuleDeliveryFxEntry[], afcModuleDeliveryLandedAt: new Map<string, number>() });
+
+  it("queues for 3D and stamps the 2D pulse map", () => {
+    const state = newState();
+    recordAfcModuleDeliveries(state, [{ x: 1, y: 2, slot: 0, techId: "masonry", queuedAt: 10 }], keyFor, 10);
+    expect(state.afcModuleDeliveryFxQueue).toHaveLength(1);
+    expect(state.afcModuleDeliveryLandedAt.get("1,2")).toBe(10);
   });
 
-  it("skips modules past the last socket", () => {
-    const nine = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
-    expect(run(afcTile("me", nine.slice(0, 8)), afcTile("me", nine))).toEqual([]);
+  it("prunes expired 2D stamps so the map stays bounded", () => {
+    const state = newState();
+    state.afcModuleDeliveryLandedAt.set("9,9", 0);
+    recordAfcModuleDeliveries(state, [], keyFor, AFC_DELIVERY_2D_PULSE_MS + 1);
+    expect(state.afcModuleDeliveryLandedAt.size).toBe(0);
+  });
+
+  it("caps the undrained 3D queue (it never drains in 2D-only sessions)", () => {
+    const state = newState();
+    const many = Array.from({ length: 100 }, (_, i) => ({ x: i, y: 0, slot: 0, techId: "masonry", queuedAt: i }));
+    recordAfcModuleDeliveries(state, many, keyFor, 1);
+    expect(state.afcModuleDeliveryFxQueue.length).toBeLessThanOrEqual(32);
+    expect(state.afcModuleDeliveryFxQueue.at(-1)?.x).toBe(99);
   });
 });

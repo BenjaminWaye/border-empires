@@ -10,7 +10,7 @@ import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialWorldEngineStrikeState } from "./client-state-world-engine-strike-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -18,6 +18,7 @@ import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-al
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
+import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -97,7 +98,7 @@ export const createInitialState = () => ({
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
   ...createInitialAuthBusyState(),
-  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
+  seasonFull: false, seasonFullNotifyAcknowledged: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
   profileSetupRequired: false,
   gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -237,15 +238,23 @@ export const createInitialState = () => ({
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>, ...createInitialSiegeBombardmentState(),
-  ...createInitialWorldEngineStrikeState(),
+  worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
+  // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
+  // every connected client (not just the caster/target), never replayed from
+  // 12h history so it only ever fires live, once, at the moment of the strike.
+  worldEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
+  // strikeId dedup set shared by the live broadcast handler and the 12h
+  // history backfill, so a strike already seen live isn't replayed as a
+  // toast/popup/shake when history is fetched on reconnect.
+  worldEngineStrikeSeenIds: new Set<string>(),
+  // Most-recent-first, capped list backing the Activity Feed's world-events
+  // history section — populated both live and from the 12h history fetch.
+  worldEngineStrikeAnnouncements: [] as WorldEngineStrikeHistoryRecord[],
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  // "A Module arrives at your AFC": x/y = the AFC tile, slot = the socket (0-7) it docks into.
-  // 2D companion to the 3D delivery FX: AFC tile key -> performance.now() of its latest module delivery.
-  afcModuleDeliveredAtByKey: new Map<string, number>(),
-  afcModuleDeliveryFxQueue: [] as Array<{ x: number; y: number; slot: number; techId: string; queuedAt: number }>,
-  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, ...createInitialAfcDeliveryState(), // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -542,7 +551,7 @@ export const createInitialState = () => ({
     length: 1 as 1 | 2 | 3
   },
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
-  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F0/F1: win-chance paint hook + drag endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-map-input-arrow-gesture-wiring.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),

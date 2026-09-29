@@ -20,6 +20,10 @@ message SubscribePlayerRequest {
 message PreparePlayerRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
+  // "guest" (Firebase anonymous account), "account" (any real sign-in), or
+  // empty when the caller doesn't know. Only an explicit "account" for a
+  // recorded guest counts as an upgrade that frees their guest slot.
+  string auth_kind = 3;
 }
 
 message UnsubscribePlayerRequest {
@@ -294,6 +298,9 @@ message PreparePlayerAck {
 message JoinSeasonRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
+  // Same values as PreparePlayerRequest.auth_kind; "guest" is counted
+  // against the guest allowance.
+  string auth_kind = 3;
 }
 
 message JoinSeasonAck {
@@ -309,6 +316,10 @@ message JoinSeasonAck {
   // spawned when this is set. See scheduled_start_at for the start time.
   bool pending = 5;
   double scheduled_start_at = 6;
+  // True when a new guest was rejected because the guest allowance
+  // (SIMULATION_MAX_SEASON_GUESTS) is used up. The overall cap may still
+  // have room for a player who signs in with a real account.
+  bool guest_full = 7;
 }
 
 message SimulationEvent {
