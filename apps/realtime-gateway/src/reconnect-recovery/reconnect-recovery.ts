@@ -29,7 +29,7 @@ export type PendingGatewayCommand = {
 };
 
 export const buildInitMessage = (
-  playerIdentity: { playerId: string; playerName: string },
+  playerIdentity: { playerId: string; playerName: string; isGuest?: boolean },
   commandStore: GatewayCommandStore,
   initialState?: PlayerSubscriptionSnapshot,
   seedProfile: SimulationSeedProfile = "default",
@@ -129,6 +129,8 @@ export const buildInitMessage = (
       } else if (bootstrap.runtimeIdentity.sourceType === "seed-profile") {
         Object.assign(bootstrap.player, { profileNeedsSetup: true });
       }
+      // A guest is given a name and colour at login instead of the setup step.
+      if (playerIdentity.isGuest === true) Object.assign(bootstrap.player, { profileNeedsSetup: false });
       for (const style of bootstrap.playerStyles) {
         const styleOverride = profileOverrides?.get(style.id);
         if (styleOverride?.name) style.name = styleOverride.name;

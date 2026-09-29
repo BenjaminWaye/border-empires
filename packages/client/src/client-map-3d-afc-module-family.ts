@@ -59,6 +59,10 @@ export type AfcOverlayGroup = {
   // Docks the AFC itself plus up to AFC_SOCKET_COUNT of moduleTechIds (in
   // order) into their matching family overlay's next socket attachment.
   readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]) => void;
+  /** Current scene-space socket for a rendered module. The delivery FX reads
+   * this after the visible-terrain rebuild, so a cargo streak lands on the
+   * same socket as the permanent module rather than the AFC tile centre. */
+  readonly attachmentFor: (worldTileX: number, worldTileY: number, techId: string) => { x: number; y: number; z: number } | undefined;
 };
 
 export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, buildingEnvironmentTexture?: Texture): AfcOverlayGroup => {
@@ -68,6 +72,8 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
     Object.entries(MODULE_FAMILY_FACTORIES).map(([techId, factory]) => [techId, factory(scene, familyCapacity, buildingEnvironmentTexture)])
   );
   const allFamilies = [...families.values()];
+  const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
+  const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
   const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]): void => {
     const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
@@ -76,13 +82,15 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
       const family = families.get(techId);
       const attachment = attachments[i];
       if (!family || !attachment) return;
+      attachmentsByModule.set(attachmentKey(worldTileX, worldTileY, techId), attachment);
       family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY);
     });
   };
 
   return {
     addAfc,
-    clear: () => { afc.clear(); for (const family of allFamilies) family.clear(); },
+    attachmentFor: (worldTileX, worldTileY, techId) => attachmentsByModule.get(attachmentKey(worldTileX, worldTileY, techId)),
+    clear: () => { attachmentsByModule.clear(); afc.clear(); for (const family of allFamilies) family.clear(); },
     commit: () => { afc.commit(); for (const family of allFamilies) family.commit(); },
     update: (nowMs) => { afc.update(nowMs); for (const family of allFamilies) family.update(nowMs); },
     dispose: () => { afc.dispose(); for (const family of allFamilies) family.dispose(); }

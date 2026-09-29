@@ -29,8 +29,10 @@ primary_region = "arn"
   # showed a 100-tester synchronized season start hard-rejects ~46% of
   # arrivals with SERVER_BUSY at the defaults, even though the gateway/sim
   # event loop stayed healthy throughout -- the ceiling was purely queue
-  # capacity, not throughput. 150 covers the full beta cohort
-  # (SIMULATION_MAX_SEASON_PLAYERS=120) plus headroom. Matches prod.
+  # capacity, not throughput. 150 covers the full beta cohort (150 vs the
+  # 100 SIMULATION_MAX_SEASON_PLAYERS set below) plus headroom. Matches
+  # prod. The 120 figure this comment used to cite was never actually set
+  # here -- the code default (50) was in effect the whole time.
   GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "8"
   GATEWAY_MAX_LOGIN_QUEUE_SIZE = "150"
 
@@ -41,6 +43,15 @@ primary_region = "arn"
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
   SIMULATION_HOST = "127.0.0.1"
   SIMULATION_PORT = "50051"
+  # Hard cap on human players admitted per season (code default was 50).
+  SIMULATION_MAX_SEASON_PLAYERS = "100"
+  # Guest (Firebase anonymous account) allowance inside the cap above --
+  # never additive to it. Set equal to the cap, i.e. guests are effectively
+  # uncapped and only the overall cap limits them (user decision
+  # 2026-09-28). Lower it to bring back a separate guest limit; if
+  # SIMULATION_MAX_SEASON_PLAYERS changes, change this too.
+  # See docs/guest-play-plan.md.
+  SIMULATION_MAX_SEASON_GUESTS = "100"
   # 0.0.0.0 so `flyctl proxy` can reach /debug/* for live heap diagnostics.
   # Still private-only: http_service below forwards only port 8080 to the
   # internet; 50052 is reachable solely over Fly's 6PN / flyctl proxy.

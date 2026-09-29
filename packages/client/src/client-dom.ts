@@ -62,6 +62,7 @@ export const initClientDom = () => {
   const authRegisterBtn = requireElement<HTMLButtonElement>("#auth-register");
   const authEmailLinkBtn = requireElement<HTMLButtonElement>("#auth-email-link");
   const authGoogleBtn = requireElement<HTMLButtonElement>("#auth-google");
+  const authPlayNowBtn = requireElement<HTMLButtonElement>("#auth-play-now");
   const authStatusEl = requireElement<HTMLDivElement>("#auth-status");
   const authDebugRouteEl = requireElement<HTMLDivElement>("#auth-debug-route");
   const authPanelEl = requireElement<HTMLElement>(".auth-panel");
@@ -161,6 +162,7 @@ export const initClientDom = () => {
     authEmailResetBtn,
     authEmailSentAddressEl,
     authGoogleBtn,
+    authPlayNowBtn,
     authLoginBtn,
     authBusyCopyEl,
     authBusyDiagnosticsBtn,

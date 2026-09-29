@@ -1,13 +1,12 @@
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
-import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
-import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
+import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
@@ -782,23 +781,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   dom.missionsEl.innerHTML = "";
   dom.mobilePanelMissionsEl.innerHTML = "";
-  const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Empire Integrity"), () =>
-    renderDefensibilityPanelHtml({
-      tiles: state.tiles,
-      me: state.me,
-      defensibilityPct: state.defensibilityPct,
-      settledT: state.settledT,
-      settledE: state.settledE,
-      showWeakDefensibility: state.showWeakDefensibility,
-      empireIntegrityEnabled: EMPIRE_INTEGRITY_ENABLED,
-      keyFor,
-      wrapX,
-      wrapY,
-      terrainAt
-    })
-  );
-  dom.panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
-  dom.mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
   const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
   weakDefButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
