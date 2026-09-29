@@ -59,14 +59,23 @@ export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInpu
   }
   window.addEventListener("blur", abandonActiveDrag);
 
+  // Arms on right-button drag, or ctrl+left drag: on a Mac trackpad ctrl+click
+  // IS the right click (macOS reports it as button 0 + ctrlKey, never button
+  // 2) and there is no way to hold a two-finger click while dragging, so
+  // right-button-only made the gesture unreachable there. Capture phase so a
+  // ctrl+left press on a flag arms the arrow instead of starting a map pan.
+  let armedButton: number | undefined;
   deps.canvas.addEventListener("mousedown", (ev) => {
-    if (ev.button !== 2) return;
+    const ctrlLeft = ev.button === 0 && ev.ctrlKey;
+    if (ev.button !== 2 && !ctrlLeft) return;
     const { wx, wy } = deps.worldTileFromPointer(ev.offsetX, ev.offsetY);
     const tile = state.tiles.get(deps.keyFor(wx, wy));
     if (!tile?.muster || tile.ownerId !== state.me) return;
+    if (ctrlLeft) ev.stopImmediatePropagation();
+    armedButton = ev.button;
     arrowGestureState = startArrowGesture({ x: wx, y: wy });
     state.arrowGesture = { origin: { x: wx, y: wy }, target: { x: wx, y: wy } };
-  });
+  }, { capture: true });
 
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!isArrowGestureDragging(arrowGestureState)) return;
@@ -91,7 +100,7 @@ export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInpu
   });
 
   window.addEventListener("mouseup", (ev) => {
-    if (ev.button !== 2 || !isArrowGestureDragging(arrowGestureState)) return;
+    if (ev.button !== armedButton || !isArrowGestureDragging(arrowGestureState)) return;
     const rect = deps.canvas.getBoundingClientRect();
     const { wx, wy } = deps.worldTileFromPointer(ev.clientX - rect.left, ev.clientY - rect.top);
     const { next, result } = releaseArrowGesture(arrowGestureState, { x: wx, y: wy });
