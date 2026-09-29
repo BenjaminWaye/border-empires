@@ -301,6 +301,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "If your empire has a settled tile but no AFC, you'll be granted one on free land near your existing settlement the next time you connect -- your settlement itself is untouched"
     ]
+  },
+  {
+    createdAt: 1790706701000,
+    introducedIn: "2026.09.29.2",
+    title: "Modules now visibly land on your AFC",
+    why: "Researching an AFC Module used to just make it appear on your AFC with no feedback, so it was easy to miss that the delivery had happened at all.",
+    changes: [
+      "True-3D renderer: when a Manifest Module docks on your AFC, a cargo streak now burns down onto the complex and lands in a flash, shockwave and dust cloud",
+      "2D canvas renderer (accessibility fallback): the AFC glyph briefly flares with a brass ring instead -- 2D has no per-module visuals, so it does not play the full sequence",
+      "Only your own AFCs animate, and a delivery that happened while you were offline is not replayed when you reconnect"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
