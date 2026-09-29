@@ -17,13 +17,13 @@ Status against §10 (implementation order):
 | 1 | Preserve tech IDs, rename-only | Done |
 | 2 | Gold → Coin (display text; internal field names unchanged) | Done |
 | 3 | Manifest metadata (`manifestCategory` per tech) | Done for category; delivery type / visual asset still open |
-| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; pre-AFC empire migration grant done (PR #2150); player-built additional AFCs **planned** (§4 "Building additional AFCs"); delivery events not started |
+| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; pre-AFC empire migration grant done (PR #2150); player-built additional AFCs **planned** (§4 "Building additional AFCs"); Module delivery events done client-side (tile-delta diff, no new wire type) |
 | 5 | Rename/re-map buildings, remove Seed Granary | Done |
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): implementation plan written (2026-09-29), see `docs/manifest-afc-module-delivery-animation-plan.md`; module-drop FX prototype merged, Storybook only (PR #2149), not yet wired into the game. The whole-AFC drop (for newly built/granted AFCs) was added to that same plan 2026-09-29 |
+| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): **Phase 1 for Modules is wired into the game** (2026-09-29; true-3D full sequence, 2D brass-ring pulse), see `docs/manifest-afc-module-delivery-animation-plan.md`. Per-socket landing, per-module bespoke visuals and the whole-AFC drop remain open. The whole-AFC drop (for newly built/granted AFCs) was added to that same plan 2026-09-29 |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
