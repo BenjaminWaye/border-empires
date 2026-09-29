@@ -58,6 +58,23 @@ export const bindArrowGestureTouchInput = (state: ClientState, deps: ArrowGestur
   let pressStart: { x: number; y: number } | undefined;
   let longPressTimer: number | undefined;
 
+  // F5 (docs/replenishment-update-plan.md): same orphaned-drag audit as the
+  // desktop wiring's abandonActiveDrag (client-map-input-arrow-gesture-wiring.ts)
+  // -- a backgrounded tab or dropped WS mid-touch-drag gets no touchend/
+  // touchcancel either, so this cancels it directly instead.
+  const abandonActiveDrag = (): void => {
+    clearPending();
+    if (!isArrowGestureDragging(arrowGestureState)) return;
+    arrowGestureState = cancelArrowGesture();
+    state.arrowGesture = undefined;
+  };
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") abandonActiveDrag();
+    });
+  }
+  window.addEventListener("blur", abandonActiveDrag);
+
   const tileAt = (clientX: number, clientY: number): ArrowGesturePoint => {
     const rect = deps.canvas.getBoundingClientRect();
     const { wx, wy } = deps.worldTileFromPointer(clientX - rect.left, clientY - rect.top);
@@ -109,6 +126,13 @@ export const bindArrowGestureTouchInput = (state: ClientState, deps: ArrowGestur
         clearPending();
       }
       if (!isArrowGestureDragging(arrowGestureState) || !t) return;
+      // Same origin-flag-captured/WS-dropped cancel as the desktop wiring's
+      // mousemove check (client-map-input-arrow-gesture-wiring.ts).
+      const originTile = state.tiles.get(deps.keyFor(arrowGestureState.origin.x, arrowGestureState.origin.y));
+      if (!originTile?.muster || originTile.ownerId !== state.me || state.connection === "disconnected") {
+        abandonActiveDrag();
+        return;
+      }
       const current = tileAt(t.clientX, t.clientY);
       arrowGestureState = updateArrowGesture(arrowGestureState, current);
       if (!isArrowGestureDragging(arrowGestureState)) return;

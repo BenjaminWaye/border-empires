@@ -1875,7 +1875,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resolveFrontierCapture,
         openSingleTileActionMenu,
         renderHud,
-        requestViewRefresh
+        requestViewRefresh, pushFeed
       });
       return;
     }

@@ -1,5 +1,6 @@
 import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import {
+  cancelArrowGesture,
   createIdleArrowGestureState,
   isArrowGestureDragging,
   releaseArrowGesture,
@@ -38,6 +39,26 @@ export type ArrowGestureInputDeps = {
 export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInputDeps): void => {
   let arrowGestureState: ArrowGestureState = createIdleArrowGestureState();
 
+  // F5 (docs/replenishment-update-plan.md): persistence audit. A drag with
+  // no cancel path can be orphaned by a backgrounded tab (no mouseup ever
+  // fires -- OS/browser can suspend delivery of it entirely) or a dropped WS
+  // connection (the confirm on release would just fail server-side, but the
+  // arrow visual and confirm-sheet-eligibility would linger client-side in
+  // the meantime). Cancel outright rather than trying to resume: same
+  // "re-arm after the interruption" UX as client-inplace-reconnect.ts forces
+  // on the socket itself.
+  const abandonActiveDrag = (): void => {
+    if (!isArrowGestureDragging(arrowGestureState)) return;
+    arrowGestureState = cancelArrowGesture();
+    state.arrowGesture = undefined;
+  };
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") abandonActiveDrag();
+    });
+  }
+  window.addEventListener("blur", abandonActiveDrag);
+
   deps.canvas.addEventListener("mousedown", (ev) => {
     if (ev.button !== 2) return;
     const { wx, wy } = deps.worldTileFromPointer(ev.offsetX, ev.offsetY);
@@ -49,6 +70,15 @@ export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInpu
 
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!isArrowGestureDragging(arrowGestureState)) return;
+    // The origin flag can be captured/destroyed by an opposing action, or
+    // the WS connection can drop, mid-drag -- either way there is no longer
+    // a legal SET_MUSTER to offer on release, so cancel now rather than let
+    // the confirm sheet open for a flag that's gone (or a dead socket).
+    const originTile = state.tiles.get(deps.keyFor(arrowGestureState.origin.x, arrowGestureState.origin.y));
+    if (!originTile?.muster || originTile.ownerId !== state.me || state.connection === "disconnected") {
+      abandonActiveDrag();
+      return;
+    }
     const { wx, wy } = deps.worldTileFromPointer(ev.offsetX, ev.offsetY);
     arrowGestureState = updateArrowGesture(arrowGestureState, { x: wx, y: wy });
     if (!isArrowGestureDragging(arrowGestureState)) return;

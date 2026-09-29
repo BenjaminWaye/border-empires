@@ -1,6 +1,8 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
+import { arrowGestureConfirmInvalidatedByTileDeltaBatch } from "../client-arrow-gesture-confirm-invalidate.js";
+import { hideArrowGestureConfirmSheet } from "../client-arrow-gesture-confirm-sheet.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
@@ -34,6 +36,7 @@ export type TileDeltaBatchHandlerDeps = {
   openSingleTileActionMenu: (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; preserveTab?: boolean }) => void;
   renderHud: () => void;
   requestViewRefresh: () => void;
+  pushFeed: (msg: string, type?: string, severity?: string) => void;
 };
 
 /** Handles a gateway TILE_DELTA_BATCH message: merges tiles, resolves any queued
@@ -123,6 +126,13 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
   }
   if (resolvedQueuedFrontierCapture) deps.resolveFrontierCapture("TILE_DELTA_BATCH");
+  // F5: dismiss a stale arrow-gesture confirm sheet if this batch reveals the
+  // armed origin flag is no longer ours (see client-arrow-gesture-confirm-invalidate.ts).
+  if (Array.isArray(tileUpdates) && arrowGestureConfirmInvalidatedByTileDeltaBatch(state, tileUpdates, keyFor)) {
+    state.pendingArrowGestureConfirm = undefined;
+    hideArrowGestureConfirmSheet();
+    deps.pushFeed("Arrow gesture cancelled — that flag is no longer yours.", "combat", "info");
+  }
   // Re-render the tile action menu if the delta touched the currently selected
   // own tile (e.g. SET_MUSTER returns a tile delta that changes muster state).
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey && Array.isArray(tileUpdates)) {
