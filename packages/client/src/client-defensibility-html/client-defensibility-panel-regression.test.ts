@@ -11,12 +11,11 @@ const clientHudSource = (): string => {
 describe("defensibility panel weak-tile toggle regression guard", () => {
   it("binds weak-tile buttons after the defensibility panel markup is injected", () => {
     const source = clientHudSource();
-    const panelInsertAt = source.indexOf('panelDefensibilityEl.innerHTML = defensibilityPanelHtml;');
-    const mobilePanelInsertAt = source.indexOf('mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;');
+    // Both panels' markup is injected by renderDefensibilityPanels (client-hud-defensibility-panel.ts).
+    const panelsInsertAt = source.indexOf("renderDefensibilityPanels(state, dom,");
     const weakToggleBindAt = source.indexOf('const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;');
 
-    expect(panelInsertAt).toBeGreaterThan(-1);
-    expect(mobilePanelInsertAt).toBeGreaterThan(panelInsertAt);
-    expect(weakToggleBindAt).toBeGreaterThan(mobilePanelInsertAt);
+    expect(panelsInsertAt).toBeGreaterThan(-1);
+    expect(weakToggleBindAt).toBeGreaterThan(panelsInsertAt);
   });
 });

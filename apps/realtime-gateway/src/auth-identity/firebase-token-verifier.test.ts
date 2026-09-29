@@ -51,10 +51,28 @@ describe("createFirebaseTokenVerifier", () => {
     expect(rejected).toEqual([]);
   });
 
-  it("accepts anonymous-provider tokens (no email, no name)", async () => {
+  it("accepts anonymous-provider tokens (no email, no name) and marks them as a guest", async () => {
     const { verify } = makeVerifier();
     const token = await sign({ sub: "anon-uid", firebase: { sign_in_provider: "anonymous", identities: {} } });
-    expect(await verify(token)).toEqual({ uid: "anon-uid" });
+    expect(await verify(token)).toEqual({ uid: "anon-uid", isGuest: true });
+  });
+
+  it("does not mark a linked anonymous account (email or an identity present) as a guest", async () => {
+    const { verify } = makeVerifier();
+    const linkedByEmail = await sign({ sub: "u-a", email: "a@example.com", firebase: { sign_in_provider: "anonymous", identities: {} } });
+    const linkedByIdentity = await sign({ sub: "u-b", firebase: { sign_in_provider: "anonymous", identities: { "google.com": ["123"] } } });
+
+    expect(await verify(linkedByEmail)).toEqual({ uid: "u-a", email: "a@example.com" });
+    expect(await verify(linkedByIdentity)).toEqual({ uid: "u-b" });
+  });
+
+  it("does not mark a real sign-in as a guest, and tolerates a token with no firebase claim at all", async () => {
+    const { verify } = makeVerifier();
+    const google = await sign({ sub: "u-c", email: "c@example.com", firebase: { sign_in_provider: "google.com", identities: {} } });
+    const noFirebaseClaim = await sign({ sub: "u-d" });
+
+    expect(await verify(google)).toEqual({ uid: "u-c", email: "c@example.com" });
+    expect(await verify(noFirebaseClaim)).toEqual({ uid: "u-d" });
   });
 
   it("rejects an unsigned alg:none token carrying a victim uid", async () => {

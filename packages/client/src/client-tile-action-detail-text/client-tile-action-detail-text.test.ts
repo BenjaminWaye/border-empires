@@ -14,7 +14,8 @@ const baseTile: Tile = {
 describe("buildDetailTextForAction — build_observatory", () => {
   it("states the protection radius and that it pauses on cooldown", () => {
     const text = buildDetailTextForAction("build_observatory", baseTile);
-    expect(text).toContain("blocks hostile crystal actions within");
+    expect(text).toContain("protects your own tiles within");
+    expect(text).toContain("never covers unclaimed land or other players' tiles");
     expect(text).toMatch(/within \d+ tiles/);
     expect(text).toContain("cooldown");
   });

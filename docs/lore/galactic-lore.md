@@ -238,3 +238,45 @@ in waiting. Nothing is announced. The Duke's frontier simply begins to
 behave the way section 5 describes at full strength, with no rival fleet or
 vote to blame — until the lead shrinks, by loss or by the field catching
 up, and the Court's protection quietly returns.
+
+## 10. Relay Beacons: flags of anchored ground
+
+Where a Duke's towns are the heart of a claim, the **Relay Beacon** is its
+flag. It is the cheapest and quickest form of the Court's anchor technology:
+a tall, unarmed tower raised on frontier ground to declare, in a way the
+Bleed and every rival can read from miles away, that this stretch of land is
+now anchored to a Duke.
+
+A beacon does not fight. Its work is to mark and to watch:
+
+- **It marks.** The beacon anchors the ground around it, pushing the Duke's
+  claim outward well past what a town alone could hold. Land inside that
+  claim is the Duke's to settle and build on. Land outside it is still open
+  frontier, and section 5 applies to it in full: it resists quietly until a
+  border reaches it, then either yields or reclaims what was pushed into it.
+- **It watches.** A beacon's height and its rotating heliograph give a Duke
+  a long view of the frontier around it, so infestations, Wardens and rival
+  banners are seen before they arrive.
+
+Because a beacon is a claim and not a weapon, it carries no offensive
+strength of its own, and it is quiet where it counts: it does no refining
+and no aether-work beyond holding its anchor. That is why a Duke can plant
+one almost anywhere without waking what section 5 describes, and why the
+Court asks so little of a Duke who raises them.
+
+Two flags cannot own the same ground. Where a rival's anchor reaches land
+that a Duke's own anchors no longer cover, the rival's claim stands and the
+Duke's hold there thins from settled ground back to open frontier. A claim
+holds only as long as some anchor of the Duke's still covers it; the
+beacon is the cheapest way to keep that true.
+
+### What a beacon looks like
+
+A slender lattice tower of dark iron, with four legs that converge on a
+small enclosed deck. Geared brass periscopes sweep the horizon from the
+deck, and above it a spindle turns a rotating array of brass heliograph
+mirrors that flash light to anyone within sight. Amber signal lamps and a
+small aether-gas tank with brass feed pipes mark it as a working piece of
+anchor machinery rather than a fortress. It has no walls, no crenellations
+and no weapon mounts, so it stands tall, open and unarmoured, and reads at
+a glance against the squat, armed Siege Outpost.
