@@ -8,7 +8,7 @@ export const CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH: ClientChang
     why: "The arrow-drag attack needed a held right mouse button, which a Mac trackpad can't do (ctrl+click arrives as a left press), so it was unreachable there. And a muster flag's shield coverage was drawn as a grid of dark, gapped squares in the owner's raw color.",
     changes: [
       "Hold Ctrl and drag from one of your muster flags to draw the attack arrow (same as right-click-drag); a plain left-drag still pans the map",
-      "3D map: the shield-coverage tint around a muster flag now only shows while you are dragging the attack arrow, and is a soft gapless wash instead of dark squares"
+      "3D map: the shield-coverage tint around a muster flag now only shows while you are dragging the attack arrow, only on enemy-owned tiles, and is a soft gapless wash instead of dark squares"
     ]
   }
 ];
