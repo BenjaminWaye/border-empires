@@ -360,6 +360,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
       "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
       "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
+    createdAt: Date.now(),
+    introducedIn: "2026.09.29.3",
+    title: "Module deliveries now target their AFC socket",
+    why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
+    changes: [
+      "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
     ]
   }
 ];
