@@ -35,6 +35,8 @@ type BindClientMapInputDeps = {
   requestAttackPreviewForHover: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
   interactionFlags: { suppressNextClick: boolean };
+  sendGameMessage: (payload: unknown) => boolean;
+  renderHud: () => void;
 };
 
 export const shouldCommitMouseSelection = (args: {
@@ -345,7 +347,14 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   // click, right-drag included, so no extra suppression is needed here.
   // Wiring lives in its own module (not inlined here) purely to keep this
   // already-near-the-cap file's line count down -- see that module's header.
-  bindArrowGestureInput(state, { canvas: deps.canvas, keyFor: deps.keyFor, worldTileFromPointer, pushFeed: deps.pushFeed });
+  bindArrowGestureInput(state, {
+    canvas: deps.canvas,
+    keyFor: deps.keyFor,
+    worldTileFromPointer,
+    pushFeed: deps.pushFeed,
+    sendGameMessage: deps.sendGameMessage,
+    renderHud: deps.renderHud
+  });
 
   let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let pinchStart: { distance: number; zoom: number } | undefined;

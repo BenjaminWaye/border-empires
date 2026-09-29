@@ -1,4 +1,5 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
+import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND } from "./client-changelog-muster-stand.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
@@ -13,5 +14,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_REWARDS,
-  ...CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT
+  ...CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT,
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK
 ];

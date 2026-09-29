@@ -22,16 +22,17 @@ import { triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigg
 // repo's 500-line file cap, per AGENTS.md) rather than inlined there --
 // otherwise this hook alone would push that file over.
 //
-// THIS SLICE ONLY: on a confirmed release, the pair is handed to
-// handleArrowGestureConfirm's seam (client-arrow-gesture-confirm.ts), which
-// only logs/stores it. No confirm-sheet UI and no SET_MUSTER send here --
-// that's the next slice.
+// On a confirmed release, the pair is handed to handleArrowGestureConfirm's
+// seam (client-arrow-gesture-confirm.ts), which opens the confirm sheet
+// (client-arrow-gesture-confirm-sheet.ts) that actually sends SET_MUSTER.
 
 export type ArrowGestureInputDeps = {
   canvas: HTMLCanvasElement;
   keyFor: (x: number, y: number) => string;
   worldTileFromPointer: (offsetX: number, offsetY: number) => { wx: number; wy: number };
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
+  sendGameMessage: (payload: unknown) => boolean;
+  renderHud: () => void;
 };
 
 export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInputDeps): void => {
@@ -66,6 +67,13 @@ export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInpu
     const { next, result } = releaseArrowGesture(arrowGestureState, { x: wx, y: wy });
     arrowGestureState = next;
     state.arrowGesture = undefined;
-    if (result.type === "confirm") handleArrowGestureConfirm(state, result.origin, result.target, { pushFeed: deps.pushFeed });
+    if (result.type === "confirm") {
+      handleArrowGestureConfirm(state, result.origin, result.target, {
+        pushFeed: deps.pushFeed,
+        sendGameMessage: deps.sendGameMessage,
+        renderHud: deps.renderHud,
+        keyFor: deps.keyFor
+      });
+    }
   });
 };
