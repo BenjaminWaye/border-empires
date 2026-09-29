@@ -2,6 +2,7 @@ import type { User } from "firebase/auth";
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
+import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -58,6 +59,7 @@ export const syncAuthOverlay = (
     ClientState,
     | "authSessionReady"
     | "initTransfer"
+    | "mapPrep"
     | "profileSetupRequired"
     | "authBusy"
     | "authBusyStartedAt"
@@ -133,9 +135,12 @@ export const syncAuthOverlay = (
   }
   deps.authDebugRouteEl.textContent = `Backend ${state.activeBackend} • WS ${resolvedWsUrl} • Fly app ${resolvedFlyApp}`;
 
-  deps.authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
-  deps.authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
-  deps.authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
+  // After INIT the overlay stays up through the staged 3D map build.
+  const mapPrepView = state.mapPrep && !state.authError ? describeMapPrep(state.mapPrep, Date.now()) : null;
+  const busy = state.authBusy || mapPrepView !== null;
+  deps.authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired && !mapPrepView ? "none" : "grid";
+  deps.authOverlayEl.dataset.busy = busy ? "true" : "false";
+  deps.authBusyModalEl.setAttribute("aria-hidden", busy ? "false" : "true");
   deps.authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -153,18 +158,19 @@ export const syncAuthOverlay = (
   // large INIT downloads and is parsed.
   const initTransferView =
     state.initTransfer && state.authBusy && !state.authSessionReady && !state.authError ? describeInitTransfer(state.initTransfer) : null;
-  if (deps.authBusyProgressEl) syncInitTransferProgressBar(deps.authBusyProgressEl, initTransferView?.percent ?? null);
+  const stageView = mapPrepView ?? initTransferView;
+  if (deps.authBusyProgressEl) syncInitTransferProgressBar(deps.authBusyProgressEl, stageView?.percent ?? null);
   deps.authBusyTitleEl.textContent =
-    initTransferView?.title || state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
+    stageView?.title || state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
   const busyCopy = state.authError
     ? state.authError
-    : initTransferView?.detail ||
+    : stageView?.detail ||
       state.authBusyDetail ||
       deps.authStatusEl.textContent?.trim() ||
       "Please wait while we finish sign-in and sync your starting state.";
   // The transfer view carries its own "time left", which beats "elapsed".
   deps.authBusyCopyEl.textContent =
-    authBusyElapsedSec > 0 && !state.authError && !initTransferView ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
+    authBusyElapsedSec > 0 && !state.authError && !stageView ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
