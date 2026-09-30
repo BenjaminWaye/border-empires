@@ -85,6 +85,9 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Verify sustained staging gateway and WebSocket health
+        run: node ./scripts/verify-staging-realtime.mjs
+
       - name: Write build SHA marker
         run: |
           mkdir -p packages/client/public
