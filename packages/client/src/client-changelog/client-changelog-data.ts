@@ -477,8 +477,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790768118179,
+    createdAt: 1790764591773, // frozen Date.now() value for this release
     introducedIn: "2026.09.30.4",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    changes: [
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+    ]
+  },
+  {
+    createdAt: 1790768118179,
+    introducedIn: "2026.09.30.5",
     title: "Choose what settles for you",
     why: "New empires used to spend their starting manpower settling nearby towns and farms automatically, before you had any say.",
     changes: [
