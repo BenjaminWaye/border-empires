@@ -87,6 +87,8 @@ jobs:
 
       - name: Verify sustained staging gateway and WebSocket health
         run: node ./scripts/verify-staging-realtime.mjs
+        env:
+          STAGING_ANON_PROBE_REFRESH_TOKEN: ${{ secrets.STAGING_ANON_PROBE_REFRESH_TOKEN }}
 
       - name: Write build SHA marker
         run: |
