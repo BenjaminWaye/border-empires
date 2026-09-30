@@ -1,8 +1,9 @@
 import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
-import { shouldShowClientChangelog } from "../client-changelog/client-changelog.js";
+import { isNewPlayerStillOnboarding, shouldShowClientChangelog, type GuideCompletionState } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
 
-type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired">;
+type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired"> &
+  GuideCompletionState;
 
 type NetworkDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
@@ -44,6 +45,11 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
   // fires again on every INIT -- autoOpenedThisSession only resets on a
   // fresh page load.
   const hasUnseenPersonalActivity = newestCardAt(timeline) > state.activitySeen.lastActivitySeenAt;
+  // New players are still on the tutorial; never stack the dashboard on top.
+  if (isNewPlayerStillOnboarding(state)) {
+    deps.renderHud();
+    return;
+  }
   if (!state.activityDashboard.autoOpenedThisSession && hasUnseenPersonalActivity) {
     state.activityDashboard.autoOpenedThisSession = true;
     state.activityDashboard.activeView = "YOURS";
