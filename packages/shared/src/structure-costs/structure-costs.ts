@@ -180,11 +180,21 @@ export type FortTierInfo = {
   defenseMult: number;
 };
 
+// The `titanium` field below is vestigial: fort-tier TITANIUM cost is
+// charged as a resource-slot occupation (structure-slots.ts,
+// FORT/TITANIUM_BASTION/THUNDER_BASTION each require 1/2/4 TITANIUM slots),
+// not a stockpile spend — stripRetiredStockpileCost strips this value out
+// before spendStrategicCost ever sees it (runtime-structure-command-handlers.ts).
+// It stays zeroed (not removed, to keep FortTierInfo's shape) so it can't
+// leak back in as a phantom stockpile requirement — it previously did,
+// gating chooseBestFortBuild's `resourceStock(player, "TITANIUM") <
+// fortTier.titanium` check on a stockpile that no longer accumulates,
+// silently blocking every AI fort build.
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: WOODEN_FORT_MANPOWER,      defenseMult: 1.35 },
-  FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: FORT_MANPOWER,             defenseMult: 2.5 },
-  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
+  FORT:             { variant: "FORT",             gold: 0,  titanium: 0,   manpower: FORT_MANPOWER,             defenseMult: 2.5 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 0,   manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 0,   manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
 };
 
 // Manpower an attacker risks losing hitting a SETTLED target, and the

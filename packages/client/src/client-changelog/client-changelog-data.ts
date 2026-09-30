@@ -20,6 +20,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1790713309651,
+    introducedIn: "2026.09.29.4",
+    title: "AI empires can now build Titanium Bastion and Thunder Bastion forts again",
+    why: "Fort tiers pay their Titanium cost as a resource-slot occupation, not a stockpile spend, but the AI's build-planner still checked the opponent's Titanium stockpile against the old (already-retired) per-tier cost before proposing a fort -- since Titanium no longer accumulates as a stockpile, that check always failed. AI opponents with Fortified Walls or Steelworking researched could never actually build the fort tier those techs unlock.",
+    changes: [
+      "AI-controlled empires now build Titanium Bastion and Thunder Bastion forts once they have the researching tech and enough manpower, instead of silently failing every attempt",
+      "No change to human players -- fort build costs on the tile-menu and command flow were never affected by this"
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "2026.09.30.1",
     title: "Economy panel no longer shows a gold cap",
@@ -386,7 +396,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790706701004, // frozen when the socket-delivery entry was merged into develop
     introducedIn: "2026.09.29.6",
     title: "Module deliveries now target their AFC socket",
     why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
@@ -423,6 +433,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
       "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
+    ]
+  },
+  {
+    createdAt: 1790724338615, // frozen while resolving the develop merge
+    introducedIn: "2026.09.30.1",
+    title: "Rally links now show a proper preview card when you share them",
+    why: "A rally link pasted into WhatsApp, Discord, iMessage or X used to appear as plain \"Border Empires\" with no picture, so a friend had no idea why they should click it.",
+    changes: [
+      "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
+      "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
     ]
   }
 ];

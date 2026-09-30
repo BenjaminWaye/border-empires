@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 
@@ -28,6 +29,11 @@ const resolveBuildVersion = (): string => {
 export default defineConfig({
   build: {
     rollupOptions: {
+      // admin.html is a separate, tiny entry (admin-app/) so /admin never loads the game client.
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        admin: fileURLToPath(new URL("./admin.html", import.meta.url))
+      },
       output: {
         manualChunks: manualChunkFor
       }

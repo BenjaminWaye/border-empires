@@ -3,6 +3,7 @@ import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, S
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
+import { createAdminIdTokenCheck, type AdminFirebaseAuthConfig } from "../admin-auth/admin-firebase-auth.js";
 import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
@@ -84,6 +85,8 @@ export type RegisterGatewayHttpRoutesDeps = {
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
   adminGithubAuth?: AdminGithubAuthConfig;
+  // Google sign-in for the read-only admin endpoints (admin-firebase-auth.ts).
+  adminFirebaseAuth?: AdminFirebaseAuthConfig;
   playOrigin?: string;
   simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
@@ -108,7 +111,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   const { adminAuthorized, adminRequestAuthorized } = createAdminAuthorizer({
     ...(deps.adminApiToken ? { adminApiToken: deps.adminApiToken } : {}),
-    ...(deps.adminGithubAuth ? { githubAuth: deps.adminGithubAuth } : {})
+    ...(deps.adminGithubAuth ? { githubAuth: deps.adminGithubAuth } : {}),
+    ...(deps.adminFirebaseAuth ? { isAdminIdToken: createAdminIdTokenCheck(deps.adminFirebaseAuth) } : {})
   });
 
   // NOTE: /health is intentionally O(1) — it only reads cached structs and never
