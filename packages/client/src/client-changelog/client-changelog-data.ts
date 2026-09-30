@@ -30,7 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790717460000, // frozen at the commit that added this entry (was a live Date.now(), which re-stamps on every load)
     introducedIn: "2026.09.30.1",
     title: "Economy panel no longer shows a gold cap",
     why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
