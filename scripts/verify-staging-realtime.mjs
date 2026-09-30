@@ -3,9 +3,39 @@
 // starts. Keep checking the actual gateway and WebSocket before publishing the
 // matching client build to the staging alias.
 import WebSocket from "ws";
+import { FIREBASE_API_KEY, refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
 const DEFAULT_HEALTH_URL = "https://border-empires-combined-staging.fly.dev/health";
 const DEFAULT_WS_URL = "wss://border-empires-combined-staging.fly.dev/ws?channel=control";
+const FIREBASE_ACCOUNTS_URL = "https://identitytoolkit.googleapis.com/v1/accounts";
+
+const createAnonymousFirebaseToken = async (fetchImpl, timeoutMs) => {
+  const signUp = await fetchImpl(`${FIREBASE_ACCOUNTS_URL}:signUp?key=${FIREBASE_API_KEY}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ returnSecureToken: true }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!signUp.ok) throw new Error(`anonymous Firebase sign-in failed: HTTP ${signUp.status}`);
+  const { idToken } = await signUp.json();
+  if (typeof idToken !== "string" || idToken.length === 0) throw new Error("anonymous Firebase sign-in returned no ID token");
+  return idToken;
+};
+
+const deleteAnonymousFirebaseToken = async (fetchImpl, timeoutMs, idToken) => {
+  const deletion = await fetchImpl(`${FIREBASE_ACCOUNTS_URL}:delete?key=${FIREBASE_API_KEY}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ idToken }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!deletion.ok) throw new Error(`temporary Firebase account deletion failed: HTTP ${deletion.status}`);
+};
+
+export const checkFirebaseAnonymousProvider = async ({ fetchImpl = fetch, timeoutMs = 15_000 } = {}) => {
+  const idToken = await createAnonymousFirebaseToken(fetchImpl, timeoutMs);
+  await deleteAnonymousFirebaseToken(fetchImpl, timeoutMs, idToken);
+};
 
 export const checkStagingRealtime = async ({
   healthUrl = DEFAULT_HEALTH_URL,
@@ -45,7 +75,7 @@ export const checkStagingRealtime = async ({
 };
 
 export const soakStagingRealtime = async ({
-  durationMs = 120_000,
+  durationMs = 600_000,
   intervalMs = 10_000,
   check = checkStagingRealtime,
   now = () => Date.now(),
@@ -76,16 +106,80 @@ export const soakStagingRealtime = async ({
   return attempts;
 };
 
+// Exercise Play Now itself, not just the unauthenticated WebSocket upgrade.
+// CI reuses one anonymous probe account; local/manual runs without its refresh
+// token create a temporary Firebase identity and delete it afterward.
+export const checkStagingGuestInit = async ({
+  wsUrl = DEFAULT_WS_URL,
+  timeoutMs = 60_000,
+  refreshToken = process.env.STAGING_ANON_PROBE_REFRESH_TOKEN,
+  refreshAuthToken = refreshFirebaseAuthToken,
+  fetchImpl = fetch,
+  WebSocketImpl = WebSocket
+} = {}) => {
+  let idToken;
+  if (refreshToken) {
+    idToken = await refreshAuthToken(refreshToken);
+    const claims = JSON.parse(Buffer.from(idToken.split(".")[1] ?? "", "base64url").toString("utf8"));
+    if (claims.firebase?.sign_in_provider !== "anonymous") throw new Error("staging probe account is not anonymous");
+  } else {
+    idToken = await createAnonymousFirebaseToken(fetchImpl, timeoutMs);
+  }
+  if (typeof idToken !== "string" || idToken.length === 0) throw new Error("anonymous Firebase sign-in returned no ID token");
+  try {
+    await new Promise((resolve, reject) => {
+      const socket = new WebSocketImpl(wsUrl);
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        socket.removeAllListeners();
+        if (error) {
+          socket.terminate();
+          reject(error);
+        } else {
+          socket.close();
+          resolve();
+        }
+      };
+      const timer = setTimeout(() => finish(new Error(`guest AUTH did not reach INIT within ${timeoutMs}ms`)), timeoutMs);
+      socket.once("open", () => {
+        try { socket.send(JSON.stringify({ type: "AUTH", token: idToken })); }
+        catch (error) { finish(error); }
+      });
+      socket.on("message", (raw) => {
+        let message;
+        try { message = JSON.parse(String(raw)); } catch { return; }
+        if (message.type === "INIT") finish();
+        if (message.type === "ERROR" || message.type === "AUTH_FAIL") finish(new Error(`guest AUTH rejected: ${message.code ?? message.type}`));
+      });
+      socket.once("error", (error) => finish(error));
+      socket.once("close", () => finish(new Error("guest socket closed before INIT")));
+    });
+  } finally {
+    if (!refreshToken) {
+      await deleteAnonymousFirebaseToken(fetchImpl, timeoutMs, idToken);
+    }
+  }
+};
+
 const isMain = process.argv[1] && new URL(`file://${process.argv[1]}`).href === import.meta.url;
 if (isMain) {
   const args = process.argv.slice(2);
   const durationIndex = args.indexOf("--duration-ms");
-  const durationMs = durationIndex >= 0 ? Number(args[durationIndex + 1]) : 120_000;
+  const durationMs = durationIndex >= 0 ? Number(args[durationIndex + 1]) : 600_000;
   if ((durationIndex >= 0 && args.length !== 2) || (durationIndex < 0 && args.length !== 0) || !Number.isFinite(durationMs)) {
     console.error("Usage: node scripts/verify-staging-realtime.mjs [--duration-ms N]");
     process.exit(2);
   }
-  soakStagingRealtime({ durationMs }).catch((error) => {
+  (async () => {
+    await soakStagingRealtime({ durationMs });
+    if (process.env.STAGING_ANON_PROBE_REFRESH_TOKEN) await checkFirebaseAnonymousProvider();
+    await checkStagingGuestInit();
+    await checkStagingRealtime();
+    console.log("staging anonymous guest AUTH reached INIT and gateway remained healthy");
+  })().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });

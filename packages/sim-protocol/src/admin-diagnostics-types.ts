@@ -10,7 +10,10 @@ export type AdminPlayerRow = {
   ownedTiles: number;
   incomePerMinute: number;
   techs: number;
+  /** Stored manpower as of the player's last regen update (not re-projected to "now"). */
   manpower: number;
+  /** Current manpower cap (playerManpowerCap), for reading `manpower` as "x / cap". */
+  manpowerCap: number;
   /**
    * FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
    * (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource

@@ -92,7 +92,7 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         kind: "json",
         auth: "read",
         title: "AI players",
-        description: "AI player economy and territory plus their last five commands."
+        description: "AI player economy, manpower (vs cap) and territory plus their last five commands."
       },
       {
         method: "GET",

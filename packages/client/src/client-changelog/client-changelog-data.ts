@@ -405,6 +405,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1790724338616, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.2",
+    title: "Fishing sites have a new look",
+    why: "Fishing tiles were drawn as a few plain boxes. They now use a modelled fishing site that reads better on the map and lets the water or shore show through underneath.",
+    changes: [
+      "Every fishing resource tile in the 3D map now shows a low-poly fishing site with boats, a hut, a drying rack and a flag",
+      "The site has no ground plate, so the terrain beneath it stays visible",
+      "Each site turns to face the water, with its vats and cranes on the water side and the hut on the land side",
+      "The 2D fallback renderer is unchanged"
+    ]
+  },
+  {
     createdAt: 1790706701004, // frozen, 1ms after the newest existing entry (this branch's photo-mode/opacity work predates "Modules now visibly land on your AFC" but merged in after it)
     introducedIn: "2026.09.29.7",
     title: "Photo mode for clean map screenshots",
@@ -443,6 +455,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
       "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
+    ]
+  },
+  {
+    createdAt: 1790757301381, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.2",
+    title: "More reliable guest sign-in",
+    why: "A busy game database could freeze the realtime gateway while a new guest was signing in, leaving Play Now stuck before the map opened.",
+    changes: [
+      "Guest sign-in now retries temporary database contention without freezing the realtime connection",
+      "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
     ]
   }
 ];
