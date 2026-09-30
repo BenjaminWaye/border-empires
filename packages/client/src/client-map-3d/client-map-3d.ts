@@ -57,7 +57,7 @@ import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-si
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
-import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js"; import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
+import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js"; import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js"; import { createAfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js"; import { isAfcHiddenForJoinDrop } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
@@ -224,7 +224,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
-  const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene); const afcModuleDeliveryFx = createAfcModuleDeliveryFxLayer(scene); const borderDustFx = createBorderDustFxLayer(scene);
+  const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene); const afcModuleDeliveryFx = createAfcModuleDeliveryFxLayer(scene); const afcDropFx = createAfcDropFxLayer(scene, atmosphere.buildingEnvironmentTexture); const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const dockRouteOverlay = createDockRouteOverlay(scene);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const waystationOverlay = createWaystationOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt); const afcOverlayGroup = createAfcOverlayGroup(scene, AFC_MAX_INSTANCES, atmosphere.buildingEnvironmentTexture);
@@ -646,7 +646,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncWorldEngineStrikeFxQueue,
     syncWorldEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
-    syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue,
+    syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue, syncAfcDropFxQueue,
     syncAstralDockLaunchFxQueue,
     syncAegisLockFxQueue
   } = createFxCastOverlaySyncs({
@@ -668,7 +668,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       imperialExchangeLevyFx,
       astralDockLaunchFx,
       aegisLockFx,
-      unsettleFx, afcModuleDeliveryFx
+      unsettleFx, afcModuleDeliveryFx, afcDropFx
     }
   });
   const syncAetherBridgePylons = (nowMs: number): void => {
@@ -1113,7 +1113,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.afc && terrain === "LAND" && visibility === "visible") { afcOverlayGroup.addAfc(x, z, surfaceY, wx, wy, tile.afc.modules ?? []); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.waystation && terrain === "LAND" && visibility === "visible") { waystationOverlay.addInstance(x, z, surfaceY, wx, wy, tile.waystation); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.afc && terrain === "LAND" && visibility === "visible" && !isAfcHiddenForJoinDrop(deps.state.afcJoinDrop, wx, wy)) { afcOverlayGroup.addAfc(x, z, surfaceY, wx, wy, tile.afc.modules ?? []); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1533,7 +1533,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
+    syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
     const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget);
@@ -1550,7 +1550,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     worldEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); borderDustFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
@@ -1636,7 +1636,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     worldEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); borderDustFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); waystationOverlay.dispose(); naturalWonderOverlays.dispose(); afcOverlayGroup.dispose();
