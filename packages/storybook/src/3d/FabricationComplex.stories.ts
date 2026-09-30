@@ -26,6 +26,7 @@ import { createAncillaryControlCoreModuleOverlay } from "@client/client-map-3d-a
 import { createReserveLatticeModuleOverlay } from "@client/client-map-3d-reserve-lattice-module.js";
 import { createNeuralAssemblyCoreModuleOverlay } from "@client/client-map-3d-neural-assembly-core-module.js";
 import { createBastionMasterDieModuleOverlay } from "@client/client-map-3d-bastion-master-die-module.js";
+import { createThunderplateInductionModuleOverlay } from "@client/client-map-3d-thunderplate-induction-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -156,9 +157,10 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const reserveLatticeModuleOverlay = createReserveLatticeModuleOverlay(scene, 8);
   const neuralAssemblyCoreModuleOverlay = createNeuralAssemblyCoreModuleOverlay(scene, 8);
   const bastionMasterDieModuleOverlay = createBastionMasterDieModuleOverlay(scene, 8);
+  const thunderplateInductionModuleOverlay = createThunderplateInductionModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the eighteen production module families around the ring so a
+    // Alternate the nineteen production module families around the ring so a
     // mixed loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
@@ -178,8 +180,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       accModuleOverlay,
       reserveLatticeModuleOverlay,
       neuralAssemblyCoreModuleOverlay,
-      bastionMasterDieModuleOverlay
-    ][i % 18]!;
+      bastionMasterDieModuleOverlay,
+      thunderplateInductionModuleOverlay
+    ][i % 19]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -200,6 +203,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   reserveLatticeModuleOverlay.commit();
   neuralAssemblyCoreModuleOverlay.commit();
   bastionMasterDieModuleOverlay.commit();
+  thunderplateInductionModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -219,7 +223,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     accModuleOverlay,
     reserveLatticeModuleOverlay,
     neuralAssemblyCoreModuleOverlay,
-    bastionMasterDieModuleOverlay
+    bastionMasterDieModuleOverlay,
+    thunderplateInductionModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -241,7 +246,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     accModuleOverlay.dispose,
     reserveLatticeModuleOverlay.dispose,
     neuralAssemblyCoreModuleOverlay.dispose,
-    bastionMasterDieModuleOverlay.dispose
+    bastionMasterDieModuleOverlay.dispose,
+    thunderplateInductionModuleOverlay.dispose
   );
   return cleanups;
 };
