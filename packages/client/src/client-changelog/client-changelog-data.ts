@@ -30,7 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790717460000, // frozen at the authoring commit's time; was Date.now(), which check:client-changelog rejects
     introducedIn: "2026.09.30.1",
     title: "Economy panel no longer shows a gold cap",
     why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
@@ -474,6 +474,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Flat tile overlays on hills were parked at the hill's tallest possible height, well above the visible ground, so they hovered in the air in the 3D map.",
     changes: [
       "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
+    ]
+  },
+  {
+    createdAt: 1790768118179,
+    introducedIn: "2026.09.30.4",
+    title: "Choose what settles for you",
+    why: "New empires used to spend their starting manpower settling nearby towns and farms automatically, before you had any say.",
+    changes: [
+      "New players are now asked when they join: settle the towns, food and resources in reach, pick how many, and see the manpower cost first",
+      "Auto-settle is now a per-category setting (towns & docks, food, other resources) in Settings > Gameplay, and stays on for existing players"
     ]
   }
 ];

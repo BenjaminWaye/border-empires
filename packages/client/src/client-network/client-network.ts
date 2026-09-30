@@ -1250,11 +1250,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
         );
       }
-      if ("autoSettlementQueue" in msg) {
+      if ("autoSettlementQueue" in msg || "autoSettle" in msg) {
         applyAutoSettlementQueueFromServer(
           state,
           msg.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-          { keyFor }
+          { keyFor, autoSettle: msg.autoSettle }
         );
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;

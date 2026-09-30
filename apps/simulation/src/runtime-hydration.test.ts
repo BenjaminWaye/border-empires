@@ -159,6 +159,14 @@ describe("createPlayersFromRecoveredState", () => {
     expect(player?.truces).toEqual(new Set(["p3"]));
   });
 
+  it("round-trips the per-category auto-settle prefs, and leaves legacy snapshots undefined (= all on)", () => {
+    const answered = { answered: false, towns: false, food: false, resources: false };
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
+    const result = createPlayersFromRecoveredState(state);
+    expect(result?.get("p1")?.autoSettle).toEqual(answered);
+    expect(result?.get("legacy")?.autoSettle).toBeUndefined();
+  });
+
   it("defaults to an empty truces set when the snapshot has none", () => {
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1" }] };
     const result = createPlayersFromRecoveredState(state);

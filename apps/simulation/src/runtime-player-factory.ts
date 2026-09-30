@@ -1,4 +1,5 @@
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_GOLD } from "@border-empires/game-domain";
+import { DEFAULT_AUTO_SETTLE_PREFS, NEW_PLAYER_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 
 import type { RuntimePlayer } from "./runtime-types.js";
 
@@ -46,12 +47,16 @@ export const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   allies: new Set<string>(),
   truces: new Set<string>(),
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  // New humans are asked (join prompt) before anything auto-settles on their
+  // behalf; AI and repaired legacy records get everything on (see below).
+  autoSettle: { ...NEW_PLAYER_AUTO_SETTLE_PREFS }
 });
 
 export const createAiRuntimePlayer = (playerId: string): RuntimePlayer => ({
   ...createHumanRuntimePlayer(playerId),
-  isAi: true
+  isAi: true,
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 // Central check for "can actor treat otherPlayerId as friendly for combat /

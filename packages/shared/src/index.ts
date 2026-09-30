@@ -42,6 +42,7 @@ export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";
 export * from "./player-display-name.js";
 export * from "./dev-queue/dev-queue.js";
+export * from "./auto-settle-prefs/auto-settle-prefs.js";
 export * from "./town-growth/town-growth.js";
 export * from "./town-growth/town-support-ring.js";
 export * from "./structure-registry/structure-registry.js";

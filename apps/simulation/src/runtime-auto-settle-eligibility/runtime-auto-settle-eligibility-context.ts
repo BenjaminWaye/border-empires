@@ -4,6 +4,7 @@
 // AGENTS.md's file-growth rule. Mirrors the same "deps bag -> composed
 // context" pattern as runtime-progression-command-context.ts.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { isAutoSettleAllowedForTile } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAutoSettlementResourceTechRevealed } from "../territory-automation/territory-automation.js";
 import { tileResourceMatchesRevealCategory } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -57,6 +58,11 @@ export interface AutoSettleEligibilityRuntime {
   reconcileForOwner(ownerId: string): number;
   /** Reach-activation hook: evaluate specific FRONTIER keys after the runtime installs the new reach border. */
   evaluateFrontierKeysForOwner(ownerId: string, tileKeys: readonly string[]): void;
+  /**
+   * Territory-automation tick: reconciles, then starts a settle for each queued tile the player has opted
+   * into (see auto-settle-prefs.ts). Same cost/gates as a manual SETTLE. Returns how many it started.
+   */
+  runTickForOwner(ownerId: string, nowMs: number): number;
   /** Ordered {x, y} snapshot for autoSettlementQueueForPlayer, pre-filtered through isBlocked. */
   orderedQueueForPlayer(playerId: string): Array<{ x: number; y: number }>;
 }
@@ -85,6 +91,7 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       return Boolean(actor && settleRejectionForActor(actor));
     },
     hasAvailableDevelopmentSlot: (playerId) => deps.hasAvailableDevelopmentSlot(playerId),
+    isAutoSettleAllowed: (playerId, tile) => isAutoSettleAllowedForTile(deps.players.get(playerId)?.autoSettle, tile),
     startSettlementProcess: (input) => deps.startSettlementProcess(input),
     nextCommandId: (playerId, tileKey) => deps.nextTerritoryAutomationCommandId("auto-settle", playerId, tileKey, deps.now()),
     now: () => deps.now()
@@ -147,6 +154,30 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       const frontierKeys = deps.frontierTilesByOwner.get(ownerId);
       if (!frontierKeys) return 0;
       return reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId));
+    },
+    runTickForOwner: (ownerId, nowMs) => {
+      const actor = deps.players.get(ownerId);
+      if (!actor) return 0;
+      // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
+      const frontierKeys = deps.frontierTilesByOwner.get(ownerId);
+      if (frontierKeys) reconcileEligibleFrontierQueueForOwner(deps.eligibleFrontierByOwner, ownerId, frontierKeys, depsForPlayer(ownerId));
+      let settledCount = 0;
+      for (const { x, y } of orderedEligibleFrontierTiles(deps.eligibleFrontierByOwner, ownerId)) {
+        if (settleRejectionForActor(actor)) break;
+        if (!deps.hasAvailableDevelopmentSlot(ownerId)) break;
+        const targetKey = simulationTileKey(x, y);
+        const target = deps.tiles.get(targetKey);
+        if (!target || target.ownerId !== ownerId || target.ownershipState !== "FRONTIER") continue;
+        if (target.frontierDecayKind === "ENCIRCLEMENT" || target.terrain !== "LAND") continue;
+        if (isBlocked(targetKey)) continue;
+        if (!isAutoSettleAllowedForTile(actor.autoSettle, target)) continue;
+        // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand -- this path bypasses that handler.
+        if (!(target.town || target.dockId) && !deps.isPlayerTileInReach(ownerId, target.x, target.y)) continue;
+        const commandId = deps.nextTerritoryAutomationCommandId("auto-settle", ownerId, targetKey, nowMs);
+        deps.startSettlementProcess({ commandId, playerId: ownerId, targetKey, target, startedAt: nowMs });
+        settledCount++;
+      }
+      return settledCount;
     },
     orderedQueueForPlayer: (playerId) =>
       orderedEligibleFrontierTiles(deps.eligibleFrontierByOwner, playerId).filter(({ x, y }) => !isBlocked(simulationTileKey(x, y)))

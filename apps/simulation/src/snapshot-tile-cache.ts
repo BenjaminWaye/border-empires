@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type AutoSettlePrefs, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
@@ -37,6 +37,7 @@ export type RuntimeState = {
     domainIds: string[];
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
+    autoSettle?: AutoSettlePrefs;
     wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
