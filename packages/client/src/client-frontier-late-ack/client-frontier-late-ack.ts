@@ -13,7 +13,6 @@ export interface LateFrontierAckDeps {
 }
 
 export interface LateFrontierAckHandlers {
-  lateFrontierAckPending: (tileKey: string) => boolean;
   clearLateFrontierAck: (tileKey: string) => void;
   rebindLateFrontierAck: (
     target: { x: number; y: number },
@@ -69,5 +68,5 @@ export const createLateFrontierAckHandlers = ({ state, keyFor }: LateFrontierAck
     return lateFrontierAckPending(keyFor(target.x, target.y));
   };
 
-  return { lateFrontierAckPending, clearLateFrontierAck, rebindLateFrontierAck, matchesCurrentOrLateFrontierAck };
+  return { clearLateFrontierAck, rebindLateFrontierAck, matchesCurrentOrLateFrontierAck };
 };
