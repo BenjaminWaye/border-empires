@@ -51,6 +51,13 @@ describe("createFirebaseTokenVerifier", () => {
     expect(rejected).toEqual([]);
   });
 
+  it("reports emailVerified only when Firebase asserts email_verified: true", async () => {
+    const { verify } = makeVerifier();
+    expect(await verify(await sign({ sub: "u-v", email: "v@example.com", email_verified: true }))).toEqual({ uid: "u-v", email: "v@example.com", emailVerified: true });
+    expect(await verify(await sign({ sub: "u-u", email: "u@example.com", email_verified: false }))).toEqual({ uid: "u-u", email: "u@example.com" });
+    expect(await verify(await sign({ sub: "u-s", email: "s@example.com", email_verified: "true" }))).toEqual({ uid: "u-s", email: "s@example.com" });
+  });
+
   it("accepts anonymous-provider tokens (no email, no name) and marks them as a guest", async () => {
     const { verify } = makeVerifier();
     const token = await sign({ sub: "anon-uid", firebase: { sign_in_provider: "anonymous", identities: {} } });

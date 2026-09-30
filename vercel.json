@@ -4,7 +4,8 @@
   "buildCommand": "pnpm --filter @border-empires/shared --filter @border-empires/client-protocol --filter @border-empires/sim-protocol --filter @border-empires/game-domain build && pnpm --filter @border-empires/client build",
   "outputDirectory": "packages/client/dist",
   "rewrites": [
-    { "source": "/admin/:path*", "destination": "/api/admin/:path*" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin/:path*", "destination": "/admin.html" },
     { "source": "/rally/new", "destination": "/" },
     { "source": "/r/:code", "destination": "/api/rally/:code" },
     { "source": "/__/auth/:path*", "destination": "https://border-empires.firebaseapp.com/__/auth/:path*" },
