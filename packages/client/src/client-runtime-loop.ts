@@ -10,6 +10,7 @@ import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
 import { tickAfcJoinDropForFrame } from "./client-afc-join-drop/client-afc-join-drop-frame.js";
+import { isMapUnobstructed } from "./client-map-unobstructed/client-map-unobstructed.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
@@ -227,10 +228,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           true3DActive: isTrue3DRendererActive(),
           sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, nowMs),
           connectionInitialized: state.connection === "initialized",
-          authSessionReady: state.authSessionReady,
-          profileSetupRequired: state.profileSetupRequired,
-          changelogOpen: state.changelog.open,
-          guideOpen: state.guide.open, activityDashboardOpen: state.activityDashboard.open
+          mapUnobstructed: isMapUnobstructed(state)
         })
       ) {
         lowFpsRendererHudPinged = true;

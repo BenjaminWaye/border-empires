@@ -8,7 +8,7 @@ import { emitWaystationActivationIfActivated } from "../client-waystation-activa
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
 import { showWaystationActivationOverlay } from "../client-waystation-activation/client-waystation-activation.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
-import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
+import { refreshOnboardingChecklistHighlight } from "../client-onboarding-checklist/client-onboarding-checklist-refresh.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
@@ -17,10 +17,7 @@ import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModule
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
-/** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path below and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
-export const refreshOnboardingChecklistHighlight = (state: ClientState): void => {
-  state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles, state.me, state.authEmail);
-};
+export { refreshOnboardingChecklistHighlight };
 
 export type TileDeltaBatchHandlerDeps = {
   state: ClientState;

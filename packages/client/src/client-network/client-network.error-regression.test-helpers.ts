@@ -3,6 +3,7 @@
 // doesn't have to carry every new regression test file's fixture setup and keep growing
 // past the repo's 500-line cap.
 import { vi } from "vitest";
+import { createAfcJoinDropState } from "../client-afc-join-drop/client-afc-join-drop-state.js";
 import { bindClientNetwork } from "./client-network.js";
 
 export class FakeWebSocket {
@@ -54,6 +55,7 @@ export const createState = () =>
     attackPreviewLatestRequestIdByKey: new Map<string, string>(),
     tiles: new Map(),
     tilesRevision: 0,
+    afcJoinDrop: createAfcJoinDropState(),
     tilesRevisionChangedKeys: new Set<string>(),
     tilesRevisionOverflowed: false,
     incomingAttacksByTile: new Map(),

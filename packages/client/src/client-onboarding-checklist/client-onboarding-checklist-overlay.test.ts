@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
 import { tileKey } from "@border-empires/shared";
-import { renderOnboardingChecklistOverlay, resetOnboardingChecklistOverlayForTests } from "./client-onboarding-checklist-overlay.js";
+import { isOnboardingChecklistAutoOpenDeferred, renderOnboardingChecklistOverlay, resetOnboardingChecklistOverlayForTests } from "./client-onboarding-checklist-overlay.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 import type { Tile } from "../client-types.js";
 
@@ -202,5 +202,40 @@ describe("renderOnboardingChecklistOverlay", () => {
     expect(highlights).toEqual([]);
     expect(document.getElementById("onboarding-checklist-bubble")).toBeNull();
     expect(isOnboardingChecklistCompleted("done@example.com")).toBe(true);
+  });
+});
+
+describe("renderOnboardingChecklistOverlay holdAutoOpen (join-time AFC drop)", () => {
+  const panelHidden = (): boolean | undefined => document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden");
+
+  it("renders the bubble collapsed and defers the one-time force-open while held", () => {
+    const tiles = tilesMap([tile(1, 1)]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com", { holdAutoOpen: true });
+    expect(document.getElementById("onboarding-checklist-bubble")).not.toBeNull();
+    expect(panelHidden()).toBe(true);
+    expect(isOnboardingChecklistAutoOpenDeferred()).toBe(true);
+  });
+
+  it("does not consume the auto-open: the first un-held render force-opens it, exactly once", () => {
+    const tiles = tilesMap([tile(1, 1)]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com", { holdAutoOpen: true });
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com", { holdAutoOpen: true });
+    expect(panelHidden()).toBe(true);
+
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(panelHidden()).toBe(false);
+    expect(isOnboardingChecklistAutoOpenDeferred()).toBe(false);
+
+    // Closed by the player, it stays closed -- no second auto-open.
+    (document.getElementById("onb-launcher") as HTMLButtonElement).click();
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(panelHidden()).toBe(true);
+  });
+
+  it("owes nothing when the auto-open was already consumed (returning player) or an un-held render already ran", () => {
+    const tiles = tilesMap([tile(1, 1)]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com", { holdAutoOpen: true });
+    expect(isOnboardingChecklistAutoOpenDeferred()).toBe(false);
   });
 });

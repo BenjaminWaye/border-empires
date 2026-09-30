@@ -11,12 +11,16 @@
 // Self-contained: mounts on document.body, removes itself on dismiss, and
 // does not depend on the HUD render cycle.
 
+import type { ClientState } from "./client-state/client-state.js";
+
 let shown = false;
 
-export const maybeShowRuinsPrompt = (): void => {
+/** Sets state.ruinsPromptOpen while the popup is up so isMapUnobstructed (client-map-unobstructed/) treats it as covering the map. */
+export const maybeShowRuinsPrompt = (state: Pick<ClientState, "ruinsPromptOpen">): void => {
   if (shown) return;
   if (typeof document === "undefined" || !document.body) return;
   shown = true;
+  state.ruinsPromptOpen = true;
 
   const overlay = document.createElement("div");
   overlay.setAttribute("role", "presentation");
@@ -71,6 +75,7 @@ export const maybeShowRuinsPrompt = (): void => {
   overlay.appendChild(card);
 
   const dismiss = (): void => {
+    state.ruinsPromptOpen = false;
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
   };
 

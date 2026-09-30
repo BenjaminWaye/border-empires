@@ -486,11 +486,16 @@ That is 6.2 s of animation after the 1.2 s dwell. The join drop is the
 only preset built so far; a mid-session drop (brisker, ~3 s, no dwell)
 would be a second preset over the same layer.
 
-**Onboarding checklist: not held (deferred).** The checklist's first-time
-auto-open is a corner card that does not cover the map centre, and it is
-rendered only from the tile-delta path with no hook to re-render when the
-drop ends, so holding it would need new plumbing for little gain. Revisit
-only if it proves to distract during touchdown.
+**Onboarding checklist: held (2026-09-30 follow-up).** Sessions are short
+(most last 8 minutes or less), so the first minute is a large share of the
+whole experience and the checklist's one-time auto-open must not compete
+with the drop. While the drop is armed, or the tick has not yet scanned the
+newest tiles, `renderOnboardingChecklistOverlay(..., { holdAutoOpen })`
+still draws the bubble but collapsed, and defers the force-open without
+consuming it. `tickAfcJoinDropForFrame` calls
+`flushDeferredOnboardingAutoOpen` when the hold ends (drop finished, skipped
+as already seen, or no fresh AFC), so the panel opens then instead of on
+the next tile delta. See `client-onboarding-checklist-refresh.ts`.
 
 #### Renderer parity
 
@@ -532,11 +537,16 @@ Deliberately not built, and why:
   those events yet (the build-AFC command and picker are still open), so
   a detector would be dead code. The FX layer and gate are reusable when
   it lands; it would add a brisker preset (~3 s, no dwell).
-- **`shouldShowRendererPrompt` refactor** onto `isMapUnobstructed`. It
-  takes a differently shaped input and is also used by the HUD; left
-  alone to keep this change small.
-- **Onboarding checklist hold** (above).
 - **Audio.** No cue was added.
+
+Done in the follow-up PR (2026-09-30), listed here so the trail is in one
+place: the "empire in ruins" popup is in `isMapUnobstructed`
+(`state.ruinsPromptOpen`, set and cleared by `client-ruins-prompt.ts`); the
+onboarding checklist hold (above); and `shouldShowRendererPrompt` and
+`shouldShowTwoDimensionalNotice` now take `mapUnobstructed:
+isMapUnobstructed(state)` instead of their own dialog checks, so there is
+one definition of "map visible" (picking up the join-lobby, respawn,
+season-end and ruins checks they lacked).
 
 ### Implementation steps
 
@@ -613,6 +623,47 @@ Deliberately not built, and why:
    separate entry unless the animation ships on its own branch first.
    The join drop *is* user-visible, so if it ships on its own branch it
    needs its own `CLIENT_CHANGELOG_ENTRIES` entry.
+
+## Follow-up backlog (updated 2026-09-30)
+
+Session-length constraint: most player sessions last **8 minutes or less**.
+That shapes priority:
+
+- Anything on the join path (first-minute polish) matters most. It is the
+  join drop, the checklist hold and the one shared map-visible predicate
+  (all done).
+- **Reload-before-drop** (a reload more than 30 minutes after the AFC was
+  activated skips the drop): not worth widening `AFC_JOIN_MAX_AGE_MS`. The
+  window is already about four times a typical session.
+- **Scan-cost gauge** for the fresh-AFC tile walk: skip until the tile cache
+  is shown to grow large; short sessions keep it small.
+- **Watch the 2D drop live** (verification only): run the local stack, join a
+  fresh dev player id with `?renderer=2d` (the played flag is stored
+  server-side), close the changelog by hand. Only the 3D drop has been seen
+  running; 2D was drawn frame by frame. A low-end phone on the 2D path has
+  the fewest minutes to absorb a stutter, so do this before the next release.
+- Keep the whole join beat short: changelog closed to control should not eat
+  a noticeable share of 8 minutes. Consider capping join to control at about
+  5 s if playtests say otherwise.
+- **Mid-session AFC drop** (bought AFC, elimination respawn, another player's
+  AFC in view): lowest priority, since a short session rarely builds a
+  second AFC. Blocked on build-AFC (`manifest-full-plan.md` §4). Client work
+  once it lands:
+  - Generalise `state.afcJoinDrop` (one record) to a bounded map of drops
+    keyed by tile, capped at about 8 entries; the 3D and 2D hide checks read
+    the map.
+  - Tile-delta detector in `client-tile-delta-batch-handler.ts`: fire when a
+    tile already seen goes from no AFC to an AFC, for any owner (same
+    "snapshot before the merge" pattern as the module-delivery detector).
+  - Brisker preset (about 3 s, no dwell, AFC hidden only during the descent).
+    The gate does not apply to a drop the player just triggered, but stays
+    for other players' drops so they never play behind a modal.
+  - Regression tests: fires for a new AFC, never for a first-seen tile, no
+    double-fire, and the hide releases if the tile changes owner mid-drop.
+  - Cost: roughly a day of client work once the server side lands.
+- **Audio** (low rumble on re-entry, thud at touchdown): `client-audio.ts`
+  has music themes but no one-shot SFX path. Needs a small SFX player, two
+  short assets and a volume/mute hook. Wait until sound assets exist.
 
 ## Follow-up status (updated 2026-09-29)
 

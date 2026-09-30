@@ -52,6 +52,8 @@ const PANEL_ID = "onboarding-checklist-panel";
 // get stuck open (or stuck closed).
 let expanded = false;
 let hasCheckedInitialAutoOpen = false;
+// True while a held (holdAutoOpen) render skipped the one-time force-open, so a caller knows a re-render is owed once the hold ends.
+let autoOpenDeferred = false;
 let autoCollapsed = false;
 let lastRemaining: number | null = null;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
@@ -187,11 +189,17 @@ const render = (state: OnboardingChecklistState): void => {
  * last-step dedup guard (not on every re-render), so callers can call this
  * freely on each render/tile-delta tick. Returns the current highlight
  * tiles so the caller can feed the map's highlight-drawing layer.
+ *
+ * `holdAutoOpen` defers the one-time new-player force-open (the bubble still
+ * renders, collapsed) while the join-time AFC drop is playing out, so the
+ * panel doesn't sit over the map during it. The deferral consumes nothing:
+ * the first call with holdAutoOpen false performs the force-open.
  */
 export const renderOnboardingChecklistOverlay = (
   tiles: ReadonlyMap<string, Tile>,
   playerId: string,
-  authEmail: string | null | undefined
+  authEmail: string | null | undefined,
+  { holdAutoOpen = false }: { holdAutoOpen?: boolean } = {}
 ): Array<{ x: number; y: number }> => {
   const state = onboardingChecklistState(tiles, playerId, authEmail);
 
@@ -202,16 +210,21 @@ export const renderOnboardingChecklistOverlay = (
     return state.highlightTiles;
   }
   lastCompletedStep = state.step;
-  forceOpenForNewPlayer(authEmail);
+  autoOpenDeferred = holdAutoOpen && !hasCheckedInitialAutoOpen;
+  if (!holdAutoOpen) forceOpenForNewPlayer(authEmail);
   autoCollapseAfterFirstProgress(state);
   if (typeof document !== "undefined") render(state);
   return state.highlightTiles;
 };
 
+/** True when a holdAutoOpen render skipped the one-time new-player force-open and no later render has performed it yet. */
+export const isOnboardingChecklistAutoOpenDeferred = (): boolean => autoOpenDeferred;
+
 /** Test-only: resets the module-level expanded/auto-collapse state that persists across renders (and, without this, across tests). */
 export const resetOnboardingChecklistOverlayForTests = (): void => {
   expanded = false;
   hasCheckedInitialAutoOpen = false;
+  autoOpenDeferred = false;
   autoCollapsed = false;
   lastRemaining = null;
   lastCompletedStep = null;
