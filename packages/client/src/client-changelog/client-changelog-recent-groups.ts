@@ -1,6 +1,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
+import { CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING } from "./client-changelog-join-season-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND } from "./client-changelog-muster-stand.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
@@ -21,5 +22,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK,
   ...CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY,
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX,
-  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH,
+  ...CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING
 ];
