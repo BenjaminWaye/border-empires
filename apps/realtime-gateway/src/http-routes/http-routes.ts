@@ -230,6 +230,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
           incomePerMinute: player.incomePerMinute,
           settledTiles: player.settledTiles,
           ownedTiles: player.ownedTiles,
+          manpower: player.manpower,
+          manpowerCap: player.manpowerCap,
           techs: player.techs,
           recentCommands: playerCommands.map(cmd => ({
             type: cmd.type,

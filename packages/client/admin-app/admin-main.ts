@@ -25,7 +25,7 @@ type View = {
 const VIEWS: View[] = [
   { id: "insights", title: "Player insights", description: "Sign-up funnel, new-player milestones, sessions, per-player timelines.", path: (p) => `/admin/players/insights.json?days=${p.get("days") ?? "7"}`, windowDays: true },
   { id: "players", title: "Players", description: "Every player this season: gold, income, tiles, techs.", path: () => "/admin/players" },
-  { id: "ai", title: "AI players", description: "AI economy, territory and last commands.", path: () => "/admin/debug/ai" },
+  { id: "ai", title: "AI players", description: "AI economy, manpower vs cap, territory and last commands.", path: () => "/admin/debug/ai" },
   { id: "decisions", title: "AI decisions", description: "Recent planner decisions (about the last minute).", path: (p) => `/admin/debug/ai/decisions${p.get("playerId") ? `?playerId=${encodeURIComponent(p.get("playerId")!)}` : ""}`, param: { name: "playerId", hint: "ai-2 (optional)" } },
   { id: "metrics", title: "Runtime metrics", description: "Gateway + simulation Prometheus text.", path: () => "/admin/runtime/metrics" },
   { id: "bundle", title: "Debug bundle", description: "Health, recent server events, attack traces.", path: () => "/admin/runtime/debug-bundle" }

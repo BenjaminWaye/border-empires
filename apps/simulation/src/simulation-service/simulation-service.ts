@@ -57,7 +57,7 @@ import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore }
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
-import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
