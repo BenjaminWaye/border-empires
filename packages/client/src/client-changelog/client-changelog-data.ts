@@ -457,6 +457,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Guest sign-in now retries temporary database contention without freezing the realtime connection",
       "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
     ]
+  },
+  {
+    createdAt: 1790764192672, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.3",
+    title: "Guest \"Save your empire\" badge no longer jumps when pressed",
+    why: "Pressing the gold guest badge at the bottom of the map shifted it to the left while the button was held down.",
+    changes: [
+      "The badge now stays centred while you press it"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
