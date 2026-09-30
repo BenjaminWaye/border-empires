@@ -1,3 +1,5 @@
+import type { SectorCampaign } from "../client-galaxy-view/galaxy-sector-label.js";
+
 // Season-scoped record of a truce a player broke -- see gateway's
 // truceBreaksByPlayerId (social-state.ts). Backs the profile "oathbreaker"
 // badge/list; lasts the whole season, unlike the 24h new-truce lockout.
@@ -11,9 +13,12 @@ export type TruceBreakView = {
 
 // Mirrors GalaxyPublicPlanetView/GalaxyOutpostView from the gateway's
 // galaxy-routes.ts (GET /hq/galaxy/by-player/:playerId) -- only the fields
-// the profile card actually renders.
+// the profile card actually renders. sectorNumber/campaign optional for the
+// same not-yet-redeployed-gateway reason as client-galaxy-view's mirrors.
 export type GalaxyHoldingsPlanetView = {
   seasonSequence: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
   objectiveName: string;
   specialization: string;
   planetName: string | null;
@@ -21,6 +26,8 @@ export type GalaxyHoldingsPlanetView = {
 
 export type GalaxyHoldingsOutpostView = {
   seasonSequence: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
   specialization: string;
 };
 

@@ -365,7 +365,7 @@ describe("mountSpaceView gating", () => {
         if (url.includes("/hq/galaxy/me")) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ planets: [{ seasonId: "s1", planetName: null, named: false }] })
+            json: async () => ({ planets: [{ seasonId: "s1", planetName: null, named: false, sectorNumber: 1 }] })
           });
         }
         if (url.includes("/planets/s1/name")) {
@@ -391,7 +391,7 @@ describe("mountSpaceView gating", () => {
     expect(document.querySelector("[data-space-view-welcome-name-form]")).toBeNull();
     const letter = document.querySelector<HTMLElement>("[data-space-view-welcome]")!;
     expect(letter.textContent).toContain("Duke of Planet Argenta");
-    expect(letter.textContent).toContain("Frontier Sector #001");
+    expect(letter.textContent).toContain("Sector 001");
 
     letter.querySelector<HTMLButtonElement>("[data-space-view-welcome-dismiss]")!.click();
     expect(document.querySelector("[data-space-view-welcome]")).toBeNull();

@@ -61,6 +61,13 @@ describe("renderGalaxyViewHtml", () => {
     expect(html).toContain("is-active");
   });
 
+  it("labels an unnamed planet in the switcher with its Sector number, not the raw seasonSequence", () => {
+    const withSector: GalaxyViewPlanet = { ...unnamed, sectorNumber: 7, campaign: { kind: "FRONTIER" } };
+    const html = renderGalaxyViewHtml({ planets: [named, withSector], focusedSeasonId: "season-2" });
+    expect(html).toContain("Sector 007");
+    expect(html).not.toContain("Season 1");
+  });
+
   it("falls back to the first planet when focusedSeasonId does not match any planet", () => {
     const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-missing" });
     expect(html).toContain("Aethelgard");
@@ -175,6 +182,19 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
 
   it("renders nothing when there are no planets, outposts, or stipends", () => {
     expect(renderGalaxyViewHtml({ planets: [], focusedSeasonId: "", outposts: [], stipends: [] })).toBe("");
+  });
+
+  it("prefers the Sector NNN label over the raw seasonSequence once the gateway sends sectorNumber", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [],
+      focusedSeasonId: "",
+      outposts: [{ seasonId: "season-2", seasonSequence: 2, sectorNumber: 1, campaign: { kind: "FRONTIER" }, specialization: "EXTRACTION", awardedAt: 1_000 }],
+      stipends: [{ seasonId: "season-dc", seasonSequence: 5, sectorNumber: 1, campaign: { kind: "CONTESTATION", ordinal: 1 }, influence: 9, production: 36, awardedAt: 1_000 }]
+    });
+    expect(html).toContain("Sector 001 Outpost");
+    expect(html).not.toContain("Season 2 Outpost");
+    expect(html).toContain("Sector 001: a stipend of");
+    expect(html).not.toContain("Season 5:");
   });
 
   it("renders outposts/stipends alongside a focused planet hero", () => {

@@ -1,3 +1,5 @@
+import { sectorNumberLabel, type SectorCampaign } from "./galaxy-sector-label.js";
+
 // Pure render function for the Phase 0 "galaxy" view: your named planet(s),
 // centered in a decorative starfield. See docs/agents (galactic meta-layer
 // plan) for the full feature context. Stars here are purely cosmetic — no
@@ -18,6 +20,12 @@ export type GalaxyViewPlanet = {
   // absent when the gateway has no galaxyEconomyStore wired up yet (older
   // deploys / v0-only servers) — renders no Stability readout in that case.
   stability?: number;
+  // Sector numbering: gapless rank among Frontier wins (see the gateway's
+  // galaxy-sector-numbering.ts). Optional for the same not-yet-redeployed-
+  // gateway reason as specialization/stability above -- falls back to the
+  // raw seasonSequence label when absent.
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
 };
 
 // Galactic meta-layer v0 Outpost/Stipend tiers (docs/galactic-campaign-design.md
@@ -31,6 +39,8 @@ export type GalaxyViewOutpost = {
   specialization?: string;
   awardedAt: number;
   stability?: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
 };
 
 export type GalaxyViewStipend = {
@@ -39,6 +49,8 @@ export type GalaxyViewStipend = {
   influence: number;
   production: number;
   awardedAt: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
 };
 
 // Galactic meta-layer v1 (docs/galactic-campaign-design.md §4): the player's
@@ -109,6 +121,12 @@ const economyHtml = (economy: GalaxyViewEconomy | undefined): string => {
     </div>`;
 };
 
+// Falls back to the raw seasonSequence label only when the gateway hasn't
+// been redeployed with sector numbering yet (sectorNumber absent) -- see the
+// GalaxyViewPlanet.sectorNumber comment above.
+const sectorOrSeasonLabel = (sectorNumber: number | undefined, seasonSequence: number): string =>
+  sectorNumber !== undefined ? sectorNumberLabel(sectorNumber) : `Season ${seasonSequence}`;
+
 const specializationBadgeHtml = (specialization: string | undefined): string => {
   if (!specialization) return "";
   const label = SPECIALIZATION_LABEL[specialization] ?? specialization;
@@ -163,7 +181,7 @@ const switcherHtml = (planets: GalaxyViewPlanet[], focusedSeasonId: string): str
   if (planets.length <= 1) return "";
   const rows = planets
     .map((planet) => {
-      const label = planet.planetName ?? `Season ${planet.seasonSequence}`;
+      const label = planet.planetName ?? sectorOrSeasonLabel(planet.sectorNumber, planet.seasonSequence);
       const active = planet.seasonId === focusedSeasonId;
       return `
         <button type="button" class="gx-switcher-item${active ? " is-active" : ""}" data-galaxy-focus="${escapeHtml(planet.seasonId)}">
@@ -217,14 +235,14 @@ export const renderEmperorSectionHtml = (model: GalaxyEmperorViewModel): string 
 
 const outpostRowHtml = (outpost: GalaxyViewOutpost): string => `
   <li class="gx-holding-row" data-galaxy-outpost>
-    <span>Season ${outpost.seasonSequence} Outpost</span>
+    <span>${escapeHtml(sectorOrSeasonLabel(outpost.sectorNumber, outpost.seasonSequence))} Outpost</span>
     ${specializationBadgeHtml(outpost.specialization)}
     ${stabilityHtml(outpost.stability)}
   </li>`;
 
 const stipendRowHtml = (stipend: GalaxyViewStipend): string => `
   <li class="gx-holding-row" data-galaxy-stipend>
-    Season ${stipend.seasonSequence}: a stipend of ${stipend.influence} Inf / ${stipend.production} Prod
+    ${escapeHtml(sectorOrSeasonLabel(stipend.sectorNumber, stipend.seasonSequence))}: a stipend of ${stipend.influence} Inf / ${stipend.production} Prod
   </li>`;
 
 // Deliberately simple v0 rendering — no starfield hero, just a flat list
