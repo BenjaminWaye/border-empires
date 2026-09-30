@@ -625,13 +625,17 @@ Auto-settle spends manpower without a click, so it is a per-player setting
 per category: **towns** (towns, docks and the town support ring), **food**
 (farm, fish) and **resources** (every other revealed resource).
 
-- **New humans** start unanswered with every category off. Spawn still claims
-  the tiles in reach for free, but nothing settles until the join prompt
-  (`packages/client/src/client-auto-settle-prompt/`) is answered. It lists what
-  is in reach, the real manpower cost (20 per tile), the yield, and a
-  food-shortfall warning for towns; each category has a stepper (nearest to the
-  capital first) and an "auto-settle these in future" box. "Not now" answers
-  with everything off.
+- **New humans** start with every category off. Spawn still claims the tiles
+  in reach for free, but nothing settles until they choose. The prompt
+  (`packages/client/src/client-auto-settle-prompt/`) lists what is in reach, the
+  real manpower cost (20 per tile), the yield, and a food-shortfall warning for
+  towns; each category has a stepper (nearest to the capital first) and an
+  "auto-settle these in future" box.
+- **The prompt returns for anything held back.** It shows whenever there are
+  candidate tiles in a category that is not switched on, for any player (not
+  just new ones). Closing it (Not now, X, backdrop, Escape) dismisses the tiles
+  it showed for the session, so it comes back only when *new* candidates
+  appear or after a reload. Confirming only ever switches categories on.
 - **Existing players and AI** have no stored value, which means everything on,
   the pre-change behavior.
 - The gate sits at every server path that spends on the player's behalf

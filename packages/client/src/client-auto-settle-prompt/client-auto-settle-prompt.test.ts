@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEW_PLAYER_AUTO_SETTLE_PREFS, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
-import { installAutoSettlePrompt, refreshAutoSettlePrompt } from "./client-auto-settle-prompt.js";
+import { dismissCurrentAutoSettleCandidates, installAutoSettlePrompt, refreshAutoSettlePrompt } from "./client-auto-settle-prompt.js";
 import { buildAutoSettlePromptModel, townFoodWarning, yieldSummary } from "./client-auto-settle-prompt-model.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
@@ -96,26 +96,61 @@ describe("prompt DOM", () => {
   });
 
   const install = (state: ReturnType<typeof newPlayerState>, send: (payload: unknown) => boolean) =>
-    installAutoSettlePrompt({
-      state,
-      sendGameMessage: send,
-      pushFeed: () => undefined,
-      persistDevelopmentQueue: () => undefined
-    });
+    installAutoSettlePrompt({ state, sendGameMessage: send, pushFeed: () => undefined, persistDevelopmentQueue: () => undefined });
+  const overlay = (): HTMLElement => document.getElementById("auto-settle-prompt-overlay")!;
+  const visible = (): boolean => document.getElementById("auto-settle-prompt-overlay")?.style.display === "grid";
+  let nextTileX = 100;
+  const addFarm = (state: ReturnType<typeof newPlayerState>): void => {
+    const x = nextTileX++;
+    state.tiles.set(`${x},10`, { x, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as never);
+    state.autoSettlementQueue = [...state.autoSettlementQueue, { x, y: 10 }];
+  };
 
-  it("shows for an unanswered player, and 'Not now' sends all-false prefs and queues nothing", () => {
+  it("shows for held-back candidates and quotes the real cost", () => {
     const state = newPlayerState();
     state.autoSettlementQueue = QUEUE;
-    const send = vi.fn(() => true);
-    install(state, send);
-    const overlay = document.getElementById("auto-settle-prompt-overlay")!;
-    expect(overlay.style.display).toBe("grid");
-    expect(overlay.textContent).toContain("Cost 60 manpower"); // 3 food tiles x 20
-    (overlay.querySelector("#auto-settle-later") as HTMLButtonElement).click();
-    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: false, food: false, resources: false }, expect.any(String));
-    expect(state.developmentQueue).toEqual([]);
-    expect(state.autoSettle?.answered).toBe(true);
-    expect(overlay.style.display).toBe("none");
+    install(state, () => true);
+    expect(visible()).toBe(true);
+    expect(overlay().textContent).toContain("Cost 60 manpower"); // 3 food tiles x 20
+  });
+
+  it("shows again for an ANSWERED player, but only for categories that are not switched on", () => {
+    const state = newPlayerState();
+    state.autoSettle = { answered: true, towns: false, food: true, resources: false };
+    state.autoSettlementQueue = QUEUE;
+    install(state, () => true);
+    expect(visible()).toBe(true);
+    expect(overlay().querySelector('[data-category="towns"]')).not.toBeNull();
+    expect(overlay().querySelector('[data-category="food"]')).toBeNull(); // food is auto: nothing to ask
+    state.autoSettle = { answered: true, towns: true, food: true, resources: false };
+    refreshAutoSettlePrompt();
+    expect(visible()).toBe(false);
+  });
+
+  it("closing (Not now, X, backdrop or Escape) dismisses without sending anything, and only NEW tiles bring it back", () => {
+    for (const close of [
+      () => (overlay().querySelector("#auto-settle-later") as HTMLElement).click(),
+      () => (overlay().querySelector("#auto-settle-close") as HTMLElement).click(),
+      () => (overlay().querySelector("#auto-settle-backdrop") as HTMLElement).click(),
+      () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+    ]) {
+      document.body.innerHTML = "";
+      const state = newPlayerState();
+      state.autoSettlementQueue = [...QUEUE];
+      const send = vi.fn(() => true);
+      install(state, send);
+      expect(visible()).toBe(true);
+      close();
+      expect(visible()).toBe(false);
+      expect(send).not.toHaveBeenCalled();
+      expect(state.developmentQueue).toEqual([]);
+      refreshAutoSettlePrompt(); // same candidates arriving again: stays away
+      expect(visible()).toBe(false);
+      addFarm(state); // a new candidate: back
+      refreshAutoSettlePrompt();
+      expect(visible()).toBe(true);
+      expect(overlay().textContent).toContain("Cost 20 manpower");
+    }
   });
 
   it("the stepper picks the nearest N tiles; ticking auto hides that stepper and sends the category as on", () => {
@@ -123,25 +158,49 @@ describe("prompt DOM", () => {
     state.autoSettlementQueue = QUEUE;
     const send = vi.fn(() => true);
     install(state, send);
-    const overlay = document.getElementById("auto-settle-prompt-overlay")!;
-    (overlay.querySelector('[data-step="food:-1"]') as HTMLButtonElement).click(); // 3 -> 2 food tiles
-    expect(overlay.querySelector('[data-category="food"]')!.textContent).toContain("Cost 40 manpower");
-    (overlay.querySelector('[data-auto="towns"]') as HTMLInputElement).click();
-    expect(overlay.querySelector('[data-category="towns"] [data-step]')).toBeNull();
-    (overlay.querySelector("#auto-settle-go") as HTMLButtonElement).click();
+    (overlay().querySelector('[data-step="food:-1"]') as HTMLButtonElement).click(); // 3 -> 2 food tiles
+    expect(overlay().querySelector('[data-category="food"]')!.textContent).toContain("Cost 40 manpower");
+    (overlay().querySelector('[data-auto="towns"]') as HTMLInputElement).click();
+    expect(overlay().querySelector('[data-category="towns"] [data-step]')).toBeNull();
+    (overlay().querySelector("#auto-settle-go") as HTMLButtonElement).click();
     expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: false }, expect.any(String));
     // Food was a one-off pick of 2 (nearest first: 9,8 and 11,12), queued explicitly; the town is left to the server.
     expect(state.developmentQueue.map((entry) => entry.tileKey)).toEqual(["9,8", "11,12"]);
+    expect(visible()).toBe(false);
   });
 
-  it("stays hidden once answered, and for an unanswered player with no candidates yet", () => {
+  it("confirming never switches an already-on category off", () => {
+    const state = newPlayerState();
+    state.autoSettle = { answered: true, towns: false, food: false, resources: true };
+    state.autoSettlementQueue = QUEUE;
+    const send = vi.fn(() => true);
+    install(state, send);
+    (overlay().querySelector('[data-auto="food"]') as HTMLInputElement).click();
+    (overlay().querySelector("#auto-settle-go") as HTMLButtonElement).click();
+    expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: false, food: true, resources: true }, expect.any(String));
+  });
+
+  it("dismissCurrentAutoSettleCandidates (Settings change) hides it until a new tile arrives", () => {
+    const state = newPlayerState();
+    state.autoSettlementQueue = [...QUEUE];
+    install(state, () => true);
+    expect(visible()).toBe(true);
+    dismissCurrentAutoSettleCandidates();
+    refreshAutoSettlePrompt();
+    expect(visible()).toBe(false);
+    addFarm(state);
+    refreshAutoSettlePrompt();
+    expect(visible()).toBe(true);
+  });
+
+  it("stays hidden with no candidates, and for tiles the player cancelled", () => {
     const state = newPlayerState();
     state.autoSettlementQueue = [];
     install(state, () => true);
-    expect(document.getElementById("auto-settle-prompt-overlay")?.style.display).not.toBe("grid");
+    expect(visible()).toBe(false);
     state.autoSettlementQueue = QUEUE;
-    state.autoSettle = { answered: true, towns: false, food: false, resources: false };
+    state.skippedAutoSettlementTileKeys = new Set(["13,10", "12,10", "9,8", "11,12"]);
     refreshAutoSettlePrompt();
-    expect(document.getElementById("auto-settle-prompt-overlay")?.style.display).not.toBe("grid");
+    expect(visible()).toBe(false);
   });
 });

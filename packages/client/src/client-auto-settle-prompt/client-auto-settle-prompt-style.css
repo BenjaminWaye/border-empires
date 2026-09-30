@@ -57,3 +57,5 @@
 
 .auto-settle-auto { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.9em; }
 .auto-settle-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+.auto-settle-modal .auto-settle-close { top: 12px; right: 12px; width: 32px; height: 32px; }

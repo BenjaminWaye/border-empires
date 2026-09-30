@@ -7,6 +7,7 @@ import {
   SETTLE_COST,
   SETTLE_MANPOWER_COST,
   autoSettleCategoryForTile,
+  isAutoSettleAllowedForTile,
   townFoodSlotDemandForTier,
   type AutoSettleCategory
 } from "@border-empires/shared";
@@ -26,10 +27,14 @@ export type AutoSettlePromptModel = { sections: AutoSettlePromptSection[] };
 
 const CATEGORY_LABELS: Record<AutoSettleCategory, string> = { towns: "Towns & docks", food: "Food", resources: "Other resources" };
 
-export const autoSettlePromptNeeded = (state: Pick<ClientState, "autoSettle">): boolean => state.autoSettle?.answered === false;
-
+/**
+ * Held-back candidates only: FRONTIER tiles of mine, in a category the player has NOT switched on for
+ * auto-settle (those are settled for them already), that they haven't dismissed or cancelled.
+ * `dismissedTileKeys` is the prompt's own per-session memory, so it comes back only for new tiles.
+ */
 export const buildAutoSettlePromptModel = (
-  state: Pick<ClientState, "autoSettlementQueue" | "tiles" | "me" | "homeTile" | "developmentQueue">
+  state: Pick<ClientState, "autoSettlementQueue" | "tiles" | "me" | "homeTile" | "developmentQueue" | "autoSettle" | "skippedAutoSettlementTileKeys">,
+  dismissedTileKeys: ReadonlySet<string> = new Set()
 ): AutoSettlePromptModel => {
   const home = state.homeTile;
   const alreadyQueued = new Set(state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey));
@@ -38,6 +43,8 @@ export const buildAutoSettlePromptModel = (
     const tileKey = `${x},${y}`;
     const tile = state.tiles.get(tileKey);
     if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER" || alreadyQueued.has(tileKey)) continue;
+    if (dismissedTileKeys.has(tileKey) || state.skippedAutoSettlementTileKeys.has(tileKey)) continue;
+    if (isAutoSettleAllowedForTile(state.autoSettle, tile)) continue;
     const category = autoSettleCategoryForTile(tile);
     const distance = home ? Math.max(Math.abs(x - home.x), Math.abs(y - home.y)) : 0;
     const list = byCategory.get(category) ?? [];

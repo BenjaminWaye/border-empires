@@ -6,7 +6,6 @@
 import { DEVELOPMENT_PROCESS_LIMIT, SETTLE_MANPOWER_COST, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import {
-  autoSettlePromptNeeded,
   buildAutoSettlePromptModel,
   settleManpowerCost,
   townFoodWarning,
@@ -28,9 +27,15 @@ type SectionUi = { count: number; auto: boolean };
 let deps: PromptDeps | undefined;
 let overlayEl: HTMLDivElement | undefined;
 let ui: Partial<Record<AutoSettleCategory, SectionUi>> = {};
+// Tiles the player has already seen and waved away. The prompt returns only for tiles not in here, so it
+// is obtrusive for anything new but never nags about the same candidates twice (session memory only).
+const dismissedTileKeys = new Set<string>();
+let escapeListenerInstalled = false;
 
 export const installAutoSettlePrompt = (next: PromptDeps): void => {
   deps = next;
+  dismissedTileKeys.clear();
+  ui = {};
   refreshAutoSettlePrompt();
 };
 
@@ -76,24 +81,30 @@ const ensureOverlay = (): HTMLDivElement => {
   return overlayEl;
 };
 
-const submit = (model: AutoSettlePromptModel, settleNow: boolean): void => {
+const dismiss = (model: AutoSettlePromptModel): void => {
+  for (const section of model.sections) for (const entry of section.tiles) dismissedTileKeys.add(entry.tileKey);
+  hide();
+};
+
+const submit = (model: AutoSettlePromptModel): void => {
   if (!deps) return;
   const { state } = deps;
-  const prefs = { towns: false, food: false, resources: false };
+  // Never switches a category OFF: shown categories are only ever turned on here, the rest keep their value.
+  const current = state.autoSettle;
+  const prefs = { towns: current?.towns ?? false, food: current?.food ?? false, resources: current?.resources ?? false };
   const toQueue: Array<{ x: number; y: number; tileKey: string }> = [];
-  if (settleNow) {
-    for (const section of model.sections) {
-      const sectionState = sectionUi(section);
-      if (sectionState.auto) prefs[section.category] = true;
-      else toQueue.push(...section.tiles.slice(0, sectionState.count));
-    }
+  for (const section of model.sections) {
+    const sectionState = sectionUi(section);
+    if (sectionState.auto) prefs[section.category] = true;
+    else toQueue.push(...section.tiles.slice(0, sectionState.count));
   }
   if (!deps.sendGameMessage({ type: "SET_AUTO_SETTLE_PREFS", ...prefs }, "Finish sign-in before choosing settlement options.")) return;
-  // Optimistic: closes the prompt now; the server's PLAYER_UPDATE confirms it.
+  // Optimistic: the server's PLAYER_UPDATE confirms it.
   state.autoSettle = { answered: true, ...prefs };
   const added = enqueueSettleTiles(state, toQueue, deps.persistDevelopmentQueue);
   if (added > 0) deps.pushFeed(`Settling ${added} tile${added === 1 ? "" : "s"}.`, "info", "success");
-  hide();
+  // Whatever the player chose not to settle now counts as seen, so it doesn't immediately re-open the prompt.
+  dismiss(model);
 };
 
 const sectionHtml = (section: AutoSettlePromptSection, sectionState: SectionUi): string => {
@@ -132,8 +143,9 @@ const render = (model: AutoSettlePromptModel): void => {
   el.dataset.renderKey = key;
   el.style.display = "grid";
   el.innerHTML = `
-    <div class="auto-settle-backdrop"></div>
+    <div class="auto-settle-backdrop" id="auto-settle-backdrop"></div>
     <div class="auto-settle-modal card" role="dialog" aria-modal="true" aria-labelledby="auto-settle-title">
+      <button type="button" class="guide-close-btn auto-settle-close" id="auto-settle-close" aria-label="Close">×</button>
       <h2 id="auto-settle-title">Settle what's in reach?</h2>
       <p class="auto-settle-lede">These tiles are already yours to settle. Settling costs manpower, so nothing happens until you choose.</p>
       ${model.sections.map((section) => sectionHtml(section, counts[section.category]!)).join("")}
@@ -163,18 +175,34 @@ const render = (model: AutoSettlePromptModel): void => {
       refreshAutoSettlePrompt();
     };
   });
-  (el.querySelector("#auto-settle-go") as HTMLButtonElement | null)?.addEventListener("click", () => submit(model, true));
-  (el.querySelector("#auto-settle-later") as HTMLButtonElement | null)?.addEventListener("click", () => submit(model, false));
+  (el.querySelector("#auto-settle-go") as HTMLButtonElement | null)?.addEventListener("click", () => submit(model));
+  for (const id of ["#auto-settle-later", "#auto-settle-close", "#auto-settle-backdrop"]) {
+    (el.querySelector(id) as HTMLElement | null)?.addEventListener("click", () => dismiss(model));
+  }
+  if (!escapeListenerInstalled) {
+    escapeListenerInstalled = true;
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !overlayEl || overlayEl.style.display === "none") return;
+      const open = deps ? buildAutoSettlePromptModel(deps.state, dismissedTileKeys) : undefined;
+      if (open) dismiss(open);
+    });
+  }
+};
+
+/** Marks every current candidate as seen (used when the player just chose their setting in Settings, so switching a category off doesn't pop the prompt at them). */
+export const dismissCurrentAutoSettleCandidates = (): void => {
+  if (!deps) return;
+  for (const { x, y } of deps.state.autoSettlementQueue) dismissedTileKeys.add(`${x},${y}`);
+  hide();
 };
 
 /** Re-evaluates whether the prompt should be showing; cheap and idempotent (called on every queue/prefs update). */
 export const refreshAutoSettlePrompt = (): void => {
   if (!deps || typeof document === "undefined") return;
-  if (!autoSettlePromptNeeded(deps.state)) {
-    hide();
-    return;
-  }
-  const model = buildAutoSettlePromptModel(deps.state);
+  // Forget dismissals for tiles that are no longer candidates so the set stays bounded by the server's queue.
+  const live = new Set(deps.state.autoSettlementQueue.map((entry) => `${entry.x},${entry.y}`));
+  for (const key of dismissedTileKeys) if (!live.has(key)) dismissedTileKeys.delete(key);
+  const model = buildAutoSettlePromptModel(deps.state, dismissedTileKeys);
   if (model.sections.length === 0) {
     hide();
     return;

@@ -2,6 +2,7 @@
 // prompt sets (shared auto-settle-prefs.ts), editable any time. Bound through
 // one document-level change listener so the HUD's re-rendered settings HTML
 // needs no per-render binding (client-hud.ts is over the per-file line cap).
+import { dismissCurrentAutoSettleCandidates } from "./client-auto-settle-prompt.js";
 import { AUTO_SETTLE_CATEGORIES, DEFAULT_AUTO_SETTLE_PREFS, type AutoSettleCategory, type AutoSettlePrefs } from "@border-empires/shared";
 
 const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
@@ -38,6 +39,7 @@ export const installAutoSettleSettingsBinding = (send: (payload: unknown) => boo
       const category = box.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
       if (category && category in prefs) prefs[category] = box.checked;
     });
+    dismissCurrentAutoSettleCandidates(); // they just made their choice; only tiles that arrive later should prompt
     send({ type: "SET_AUTO_SETTLE_PREFS", ...prefs });
   });
 };

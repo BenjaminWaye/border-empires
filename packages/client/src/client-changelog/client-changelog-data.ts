@@ -481,7 +481,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Choose what settles for you",
     why: "New empires used to spend their starting manpower settling nearby towns and farms automatically, before you had any say.",
     changes: [
-      "New players are now asked when they join: settle the towns, food and resources in reach, pick how many, and see the manpower cost first",
+      "You are now asked whenever towns, food or resources come within reach and aren't set to auto-settle: pick how many to settle and see the manpower cost first, or close it and carry on",
       "Auto-settle is now a per-category setting (towns & docks, food, other resources) in Settings > Gameplay, and stays on for existing players"
     ]
   }
