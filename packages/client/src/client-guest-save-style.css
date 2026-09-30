@@ -7,9 +7,14 @@
    bottom-right. On phones it moves above the bottom nav bar. */
 .guest-save-badge {
   position: fixed;
-  left: 50%;
+  /* Centred with auto margins, not translateX(-50%): the global
+     .panel-btn:active rule sets its own transform, which would drop the
+     centring and make the badge jump left while pressed. */
+  left: 0;
+  right: 0;
+  width: max-content;
+  margin-inline: auto;
   bottom: 12px;
-  transform: translateX(-50%);
   z-index: 40;
   pointer-events: auto;
   padding: 8px 14px;
