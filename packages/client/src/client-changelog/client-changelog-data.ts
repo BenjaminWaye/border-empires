@@ -447,6 +447,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
       "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
     ]
+  },
+  {
+    createdAt: 1790757301381, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.2",
+    title: "More reliable guest sign-in",
+    why: "A busy game database could freeze the realtime gateway while a new guest was signing in, leaving Play Now stuck before the map opened.",
+    changes: [
+      "Guest sign-in now retries temporary database contention without freezing the realtime connection",
+      "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
