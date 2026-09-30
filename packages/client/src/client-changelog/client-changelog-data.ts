@@ -30,6 +30,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.30.1",
+    title: "Economy panel no longer shows a gold cap",
+    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
+    changes: [
+      "The Gold card and detail view in the Economy panel now show just your gold total"
+    ]
+  },
+  {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
     title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
