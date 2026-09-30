@@ -22,9 +22,10 @@ import { createResourceOverlayAssets } from "./client-map-3d-resource-overlay-as
 // is chosen deterministically per tile via a hash so a refresh paints the
 // same arrangement. FARM, TITANIUM, and UMBRITE each have their own
 // dedicated overlay (client-map-3d-farmland/client-map-3d-farmland.ts,
-// client-map-3d-titanium-deposit.ts, client-map-3d-umbrite-deposit.ts) and
-// are never routed here — only GEMS and FISH remain generic.
-export type ResourceKind = "GEMS" | "FISH";
+// client-map-3d-fishing/client-map-3d-fishing.ts, client-map-3d-titanium-deposit.ts,
+// client-map-3d-umbrite-deposit.ts) and are never routed here — only GEMS
+// remains generic.
+export type ResourceKind = "GEMS";
 export type ResourceVariant = 0 | 1 | 2;
 
 const variantHash = (worldX: number, worldZ: number, salt: number): ResourceVariant => {
@@ -61,10 +62,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     ironOreMaterial,
     chimneyMaterial,
     gemBlueMaterial,
-    boatHullMaterial,
-    boatMastMaterial,
-    fishingNetMaterial,
-    fishMaterial,
     furBodyMaterial,
     furPostMaterial,
     oilDerrickMaterial,
@@ -82,11 +79,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     mineHillGeo,
     chimneyGeo,
     gemCrystalGeo,
-    boatHullGeo,
-    boatMastGeo,
-    boatSailGeo,
-    netRodGeo,
-    fishGeo,
     furPostGeo,
     furBodyGeo,
     furTripodPostGeo,
@@ -135,11 +127,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
   make("chimney", chimneyGeo, chimneyMaterial, C);
   // Single InstancedMesh, per-instance scale gives crystal rank.
   make("gemCrystalBlue", gemCrystalGeo, gemBlueMaterial, C * 12);
-  make("boatHull", boatHullGeo, boatHullMaterial, C);
-  make("boatMast", boatMastGeo, boatMastMaterial, C);
-  make("boatSail", boatSailGeo, boatMastMaterial, C);
-  make("netRod", netRodGeo, fishingNetMaterial, C * 4);
-  make("fish", fishGeo, fishMaterial, C * 6);
   make("furPost", furPostGeo, furPostMaterial, C * 12);
   make("furBody", furBodyGeo, furBodyMaterial, C * 8);
   // Tripod slots — variant 2 can place up to 3 tripods per tile.
@@ -303,48 +290,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     addCrystal(wx, sy, wz, cx + 0.24, cz + 0.10, 0.16, 0.78, -Math.PI * 0.3);
   };
 
-  const addFishingBoat = (wx: number, sy: number, wz: number, ox: number, oz: number): void => {
-    addPiece("boatHull", wx, sy, wz, ox, 0.04, oz);
-    addPiece("boatMast", wx, sy, wz, ox - 0.02, 0.16, oz);
-    addPiece("boatSail", wx, sy, wz, ox + 0.04, 0.18, oz);
-  };
-
-  const addDryingRack = (wx: number, sy: number, wz: number, ox: number, oz: number): void => {
-    // Two posts + horizontal rod, with fish hanging vertically below
-    // the rod (rotated 90° around Z so the long edge runs along Y, and
-    // positioned so the top of the fish meets the rod). Slight forward
-    // tilt so they read as dangling rather than sitting on the bar.
-    const rodY = 0.22;
-    const fishHangY = rodY - 0.04; // top of fish at rod, center 0.04 below
-    addPiece("furPost", wx, sy, wz, ox - 0.13, 0.11, oz);
-    addPiece("furPost", wx, sy, wz, ox + 0.13, 0.11, oz);
-    addPiece("netRod", wx, sy, wz, ox, rodY, oz, 1, 1, 1, 0, 0, Math.PI * 0.5);
-    // Fish geometry default is 0.07 long (X) × 0.025 tall (Y) × 0.03 deep (Z).
-    // Rotating around Z by 90° aligns the 0.07 axis with Y → fish hangs
-    // head-up / tail-down. A small forward pitch (rotX) gives a natural
-    // dangling lean.
-    const hangSpacing = 0.08;
-    for (let i = -1; i <= 1; i += 1) {
-      addPiece("fish", wx, sy, wz, ox + i * hangSpacing, fishHangY, oz, 1, 1, 1, 0, Math.PI * 0.08, Math.PI * 0.5);
-    }
-  };
-
-  const addFish = (wx: number, sy: number, wz: number, v: ResourceVariant): void => {
-    // Fishing site = boat + drying rack only. The X-crossed nets that
-    // used to read as a tall cross are gone; the rack already implies
-    // fishing equipment.
-    if (v === 0) {
-      addFishingBoat(wx, sy, wz, -0.16, 0);
-      addDryingRack(wx, sy, wz, 0.14, -0.18);
-    } else if (v === 1) {
-      addFishingBoat(wx, sy, wz, 0.16, -0.16);
-      addDryingRack(wx, sy, wz, -0.14, 0.18);
-    } else {
-      addFishingBoat(wx, sy, wz, 0, 0.18);
-      addDryingRack(wx, sy, wz, -0.16, -0.16);
-    }
-  };
-
   // Tripod geometry shared by every fur tripod: 3 thicker posts lean to
   // a common apex (apex at y = TRIPOD_APEX_Y above the centre), base
   // radius TRIPOD_BASE_R around the centre. Tilt = atan(R / APEX). Per-
@@ -486,7 +431,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
     if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "FISH") addFish(sceneX, surfaceY, sceneZ, v);
   };
 
   const commit = (): void => {
@@ -504,7 +448,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
       veggieGeo, logGeo, hutBaseGeo, hutRoofGeo, sawBladeGeo,
       stoneSmallGeo, stoneLargeGeo, ironOreGeo, mineArchGeo, mineHillGeo, chimneyGeo,
       gemCrystalGeo,
-      boatHullGeo, boatMastGeo, boatSailGeo, netRodGeo, fishGeo,
       furPostGeo, furBodyGeo,
       furTripodPostGeo, furTripodBindingGeo, furTripodPeltGeo,
       derrickLegGeo, derrickCapGeo, pumpBaseGeo, pumpArmGeo, pumpHeadGeo, oilPoolGeo
@@ -514,7 +457,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number, buildingEn
       woodLogMaterial, woodHutMaterial, woodRoofMaterial, sawBladeMaterial,
       stoneMaterial, darkStoneMaterial, ironOreMaterial, chimneyMaterial,
       gemBlueMaterial,
-      boatHullMaterial, boatMastMaterial, fishingNetMaterial, fishMaterial,
       furBodyMaterial, furPostMaterial,
       oilDerrickMaterial, oilPumpMaterial, oilPoolMaterial
     ].forEach((m) => m.dispose());
