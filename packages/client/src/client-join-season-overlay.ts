@@ -42,24 +42,49 @@ let countdownTimer: ReturnType<typeof setInterval> | undefined;
 // forever with no explanation, so a stuck join is given up on after this long.
 // It sits above the gateway's own join timeouts so a real error normally wins.
 export const JOIN_SEASON_PENDING_WATCHDOG_MS = 30_000;
+const JOIN_SLOW_HINT_AFTER_SECONDS = 10;
 let joinPendingWatchdog: ReturnType<typeof setTimeout> | undefined;
+let joinWaitTicker: ReturnType<typeof setInterval> | undefined;
+let joinPendingStartedAt = 0;
+
+// Wait-time copy shown under the animated button. The first wait after a click
+// is normally a couple of seconds; past that the sim is busy, and saying so
+// stops a slow join from reading as a frozen page.
+export const joinWaitHint = (elapsedSeconds: number): string =>
+  elapsedSeconds >= JOIN_SLOW_HINT_AFTER_SECONDS
+    ? `Taking longer than usual, still working... ${elapsedSeconds}s`
+    : `Usually takes just a few seconds... ${elapsedSeconds}s`;
+
+const currentJoinWaitHint = (): string =>
+  joinWaitHint(joinPendingStartedAt ? Math.max(0, Math.floor((Date.now() - joinPendingStartedAt) / 1000)) : 0);
 
 const clearJoinPendingWatchdog = (): void => {
-  if (!joinPendingWatchdog) return;
-  clearTimeout(joinPendingWatchdog);
+  if (joinPendingWatchdog) clearTimeout(joinPendingWatchdog);
+  if (joinWaitTicker) clearInterval(joinWaitTicker);
   joinPendingWatchdog = undefined;
+  joinWaitTicker = undefined;
+  joinPendingStartedAt = 0;
 };
 
+// Starts the give-up timer and the once-a-second hint update. The ticker only
+// rewrites the hint's text -- never the overlay's innerHTML -- so it can't
+// restart the gear animation (see the render-key note above).
 const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
-  clearJoinPendingWatchdog();
-  const { state, renderHud, pushFeed } = deps;
+  // Idempotent: a re-render mid-join (e.g. a roster update) must not restart the wait.
+  if (joinPendingStartedAt) return;
+  const { state, overlayEl, renderHud, pushFeed } = deps;
+  joinPendingStartedAt = Date.now();
   joinPendingWatchdog = setTimeout(() => {
-    joinPendingWatchdog = undefined;
+    clearJoinPendingWatchdog();
     if (!state.joinSeasonPending) return;
     state.joinSeasonPending = false;
     pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
     renderHud();
   }, JOIN_SEASON_PENDING_WATCHDOG_MS);
+  joinWaitTicker = setInterval(() => {
+    const hintEl = overlayEl.querySelector("#join-season-wait-hint");
+    if (hintEl) hintEl.textContent = currentJoinWaitHint();
+  }, 1_000);
 };
 
 const clearCountdownTimer = (): void => {
@@ -204,6 +229,8 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   clearCountdownTimer();
   // A guest who pressed "Play now" goes straight in; the prompt below is for everyone else.
   if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
+  if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
+  const joining = state.joinSeasonPending;
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
@@ -214,9 +241,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
         ${renderSeasonLobbyPanelHtml(state, false, false)}
         <section class="respawn-section respawn-actions">
-          <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
-            ${state.joinSeasonPending ? "Joining... setting up your empire" : "Let's go!"}
+          <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn${joining ? " is-joining" : ""}" type="button" ${joining ? 'disabled aria-busy="true"' : ""}>
+            ${joining ? '<span class="season-lobby-join-spinner" aria-hidden="true"></span>Joining... setting up your empire' : "Let's go!"}
           </button>
+          ${joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint" role="status">${currentJoinWaitHint()}</p>` : ""}
         </section>
       </div>
     </div>

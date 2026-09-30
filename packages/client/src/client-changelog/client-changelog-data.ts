@@ -475,7 +475,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The server now stops waiting on a slow spawn-location lookup after a few seconds and lets you into the game anyway",
       "A join that never answers now fails with a clear message instead of hanging, and you can try again",
-      "The button now reads \"Joining... setting up your empire\" so it is clear something is happening"
+      "The Joining button now animates and shows how long you have been waiting, with a note when it is taking longer than usual"
     ]
   }
 ];
