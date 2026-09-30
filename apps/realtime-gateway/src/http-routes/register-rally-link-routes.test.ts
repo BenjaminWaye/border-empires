@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 
 import { registerGatewayHttpRoutes } from "./http-routes.js";
@@ -86,6 +86,75 @@ describe("rally link routes", () => {
     expect(deleteResponse.statusCode).toBe(200);
     const missingResponse = await app.inject({ method: "GET", url: `/rally/links/${created.code}` });
     expect(missingResponse.statusCode).toBe(404);
+    await app.close();
+  });
+
+  const buildPreviewApp = () => {
+    const app = Fastify();
+    const rallyLinkStore = new InMemoryRallyLinkStore();
+    const subscribePlayer = vi.fn(async () => ({ player: { name: "Sam" }, tiles: [] }));
+    const getCurrentSeasonStatus = vi.fn(async () => "active" as const);
+    registerGatewayHttpRoutes(app, {
+      startupStartedAt: 1_000,
+      simulationAddress: "127.0.0.1:50051",
+      simulationSeedProfile: "default",
+      health: () => ({ ok: true, simulation: { connected: true } }),
+      supportedMessageTypes: ["ATTACK"],
+      recentEvents: () => [],
+      attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
+      attackTraces: () => [],
+      metrics: () => "",
+      getCurrentSeasonSummary: async () => {
+        throw new Error("preview route must not read season summary");
+      },
+      getCurrentSeasonStatus,
+      listSeasonArchives: async () => [],
+      getAdminPlayers: async () => [],
+      startNextSeason: async () => ({ seasonId: "season-2" }),
+      playOrigin: "https://play.example.test",
+      rallyLinkStore,
+      subscribePlayer
+    });
+    const mint = (code: string, overrides: { expiresAt?: number; maxUses?: number } = {}) =>
+      rallyLinkStore.create({
+        code,
+        ownerPlayerId: "sam-1",
+        ownerName: "Sam",
+        anchor: { x: 5, y: 6, island: "tile:5,6" },
+        createdAt: Date.now(),
+        expiresAt: overrides.expiresAt ?? Date.now() + 60_000,
+        maxUses: overrides.maxUses ?? 3
+      });
+    return { app, rallyLinkStore, mint, subscribePlayer, getCurrentSeasonStatus };
+  };
+
+  it("GET /rally/preview/:code returns the inviter name without reading any live player or season state", async () => {
+    const { app, mint, subscribePlayer, getCurrentSeasonStatus } = buildPreviewApp();
+    await mint("r_live");
+
+    const response = await app.inject({ method: "GET", url: "/rally/preview/r_live" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true, ownerName: "Sam" });
+    expect(response.headers["cache-control"]).toBe("public, max-age=30, s-maxage=60");
+    expect(subscribePlayer).not.toHaveBeenCalled();
+    expect(getCurrentSeasonStatus).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("GET /rally/preview/:code 404s with a short cache for unknown, expired, revoked, and used-up links", async () => {
+    const { app, rallyLinkStore, mint } = buildPreviewApp();
+    await mint("r_expired", { expiresAt: Date.now() - 1 });
+    await mint("r_revoked");
+    await rallyLinkStore.revoke("sam-1", "r_revoked", Date.now());
+    await mint("r_full", { maxUses: 1 });
+    await rallyLinkStore.consume("r_full", Date.now());
+
+    for (const code of ["r_missing", "r_expired", "r_revoked", "r_full"]) {
+      const response = await app.inject({ method: "GET", url: `/rally/preview/${code}` });
+      expect(response.statusCode, code).toBe(404);
+      expect(response.headers["cache-control"], code).toBe("public, max-age=30");
+    }
     await app.close();
   });
 });

@@ -353,8 +353,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     ...runtimeCounters.increments,
     incrementSimOwnershipChangeAlertSkippedSettlementTier: ownershipChangeAlertMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier,
-    incrementSimAuthRecoveryRespawn: authRecoveryMetrics.incrementSimAuthRecoveryRespawn,
-    incrementSimAuthRecoveryRespawnGuarded: authRecoveryMetrics.incrementSimAuthRecoveryRespawnGuarded,
+    ...authRecoveryMetrics.increments,
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);
     },

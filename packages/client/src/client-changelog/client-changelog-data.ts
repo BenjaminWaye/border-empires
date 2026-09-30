@@ -387,7 +387,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790706701004, // frozen when the socket-delivery entry was merged into develop
     introducedIn: "2026.09.29.6",
     title: "Module deliveries now target their AFC socket",
     why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
@@ -424,6 +424,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
       "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
+    ]
+  },
+  {
+    createdAt: 1790724338615, // frozen while resolving the develop merge
+    introducedIn: "2026.09.30.1",
+    title: "Rally links now show a proper preview card when you share them",
+    why: "A rally link pasted into WhatsApp, Discord, iMessage or X used to appear as plain \"Border Empires\" with no picture, so a friend had no idea why they should click it.",
+    changes: [
+      "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
+      "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
     ]
   }
 ];

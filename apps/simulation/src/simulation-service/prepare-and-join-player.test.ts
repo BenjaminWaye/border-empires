@@ -12,6 +12,8 @@ const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => 
   log: { info: vi.fn(), error: vi.fn() },
   simulationMetrics: {
     observeSimPreparePlayerLatencyMs: vi.fn(),
+    incrementSimRallySpawn: vi.fn(),
+    incrementSimRallySpawnFallback: vi.fn(),
     setSimSeasonGuestPlayers: vi.fn(),
     incrementSimGuestUpgraded: vi.fn(),
     incrementSimGuestJoinRejectedFull: vi.fn()
@@ -126,5 +128,31 @@ describe("preparePlayerHandler pending season", () => {
 
     expect(deps.runtime.ensurePlayerHasAfc).toHaveBeenCalledWith("legacy-player");
     expect(deps.deleteCachedSnapshot).toHaveBeenCalledWith("legacy-player");
+  });
+});
+
+describe("joinSeasonHandler rally spawn metrics", () => {
+  const joinWithRallyOutcome = (outcome: { spawn: { x: number; y: number }; distance: number; withinRadius: boolean }) => {
+    const seasonState = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000_000 });
+    const deps = buildDeps(seasonState);
+    deps.runtime.ensurePlayerHasSpawnTerritory = vi.fn((_playerId, _anchor, onPlaced) => {
+      onPlaced?.(outcome);
+      return true;
+    });
+    joinSeasonHandler(deps, { request: { player_id: "friend", rally_anchor_json: JSON.stringify({ x: 10, y: 10 }) } }, vi.fn());
+    return deps;
+  };
+
+  it("counts a rally spawn beside the inviter without flagging a fallback", () => {
+    const deps = joinWithRallyOutcome({ spawn: { x: 11, y: 10 }, distance: 1, withinRadius: true });
+    expect(deps.simulationMetrics.incrementSimRallySpawn).toHaveBeenCalledTimes(1);
+    expect(deps.simulationMetrics.incrementSimRallySpawnFallback).not.toHaveBeenCalled();
+  });
+
+  it("counts and logs a fallback when the rally spawn landed outside the radius", () => {
+    const deps = joinWithRallyOutcome({ spawn: { x: 100, y: 100 }, distance: 90, withinRadius: false });
+    expect(deps.simulationMetrics.incrementSimRallySpawn).toHaveBeenCalledTimes(1);
+    expect(deps.simulationMetrics.incrementSimRallySpawnFallback).toHaveBeenCalledTimes(1);
+    expect(deps.log.info).toHaveBeenCalledWith(expect.objectContaining({ playerId: "friend", distance: 90 }), "rally spawn landed outside the rally radius");
   });
 });

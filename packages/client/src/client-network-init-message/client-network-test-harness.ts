@@ -86,4 +86,3 @@ export const bind = (state: any, ws: FakeWebSocket, extraDeps: Record<string, un
   } as any);
   return mocks;
 };
-
