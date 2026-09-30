@@ -466,6 +466,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Guest sign-in now retries temporary database contention without freezing the realtime connection",
       "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
     ]
+  },
+  {
+    createdAt: 1790756975653,
+    introducedIn: "2026.09.30.3",
+    title: "Map overlays no longer float above hills",
+    why: "Flat tile overlays on hills were parked at the hill's tallest possible height, well above the visible ground, so they hovered in the air in the 3D map.",
+    changes: [
+      "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
