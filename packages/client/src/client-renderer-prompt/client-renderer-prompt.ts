@@ -32,3 +32,27 @@ export const shouldShowRendererPrompt = (input: RendererPromptVisibilityInput): 
   !input.changelogOpen &&
   !input.guideOpen &&
   !input.activityDashboardOpen;
+
+export type TwoDimensionalNoticeVisibilityInput = {
+  prefers2D: boolean;
+  connectionInitialized: boolean;
+  authSessionReady: boolean;
+  profileSetupRequired: boolean;
+  changelogOpen: boolean;
+  guideOpen: boolean;
+  activityDashboardOpen?: boolean;
+};
+
+/**
+ * The "you're on the 2D map" notice waits for the same gameplay-ready,
+ * nothing-modal-open moment as the slow-3D prompt, so it doesn't pile onto
+ * the login screen or the first-run guide.
+ */
+export const shouldShowTwoDimensionalNotice = (input: TwoDimensionalNoticeVisibilityInput): boolean =>
+  input.prefers2D &&
+  input.connectionInitialized &&
+  input.authSessionReady &&
+  !input.profileSetupRequired &&
+  !input.changelogOpen &&
+  !input.guideOpen &&
+  !input.activityDashboardOpen;
