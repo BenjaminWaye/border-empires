@@ -457,6 +457,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Guest sign-in now retries temporary database contention without freezing the realtime connection",
       "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
     ]
+  },
+  {
+    createdAt: 1790764600000, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.3",
+    title: "Admin settings page with a live lighting tuner",
+    why: "Building lighting looked too strong in places, and every adjustment meant a code change and a deploy just to see whether it looked better.",
+    changes: [
+      "Settings has a new Admin page (admin accounts only) that now holds Reveal Full Map and Photo Mode, moved off the Gameplay page",
+      "The Admin page adds a Lighting Tuner: sliders for the sun, sky fill, back fill, shadows, metal reflections and exposure, applied live to the 3D map"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
