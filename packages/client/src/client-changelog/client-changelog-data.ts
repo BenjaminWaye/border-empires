@@ -466,6 +466,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Guest sign-in now retries temporary database contention without freezing the realtime connection",
       "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
     ]
+  },
+  {
+    createdAt: 1790764591746, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.3",
+    title: "Joining a season no longer gets stuck on \"Joining...\"",
+    why: "After Play Now, a slow server could leave the join screen showing a greyed-out \"Joining...\" button for 15+ seconds with no sign of progress, so it looked broken.",
+    changes: [
+      "The server now stops waiting on a slow spawn-location lookup after a few seconds and lets you into the game anyway",
+      "A join that never answers now fails with a clear message instead of hanging, and you can try again",
+      "The button now reads \"Joining... setting up your empire\" so it is clear something is happening"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

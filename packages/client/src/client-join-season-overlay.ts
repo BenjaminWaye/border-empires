@@ -37,6 +37,31 @@ const formatCountdown = (remainingMs: number): string => {
 // re-render of the overlay never leaks a duplicate timer.
 let countdownTimer: ReturnType<typeof setInterval> | undefined;
 
+// The "Joining..." state clears only on JOIN_SEASON_ACK / ERROR. If neither ever
+// arrives (dropped socket, stalled simulation) the button used to stay disabled
+// forever with no explanation, so a stuck join is given up on after this long.
+// It sits above the gateway's own join timeouts so a real error normally wins.
+export const JOIN_SEASON_PENDING_WATCHDOG_MS = 30_000;
+let joinPendingWatchdog: ReturnType<typeof setTimeout> | undefined;
+
+const clearJoinPendingWatchdog = (): void => {
+  if (!joinPendingWatchdog) return;
+  clearTimeout(joinPendingWatchdog);
+  joinPendingWatchdog = undefined;
+};
+
+const armJoinPendingWatchdog = (deps: JoinSeasonOverlayDeps): void => {
+  clearJoinPendingWatchdog();
+  const { state, renderHud, pushFeed } = deps;
+  joinPendingWatchdog = setTimeout(() => {
+    joinPendingWatchdog = undefined;
+    if (!state.joinSeasonPending) return;
+    state.joinSeasonPending = false;
+    pushFeed?.("Joining the season is taking too long. Try again.", "error", "warn");
+    renderHud();
+  }, JOIN_SEASON_PENDING_WATCHDOG_MS);
+};
+
 const clearCountdownTimer = (): void => {
   if (!countdownTimer) return;
   clearInterval(countdownTimer);
@@ -114,6 +139,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
     clearCountdownTimer();
+    clearJoinPendingWatchdog();
     setSeasonLobbyFullscreen(false);
     delete overlayEl.dataset[RENDER_KEY_ATTR];
     return;
@@ -124,6 +150,9 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const renderKey = computeRenderKey(state, visible);
   if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
   overlayEl.dataset[RENDER_KEY_ATTR] = renderKey;
+
+  if (state.joinSeasonPending) armJoinPendingWatchdog(deps);
+  else clearJoinPendingWatchdog();
 
   const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
 
@@ -186,7 +215,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         ${renderSeasonLobbyPanelHtml(state, false, false)}
         <section class="respawn-section respawn-actions">
           <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
-            ${state.joinSeasonPending ? "Joining..." : "Let's go!"}
+            ${state.joinSeasonPending ? "Joining... setting up your empire" : "Let's go!"}
           </button>
         </section>
       </div>
