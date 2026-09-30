@@ -1,4 +1,5 @@
 import { guestSlotsFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
 
 type PrepareLikeFn = (
   playerId: string,
@@ -9,7 +10,6 @@ type PrepareLikeFn = (
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
 // (already oversized) file from growing. JOIN_SEASON is the only path that
 // should call simulationClient.joinSeason -- login only calls preparePlayer.
-import { TimeoutError, withTimeout } from "../promise-timeout.js";
 
 // The client's "Joining..." button only clears on JOIN_SEASON_ACK or an ERROR,
 // so neither await below may hang indefinitely on a busy simulation. The join
