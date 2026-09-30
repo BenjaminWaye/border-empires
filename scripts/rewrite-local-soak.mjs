@@ -19,7 +19,11 @@ const diagnostics = {
   frontierRefreshes: 0,
   emptyFrontierRejections: 0,
   speculativeInvalidTargets: 0,
-  resourcePauses: 0
+  resourcePauses: 0,
+  // ATTACKs rejected for lack of mustered manpower. Attacks draw from a muster
+  // flag, and a real prod-shaped probe player often has none staged, so the
+  // soak falls back to EXPAND for the rest of the session instead of aborting.
+  musterBlockedAttacks: 0
 };
 
 const percentile = (values, fraction) => {
@@ -39,6 +43,7 @@ const openSession = () =>
       nextClientSeq: 1,
       tilesByKey: new Map(),
       speculativeInvalidTargets: new Set(),
+      attacksMusterBlocked: false,
       ready: false
     };
     const timeoutId = setTimeout(() => {
@@ -123,7 +128,7 @@ const runIteration = (session, iteration) =>
       const candidatePayloads = collectCandidatePayloads(session.tilesByKey, session.playerId, mergedInvalidTargets, invalidOrigins, {
         allowAttacks,
         candidateVisionRadius
-      });
+      }).filter((payload) => !(session.attacksMusterBlocked && payload.type === "ATTACK"));
       if (candidatePayloads.length === 0) {
         cleanup();
         reject(new Error(`iteration ${iteration} found no frontier action candidate`));
@@ -238,6 +243,14 @@ const runIteration = (session, iteration) =>
               }
             }
           }
+          sendNextCandidate();
+          return;
+        }
+        if (message.code === "INSUFFICIENT_MUSTER") {
+          // Not player-wide exhaustion: only ATTACK needs muster. Stop offering
+          // attacks this session and try the next (EXPAND) candidate.
+          session.attacksMusterBlocked = true;
+          diagnostics.musterBlockedAttacks += 1;
           sendNextCandidate();
           return;
         }
