@@ -59,7 +59,10 @@ const renderSignIn = (auth: Auth | undefined, message?: string): void => {
   const button = el("button", { class: "primary", text: "Sign in with Google" });
   const status = el("p", { class: "meta", text: message ?? "Only the game's admin account can see this data." });
   button.addEventListener("click", () => {
-    if (!auth || !googleProvider) return;
+    if (!auth || !googleProvider) {
+      status.textContent = "Google sign-in isn't configured for this build.";
+      return;
+    }
     status.textContent = "Opening Google sign-in…";
     signInWithPopup(auth, googleProvider).catch((error: unknown) => {
       const code = (error as { code?: string } | undefined)?.code ?? "";
@@ -71,7 +74,12 @@ const renderSignIn = (auth: Auth | undefined, message?: string): void => {
   root.replaceChildren(header(undefined, auth), el("main", { class: "signin" }, [el("h2", { text: "Admin sign-in" }), button, status]));
 };
 
+// Bumped on every render so a slow response can't overwrite a newer view
+// (e.g. switching the insights window from 7 to 30 days mid-request).
+let renderSequence = 0;
+
 const renderView = async (api: AdminApi, user: User, auth: Auth): Promise<void> => {
+  const sequence = ++renderSequence;
   const { view, params } = currentRoute();
   const nav = el("nav", {}, VIEWS.map((item) => el("a", { href: `#${item.id}`, class: item.id === view.id ? "active" : "", title: item.description, text: item.title })));
   const controls: HTMLElement[] = [];
@@ -93,7 +101,7 @@ const renderView = async (api: AdminApi, user: User, auth: Auth): Promise<void> 
   root.replaceChildren(header(user, auth), nav, el("main", {}, [el("div", { class: "toolbar" }, [el("h2", { text: view.title }), ...controls, refresh]), content]));
 
   const result = await api.get(view.path(params));
-  if (currentRoute().view.id !== view.id) return; // navigated away while loading
+  if (sequence !== renderSequence) return; // a newer render started while this one was loading
   if (!result.ok) {
     content.replaceChildren(el("p", { class: "error", text: result.message }));
     return;
