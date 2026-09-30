@@ -4,7 +4,8 @@
   "buildCommand": "pnpm --filter @border-empires/client build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/admin/:path*", "destination": "/api/admin/:path*" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin/:path*", "destination": "/admin.html" },
     { "source": "/rally/new", "destination": "/" },
     { "source": "/r/:code", "destination": "/" },
     { "source": "/__/auth/:path*", "destination": "https://border-empires.firebaseapp.com/__/auth/:path*" },

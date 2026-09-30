@@ -17,7 +17,10 @@ const CLOCK_TOLERANCE_SECONDS = 30;
 // module is that no claim is trusted before signature verification. A linked
 // account always carries an email or at least one linked identity; a genuine
 // anonymous account carries neither.
-export type VerifiedFirebaseToken = { uid: string; email?: string; name?: string; isGuest?: boolean };
+// emailVerified is only set when Firebase asserts the email (email_verified:
+// true). Anyone can create an email/password account claiming an address they
+// don't own, so any email-based permission check must require it.
+export type VerifiedFirebaseToken = { uid: string; email?: string; emailVerified?: boolean; name?: string; isGuest?: boolean };
 
 export type FirebaseTokenRejectReason =
   | "malformed"
@@ -90,6 +93,7 @@ export const createFirebaseTokenVerifier = (options: FirebaseTokenVerifierOption
       // Anonymous-provider tokens carry neither email nor name; both stay optional.
       if (typeof payload.email === "string") verified.email = payload.email;
       if (typeof payload.name === "string") verified.name = payload.name;
+      if (verified.email && payload.email_verified === true) verified.emailVerified = true;
       const firebaseClaim = payload.firebase;
       if (typeof firebaseClaim === "object" && firebaseClaim !== null) {
         const { sign_in_provider: signInProvider, identities } = firebaseClaim as { sign_in_provider?: unknown; identities?: unknown };

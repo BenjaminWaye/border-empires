@@ -15,6 +15,10 @@
 // read-only debug endpoints, with nothing extra to distribute or rotate.
 // Destructive endpoints (/admin/season/start-next, /admin/barbarians/seed)
 // intentionally do NOT accept this path — they stay on the static token.
+//
+//   3. A Google sign-in: a Firebase ID token as `Authorization: Bearer`,
+//      verified and matching ADMIN_EMAIL (see admin-firebase-auth.ts). Used by
+//      the /admin page on play/staging.borderempires.com. Read-only only, like (2).
 export type AdminGithubAuthConfig = {
   repoOwner: string;
   repoName: string;
@@ -81,6 +85,8 @@ export type CreateAdminAuthorizerDeps = {
   adminApiToken?: string;
   githubAuth?: AdminGithubAuthConfig;
   fetchImpl?: typeof fetch;
+  // Path (3): resolves true for a verified admin Firebase ID token.
+  isAdminIdToken?: (token: string) => Promise<boolean>;
 };
 
 export type AdminAuthorizer = {
@@ -108,6 +114,9 @@ export const createAdminAuthorizer = (deps: CreateAdminAuthorizerDeps): AdminAut
 
     const queryToken = (request.query as { token?: string } | undefined)?.token;
     if (Boolean(deps.adminApiToken) && queryToken === deps.adminApiToken) return true;
+
+    const bearerToken = headerAuth?.startsWith("Bearer ") ? headerAuth.slice("Bearer ".length).trim() : "";
+    if (bearerToken && deps.isAdminIdToken && (await deps.isAdminIdToken(bearerToken))) return true;
 
     if (checkGithubAccess) {
       const githubToken = request.headers["x-admin-github-token"];

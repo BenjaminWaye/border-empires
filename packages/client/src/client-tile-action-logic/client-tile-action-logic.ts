@@ -2,7 +2,7 @@ import {
   buildAetherWallSegments,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  FORT_BUILD_MS,
+  FORT_BUILD_MS, FORT_VARIANT_LABELS,
   RELAY_BEACON_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
@@ -117,7 +117,7 @@ export const missingResourceSlotReason = (state: ClientState, type: SlotStructur
 };
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
-  if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
+  if (tile.fort) return { label: FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"], durationMs: structureBuildDurationMs("FORT") };
   if (tile.observatory) return { label: "Aether Tower", durationMs: structureBuildDurationMs("OBSERVATORY") };
   if (tile.siegeOutpost) return { label: "Siege Battery", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };
@@ -886,7 +886,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
       : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
-    const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
+    const hasWoodenFort = tile.fort?.variant === "WOODEN_FORT";
     const hasRelayBeacon = tile.economicStructure?.type === "RELAY_BEACON";
     if (
       buildShowsOnTile("WOODEN_FORT", tile, supportedTowns.length, supportedDocks.length) &&
@@ -920,16 +920,16 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       tile.ownerId === state.me &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      (tile.fort || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE")
+      (tile.fort || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE")
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
-        const hasTech = tile.fort ? true : state.techIds.includes("masonry");
-        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE";
+        const hasTech = tile.fort && !hasWoodenFort ? true : state.techIds.includes("masonry"); // a Palisade upgrade still needs masonry
+        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE";
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
         out.push({
           id: "build_fortification",
-          label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
+          label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
           detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(

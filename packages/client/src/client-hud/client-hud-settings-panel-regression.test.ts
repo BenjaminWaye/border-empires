@@ -85,6 +85,26 @@ describe("settings panel regression guard", () => {
     expect(hudSource).toContain('type: "SET_FOG_DISABLED"');
   });
 
+  it("puts the Photo Mode toggle in the same card as map reveal, gated the same way", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+    const photoModeSource = sourceFor("../client-photo-mode/client-photo-mode.ts");
+
+    const revealCardStart = settingsPanelSource.indexOf("export const mapRevealCardHtml");
+    const revealCardEnd = settingsPanelSource.indexOf("const SETTINGS_NAV_ITEMS");
+    const revealCardBody = settingsPanelSource.slice(revealCardStart, revealCardEnd);
+
+    expect(revealCardBody).toContain("data-photo-mode-toggle");
+    expect(revealCardBody).toContain("Enter Photo Mode");
+    expect(revealCardBody).toContain("Exit Photo Mode");
+    // Same fog-admin availability check as the reveal button in this card, not a separate/looser gate.
+    expect(revealCardBody).toContain("if (!mapRevealAvailable(");
+
+    expect(hudSource).toContain("bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps))");
+    expect(photoModeSource).toContain("export const bindPhotoModeSettingsControls =");
+    expect(photoModeSource).toContain("mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })");
+  });
+
   it("opens the rally link panel in place instead of a full page navigation", () => {
     // Regression: "Get Rally Link" used to be a plain <a href="/rally/new">,
     // which forced a full page reload and re-raced Firebase Auth rehydration

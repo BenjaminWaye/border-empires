@@ -13,6 +13,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import {
   BARBARIAN_RAID_COST,
   FRONTIER_ATTACK_MUSTER_COST,
+  defendingFortVariant,
   requiredMusterForFort
 } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -30,7 +31,7 @@ export function requiredMusterForTarget(target: DomainTileState): number {
   // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
   if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
   if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
-  return requiredMusterForFort(target.fort?.status === "active" ? target.fort.variant : undefined);
+  return requiredMusterForFort(defendingFortVariant(target.fort));
 }
 
 export interface RuntimeCombatResolutionContext {

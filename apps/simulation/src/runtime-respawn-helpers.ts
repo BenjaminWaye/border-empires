@@ -2,7 +2,7 @@ import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empir
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
-import { chooseLegacySpawnPlacement } from "./spawn-placement/spawn-placement.js";
+import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -105,10 +105,17 @@ export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: stri
   });
 };
 
+export type RallySpawnOutcome = {
+  spawn: { x: number; y: number };
+  distance: number;
+  withinRadius: boolean;
+};
+
 export const ensurePlayerHasSpawnTerritory = (
   ctx: RuntimeRespawnContext,
   playerId: string,
-  rallyAnchor?: { x: number; y: number }
+  rallyAnchor?: { x: number; y: number },
+  onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void
 ): boolean => {
   let player = ctx.players.get(playerId);
   if (!player) {
@@ -176,6 +183,12 @@ export const ensurePlayerHasSpawnTerritory = (
   finalizeRespawnNotice(ctx, playerId, tileKey);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(spawnedTile)] });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
+  if (rallyAnchor && onRallySpawnPlaced) {
+    // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
+    // the nearest site with no radius cap) and not only the legacy search's random fallback.
+    const distance = Math.max(Math.abs(spawn.x - rallyAnchor.x), Math.abs(spawn.y - rallyAnchor.y));
+    onRallySpawnPlaced({ spawn: { x: spawn.x, y: spawn.y }, distance, withinRadius: distance <= RALLY_SPAWN_RADIUS });
+  }
   return true;
 };
 

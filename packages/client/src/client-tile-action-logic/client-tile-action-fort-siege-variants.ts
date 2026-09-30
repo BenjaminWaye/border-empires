@@ -1,7 +1,6 @@
 import {
-  bestFortTierForTech,
   FORT_VARIANT_LABELS,
-  nextFortTierForUpgrade,
+  fortTierForBuild,
   type FortTierInfo,
   bestSiegeTierForTech,
   nextSiegeTierForUpgrade,
@@ -34,18 +33,14 @@ const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
 
-const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
-  fortActionFromTier(bestFortTierForTech((id) => state.techIds.includes(id)));
-
+// Mirrors the server's fortTierForBuild: a fresh fort or one built over a
+// Palisade goes to the best tier the tech allows; a real fort climbs one tier.
 export const nextFortVariantForTile = (
   state: ClientState,
   tile: Tile,
 ): FortVariantAction | undefined => {
-  if (tile.fort) {
-    const result = nextFortTierForUpgrade(tile.fort.variant, (id) => state.techIds.includes(id));
-    return result ? fortActionFromTier(result) : undefined;
-  }
-  return fortBuildVariantForState(state);
+  const result = fortTierForBuild("FORT", tile.fort?.variant, (id) => state.techIds.includes(id));
+  return result ? fortActionFromTier(result) : undefined;
 };
 
 export type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string; upkeepSuffix: string };
