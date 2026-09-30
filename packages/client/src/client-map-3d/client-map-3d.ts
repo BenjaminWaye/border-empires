@@ -31,7 +31,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -919,26 +919,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             isOwnedLand
           };
         }
-        // Overlays sit on the *rendered* surface, not the tile's base
-        // elevation. The heightfield's drawn corners get pulled up by
-        // averaging with raised neighbours (mountains, hills), so a
-        // tile's painted surface can be much higher than its base. Max
-        // of all 4 corners + small buffer keeps overlays above the
-        // ground at every interior point of the tile. elevationAt already
-        // bakes HEIGHTFIELD_HILLS_ELEVATION_BONUS into a hill tile's own
-        // cached base elevation (see sampleTile in
-        // client-map-3d-heightfield.ts) -- adding the bonus again here used
-        // to double it, floating every overlay a full bonus-height above
-        // the dome's actual peak instead of resting on it.
+        // surfaceY: highest rendered point (props); flatOverlayY: follows the hill dome (flat planes/labels) -- see client-map-3d-tile-surface-y.ts
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
-        const surfaceY = Math.max(
-          heightfield.elevationAt(wx, wy),
-          heightfield.cornerYAt(wx, wy),
-          heightfield.cornerYAt(wxNext, wy),
-          heightfield.cornerYAt(wx, wyNext),
-          heightfield.cornerYAt(wxNext, wyNext)
-        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD; addProspectTile({ overlay: prospectOverlay, tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt });
+        const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt });
+        addProspectTile({ overlay: prospectOverlay, tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged tiles show only a darkened terrain quad plus a dim tint
           // of their last-witnessed owner -- no roads, structures, units,
@@ -1152,7 +1137,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         }
         const incomingAttack = deps.state.incomingAttacksByTile.get(deps.keyFor(wx, wy));
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
-          attackOverlay.addInstance(x, z, surfaceY, incomingAttack.resolvesAt);
+          attackOverlay.addInstance(x, z, flatOverlayY, incomingAttack.resolvesAt);
         }
         if (tile?.economicStructure && terrain === "LAND") {
           const structureType = tile.economicStructure.type as string;
@@ -1189,7 +1174,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
-        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
+        } /* F0/F3, client-win-chance-paint-trigger.ts + client-known-shield-flags.ts: */ { const winChancePaintEntry = deps.state.winChancePaint?.entries.find((e) => e.x === wx && e.y === wy); if (winChancePaintEntry) winChancePaintOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, color: winChancePaintEntry.color, winChance: winChancePaintEntry.winChance }); const shieldCoverage = isShieldCoverageShownOn(deps.state.arrowGesture, tile?.ownerId, deps.state.me) ? tileShieldCoverage(wx, wy, knownShieldFlags) : undefined; /* only while dragging the attack arrow, and only on enemy-owned tiles */ if (shieldCoverage) shieldAreaOverlay.addTile({ sceneX: x, sceneZ: z, surfaceY: flatOverlayY, ownerColor: deps.effectiveOverlayColor(shieldCoverage.ownerId) }); }
         const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
         if (demoStructureEntry && terrain === "LAND") {
           if (demoStructureEntry.kind === "UMBRITE_RIG") {
@@ -1299,7 +1284,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // full visible-tile grid is the wrong loop shape for that.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
           if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
-            reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
+            reachOverlay3D.addDormantFrontierTile(x, z, flatOverlayY, 1);
           }
         }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
@@ -1312,10 +1297,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             terrainAt: deps.terrainAt
           });
           const severity = weakDefensibilitySeverity(exposedSides.length);
-          if (severity) defensibilityOverlay.addInstance(x, z, surfaceY, severity);
+          if (severity) defensibilityOverlay.addInstance(x, z, flatOverlayY, severity);
         }
         if (deps.state.crystalTargeting.active && tile && visibility === "visible" && deps.state.crystalTargeting.validTargets.has(tileKey)) {
-          crystalTargetingOverlay.addInstance(x, z, surfaceY);
+          crystalTargetingOverlay.addInstance(x, z, flatOverlayY);
         }
       }
     }

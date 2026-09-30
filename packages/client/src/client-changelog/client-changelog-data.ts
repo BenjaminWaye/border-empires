@@ -30,7 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790756000000, // frozen: was Date.now(), which check:client-changelog rejects
     introducedIn: "2026.09.30.1",
     title: "Economy panel no longer shows a gold cap",
     why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
@@ -468,8 +468,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790764591746, // frozen Date.now() value for this release
+    createdAt: 1790756975653,
     introducedIn: "2026.09.30.3",
+    title: "Map overlays no longer float above hills",
+    why: "Flat tile overlays on hills were parked at the hill's tallest possible height, well above the visible ground, so they hovered in the air in the 3D map.",
+    changes: [
+      "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
+    ]
+  },
+  {
+    createdAt: 1790764591773, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.4",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    changes: [
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+    ]
+  },
+  {
+    createdAt: 1790764591746, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.5",
     title: "Joining a season no longer gets stuck on \"Joining...\"",
     why: "After Play Now, a slow server could leave the join screen showing a greyed-out \"Joining...\" button for 15+ seconds with no sign of progress, so it looked broken.",
     changes: [
