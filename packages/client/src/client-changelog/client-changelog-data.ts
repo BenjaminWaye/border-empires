@@ -20,25 +20,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1790713309651,
-    introducedIn: "2026.09.29.4",
-    title: "AI empires can now build Titanium Bastion and Thunder Bastion forts again",
-    why: "Fort tiers pay their Titanium cost as a resource-slot occupation, not a stockpile spend, but the AI's build-planner still checked the opponent's Titanium stockpile against the old (already-retired) per-tier cost before proposing a fort -- since Titanium no longer accumulates as a stockpile, that check always failed. AI opponents with Fortified Walls or Steelworking researched could never actually build the fort tier those techs unlock.",
-    changes: [
-      "AI-controlled empires now build Titanium Bastion and Thunder Bastion forts once they have the researching tech and enough manpower, instead of silently failing every attempt",
-      "No change to human players -- fort build costs on the tile-menu and command flow were never affected by this"
-    ]
-  },
-  {
-    createdAt: 1790717460000, // frozen at the commit that added this entry (was a live Date.now(), which re-stamps on every load)
-    introducedIn: "2026.09.30.1",
-    title: "Economy panel no longer shows a gold cap",
-    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
-    changes: [
-      "The Gold card and detail view in the Economy panel now show just your gold total"
-    ]
-  },
-  {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
     title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
@@ -477,8 +458,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790764600000, // frozen Date.now() value for this release
+    createdAt: 1790764591773, // frozen Date.now() value for this release
     introducedIn: "2026.09.30.4",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    changes: [
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+    ]
+  },
+  {
+    createdAt: 1790764600000, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.5",
     title: "Admin settings page with a live lighting tuner",
     why: "Building lighting looked too strong in places, and every adjustment meant a code change and a deploy just to see whether it looked better.",
     changes: [

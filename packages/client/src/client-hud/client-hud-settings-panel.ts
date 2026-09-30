@@ -10,6 +10,7 @@ import { emailNotificationsSettingsPageHtml } from "../client-email-notification
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
 import { lightingTunerCardHtml } from "../client-lighting-tuner/client-lighting-tuner-ui.js";
+import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
@@ -125,6 +126,7 @@ export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionRe
     </div>
     ${rallyLinkCardHtml(state)}
     <div class="card auth-settings-card">${siegeTowerRotationSettingsFieldHtml()}</div>
+    <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>
   `;
 
 export const settingsAdminPageHtml = (
