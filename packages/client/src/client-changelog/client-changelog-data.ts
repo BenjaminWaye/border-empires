@@ -30,7 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790756000000, // frozen: was Date.now(), which check:client-changelog rejects
     introducedIn: "2026.09.30.1",
     title: "Economy panel no longer shows a gold cap",
     why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
@@ -477,12 +477,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790764192672, // frozen Date.now() value for this release
+    createdAt: 1790764591773, // frozen Date.now() value for this release
     introducedIn: "2026.09.30.4",
-    title: "Guest \"Save your empire\" badge no longer jumps when pressed",
-    why: "Pressing the gold guest badge at the bottom of the map shifted it to the left while the button was held down.",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
     changes: [
-      "The badge now stays centred while you press it"
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
     ]
   }
 ];
