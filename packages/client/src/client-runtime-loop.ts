@@ -8,6 +8,8 @@ import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-ren
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
+import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
+import { tickAfcJoinDropForFrame } from "./client-afc-join-drop/client-afc-join-drop-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
@@ -28,7 +30,7 @@ import {
 } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
-import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfc2D } from "./client-map-2d-afc-overlay.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
@@ -214,23 +216,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
+    tickAfcJoinDropForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor); // before either renderer draws, so the joining AFC is hidden from its first frame
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
-      const fps = getCurrentFps();
-      const readouts = document.querySelectorAll<HTMLElement>("[data-fps-readout]");
-      if (readouts.length > 0) {
-        const label = fps === undefined ? "—" : Math.round(fps).toString();
-        readouts.forEach((el) => {
-          if (el.textContent !== label) el.textContent = label;
-        });
-      }
-      const zoomReadouts = document.querySelectorAll<HTMLElement>("[data-zoom-readout]");
-      if (zoomReadouts.length > 0) {
-        const zoomLabel = Math.round(state.zoom).toString();
-        zoomReadouts.forEach((el) => {
-          if (el.textContent !== zoomLabel) el.textContent = zoomLabel;
-        });
-      }
+      paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);
       if (
         !lowFpsRendererHudPinged &&
         shouldShowRendererPrompt({
@@ -449,7 +438,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk));
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
@@ -1019,7 +1008,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfc2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk));
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
 
         if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
