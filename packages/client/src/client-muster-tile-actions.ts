@@ -1,3 +1,4 @@
+import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -58,20 +59,21 @@ export const buildMusterActions = (
       fightX: muster.fightX,
       fightY: muster.fightY,
       noTargetInRange: muster.noTargetInRange,
-      insufficientManpower: muster.insufficientManpower
+      insufficientManpower: muster.insufficientManpower,
+      clearing: muster.clearing
     });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
+        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        detail: `Mustering… ${staged} manpower staged · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
         ...avail()
       });
     } else if (muster.mode === "ADVANCE") {
@@ -84,7 +86,7 @@ export const buildMusterActions = (
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `${status} (${staged} staged) · pick a target tile to fight toward.`,
+        detail: `${status} (${staged} staged) · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
         ...avail()
       });
     } else {

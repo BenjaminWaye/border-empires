@@ -1,3 +1,4 @@
+import { musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import { showArrowGestureConfirmSheet } from "./client-arrow-gesture-confirm-sheet.js";
 import type { ArrowGesturePoint } from "./client-map-input-arrow-gesture.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -28,6 +29,13 @@ export const handleArrowGestureConfirm = (
   target: ArrowGesturePoint,
   deps: ArrowGestureConfirmDeps
 ): void => {
+  // Over the march cap: advise raising a flag closer instead of opening a
+  // sheet whose "Go" the server would refuse. Plain advice, not an error.
+  const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(origin.x, origin.y, target.x, target.y));
+  if (tooFarAdvice) {
+    deps.pushFeed(tooFarAdvice, "combat", "info");
+    return;
+  }
   state.pendingArrowGestureConfirm = { origin, target };
   deps.pushFeed(`Arrow gesture: (${origin.x}, ${origin.y}) -> (${target.x}, ${target.y})`, "combat", "info");
   showArrowGestureConfirmSheet(state, origin, target, deps.keyFor, {

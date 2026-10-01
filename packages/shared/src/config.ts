@@ -317,6 +317,25 @@ export const SEASON_LENGTH_DAYS = 30;
 
 export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
 export const BARBARIAN_MULTIPLY_THRESHOLD = 5;
+// Hard cap on barbarian territory. An uncapped barbarian on staging grew to
+// 941 tiles; the sim main thread re-exports the barbarian's full planner view
+// (O(territory)) on every ownership change, which starved gateway logins. At or
+// above the cap the barbarian stops multiplying and sheds tiles nobody can see.
+export const MAX_BARBARIAN_TILES = 100;
+// A barbarian tile rests this long after its action SETTLES (combat resolved,
+// claim resolved, or command rejected) before it may act again. Counted from
+// settle, not issue: combat locks for COMBAT_LOCK_MS, so counting from issue
+// leaves no rest at all between fights.
+export const BARBARIAN_TILE_REST_MS = 15_000;
+// Faction-wide budget of barbarian ATTACKS started per rolling minute (all barb
+// tiles on the map combined, not per tile). Attacks are the expensive action
+// (~15ms main thread each, mostly the encirclement flood-fill); walks are cheap
+// (~0.5ms) and unbudgeted. A tile that wants to attack with the budget spent
+// walks instead, so it still visibly moves.
+export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
+// Safety net if no settle event ever arrives for an in-flight barb command.
+// Longer than COMBAT_LOCK_MS.
+export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
 export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;

@@ -8,7 +8,7 @@
 // snapshot sections, planner views, debug/AI-metrics snapshots); the
 // visibility-classification / per-player-visible-state side lives in the
 // sibling runtime-visibility.ts, since that half owns different caches
-// (visibilityCoverage, barbActivationVisibilityCache) and is the
+// (visibilityCoverage) and is the
 // higher-risk, per-player wire surface.
 //
 // The context type is derived via `Parameters<typeof impl>[0]` from the
