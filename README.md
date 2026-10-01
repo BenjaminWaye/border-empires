@@ -269,6 +269,7 @@ Production (`play.borderempires.com`) and staging (`staging.borderempires.com`) 
 - Production Fly app: `border-empires-combined` (`fly.combined.toml`)
 - Staging Fly app: `border-empires-combined-staging` (`fly.combined.staging.toml`)
 - Client: Vercel project `border-empires-client`
+- Hetzner backend (opt-in, in migration from Fly): `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
 
 **Deploy to staging:**
 ```bash
