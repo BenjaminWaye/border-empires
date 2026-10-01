@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isRallyNewRoute, rallyApiOrigin, rallyCodeFromLocation, rallyLinkEndpoint } from "./client-rally-links.js";
+import { isRallyNewRoute, rallyApiOrigin, rallyCodeFromLocation, rallyLinkEndpoint, rallyShareUrl } from "./client-rally-links.js";
 
 describe("client rally links", () => {
   it("detects rally creation and join routes", () => {
@@ -28,5 +28,15 @@ describe("client rally links", () => {
         { VITE_RALLY_API_ORIGIN: "https://api.example.test/" }
       )
     ).toBe("https://api.example.test");
+  });
+
+  it("builds the share URL from the minting page's origin, not the server's PLAY_ORIGIN", () => {
+    // Regression: staging's gateway returned a play.borderempires.com URL, so the
+    // invite resolved against the production rally API and showed as expired.
+    const link = { code: "r_abc-123", url: "https://play.borderempires.com/r/r_abc-123" };
+    expect(rallyShareUrl(link, { origin: "https://staging.borderempires.com" })).toBe("https://staging.borderempires.com/r/r_abc-123");
+    expect(rallyShareUrl(link, { origin: "http://localhost:5173/" })).toBe("http://localhost:5173/r/r_abc-123");
+    expect(rallyShareUrl(link, { origin: "null" })).toBe(link.url);
+    expect(rallyShareUrl(link, undefined)).toBe(link.url);
   });
 });
