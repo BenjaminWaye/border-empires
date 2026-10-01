@@ -3,7 +3,8 @@
 // one document-level change listener so the HUD's re-rendered settings HTML
 // needs no per-render binding (client-hud.ts is over the per-file line cap).
 import { dismissCurrentAutoSettleCandidates } from "./client-auto-settle-prompt.js";
-import { AUTO_SETTLE_CATEGORIES, DEFAULT_AUTO_SETTLE_PREFS, type AutoSettleCategory, type AutoSettlePrefs } from "@border-empires/shared";
+import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires/shared";
+import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 
 const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
   towns: { label: "Towns & docks", hint: "Also settles the plain tiles around a grown town." },
@@ -11,8 +12,15 @@ const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
   resources: { label: "Other resources", hint: "Titanium, gems, umbrite." }
 };
 
-export const autoSettleSettingsFieldHtml = (prefs: AutoSettlePrefs | undefined): string => {
-  const current = prefs ?? DEFAULT_AUTO_SETTLE_PREFS;
+export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): string => {
+  if (autoSettle.status !== "loaded") {
+    return `
+    <div class="settings-auto-settle-field">
+      <p>Auto-settle</p>
+      <p class="settings-field-hint">Loading your auto-settle choices…</p>
+    </div>`;
+  }
+  const current = autoSettle.prefs;
   return `
     <div class="settings-auto-settle-field">
       <p>Auto-settle</p>

@@ -91,7 +91,10 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
       return Boolean(actor && settleRejectionForActor(actor));
     },
     hasAvailableDevelopmentSlot: (playerId) => deps.hasAvailableDevelopmentSlot(playerId),
-    isAutoSettleAllowed: (playerId, tile) => isAutoSettleAllowedForTile(deps.players.get(playerId)?.autoSettle, tile),
+    isAutoSettleAllowed: (playerId, tile) => {
+      const player = deps.players.get(playerId);
+      return player !== undefined && isAutoSettleAllowedForTile(player.autoSettle, tile);
+    },
     startSettlementProcess: (input) => deps.startSettlementProcess(input),
     nextCommandId: (playerId, tileKey) => deps.nextTerritoryAutomationCommandId("auto-settle", playerId, tileKey, deps.now()),
     now: () => deps.now()

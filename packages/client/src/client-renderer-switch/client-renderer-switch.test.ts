@@ -4,6 +4,7 @@ import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { rendererKindFor, rendererSwitchUrl, switchRenderer } from "./client-renderer-switch.js";
 import { bindRendererSettingsControls, rendererSettingsFieldHtml } from "./client-renderer-settings-ui.js";
 import { settingsGameplayPageHtml } from "../client-hud/client-hud-settings-panel.js";
+import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 
 const BREADCRUMB_KEY = "border-empires-renderer-breadcrumb-v1";
 
@@ -49,7 +50,7 @@ describe("renderer settings field", () => {
     expect(html).toContain("Try 3D map again");
   });
   it("is part of the Gameplay settings page", () => {
-    const html = settingsGameplayPageHtml({ authSessionReady: false, authEmail: "", autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } });
+    const html = settingsGameplayPageHtml({ authSessionReady: false, authEmail: "", autoSettle: loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS }) });
     expect(html).toContain("Map Renderer");
     expect(html).toContain("data-renderer-switch");
   });

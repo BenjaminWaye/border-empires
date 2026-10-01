@@ -7,10 +7,10 @@ import {
   SETTLE_COST,
   SETTLE_MANPOWER_COST,
   autoSettleCategoryForTile,
-  isAutoSettleAllowedForTile,
   townFoodSlotDemandForTier,
   type AutoSettleCategory
 } from "@border-empires/shared";
+import { isClientAutoSettleAllowedForTile } from "./client-auto-settle-prefs.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -36,6 +36,8 @@ export const buildAutoSettlePromptModel = (
   state: Pick<ClientState, "autoSettlementQueue" | "tiles" | "me" | "homeTile" | "developmentQueue" | "autoSettle" | "skippedAutoSettlementTileKeys">,
   dismissedTileKeys: ReadonlySet<string> = new Set()
 ): AutoSettlePromptModel => {
+  // Prefs not loaded yet: we can't tell held-back from allowed, so never prompt.
+  if (state.autoSettle.status !== "loaded") return { sections: [] };
   const home = state.homeTile;
   const alreadyQueued = new Set(state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey));
   const byCategory = new Map<AutoSettleCategory, AutoSettlePromptTile[]>();
@@ -44,7 +46,7 @@ export const buildAutoSettlePromptModel = (
     const tile = state.tiles.get(tileKey);
     if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER" || alreadyQueued.has(tileKey)) continue;
     if (dismissedTileKeys.has(tileKey) || state.skippedAutoSettlementTileKeys.has(tileKey)) continue;
-    if (isAutoSettleAllowedForTile(state.autoSettle, tile)) continue;
+    if (isClientAutoSettleAllowedForTile(state, tile)) continue;
     const category = autoSettleCategoryForTile(tile);
     const distance = home ? Math.max(Math.abs(x - home.x), Math.abs(y - home.y)) : 0;
     const list = byCategory.get(category) ?? [];

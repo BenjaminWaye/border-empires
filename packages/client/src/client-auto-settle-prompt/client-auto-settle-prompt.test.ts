@@ -4,6 +4,7 @@ import { NEW_PLAYER_AUTO_SETTLE_PREFS, SETTLE_MANPOWER_COST } from "@border-empi
 import { createInitialState } from "../client-state/client-state.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
 import { dismissCurrentAutoSettleCandidates, installAutoSettlePrompt, refreshAutoSettlePrompt } from "./client-auto-settle-prompt.js";
+import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import { buildAutoSettlePromptModel, townFoodWarning, yieldSummary } from "./client-auto-settle-prompt-model.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
@@ -26,7 +27,7 @@ const newPlayerState = () => {
   state.manpower = 720;
   state.manpowerCap = 720;
   state.homeTile = { x: 10, y: 10 };
-  state.autoSettle = { ...NEW_PLAYER_AUTO_SETTLE_PREFS };
+  state.autoSettle = loadedAutoSettleState({ ...NEW_PLAYER_AUTO_SETTLE_PREFS });
   const own = (x: number, y: number, extra: Record<string, unknown>) =>
     state.tiles.set(keyFor(x, y), { x, y, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", ...extra } as never);
   own(12, 10, { town: { name: "Town", type: "FARMING", populationTier: "TOWN" } });
@@ -52,10 +53,21 @@ describe("auto-settle join prompt: nothing settles on the client until the playe
     expect(state.developmentQueue.map((entry) => entry.tileKey).sort()).toEqual(["11,12", "13,10", "9,8"]);
   });
 
-  it("legacy servers that send no prefs keep the old behavior (everything allowed)", () => {
+  it("before prefs arrive (pre-INIT, or an older server that never sends them) nothing settles and no prompt shows", () => {
     const state = newPlayerState();
-    state.autoSettle = undefined;
-    expect(applyAutoSettlementQueueFromServer(state, QUEUE, { keyFor })).toBe(4);
+    state.autoSettle = { status: "unloaded" };
+    expect(applyAutoSettlementQueueFromServer(state, QUEUE, { keyFor })).toBe(0);
+    expect(state.developmentQueue).toEqual([]);
+    state.autoSettlementQueue = QUEUE;
+    expect(buildAutoSettlePromptModel(state).sections).toEqual([]);
+    expect(createInitialState().autoSettle).toEqual({ status: "unloaded" });
+  });
+
+  it("a PLAYER_UPDATE without the field keeps the loaded value; the first value that arrives unblocks settling", () => {
+    const state = newPlayerState();
+    applyAutoSettlementQueueFromServer(state, QUEUE, { keyFor, autoSettle: { answered: true, towns: true, food: true, resources: true } });
+    applyAutoSettlementQueueFromServer(state, QUEUE, { keyFor });
+    expect(state.autoSettle).toEqual({ status: "loaded", prefs: { answered: true, towns: true, food: true, resources: true } });
   });
 });
 
@@ -116,13 +128,13 @@ describe("prompt DOM", () => {
 
   it("shows again for an ANSWERED player, but only for categories that are not switched on", () => {
     const state = newPlayerState();
-    state.autoSettle = { answered: true, towns: false, food: true, resources: false };
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: true, resources: false });
     state.autoSettlementQueue = QUEUE;
     install(state, () => true);
     expect(visible()).toBe(true);
     expect(overlay().querySelector('[data-category="towns"]')).not.toBeNull();
     expect(overlay().querySelector('[data-category="food"]')).toBeNull(); // food is auto: nothing to ask
-    state.autoSettle = { answered: true, towns: true, food: true, resources: false };
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, resources: false });
     refreshAutoSettlePrompt();
     expect(visible()).toBe(false);
   });
@@ -171,7 +183,7 @@ describe("prompt DOM", () => {
 
   it("confirming never switches an already-on category off", () => {
     const state = newPlayerState();
-    state.autoSettle = { answered: true, towns: false, food: false, resources: true };
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: false, resources: true });
     state.autoSettlementQueue = QUEUE;
     const send = vi.fn(() => true);
     install(state, send);

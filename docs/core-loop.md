@@ -636,8 +636,14 @@ per category: **towns** (towns, docks and the town support ring), **food**
   just new ones). Closing it (Not now, X, backdrop, Escape) dismisses the tiles
   it showed for the session, so it comes back only when *new* candidates
   appear or after a reload. Confirming only ever switches categories on.
-- **Existing players and AI** have no stored value, which means everything on,
-  the pre-change behavior.
+- **Existing players and AI** have no stored value in old snapshots;
+  hydration (`normalizeAutoSettlePrefs`) fills them with `DEFAULT_AUTO_SETTLE_PREFS`
+  (everything on, the pre-change behavior). `DomainPlayer.autoSettle` is required,
+  so a missing value is a compile error rather than "all on".
+- **The client** keeps `state.autoSettle` as `unloaded | loaded(prefs)`. Until the
+  server sends the value (INIT/PLAYER_UPDATE), the client's queue fill settles
+  nothing and the prompt does not show; an older server that never sends it
+  therefore gets no client-side auto-settle.
 - The gate sits at every server path that spends on the player's behalf
   (`attemptImmediateSettle`, the tick's `runTickForOwner`, and captured
   town/dock anchors in `capturedTileWillAutoSettle`) and in the client's own

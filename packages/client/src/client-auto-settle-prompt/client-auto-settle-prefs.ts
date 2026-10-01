@@ -3,15 +3,19 @@
 // spends manpower on a category the player hasn't opted into, and the client's
 // own queue-fill from the server's candidate list must respect the same gate
 // or it would settle on the player's behalf anyway.
-import { isAutoSettleAllowedForTile, isAutoSettlePrefsValue, normalizeAutoSettlePrefs } from "@border-empires/shared";
-import type { ClientState } from "../client-state/client-state.js";
+import { isAutoSettleAllowedForTile, isAutoSettlePrefsValue, normalizeAutoSettlePrefs, type AutoSettlePrefs } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
+/** "unloaded" until INIT/PLAYER_UPDATE delivers the value (or forever on an older server that never sends it). */
+export type ClientAutoSettleState = { status: "unloaded" } | { status: "loaded"; prefs: AutoSettlePrefs };
+
+export const loadedAutoSettleState = (prefs: AutoSettlePrefs): ClientAutoSettleState => ({ status: "loaded", prefs });
+
 /** Missing/malformed leaves the current value untouched (a PLAYER_UPDATE without the field must not reset it). */
-export const applyAutoSettlePrefsFromServer = (state: Pick<ClientState, "autoSettle">, value: unknown): void => {
-  if (isAutoSettlePrefsValue(value)) state.autoSettle = normalizeAutoSettlePrefs(value);
+export const applyAutoSettlePrefsFromServer = (state: { autoSettle: ClientAutoSettleState }, value: unknown): void => {
+  if (isAutoSettlePrefsValue(value)) state.autoSettle = loadedAutoSettleState(normalizeAutoSettlePrefs(value));
 };
 
-/** Undefined prefs (older server, pre-INIT) mean legacy behavior: allowed. */
-export const isClientAutoSettleAllowedForTile = (state: Pick<ClientState, "autoSettle">, tile: Tile): boolean =>
-  isAutoSettleAllowedForTile(state.autoSettle, tile);
+/** Not loaded yet means nothing is allowed: never settle on the player's behalf without knowing their choice. */
+export const isClientAutoSettleAllowedForTile = (state: { autoSettle: ClientAutoSettleState }, tile: Tile): boolean =>
+  state.autoSettle.status === "loaded" && isAutoSettleAllowedForTile(state.autoSettle.prefs, tile);

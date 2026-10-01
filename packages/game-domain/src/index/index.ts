@@ -125,9 +125,9 @@ export type DomainPlayer = {
   // drop off), most-recent-last here; client renders most-recent-first.
   eventLog?: PlayerEventLogEntry[];
   // Per-category opt-in for server-side auto-settle (spends manpower without a
-  // click) -- see @border-empires/shared's auto-settle-prefs.ts. Undefined
-  // means legacy/AI behavior: every category on, no join prompt.
-  autoSettle?: AutoSettlePrefs;
+  // click) -- see @border-empires/shared's auto-settle-prefs.ts. Required, so
+  // a construction site that forgets it is a compile error, not "all on".
+  autoSettle: AutoSettlePrefs;
 };
 
 export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
