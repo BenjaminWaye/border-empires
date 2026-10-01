@@ -31,7 +31,7 @@ export type BotConfig = {
 // not a secret, safe to default here so a fresh checkout works without
 // hunting for it. Override via FIREBASE_API_KEY if the project ever rotates.
 const DEFAULT_FIREBASE_API_KEY = "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
-const DEFAULT_GATEWAY_WS_URL = "wss://border-empires-combined-staging.fly.dev/ws";
+const DEFAULT_GATEWAY_WS_URL = "wss://api-staging.borderempires.com/ws";
 
 const requireEnv = (name: string): string => {
   const value = process.env[name]?.trim();

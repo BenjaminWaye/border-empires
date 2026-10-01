@@ -11,7 +11,7 @@ describe("resolveAdminEnvironment", () => {
     });
     expect(resolveAdminEnvironment("staging.borderempires.com", undefined)).toEqual({
       label: "Staging",
-      gatewayOrigin: "https://border-empires-combined-staging.fly.dev",
+      gatewayOrigin: "https://api-staging.borderempires.com",
       otherAdminUrl: PRODUCTION_ADMIN_URL
     });
   });
