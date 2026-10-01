@@ -9,14 +9,14 @@
  * Run: pnpm --filter @border-empires/simulation bench
  */
 import { bench, describe } from "vitest";
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { SimulationRuntime } from "./runtime/runtime.js";
 import { createBarbarianPlanner } from "./ai/system-job-barbarian-planner.js";
 import type { PlannerTileView } from "./ai/planner-world-view.js";
 
 const makePlayer = (id: string) => [
   id,
-  { id, isAi: id.startsWith("ai-"), points: 100, manpower: 150, techIds: new Set<string>(), domainIds: new Set<string>(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set<string>() }
+  { id, isAi: id.startsWith("ai-"), points: 100, manpower: 150, techIds: new Set<string>(), domainIds: new Set<string>(), mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } }
 ] as const;
 
 const PLAYERS = 25;
