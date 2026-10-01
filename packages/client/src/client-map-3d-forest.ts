@@ -18,7 +18,7 @@ const TRUNK_Z_BIAS = 0.02;
 // taller than the mountains. Smaller trees need more of them per tile to
 // still read as a forest, hence the 7-9 tree layouts.
 // Trunk base sits a touch below the surface so it never floats on slopes.
-export const TRUNK_HEIGHT = 0.26;
+const TRUNK_HEIGHT = 0.26;
 const TRUNK_CENTER_Y = TRUNK_HEIGHT / 2 - 0.03;
 // Canopy center heights (at tree scale 1), measured from the tile surface.
 const PINE_CANOPY_HEIGHT = 0.42;
@@ -28,7 +28,7 @@ const SPRUCE_CANOPY_Y = 0.15 + SPRUCE_CANOPY_HEIGHT / 2;
 const LEAF_CANOPY_RADIUS = 0.17;
 const LEAF_CANOPY_Y = 0.19 + LEAF_CANOPY_RADIUS;
 
-export type TreePos = {
+type TreePos = {
   readonly ox: number;
   readonly oz: number;
   readonly scale: number;
