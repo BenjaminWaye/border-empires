@@ -2751,10 +2751,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             // Emperor-endorsement bonus (galaxy meta-layer Phase 1). No
             // anchor tile — zero-field payload, unlike AEGIS_LOCK.
             await dispatchDurableCommand("ACTIVATE_IMPERIAL_WARD", {}, true);
-          } else if (message.type === "UPGRADE_TOWN_TIER") {
-            await dispatchDurableCommand("UPGRADE_TOWN_TIER", { x: message.x, y: message.y }, true);
-          } else if (message.type === "COLLECT_SHARD") {
-            await dispatchDurableCommand("COLLECT_SHARD", { x: message.x, y: message.y }, true);
+          } else if (message.type === "UPGRADE_TOWN_TIER" || message.type === "COLLECT_SHARD") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
+          } else if (message.type === "SET_AUTO_SETTLE_PREFS") {
+            await dispatchDurableCommand("SET_AUTO_SETTLE_PREFS", { towns: message.towns, food: message.food, resources: message.resources });
           } else if (isDevQueueWaypointMessageType(message.type)) {
             await dispatchDurableCommand(message.type, devQueueWaypointCommandPayload(message));
           } else if (message.type === "ATTACK" || message.type === "EXPAND") {

@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
 
 const makePlayer = (id: string) => ({
   id,
@@ -17,7 +17,8 @@ const makePlayer = (id: string) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 // Seed an owned tile already carrying a muster reservoir at a given amount.

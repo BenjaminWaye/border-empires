@@ -8,6 +8,7 @@ import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui
 import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { emailNotificationsSettingsPageHtml } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
+import { autoSettleSettingsFieldHtml } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
 import { lightingTunerCardHtml } from "../client-lighting-tuner/client-lighting-tuner-ui.js";
 import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-renderer-settings-ui.js";
@@ -20,7 +21,7 @@ export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 export const settingsNotificationsPageHtml = (): string => emailNotificationsSettingsPageHtml();
 
 export type SettingsPanelState = AuthDebugState &
-  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive">;
+  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail" | "photoModeActive" | "autoSettle">;
 
 // Moved out of renderClientHud's closure (was a nested function reading
 // `state` from outer scope) so it can be composed here like every other
@@ -119,13 +120,14 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
   `;
 };
 
-export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionReady" | "authEmail">): string => `
+export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionReady" | "authEmail" | "autoSettle">): string => `
     <div class="card auth-settings-card">
       ${audioSettingsFieldHtml()}
       ${hintsSettingsFieldHtml(state.authEmail)}
     </div>
     ${rallyLinkCardHtml(state)}
     <div class="card auth-settings-card">${siegeTowerRotationSettingsFieldHtml()}</div>
+    <div class="card auth-settings-card">${autoSettleSettingsFieldHtml(state.autoSettle)}</div>
     <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>
   `;
 

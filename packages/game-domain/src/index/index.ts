@@ -33,6 +33,7 @@ import {
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ProspectSignature,
+  type AutoSettlePrefs,
   type ChosenTrickleResource,
   type MusterState,
   type Tile,
@@ -123,6 +124,10 @@ export type DomainPlayer = {
   // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
   // drop off), most-recent-last here; client renders most-recent-first.
   eventLog?: PlayerEventLogEntry[];
+  // Per-category opt-in for server-side auto-settle (spends manpower without a
+  // click) -- see @border-empires/shared's auto-settle-prefs.ts. Required, so
+  // a construction site that forgets it is a compile error, not "all on".
+  autoSettle: AutoSettlePrefs;
 };
 
 export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";

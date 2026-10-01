@@ -237,7 +237,7 @@ growing your economy *means* taking the land around you.
 |---|---|---|---|
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | 30 MP, 60s, uses a development slot | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
-| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Farmstead 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
@@ -270,7 +270,7 @@ a victory hold.
    it without a roll (`frontier-combat.ts`).
 4. Auto-settle (20 MP, 60s each, one per free development slot) works through
    the tiles that qualify: towns, docks, revealed resources, and the town
-   support ring. Settle other tiles by hand if you want them defended or need
+   support ring, but only in the categories the player has opted into (below). Settle other tiles by hand if you want them defended or need
    one as the next beacon site.
 5. Settled tiles yield, can hold a structure, add to your exposure-based
    defense, and one of them becomes the next beacon site.
@@ -450,8 +450,8 @@ to expansion and war.
    resource record on it. **A captured tile lands as FRONTIER, not SETTLED**
    (`runtime-lock-resolution.ts`). Captured buildings (forts, observatories,
    economic structures) auto-settle straight away. Captured towns and docks
-   auto-settle only if they'd otherwise decay for being outside your reach
-   (`capturedTileWillAutoSettle`). Everything else has to be settled by hand
+   auto-settle only if they'd otherwise decay for being outside your reach and
+   the player's towns auto-settle opt-in is on (`capturedTileWillAutoSettle`). Everything else has to be settled by hand
    (20 MP, in reach) or it stays zero-defense FRONTIER, and outside reach it
    decays in 5 minutes. A failed assault can lose the **origin** tile.
    Eliminated players respawn.
@@ -620,3 +620,39 @@ deliberately no decay for simply being offline.
      The claim cost is now 0 gold and 10 MP, and the claim takes 7.5s.
    - The in-game guide says "plant up to 5 muster flags". `MUSTER_MAX_TILES`
      is 2, plus 1–2 from each of four domains.
+
+## Auto-settle is opt-in per category
+
+Auto-settle spends manpower without a click, so it is a per-player setting
+(`DomainPlayer.autoSettle`, `packages/shared/src/auto-settle-prefs/`), one switch
+per category: **towns** (towns, docks and the town support ring), **food**
+(farm, fish) and **resources** (every other revealed resource).
+
+- **New humans** start with every category off. Spawn still claims the tiles
+  in reach for free, but nothing settles until they choose. The prompt
+  (`packages/client/src/client-auto-settle-prompt/`) lists what is in reach, the
+  real manpower cost (20 per tile), the yield, and a food-shortfall warning for
+  towns; each category has a stepper (nearest to the capital first) and an
+  "auto-settle these in future" box.
+- **The prompt returns for anything held back.** It shows whenever there are
+  candidate tiles in a category that is not switched on, for any player (not
+  just new ones). Closing it (Not now, X, backdrop, Escape) dismisses the tiles
+  it showed for the session, so it comes back only when *new* candidates
+  appear or after a reload. Confirming only ever switches categories on.
+- **Existing players and AI** have no stored value in old snapshots;
+  hydration (`normalizeAutoSettlePrefs`) fills them with `DEFAULT_AUTO_SETTLE_PREFS`
+  (everything on, the pre-change behavior). `DomainPlayer.autoSettle` is required,
+  so a missing value is a compile error rather than "all on".
+- **The client** keeps `state.autoSettle` as `unloaded | loaded(prefs)`. Until the
+  server sends the value (INIT/PLAYER_UPDATE), the client's queue fill settles
+  nothing and the prompt does not show; an older server that never sends it
+  therefore gets no client-side auto-settle.
+- The gate sits at every server path that spends on the player's behalf
+  (`attemptImmediateSettle`, the tick's `runTickForOwner`, and captured
+  town/dock anchors in `capturedTileWillAutoSettle`) and in the client's own
+  queue fill (`applyAutoSettlementQueueFromServer`). Captured *buildings* still
+  auto-settle regardless. A category left off keeps its candidates in the
+  bounded eligible queue, and switching it on (`SET_AUTO_SETTLE_PREFS`, also in
+  Settings > Gameplay) drains them immediately.
+- Persistence is snapshot-only (like `imperialWardCharges`), so a crash between
+  checkpoints can re-ask a player who had just answered.

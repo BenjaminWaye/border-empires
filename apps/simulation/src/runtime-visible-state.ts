@@ -421,6 +421,7 @@ function visiblePlayersProjection(
           ? input.cachedEconomySnapshot(player).strategicProductionPerMinute
           : cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
+        autoSettle: { ...player.autoSettle },
         // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
         // never carried devQueue/waypointQueue -- only the separate full
         // exportState() (runtime-state-export.ts, used for checkpointing/

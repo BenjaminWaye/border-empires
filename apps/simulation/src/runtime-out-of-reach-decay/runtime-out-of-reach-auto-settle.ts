@@ -51,6 +51,8 @@ export type CapturedAutoSettleEligibilityInput = {
   hasCapturedBuilding: boolean;
   outOfReachDecayAt: number | undefined;
   canAutoSettleCapturedAnchor: (playerId: string) => boolean;
+  /** Player's "towns" auto-settle opt-in; omitted means allowed. Only gates the anchor branch. */
+  isAnchorAutoSettleAllowed?: (playerId: string) => boolean;
 };
 
 /**
@@ -65,7 +67,8 @@ export type CapturedAutoSettleEligibilityInput = {
  */
 export const capturedTileWillAutoSettle = (input: CapturedAutoSettleEligibilityInput): boolean => {
   if (input.playerId === "barbarian-1") return false;
-  const anchorEligible = input.outOfReachDecayAt !== undefined && input.isAnchorStructureTile;
+  const anchorEligible =
+    input.outOfReachDecayAt !== undefined && input.isAnchorStructureTile && (input.isAnchorAutoSettleAllowed?.(input.playerId) ?? true);
   const eligible = anchorEligible || input.hasCapturedBuilding;
   return eligible && input.canAutoSettleCapturedAnchor(input.playerId);
 };

@@ -316,7 +316,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyAutoSettlementQueueFromServer(
     state,
     player.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-    { keyFor }
+    { keyFor, autoSettle: player.autoSettle }
   );
   state.allies = (player.allies as string[]) ?? [];
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
