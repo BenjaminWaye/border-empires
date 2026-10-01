@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { SimulationRuntime } from "./runtime.js";
@@ -22,6 +23,7 @@ export const buildPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}):
   mods: DEFAULT_MODS,
   techRootId: "rewrite-local",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   ...overrides
 });
 

@@ -5,6 +5,7 @@
 // one entry here -- client-map-3d.ts never needs to change.
 import type { Scene, Texture } from "three";
 import { createFabricationComplexOverlay, AFC_SOCKET_COUNT, type FabricationComplexOverlay } from "./client-map-3d-fabrication-complex.js";
+import { createAfcGenericModuleOverlay } from "./client-map-3d-afc-generic-module.js";
 import { createAetherResonanceModuleOverlay } from "./client-map-3d-aether-resonance-module.js";
 import { createAetherwardCoilModuleOverlay } from "./client-map-3d-aetherward-coil-module.js";
 import { createGeoformEngineModuleOverlay } from "./client-map-3d-geoform-engine-module.js";
@@ -31,8 +32,8 @@ type ModuleFamilyFactory = (scene: Scene, maxInstances: number, buildingEnvironm
 
 // Tech id -> module family factory, for the families built so far. A tech
 // id docked on a player's AFC with no entry here (one of the remaining
-// families, being built on a separate branch) simply gets no socket
-// instance -- not an error, see docs/manifest-afc-overlay-wiring-plan.md.
+// families, being built on a separate branch) has no bespoke model yet and
+// docks a generic cartridge instead, see docs/manifest-afc-overlay-wiring-plan.md.
 const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   masonry: createTitaniumForgeModuleOverlay,
   leatherworking: createRiggingWorksModuleOverlay,
@@ -71,7 +72,10 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
   const families = new Map<string, ModuleFamilyOverlay>(
     Object.entries(MODULE_FAMILY_FACTORIES).map(([techId, factory]) => [techId, factory(scene, familyCapacity, buildingEnvironmentTexture)])
   );
-  const allFamilies = [...families.values()];
+  // Any docked tech without a bespoke family still occupies its socket with
+  // a plain generic cartridge, so an unlocked module is never invisible.
+  const genericFamily = createAfcGenericModuleOverlay(scene, familyCapacity, buildingEnvironmentTexture);
+  const allFamilies = [...families.values(), genericFamily];
   const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
   const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
@@ -79,9 +83,9 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
     const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
     const attachments = afc.moduleSocketAttachments(index);
     moduleTechIds.slice(0, attachments.length).forEach((techId, i) => {
-      const family = families.get(techId);
+      const family = families.get(techId) ?? genericFamily;
       const attachment = attachments[i];
-      if (!family || !attachment) return;
+      if (!attachment) return;
       attachmentsByModule.set(attachmentKey(worldTileX, worldTileY, techId), attachment);
       family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY);
     });

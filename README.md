@@ -55,7 +55,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Barbarians
 
-- Barbarian tiles are seeded far from player spawns at world gen. They activate when a non-barbarian player becomes adjacent.
+- Barbarian tiles are seeded far from player spawns at world gen. A barbarian tile acts only while some player (human or AI) can see it in their fog of war; each seen tile takes its own turns and rests 15s after an action finishes.
 - Barbarian tiles attack nearby players and can multiply or walk based on accumulated progress. Recapturing a tile clears its progress.
 
 ### Strategic Layers

@@ -74,7 +74,7 @@ import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../pa
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
-import { applyAiPlayerDebugSnapshotToMetrics, sampleActivityLogMetrics } from "./simulation-service-metrics-sampling.js";
+import { applyAiPlayerDebugSnapshotToMetrics, sampleRuntimeGaugeMetrics } from "./simulation-service-metrics-sampling.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
@@ -1679,13 +1679,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              getBarbActivationVisionSignature: () =>
-                trackSyncMainThreadTaskWithMetrics("system_get_barb_activation_vision_signature", undefined, () =>
-                  runtime.getBarbActivationVisionSignature()
-                ),
-              exportBarbActivationVisibleUnion: () =>
-                trackSyncMainThreadTaskWithMetrics("system_export_barb_activation_visible_union", undefined, () =>
-                  runtime.exportBarbActivationVisibleUnion()
+              exportBarbTilesSeenByAnyPlayer: () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_barb_tiles_seen", undefined, () =>
+                  runtime.exportBarbTilesSeenByAnyPlayer()
                 )
             },
             systemPlayerIds,
@@ -1696,9 +1692,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("system") } : {}),
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
-            },
-            onVisionUnionRecomputeThrottled: () => {
-              simulationMetrics.incrementSimBarbVisionUnionRecomputeThrottled();
             }
           })
         : createSystemCommandProducer({
@@ -2642,7 +2635,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
-        sampleActivityLogMetrics(runtime, simulationMetrics);
+        sampleRuntimeGaugeMetrics(runtime, simulationMetrics);
         applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({

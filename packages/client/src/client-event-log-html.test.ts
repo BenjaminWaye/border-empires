@@ -11,6 +11,7 @@ describe("feedMappingForEventType", () => {
     expect(feedMappingForEventType("MONUMENT_LOST_TO_RIVAL")).toEqual({ type: "combat", severity: "warn" });
     expect(feedMappingForEventType("MONUMENT_CONSTRUCTION_STARTED")).toEqual({ type: "tech", severity: "info" });
     expect(feedMappingForEventType("NATURAL_WONDER_CLAIMED")).toEqual({ type: "tech", severity: "success" });
+    expect(feedMappingForEventType("AREA_CLEARED")).toEqual({ type: "combat", severity: "success" });
   });
 
   it("falls back to info/info for unknown event types", () => {

@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_TILES } from "@border-empires/shared";
+import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MAX_TILES } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
 
@@ -46,7 +46,7 @@ export const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
 // nobody expects a flag to reach further than ~10 tiles in any direction. Keep
 // this small — search cost grows with the *area* covered, so raising it back to
 // the old 60 is ~36x the work per flag per tick, not 6x.
-export const ADVANCE_MAX_RANGE_TILES = 10;
+export const ADVANCE_MAX_RANGE_TILES = MUSTER_ADVANCE_RANGE_STEPS;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 

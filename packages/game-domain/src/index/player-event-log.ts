@@ -15,7 +15,10 @@ export type PlayerEventLogEntryType =
   | "MONUMENT_CONSTRUCTION_STARTED"
   | "NATURAL_WONDER_CLAIMED"
   | "WAYSTATION_ACTIVATED"
-  | "OCCUPATION_SURVEY";
+  | "OCCUPATION_SURVEY"
+  // An ADVANCE muster flag finished clearing its area:
+  // no hostile tiles are left within range of the flag.
+  | "AREA_CLEARED";
 
 // Structured fields a WAYSTATION_ACTIVATED entry carries alongside the flat
 // text/x/y every entry has, so the client can render the same rich

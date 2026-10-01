@@ -28,7 +28,6 @@ import {
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
-  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -41,7 +40,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST,
+  SETTLE_COST, isAutoSettleAllowed,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -241,6 +240,7 @@ import {
 } from "../runtime-muster-watch.js";
 import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
+import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
 import {
   AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
   cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
@@ -297,9 +297,8 @@ import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
-import {
-  type BarbActivationVisibilityCache
-} from "../runtime-visible-state.js";
+import { barbTilesSeenByAnyPlayer } from "../runtime-barb-activation-vision.js";
+import { createRuntimeBarbarianBridge, type RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
   type RuntimeVisibilityClassification
@@ -321,11 +320,9 @@ import {
 import {
   classifyVisibilityForPlayerForRuntime,
   emitVisibilityAuditForRuntime,
-  exportBarbActivationVisibleUnionForRuntime,
   exportTilesInAreaForPlayerForRuntime,
   exportVisibleStateForPlayerAsyncForRuntime,
   exportVisibleStateForPlayerForRuntime,
-  getBarbActivationVisionSignatureForRuntime,
   settledTilesForPlayerForRuntime,
   type RuntimeClassifyVisibilityContext,
   type RuntimeVisibleStateContext
@@ -551,10 +548,6 @@ export class SimulationRuntime {
   private readonly onboardingMilestones = createOnboardingMilestoneTracker({ now: () => this.now(), players: () => this.state.players, tiles: () => this.state.tiles, territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys, emitEvent: (event) => this.emitEvent(event) });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
-  // signature key for getBarbActivationVisionSignature/exportBarbActivationVisibleUnion's
-  // own territory-dilation cache, so unrelated per-tick mutations don't bust it.
-  private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
@@ -862,7 +855,6 @@ export class SimulationRuntime {
   private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
-  private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
     return rememberedAutomationVictoryPathCountsImpl(
@@ -989,7 +981,6 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
-      this.territoryVersionByPlayer.set(playerId, 0);
     }
     // First pass: apply tile summaries and shard-site tracking.
     // All tiles are already in this.state.tiles (createTilesFromInitialState produced a
@@ -1373,49 +1364,18 @@ export class SimulationRuntime {
     return result;
   }
 
-  // Census Hall (tech-tree redesign): +20,000 population (and cap) per
-  // connected city with an active Incubation Engine (Granary) --
-  // network-scoped, recomputed every tick rather than granted once, so
-  // losing a connection or a neighbor's Granary shrinks the bonus back down.
-  // Mirrors the Assembly Works/Rail Depot "network scan" pattern rather than
-  // a simple empire-wide tally.
+  // Census Hall population bonus -- see runtime-census-hall-bonus.ts.
   private applyCensusHallPopulationBonuses(): void {
-    for (const [ownerId, censusHallKeys] of this.censusHallTilesByOwner) {
-      if (censusHallKeys.size === 0) continue;
-      for (const censusHallKey of censusHallKeys) {
-        const censusHallTile = this.state.tiles.get(censusHallKey);
-        if (!censusHallTile || censusHallTile.economicStructure?.status !== "active") continue;
-        const townKey = this.assignedTownKeyForSupportTile(ownerId, censusHallTile.x, censusHallTile.y);
-        if (!townKey) continue;
-        const townTile = this.state.tiles.get(townKey);
-        if (!townTile?.town || townTile.ownerId !== ownerId) continue;
-        const connectedGranaryCount = this.censusHallConnectedGranaryBonusCountForPlayer(ownerId, townKey);
-        const desiredBonus = connectedGranaryCount * CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
-        const appliedBonus = townTile.town.censusHallAppliedBonus ?? 0;
-        if (desiredBonus === appliedBonus) continue;
-        const delta = desiredBonus - appliedBonus;
-        const updatedTownTile: DomainTileState = {
-          ...townTile,
-          town: {
-            ...townTile.town,
-            maxPopulation: Math.max(0, (townTile.town.maxPopulation ?? 0) + delta),
-            // A growing bonus is an instant grant (matches Incubation
-            // Engine's "burst" flavor); a shrinking bonus only lowers the
-            // cap -- population naturally sitting above the new cap just
-            // stops growing further, it isn't forcibly clawed back.
-            population: delta > 0 ? (townTile.town.population ?? 0) + delta : (townTile.town.population ?? 0),
-            censusHallAppliedBonus: desiredBonus
-          }
-        };
-        this.replaceTileState(townKey, updatedTownTile);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: `census-hall-bonus:${ownerId}:${this.now()}`,
-          playerId: ownerId,
-          tileDeltas: [this.tileDeltaFromState(updatedTownTile)]
-        });
-      }
-    }
+    applyCensusHallPopulationBonusesImpl({
+      censusHallTilesByOwner: this.censusHallTilesByOwner,
+      tiles: this.state.tiles,
+      now: () => this.now(),
+      assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
+      connectedGranaryCountForTown: (playerId, townKey) => this.censusHallConnectedGranaryBonusCountForPlayer(playerId, townKey),
+      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    });
   }
 
   private shardRainContext() {
@@ -1524,6 +1484,7 @@ export class SimulationRuntime {
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event: SimulationEvent) => this.emitEvent(event),
+      emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => this.emitPlayerStateUpdate(input),
       tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
       requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
@@ -1688,7 +1649,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId), maybeActivateWaystation: (targetKey, x, y, playerId, commandId) => this.activateWaystationAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
-      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), isTownAutoSettleAllowed: (playerId) => { const player = this.state.players.get(playerId); return player !== undefined && isAutoSettleAllowed(player.autoSettle, "towns"); }, autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
@@ -1787,7 +1748,6 @@ export class SimulationRuntime {
     const summary = createEmptyPlayerRuntimeSummary();
     this.playerSummaries.set(playerId, summary);
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
-    this.territoryVersionByPlayer.set(playerId, 0);
     return summary;
   }
 
@@ -2099,11 +2059,8 @@ export class SimulationRuntime {
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
-      // Ownership changed → bump the territory version so the barb-activation
-      // signature (getBarbActivationVisionSignature) knows to recompute. Same-owner
-      // mutations (muster, pop growth, income) leave this counter unchanged.
-      if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
-      if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
+      // A tile leaving barbarian ownership by ANY route (walk release, erosion, capture) drops its multiply progress.
+      if (previous?.ownerId?.startsWith("barbarian-") && !tile.ownerId?.startsWith("barbarian-")) this.barbarianTileProgress.delete(tileKey);
     }
     // A FRONTIER tile holds no standing vision (see visibility-coverage-cache.ts's
     // tileOwnershipChanged), so the footprint must also be recomputed on a
@@ -2386,6 +2343,20 @@ export class SimulationRuntime {
       if (tile) result.push(tile);
     }
     return result;
+  }
+
+  // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
+  private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
+
+  barbarianBridge(): RuntimeBarbarianBridge {
+    return this.barbarianBridgeCache ??= createRuntimeBarbarianBridge({
+      tiles: this.state.tiles,
+      dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey,
+      territoryTileKeys: () => this.summaryForPlayer("barbarian-1").territoryTileKeys,
+      tileKeySetToTiles: (keys) => this.tileKeySetToTiles(keys),
+      seenBarbTileKeys: () => this.exportBarbTilesSeenByAnyPlayer(),
+      now: () => this.now()
+    });
   }
 
   chooseNextOwnedFrontierCommand(
@@ -2700,12 +2671,8 @@ export class SimulationRuntime {
     return leaderboardPlayersForRuntime(this.exportContext());
   }
 
-  // Shared context builder for the visibility-surface free functions in
-  // runtime-visibility.ts, mirroring townNetworkContext()'s pattern (Stage
-  // 4) and exportContext()'s pattern above (Stage 5a). visibilityCoverage
-  // and barbActivationVisibilityCache stay owned by SimulationRuntime and
-  // are threaded in by reference — see runtime-visibility.ts's header
-  // comment for why ownership must not move.
+  // Shared context builder for the visibility-surface free functions in runtime-visibility.ts; visibilityCoverage stays
+  // owned by SimulationRuntime and is threaded in by reference (see runtime-visibility.ts's header for why).
   private classifyVisibilityContext(): RuntimeClassifyVisibilityContext {
     return {
       players: this.state.players,
@@ -2723,21 +2690,17 @@ export class SimulationRuntime {
     return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
   }
 
-  getBarbActivationVisionSignature(): string {
-    return getBarbActivationVisionSignatureForRuntime({
-      players: this.state.players,
-      tileCollectionVersionForPlayer: (playerId) =>
-        this.territoryVersionByPlayer.get(playerId) ?? 0
-    });
+  /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
+  barbarianStateSizes(): { tiles: number; progressEntries: number } {
+    return { tiles: this.summaryForPlayer("barbarian-1").territoryTileKeys.size, progressEntries: this.barbarianTileProgress.size };
   }
 
-  exportBarbActivationVisibleUnion(): { keys: string[]; signature: string } {
-    return exportBarbActivationVisibleUnionForRuntime({
-      players: this.state.players,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      tileCollectionVersionForPlayer: (playerId) =>
-        this.territoryVersionByPlayer.get(playerId) ?? 0,
-      cache: this.barbActivationVisibilityCache
+  /** Barbarian tile keys that at least one non-barbarian player can currently see (real fog of war). */
+  exportBarbTilesSeenByAnyPlayer(): string[] {
+    return barbTilesSeenByAnyPlayer({
+      playerIds: () => this.state.players.keys(),
+      territoryTileKeys: (id) => this.summaryForPlayer(id).territoryTileKeys,
+      isVisibleTo: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey)
     });
   }
 
@@ -3583,42 +3546,14 @@ export class SimulationRuntime {
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
   /**
-   * Server-side auto-settle, unconditional for every player (was AI-only —
-   * see client-development-queue.ts for the client dispatcher humans used to
-   * rely on instead, which still exists and can race this harmlessly). Same
-   * manpower/gold cost and duration as a manual SETTLE (startSettlementProcess
-   * below is the same path handleSettleCommand uses) — this only removes the
-   * need to click SETTLE. Called once per territory-automation tick.
+   * Server-side auto-settle for every player, gated per tile category by the
+   * player's autoSettle prefs (shared auto-settle-prefs.ts; AI/legacy = all on,
+   * new humans = off until they answer the join prompt). Same manpower/gold
+   * cost and duration as a manual SETTLE — this only removes the need to click
+   * SETTLE. Called once per territory-automation tick.
    */
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
-    const actor = this.state.players.get(playerId);
-    if (!actor) return 0;
-    // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
-    this.autoSettleEligibilityRuntime().reconcileForOwner(playerId);
-    let settledCount = 0;
-    for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
-      if (settleRejectionForActor(actor)) break;
-      if (!this.hasAvailableDevelopmentSlot(playerId)) break;
-      const targetKey = simulationTileKey(x, y);
-      const target = this.state.tiles.get(targetKey);
-      if (!target || target.ownerId !== playerId || target.ownershipState !== "FRONTIER") continue;
-      if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
-      if (target.terrain !== "LAND") continue;
-      if (this.pendingSettlementsByTile.has(targetKey)) continue;
-      // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand
-      // above -- this path bypasses that handler, so it's repeated here.
-      if (!(target.town || target.dockId) && !this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
-      this.startSettlementProcess({
-        commandId,
-        playerId,
-        targetKey,
-        target,
-        startedAt: nowMs
-      });
-      settledCount++;
-    }
-    return settledCount;
+    return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
@@ -3780,7 +3715,8 @@ export class SimulationRuntime {
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
-      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
+      drainAutoSettleForOwner: (playerId) => { this.autoSettleEligibilityRuntime().drainForOwner(playerId); }
     });
   }
 

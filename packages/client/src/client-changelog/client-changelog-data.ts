@@ -10,6 +10,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-rece
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
+import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
@@ -351,12 +352,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790764591773, // frozen Date.now() value for this release
-    introducedIn: "2026.09.30.4",
-    title: "Slow server replies no longer strand an expansion",
-    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    createdAt: 1790832148785, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.1",
+    title: "Auto-settle never guesses your choice",
+    why: "If your auto-settle choices hadn't reached the game yet, the client could treat everything as switched on and queue settlements, spending manpower you hadn't agreed to.",
     changes: [
-      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+      "Until your auto-settle choices load, nothing settles on its own and the settle prompt stays hidden; Settings > Gameplay shows a loading note instead of guessed checkboxes",
+      "Existing players keep everything on, exactly as before"
     ]
   },
   {
@@ -377,10 +379,37 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settings has a new Admin page (admin accounts only) that now holds Reveal Full Map and Photo Mode, moved off the Gameplay page",
       "The Admin page adds a Lighting Tuner: sliders for the sun, sky fill, back fill, shadows, metal reflections and exposure, applied live to the 3D map"
     ]
+  },
+  {
+    createdAt: 1790874861641, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.2",
+    title: "Barbarians no longer stand frozen in front of you",
+    why: "A barbarian one tile off your border could sit still for minutes while another barbarian elsewhere on the map kept attacking, because all barbarians shared a single turn and attacks always went first.",
+    changes: [
+      "Every barbarian you can see now takes its own turns, so one fight elsewhere can't hold the rest back",
+      "A barbarian rests 15 seconds after its action finishes (it used to count from when the attack started, so there was no rest at all after a 30 second fight)",
+      "Barbarians only wake when a player can actually see them, using the same fog of war you do, and when many barbarians want to attack at once the extra ones walk instead of standing still",
+      "At the 100-tile barbarian limit, barbarians in view keep moving and fighting while unseen ones are released, and a win at the limit no longer grows their territory"
+    ]
+  },
+  {
+    createdAt: 1790830401398,
+    introducedIn: "2026.10.01.1",
+    title: "Advance flags clear barbarians and report back",
+    why: "Sending a flag after barbarians out in the wilderness (or a rival's border a few tiles off) meant expanding out to touch each one yourself and re-launching attacks by hand, and a flag only acted once every 30 seconds unless you had its menu open.",
+    changes: [
+      "An Advance flag now walks toward barbarians and rival borders within 10 steps that don't touch your territory yet, expanding across empty land to reach them, then attacks them. Steps go through your land and empty land only, so enemies across water or behind mountains aren't counted",
+      "Marches are now limited to 15 tiles. Aiming one further shows advice to raise a muster flag closer instead, since troops take much longer to walk across the map than it takes to muster next to the fight",
+      "Advance flags no longer try to attack allies or players you have a truce with",
+      "Advance flags act every second, with up to three fights at once, even when you're not looking at them",
+      "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",
+      "A flag that is rejected (not enough coin or manpower) now backs off instead of retrying every second"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
+  ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,

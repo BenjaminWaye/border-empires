@@ -1,3 +1,4 @@
+import { musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
@@ -33,7 +34,12 @@ export const handleMusterMarchTargetClick = (
 ): void => {
   const { originX, originY } = state.musterMarchTargeting;
   state.musterMarchTargeting.active = false;
-  if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
+  // A march over the cap is advice, not an error: say what to do instead and
+  // don't send anything (the server would only reject it with the same text).
+  const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(originX, originY, wx, wy));
+  if (tooFarAdvice) {
+    deps.pushFeed(tooFarAdvice, "combat", "info");
+  } else if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
     deps.sendGameMessage({ type: "SET_MUSTER", x: originX, y: originY, mode: "MARCH", targetX: wx, targetY: wy });
   } else {
     deps.pushFeed("March target cancelled.", "combat", "info");

@@ -2,7 +2,7 @@
 // (Stage 6 god-class breakup follow-up) to keep that file under the repo's
 // 500-line cap.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { BARBARIAN_MULTIPLY_THRESHOLD } from "@border-empires/shared";
+import { BARBARIAN_MULTIPLY_THRESHOLD, MAX_BARBARIAN_TILES } from "@border-empires/shared";
 import type { LockRecord } from "./runtime-types.js";
 import type { RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 
@@ -11,13 +11,20 @@ export const barbarianProgressGain = (target: DomainTileState | undefined): numb
   return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
 };
 
-export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, lock: LockRecord, previousTarget: DomainTileState | undefined): void => {
+export type BarbarianWalkContext = Pick<
+  RuntimeCombatSupportContext,
+  "barbarianTileProgress" | "summaryForPlayer" | "emitEvent" | "tiles" | "replaceTileState" | "tileDeltaFromState"
+>;
+
+export const applyBarbarianWalkOrMultiply = (ctx: BarbarianWalkContext, lock: LockRecord, previousTarget: DomainTileState | undefined): void => {
   const gain = barbarianProgressGain(previousTarget);
   const sourceProgress = ctx.barbarianTileProgress.get(lock.originKey) ?? 0;
   const newProgress = sourceProgress + gain;
   const barbTileCount = ctx.summaryForPlayer("barbarian-1").territoryTileKeys.size;
 
-  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
+  // At the territory cap a win never multiplies: the barbarian walks instead
+  // (progress is kept, so it multiplies once it is back under the cap).
+  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < MAX_BARBARIAN_TILES) {
     ctx.emitEvent({
       eventType: "BARB_MULTIPLIED",
       commandId: lock.commandId,
@@ -31,8 +38,9 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
       sourceProgress,
       barbTileCount: barbTileCount + 1
     });
-    ctx.barbarianTileProgress.set(lock.originKey, 0);
-    ctx.barbarianTileProgress.set(lock.targetKey, 0);
+    // Progress restarts from zero; an absent entry means zero, so don't store one.
+    ctx.barbarianTileProgress.delete(lock.originKey);
+    ctx.barbarianTileProgress.delete(lock.targetKey);
     return;
   }
 
@@ -49,7 +57,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
       gain,
       sourceProgress,
       newProgress,
-      capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
+      capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD // reached the threshold but the cap forced a walk
     });
   }
   ctx.barbarianTileProgress.delete(lock.originKey);

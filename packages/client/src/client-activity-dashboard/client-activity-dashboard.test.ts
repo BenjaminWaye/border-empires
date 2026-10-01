@@ -28,6 +28,7 @@ const makeState = () => ({
   manpowerCap: 1000,
   bridgeDebugSeasonId: "season-1",
   changelog: { open: false, seenAt: 0, scrollTop: 0 },
+  guide: { completed: true },
   authSessionReady: true,
   profileSetupRequired: false,
   playerNames: new Map<string, string>([["player-2", "Rival Name"]])

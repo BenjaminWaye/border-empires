@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 const makePlayer = (id: string, points: number) => ({
@@ -13,6 +13,7 @@ const makePlayer = (id: string, points: number) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });
 

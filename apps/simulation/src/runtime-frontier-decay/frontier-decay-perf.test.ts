@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 /**
  * Unit tests for frontier-tile index correctness (frontier decay mechanic removed in PR #623).
  * The updateFrontierDecay function was removed; tests that covered it are deleted.
@@ -20,7 +21,8 @@ const makePlayer = (id: string, points = 10_000_000, manpower = 1_000) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 const landTile = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({
