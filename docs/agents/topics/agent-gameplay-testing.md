@@ -58,9 +58,9 @@ Visual verification (real client, agent-driven browser):
 HUD, minimap, panels and tip popups so only the map remains, in both the 3D and
 2D (`?renderer=2d`) renderers. `&photoX=<tile>&photoY=<tile>&photoZoom=<zoom>`
 pins the camera until the first pointer/wheel/key input. The fog-admin "Reveal
-Full Map" toggle (Settings > Gameplay, needs `ADMIN_EMAIL` to match the
+Full Map" toggle (Settings > Admin, needs `ADMIN_EMAIL` to match the
 session's email) resets on every login, so reveal first, then either click the
-"Enter Photo Mode" button in that same Settings > Gameplay card (Esc or the
+"Enter Photo Mode" button in that same Settings > Admin card (Esc or the
 floating "Exit Photo Mode" control brings the HUD back — no x/y/zoom pin from
 this path) or call `borderEmpiresPhoto.enter({ x, y, zoom })` from the console
 (`.exit()` restores the HUD) when you do want a pinned camera for a scripted
@@ -69,7 +69,7 @@ capture. Ownership of other empires is masked outside your own vision
 is invisible without it. Allow ~20s after toggling reveal for the full-world
 fan-out to arrive before screenshotting.
 
-Local admin session without Firebase: start the gateway with
+Local admin session without Firebase (NOTE: the unsigned-JWT route below did not authenticate when last tried on the rewrite gateway — `AUTH_FAIL`; plain `?devPlayerId=player-1` works but is not an admin, so Settings > Admin is hidden. To see the Admin page locally, temporarily force `settingsAdminAvailable` in `client-hud-settings-panel.ts` to return true, and revert it): start the gateway with
 `ADMIN_EMAIL=admin@local.test` and pass an unsigned JWT as `devPlayerId`
 (`{"sub":"fixture-admin","email":"admin@local.test"}` base64url-encoded as the
 payload); `resolveGatewayAuthIdentity` decodes it, maps it to `player-1` in
@@ -112,3 +112,14 @@ non-managed runtime, and marks the session as a fog admin.
   the loaded DB (or, for a brand-new id, the gateway will register a new
   empire under it) — a typo silently creates an extra empty player instead
   of erroring.
+
+## Lighting tuner
+
+Settings > Admin > Lighting Tuner (fog-admin accounts only) live-edits the 3D
+map's sun / sky fill / back fill / shadow / metal-reflection / exposure values
+so a lighting change can be judged on the real map before it becomes the new
+default. Overrides live in this browser's localStorage (`be-lighting-tuner`);
+"Copy Values" prints them as source to paste into `DEFAULT_LIGHTING` in
+`packages/client/src/client-lighting-tuner/client-lighting-tuner-settings.ts`.
+3D renderer only (the 2D canvas path has no lighting). Photo Mode (same page)
+hides the panel for a clean screenshot.
