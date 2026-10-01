@@ -38,6 +38,7 @@ export default defineConfig({
     // the right trade for a required CI gate.
     coverage: {
       provider: "v8",
+      reportOnFailure: true,
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/*-perf.test.ts"],
       reporter: ["text-summary", "json-summary", "html"]
