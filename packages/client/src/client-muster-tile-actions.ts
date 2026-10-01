@@ -1,3 +1,4 @@
+import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MARCH_MAX_DISTANCE_TILES } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -66,13 +67,13 @@ export const buildMusterActions = (
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within 10 steps, then reports back.`,
+        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within ${MUSTER_ADVANCE_RANGE_STEPS} steps, then reports back.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile (up to 15 tiles away) to fight toward.`,
+        detail: `Mustering… ${staged} manpower staged · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
         ...avail()
       });
     } else if (muster.mode === "ADVANCE") {
@@ -85,7 +86,7 @@ export const buildMusterActions = (
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `${status} (${staged} staged) · pick a target tile (up to 15 tiles away) to fight toward.`,
+        detail: `${status} (${staged} staged) · pick a target tile (up to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles away) to fight toward.`,
         ...avail()
       });
     } else {

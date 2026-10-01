@@ -199,8 +199,9 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       // and the status line should say that the flag needs more.
       const hostile = bestUnaffordable === undefined ? nearestHostileWithinSteps(input, musterTile, playerId) : undefined;
       if (hostile) {
-        markAdvanceClearing(input, originKey);
-        maybeMarchFire(input, input.tiles.get(originKey) ?? musterTile, playerId, { target: { x: hostile.x, y: hostile.y }, expandOnly: true });
+        if (maybeMarchFire(input, musterTile, playerId, { target: { x: hostile.x, y: hostile.y }, expandOnly: true })) {
+          markAdvanceClearing(input, originKey, playerId);
+        }
         return;
       }
       // Nothing hostile left in range and nothing still fighting: the order
@@ -248,7 +249,6 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
     simulationTileKey(nearestEnemy.x, nearestEnemy.y),
     input.nowMs
   );
-  markAdvanceClearing(input, originKey);
   const result = input.handleFrontierCommand(
     {
       commandId,
@@ -264,5 +264,6 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   );
   // A rejected attack must not be retried every second now that flags tick at
   // 1s -- back off like a far target.
-  if (!result.accepted) input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
+  if (result.accepted) markAdvanceClearing(input, originKey, playerId);
+  else input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
 };

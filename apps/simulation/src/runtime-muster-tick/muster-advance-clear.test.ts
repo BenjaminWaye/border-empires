@@ -7,6 +7,9 @@ vi.hoisted(() => {
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
+import { nearestHostileWithinSteps } from "./muster-advance-clear.js";
+import { maybeAdvanceFire } from "./muster-advance-fire.js";
+import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { makePlayer } from "./muster-march-test-support.js";
 
 // The runtime's default world already owns tiles near (10,10), so scenarios
@@ -25,11 +28,11 @@ const advanceFlag = (extra: Record<string, unknown> = {}) => ({ ownerId: "player
 const column = (x: number, fromY: number, toY: number): TileInit[] =>
   Array.from({ length: toY - fromY + 1 }, (_, i) => neutral(x, fromY + i));
 
-const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean; alliedWithRival?: boolean } = {}) =>
+const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean; alliedWithRival?: boolean; broke?: boolean } = {}) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
-      ["player-1", { ...makePlayer("player-1"), isAi: options.playerIsAi ?? false, allies: new Set(options.alliedWithRival ? ["player-2"] : []) }],
+      ["player-1", { ...makePlayer("player-1"), isAi: options.playerIsAi ?? false, points: options.broke ? 0 : 10_000, allies: new Set(options.alliedWithRival ? ["player-2"] : []) }],
       ["player-2", makePlayer("player-2")],
       ["barbarian-1", { ...makePlayer("barbarian-1"), isAi: true }]
     ]),
@@ -244,5 +247,118 @@ describe("muster flags act every second without being watched", () => {
     runtime.onEvent((event) => seen.push(event));
     runtime.tickWatchedMusterTiles(1_000);
     expect(targets(seen)).toEqual([]);
+  });
+});
+
+// Regressions from the PR review.
+const tileDeltasFor = (events: SimulationEvent[], x: number, y: number) =>
+  events.flatMap((event) => (event.eventType === "TILE_DELTA_BATCH" ? event.tileDeltas : [])).filter((delta) => delta.x === x + BASE && delta.y === y + BASE);
+
+describe("ADVANCE clearing: review regressions", () => {
+  it("the batched accrual delta cannot overwrite the HOLD sent when the area clears", () => {
+    // A minute of accrual queues a delta carrying the pre-completion (ADVANCE) state, and the
+    // batch goes out after the completion delta. The client must still end up on HOLD.
+    const runtime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true, updatedAt: 1_000 })), owned(11, 10)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(61_000);
+    const deltas = tileDeltasFor(seen, 10, 10).filter((delta) => delta.musterJson !== undefined);
+    expect(deltas.length).toBeGreaterThan(1);
+    expect(JSON.parse(deltas[deltas.length - 1]!.musterJson!)).toMatchObject({ mode: "HOLD" });
+  });
+
+  it("tells the client once when a human flag starts clearing", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), barb(11, 10)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    const lastMuster = tileDeltasFor(seen, 10, 10).map((delta) => delta.musterJson).filter(Boolean).pop();
+    expect(JSON.parse(lastMuster!)).toMatchObject({ clearing: true });
+  });
+
+  it("does not mark an AI flag as clearing", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), barb(11, 10)], { playerIsAi: true });
+    runtime.tickMuster(1_000);
+    expect(musterAt(runtime, 10, 10)?.clearing).toBeUndefined();
+  });
+
+  it("a legacy MARCH flag with a target far beyond the cap still makes progress", () => {
+    const runtime = buildRuntime([
+      owned(10, 10, { ownerId: "player-1", amount: 100, mode: "MARCH", targetX: 10 + BASE + 40, targetY: 10 + BASE, updatedAt: 1_000 }),
+      neutral(11, 10), neutral(12, 10), { x: 10 + 40 + BASE, y: 10 + BASE, terrain: "LAND", ownershipState: "FRONTIER" }
+    ]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual(["EXPAND:11,10"]);
+  });
+});
+
+describe("nearestHostileWithinSteps follows dock and bridge links", () => {
+  const land = (x: number, y: number, extra: Record<string, unknown> = {}) => [`${x},${y}`, { x, y, terrain: "LAND", ...extra }] as const;
+  const fakeInput = (dockLinks: Array<[string, string[]]>, bridgeLinks: Array<[string, string[]]>) =>
+    ({
+      players: new Map([["player-1", { id: "player-1", allies: new Set<string>() }]]),
+      tiles: new Map([
+        land(10, 10, { ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" }),
+        land(80, 10, { dockId: "dock-b" }),
+        land(81, 10, { ownerId: "barbarian-1", ownershipState: "FRONTIER" })
+      ]),
+      dockLinksByDockTileKey: new Map(dockLinks),
+      aetherBridgeNeighborKeysForPlayer: () => new Map(bridgeLinks)
+    }) as unknown as MusterTickInput;
+  const flag = { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" } as never;
+
+  it("sees an enemy one step beyond a dock crossing", () => {
+    const found = nearestHostileWithinSteps(fakeInput([["10,10", ["80,10"]]], []), flag, "player-1");
+    expect(found).toMatchObject({ x: 81, y: 10 });
+  });
+
+  it("sees an enemy one step beyond an aether bridge", () => {
+    const found = nearestHostileWithinSteps(fakeInput([], [["10,10", ["80,10"]]]), flag, "player-1");
+    expect(found).toMatchObject({ x: 81, y: 10 });
+  });
+
+  it("does not see it without a link", () => {
+    expect(nearestHostileWithinSteps(fakeInput([], []), flag, "player-1")).toBeUndefined();
+  });
+});
+
+describe("only an accepted command counts as engaging", () => {
+  const run = (accepted: boolean) => {
+    const flag = { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 100, mode: "ADVANCE", updatedAt: 1_000 } };
+    const tiles = new Map<string, unknown>([
+      ["10,10", flag],
+      ["11,10", { x: 11, y: 10, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "FRONTIER" }]
+    ]);
+    const cooldowns = new Map<string, number>();
+    const input = {
+      nowMs: 1_000,
+      players: new Map([["player-1", { id: "player-1", isAi: false, allies: new Set<string>() }]]),
+      tiles,
+      locksByTile: new Map(),
+      advanceCooldowns: cooldowns,
+      dockLinksByDockTileKey: new Map(),
+      aetherBridgeNeighborKeysForPlayer: () => new Map(),
+      requiredMusterForTarget: () => 10,
+      nextTerritoryAutomationCommandId: () => "cmd",
+      handleFrontierCommand: () => ({ accepted }),
+      replaceTileState: (key: string, tile: unknown) => tiles.set(key, tile),
+      emitEvent: () => {},
+      emitPlayerStateUpdate: () => {},
+      tileDeltaFromState: (tile: { x: number; y: number }) => ({ x: tile.x, y: tile.y })
+    } as unknown as MusterTickInput;
+    maybeAdvanceFire(input, flag as never, "player-1");
+    return { clearing: (tiles.get("10,10") as { muster: { clearing?: boolean } }).muster.clearing, cooldown: cooldowns.get("10,10") };
+  };
+
+  it("marks the flag when the command is accepted", () => {
+    expect(run(true).clearing).toBe(true);
+  });
+
+  it("neither marks the flag nor retries at once when the command is rejected", () => {
+    const rejected = run(false);
+    expect(rejected.clearing).toBeUndefined();
+    expect(rejected.cooldown).toBeGreaterThan(1_000);
   });
 });

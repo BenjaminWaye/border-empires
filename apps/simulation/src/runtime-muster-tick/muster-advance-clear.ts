@@ -1,6 +1,7 @@
 import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
+import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
@@ -19,8 +20,6 @@ import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
 export const isHumanFlagOwner = (input: MusterTickInput, playerId: string): boolean =>
   input.players.get(playerId)?.isAi === false;
 
-const BARBARIAN_OWNER_ID = "barbarian-1";
-
 // Ownership states ADVANCE/MARCH treat as attackable -- see their BFS filters.
 const isAttackableState = (state: DomainTileState["ownershipState"]): boolean =>
   state === "FRONTIER" || state === "SETTLED" || state === "BARBARIAN";
@@ -29,8 +28,8 @@ type HostileFind = { tile: DomainTileState; steps: number };
 
 /** True when `a` is a better pick than `b` at the same step count: a barbarian (the softer target), then lowest y, then x. */
 const winsTie = (a: DomainTileState, b: DomainTileState): boolean => {
-  const aBarb = a.ownerId === BARBARIAN_OWNER_ID;
-  const bBarb = b.ownerId === BARBARIAN_OWNER_ID;
+  const aBarb = a.ownerId === BARBARIAN_PLAYER_ID;
+  const bBarb = b.ownerId === BARBARIAN_PLAYER_ID;
   if (aBarb !== bBarb) return aBarb;
   return a.y !== b.y ? a.y < b.y : a.x < b.x;
 };
@@ -56,38 +55,53 @@ const winsTie = (a: DomainTileState, b: DomainTileState): boolean => {
 export const nearestHostileWithinSteps = (input: MusterTickInput, flag: DomainTileState, playerId: string): DomainTileState | undefined => {
   const actor = input.players.get(playerId);
   if (!actor) return undefined;
+  // Dock and aether-bridge crossings are one step, same as in the attack search
+  // (muster-advance-fire.ts), so an enemy across one is not "out of range".
+  const bridgeLinks = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const visited = new Set<number>([flag.y * WORLD_WIDTH + flag.x]);
-  const queueX: number[] = [flag.x];
-  const queueY: number[] = [flag.y];
+  const queue: DomainTileState[] = [flag];
   const queueDepth: number[] = [0];
   let best: HostileFind | undefined;
-  for (let head = 0; head < queueX.length; head += 1) {
+
+  const consider = (x: number, y: number, depth: number): void => {
+    const numericKey = y * WORLD_WIDTH + x;
+    if (visited.has(numericKey)) return;
+    visited.add(numericKey);
+    const tile = input.tiles.get(simulationTileKey(x, y));
+    if (!tile || tile.terrain !== "LAND") return;
+    if (!tile.ownerId || tile.ownerId === playerId) {
+      // Our land or neutral land: a road. Hostile tiles found from a node at
+      // depth d are d + 1 steps away, so nodes at the cap stay leaves.
+      if (depth + 1 < ADVANCE_MAX_RANGE_TILES) {
+        queue.push(tile);
+        queueDepth.push(depth + 1);
+      }
+      return;
+    }
+    if (!isAttackableState(tile.ownershipState) || isAlliedOrTruced(actor, tile.ownerId)) return;
+    if (!best || depth + 1 < best.steps || (depth + 1 === best.steps && winsTie(tile, best.tile))) {
+      best = { tile, steps: depth + 1 };
+    }
+  };
+
+  for (let head = 0; head < queue.length; head += 1) {
     const depth = queueDepth[head]!;
     // Anything found from here on is at least depth + 1 steps away.
     if (best && depth + 1 > best.steps) break;
+    const node = queue[head]!;
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (dx === 0 && dy === 0) continue;
-        const x = wrapX(queueX[head]! + dx, WORLD_WIDTH);
-        const y = wrapY(queueY[head]! + dy, WORLD_HEIGHT);
-        const numericKey = y * WORLD_WIDTH + x;
-        if (visited.has(numericKey)) continue;
-        visited.add(numericKey);
-        const tile = input.tiles.get(simulationTileKey(x, y));
-        if (!tile || tile.terrain !== "LAND") continue;
-        if (!tile.ownerId || tile.ownerId === playerId) {
-          // Our land or neutral land: a road. Hostile tiles found from a node
-          // at depth d are d + 1 steps away, so nodes at the cap stay leaves.
-          if (depth + 1 < ADVANCE_MAX_RANGE_TILES) {
-            queueX.push(x);
-            queueY.push(y);
-            queueDepth.push(depth + 1);
-          }
-          continue;
-        }
-        if (!isAttackableState(tile.ownershipState) || isAlliedOrTruced(actor, tile.ownerId)) continue;
-        if (!best || depth + 1 < best.steps || (depth + 1 === best.steps && winsTie(tile, best.tile))) {
-          best = { tile, steps: depth + 1 };
+        consider(wrapX(node.x + dx, WORLD_WIDTH), wrapY(node.y + dy, WORLD_HEIGHT), depth);
+      }
+    }
+    // Only docks and bridge endpoints have links; the key is built just for them.
+    if (node.dockId !== undefined || bridgeLinks.size > 0) {
+      const nodeKey = simulationTileKey(node.x, node.y);
+      for (const linkedKeys of [input.dockLinksByDockTileKey.get(nodeKey), bridgeLinks.get(nodeKey)]) {
+        for (const linkedKey of linkedKeys ?? []) {
+          const [lx, ly] = linkedKey.split(",").map(Number);
+          if (lx !== undefined && ly !== undefined) consider(lx, ly, depth);
         }
       }
     }
@@ -96,15 +110,25 @@ export const nearestHostileWithinSteps = (input: MusterTickInput, flag: DomainTi
 };
 
 /**
- * Records that this ADVANCE flag has engaged with something (see
- * MusterState.clearing). Reads the *current* tile rather than trusting the
- * caller's copy, which syncMusterStatus may already have replaced this tick.
- * No delta is emitted: the next status sync carries the field to the client.
+ * Records that this human ADVANCE flag has engaged with something (see
+ * MusterState.clearing) -- call it once a command was actually accepted, so a
+ * rejected attack or expansion doesn't count. A no-op for AI flags, whose
+ * ADVANCE behaviour is unchanged. Reads the *current* tile rather than trusting
+ * the caller's copy, which syncMusterStatus may already have replaced this tick,
+ * and emits one delta (the first time only) so the client can show it.
  */
-export const markAdvanceClearing = (input: MusterTickInput, originKey: string): void => {
+export const markAdvanceClearing = (input: MusterTickInput, originKey: string, playerId: string): void => {
+  if (!isHumanFlagOwner(input, playerId)) return;
   const tile = input.tiles.get(originKey);
   if (!tile?.muster || tile.muster.clearing) return;
-  input.replaceTileState(originKey, { ...tile, muster: { ...tile.muster, clearing: true } });
+  const markedTile: DomainTileState = { ...tile, muster: { ...tile.muster, clearing: true } };
+  input.replaceTileState(originKey, markedTile);
+  input.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `muster-clearing:${playerId}:${originKey}:${input.nowMs}`,
+    playerId,
+    tileDeltas: [input.tileDeltaFromState(markedTile)]
+  });
 };
 
 /**

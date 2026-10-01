@@ -27,8 +27,8 @@ export type MusterTickInput = {
   playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
-  // Pushes a PLAYER_UPDATE (incl. eventLog) -- used when a barbarian hunt
-  // finishes so the BARBARIANS_CLEARED entry reaches the player right away.
+  // Pushes a PLAYER_UPDATE (incl. eventLog) -- used when an ADVANCE flag finishes
+  // clearing its area so the AREA_CLEARED entry reaches the player right away.
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   // ADVANCE auto-fire wiring.
@@ -69,8 +69,8 @@ export type MusterTickContext = Omit<MusterTickInput, "nowMs" | "musterTilesByOw
  * logic itself instead of inline on the Runtime class.
  *
  * `buildContext` and the tile-map getters are passed in as closures (rather
- * than a plain snapshot) because several fields (e.g. rail depot positions)
- * must be recomputed fresh from current Runtime state on every call.
+ * than a plain snapshot) because several fields (e.g. the per-player rail
+ * depot lookup) must read current Runtime state on every call.
  */
 export const createMusterTickRunner = (
   buildContext: (musterTilesByOwner: ReadonlyMap<string, Set<string>>) => MusterTickContext,
@@ -242,6 +242,7 @@ export const tickMuster = (input: MusterTickInput): void => {
       const ratePerMin = Math.round(rawRatePerMin * 1000) / 1000;
 
       let currentTile = tile;
+      let tileDeltaQueued = false;
       if (inflow > 0.0001) {
         player.manpower -= inflow;
         currentTile = {
@@ -255,6 +256,7 @@ export const tickMuster = (input: MusterTickInput): void => {
         };
         input.replaceTileState(tileKey, currentTile);
         batchDeltas.push(input.tileDeltaFromState(currentTile));
+        tileDeltaQueued = true;
       } else if (tile.muster.ratePerMin !== ratePerMin) {
         // The rate itself changed (a brand-new flag has no ratePerMin yet,
         // or a sibling flag joined/left and shifted this one's throughput
@@ -270,6 +272,7 @@ export const tickMuster = (input: MusterTickInput): void => {
         };
         input.replaceTileState(tileKey, currentTile);
         batchDeltas.push(input.tileDeltaFromState(currentTile));
+        tileDeltaQueued = true;
       } else if (elapsedMin > 0) {
         // Rate is unchanged and there's no inflow (pool empty) -- just
         // re-stamp updatedAt so elapsed time doesn't silently accumulate,
@@ -287,6 +290,14 @@ export const tickMuster = (input: MusterTickInput): void => {
         maybeAdvanceFire(input, currentTile, playerId);
       } else if (currentTile.muster?.mode === "MARCH") {
         maybeMarchFire(input, currentTile, playerId);
+      }
+      // Auto-fire can replace the tile (status sync, "clearing" mark, back to HOLD)
+      // and emits its own deltas straight away. The batch below goes out last, so
+      // if it still carried this tile's pre-fire state it would overwrite them on
+      // the client -- queue the tile's current state after it, so the newest wins.
+      if (tileDeltaQueued) {
+        const afterFire = input.tiles.get(tileKey);
+        if (afterFire && afterFire !== currentTile) batchDeltas.push(input.tileDeltaFromState(afterFire));
       }
     }
 

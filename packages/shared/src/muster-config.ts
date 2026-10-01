@@ -30,3 +30,8 @@ export const musterMarchTooFarAdvice = (distanceTiles: number): string | undefin
   distanceTiles > MUSTER_MARCH_MAX_DISTANCE_TILES
     ? `That target is ${distanceTiles} tiles from this flag, and marches are limited to ${MUSTER_MARCH_MAX_DISTANCE_TILES} tiles. Raise a muster flag closer to the target instead: troops take much longer to walk across the map than it takes to muster next to the fight.`
     : undefined;
+
+// How far (in steps through the flag owner's own and neutral land) an ADVANCE
+// flag looks for hostile tiles to attack or approach. Shared so the player-facing
+// text can quote the same number the simulation enforces.
+export const MUSTER_ADVANCE_RANGE_STEPS = 10;
