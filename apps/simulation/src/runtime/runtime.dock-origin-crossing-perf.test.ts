@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 /**
  * Perf gate for the stale-client-origin dock-crossing fallback.
  *
@@ -29,7 +30,8 @@ const makePlayer = (id: string, isAi = false) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 const staleDockCrossingDurationMs = async (bulkTileCount: number): Promise<number> => {

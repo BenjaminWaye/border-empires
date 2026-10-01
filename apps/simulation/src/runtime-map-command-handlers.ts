@@ -57,6 +57,8 @@ export type RuntimeMapCommandContext = {
     player: DomainPlayer,
     input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
+  // Starts settles for tiles the player just opted into (SET_AUTO_SETTLE_PREFS); optional so fixtures stay valid.
+  drainAutoSettleForOwner?: (playerId: string) => void;
 };
 
 // CREATE_MOUNTAIN / REMOVE_MOUNTAIN live in their own module (500-line cap);

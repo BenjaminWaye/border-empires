@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_GOLD, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { createSeasonSeedWorld } from "../season-seed-world.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
@@ -61,6 +62,7 @@ const createPlayer = (id: string, isAi: boolean): DomainPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
   strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });

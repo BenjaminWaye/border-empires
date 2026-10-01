@@ -10,6 +10,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-rece
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
+import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
@@ -351,12 +352,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790764591773, // frozen Date.now() value for this release
-    introducedIn: "2026.09.30.4",
-    title: "Slow server replies no longer strand an expansion",
-    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    createdAt: 1790832148785, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.1",
+    title: "Auto-settle never guesses your choice",
+    why: "If your auto-settle choices hadn't reached the game yet, the client could treat everything as switched on and queue settlements, spending manpower you hadn't agreed to.",
     changes: [
-      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+      "Until your auto-settle choices load, nothing settles on its own and the settle prompt stays hidden; Settings > Gameplay shows a loading note instead of guessed checkboxes",
+      "Existing players keep everything on, exactly as before"
     ]
   },
   {
@@ -381,6 +383,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
+  ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,

@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
@@ -14,7 +15,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
@@ -45,7 +46,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
       }]]),
       initialState: {
@@ -78,7 +79,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
@@ -114,7 +115,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["leatherworking", "siegecraft"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
       }]]),
       initialState: {
@@ -152,7 +153,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {
@@ -183,7 +184,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
         techIds: new Set<string>(["crystal-lattices"]), domainIds: new Set<string>(),
         mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-        techRootId: "rewrite-local", allies: new Set<string>(),
+        techRootId: "rewrite-local", allies: new Set<string>(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {

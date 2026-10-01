@@ -460,6 +460,12 @@ export const INTEGRITY_ECON_MIN_MULT = 0.85;
 export const INTEGRITY_ECON_MAX_MULT = 1.15;
 export const INTEGRITY_GROWTH_MIN_MULT = 0.9;
 export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
+// New-empire grace: integrity can't drop below INTEGRITY_GRACE_FLOOR until the
+// player has settled INTEGRITY_GRACE_TILES tiles. Past that the floor fades
+// linearly to zero over INTEGRITY_GRACE_FADE_TILES more tiles (no cliff).
+export const INTEGRITY_GRACE_TILES = 50;
+export const INTEGRITY_GRACE_FLOOR = 0.9;
+export const INTEGRITY_GRACE_FADE_TILES = 50;
 
 // --- Utility AI policy ---
 export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";

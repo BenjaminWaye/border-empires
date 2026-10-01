@@ -67,7 +67,8 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
+  "CLAIM_CONTINUATION_SET",
+  "SET_AUTO_SETTLE_PREFS"
 ];
 
 export const migratedDurableCommandTypes: ReadonlySet<string> = new Set(migratedDurableCommandTypesList);
