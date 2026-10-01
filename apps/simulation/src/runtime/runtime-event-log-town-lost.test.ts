@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 
 // §20 of the manpower-economy-rewrite plan: the durable per-player event log's
 // "town lost" launch event type. Deliberately keyed on ownership changing
@@ -16,7 +16,8 @@ const player = (id: string) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 describe("§20 event log — town lost", () => {
