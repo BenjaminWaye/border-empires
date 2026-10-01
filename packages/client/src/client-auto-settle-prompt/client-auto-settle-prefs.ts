@@ -9,8 +9,6 @@ import type { Tile } from "../client-types.js";
 /** "unloaded" until INIT/PLAYER_UPDATE delivers the value (or forever on an older server that never sends it). */
 export type ClientAutoSettleState = { status: "unloaded" } | { status: "loaded"; prefs: AutoSettlePrefs };
 
-export const UNLOADED_AUTO_SETTLE_STATE: ClientAutoSettleState = { status: "unloaded" };
-
 export const loadedAutoSettleState = (prefs: AutoSettlePrefs): ClientAutoSettleState => ({ status: "loaded", prefs });
 
 /** Missing/malformed leaves the current value untouched (a PLAYER_UPDATE without the field must not reset it). */
