@@ -48,7 +48,7 @@ describe("applyPhotoModeCamera", () => {
   });
 });
 
-describe("bindPhotoModeSettingsControls (Settings > Gameplay toggle)", () => {
+describe("bindPhotoModeSettingsControls (Settings > Admin toggle)", () => {
   afterEach(() => {
     exitPhotoMode();
     document.body.innerHTML = "";
