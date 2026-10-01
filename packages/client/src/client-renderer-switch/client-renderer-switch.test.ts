@@ -49,15 +49,7 @@ describe("renderer settings field", () => {
     expect(html).toContain("Try 3D map again");
   });
   it("is part of the Gameplay settings page", () => {
-    const html = settingsGameplayPageHtml({
-      mapRevealEligible: false,
-      authSessionReady: false,
-      mapRevealEnabled: false,
-      fogDisabled: false,
-      authEmail: "",
-      photoModeActive: false,
-      autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
-    });
+    const html = settingsGameplayPageHtml({ authSessionReady: false, authEmail: "", autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } });
     expect(html).toContain("Map Renderer");
     expect(html).toContain("data-renderer-switch");
   });
