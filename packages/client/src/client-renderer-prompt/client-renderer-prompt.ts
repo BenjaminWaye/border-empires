@@ -9,13 +9,8 @@ export type RendererPromptWakeInput = {
 
 export type RendererPromptVisibilityInput = RendererPromptWakeInput & {
   connectionInitialized: boolean;
-  authSessionReady: boolean;
-  profileSetupRequired: boolean;
-  changelogOpen: boolean;
-  guideOpen: boolean;
-  // Optional (defaults to not-open) so the many existing call sites/tests
-  // written before the Activity dashboard existed don't all need updating.
-  activityDashboardOpen?: boolean;
+  /** isMapUnobstructed(state) -- the single "no dialog covers the map" check shared with the AFC join drop. */
+  mapUnobstructed: boolean;
 };
 
 export const shouldWakeRendererPromptHud = ({
@@ -27,20 +22,12 @@ export const shouldWakeRendererPromptHud = ({
 export const shouldShowRendererPrompt = (input: RendererPromptVisibilityInput): boolean =>
   shouldWakeRendererPromptHud(input) &&
   input.connectionInitialized &&
-  input.authSessionReady &&
-  !input.profileSetupRequired &&
-  !input.changelogOpen &&
-  !input.guideOpen &&
-  !input.activityDashboardOpen;
+  input.mapUnobstructed;
 
 export type TwoDimensionalNoticeVisibilityInput = {
   prefers2D: boolean;
   connectionInitialized: boolean;
-  authSessionReady: boolean;
-  profileSetupRequired: boolean;
-  changelogOpen: boolean;
-  guideOpen: boolean;
-  activityDashboardOpen?: boolean;
+  mapUnobstructed: boolean;
 };
 
 /**
@@ -49,10 +36,4 @@ export type TwoDimensionalNoticeVisibilityInput = {
  * the login screen or the first-run guide.
  */
 export const shouldShowTwoDimensionalNotice = (input: TwoDimensionalNoticeVisibilityInput): boolean =>
-  input.prefers2D &&
-  input.connectionInitialized &&
-  input.authSessionReady &&
-  !input.profileSetupRequired &&
-  !input.changelogOpen &&
-  !input.guideOpen &&
-  !input.activityDashboardOpen;
+  input.prefers2D && input.connectionInitialized && input.mapUnobstructed;

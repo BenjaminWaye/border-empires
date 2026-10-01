@@ -12,6 +12,7 @@ const clearState = () => {
   state.needsSeasonJoin = false;
   state.joinSeasonOverlayOpen = false;
   state.respawnOverlayOpen = false;
+  state.ruinsPromptOpen = false;
   state.seasonWinner = undefined;
   return state;
 };
@@ -28,7 +29,8 @@ describe("isMapUnobstructed", () => {
     ["tutorial open", (s: ReturnType<typeof clearState>) => { s.guide.open = true; }],
     ["activity dashboard open", (s: ReturnType<typeof clearState>) => { s.activityDashboard.open = true; }],
     ["join-season lobby full-screen", (s: ReturnType<typeof clearState>) => { s.needsSeasonJoin = true; s.joinSeasonOverlayOpen = true; }],
-    ["respawn notice open", (s: ReturnType<typeof clearState>) => { s.respawnOverlayOpen = true; }]
+    ["respawn notice open", (s: ReturnType<typeof clearState>) => { s.respawnOverlayOpen = true; }],
+    ["empire-in-ruins popup open", (s: ReturnType<typeof clearState>) => { s.ruinsPromptOpen = true; }]
   ])("is false while %s", (_label, block) => {
     const state = clearState();
     block(state);

@@ -49,3 +49,13 @@ export const createAfcJoinDropState = (): AfcJoinDropState => ({
 /** True while the real AFC on (x, y) must not be drawn because the drop has not landed yet. */
 export const isAfcHiddenForJoinDrop = (drop: AfcJoinDropState, x: number, y: number): boolean =>
   drop.x === x && drop.y === y && (drop.phase === "waiting" || (drop.phase === "playing" && !drop.revealed));
+
+/**
+ * True while the drop owns the moment the map first becomes visible: armed
+ * (`waiting`/`playing`), or -- the tick hasn't yet scanned the newest tiles for
+ * a fresh AFC, so it may be about to arm. UI that would otherwise pop open over
+ * the map on its own (the onboarding checklist's one-time auto-open) holds
+ * while this is true and re-renders once when it turns false.
+ */
+export const isAfcJoinDropHoldingUi = (drop: AfcJoinDropState, tilesRevision: number): boolean =>
+  drop.phase === "waiting" || drop.phase === "playing" || (drop.phase === "idle" && drop.scannedRevision !== tilesRevision);

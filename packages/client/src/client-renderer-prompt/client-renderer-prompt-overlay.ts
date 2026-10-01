@@ -4,6 +4,7 @@
 // hands over its state, DOM slot and re-render callback.
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
+import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { showTwoDimensionalModeNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import { isTrue3DRendererActive, prefers2DRendererMode } from "../client-renderer-mode.js";
@@ -31,11 +32,7 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
     shouldShowTwoDimensionalNotice({
       prefers2D: prefers2DRendererMode,
       connectionInitialized: state.connection === "initialized",
-      authSessionReady: state.authSessionReady,
-      profileSetupRequired: state.profileSetupRequired,
-      changelogOpen: state.changelog.open,
-      guideOpen: state.guide.open,
-      activityDashboardOpen: state.activityDashboard.open
+      mapUnobstructed: isMapUnobstructed(state)
     })
   ) {
     showTwoDimensionalModeNotice({ onSwitchTo3D: () => switchRenderer("3d") });
@@ -46,11 +43,7 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
     true3DActive: isTrue3DRendererActive(),
     sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
     connectionInitialized: state.connection === "initialized",
-    authSessionReady: state.authSessionReady,
-    profileSetupRequired: state.profileSetupRequired,
-    changelogOpen: state.changelog.open,
-    guideOpen: state.guide.open,
-    activityDashboardOpen: state.activityDashboard.open
+    mapUnobstructed: isMapUnobstructed(state)
   });
   overlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (!canShowRendererPrompt) {

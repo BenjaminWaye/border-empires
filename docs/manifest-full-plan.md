@@ -23,7 +23,7 @@ Status against §10 (implementation order):
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): **Phase 1 for Modules is wired into the game** (2026-09-29; true-3D full sequence, 2D brass-ring pulse), see `docs/manifest-afc-module-delivery-animation-plan.md`. Per-socket landing, per-module bespoke visuals and the whole-AFC drop remain open. The whole-AFC drop (for newly built/granted AFCs) was added to that same plan 2026-09-29 |
+| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): **Phase 1 for Modules is wired into the game** (2026-09-29; true-3D full sequence, 2D brass-ring pulse), see `docs/manifest-afc-module-delivery-animation-plan.md`. Per-socket landing is done. The **join-time whole-AFC drop** (the player's own AFC landing when they enter a season) is implemented in both renderers (2026-09-30, PR #2181) plus its follow-ups (checklist hold, shared map-visible predicate, ruins popup); most sessions last 8 minutes or less, so the join path is the priority. The **mid-session AFC drop** (built/respawned/other players' AFCs) and per-module bespoke visuals remain open: see the plan's "Follow-up backlog" |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
@@ -451,7 +451,14 @@ Extra AFCs are purely risk-spreading module hosts.
      `isValidAfcLandingTile(tile, me)` predicate with the button so the
      client never offers a tile the server will reject.
 8. **Drop animation**: see the delivery-animation plan's "AFC drop"
-   section.
+   section and its "Follow-up backlog". The join-time drop already exists;
+   this step is the *mid-session* client work, roughly a day once the
+   server command lands: generalise `state.afcJoinDrop` to a bounded map of
+   drops keyed by tile (cap about 8), add a tile-delta detector for a tile
+   that goes from no AFC to an AFC (any owner), and a brisker preset (about
+   3 s, no dwell; the gate skips a drop the player just triggered but still
+   applies to other players' drops). Since most sessions last 8 minutes or
+   less, this is lower priority than the join path.
 9. **Changelog**: player-facing entry covering the button, the price
    curve, the landing pick, and that extra AFCs don't add Coin/Manpower
    baseline (including the drop from two baselines to one for anyone

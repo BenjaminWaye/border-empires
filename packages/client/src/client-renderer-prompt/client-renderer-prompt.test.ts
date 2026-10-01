@@ -19,10 +19,7 @@ describe("client renderer prompt", () => {
         true3DActive: true,
         sustainedLowFps: true,
         connectionInitialized: true,
-        authSessionReady: true,
-        profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        mapUnobstructed: true
       })
     ).toBe(true);
   });
@@ -34,10 +31,7 @@ describe("client renderer prompt", () => {
         true3DActive: true,
         sustainedLowFps: true,
         connectionInitialized: true,
-        authSessionReady: true,
-        profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        mapUnobstructed: true
       })
     ).toBe(false);
   });
@@ -49,26 +43,19 @@ describe("client renderer prompt", () => {
         true3DActive: true,
         sustainedLowFps: true,
         connectionInitialized: false,
-        authSessionReady: true,
-        profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        mapUnobstructed: true
       })
     ).toBe(false);
   });
 
-  it("does not compete with the Activity dashboard", () => {
+  it("does not compete with any dialog that covers the map", () => {
     expect(
       shouldShowRendererPrompt({
         dismissed: false,
         true3DActive: true,
         sustainedLowFps: true,
         connectionInitialized: true,
-        authSessionReady: true,
-        profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false,
-        activityDashboardOpen: true
+        mapUnobstructed: false
       })
     ).toBe(false);
   });
@@ -78,10 +65,7 @@ describe("two-dimensional mode notice visibility", () => {
   const ready = {
     prefers2D: true,
     connectionInitialized: true,
-    authSessionReady: true,
-    profileSetupRequired: false,
-    changelogOpen: false,
-    guideOpen: false
+    mapUnobstructed: true
   };
 
   it("shows for a chosen-2D session once the gameplay HUD is ready", () => {
@@ -90,12 +74,8 @@ describe("two-dimensional mode notice visibility", () => {
   it("never shows when 3D was wanted", () => {
     expect(shouldShowTwoDimensionalNotice({ ...ready, prefers2D: false })).toBe(false);
   });
-  it("waits out sign-in, profile setup and open modals", () => {
-    expect(shouldShowTwoDimensionalNotice({ ...ready, authSessionReady: false })).toBe(false);
+  it("waits out the connection and anything covering the map", () => {
     expect(shouldShowTwoDimensionalNotice({ ...ready, connectionInitialized: false })).toBe(false);
-    expect(shouldShowTwoDimensionalNotice({ ...ready, profileSetupRequired: true })).toBe(false);
-    expect(shouldShowTwoDimensionalNotice({ ...ready, guideOpen: true })).toBe(false);
-    expect(shouldShowTwoDimensionalNotice({ ...ready, changelogOpen: true })).toBe(false);
-    expect(shouldShowTwoDimensionalNotice({ ...ready, activityDashboardOpen: true })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, mapUnobstructed: false })).toBe(false);
   });
 });
