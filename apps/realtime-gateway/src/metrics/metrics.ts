@@ -71,6 +71,9 @@ export type GatewayMetricsSnapshot = {
   revealActiveStreams: number;
   revealChunksSent: number;
   revealCacheEntries: number;
+  reachReplayEntries: number;
+  reachReplaySentTotal: number;
+  reachReplayEvictionsTotal: number;
   gatewaySqliteRetryTotal: number;
   colorCollisionRejectedTotal: number;
   guestDiplomacyBlockedTotal: number;
@@ -119,6 +122,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let revealActiveStreams = 0;
   let revealChunksSent = 0;
   let revealCacheEntries = 0;
+  let reachReplayEntries = 0;
+  let reachReplaySentTotal = 0;
+  let reachReplayEvictionsTotal = 0;
   let gatewaySqliteRetryTotal = 0;
   let colorCollisionRejectedTotal = 0;
   let guestDiplomacyBlockedTotal = 0;
@@ -190,6 +196,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     revealActiveStreams,
     revealChunksSent,
     revealCacheEntries,
+    reachReplayEntries,
+    reachReplaySentTotal,
+    reachReplayEvictionsTotal,
     gatewaySqliteRetryTotal,
     colorCollisionRejectedTotal,
     guestDiplomacyBlockedTotal,
@@ -269,6 +278,15 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     setRevealCacheEntries(value: number): void {
       revealCacheEntries = Math.max(0, Math.floor(clampMetric(value)));
+    },
+    setReachReplayEntries(value: number): void {
+      reachReplayEntries = Math.max(0, Math.floor(clampMetric(value)));
+    },
+    incrementReachReplaySentTotal(count = 1): void {
+      reachReplaySentTotal += Math.max(0, Math.floor(count));
+    },
+    incrementReachReplayEvictionsTotal(count = 1): void {
+      reachReplayEvictionsTotal += Math.max(0, Math.floor(count));
     },
     incrementGatewaySqliteRetryTotal(count = 1): void {
       gatewaySqliteRetryTotal += Math.max(0, Math.floor(count));
@@ -404,6 +422,12 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_reveal_chunks_sent ${formatMetricValue(sample.revealChunksSent)}`,
         "# TYPE gateway_reveal_cache_entries gauge",
         `gateway_reveal_cache_entries ${formatMetricValue(sample.revealCacheEntries)}`,
+        "# TYPE gateway_reach_replay_entries gauge",
+        `gateway_reach_replay_entries ${formatMetricValue(sample.reachReplayEntries)}`,
+        "# TYPE gateway_reach_replay_sent_total counter",
+        `gateway_reach_replay_sent_total ${formatMetricValue(sample.reachReplaySentTotal)}`,
+        "# TYPE gateway_reach_replay_evictions_total counter",
+        `gateway_reach_replay_evictions_total ${formatMetricValue(sample.reachReplayEvictionsTotal)}`,
         "# TYPE gateway_sqlite_retry_total counter",
         `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
         "# TYPE gateway_color_collision_rejected_total counter",

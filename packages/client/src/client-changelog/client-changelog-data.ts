@@ -405,6 +405,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",
       "A flag that is rejected (not enough coin or manpower) now backs off instead of retrying every second"
     ]
+  },
+  {
+    createdAt: 1790885511154, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.3",
+    title: "Your reach border is correct when you play in a second tab or device",
+    why: "If you were still connected somewhere else (another tab, your phone, or a reconnect before the old connection timed out), the new session never received your real reach border. It drew an estimate instead, and waypoints could keep planning expansions the server then refused as out of reach.",
+    changes: [
+      "Every new session now receives your current reach border as soon as it loads, even while you're connected elsewhere",
+      "Waypoints in that session plan against your real border, so they stop retrying expansions that are out of reach"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
