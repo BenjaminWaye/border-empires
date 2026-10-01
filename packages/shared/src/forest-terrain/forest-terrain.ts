@@ -1,9 +1,9 @@
 /**
- * Forest-ness is purely procedural (land biome + grass shade), fixed at
- * world generation and never mutated in play — unlike terrain (which
- * CREATE_MOUNTAIN/REMOVE_MOUNTAIN can change on a live tile). Safe to treat
- * as a permanent property of the coordinate for caching purposes (see
- * vision-footprint-table.ts in apps/simulation).
+ * Forest-ness is procedural (land biome + grass shade), fixed at world
+ * generation with one exception: an AFC landing clears forest from its 3x3
+ * footprint (see forest-clearing.ts), which bumps forestClearingEpoch() so
+ * caches that otherwise treat forest as permanent (vision-footprint-table.ts
+ * in apps/simulation) can invalidate.
  */
 
 import { grassShadeAt, landBiomeAt } from "../worldgen/worldgen.js";

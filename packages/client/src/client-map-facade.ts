@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -94,6 +94,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const terrainColorCacheOrder: string[] = [];
 
   const clearRenderCaches = (): void => {
+    // Every caller follows either a setWorldSeed (which drops AFC forest
+    // clearings along with the other worldgen caches -- and on first
+    // connect runs only AFTER the initial tiles were merged) or a terrain
+    // change, so re-derive the clearings from the AFC tiles already known.
+    clearForestAroundAfcTiles(state.tiles.values());
     terrainColorCache.clear();
     terrainColorCacheOrder.length = 0;
     state.dockRouteCache.clear();
@@ -235,7 +240,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       terrain === "LAND"
         ? `${visibleTile?.terrain === "LAND" ? visibleTile.landBiome ?? "" : ""}|${visibleTile?.terrain === "LAND" ? visibleTile.regionType ?? "" : ""}`
         : "";
-    const cacheKey = `${x},${y},${terrain},${landContextKey}`;
+    const cacheKey = `${x},${y},${terrain},${landContextKey}${isForestClearedAt(x, y) ? ",cleared" : ""}`;
     const cached = terrainColorCache.get(cacheKey);
     if (cached) return cached;
     const color = terrainColorAt(x, y, terrain);

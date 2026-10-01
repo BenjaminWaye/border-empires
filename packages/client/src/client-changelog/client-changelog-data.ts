@@ -379,6 +379,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settings has a new Admin page (admin accounts only) that now holds Reveal Full Map and Photo Mode, moved off the Gameplay page",
       "The Admin page adds a Lighting Tuner: sliders for the sun, sky fill, back fill, shadows, metal reflections and exposure, applied live to the 3D map"
     ]
+  },
+  {
+    createdAt: 1790866856971, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.2",
+    title: "Cleaner landing sites for your Fabrication Complex",
+    why: "A new empire's Automated Fabrication Complex could land hemmed in by water, mountains or thick forest, leaving a cramped and slow start.",
+    changes: [
+      "Your Fabrication Complex now always lands on a tile with no water on any of its 8 surrounding tiles",
+      "Any mountains on the landing tile's 8 neighbours are flattened into open land when it lands",
+      "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

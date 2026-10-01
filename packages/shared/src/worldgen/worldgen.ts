@@ -58,6 +58,20 @@ const rawTerrainCache = new Uint8Array(WORLD_TILE_COUNT);
 const rawTerrainCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 // isLakeTileAt: 0 = not computed, 1 = not a lake, 2 = lake.
 const lakeTileCache = new Uint8Array(WORLD_TILE_COUNT);
+// Forest is otherwise purely procedural; an AFC landing site clears it from
+// its 3x3 footprint (see forest-terrain/forest-clearing.ts). Tracked here so
+// grassShadeAt itself reports a cleared tile as LIGHT, and every forest
+// consumer (vision, claim/settle timing, both client renderers) agrees
+// without its own override. Never persisted: both server and client re-derive
+// it from AFC tile state, so a world reset simply drops it.
+const forestClearedTiles = new Uint8Array(WORLD_TILE_COUNT);
+let forestClearingEpochValue = 0;
+
+export const resetForestClearings = (): void => {
+  forestClearedTiles.fill(0);
+  grassShadeCacheReady.fill(0);
+  forestClearingEpochValue += 1;
+};
 
 const resetWorldCaches = (): void => {
   terrainCache.fill(UNSET_U8);
@@ -69,6 +83,7 @@ const resetWorldCaches = (): void => {
   regionTypeCacheReady.fill(0);
   rawTerrainCacheReady.fill(0);
   lakeTileCache.fill(0);
+  resetForestClearings();
   resetContinentScoreCaches();
 };
 
@@ -386,11 +401,32 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
   }
   const region = regionTypeAt(wx, wy);
   const version = worldgenVersion();
-  const shade = grassShadeFor(wx, wy, worldSeed(), version, region, biome);
+  const generatedShade = grassShadeFor(wx, wy, worldSeed(), version, region, biome);
+  const shade = generatedShade === "DARK" && forestClearedTiles[idx] === 1 ? "LIGHT" : generatedShade;
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
   return shade;
 };
+
+// Clears (x, y)'s forest -- see forestClearedTiles. Returns true only when the
+// tile actually was forest (DARK shade) and so visibly changed.
+export const clearForestAt = (x: number, y: number): boolean => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const idx = worldIndex(wx, wy);
+  if (forestClearedTiles[idx] === 1) return false;
+  const wasForest = grassShadeAt(wx, wy) === "DARK";
+  forestClearedTiles[idx] = 1;
+  if (!wasForest) return false;
+  grassShadeCacheReady[idx] = 0;
+  forestClearingEpochValue += 1;
+  return true;
+};
+export const isForestClearedAt = (x: number, y: number): boolean => forestClearedTiles[worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))] === 1;
+// Bumped whenever a clearing changes some tile's forest-ness, so caches that
+// treat forest as static (e.g. the simulation's vision footprint table) know
+// to drop their forest-derived entries.
+export const forestClearingEpoch = (): number => forestClearingEpochValue;
 
 export const resourceAt = (x: number, y: number): ResourceType | undefined => {
   // Resource placement is cluster-driven on the server.
