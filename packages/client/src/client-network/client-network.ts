@@ -21,6 +21,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
@@ -399,12 +400,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     return true;
   };
 
-  const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
-
-  const clearLateFrontierAck = (tileKey: string): void => {
-    if (!tileKey) return;
-    state.frontierLateAckUntilByTarget.delete(tileKey);
-  };
+  const { clearLateFrontierAck, rebindLateFrontierAck, matchesCurrentOrLateFrontierAck } = createLateFrontierAckHandlers({ state, keyFor });
 
   const currentActionCanResolveFromFrontierOwnership = (targetKey: string): boolean => {
     if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
@@ -417,31 +413,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (state.actionCurrent.actionType !== "ATTACK") return false;
     if (!state.capture || keyFor(state.capture.target.x, state.capture.target.y) !== targetKey) return false;
     return Date.now() >= state.capture.resolvesAt;
-  };
-
-  const rebindLateFrontierAck = (
-    target: { x: number; y: number },
-    source: "ACTION_ACCEPTED" | "COMBAT_START",
-    actionType?: "EXPAND" | "ATTACK"
-  ): void => {
-    const targetKey = keyFor(target.x, target.y);
-    const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
-    if (!lateFrontierAckPending(targetKey)) return;
-    state.actionInFlight = true;
-    state.actionTargetKey = targetKey;
-    if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
-      state.actionCurrent = { x: target.x, y: target.y, retries: 0, ...(actionType ? { actionType } : {}) };
-    } else if (actionType) {
-      state.actionCurrent.actionType = actionType;
-    }
-    if (!state.actionStartedAt) state.actionStartedAt = Date.now();
-    clearLateFrontierAck(targetKey);
-    attackSyncLog("late-frontier-ack-rebound", {
-      source,
-      target,
-      targetKey,
-      lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
-    });
   };
 
   const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
@@ -1384,7 +1355,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "ACTION_ACCEPTED") {
       if (handleMusterAdvanceExpandAccepted(state, keyFor, msg as Record<string, unknown>)) return;
-      if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
+      if (!matchesCurrentOrLateFrontierAck(msg)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,
           commandId: msg.commandId,

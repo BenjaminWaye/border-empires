@@ -1,6 +1,7 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelog-arrow-gesture-attack.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
+import { CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING } from "./client-changelog-join-season-loading.js";
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND } from "./client-changelog-muster-stand.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
@@ -9,6 +10,8 @@ import { CLIENT_CHANGELOG_ENTRIES_WIN_CHANCE_PAINT } from "./client-changelog-wi
 import { CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY } from "./client-changelog-2d-arrow-gesture-parity.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX } from "./client-changelog-arrow-gesture-lingering-fix.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH } from "./client-changelog-arrow-gesture-mac-shield-wash.js";
+import { CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH } from "./client-changelog-renderer-switch.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP } from "./client-changelog-afc-join-drop.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -21,5 +24,8 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK,
   ...CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY,
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX,
-  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH,
+  ...CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING,
+  ...CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP
 ];
