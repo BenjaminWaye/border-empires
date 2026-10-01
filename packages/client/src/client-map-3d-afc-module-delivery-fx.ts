@@ -59,7 +59,7 @@ const setOpacity = (material: Mesh["material"] | Sprite["material"], opacity: nu
 /** Vertical gradient for the streak: white-hot near the falling end (v=0,
  * the cylinder's base) cooling through amber to a smoky fade at the
  * trailing end (v=1, the top). Built once, shared by every entry. */
-const makeStreakTexture = (): CanvasTexture | null => {
+export const makeStreakTexture = (): CanvasTexture | null => {
   if (typeof document === "undefined") return null;
   const w = 8;
   const h = 64;
@@ -83,7 +83,7 @@ const makeStreakTexture = (): CanvasTexture | null => {
 
 /** Radial glow, reused for both the streak's head and the post-landing
  * reveal glow (different colors/opacities via each Sprite's own tint). */
-const makeGlowTexture = (): CanvasTexture | null => {
+export const makeGlowTexture = (): CanvasTexture | null => {
   if (typeof document === "undefined") return null;
   const size = 64;
   const canvas = document.createElement("canvas");

@@ -10,6 +10,7 @@ import { emailNotificationsSettingsPageHtml } from "../client-email-notification
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { autoSettleSettingsFieldHtml } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
+import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
@@ -119,6 +120,7 @@ export const settingsGameplayPageHtml = (
     ${rallyLinkCardHtml(state)}
     <div class="card auth-settings-card">${siegeTowerRotationSettingsFieldHtml()}</div>
     <div class="card auth-settings-card">${autoSettleSettingsFieldHtml(state.autoSettle)}</div>
+    <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>
     ${mapRevealHtml ? `<div class="card auth-settings-card">${mapRevealHtml}</div>` : ""}
   `;
 };
