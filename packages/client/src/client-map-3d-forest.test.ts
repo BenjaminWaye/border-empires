@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Matrix4, Scene, Vector3 } from "three";
+import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { createForest } from "./client-map-3d-forest.js";
 
 // Regression for trees visibly flipping into a different species/layout
@@ -64,5 +64,25 @@ describe("createForest addInstance variant selection", () => {
     }
     const distinctOffsets = new Set(results.map((r) => `${r.x.toFixed(3)},${r.z.toFixed(3)}`));
     expect(distinctOffsets.size).toBeGreaterThan(1);
+  });
+});
+
+// Regression: the trunk pool's capacity guard compared against
+// `trunkMesh.count + capacity`, and trunkMesh.count still held the PREVIOUS
+// commit's total -- so after any full rebuild the next one could push the
+// trunk count past the InstancedMesh's allocated capacity.
+describe("createForest trunk capacity", () => {
+  it("never commits more trunks than the trunk pool holds, across rebuilds", () => {
+    const scene = new Scene();
+    const forest = createForest(scene, 1);
+    const trunkMesh = scene.children[3] as InstancedMesh;
+    const capacity = trunkMesh.instanceMatrix.count;
+    for (let rebuild = 0; rebuild < 2; rebuild += 1) {
+      forest.clear();
+      for (let tile = 0; tile < 4; tile += 1) forest.addInstance(tile, 0, 0, tile, 0);
+      forest.commit();
+      expect(trunkMesh.count).toBeLessThanOrEqual(capacity);
+    }
+    forest.dispose();
   });
 });

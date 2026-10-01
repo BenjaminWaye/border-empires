@@ -8,42 +8,64 @@ import {
   Scene
 } from "three";
 
-export const TREES_PER_TILE = 5;
-const TRUNK_Z_BIAS = 0.04;
+// Upper bound on trees per forest tile (the per-tile instance budget). The
+// layouts below hold 7-9 trees each so adjacent tiles vary in density too.
+export const TREES_PER_TILE = 9;
+const TRUNK_Z_BIAS = 0.02;
+
+// Trees are sized to roughly half a mountain massif's height (peak ~1.2,
+// client-map-3d-mountain-massif.ts) -- they used to stand ~1.6-1.8 tall,
+// taller than the mountains. Smaller trees need more of them per tile to
+// still read as a forest, hence the 7-9 tree layouts.
+// Trunk base sits a touch below the surface so it never floats on slopes.
+const TRUNK_HEIGHT = 0.26;
+const TRUNK_CENTER_Y = TRUNK_HEIGHT / 2 - 0.03;
+// Canopy center heights (at tree scale 1), measured from the tile surface.
+const PINE_CANOPY_HEIGHT = 0.42;
+const PINE_CANOPY_Y = 0.17 + PINE_CANOPY_HEIGHT / 2;
+const SPRUCE_CANOPY_HEIGHT = 0.46;
+const SPRUCE_CANOPY_Y = 0.15 + SPRUCE_CANOPY_HEIGHT / 2;
+const LEAF_CANOPY_RADIUS = 0.17;
+const LEAF_CANOPY_Y = 0.19 + LEAF_CANOPY_RADIUS;
 
 type TreePos = {
   readonly ox: number;
   readonly oz: number;
-  readonly canopyScale: number;
-  readonly trunkScale: number;
-  readonly trunkY: number;
-  readonly canopyY: number;
+  readonly scale: number;
 };
 
 // Three spacing layouts so adjacent forest tiles read differently.
-// Each layout has 5 trees so the per-tile budget stays constant.
 const LAYOUT_SCATTERED: ReadonlyArray<TreePos> = [
-  { ox: -0.26, oz: -0.24, canopyScale: 0.84, trunkScale: 0.9, trunkY: 0.56, canopyY: 1.1 },
-  { ox: 0.24, oz: -0.23, canopyScale: 0.82, trunkScale: 0.88, trunkY: 0.56, canopyY: 1.08 },
-  { ox: 0.02, oz: 0.0, canopyScale: 1, trunkScale: 1, trunkY: 0.6, canopyY: 1.16 },
-  { ox: -0.24, oz: 0.25, canopyScale: 0.8, trunkScale: 0.86, trunkY: 0.55, canopyY: 1.07 },
-  { ox: 0.25, oz: 0.24, canopyScale: 0.81, trunkScale: 0.87, trunkY: 0.55, canopyY: 1.08 }
+  { ox: -0.3, oz: -0.28, scale: 0.9 },
+  { ox: 0.02, oz: -0.31, scale: 0.85 },
+  { ox: 0.31, oz: -0.25, scale: 0.92 },
+  { ox: -0.27, oz: 0.01, scale: 0.95 },
+  { ox: 0.03, oz: 0.02, scale: 1.08 },
+  { ox: 0.3, oz: 0.05, scale: 0.9 },
+  { ox: -0.31, oz: 0.29, scale: 0.88 },
+  { ox: 0.0, oz: 0.31, scale: 0.94 },
+  { ox: 0.28, oz: 0.3, scale: 0.86 }
 ];
 
 const LAYOUT_CLUSTER: ReadonlyArray<TreePos> = [
-  { ox: -0.05, oz: -0.07, canopyScale: 1.05, trunkScale: 1.05, trunkY: 0.62, canopyY: 1.20 },
-  { ox: -0.18, oz: 0.05, canopyScale: 0.92, trunkScale: 0.95, trunkY: 0.58, canopyY: 1.13 },
-  { ox: 0.10, oz: -0.18, canopyScale: 0.90, trunkScale: 0.93, trunkY: 0.58, canopyY: 1.12 },
-  { ox: 0.16, oz: 0.10, canopyScale: 0.88, trunkScale: 0.92, trunkY: 0.57, canopyY: 1.10 },
-  { ox: -0.02, oz: 0.20, canopyScale: 0.86, trunkScale: 0.91, trunkY: 0.56, canopyY: 1.09 }
+  { ox: -0.06, oz: -0.08, scale: 1.1 },
+  { ox: 0.19, oz: -0.12, scale: 0.98 },
+  { ox: -0.27, oz: -0.2, scale: 0.9 },
+  { ox: 0.1, oz: 0.16, scale: 1.0 },
+  { ox: -0.2, oz: 0.13, scale: 0.95 },
+  { ox: 0.34, oz: 0.14, scale: 0.84 },
+  { ox: -0.04, oz: 0.36, scale: 0.86 },
+  { ox: 0.16, oz: -0.36, scale: 0.82 }
 ];
 
 const LAYOUT_LINE: ReadonlyArray<TreePos> = [
-  { ox: -0.32, oz: -0.08, canopyScale: 0.78, trunkScale: 0.84, trunkY: 0.54, canopyY: 1.05 },
-  { ox: -0.14, oz: 0.05, canopyScale: 0.92, trunkScale: 0.95, trunkY: 0.58, canopyY: 1.13 },
-  { ox: 0.04, oz: -0.04, canopyScale: 1.02, trunkScale: 1.02, trunkY: 0.61, canopyY: 1.18 },
-  { ox: 0.20, oz: 0.08, canopyScale: 0.90, trunkScale: 0.93, trunkY: 0.58, canopyY: 1.12 },
-  { ox: 0.34, oz: -0.06, canopyScale: 0.78, trunkScale: 0.84, trunkY: 0.54, canopyY: 1.05 }
+  { ox: -0.36, oz: -0.16, scale: 0.84 },
+  { ox: -0.19, oz: 0.04, scale: 0.95 },
+  { ox: -0.02, oz: -0.14, scale: 1.02 },
+  { ox: 0.12, oz: 0.1, scale: 1.08 },
+  { ox: 0.28, oz: -0.08, scale: 0.95 },
+  { ox: 0.36, oz: 0.2, scale: 0.84 },
+  { ox: -0.3, oz: 0.3, scale: 0.8 }
 ];
 
 // Exported so client-map-3d-tropical-forest.ts can reuse the same
@@ -76,21 +98,23 @@ export type Forest = {
 
 export const createForest = (scene: Scene, maxTiles: number): Forest => {
   // Pine: 5-sided cone, lighter teal-green.
-  const pineCanopyGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
+  const pineCanopyGeometry = new ConeGeometry(0.15, PINE_CANOPY_HEIGHT, 5, 1, false);
   const pineCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
 
   // Spruce: taller, narrower, deeper green.
-  const spruceCanopyGeometry = new ConeGeometry(0.18, 1.18, 5, 1, false);
+  const spruceCanopyGeometry = new ConeGeometry(0.12, SPRUCE_CANOPY_HEIGHT, 5, 1, false);
   const spruceCanopyMaterial = new MeshStandardMaterial({ color: "#52735c", roughness: 0.9, metalness: 0, flatShading: true });
 
   // Leaf/deciduous: a broad, rounded canopy (low-poly icosahedron, matching
   // the rest of the forest's flat-shaded look) in a warmer, lighter green --
   // the first non-conifer species, so forest tiles read as mixed woodland
-  // instead of uniform pine/spruce.
-  const leafCanopyGeometry = new IcosahedronGeometry(0.34, 1);
+  // instead of uniform pine/spruce. Detail 0 (20 triangles, not 80): at this
+  // size the extra subdivision is invisible, and with 7-9 trees per tile the
+  // canopy triangle count (drawn twice -- color + shadow pass) adds up.
+  const leafCanopyGeometry = new IcosahedronGeometry(LEAF_CANOPY_RADIUS, 0);
   const leafCanopyMaterial = new MeshStandardMaterial({ color: "#7a9c4e", roughness: 0.86, metalness: 0, flatShading: true });
 
-  const trunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
+  const trunkGeometry = new CylinderGeometry(0.03, 0.04, TRUNK_HEIGHT, 5);
   const trunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
 
   const maxInstances = maxTiles * TREES_PER_TILE;
@@ -136,24 +160,20 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
     const canopyMesh = species === 1 ? spruceCanopyMesh : species === 2 ? leafCanopyMesh : pineCanopyMesh;
-    // Spruce's apex is taller than the trunk expects, so lift its canopy a
-    // touch to keep the trunk hidden inside it. Leaf canopies are already
-    // centered wide enough that they don't need the same adjustment.
-    const canopyYAdjust = species === 1 ? 0.08 : 0;
+    const canopyY = species === 1 ? SPRUCE_CANOPY_Y : species === 2 ? LEAF_CANOPY_Y : PINE_CANOPY_Y;
 
     for (const tree of layout) {
-      if (trunkCount >= trunkMesh.count + maxInstances * 2) continue;
-      scaleMatrix.makeScale(tree.trunkScale, tree.trunkScale, tree.trunkScale);
+      if (trunkCount >= maxInstances * 2) continue;
+      scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.trunkY, sceneZ + tree.oz + TRUNK_Z_BIAS);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + TRUNK_CENTER_Y * tree.scale, sceneZ + tree.oz + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
       trunkCount += 1;
 
       const canopyIdx = species === 1 ? spruceCount : species === 2 ? leafCount : pineCount;
       if (canopyIdx >= maxInstances) continue;
-      scaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.canopyY + canopyYAdjust, sceneZ + tree.oz);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + canopyY * tree.scale, sceneZ + tree.oz);
       canopyMesh.setMatrixAt(canopyIdx, tempMatrix);
       if (species === 1) spruceCount += 1;
       else if (species === 2) leafCount += 1;
@@ -167,21 +187,21 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     // jitter so a run of scatter tiles doesn't look like a stamped grid.
     const jitterX = (tileHash(worldX, worldZ, 31, 100) / 100 - 0.5) * 0.4;
     const jitterZ = (tileHash(worldX, worldZ, 37, 100) / 100 - 0.5) * 0.4;
-    const scale = 0.55 + tileHash(worldX, worldZ, 41, 100) / 100 * 0.15;
+    const scale = 0.65 + tileHash(worldX, worldZ, 41, 100) / 100 * 0.15;
     // Single combined guard (unlike addInstance's per-mesh checks above,
     // which can legitimately leave an orphan trunk if only the canopy pool
     // is full mid-layout): a scatter tile only ever adds one trunk + one
     // canopy together, so gate both on whichever pool has less room left,
     // rather than risk a canopy-less trunk (or vice versa) near the budget.
-    if (trunkCount < trunkMesh.count + maxInstances * 2 && leafCount < maxInstances) {
+    if (trunkCount < maxInstances * 2 && leafCount < maxInstances) {
       scaleMatrix.makeScale(scale, scale, scale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + jitterX, surfaceY + 0.6 * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
+      tempMatrix.setPosition(sceneX + jitterX, surfaceY + TRUNK_CENTER_Y * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
       trunkCount += 1;
       scaleMatrix.makeScale(scale, scale, scale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + jitterX, surfaceY + 1.16 * scale, sceneZ + jitterZ);
+      tempMatrix.setPosition(sceneX + jitterX, surfaceY + LEAF_CANOPY_Y * scale, sceneZ + jitterZ);
       leafCanopyMesh.setMatrixAt(leafCount, tempMatrix);
       leafCount += 1;
     }
