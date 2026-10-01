@@ -3,6 +3,7 @@
 Status: active proposal
 Owner: Benjamin (approves each phase; agents implement repo changes)
 Last verified: 2026-10-01
+Progress: Phase 2 repo changes implemented on `agent/hetzner-migration-plan` (see "Phase 2 implementation notes" at the end); Phases 0, 1, 3+ not started
 Replaces: the Fly sections of `docs/agents/deploys.md` and the Fly entries in
 `README.md` once production has cut over
 
@@ -311,3 +312,18 @@ the staging VPS before cutover. Phases 4 and 6: the existing
 `scripts/verify-staging-realtime.mjs` soak, the prod-shape gate, and
 `/proc/stat` steal sampling. When production is delivered, the canonical
 reference is `docs/agents/deploys.md`.
+
+## Phase 2 implementation notes (2026-10-01)
+
+What shipped, and where it deviates from the text above:
+
+- Layout: `deploy/compose.yml`, `deploy/Caddyfile`, `deploy/env/{staging,production}.env`, `deploy/bin/{bootstrap-server.sh,deploy,backup}`, `deploy/systemd/`, `.github/actions/hetzner-deploy/`, `scripts/ops/{render-hetzner-env,copy-fly-secrets-to-hetzner,migrate-sqlite-fly-to-hetzner,clone-snapshot-ssh}.mjs`, `scripts/ops/backend-logs.sh`.
+- **Config delivery:** the forced-command `deploy <sha>` cannot receive files, so it downloads `compose.yml`, `Caddyfile`, `env/<env>.env` and `bin/backup` for that exact sha from `raw.githubusercontent.com` (the repo is public). `bin/deploy` itself is installed by `bootstrap-server.sh` (root-owned); changing it means re-running bootstrap.
+- **Extra forced commands:** besides `<sha>` and `rollback`, `snapshot` streams a `VACUUM INTO` copy to stdout. That is what lets the restricted CI key do the prod-shape clone (`clone-prod-sqlite-snapshot.mjs --ssh`) without a general shell.
+- **Auto-rollback:** an unhealthy `deploy <sha>` rolls back to the previous image on its own and exits non-zero; `deploy rollback` is the manual path.
+- **Env files:** `deploy/env/*.env` are generated from the Fly tomls (`pnpm ops:hetzner:render-env`) rather than moved verbatim, so there is a single source of truth and a test guards drift until Phase 7; `DEPLOY_APP_NAME` and a `SIMULATION_METRICS_HOST=0.0.0.0` override (needed to publish the metrics port on host loopback) are added.
+- **Secrets file:** `/etc/border-empires/secrets.env` is `deploy`-owned, mode 600 (not root) because `docker compose` reads the `env_file` as the `deploy` user. `pnpm ops:hetzner:copy-fly-secrets` fills it without printing values.
+- **Data-copy helper:** `pnpm ops:hetzner:migrate-db` automates Phase 3 step 3 / the Phase 4 copy (snapshot → integrity check → scp → install into `/srv/border-empires/data`). For cutover, freeze Fly first (machine restarted with `sleep infinity` so `flyctl ssh` still works).
+- **Verified locally in Docker:** image build, compose `env_file` parsing, container user `10001` writing the volume, `/health`-gated deploy, deploy → deploy → `rollback`, auto-rollback on an unhealthy image, `snapshot` streaming a DB that passes `integrity_check`, `backup` VACUUM INTO + `quick_check`, Caddyfile validation. **Not yet exercised on a real server:** `bootstrap-server.sh`, systemd timer, TLS issuance, rclone→B2, GHCR push/pull, the composite action and the `*_BACKEND` workflow branches.
+
+Not done in this PR (still Phase 2 scope): porting `deploy-staging-all.mjs` / `deploy-staging-fly.mjs` / `deploy-prod-all.mjs` behind the backend switch, the `.claude/settings.json` allowlist change, and the `agent-gameplay-testing.md` clone note. Phase 1 (stable hostnames + client URL defaults) is a separate PR because it needs the DNS/cert steps first.

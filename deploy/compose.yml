@@ -1,0 +1,59 @@
+# One Hetzner server == one environment. Installed to /opt/border-empires by
+# deploy/bin/deploy (config is fetched at the deployed git sha).
+#
+# Compose variables come from /opt/border-empires/.env (written by `deploy`):
+#   IMAGE, BUILD_SHA, BE_ENV (staging|production), BE_HOSTNAME
+# Container env: env/${BE_ENV}.env (non-secret, committed) +
+# /etc/border-empires/secrets.env (secrets, never in git).
+services:
+  app:
+    image: ${IMAGE:?IMAGE is required}
+    init: true
+    restart: unless-stopped
+    # Must match the owner of /srv/border-empires/data (bootstrap-server.sh).
+    user: "10001:10001"
+    env_file:
+      - ./env/${BE_ENV:?BE_ENV is required}.env
+      - /etc/border-empires/secrets.env
+    environment:
+      BUILD_SHA: ${BUILD_SHA:-unknown}
+    volumes:
+      - /srv/border-empires/data:/data
+    ports:
+      # Host-loopback only. 8080: deploy health poll + Caddy-less debugging.
+      # 50052: sim metrics/debug (`ssh -L 50052:127.0.0.1:50052 deploy@host`).
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:50052:50052"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    # Covers the ~12s simulation shutdown.
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      BE_HOSTNAME: ${BE_HOSTNAME:?BE_HOSTNAME is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

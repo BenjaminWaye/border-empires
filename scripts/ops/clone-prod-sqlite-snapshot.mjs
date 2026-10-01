@@ -31,6 +31,8 @@ import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
+import { cloneSnapshotViaSsh } from "./clone-snapshot-ssh.mjs";
+
 const DEFAULT_APP = "border-empires-combined";
 const REMOTE_DB_PATH = "/data/border-empires.db";
 const REMOTE_SNAPSHOT_PATH = "/tmp/border-empires.snapshot.db";
@@ -44,6 +46,8 @@ const parseArgs = (argv) => {
     const token = argv[i];
     if (token === "--app") args.app = argv[++i];
     else if (token === "--dest") args.dest = argv[++i];
+    else if (token === "--ssh") args.ssh = argv[++i];
+    else if (token === "--ssh-opts") args.sshOpts = argv[++i];
     else if (token === "--force") args.force = true;
     else if (token === "--help" || token === "-h") args.help = true;
     else {
@@ -56,7 +60,7 @@ const parseArgs = (argv) => {
 
 const printHelp = () => {
   console.log(
-    `Usage: pnpm ops:prod-shape:clone-snapshot [--app <fly-app>] [--dest <dir>] [--force]\n` +
+    `Usage: pnpm ops:prod-shape:clone-snapshot [--app <fly-app> | --ssh <user@host> [--ssh-opts '<opts>']] [--dest <dir>] [--force]\n` +
       `\nDefault app: ${DEFAULT_APP}\n` +
       `Default dest: ./.prod-shape-clones/<utc-stamp>\n`
   );
@@ -223,8 +227,16 @@ const main = () => {
     printHelp();
     return;
   }
-  const app = args.app ?? DEFAULT_APP;
   const dest = resolve(args.dest ?? `./.prod-shape-clones/${utcStamp()}`);
+  if (args.ssh) {
+    // Hetzner backend: the server's forced command streams the snapshot.
+    cloneSnapshotViaSsh({ host: args.ssh, dest, sshOpts: args.sshOpts ? args.sshOpts.split(" ") : [] }).catch((error) => {
+      console.error(`[clone-snapshot] ${error.message}`);
+      process.exit(1);
+    });
+    return;
+  }
+  const app = args.app ?? DEFAULT_APP;
 
   requireFlyctl();
   const flyUser = requireFlyAuth();

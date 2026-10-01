@@ -12,7 +12,8 @@ remain authoritative for runtime behavior.
 |---|---|
 | Repository-wide operating rules | [`../AGENTS.md`](../AGENTS.md) |
 | Local setup, package layout, CI, and release notes | [`../README.md`](../README.md) |
-| Deploying or using Fly/Vercel | [`agents/deploys.md`](agents/deploys.md) |
+| Deploying or using Fly/Vercel/Hetzner | [`agents/deploys.md`](agents/deploys.md) |
+| Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |
 | Documentation review and upkeep | [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md) |
