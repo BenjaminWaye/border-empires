@@ -43,7 +43,7 @@ Put these in `packages/shared/src/config.ts`, next to the existing
 export const MAX_BARBARIAN_TILES = 100;                 // moved from system-job-barbarian-planner.ts
 export const BARBARIAN_TILE_REST_MS = 15_000;           // rest after an action settles (replaces BARBARIAN_TILE_COOLDOWN_MS)
 export const BARBARIAN_MAX_IDLE_MS = 60_000;            // a seen barb tile must act at least this often ("frozen" = longer)
-export const BARBARIAN_ATTACKS_PER_MINUTE = 12;         // faction-wide attack budget (perf); walks are not budgeted
+export const BARBARIAN_ATTACKS_PER_MINUTE = 12;         // TOTAL attacks started per minute by ALL barb tiles on the whole map (perf budget), not per tile; walks are not budgeted
 export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;    // > COMBAT_LOCK_MS; safety net if no settle event arrives
 export const BARBARIAN_VISION_RECOMPUTE_MS = 1_000;     // floor between seen-set recomputes
 ```
@@ -51,6 +51,13 @@ export const BARBARIAN_VISION_RECOMPUTE_MS = 1_000;     // floor between seen-se
 `BARBARIAN_ACTION_INTERVAL_MS` (config.ts:318) is only referenced by the
 legacy `server-world-runtime-types.ts`. Leave it alone; don't reuse it for the
 rewrite.
+
+**Per tile vs. whole map.** A single tile can attack at most once per ~45s
+(30s fight + 15s rest), so about 1.3 times a minute. The budget of 12/min is
+the **total across every barbarian on the map**. It only matters when about 9
+or more barb tiles are fighting players at the same moment. For example, 3
+barbs touching you each attack about every 45s, which is about 4/min in total,
+well under the budget.
 
 **No fixed concurrency cap.** Each tile is limited by its own rules instead:
 one action in flight per tile, then a 15s rest. So a seen tile's cycle is at
