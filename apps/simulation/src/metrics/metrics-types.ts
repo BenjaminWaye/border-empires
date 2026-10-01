@@ -171,8 +171,6 @@ export type SimulationMetricsSnapshot = {
   simWriterQueueDepth: number;
   /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
   simWriterQueueBackpressureWaitTotal: number;
-  /** Times ensureVisionUnionFresh skipped a recompute due to the min-interval throttle; 0 means it never engaged. */
-  simBarbVisionUnionRecomputeThrottledTotal: number;
   /** Times the tile-shedding tick skipped emitPlayerStateUpdate for an AI player; 0 means the skip never engaged. */
   simPlayerStateUpdateSkippedAiTotal: number;
   /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */

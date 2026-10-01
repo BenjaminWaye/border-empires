@@ -9,7 +9,7 @@
  *   { type: "init"; worldView: PlannerWorldView }
  *   { type: "sync_players"; players: PlannerPlayerView[] }
  *   { type: "tile_deltas"; tileDeltas: SimulationTileDelta[] }
- *   { type: "vision_union"; keys: string[]; version: number }
+ *   { type: "vision_union"; keys: string[] }
  *   { type: "barb_settled"; commandId: string; settledAt: number }
  *   { type: "plan"; playerId: string; clientSeq: number; issuedAt: number;
  *     sessionPrefix: "system-runtime" }

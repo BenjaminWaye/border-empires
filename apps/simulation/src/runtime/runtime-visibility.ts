@@ -27,11 +27,9 @@ import {
 } from "../runtime-visibility-classifier.js";
 import {
   emitVisibilityAudit as emitVisibilityAuditImpl,
-  exportBarbActivationVisibleUnion as exportBarbActivationVisibleUnionImpl,
   exportTilesInAreaForPlayer as exportTilesInAreaForPlayerImpl,
   exportVisibleStateForPlayer as exportVisibleStateForPlayerImpl,
-  exportVisibleStateForPlayerAsync as exportVisibleStateForPlayerAsyncImpl,
-  getBarbActivationVisionSignature as getBarbActivationVisionSignatureImpl
+  exportVisibleStateForPlayerAsync as exportVisibleStateForPlayerAsyncImpl
 } from "../runtime-visible-state.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 
@@ -52,18 +50,6 @@ export function classifyVisibilityForPlayerForRuntime(
   return ctx.trackSyncMainThreadTask
     ? ctx.trackSyncMainThreadTask("classify_visibility_for_player", { playerId }, run)
     : run();
-}
-
-export function getBarbActivationVisionSignatureForRuntime(
-  ctx: Parameters<typeof getBarbActivationVisionSignatureImpl>[0]
-): string {
-  return getBarbActivationVisionSignatureImpl(ctx);
-}
-
-export function exportBarbActivationVisibleUnionForRuntime(
-  ctx: Parameters<typeof exportBarbActivationVisibleUnionImpl>[0]
-): { keys: string[]; signature: string } {
-  return exportBarbActivationVisibleUnionImpl(ctx);
 }
 
 export function emitVisibilityAuditForRuntime(ctx: Parameters<typeof emitVisibilityAuditImpl>[0]): void {

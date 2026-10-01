@@ -379,6 +379,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settings has a new Admin page (admin accounts only) that now holds Reveal Full Map and Photo Mode, moved off the Gameplay page",
       "The Admin page adds a Lighting Tuner: sliders for the sun, sky fill, back fill, shadows, metal reflections and exposure, applied live to the 3D map"
     ]
+  },
+  {
+    createdAt: 1790874861641, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.2",
+    title: "Barbarians no longer stand frozen in front of you",
+    why: "A barbarian one tile off your border could sit still for minutes while another barbarian elsewhere on the map kept attacking, because all barbarians shared a single turn and attacks always went first.",
+    changes: [
+      "Every barbarian you can see now takes its own turns, so one fight elsewhere can't hold the rest back",
+      "A barbarian rests 15 seconds after its action finishes (it used to count from when the attack started, so there was no rest at all after a 30 second fight)",
+      "Barbarians only wake when a player can actually see them, using the same fog of war you do, and when many barbarians want to attack at once the extra ones walk instead of standing still",
+      "At the 100-tile barbarian limit, barbarians in view keep moving and fighting while unseen ones are released, and a win at the limit no longer grows their territory"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

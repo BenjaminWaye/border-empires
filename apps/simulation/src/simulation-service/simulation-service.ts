@@ -1679,13 +1679,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              getBarbActivationVisionSignature: () =>
-                trackSyncMainThreadTaskWithMetrics("system_get_barb_activation_vision_signature", undefined, () =>
-                  runtime.getBarbActivationVisionSignature()
-                ),
-              exportBarbActivationVisibleUnion: () =>
-                trackSyncMainThreadTaskWithMetrics("system_export_barb_activation_visible_union", undefined, () =>
-                  runtime.exportBarbActivationVisibleUnion()
+              exportBarbTilesSeenByAnyPlayer: () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_barb_tiles_seen", undefined, () =>
+                  runtime.exportBarbTilesSeenByAnyPlayer()
                 )
             },
             systemPlayerIds,
@@ -1696,9 +1692,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("system") } : {}),
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
-            },
-            onVisionUnionRecomputeThrottled: () => {
-              simulationMetrics.incrementSimBarbVisionUnionRecomputeThrottled();
             }
           })
         : createSystemCommandProducer({

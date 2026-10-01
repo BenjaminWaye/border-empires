@@ -5,7 +5,8 @@ import {
   MAX_BARBARIAN_TILES
 } from "@border-empires/shared";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
+import type { PlannerTile, PlannerTileLookup } from "./frontier-scoring.js";
+import type { PlannerPlayerView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 export const BARBARIAN_PLAYER_ID = "barbarian-1";
@@ -17,9 +18,13 @@ const NO_COMMAND_RETRY_MS = 2_000;
 const ATTACK_BUDGET_WINDOW_MS = 60_000;
 const STATE_CLEANUP_INTERVAL_MS = 60_000;
 
+/** The slice of a planner player view the barbarian planner reads, so both the
+ *  worker (full views) and the in-process dev path (no views) can drive it. */
+export type BarbarianPlayerRef = Pick<PlannerPlayerView, "id" | "tileCollectionVersion" | "territoryTileKeys">;
+
 export type BarbarianPlannerDeps = {
-  readonly tilesByKey: ReadonlyMap<string, PlannerTileView>;
-  readonly resolveOwnedTiles: (player: PlannerPlayerView) => PlannerTileView[];
+  readonly tilesByKey: PlannerTileLookup;
+  readonly resolveOwnedTiles: (player: BarbarianPlayerRef) => PlannerTile[];
   readonly getDockLinksByDockTileKey: () => ReadonlyMap<string, readonly string[]>;
   /** Set of tile keys currently visible to at least one non-barbarian player.
    *  A barb tile is eligible to plan iff its tile key is in this set. Called
@@ -37,7 +42,7 @@ export type BarbarianPlanner = {
    *  tiles that have waited longest go first, so a fight elsewhere on the map
    *  can never starve a tile that can only walk. */
   readonly choose: (
-    player: PlannerPlayerView,
+    player: BarbarianPlayerRef,
     clientSeq: number,
     issuedAt: number
   ) => CommandEnvelope | null;
@@ -110,7 +115,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     }
   };
 
-  const cleanupState = (t: number, ownedTiles: readonly PlannerTileView[]): void => {
+  const cleanupState = (t: number, ownedTiles: readonly PlannerTile[]): void => {
     if (t - lastCleanupAt < STATE_CLEANUP_INTERVAL_MS) return;
     lastCleanupAt = t;
     const ownedKeys = new Set<string>();
@@ -146,7 +151,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
    *  Prefers tiles no player can see so players don't watch barbarians vanish;
    *  falls back to visible tiles only when `allowSeen` is set. */
   const chooseErosion = (
-    ownedTiles: readonly PlannerTileView[],
+    ownedTiles: readonly PlannerTile[],
     visible: ReadonlySet<string>,
     allowSeen: boolean,
     playerId: string,
@@ -179,7 +184,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
    *  tile's EXPAND (the frontier planner always prefers ATTACK across the whole
    *  owned set it is given). */
   const chooseAction = (
-    ownedTiles: readonly PlannerTileView[],
+    ownedTiles: readonly PlannerTile[],
     visible: ReadonlySet<string>,
     playerId: string,
     clientSeq: number,
@@ -187,7 +192,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
     t: number
   ): CommandEnvelope | null => {
     const busy = busyTileKeys();
-    const eligible: Array<{ tile: PlannerTileView; key: string; lastActed: number }> = [];
+    const eligible: Array<{ tile: PlannerTile; key: string; lastActed: number }> = [];
     for (const tile of ownedTiles) {
       const key = tileKeyOf(tile);
       if (!visible.has(key) || busy.has(key) || isResting(key, t)) continue;
@@ -225,7 +230,7 @@ export const createBarbarianPlanner = (deps: BarbarianPlannerDeps): BarbarianPla
   };
 
   const choose = (
-    player: PlannerPlayerView,
+    player: BarbarianPlayerRef,
     clientSeq: number,
     issuedAt: number
   ): CommandEnvelope | null => {

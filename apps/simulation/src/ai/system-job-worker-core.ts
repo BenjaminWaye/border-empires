@@ -23,7 +23,7 @@ import {
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { BARBARIAN_PLAYER_ID, createBarbarianPlanner } from "./system-job-barbarian-planner.js";
+import { BARBARIAN_PLAYER_ID, createBarbarianPlanner, type BarbarianPlayerRef } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -101,7 +101,7 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     tilesByKey.set(key, next);
   };
 
-  const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
+  const resolveOwnedTiles = (player: BarbarianPlayerRef): PlannerTileView[] => {
     const cached = playerTileCacheById.get(player.id);
     if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
       return cached.ownedTiles;

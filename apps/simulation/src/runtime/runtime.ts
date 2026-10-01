@@ -297,9 +297,8 @@ import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
-import {
-  type BarbActivationVisibilityCache
-} from "../runtime-visible-state.js";
+import { barbTilesSeenByAnyPlayer } from "../runtime-barb-activation-vision.js";
+import { createRuntimeBarbarianBridge, type RuntimeBarbarianBridge } from "../runtime-barbarian-planner-bridge.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
   type RuntimeVisibilityClassification
@@ -321,11 +320,9 @@ import {
 import {
   classifyVisibilityForPlayerForRuntime,
   emitVisibilityAuditForRuntime,
-  exportBarbActivationVisibleUnionForRuntime,
   exportTilesInAreaForPlayerForRuntime,
   exportVisibleStateForPlayerAsyncForRuntime,
   exportVisibleStateForPlayerForRuntime,
-  getBarbActivationVisionSignatureForRuntime,
   settledTilesForPlayerForRuntime,
   type RuntimeClassifyVisibilityContext,
   type RuntimeVisibleStateContext
@@ -551,10 +548,6 @@ export class SimulationRuntime {
   private readonly onboardingMilestones = createOnboardingMilestoneTracker({ now: () => this.now(), players: () => this.state.players, tiles: () => this.state.tiles, territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys, emitEvent: (event) => this.emitEvent(event) });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
-  // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
-  // signature key for getBarbActivationVisionSignature/exportBarbActivationVisibleUnion's
-  // own territory-dilation cache, so unrelated per-tick mutations don't bust it.
-  private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
@@ -862,7 +855,6 @@ export class SimulationRuntime {
   private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
-  private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
     return rememberedAutomationVictoryPathCountsImpl(
@@ -989,7 +981,6 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
-      this.territoryVersionByPlayer.set(playerId, 0);
     }
     // First pass: apply tile summaries and shard-site tracking.
     // All tiles are already in this.state.tiles (createTilesFromInitialState produced a
@@ -1787,7 +1778,6 @@ export class SimulationRuntime {
     const summary = createEmptyPlayerRuntimeSummary();
     this.playerSummaries.set(playerId, summary);
     this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
-    this.territoryVersionByPlayer.set(playerId, 0);
     return summary;
   }
 
@@ -2099,11 +2089,8 @@ export class SimulationRuntime {
     if (!sameOwner) {
       if (previous?.ownerId) this.markPlannerPlayerTopologyTileChanged(previous.ownerId, tileKey);
       if (tile.ownerId) this.markPlannerPlayerTopologyTileChanged(tile.ownerId, tileKey);
-      // Ownership changed → bump the territory version so the barb-activation
-      // signature (getBarbActivationVisionSignature) knows to recompute. Same-owner
-      // mutations (muster, pop growth, income) leave this counter unchanged.
-      if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
-      if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
+      // A tile leaving barbarian ownership by ANY route (walk release, erosion, capture) drops its multiply progress.
+      if (previous?.ownerId?.startsWith("barbarian-") && !tile.ownerId?.startsWith("barbarian-")) this.barbarianTileProgress.delete(tileKey);
     }
     // A FRONTIER tile holds no standing vision (see visibility-coverage-cache.ts's
     // tileOwnershipChanged), so the footprint must also be recomputed on a
@@ -2386,6 +2373,28 @@ export class SimulationRuntime {
       if (tile) result.push(tile);
     }
     return result;
+  }
+
+  // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
+  private barbarianBridge: RuntimeBarbarianBridge | undefined;
+
+  private barbarianBridgeInstance(): RuntimeBarbarianBridge {
+    return this.barbarianBridge ??= createRuntimeBarbarianBridge({
+      tiles: this.state.tiles,
+      dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey,
+      territoryTileKeys: () => this.summaryForPlayer("barbarian-1").territoryTileKeys,
+      tileKeySetToTiles: (keys) => this.tileKeySetToTiles(keys),
+      seenBarbTileKeys: () => this.exportBarbTilesSeenByAnyPlayer(),
+      now: () => this.now()
+    });
+  }
+
+  chooseBarbarianCommand(clientSeq: number, issuedAt: number): CommandEnvelope | undefined {
+    return this.barbarianBridgeInstance().choose(clientSeq, issuedAt);
+  }
+
+  settleBarbarianCommand(commandId: string, settledAt: number): void {
+    this.barbarianBridgeInstance().settle(commandId, settledAt);
   }
 
   chooseNextOwnedFrontierCommand(
@@ -2723,21 +2732,12 @@ export class SimulationRuntime {
     return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
   }
 
-  getBarbActivationVisionSignature(): string {
-    return getBarbActivationVisionSignatureForRuntime({
-      players: this.state.players,
-      tileCollectionVersionForPlayer: (playerId) =>
-        this.territoryVersionByPlayer.get(playerId) ?? 0
-    });
-  }
-
-  exportBarbActivationVisibleUnion(): { keys: string[]; signature: string } {
-    return exportBarbActivationVisibleUnionForRuntime({
-      players: this.state.players,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      tileCollectionVersionForPlayer: (playerId) =>
-        this.territoryVersionByPlayer.get(playerId) ?? 0,
-      cache: this.barbActivationVisibilityCache
+  /** Barbarian tile keys that at least one non-barbarian player can currently see (real fog of war). */
+  exportBarbTilesSeenByAnyPlayer(): string[] {
+    return barbTilesSeenByAnyPlayer({
+      playerIds: () => this.state.players.keys(),
+      territoryTileKeys: (id) => this.summaryForPlayer(id).territoryTileKeys,
+      isVisibleTo: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey)
     });
   }
 

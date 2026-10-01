@@ -1,8 +1,50 @@
 # Barbarian activation and scheduling plan
 
-Status: proposed, not implemented. Target stack: rewrite (`apps/simulation`).
-Delete this file in the PR that lands the last phase (see `docs/README.md`
-lifecycle policy).
+Status: **implemented on this branch (PR #2191)**, pending staging verification.
+Target stack: rewrite (`apps/simulation`). Delete this file once the staging
+checks at the bottom pass (see `docs/README.md` lifecycle policy).
+
+## Implementation status
+
+Built (all with tests, `pnpm ci:local` green):
+
+- **Phase 1** per-tile decisions, in-flight tracking, rest-after-settle, attack
+  budget: `ai/system-job-barbarian-planner.ts`, `ai/barbarian-settle-relay.ts`,
+  `ai/system-job-worker-core.ts` (`barb_settled`), `ai/system-command-producer-worker.ts`.
+- **Phase 2** wake when seen, from the real fog coverage:
+  `runtime-barb-activation-vision.ts`, `runtime.exportBarbTilesSeenByAnyPlayer`.
+  The old signature + union code, the `territoryVersionByPlayer` map (bumped on
+  every ownership change in the game) and the throttle metric were deleted.
+- **Phase 3** cap: planner alternates actions for seen tiles with shedding unseen
+  tiles; `runtime-barbarian-walk.ts` walks instead of multiplying at the cap.
+- **Phase 4** local-dev parity: `runtime-barbarian-planner-bridge.ts` runs the
+  same planner for the non-worker producer.
+- **Phase 5** bounded state: planner maps are pruned; `barbarianTileProgress` is
+  dropped when a tile leaves barbarian ownership by any route (and zero entries
+  are no longer stored).
+- **Phase 6** `docs/game-mechanics.md` and a client changelog entry.
+
+Deliberately **not** done, with reasons:
+
+- **Phase 0 staging baseline and the committed bench file.** The baseline needs
+  staging metrics, which only the deployer can read. The numbers in this plan
+  came from throwaway local benches. Record the baseline before merging.
+- **`idleUntil` skipping of idle plan requests, and the `relevantTileKeys` copy
+  fix.** Small wins that touch more of the worker protocol; measure first. The
+  planner already skips a tile that had no command for 2s, which removes most of
+  the idle analysis cost.
+- **Dock reveals in the seen set.** `VisibilityCoverageTracker` doesn't hold
+  them (the classifier derives them per export). A barb sitting behind a dock
+  link wakes only when it is otherwise visible.
+- **2c "act toward the player who sees it".** The barb worker only receives tile
+  deltas near barb and player territory, so there is nothing reliable to measure
+  distance against; revisit if barbarians still wander off-screen.
+- **Constants:** only the ones the runtime and worker share went into
+  `packages/shared/src/config.ts` (`MAX_BARBARIAN_TILES`,
+  `BARBARIAN_TILE_REST_MS`, `BARBARIAN_ATTACKS_PER_MINUTE`,
+  `BARBARIAN_INFLIGHT_TIMEOUT_MS`). The 60s "frozen" bound is a test invariant
+  (`system-job-barbarian-planner.test.ts`) and the 1s seen-set refresh is local
+  to the producer.
 
 ## Rules we want
 

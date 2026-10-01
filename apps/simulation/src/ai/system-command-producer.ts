@@ -1,10 +1,12 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "../runtime/runtime.js";
+import { BARBARIAN_PLAYER_ID } from "./system-job-barbarian-planner.js";
+import { createBarbSettleRelay } from "./barbarian-settle-relay.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type SystemCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "chooseNextOwnedFrontierCommand" | "queueDepths" | "onEvent">;
+  runtime: Pick<SimulationRuntime, "chooseNextOwnedFrontierCommand" | "chooseBarbarianCommand" | "settleBarbarianCommand" | "queueDepths" | "onEvent">;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -28,10 +30,18 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
     options.systemPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
   const pendingPlayers = new Set<string>();
+  // Barbarians are gated per tile inside the shared barbarian planner (in-flight
+  // + rest + attack budget), not by the one-command-per-player gate below.
+  const barbSettleRelay = createBarbSettleRelay({
+    barbPlayerId: BARBARIAN_PLAYER_ID,
+    postToWorker: (msg) => options.runtime.settleBarbarianCommand(msg.commandId, msg.settledAt),
+    now
+  });
   let tickInFlight = false;
   const shouldRun = options.shouldRun ?? (() => true);
 
   const stopListening = options.runtime.onEvent((event) => {
+    barbSettleRelay.onEvent(event);
     if (!pendingPlayers.has(event.playerId)) return;
     if (event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED") {
       pendingPlayers.delete(event.playerId);
@@ -46,11 +56,15 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
     const tickStartedAt = now();
     try {
       for (const playerId of options.systemPlayerIds) {
-        if (pendingPlayers.has(playerId)) continue;
+        const isBarb = playerId === BARBARIAN_PLAYER_ID;
+        if (!isBarb && pendingPlayers.has(playerId)) continue;
         const nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
-        const command = options.runtime.chooseNextOwnedFrontierCommand(playerId, nextClientSeq, now(), "system-runtime");
+        const command = isBarb
+          ? options.runtime.chooseBarbarianCommand(nextClientSeq, now())
+          : options.runtime.chooseNextOwnedFrontierCommand(playerId, nextClientSeq, now(), "system-runtime");
         if (!command) continue;
-        pendingPlayers.add(playerId);
+        if (isBarb) barbSettleRelay.onSubmitted(command.commandId);
+        else pendingPlayers.add(playerId);
         nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
         try {
           await options.submitCommand(command);

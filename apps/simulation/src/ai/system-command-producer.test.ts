@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createSystemCommandProducer } from "./system-command-producer.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 describe("system command producer", () => {
   it("submits system frontier commands through the durable system lane", async () => {
@@ -98,5 +99,54 @@ describe("system command producer", () => {
     producer.close();
 
     expect(submitCommand).not.toHaveBeenCalled();
+  });
+
+  it("does not hold the barbarian to one command at a time and tells the planner when a command settles", async () => {
+    const listeners: Array<(event: { playerId: string; eventType: string; commandId?: string }) => void> = [];
+    const settled: Array<{ commandId: string; settledAt: number }> = [];
+    let seq = 0;
+    const barbCommand = (): CommandEnvelope => {
+      seq += 1;
+      return {
+        commandId: `barb-${seq}`,
+        sessionId: "system-runtime:barbarian-1",
+        playerId: "barbarian-1",
+        clientSeq: seq,
+        issuedAt: 0,
+        type: "EXPAND",
+        payloadJson: "{}"
+      };
+    };
+    const submitted: string[] = [];
+    let nowMs = 5_000;
+    const producer = createSystemCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: (listener) => {
+          listeners.push(listener as (typeof listeners)[number]);
+          return () => undefined;
+        },
+        chooseNextOwnedFrontierCommand: () => undefined,
+        chooseBarbarianCommand: () => barbCommand(),
+        settleBarbarianCommand: (commandId, settledAt) => {
+          settled.push({ commandId, settledAt });
+        }
+      },
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async (command) => {
+        submitted.push(command.commandId);
+      },
+      now: () => nowMs,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    await producer.tick();
+    expect(submitted).toEqual(["barb-1", "barb-2"]);
+
+    nowMs = 35_000;
+    for (const listener of listeners) listener({ playerId: "barbarian-1", eventType: "COMBAT_RESOLVED", commandId: "barb-1" });
+    expect(settled).toEqual([{ commandId: "barb-1", settledAt: 35_000 }]);
+    producer.close();
   });
 });
