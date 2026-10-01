@@ -1,7 +1,7 @@
-// Settings panel content: a hub of three focused sub-pages (Account,
-// Gameplay, Diagnostics & Support) instead of one flat card. Pure HTML
-// builders only — event binding stays in client-hud.ts alongside the rest of
-// the HUD's bindings, following the same split used by
+// Settings panel content: a hub of focused sub-pages (Account, Gameplay,
+// Diagnostics & Support, plus an Admin page for fog-admin accounts) instead of
+// one flat card. Pure HTML builders only — event binding stays in client-hud.ts
+// alongside the rest of the HUD's bindings, following the same split used by
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
@@ -10,6 +10,7 @@ import { emailNotificationsSettingsPageHtml } from "../client-email-notification
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { autoSettleSettingsFieldHtml } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
+import { lightingTunerCardHtml } from "../client-lighting-tuner/client-lighting-tuner-ui.js";
 import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -30,7 +31,9 @@ export type SettingsPanelState = AuthDebugState &
 // this same card, right under Reveal Full Map: the two are meant to be used
 // together for a clean marketing/border-clash capture (reveal the map, then
 // hide the HUD), and gating photo mode behind the same fog-admin eligibility
-// keeps it out of normal player UI the same way map reveal already is.
+// keeps it out of normal player UI the same way map reveal already is. The
+// card is on the Admin settings page, which the hub only lists for those
+// accounts.
 export const mapRevealCardHtml = (
   state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "photoModeActive">
 ): string => {
@@ -50,22 +53,31 @@ export const mapRevealCardHtml = (
 
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
   { id: "account", title: "Account", desc: "Name and empire colour" },
-  { id: "gameplay", title: "Gameplay", desc: "Ambient sound, map reveal, rally link" },
+  { id: "gameplay", title: "Gameplay", desc: "Ambient sound, rally link" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
-  { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" }
+  { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
+  { id: "admin", title: "Admin", desc: "Map reveal, photo mode, lighting tuner" }
 ];
 
 const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
   account: "Account",
   gameplay: "Gameplay",
   notifications: "Email Notifications",
-  diagnostics: "Diagnostics & Support"
+  diagnostics: "Diagnostics & Support",
+  admin: "Admin"
 };
 
-export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLabel" | "authReady">): string => `
+// Admin is only listed for fog-admin accounts (server-side `canToggleFog`), the
+// same gate map reveal has always had.
+export const settingsAdminAvailable = (state: Pick<ClientState, "mapRevealEligible" | "authSessionReady">): boolean =>
+  mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady });
+
+export const settingsHubHtml = (
+  state: Pick<ClientState, "meName" | "authUserLabel" | "authReady" | "mapRevealEligible" | "authSessionReady">
+): string => `
   <div class="card auth-settings-card settings-hub">
     <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
-    ${SETTINGS_NAV_ITEMS.map(
+    ${SETTINGS_NAV_ITEMS.filter((item) => item.id !== "admin" || settingsAdminAvailable(state)).map(
       (item) => `
       <button type="button" class="settings-nav-item" data-settings-nav="${item.id}">
         <span class="settings-nav-item-title">${item.title}</span>
@@ -108,11 +120,7 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
   `;
 };
 
-export const settingsGameplayPageHtml = (
-  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "authEmail" | "photoModeActive" | "autoSettle">
-): string => {
-  const mapRevealHtml = mapRevealCardHtml(state);
-  return `
+export const settingsGameplayPageHtml = (state: Pick<ClientState, "authSessionReady" | "authEmail" | "autoSettle">): string => `
     <div class="card auth-settings-card">
       ${audioSettingsFieldHtml()}
       ${hintsSettingsFieldHtml(state.authEmail)}
@@ -121,7 +129,15 @@ export const settingsGameplayPageHtml = (
     <div class="card auth-settings-card">${siegeTowerRotationSettingsFieldHtml()}</div>
     <div class="card auth-settings-card">${autoSettleSettingsFieldHtml(state.autoSettle)}</div>
     <div class="card auth-settings-card">${rendererSettingsFieldHtml()}</div>
-    ${mapRevealHtml ? `<div class="card auth-settings-card">${mapRevealHtml}</div>` : ""}
+  `;
+
+export const settingsAdminPageHtml = (
+  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "photoModeActive">
+): string => {
+  if (!settingsAdminAvailable(state)) return `<div class="card auth-settings-card"><p>Admin tools aren't available for this account.</p></div>`;
+  return `
+    <div class="card auth-settings-card">${mapRevealCardHtml(state)}</div>
+    <div class="card auth-settings-card">${lightingTunerCardHtml()}</div>
   `;
 };
 
@@ -145,7 +161,9 @@ export const settingsPanelHtml = (state: SettingsPanelState, wsUrl: string, fire
         ? settingsGameplayPageHtml(state)
         : subPage === "notifications"
           ? settingsNotificationsPageHtml()
-          : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
+          : subPage === "admin"
+            ? settingsAdminPageHtml(state)
+            : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
   return `
     <div class="settings-page-header">
       <button type="button" class="settings-back-btn" data-settings-back aria-label="Back to settings">‹ Back</button>

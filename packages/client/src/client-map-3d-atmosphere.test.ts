@@ -133,3 +133,26 @@ describe("createAtmosphere building-material lighting", () => {
     atmosphere.dispose();
   });
 });
+
+describe("createAtmosphere lighting tuner wiring", () => {
+  it("applies tuned values to the live lights and unsubscribes on dispose", async () => {
+    const { resetLightingSettings, setLightingSetting } = await import("./client-lighting-tuner/client-lighting-tuner-settings.js");
+    vi.stubGlobal("window", { localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined } });
+    resetLightingSettings();
+    const scene = new Scene();
+    const atmosphere = createAtmosphere(scene);
+    expect(atmosphere.sun.intensity).toBeCloseTo(1.55);
+    expect(atmosphere.sun.position.y).toBeCloseTo(42, 6);
+    setLightingSetting("sunIntensity", 0.8);
+    setLightingSetting("hemiIntensity", 0.2);
+    setLightingSetting("sunElevationDeg", 90);
+    expect(atmosphere.sun.intensity).toBe(0.8);
+    expect(atmosphere.hemiLight.intensity).toBe(0.2);
+    expect(atmosphere.sun.position.x).toBeCloseTo(0, 6);
+    atmosphere.dispose();
+    setLightingSetting("sunIntensity", 3);
+    expect(atmosphere.sun.intensity).toBe(0.8);
+    resetLightingSettings();
+    vi.unstubAllGlobals();
+  });
+});
