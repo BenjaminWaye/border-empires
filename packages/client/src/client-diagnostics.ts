@@ -7,6 +7,7 @@ import { rendererFailureSnapshot, webGLProbe } from "./client-webgl-probe/client
 import { resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { previousRendererAttempt, previousSessionEndedUncleanly } from "./client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { MIN_ZOOM } from "./client-constants.js";
+import { reachDiagnosticsFields } from "./client-reach-authoritative/client-reach-diagnostics.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // Snapshot of state useful for triaging a stuck-login report: identity bits
@@ -46,6 +47,8 @@ export const buildDiagnosticsBundle = (
     | "lastSubRadius"
     | "lastSubAt"
     | "recentTileMessages"
+    | "serverReach"
+    | "serverReachRevision"
   >,
   wsUrl: string,
   now: number = Date.now()
@@ -103,7 +106,9 @@ export const buildDiagnosticsBundle = (
       lastSubCy: state.lastSubCy,
       lastSubRadius: state.lastSubRadius,
       lastSubAt: state.lastSubAt,
-      lastSubAgoMs: state.lastSubAt > 0 ? Math.max(0, now - state.lastSubAt) : null
+      lastSubAgoMs: state.lastSubAt > 0 ? Math.max(0, now - state.lastSubAt) : null,
+      // Whether a REACH_UPDATE was ever applied -- see client-reach-diagnostics.ts.
+      ...reachDiagnosticsFields(state)
     },
     // Rolling log of the last ~50 tile/chunk-touching WS messages (see
     // recordRecentTileMessage in client-network.ts). This is the direct

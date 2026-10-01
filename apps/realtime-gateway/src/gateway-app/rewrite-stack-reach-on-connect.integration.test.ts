@@ -160,4 +160,63 @@ describe("rewrite stack reach on connect", () => {
       )
     ).rejects.toThrow(/timed out/);
   });
+
+  /**
+   * Regression guard for a production session that never received any
+   * REACH_UPDATE (diagnostics bundle diag-muo449vu-nv86zk: the client ran
+   * `computeLocalReachSet` for the whole session). The sim pushes reach on the
+   * live SubscribePlayer, but `playerSubscriptions.ensureSubscribed` skips that
+   * RPC entirely when the player already has a socket attached — a second
+   * tab/device, or a reconnect that lands before the gateway has reaped the
+   * previous connection's socket. The PreparePlayer hello only reaches the
+   * older sockets (it fires before the new one is attached), so the new
+   * session got nothing until the border next changed. The gateway now
+   * replays the latest REACH_UPDATE it relayed (reach-update-replay.ts).
+   */
+  it("delivers the reach border to a second session while the player is already subscribed", async () => {
+    const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      defaultHumanPlayerId: "player-1"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const scanForReach = async (socket: Awaited<ReturnType<typeof openSocket>>, label: string): Promise<Record<string, unknown> | undefined> => {
+      for (let frame = 0; frame < 40; frame += 1) {
+        let message: Record<string, unknown>;
+        try {
+          message = await socket.nextJsonMessage(label);
+        } catch {
+          return undefined; // read timeout: the stream went quiet without a REACH_UPDATE
+        }
+        if (message.type === "REACH_UPDATE") return message;
+      }
+      return undefined;
+    };
+
+    const first = await openSocket(`${gatewayAddress.wsUrl}?channel=control`);
+    cleanup.push(() => closeSocket(first.socket));
+    first.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    const firstReach = await scanForReach(first, "first session connect stream");
+    expect(firstReach).toBeDefined();
+
+    // The first socket stays attached, so this login takes ensureSubscribed's
+    // already-subscribed short-circuit and never reaches the sim's live subscribe.
+    const second = await openSocket(`${gatewayAddress.wsUrl}?channel=control`);
+    cleanup.push(() => closeSocket(second.socket));
+    second.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    const secondReach = await scanForReach(second, "second session connect stream");
+
+    expect(secondReach).toBeDefined();
+    expect(secondReach?.tileKeys).toEqual(firstReach?.tileKeys);
+    expect(secondReach?.revision as number).toBeGreaterThanOrEqual(firstReach?.revision as number);
+  }, 30_000);
 });
