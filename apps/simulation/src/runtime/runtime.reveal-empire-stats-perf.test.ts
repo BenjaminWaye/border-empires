@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 /**
  * Perf gate for REVEAL_EMPIRE_STATS.
  *
@@ -38,6 +39,7 @@ const makePlayer = (id: string, isAi = false) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   strategicResources: { CRYSTAL: 1_000 }
 });
 
