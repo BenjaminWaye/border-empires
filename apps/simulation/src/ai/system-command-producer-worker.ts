@@ -14,6 +14,8 @@ import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
 import { mergePlannerTileDelta } from "./planner-tile-delta-merge.js";
 import type { CombinedWorkerChannel } from "./combined-worker-host.js";
+import { BARBARIAN_PLAYER_ID } from "./system-job-barbarian-planner.js";
+import { createBarbSettleRelay } from "./barbarian-settle-relay.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -86,7 +88,15 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   );
   const pendingPlayers = new Set<string>();
   const pendingAddedAtMs = new Map<string, number>();
-  // System producer issues one command per player at a time. If neither
+  // Barbarians are exempt from the one-command-per-player gate below: each barb
+  // tile has its own in-flight/rest tracking in the worker's planner, fed by
+  // this relay with settle events. (postToWorker is assigned later.)
+  const barbSettleRelay = createBarbSettleRelay({
+    barbPlayerId: BARBARIAN_PLAYER_ID,
+    postToWorker: (msg) => postToWorker(msg),
+    now
+  });
+  // System producer issues one command per non-barbarian player at a time. If neither
   // COMBAT_RESOLVED nor COMMAND_REJECTED fires (e.g. EXPAND to neutral
   // territory succeeds silently), the player stays in pendingPlayers forever.
   // A generous timeout (30 s) clears stuck entries without masking real latency.
@@ -188,6 +198,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const runtimeInit = (): void => {
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
+    barbSettleRelay.clear();
     // Force a fresh vision_union push after (re)spawn — the new worker has
     // an empty default and the cached signature must not gate the first send.
     lastSentVisionSignature = null;
@@ -345,6 +356,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   };
 
   const stopListening = options.runtime.onEvent((event) => {
+    barbSettleRelay.onEvent(event);
     if (event.eventType === "TILE_DELTA_BATCH") {
       const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
       queueTileDeltas(tileDeltas);
@@ -436,14 +448,18 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       }
       ensureVisionUnionFresh();
       for (const playerId of options.systemPlayerIds) {
-        if (pendingPlayers.has(playerId)) continue;
+        const isBarb = playerId === BARBARIAN_PLAYER_ID;
+        if (!isBarb && pendingPlayers.has(playerId)) continue;
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
         try {
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           if (!command) continue;
-          pendingPlayers.add(playerId);
-          pendingAddedAtMs.set(playerId, now());
+          if (isBarb) barbSettleRelay.onSubmitted(command.commandId);
+          else {
+            pendingPlayers.add(playerId);
+            pendingAddedAtMs.set(playerId, now());
+          }
           nextClientSeqByPlayer.set(playerId, clientSeq + 1);
           await options.submitCommand(command);
         } catch {

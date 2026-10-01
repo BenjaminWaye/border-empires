@@ -131,11 +131,13 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
   ): CommandEnvelope | null => {
     const player = playersById.get(playerId);
     if (!player) return null;
-    if (player.hasActiveLock) return null;
 
+    // Barbarians are gated per tile inside the planner (in-flight + rest), not
+    // by the faction-wide lock flag — one tile's fight must not freeze the rest.
     if (playerId === BARBARIAN_PLAYER_ID) {
       return barbarianPlanner.choose(player, clientSeq, issuedAt);
     }
+    if (player.hasActiveLock) return null;
 
     const ownedTiles = resolveOwnedTiles(player);
 
@@ -223,6 +225,11 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
         for (const tileDelta of tileDeltas) {
           applyTileDelta(tileDelta);
         }
+        break;
+      }
+
+      case "barb_settled": {
+        barbarianPlanner.settle(message.commandId as string, message.settledAt as number);
         break;
       }
 
