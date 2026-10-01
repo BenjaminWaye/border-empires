@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { rendererKindFor, rendererSwitchUrl, switchRenderer } from "./client-renderer-switch.js";
 import { bindRendererSettingsControls, rendererSettingsFieldHtml } from "./client-renderer-settings-ui.js";
 import { settingsGameplayPageHtml } from "../client-hud/client-hud-settings-panel.js";
@@ -55,7 +56,7 @@ describe("renderer settings field", () => {
       fogDisabled: false,
       authEmail: "",
       photoModeActive: false,
-      autoSettle: undefined
+      autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
     });
     expect(html).toContain("Map Renderer");
     expect(html).toContain("data-renderer-switch");
