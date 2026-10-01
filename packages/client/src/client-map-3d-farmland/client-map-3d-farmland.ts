@@ -13,10 +13,9 @@
 // degrees (stable per world tile) so neighbouring plots don't look alike.
 // The glb loads asynchronously; instances added before it lands are held
 // and applied when it arrives.
-import { BufferAttribute, Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from "three";
-import type { BufferGeometry, Material, Mesh, Scene, Texture } from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from "three";
+import type { BufferGeometry, Material, Scene, Texture } from "three";
+import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
 import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export const FARMLAND_MODEL_URL = "/models/farmland.glb";
@@ -62,45 +61,7 @@ let cached: Promise<LoadedFarmland> | undefined;
  * overlays must not dispose it. */
 export const loadFarmland = (): Promise<LoadedFarmland> => {
   if (!cached) {
-    cached = new Promise<LoadedFarmland>((resolve, reject) => {
-      new GLTFLoader().load(
-        FARMLAND_MODEL_URL,
-        (gltf) => {
-          gltf.scene.updateMatrixWorld(true);
-          const parts: BufferGeometry[] = [];
-          gltf.scene.traverse((node) => {
-            const mesh = node as Mesh;
-            if (!mesh.isMesh) return;
-            const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-            const color = (material as MeshStandardMaterial | undefined)?.color;
-            if (!color) return;
-            // Drop everything but the attributes every part shares, so
-            // mergeGeometries doesn't refuse a mismatched set.
-            const part = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
-            for (const name of Object.keys(part.attributes)) {
-              if (name !== "position" && name !== "normal") part.deleteAttribute(name);
-            }
-            const count = part.getAttribute("position").count;
-            const colors = new Float32Array(count * 3);
-            for (let i = 0; i < count; i += 1) {
-              colors[i * 3] = color.r;
-              colors[i * 3 + 1] = color.g;
-              colors[i * 3 + 2] = color.b;
-            }
-            part.setAttribute("color", new BufferAttribute(colors, 3));
-            parts.push(part.index ? part.toNonIndexed() : part);
-          });
-          const geometry = parts.length > 0 ? mergeGeometries(parts, false) : null;
-          if (!geometry) {
-            reject(new Error("farmland.glb contains no mesh"));
-            return;
-          }
-          resolve({ geometry });
-        },
-        undefined,
-        (err) => reject(err instanceof Error ? err : new Error(String(err)))
-      );
-    });
+    cached = loadMergedGlbGeometry(FARMLAND_MODEL_URL).then((geometry) => ({ geometry }));
   }
   return cached;
 };

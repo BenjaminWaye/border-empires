@@ -1,4 +1,9 @@
 import { createRequire } from "node:module";
+import { once } from "node:events";
+import { Worker } from "node:worker_threads";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { SqliteGatewayPlayerProfileStore } from "./sqlite-player-profile-store.js";
@@ -6,7 +11,7 @@ import { SqliteGatewayPlayerProfileStore } from "./sqlite-player-profile-store.j
 // Vitest's bundler can't resolve `node:sqlite` at static analysis time
 // (Node 22+ builtin), so we pull DatabaseSync via createRequire — runs
 // in the same process but bypasses Vite's module graph.
-type DatabaseSyncCtor = new (path: string) => { exec(sql: string): void };
+type DatabaseSyncCtor = new (path: string) => { exec(sql: string): void; close(): void };
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as {
   DatabaseSync: DatabaseSyncCtor;
 };
@@ -158,5 +163,39 @@ describe("SqliteGatewayPlayerProfileStore", () => {
     const completed = await store.get("guest-1");
     expect(completed).toMatchObject({ name: "House Ashgrove", tileColor: "#654321", profileComplete: true });
     expect(completed?.nameChangedSeasonId).toBeUndefined();
+  });
+
+  it("retries a contended guest profile write without freezing the gateway event loop", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "be-guest-profile-contention-"));
+    const sqlitePath = path.join(dir, "world.db");
+    const db = new DatabaseSync(sqlitePath);
+    db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 100;");
+    const store = new SqliteGatewayPlayerProfileStore(db as ConstructorParameters<typeof SqliteGatewayPlayerProfileStore>[0]);
+    await store.applySchema();
+    const blocker = new Worker(`
+      const { parentPort, workerData } = require("node:worker_threads");
+      const { DatabaseSync } = require("node:sqlite");
+      const db = new DatabaseSync(workerData);
+      db.exec("PRAGMA busy_timeout = 1000; BEGIN IMMEDIATE;");
+      parentPort.postMessage("locked");
+      setTimeout(() => { db.exec("COMMIT"); db.close(); parentPort.postMessage("released"); }, 900);
+    `, { eval: true, workerData: sqlitePath });
+    try {
+      await once(blocker, "message");
+      const startedAt = Date.now();
+      let timerElapsedMs = Number.POSITIVE_INFINITY;
+      const timer = new Promise<void>((resolve) => setTimeout(() => {
+        timerElapsedMs = Date.now() - startedAt;
+        resolve();
+      }, 50));
+      await store.setProfile("guest-1", "House Noname 1", "#123456", undefined, undefined, { profileComplete: false });
+      await timer;
+      expect(timerElapsedMs).toBeLessThan(400);
+      await expect(store.get("guest-1")).resolves.toMatchObject({ name: "House Noname 1" });
+    } finally {
+      await blocker.terminate();
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

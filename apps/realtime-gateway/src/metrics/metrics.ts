@@ -24,6 +24,14 @@ type QuantileSample = {
   p99: number;
 };
 
+export type GatewayActivityCalibrationState = {
+  activityTimelinePayloadBytes: number[];
+  activityTimelineCardCount: number[];
+  activityTimelineTruncatedTotal: number;
+  activityApiPayloadBytes: number[];
+  worldPulsePayloadBytes: number[];
+};
+
 export type GatewaySnapshotMetricSample = {
   trigger: string;
   playerId: string;
@@ -72,6 +80,7 @@ export type GatewayMetricsSnapshot = {
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
   authVerificationRejectedTotal: number;
+  adminIdTokenRejectedTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
@@ -119,6 +128,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
   let authVerificationRejectedTotal = 0;
+  let adminIdTokenRejectedTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
@@ -135,6 +145,26 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     p95: quantile(series, 0.95),
     p99: quantile(series, 0.99)
   });
+
+  const exportActivityCalibrationState = (): GatewayActivityCalibrationState => ({
+    activityTimelinePayloadBytes: [...activityTimelinePayloadBytes],
+    activityTimelineCardCount: [...activityTimelineCardCount],
+    activityTimelineTruncatedTotal,
+    activityApiPayloadBytes: [...activityApiPayloadBytes],
+    worldPulsePayloadBytes: [...worldPulsePayloadBytes]
+  });
+
+  const restoreSeries = (target: number[], restored: readonly number[]): void => {
+    target.splice(0, target.length, ...restored.slice(-limit).map(clampMetric));
+  };
+
+  const restoreActivityCalibrationState = (state: GatewayActivityCalibrationState): void => {
+    restoreSeries(activityTimelinePayloadBytes, state.activityTimelinePayloadBytes);
+    restoreSeries(activityTimelineCardCount, state.activityTimelineCardCount);
+    activityTimelineTruncatedTotal = clampMetric(state.activityTimelineTruncatedTotal);
+    restoreSeries(activityApiPayloadBytes, state.activityApiPayloadBytes);
+    restoreSeries(worldPulsePayloadBytes, state.worldPulsePayloadBytes);
+  };
 
   const snapshot = (): GatewayMetricsSnapshot => ({
     gatewayEventLoopMaxMs,
@@ -169,6 +199,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
     authVerificationRejectedTotal,
+    adminIdTokenRejectedTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
     tileDetailSelfHealTotal,
@@ -266,6 +297,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     incrementAuthVerificationRejectedTotal(count = 1): void {
       authVerificationRejectedTotal += Math.max(0, Math.floor(count));
     },
+    // Bearer tokens presented to a read-only /admin endpoint that were not a
+    // verified ADMIN_EMAIL Google sign-in (admin-firebase-auth.ts).
+    incrementAdminIdTokenRejectedTotal(count = 1): void {
+      adminIdTokenRejectedTotal += Math.max(0, Math.floor(count));
+    },
     incrementSimulationSubmitTimeoutTolerated(count = 1): void {
       simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
     },
@@ -298,6 +334,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     observeWorldPulsePayloadBytes(value: number): void {
       appendSample(worldPulsePayloadBytes, value, limit);
     },
+    exportActivityCalibrationState,
+    restoreActivityCalibrationState,
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
@@ -384,6 +422,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_login_abandoned_before_attach_total ${formatMetricValue(sample.loginAbandonedBeforeAttachTotal)}`,
         "# TYPE gateway_auth_verification_rejected_total counter",
         `gateway_auth_verification_rejected_total ${formatMetricValue(sample.authVerificationRejectedTotal)}`,
+        "# TYPE gateway_admin_id_token_rejected_total counter",
+        `gateway_admin_id_token_rejected_total ${formatMetricValue(sample.adminIdTokenRejectedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",

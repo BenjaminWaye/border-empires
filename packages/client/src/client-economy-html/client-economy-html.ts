@@ -373,8 +373,6 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
   };
 };
 
-const formatCap = (cap: number): string => (cap >= 1000 ? `${(cap / 1000).toFixed(1)}k` : cap.toFixed(0));
-
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
   const icon = args.resourceIconForKey(resource);
   const label = args.prettyToken(resource);
@@ -392,13 +390,12 @@ const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResourc
   </button>`;
   }
   const stock = args.gold;
-  const cap = args.storageCap.GOLD;
   const gross = args.incomePerMinute;
   const upkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
   const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
   return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
     ${head}
-    <div class="economy-summary-stock">${stock.toFixed(1)}<span class="economy-summary-cap"> / ${formatCap(cap)}</span></div>
+    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
     <div class="economy-summary-rates">
       <span>Gross ${(gross * 1440).toFixed(1)}/day</span>
       <span>Upkeep ${(upkeep * 1440).toFixed(1)}/day</span>
@@ -473,12 +470,11 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
           }
           const detail = economyDetailForResource(args, resource);
           const net = resourceNetPerMinute(resource, args.incomePerMinute, args.strategicProductionPerMinute, args.upkeepPerMinute);
-          const cap = args.storageCap.GOLD;
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
                 <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
-                <strong>${args.gold.toFixed(1)} / ${formatCap(cap)} in reserve</strong>
+                <strong>${args.gold.toFixed(1)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
             </div>

@@ -415,6 +415,7 @@ describe("gateway http routes", () => {
           incomePerMinute: 12.5,
           techs: 6,
           manpower: 300,
+          manpowerCap: 500,
           resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 },
           resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 },
           shardStockpile: 2
@@ -429,11 +430,13 @@ describe("gateway http routes", () => {
           incomePerMinute: 2.1,
           techs: 1,
           manpower: 40,
+          manpowerCap: 150,
           resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
           resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
           shardStockpile: 0
         }
       ],
+      getRecentCommands: async () => ({ commands: [] }),
       startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
@@ -456,6 +459,14 @@ describe("gateway http routes", () => {
 
     const queryTokenResponse = await app.inject({ method: "GET", url: "/admin/players?token=secret" });
     expect(queryTokenResponse.statusCode).toBe(200);
+
+    // The AI players table shows manpower against its cap.
+    const aiResponse = await app.inject({ method: "GET", url: "/admin/debug/ai", headers: { authorization: "Bearer secret" } });
+    expect(aiResponse.statusCode).toBe(200);
+    expect(aiResponse.json()).toEqual({
+      ok: true,
+      aiPlayers: [expect.objectContaining({ playerId: "ai-1", manpower: 40, manpowerCap: 150 })]
+    });
 
     await app.close();
   });
