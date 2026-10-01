@@ -456,7 +456,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
     ]
-  },,
+  },
   {
     createdAt: 1790832148785, // frozen Date.now() value for this release
     introducedIn: "2026.10.01.1",

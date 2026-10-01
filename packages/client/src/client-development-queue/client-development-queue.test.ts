@@ -1,3 +1,5 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 import {
@@ -119,6 +121,7 @@ describe("development queue helpers", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
     state.me = "me";
     state.gold = 1_000;
     state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
@@ -147,6 +150,7 @@ describe("development queue helpers", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
     state.me = "me";
     state.gold = 1_000;
     state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
@@ -199,6 +203,7 @@ describe("development queue helpers", () => {
     globalThis.sessionStorage.clear();
     const state = createInitialState();
     state.me = "me";
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
     state.gold = 1_000;
     state.authSessionReady = true;
     state.developmentProcessLimit = 4;
