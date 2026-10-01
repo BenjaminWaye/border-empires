@@ -79,7 +79,7 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 mkdir -p /srv/border-empires/data/backups
 chown 10001:10001 /srv/border-empires/data /srv/border-empires/data/backups
 chmod 750 /srv/border-empires/data /srv/border-empires/data/backups
-install -d -m 755 -o deploy -g deploy /srv/border-empires
+install -d -m 755 -o deploy -g deploy /srv/border-empires /srv/border-empires/backups
 install -d -m 755 -o root -g root /opt/border-empires /opt/border-empires/bin
 install -d -m 755 -o deploy -g deploy /opt/border-empires/env
 install -d -m 750 -o deploy -g deploy /etc/border-empires
