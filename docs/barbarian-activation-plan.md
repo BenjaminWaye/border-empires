@@ -55,6 +55,79 @@ about 10 actions/min across the faction, and each seen tile gets a turn about
 every 45s while it's in view. Raise the concurrency cap rather than shortening
 the rest if that still looks too sleepy on staging.
 
+## Performance budget: net cost must not go up
+
+Hard requirement: the main-thread time the simulation spends on barbarians must
+not increase. These changes add work: more barbarian actions in flight and a
+fresher seen-set. The vision rewrite in Phase 2 removes far more work than that
+adds, so **Phase 2 ships first** and the later phases spend from its savings.
+
+### Measured (local `vitest bench`, 25 players × 1,500 tiles, 100 barb tiles)
+
+| Main-thread work | Per call | How often today | Main-thread ms per minute |
+| --- | --- | --- | --- |
+| `exportBarbActivationVisibleUnion`, cache miss (current) | **~11.3 ms** | every ≤ 3s; the cache misses whenever *any* player's territory changes, which is nearly always | **~225** |
+| `getBarbActivationVisionSignature` (current) | ~0.005 ms | every 500ms tick | ~0.6 |
+| `exportPlannerPlayerViews(["barbarian-1"])`, cached | ~0.006 ms | each barb sync (≤ 2/s) | < 1 |
+| Proposed seen-set (barb tiles × viewers, `VisibilityCoverageTracker.isVisible`) | **~0.09 ms** | every 1s | **~5.5** |
+
+So the current vision check is the dominant barbarian cost, at about 11ms of
+blocked event loop every few seconds. It scans all ~37k non-barb owned tiles
+with string splits on every recompute. The replacement only touches the
+≤ 100 barb tiles and is **~120× cheaper per call**. It runs 3× as often and is
+still about **40× less main-thread time** in total. Staging logged this
+function at 2,879ms in one `event_loop_blocked` capture when barbarian
+territory was 1,283 tiles; the cap keeps it at ≤ 100 tiles now, but the
+non-barb side of the scan still grows with the map.
+
+### Where the new costs come from, and their limits
+
+- **More concurrent actions.** The faction goes from about 2 actions/min to at
+  most about 11/min (8 slots ÷ 45s cycle). Each action is one lock, one
+  resolution, one tile-delta batch and one cached barb view re-sync, the same
+  as a single human attack. This hasn't been measured yet: Phase 0 measures
+  per-action cost. If 9 extra actions/min cost more than the ~220ms/min that
+  Phase 2 saves, lower `BARBARIAN_MAX_CONCURRENT_ACTIONS` until it doesn't.
+- **No new per-tick work.** All per-tick barbarian work stays bounded by
+  `MAX_BARBARIAN_TILES`, never by map or player territory size.
+- **Planner work stays in the worker thread.** Cooldown, in-flight, fairness
+  and erosion selection all run in the worker. The main thread only relays
+  `barb_settled` messages: one tiny `postMessage` per finished action.
+
+### Extra savings to take along the way
+
+- Delete `getBarbActivationVisionSignature` and the
+  `territoryVersionByPlayer` bookkeeping. Every ownership change in the game
+  currently pays to bump that map (`runtime.ts:2103-2106`), only to feed the
+  signature.
+- The producer asks the worker for a plan every 500ms even when nothing can
+  act. Have the worker report `idleUntil` (soonest cooldown expiry, or
+  "until the seen-set changes") with each `null` result. The producer then
+  skips `requestPlan` until that time or until a new `vision_union` or
+  `barb_settled` arrives, which removes most idle round trips.
+- `syncPlayers` rebuilds `relevantTileKeys = new Set(index.keys())` (a full
+  copy) on every barb sync. Use the index's own `keys()` set directly, since it
+  is already a `ReadonlySet`. That saves an O(barb territory × 25) allocation
+  on every barb tile change.
+
+### Phase 0: lock in a baseline (part of the first PR)
+
+1. Commit `apps/simulation/src/runtime-barb-activation-vision.bench.ts` with
+   the scenario above. It benches the old union (cache miss) against the new
+   seen-set, plus one barb `ATTACK` submit→resolve cycle through
+   `SimulationRuntime` to get the per-action cost. Run it with
+   `pnpm --filter @border-empires/simulation bench`.
+2. Before merging the first PR, record staging's 24h p95 for these metrics:
+   - `sim_main_thread_task_ms{phase="system_export_barb_activation_visible_union"}`
+   - `sim_main_thread_task_ms{phase="system_get_barb_activation_vision_signature"}`
+   - `sim_main_thread_task_ms{phase="system_export_planner_player_views"}`
+   - `sim_tick_duration_ms{source="system"}`
+   - event-loop lag and `event_loop_blocked` count
+3. **Gate for every later PR:** the sum of barbarian main-thread time on
+   staging, over the 24h after deploy, must be ≤ the baseline. Event-loop
+   lag p95 must not rise. If a PR misses the gate, revert it or lower the
+   concurrency cap, and don't move on to the next PR.
+
 ---
 
 ## Phase 1: independent tiles, rest after settle (fixes "frozen")
@@ -307,13 +380,14 @@ Required by `docs/agents/state-and-persistence-discipline.md`:
 
 ## Delivery
 
-One PR per phase, in order 1 → 2 → 3, then 4 + 5 + 6 together. Each PR
-branches from `origin/develop`:
+One PR per phase. The **vision rewrite ships first**, because it's the
+performance win the later phases spend. Each PR branches from
+`origin/develop`, and each must pass the Phase 0 gate before the next starts:
 
 | PR | Branch | Contains |
 | --- | --- | --- |
-| 1 | `agent/barb-independent-actions` | Phase 1 + changelog entry |
-| 2 | `agent/barb-wake-when-seen` | Phase 2 |
+| 1 | `agent/barb-wake-when-seen` | Phase 0 (bench + baseline), Phase 2, and the "extra savings" items |
+| 2 | `agent/barb-independent-actions` | Phase 1 + changelog entry |
 | 3 | `agent/barb-cap-no-freeze` | Phase 3 |
 | 4 | `agent/barb-dev-parity-and-state` | Phases 4–6, delete this plan |
 
@@ -323,20 +397,19 @@ before it's opened.
 Client rendering: no new overlays, so the 2D/3D renderer-parity rule doesn't
 apply. Barbarian tiles already stream as ordinary tile deltas.
 
-## Acceptance check on staging (after PR 1 and again after PR 3)
+## Acceptance check on staging (after each PR)
 
 1. Seed barbarians with the ops seed command so that 4+ barb tiles each border
    one test account's territory.
-2. Watch `COMBAT_RESOLVED` events for `barbarian-1`. There should be several
-   overlapping fights, not one every ~31s. No tile should start a new action
+2. After PR 2, watch `COMBAT_RESOLVED` events for `barbarian-1`. There should
+   be several overlapping fights, not one every ~31s. No tile should start a new action
    within 15s of its previous one resolving.
 3. Build an observatory or outpost so its vision covers a barb 3+ tiles away
-   (after PR 2). That barb should act within about 2s of becoming visible.
+   (after PR 1). That barb should act within about 2s of becoming visible.
 4. With ≥ 100 barb tiles (after PR 3), the barbarians you can see keep
    attacking, `barb tiles` trends down, and erosion happens off-screen.
-5. Check `sim_tick_duration_ms{producer="system"}` and the
-   `system_export_barb_tiles_seen` main-thread task time. Neither should
-   regress more than 1ms p95 compared with the day before.
+5. Run the Phase 0 performance gate: barbarian main-thread time is ≤ the
+   baseline, and event-loop lag p95 has not risen.
 
 ## Open questions for the user
 
