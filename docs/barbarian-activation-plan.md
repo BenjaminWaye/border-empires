@@ -25,6 +25,7 @@ lifecycle policy).
 | --- | --- | --- |
 | Wake check | Barb tile eligible iff it's in `exportBarbActivationVisibleUnion`. That is a re-implementation of vision: territory radius (`VISION_RADIUS = 1` × `mods.vision` + tech bonus) plus a +1 ring around settled towns. It **ignores** observatories, light/siege outposts (relay beacon), watchtower reveals, allied vision and dock reveals. It also gives FRONTIER tiles full radius, but in the real fog they only get a 1-tile halo. | `apps/simulation/src/runtime-visible-state.ts:100` |
 | Why it feels like "one tile" | Base player vision is 1 tile, so for a player with no towns, tech or structures, "seen" really does mean adjacent. | `packages/shared/src/config.ts:21` |
+| **Starvation (root cause of "seen but didn't move")** | The planner hands *all* eligible barb tiles to `chooseNextOwnedFrontierCommandFromLookup` at once, and that function returns an `ATTACK` if *any* tile has one before it considers any `EXPAND` (`frontier-command-planner.ts:417-418`). With one faction-wide slot, a barbarian touching any player anywhere on the map wins every pick. Every barbarian that can only walk, like one a tile off your border, never gets a turn until it touches you itself. **Reproduced:** the barb next to the gap expands at 0s, 31s and 62s when it's alone. Add one barbarian fighting elsewhere and the far one attacks 10/10 times while yours never moves. | `ai/system-job-barbarian-planner.ts:101-110` |
 | One action slot | `pendingPlayers` (per **player**) blocks the whole faction until the command settles. The worker also returns `null` while `player.hasActiveLock`. The domain only locks per **tile**, so nothing in the rules requires this. | `ai/system-command-producer-worker.ts:430-445`, `ai/system-job-worker-core.ts:134` |
 | Cooldown start | `until = now + 15s` is set inside `choose()`, at **issue** time. With a 30s combat lock, the cooldown has already expired when the fight ends, so there is effectively no rest between fights. | `ai/system-job-barbarian-planner.ts:117-132` |
 | Cap | At ≥ 100 tiles the planner **only** erodes (`UNCAPTURE_TILE`). It doesn't check vision, and it never attacks or walks, so every barbarian a player is looking at stands still. | `ai/system-job-barbarian-planner.ts:88-90` |
@@ -41,7 +42,8 @@ Put these in `packages/shared/src/config.ts`, next to the existing
 ```ts
 export const MAX_BARBARIAN_TILES = 100;                 // moved from system-job-barbarian-planner.ts
 export const BARBARIAN_TILE_REST_MS = 15_000;           // rest after an action settles (replaces BARBARIAN_TILE_COOLDOWN_MS)
-export const BARBARIAN_MAX_CONCURRENT_ACTIONS = 8;      // faction-wide cap on in-flight barb commands
+export const BARBARIAN_MAX_IDLE_MS = 60_000;            // a seen barb tile must act at least this often ("frozen" = longer)
+export const BARBARIAN_ATTACKS_PER_MINUTE = 12;         // faction-wide attack budget (perf); walks are not budgeted
 export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;    // > COMBAT_LOCK_MS; safety net if no settle event arrives
 export const BARBARIAN_VISION_RECOMPUTE_MS = 1_000;     // floor between seen-set recomputes
 ```
@@ -50,10 +52,17 @@ export const BARBARIAN_VISION_RECOMPUTE_MS = 1_000;     // floor between seen-se
 legacy `server-world-runtime-types.ts`. Leave it alone; don't reuse it for the
 rewrite.
 
-Throughput check for the 100-tile case: 8 slots × (30s fight + 15s rest) means
-about 10 actions/min across the faction, and each seen tile gets a turn about
-every 45s while it's in view. Raise the concurrency cap rather than shortening
-the rest if that still looks too sleepy on staging.
+**No fixed concurrency cap.** Each tile is limited by its own rules instead:
+one action in flight per tile, then a 15s rest. So a seen tile's cycle is at
+most 45s for a fight (30s + 15s) and 22.5s for a walk (7.5s + 15s), both under
+the 60s "frozen" line. The in-flight count is naturally ≤ the number of seen
+barb tiles (≤ 100). The only faction-wide limit is the **attack budget**,
+because attacks are the expensive action (see the performance budget). A seen
+tile that wants to attack while the budget is used up **walks or shuffles
+instead** (expand into a neutral neighbour). It still moves, so it doesn't look
+frozen. The only tile that can still look frozen is one with no neutral
+neighbour at a moment when the budget is spent. That only happens when more
+than 12 barb tiles are touching players at the same moment.
 
 ## Performance budget: net cost must not go up
 
@@ -70,6 +79,15 @@ adds, so **Phase 2 ships first** and the later phases spend from its savings.
 | `getBarbActivationVisionSignature` (current) | ~0.005 ms | every 500ms tick | ~0.6 |
 | `exportPlannerPlayerViews(["barbarian-1"])`, cached | ~0.006 ms | each barb sync (≤ 2/s) | < 1 |
 | Proposed seen-set (barb tiles × viewers, `VisibilityCoverageTracker.isVisible`) | **~0.09 ms** | every 1s | **~5.5** |
+| One barb **attack** on a player (submit + resolve) | **~14.5 ms** | ~2/min today | ~29 today |
+| One barb **walk** (EXPAND into neutral, submit + resolve) | **~0.47 ms** | rare today | ~0 today |
+
+The attack figure is a worst case: the defender in the bench is a solid
+1,521-tile block. About 85% of it is the encirclement flood-fill
+(`computeEncirclementDeltas`, `bfsCap: 2000`). That runs on **every** capture
+in the game, players included, so it's not barbarian waste, but it is what
+makes attacks expensive. Walks don't pay it, because the barbarian's own
+territory is ≤ 100 tiles.
 
 So the current vision check is the dominant barbarian cost, at about 11ms of
 blocked event loop every few seconds. It scans all ~37k non-barb owned tiles
@@ -82,12 +100,21 @@ non-barb side of the scan still grows with the map.
 
 ### Where the new costs come from, and their limits
 
-- **More concurrent actions.** The faction goes from about 2 actions/min to at
-  most about 11/min (8 slots ÷ 45s cycle). Each action is one lock, one
-  resolution, one tile-delta batch and one cached barb view re-sync, the same
-  as a single human attack. This hasn't been measured yet: Phase 0 measures
-  per-action cost. If 9 extra actions/min cost more than the ~220ms/min that
-  Phase 2 saves, lower `BARBARIAN_MAX_CONCURRENT_ACTIONS` until it doesn't.
+- **More actions.** Worst case after all phases, with 100 seen barb tiles all
+  active, measured in main-thread ms/min:
+
+  | | Today | After |
+  | --- | --- | --- |
+  | Vision check | ~225 | ~5.5 |
+  | Attacks | ~29 (2/min) | ≤ ~174 (12/min budget × 14.5) |
+  | Walks | ~0 | ≤ ~50 (≤ 100/min × 0.47) |
+  | Signature | ~0.6 | 0 (deleted) |
+  | **Total** | **~255** | **≤ ~230** |
+
+  The worst case is still below today, and the typical case (a handful of
+  seen barbs) is far below it. `BARBARIAN_ATTACKS_PER_MINUTE` is the dial:
+  every +1 costs about 14.5 ms/min. Raise it only if the Phase 0 gate shows
+  headroom.
 - **No new per-tick work.** All per-tick barbarian work stays bounded by
   `MAX_BARBARIAN_TILES`, never by map or player territory size.
 - **Planner work stays in the worker thread.** Cooldown, in-flight, fairness
@@ -125,8 +152,8 @@ non-barb side of the scan still grows with the map.
    - event-loop lag and `event_loop_blocked` count
 3. **Gate for every later PR:** the sum of barbarian main-thread time on
    staging, over the 24h after deploy, must be ≤ the baseline. Event-loop
-   lag p95 must not rise. If a PR misses the gate, revert it or lower the
-   concurrency cap, and don't move on to the next PR.
+   lag p95 must not rise. If a PR misses the gate, revert it or lower
+   `BARBARIAN_ATTACKS_PER_MINUTE`, and don't move on to the next PR.
 
 ---
 
@@ -141,13 +168,18 @@ File: `apps/simulation/src/ai/system-job-barbarian-planner.ts`
 - In `choose()`:
   1. Prune in-flight entries older than `BARBARIAN_INFLIGHT_TIMEOUT_MS`. Treat
      each one as settled (apply the rest cooldown, step 1b).
-  2. If `inFlightByCommandId.size >= BARBARIAN_MAX_CONCURRENT_ACTIONS`, return
-     `null`.
-  3. Skip tiles that are in `busyTileKeys` or still resting.
-  4. **Fairness:** sort eligible tiles by `lastActedAtByTileKey` ascending
-     (never acted = 0) before calling
-     `chooseNextOwnedFrontierCommandFromLookup`, so the same tile can't win
-     every pick.
+  2. Skip tiles that are in `busyTileKeys` or still resting.
+  3. **Per-tile decisions (fixes starvation).** Sort eligible tiles by
+     `lastActedAtByTileKey` ascending (never acted = 0). Walk that list and,
+     for each tile, call `chooseNextOwnedFrontierCommandFromLookup` with
+     **only that tile** as the owned set. Pass `canAttack: false` when the
+     attack budget (a sliding 60s window of attack issue times, ≤ 12 entries)
+     is spent. Return the first command found. The tile that has waited
+     longest always goes next, and an attack elsewhere can never starve a
+     walker.
+  4. Calling the frontier function per tile is O(neighbours) each, and only
+     until the first hit. The worst case is ≤ 100 small calls in the worker
+     thread, never on the main thread.
   5. On a command, record it in `inFlightByCommandId` and **do not** set a
      cooldown yet. Parse `fromX/fromY/toX/toY` the same way as today. For
      `UNCAPTURE_TILE`, use `x/y` as both from and to.
@@ -166,7 +198,7 @@ File: `apps/simulation/src/ai/system-job-barbarian-planner.ts`
   `ai/system-job-worker.ts`.
 - `ai/system-command-producer-worker.ts`:
   - For `BARBARIAN_PLAYER_ID`, don't add to `pendingPlayers`. The worker's
-    in-flight cap is the gate. Other system players keep today's behaviour.
+    per-tile in-flight tracking is the gate. Other system players keep today's behaviour.
   - In the `onEvent` listener, when `event.playerId === BARBARIAN_PLAYER_ID`
     and the event is `COMBAT_RESOLVED`, `COMMAND_REJECTED` or
     `TILE_DELTA_BATCH` with a `commandId` the producer submitted, post
@@ -188,16 +220,22 @@ File: `apps/simulation/src/ai/system-job-barbarian-planner.ts`
 - Four seen barb tiles, each next to a human tile, on a fake clock: four
   commands are issued in four consecutive `choose()` calls with no settle in
   between. Today this fails at the second call.
-- Cap: with `BARBARIAN_MAX_CONCURRENT_ACTIONS` in flight, `choose()` returns
-  `null`; after one `settle`, it returns a command.
+- **Starvation regression (the bug you saw):** barb A is adjacent to a player
+  elsewhere, and barb B is seen with only neutral neighbours. B must be chosen
+  within its first two `choose()` calls. Today B is never chosen; this is the
+  scratch repro above, turned into a test.
+- Idle bound: with 100 seen tiles on a fake clock, every tile issues a command
+  at least once per `BARBARIAN_MAX_IDLE_MS`.
+- Attack budget: once 12 attacks have been issued inside 60s, the next
+  adjacent tile issues an `EXPAND` (walk), not an `ATTACK`.
 - Rest starts at settle: issue at t=0, settle at t=30s. The tile is not
   eligible at t=44.9s and is eligible at t=45s. Today it is eligible at t=15s.
 - Busy tiles: a tile that is the `to` of an in-flight command is never chosen
   as a source.
 - Timeout: an entry with no settle is pruned after 45s, and the tile rests 15s
   from the prune.
-- Fairness: with two eligible tiles and one slot, the tile that acted less
-  recently is picked.
+- Fairness: with two eligible tiles, the tile that acted less recently is
+  picked.
 
 `ai/system-command-producer-worker.test.ts` (or a new
 `barbarian-settle-relay.test.ts`): a `COMBAT_RESOLVED` for a submitted barb
@@ -295,8 +333,8 @@ At `ownedTiles.length >= MAX_BARBARIAN_TILES`:
   `UNCAPTURE_TILE` per plan call. Choose the target from **unseen** tiles
   first, preferring tiles farthest from any seen tile, so players don't watch
   barbarians vanish. Fall back to a seen tile only if every tile is seen.
-- Erosion and actions share the concurrency cap, and erosion uses the same
-  in-flight/settle path. `UNCAPTURE_TILE` settles on its `TILE_DELTA_BATCH`.
+- Erosion uses the same in-flight/settle path. It is cheap (no combat) and is
+  not counted in the attack budget. `UNCAPTURE_TILE` settles on its `TILE_DELTA_BATCH`.
 
 ### 3b. Runtime (`runtime-barbarian-walk.ts`)
 
@@ -349,8 +387,8 @@ Required by `docs/agents/state-and-persistence-discipline.md`:
 - Planner: at the top of `choose()`, every `CLEANUP_INTERVAL` (e.g. 60s of
   fake/real clock), drop `cooldownByTileKey` / `lastActedAtByTileKey` entries
   that are expired **and** not in the current owned-tile set.
-  `inFlightByCommandId` is already bounded by the concurrency cap and the
-  timeout.
+  `inFlightByCommandId` is already bounded by one entry per barb tile (≤ 100)
+  and the timeout.
 - Runtime: when a tile leaves `barbarian-1` ownership by any route (uncapture,
   admin clear, season reset), delete its `barbarianTileProgress` entry. Hook
   this at the ownership-change choke point next to `runtime.ts:2103`, not at
@@ -365,7 +403,7 @@ Required by `docs/agents/state-and-persistence-discipline.md`:
 ## Phase 6: docs and changelog
 
 - `docs/game-mechanics.md` §2 barbarian bullets: replace "adjacent to a
-  non-barb owner" with the wake-when-seen rule, the concurrency cap, rest after
+  non-barb owner" with the wake-when-seen rule, the 60s idle bound, the attack budget, rest after
   settle and cap behaviour. Fix the threshold (5) and replace the stale
   `file:line` refs with file names only.
 - Fix the planner's top-of-file comment, which claims barbarians act
@@ -402,7 +440,9 @@ apply. Barbarian tiles already stream as ordinary tile deltas.
 1. Seed barbarians with the ops seed command so that 4+ barb tiles each border
    one test account's territory.
 2. After PR 2, watch `COMBAT_RESOLVED` events for `barbarian-1`. There should
-   be several overlapping fights, not one every ~31s. No tile should start a new action
+   be several overlapping fights, not one every ~31s. A barbarian one tile off
+   your border should walk within 60s, even while other barbarians are
+   fighting elsewhere. No tile should start a new action
    within 15s of its previous one resolving.
 3. Build an observatory or outpost so its vision covers a barb 3+ tiles away
    (after PR 1). That barb should act within about 2s of becoming visible.
@@ -411,13 +451,17 @@ apply. Barbarian tiles already stream as ordinary tile deltas.
 5. Run the Phase 0 performance gate: barbarian main-thread time is ≤ the
    baseline, and event-loop lag p95 has not risen.
 
-## Open questions for the user
+## Decisions (from the user)
 
-- **How far is "seen"?** This plan uses the player's real fog. With base vision
-  (radius 1) that is still only adjacent tiles, until the player has towns,
-  vision tech or structures. If you want barbarians to notice players
-  *farther* than players can see them, add `BARBARIAN_AWARENESS_RADIUS` (wake
-  if any non-barb tile is within N tiles) on top of the seen set. That's about
-  20 lines in `computeBarbTilesSeenByAnyPlayer`.
-- **Concurrency cap value:** 8 is a guess sized for the 100-tile case. Lower it
-  if staging CPU suffers.
+- **"Frozen" means a seen barbarian standing still for more than 60s.** That is
+  `BARBARIAN_MAX_IDLE_MS`, and the Phase 1 idle-bound test enforces it.
+- **"Seen" means the player's real fog of war.** The user's report (a barb one
+  tile off their border, visible, not moving until they touched it) is the
+  starvation bug, not a fog-freshness problem. That barb was eligible, but it
+  never won the single slot against barbarians attacking elsewhere. Phase 1
+  fixes it. Phase 2 additionally fixes the vision sources the old union
+  ignored. A separate "barbarians notice you from farther than you can see
+  them" radius is **not** planned.
+- **No fixed concurrency cap.** It's replaced by per-tile limits plus the attack
+  budget (see Tunables), sized so the worst case stays below today's
+  barbarian main-thread cost.
