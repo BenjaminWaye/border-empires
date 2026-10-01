@@ -577,7 +577,10 @@ deliberately no decay for simply being offline.
 2. **The meta loop only rewards winners**
    (`docs/galactic-campaign-design.md` §20).
 3. **Empire integrity** is live but inert in practice, because its input
-   metric parks near 50% for almost everyone (expansion brief §7).
+   metric parks near 50% for almost everyone (expansion brief §7). New
+   empires get a grace period: integrity stays at 90%+ until 50 settled tiles,
+   then the floor fades out by 100 tiles (`INTEGRITY_GRACE_*` in
+   `packages/shared/src/config.ts`).
 4. **Onboarding teaches the wrong growth verb.** The checklist and guide
    frame Expand To as how you grow ("Tap a neutral tile next to your border to
    claim it… Settle it"). In the live game, beacons and town/dock anchors move
