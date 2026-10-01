@@ -2376,10 +2376,10 @@ export class SimulationRuntime {
   }
 
   // In-process barbarian planner for the non-worker system producer (local dev/tests); same rules as the worker.
-  private barbarianBridge: RuntimeBarbarianBridge | undefined;
+  private barbarianBridgeCache: RuntimeBarbarianBridge | undefined;
 
-  private barbarianBridgeInstance(): RuntimeBarbarianBridge {
-    return this.barbarianBridge ??= createRuntimeBarbarianBridge({
+  barbarianBridge(): RuntimeBarbarianBridge {
+    return this.barbarianBridgeCache ??= createRuntimeBarbarianBridge({
       tiles: this.state.tiles,
       dockLinksByDockTileKey: () => this.state.dockLinksByDockTileKey,
       territoryTileKeys: () => this.summaryForPlayer("barbarian-1").territoryTileKeys,
@@ -2387,14 +2387,6 @@ export class SimulationRuntime {
       seenBarbTileKeys: () => this.exportBarbTilesSeenByAnyPlayer(),
       now: () => this.now()
     });
-  }
-
-  chooseBarbarianCommand(clientSeq: number, issuedAt: number): CommandEnvelope | undefined {
-    return this.barbarianBridgeInstance().choose(clientSeq, issuedAt);
-  }
-
-  settleBarbarianCommand(commandId: string, settledAt: number): void {
-    this.barbarianBridgeInstance().settle(commandId, settledAt);
   }
 
   chooseNextOwnedFrontierCommand(
@@ -2709,12 +2701,8 @@ export class SimulationRuntime {
     return leaderboardPlayersForRuntime(this.exportContext());
   }
 
-  // Shared context builder for the visibility-surface free functions in
-  // runtime-visibility.ts, mirroring townNetworkContext()'s pattern (Stage
-  // 4) and exportContext()'s pattern above (Stage 5a). visibilityCoverage
-  // and barbActivationVisibilityCache stay owned by SimulationRuntime and
-  // are threaded in by reference — see runtime-visibility.ts's header
-  // comment for why ownership must not move.
+  // Shared context builder for the visibility-surface free functions in runtime-visibility.ts; visibilityCoverage stays
+  // owned by SimulationRuntime and is threaded in by reference (see runtime-visibility.ts's header for why).
   private classifyVisibilityContext(): RuntimeClassifyVisibilityContext {
     return {
       players: this.state.players,
@@ -2730,6 +2718,11 @@ export class SimulationRuntime {
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
     return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
+  }
+
+  /** Sizes of growable barbarian state, for gauges (docs/agents/state-and-persistence-discipline.md). */
+  barbarianStateSizes(): { tiles: number; progressEntries: number } {
+    return { tiles: this.summaryForPlayer("barbarian-1").territoryTileKeys.size, progressEntries: this.barbarianTileProgress.size };
   }
 
   /** Barbarian tile keys that at least one non-barbarian player can currently see (real fog of war). */

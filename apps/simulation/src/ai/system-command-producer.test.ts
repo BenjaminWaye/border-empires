@@ -127,10 +127,12 @@ describe("system command producer", () => {
           return () => undefined;
         },
         chooseNextOwnedFrontierCommand: () => undefined,
-        chooseBarbarianCommand: () => barbCommand(),
-        settleBarbarianCommand: (commandId, settledAt) => {
-          settled.push({ commandId, settledAt });
-        }
+        barbarianBridge: () => ({
+          choose: () => barbCommand(),
+          settle: (commandId, settledAt) => {
+            settled.push({ commandId, settledAt });
+          }
+        })
       },
       systemPlayerIds: ["barbarian-1"],
       submitCommand: async (command) => {

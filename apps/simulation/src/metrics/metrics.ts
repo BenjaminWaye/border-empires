@@ -97,6 +97,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // per-player O(territory) planner sync cost — the key scale signal to correlate against event-loop lag).
   let simOwnedTilesTotal = 0;
   let simMaxEmpireTiles = 0;
+  let simBarbarianTiles = 0;
+  let simBarbarianTileProgressEntries = 0;
   // Boot-time manpowerCapSnapshot corrections — a recovered player whose
   // persisted manpowerCapSnapshot disagreed with what boot hydration
   // computed once tiles were fully loaded (see the applyManpowerRegen loop
@@ -152,6 +154,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simEventLoopMaxMs,
     simOwnedTilesTotal,
     simMaxEmpireTiles,
+    simBarbarianTiles,
+    simBarbarianTileProgressEntries,
     simManpowerCapBootstrapRestampedTotal,
     ...activityLogMetrics.snapshot(),
     ...runtimeCounters.snapshot(),
@@ -262,6 +266,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     setSimMaxEmpireTiles(value: number): void {
       simMaxEmpireTiles = clampMetric(value);
+    },
+    setSimBarbarianState(value: { tiles: number; progressEntries: number }): void {
+      simBarbarianTiles = clampMetric(value.tiles);
+      simBarbarianTileProgressEntries = clampMetric(value.progressEntries);
     },
     setSimManpowerCapBootstrapRestampedTotal(value: number): void {
       simManpowerCapBootstrapRestampedTotal = clampMetric(value);

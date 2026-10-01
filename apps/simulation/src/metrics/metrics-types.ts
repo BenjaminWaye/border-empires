@@ -139,6 +139,9 @@ export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;
+  /** Barbarian tiles (capped at MAX_BARBARIAN_TILES) and the size of the multiply-progress map; the latter must track the former. */
+  simBarbarianTiles: number;
+  simBarbarianTileProgressEntries: number;
   simManpowerCapBootstrapRestampedTotal: number;
   simTerritoryFlipLogEntries: number;
   simCombatManpowerLogEntries: number;

@@ -8,9 +8,9 @@
 //
 // HIGHER RISK than the sibling runtime-export.ts: this is the client-facing
 // wire surface that decides exactly which tiles/state each player is sent
-// (exportVisibleStateForPlayer and friends). The visibilityCoverage and
-// barbActivationVisibilityCache Maps stay owned (as `this.*` fields) by
-// SimulationRuntime and are threaded in via the context — they are
+// (exportVisibleStateForPlayer and friends). The visibilityCoverage
+// Map stays owned (as a `this.*` field) by
+// SimulationRuntime and is threaded in via the context — they are
 // invalidated from many other call sites in runtime.ts, so ownership must
 // not move here, exactly like Stage 4's caution around
 // townNetworkCacheByPlayer.

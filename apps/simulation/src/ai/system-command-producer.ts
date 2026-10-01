@@ -6,7 +6,7 @@ import { createBarbSettleRelay } from "./barbarian-settle-relay.js";
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type SystemCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "chooseNextOwnedFrontierCommand" | "chooseBarbarianCommand" | "settleBarbarianCommand" | "queueDepths" | "onEvent">;
+  runtime: Pick<SimulationRuntime, "chooseNextOwnedFrontierCommand" | "barbarianBridge" | "queueDepths" | "onEvent">;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -34,7 +34,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
   // + rest + attack budget), not by the one-command-per-player gate below.
   const barbSettleRelay = createBarbSettleRelay({
     barbPlayerId: BARBARIAN_PLAYER_ID,
-    postToWorker: (msg) => options.runtime.settleBarbarianCommand(msg.commandId, msg.settledAt),
+    postToWorker: (msg) => options.runtime.barbarianBridge().settle(msg.commandId, msg.settledAt),
     now
   });
   let tickInFlight = false;
@@ -60,7 +60,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
         if (!isBarb && pendingPlayers.has(playerId)) continue;
         const nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const command = isBarb
-          ? options.runtime.chooseBarbarianCommand(nextClientSeq, now())
+          ? options.runtime.barbarianBridge().choose(nextClientSeq, now())
           : options.runtime.chooseNextOwnedFrontierCommand(playerId, nextClientSeq, now(), "system-runtime");
         if (!command) continue;
         if (isBarb) barbSettleRelay.onSubmitted(command.commandId);

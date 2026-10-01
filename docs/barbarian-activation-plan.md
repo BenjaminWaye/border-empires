@@ -21,18 +21,28 @@ Built (all with tests, `pnpm ci:local` green):
   same planner for the non-worker producer.
 - **Phase 5** bounded state: planner maps are pruned; `barbarianTileProgress` is
   dropped when a tile leaves barbarian ownership by any route (and zero entries
-  are no longer stored).
+  are no longer stored). Gauges `sim_barbarian_tiles` and
+  `sim_barbarian_tile_progress_entries` (main thread). The worker-side planner
+  maps are bounded by the barbarian's territory, which the first gauge shows.
+- **Phase 0** `runtime-barb-activation-vision.bench.ts` (`pnpm --filter
+  @border-empires/simulation bench`): seen set ~0.12ms mean, one planner
+  `choose()` with all 100 tiles seen ~0.36ms (worker thread).
+- Also taken from "extra savings": `relevantTileKeys` is no longer copied on
+  every barbarian sync.
 - **Phase 6** `docs/game-mechanics.md` and a client changelog entry.
 
 Deliberately **not** done, with reasons:
 
-- **Phase 0 staging baseline and the committed bench file.** The baseline needs
-  staging metrics, which only the deployer can read. The numbers in this plan
-  came from throwaway local benches. Record the baseline before merging.
-- **`idleUntil` skipping of idle plan requests, and the `relevantTileKeys` copy
-  fix.** Small wins that touch more of the worker protocol; measure first. The
-  planner already skips a tile that had no command for 2s, which removes most of
-  the idle analysis cost.
+- **Phase 0 staging baseline.** It needs staging metrics, which only the
+  deployer can read. Record the 24h p95s listed above before or right after
+  merging, and compare after the next deploy. The cost numbers in this plan are
+  from local benches.
+- **`idleUntil` skipping of idle plan requests.** It would change the worker
+  protocol for a small win: the planner already skips a tile that had no
+  command for 2s, so an idle plan call costs well under a millisecond on the
+  worker thread.
+- **Worker-side map gauges.** Would need a new worker->main metrics message;
+  the barbarian tile gauge covers what drives their size.
 - **Dock reveals in the seen set.** `VisibilityCoverageTracker` doesn't hold
   them (the classifier derives them per export). A barb sitting behind a dock
   link wakes only when it is otherwise visible.

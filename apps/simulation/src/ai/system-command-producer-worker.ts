@@ -74,7 +74,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const systemPlayerIdSet = new Set(options.systemPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
-  let relevantTileKeys = new Set<string>();
+  let relevantTileKeys: ReadonlySet<string> = new Set<string>();
   let nextPeriodicPlayerSyncIndex = 0;
 
   const nextClientSeqByPlayer = new Map<string, number>(
@@ -197,7 +197,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
     relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys(); // live read-only view; no per-sync copy
     postToWorker({
       type: "init",
       worldView
@@ -286,7 +286,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
     for (const player of players) plannerPlayersById.set(player.id, player);
     relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys(); // live read-only view; no per-sync copy
     postToWorker({
       type: "sync_players",
       players
