@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { GATEWAY_SQLITE_BUSY_TIMEOUT_MS } from "./sqlite-busy-retry.js";
 
 export type SqliteDatabase = DatabaseSync;
 
@@ -29,4 +30,11 @@ export const closeSqliteDatabase = (): void => {
     sharedDb = undefined;
     sharedDbPath = undefined;
   }
+};
+
+// Schema setup runs before the gateway accepts traffic and can wait for the
+// simulation's DB lock. Runtime queries cannot: DatabaseSync blocks the
+// gateway's event loop, so switch to brief waits plus async retries at boot.
+export const setRuntimeSqliteBusyTimeout = (): void => {
+  sharedDb?.exec(`PRAGMA busy_timeout = ${GATEWAY_SQLITE_BUSY_TIMEOUT_MS};`);
 };

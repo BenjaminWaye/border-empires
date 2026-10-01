@@ -23,12 +23,12 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates over time from an empire-wide pool sized by town population tier; a depleted empire cannot afford sustained expansion or warfare.
-- **Gold** is narrow and tech-focused: it funds research, a handful of abilities that still carry a gold cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying gold to instantly finish an in-progress manpower-gated build or settle. Passive gold income comes from settled tiles, scaled by town tier and structure modifiers.
+- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or settle. Passive coin income comes from settled tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
-- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a gold cost.
-- **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a gold upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
-- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, gold income pauses until support recovers. Coastal Town is a separate stackable modifier that improves gold and manpower while coastal geography constrains its support space.
+- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
+- **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
+- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
 
 ### Territory and Combat
 
@@ -49,7 +49,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Tech and Research
 
-- One active research at a time, costing gold + strategic resources + time.
+- One active research at a time, costing coin + strategic resources + time.
 - The tech tree is a DAG; contents can vary per season (seasonal tech config).
 - Techs unlock structures, grant stat multipliers (attack, defense, income, vision), or grant ability access.
 
@@ -74,7 +74,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 | Path | Condition |
 |---|---|
 | Town Control | Own ≥50% of all towns |
-| Economic Hegemony | Lead world income/min by ≥33% and clear an absolute income floor (scaled to the current gold economy, not a fixed number) |
+| Economic Hegemony | Lead world income/min by ≥33% and clear an absolute income floor (scaled to the current coin economy, not a fixed number) |
 | Resource Monopoly | Own ≥80% of tiles of one resource type |
 | Maritime Supremacy | Own ≥55% of world docks (min 3) |
 | Diplomatic Dominance | Your alliance bloc owns ≥66% of claimable land; you are its largest member |
@@ -217,7 +217,7 @@ project. Match it.
 
 ## CI and branch flow
 
-`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging and `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
+`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging, checks the gateway and WebSocket for ten minutes, verifies a real anonymous guest reaches INIT, then publishes the client; `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
 
 Run the same gate locally from a clean worktree before opening a PR:
 
@@ -295,6 +295,7 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
 | `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `480` | Defer checkpoint above this heap |
 | `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). |
+| `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
 
 See `.env.example` for a copyable local-dev template of these.
@@ -310,6 +311,19 @@ STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-prob
 ```
 
 Runs 12 real WebSocket auth attempts against `wss://border-empires-combined-staging.fly.dev/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
+
+**Login experience probe** (what the player sees from sign-in to map-ready, in real Chromium):
+
+```bash
+# 1. Local rewrite stack with a grown world and the localhost dev-auth bypass:
+SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 SIMULATION_SEED_PROFILE=season-20ai \
+SIMULATION_ENABLE_AI_AUTOPILOT=1 SIMULATION_AI_TICK_MS=25 \
+GATEWAY_DEFAULT_HUMAN_PLAYER_ID=probe-human pnpm dev
+# 2. Once the AIs have expanded for a few minutes, log in as one (phone-like 4x CPU throttle):
+pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/login-probe
+```
+
+Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
 
 **Env drift check** (staging Fly secrets vs. checked-in toml):
 

@@ -79,7 +79,7 @@ export const registerRallyLinkRoutes = (app: FastifyInstance, deps: RegisterGate
       : 5;
     const note = typeof body.note === "string" && body.note.trim().length > 0 ? body.note.trim().slice(0, 120) : undefined;
 
-    await deps.preparePlayer(identity.playerId);
+    await deps.preparePlayer(identity.playerId, { isGuest: identity.isGuest === true });
     const anchor = await activeOwnerAnchor(identity.playerId);
     if (!anchor) {
       reply.code(409);
@@ -126,6 +126,24 @@ export const registerRallyLinkRoutes = (app: FastifyInstance, deps: RegisterGate
       return { ok: false, error: "rally link not found" };
     }
     return view;
+  });
+
+  // Read-only, CDN-cacheable data for the link-preview crawler page (the Vercel /r/:code function). It reads
+  // only the stored link row: unlike GET /rally/links/:code it must never touch subscribePlayer or season
+  // state, so a burst of link unfurls cannot cost the simulation anything.
+  app.get("/rally/preview/:code", async (request, reply) => {
+    if (!deps.rallyLinkStore) {
+      reply.code(503);
+      return { ok: false, error: "rally links are unavailable" };
+    }
+    const code = (request.params as { code?: string }).code ?? "";
+    const link = await deps.rallyLinkStore.get(code);
+    if (!link || !rallyLinkIsActive(link, Date.now())) {
+      reply.code(404).header("cache-control", "public, max-age=30");
+      return { ok: false, error: "rally link not found" };
+    }
+    reply.header("cache-control", "public, max-age=30, s-maxage=60");
+    return { ok: true, ownerName: link.ownerName };
   });
 
   app.delete("/rally/links/:code", async (request, reply) => {

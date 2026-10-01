@@ -47,7 +47,7 @@ export type LegacySpawnPlacementInput = {
   hasNearbyFood?: (x: number, y: number, radius: number) => boolean;
 };
 
-const RALLY_SPAWN_RADIUS = 24;
+export const RALLY_SPAWN_RADIUS = 24;
 
 // Keeps a fresh spawn from landing right next to a town it could walk into
 // and settle within the first few turns — a player should have to travel to

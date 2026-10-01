@@ -61,6 +61,21 @@ export const rallyLinkEndpoint = (
   return code ? `${base}/${encodeURIComponent(code)}` : base;
 };
 
+// The share URL is built from the page the link was minted on, not taken
+// from the server's `url`: the gateway's PLAY_ORIGIN defaults to production,
+// so a link minted on staging used to point at play.borderempires.com, whose
+// rally API has never heard of the code -- the guest got "expired or no
+// longer available" for a link created seconds earlier. This page's origin
+// always resolves (via rallyApiOrigin) to the same backend that minted it.
+export const rallyShareUrl = (
+  link: Pick<RallyLinkView, "code" | "url">,
+  locationLike: Pick<Location, "origin"> | undefined = typeof window !== "undefined" ? window.location : undefined
+): string => {
+  const origin = normalizedOrigin(locationLike?.origin);
+  if (!origin || origin === "null") return link.url;
+  return `${origin}/r/${encodeURIComponent(link.code)}`;
+};
+
 const formatExpiry = (expiresAt: number): string => {
   if (!Number.isFinite(expiresAt)) return "";
   const date = new Date(expiresAt);
@@ -156,7 +171,7 @@ const openRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void =
         return;
       }
       minted = true;
-      input.value = body.url;
+      input.value = rallyShareUrl(body);
       output.hidden = false;
       status.textContent = `Share this link. ${body.usesRemaining} joins remaining.`;
     } finally {
@@ -241,7 +256,7 @@ const mountRallyInviteBanner = (deps: { firebaseAuth?: Auth; wsUrl: string }, co
       }
       const expiry = formatExpiry(body.expiresAt);
       status.textContent =
-        `${body.ownerName} invited you to a rally -- sign in to spawn right next to them. ` +
+        `${body.ownerName} invited you to a rally -- play now or sign in to spawn right next to them. ` +
         `${body.usesRemaining} joins remaining${expiry ? `, ${expiry}` : ""}.`;
       renderAuthStatus();
     })

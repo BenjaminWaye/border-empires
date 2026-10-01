@@ -21,6 +21,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
@@ -47,7 +48,6 @@ import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/cli
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
-import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -60,7 +60,8 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
+import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -194,7 +195,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             name?: unknown;
             tier?: unknown;
             rootId?: unknown;
-            requires?: unknown;
             prereqIds?: unknown;
             requirements?: { canResearch?: unknown } | undefined;
           };
@@ -203,7 +203,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             name: tech.name,
             tier: tech.tier,
             rootId: tech.rootId,
-            requires: tech.requires,
             prereqIds: Array.isArray(tech.prereqIds) ? [...tech.prereqIds] : tech.prereqIds,
             canResearch: tech.requirements?.canResearch
           };
@@ -253,41 +252,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyRespawnNoticeToState(state, notice, appendFeedEntry);
   };
 
-  const maybeRequestTileDetail = (tile: any): void => {
-    if (typeof deps.requestTileDetailIfNeeded !== "function") return;
-    if (!tile || tile.fogged || tile.detailLevel === "full") return;
-    const ownedByMe = tile.ownerId === state.me;
-    // Unowned resource/dock tiles carry no server-side economy data — the
-    // snapshot already has everything visible. Self-stamp to avoid a round-trip.
-    if (
-      !ownedByMe &&
-      (tile.resource || tile.dockId) &&
-      !tileHasTownIdentity(tile) &&
-      !tile.fort &&
-      !tile.observatory &&
-      !tile.siegeOutpost &&
-      !tile.economicStructure
-    ) {
-      // Stamp tileDetailReceivedAt so the 60s gate in requestTileDetailIfNeeded
-      // suppresses the round-trip. We deliberately do NOT write detailLevel:"full"
-      // into state.tiles — if this tile later changes ownership or gets a
-      // structure built on it, the gate naturally expires and a real request fires.
-      state.tileDetailReceivedAt.set(keyFor(tile.x, tile.y), Date.now());
-      return;
-    }
-    if (
-      ownedByMe ||
-      tile.resource ||
-      tile.dockId ||
-      tileHasTownIdentity(tile) ||
-      tile.fort ||
-      tile.observatory ||
-      tile.siegeOutpost ||
-      tile.economicStructure
-    ) {
-      deps.requestTileDetailIfNeeded(tile);
-    }
-  };
+  const maybeRequestTileDetail = (tile: any): void =>
+    maybeRequestTileDetailImpl(tile, { state, keyFor, requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded });
 
   const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
     if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
@@ -434,12 +400,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     return true;
   };
 
-  const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
-
-  const clearLateFrontierAck = (tileKey: string): void => {
-    if (!tileKey) return;
-    state.frontierLateAckUntilByTarget.delete(tileKey);
-  };
+  const { clearLateFrontierAck, rebindLateFrontierAck, matchesCurrentOrLateFrontierAck } = createLateFrontierAckHandlers({ state, keyFor });
 
   const currentActionCanResolveFromFrontierOwnership = (targetKey: string): boolean => {
     if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
@@ -452,31 +413,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (state.actionCurrent.actionType !== "ATTACK") return false;
     if (!state.capture || keyFor(state.capture.target.x, state.capture.target.y) !== targetKey) return false;
     return Date.now() >= state.capture.resolvesAt;
-  };
-
-  const rebindLateFrontierAck = (
-    target: { x: number; y: number },
-    source: "ACTION_ACCEPTED" | "COMBAT_START",
-    actionType?: "EXPAND" | "ATTACK"
-  ): void => {
-    const targetKey = keyFor(target.x, target.y);
-    const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
-    if (!lateFrontierAckPending(targetKey)) return;
-    state.actionInFlight = true;
-    state.actionTargetKey = targetKey;
-    if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
-      state.actionCurrent = { x: target.x, y: target.y, retries: 0, ...(actionType ? { actionType } : {}) };
-    } else if (actionType) {
-      state.actionCurrent.actionType = actionType;
-    }
-    if (!state.actionStartedAt) state.actionStartedAt = Date.now();
-    clearLateFrontierAck(targetKey);
-    attackSyncLog("late-frontier-ack-rebound", {
-      source,
-      target,
-      targetKey,
-      lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
-    });
   };
 
   const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
@@ -1285,18 +1221,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
         );
       }
-      if ("autoSettlementQueue" in msg) {
+      if ("autoSettlementQueue" in msg || "autoSettle" in msg) {
         applyAutoSettlementQueueFromServer(
           state,
           msg.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-          { keyFor }
+          { keyFor, autoSettle: msg.autoSettle }
         );
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
       if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
         pushFeed(
-          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing gold.`,
+          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing coin.`,
           "info",
           "warn"
         );
@@ -1419,7 +1355,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "ACTION_ACCEPTED") {
       if (handleMusterAdvanceExpandAccepted(state, keyFor, msg as Record<string, unknown>)) return;
-      if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
+      if (!matchesCurrentOrLateFrontierAck(msg)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,
           commandId: msg.commandId,
@@ -1875,7 +1811,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resolveFrontierCapture,
         openSingleTileActionMenu,
         renderHud,
-        requestViewRefresh
+        requestViewRefresh, pushFeed
       });
       return;
     }
@@ -1913,6 +1849,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "sabotageJson" in update ||
             "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
             "musterJson" in update ||
+            "afcJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),
@@ -2330,7 +2267,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
+      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
@@ -2544,11 +2481,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "STRUCTURE_CANCEL_INVALID";
       if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD") {
-        if (errorMessage === "insufficient gold for frontier claim" || errorMessage === "insufficient gold for attack") {
-          notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+        if (errorMessage === "insufficient coin for frontier claim" || errorMessage === "insufficient coin for attack") {
+          notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient coin for frontier claim" ? "claim" : "attack");
         } else {
           // Roll back the optimistic build/settle attempt so the tile menu doesn't
-          // keep showing a phantom under-construction structure on a gold rejection
+          // keep showing a phantom under-construction structure on a coin rejection
           // (INSUFFICIENT_GOLD does not match isStructureActionError below, so the
           // generic rollback branch never runs for it).
           const attempt = state.lastDevelopmentAttempt;
@@ -2558,8 +2495,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             state.lastDevelopmentAttempt = undefined;
           }
           state.queuedDevelopmentDispatchPending = false;
-          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
-          showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} coin.`;
+          showCaptureAlertSafely("Insufficient coin", goldDetail, "warn");
         }
       } else if (errorCode === "INSUFFICIENT_SLOT") {
         // Same fix as INSUFFICIENT_GOLD directly above, same reason: a

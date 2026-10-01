@@ -5,7 +5,7 @@ import {
   AETHER_BRIDGE_DURATION_MS,
   AETHER_LANCE_COOLDOWN_MS,
   AETHER_WALL_COOLDOWN_MS,
-  AETHER_WALL_DURATION_MS,
+  AETHER_WALL_DURATION_MS, playerHasAbilityTech,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
   SURVEY_SWEEP_COOLDOWN_MS,
   SURVEY_SWEEP_HALF_EXTENT
@@ -101,7 +101,7 @@ function rejectCommand(
 
 function surveySweepPingKind(tile: DomainTileState): SurveySweepPingKind | undefined {
   if (tile.town) return "town";
-  if (tile.resource === "GEMS" || tile.resource === "TITANIUM") return "resource";
+  if (tile.resource === "GEMS" || tile.resource === "TITANIUM" || tile.resource === "UMBRITE") return "resource";
   return undefined;
 }
 
@@ -149,7 +149,7 @@ export function handleRevealEmpireCommand(context: RuntimeAbilityCommandContext,
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!actor.techIds.has("beacon-towers") && context.revealTargetsForPlayer(actor.id).size === 0) {
+  if (!playerHasAbilityTech(actor.techIds, "reveal_empire") && context.revealTargetsForPlayer(actor.id).size === 0) {
     rejectCommand(context, command, "REVEAL_EMPIRE_INVALID", "unlock reveal capability via tech/domain first");
     return;
   }
@@ -188,8 +188,8 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
     return;
   }
   const target = context.players.get(payload.targetPlayerId);
-  if (!actor.techIds.has("surveying")) {
-    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "requires Surveying");
+  if (!playerHasAbilityTech(actor.techIds, "reveal_empire_stats")) {
+    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "requires Augury Office");
     return;
   }
   if (!target || payload.targetPlayerId === actor.id || isAlliedOrTruced(actor, payload.targetPlayerId)) {
@@ -223,8 +223,8 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!actor.techIds.has("surveying")) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Surveying");
+  if (!playerHasAbilityTech(actor.techIds, "survey_sweep")) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Echo-Reader Crew");
     return;
   }
   const observatoryKey = simulationTileKey(payload.x, payload.y);
@@ -282,8 +282,8 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("crystal-lattices")) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "requires Aetheric Resonance");
+  if (!playerHasAbilityTech(actor.techIds, "aether_lance")) {
+    rejectCommand(context, command, "AETHER_LANCE_INVALID", "requires Aether Resonance Core");
     return;
   }
   const targetIsPurgeableOwnership = target?.ownershipState === "SETTLED" || target?.ownershipState === "FRONTIER";
@@ -376,12 +376,17 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     return;
   }
   const target = context.tiles.get(simulationTileKey(payload.x, payload.y));
-  if (!actor.techIds.has("navigation")) {
+  if (!playerHasAbilityTech(actor.techIds, "aether_bridge")) {
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "requires Aether Bridge");
     return;
   }
   if (!target || !context.isCoastalLand(target.x, target.y)) {
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "target must be coastal land");
+    return;
+  }
+  // Landing on unowned or your own land is never blocked; a hostile owner's Aether Tower shields their land.
+  if (target.ownerId && !isAlliedOrTruced(actor, target.ownerId) && context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
+    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "landing blocked by an Aether Tower");
     return;
   }
   const origin = context.closestAetherBridgeOrigin(actor.id, target.x, target.y);
@@ -441,8 +446,8 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  if (!actor.techIds.has("harborcraft")) {
-    rejectCommand(context, command, "AETHER_WALL_INVALID", "requires Aether Moorings");
+  if (!playerHasAbilityTech(actor.techIds, "aether_wall")) {
+    rejectCommand(context, command, "AETHER_WALL_INVALID", "requires Aetherward Coil Module");
     return;
   }
   const wallNow = context.now();

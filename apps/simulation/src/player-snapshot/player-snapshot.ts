@@ -2,6 +2,7 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_STANDING_VISION_RADIUS,
   MUSTER_MAX_TILES,
+  normalizeAutoSettlePrefs,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -314,6 +315,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            autoSettle: normalizeAutoSettlePrefs(livePlayer.autoSettle),
             wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {

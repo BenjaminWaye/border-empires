@@ -16,6 +16,13 @@ import {
 } from "three";
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
 
+const PALM_TRUNK_HEIGHT = 0.5;
+// Trunk base sits a touch below the surface so it never floats on slopes.
+const PALM_TRUNK_Y = PALM_TRUNK_HEIGHT / 2 - 0.03;
+const PALM_CANOPY_HEIGHT = 0.11;
+// Frond canopy straddles the trunk top.
+const PALM_CANOPY_Y = PALM_TRUNK_HEIGHT - 0.03 + PALM_CANOPY_HEIGHT / 2 - 0.02;
+
 export type TropicalForest = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
@@ -26,10 +33,11 @@ export type TropicalForest = {
 export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalForest => {
   // A very flat, wide cone reads as a palm's frond canopy at this scale
   // without needing individual leaf geometry.
-  const canopyGeometry = new ConeGeometry(0.34, 0.22, 6, 1, false);
+  // Sized like createForest's trees: roughly half a mountain massif's height.
+  const canopyGeometry = new ConeGeometry(0.17, PALM_CANOPY_HEIGHT, 6, 1, false);
   const canopyMaterial = new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true });
 
-  const trunkGeometry = new CylinderGeometry(0.05, 0.09, 1.05, 6);
+  const trunkGeometry = new CylinderGeometry(0.022, 0.04, PALM_TRUNK_HEIGHT, 5);
   const trunkMaterial = new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true });
 
   const maxInstances = maxTiles * TREES_PER_TILE;
@@ -58,14 +66,13 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
 
     for (const tree of layout) {
       if (count >= maxInstances) continue;
-      scaleMatrix.makeScale(tree.trunkScale, tree.trunkScale * 1.1, tree.trunkScale);
+      scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.trunkY + 0.15, sceneZ + tree.oz);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_TRUNK_Y * tree.scale, sceneZ + tree.oz);
       trunkMesh.setMatrixAt(count, tempMatrix);
 
-      scaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.canopyY + 0.28, sceneZ + tree.oz);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_CANOPY_Y * tree.scale, sceneZ + tree.oz);
       canopyMesh.setMatrixAt(count, tempMatrix);
       count += 1;
     }

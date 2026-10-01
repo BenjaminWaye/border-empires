@@ -15,7 +15,8 @@ describe("starter fort and outpost regression guard", () => {
       readFileSync(resolve(here, "../client-tile-action-logic/client-tile-action-siege-camp.ts"), "utf8");
 
     expect(source).toContain('label: "Build Palisade"');
-    expect(source).toContain('label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`');
+    // A Palisade lives in tile.fort, so "Upgrade to <Fort tier>" covers it.
+    expect(source).toContain('label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`');
     expect(source).toContain('label: "Build Relay Beacon"');
     expect(source).toContain('label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
   });

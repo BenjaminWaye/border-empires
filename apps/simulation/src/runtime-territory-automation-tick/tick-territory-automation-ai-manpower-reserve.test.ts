@@ -28,7 +28,7 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { aiWarReserveManpower, EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { aiWarReserveManpower, EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST, DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 
 const makePlayer = (id: string, isAi: boolean) => ({
   id,
@@ -39,7 +39,8 @@ const makePlayer = (id: string, isAi: boolean) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 const landTile = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({

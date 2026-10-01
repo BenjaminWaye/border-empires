@@ -107,6 +107,7 @@ import {
 import { createInitialState, storageSet } from "./client-state/client-state.js";
 import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
+import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
   ActiveAetherBridgeView,
@@ -140,6 +141,7 @@ const state = createInitialState();
 // re-jumping to a stale linked tile.
 clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
+startPhotoMode(state, window.location.search); // ?photo=1 — clean-capture mode, see client-photo-mode.ts
 const { firebaseAuth, googleProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
 startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });

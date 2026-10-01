@@ -6,10 +6,10 @@ import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
+import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
+import type { AutoSettlePrefs, FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -43,6 +43,7 @@ export type RuntimeExportState = {
     economicStructureJson?: string;
     sabotageJson?: string;
     musterJson?: string;
+    afcJson?: string;
   }>;
   players: Array<{
     id: string;
@@ -69,6 +70,7 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    autoSettle?: AutoSettlePrefs;
     // Waystation activation's pooled resource-slot bump -- see
     // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.
     // Must round-trip through checkpoint/reconnect or a sim restart silently
@@ -168,6 +170,7 @@ const toRuntimeExportTile = (
   if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
   if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
   if (cached.musterJson) entry.musterJson = cached.musterJson;
+  if (cached.afcJson) entry.afcJson = cached.afcJson;
   return entry;
 };
 
@@ -211,8 +214,9 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        autoSettle: { ...player.autoSettle },
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(typeof player.wonderMusterExtraFlag === "number" ? { wonderMusterExtraFlag: player.wonderMusterExtraFlag } : {}),
@@ -442,7 +446,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // territory-sized key sets above, which is why this bypasses the
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,

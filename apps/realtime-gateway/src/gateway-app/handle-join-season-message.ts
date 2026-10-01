@@ -1,18 +1,32 @@
+import { guestSlotsFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { TimeoutError, withTimeout } from "../promise-timeout.js";
+
+type PrepareLikeFn = (
+  playerId: string,
+  rallyAnchor?: { x: number; y: number; island?: string },
+  options?: { isGuest?: boolean }
+) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
 // (already oversized) file from growing. JOIN_SEASON is the only path that
 // should call simulationClient.joinSeason -- login only calls preparePlayer.
+
+// The client's "Joining..." button only clears on JOIN_SEASON_ACK or an ERROR,
+// so neither await below may hang indefinitely on a busy simulation. The join
+// RPC is the authoritative step (failing it sends JOIN_SEASON_FAILED so the
+// player can retry); the spawn-tile lookup is a best-effort camera hint, so it
+// gets a much shorter leash and the ack goes out without it.
+const JOIN_SEASON_RPC_TIMEOUT_MS = 20_000;
+const JOIN_SEASON_SPAWN_TILE_TIMEOUT_MS = 4_000;
+
 export type JoinSeasonMessageDeps = {
   playerId: string;
+  /** From the login token; guests are counted against the guest allowance. */
+  isGuest?: boolean;
   rallyAnchor?: { x: number; y: number; island?: string } | undefined;
   simulationClient: {
-    preparePlayer: (
-      playerId: string,
-      rallyAnchor?: { x: number; y: number; island?: string }
-    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
-    joinSeason?: (
-      playerId: string,
-      rallyAnchor?: { x: number; y: number; island?: string }
-    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+    preparePlayer: PrepareLikeFn;
+    joinSeason?: PrepareLikeFn;
   };
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
@@ -44,6 +58,7 @@ export type JoinSeasonMessageDeps = {
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
   const {
     playerId,
+    isGuest,
     rallyAnchor,
     simulationClient,
     recordGatewayEvent,
@@ -58,7 +73,11 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
-    const result = await joinFn(playerId, rallyAnchor);
+    const result = await withTimeout(
+      joinFn(playerId, rallyAnchor, { isGuest: isGuest === true }),
+      JOIN_SEASON_RPC_TIMEOUT_MS,
+      "join season RPC"
+    );
     if (result.pending) {
       const scheduledStartAt = typeof result.scheduledStartAt === "number" ? result.scheduledStartAt : Date.now();
       recordGatewayEvent("info", "gateway_join_season_pending", { playerId, scheduledStartAt });
@@ -67,6 +86,11 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
         await checkIntoLobby(playerId);
         broadcastLobbyUpdate();
       }
+      return;
+    }
+    if (result.guestFull) {
+      recordGatewayEvent("info", "gateway_join_season_guest_full", { playerId });
+      sendJson(socket, guestSlotsFullErrorPayload());
       return;
     }
     if (result.full) {
@@ -79,10 +103,11 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     let spawnTile: { x: number; y: number } | undefined;
     if (result.spawned && resolveSpawnTile) {
       try {
-        spawnTile = await resolveSpawnTile(playerId);
+        spawnTile = await withTimeout(resolveSpawnTile(playerId), JOIN_SEASON_SPAWN_TILE_TIMEOUT_MS, "join season spawn tile");
       } catch (error) {
         recordGatewayEvent("warn", "gateway_join_season_spawn_tile_failed", {
           playerId,
+          timedOut: error instanceof TimeoutError,
           error: error instanceof Error ? error.message : String(error)
         });
       }

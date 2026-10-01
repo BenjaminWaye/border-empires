@@ -10,7 +10,7 @@ import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -98,7 +98,7 @@ export const createInitialState = () => ({
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
   ...createInitialAuthBusyState(),
-  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
+  seasonFull: false, seasonFullNotifyAcknowledged: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
   profileSetupRequired: false,
   gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -175,7 +175,7 @@ export const createInitialState = () => ({
   // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
-  imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
+  autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState, imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
@@ -254,7 +254,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, ...createInitialAfcDeliveryState(), // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -359,7 +359,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,
@@ -495,7 +495,7 @@ export const createInitialState = () => ({
     applied?: boolean;
   }>,
   mapRevealEligible: false,
-  mapRevealEnabled: false,
+  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Admin's photo-mode toggle (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
@@ -551,7 +551,7 @@ export const createInitialState = () => ({
     length: 1 as 1 | 2 | 3
   },
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
-  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F0/F1: win-chance paint hook + drag endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-map-input-arrow-gesture-wiring.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),

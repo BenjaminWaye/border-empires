@@ -47,6 +47,7 @@ export type SimulationServiceOptions = {
   snapshotStore?: SimulationSnapshotStore;
   seasonSummaryStore?: SeasonSummaryStore;
   maxSeasonPlayers?: number; // overrides SIMULATION_MAX_SEASON_PLAYERS
+  maxSeasonGuests?: number; // overrides SIMULATION_MAX_SEASON_GUESTS
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
   // Fired the instant the sim's mainThreadTasks in-flight phase changes,

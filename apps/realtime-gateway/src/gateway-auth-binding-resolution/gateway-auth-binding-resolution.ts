@@ -18,6 +18,12 @@ export const reconcileGatewayAuthBinding = async (
 
   const uidBinding = await authBindingStore.getByUid(identity.authUid);
   if (uidBinding) {
+    // A guest who links Google/email keeps their uid, so this is the first
+    // login where the binding can learn an email. Without it the player is
+    // never included in season-start emails.
+    if (!uidBinding.email && identity.authEmail) {
+      await authBindingStore.bindIdentity({ uid: identity.authUid, playerId: uidBinding.playerId, email: identity.authEmail });
+    }
     return {
       ...identity,
       playerId: uidBinding.playerId,

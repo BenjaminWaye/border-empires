@@ -16,6 +16,7 @@ import {
   TorusGeometry,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export type StructurePieceGeometry =
   | BoxGeometry
@@ -121,7 +122,7 @@ export const createStructurePieceBuilder = (
     // but every family funneling through this shared builder is a genuine
     // structure, not a flat/unlit overlay, so there's no metalness:0 case
     // here worth carving out.
-    if (envMap && !mat.envMap) mat.envMap = envMap;
+    applyBuildingEnvMap(mat, envMap);
     scene.add(mesh);
     slots.set(key, { mesh, count: 0, cap });
     ownedGeos.add(geo);

@@ -41,7 +41,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST,
+  SETTLE_COST, isAutoSettleAllowed,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -85,6 +85,7 @@ import {
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
+  activeDevelopmentProcessCountForSummary,
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
@@ -205,7 +206,7 @@ import {
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
 import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
-import { scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
+import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -356,6 +357,7 @@ import {
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
+import { handleAetherEmpCommand as handleAetherEmpCommandImpl } from "../runtime-aether-emp-command-handler.js";
 import {
   handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
@@ -366,21 +368,12 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
-import {
-  handleAegisLockCommand as handleAegisLockCommandImpl,
-  handleAirportBombardCommand as handleAirportBombardCommandImpl,
-  handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
-  handleCreateMountainCommand as handleCreateMountainCommandImpl,
-  handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
-  handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
-  type RuntimeMapCommandContext
-} from "../runtime-map-command-handlers.js";
+import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
+import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
 import { buildMapCommandContext } from "./runtime-map-command-context.js";
-import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
-import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl, TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
-import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
+import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
@@ -518,12 +511,12 @@ import {
   type SeedLiveBarbariansResult
 } from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isAlliedOrTruced } from "../runtime-player-factory.js";
 import {
-  ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl,
+  ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
   finalizeRespawnNotice as finalizeRespawnNoticeImpl,
   preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
   respawnIfEliminated as respawnIfEliminatedImpl,
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
-  type RuntimeRespawnContext
+  type RallySpawnOutcome, type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
@@ -1475,6 +1468,7 @@ export class SimulationRuntime {
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
+    resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -1694,7 +1688,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId), maybeActivateWaystation: (targetKey, x, y, playerId, commandId) => this.activateWaystationAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
-      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), isTownAutoSettleAllowed: (playerId) => { const player = this.state.players.get(playerId); return player !== undefined && isAutoSettleAllowed(player.autoSettle, "towns"); }, autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
@@ -1752,9 +1746,9 @@ export class SimulationRuntime {
 
   private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void { finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey); }
 
-  hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } // join-capacity gate
-  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
-    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
+  hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } ensurePlayerHasAfc(playerId: string): boolean { return ensurePlayerHasAfcImpl(this.respawnContext(), playerId); } // join-capacity gate; ensurePlayerHasAfc: migration grant for pre-AFC empires
+  ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }, onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void): boolean {
+    const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor, onRallySpawnPlaced); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     if (spawned && this.pendingImperialWard?.playerId === playerId) {
       const player = this.state.players.get(playerId);
       if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
@@ -2394,18 +2388,6 @@ export class SimulationRuntime {
     return result;
   }
 
-  private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
-      .map((settlement) => {
-        const [rawX, rawY] = settlement.tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt } : undefined;
-      })
-      .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
-      .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
-  }
-
   chooseNextOwnedFrontierCommand(
     playerId: string,
     clientSeq: number,
@@ -2497,7 +2479,7 @@ export class SimulationRuntime {
       townCount: summary.townCount,
       incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
@@ -2615,6 +2597,7 @@ export class SimulationRuntime {
   // silent drift.
   private exportContext(): RuntimeExportContext {
     return {
+      now: () => this.now(),
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
@@ -3250,7 +3233,7 @@ export class SimulationRuntime {
     return estimatedIncomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
-  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
+  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return activeDevelopmentProcessCountForSummary(this.summaryForPlayer(playerId)); }
 
   // Event-driven auto-settle eligibility -- see runtime-auto-settle-eligibility[-context].ts.
   private autoSettleEligibilityRuntime(): AutoSettleEligibilityRuntime {
@@ -3306,7 +3289,7 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
-      pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
+      pendingSettlementsSnapshotForPlayer: (playerId) => pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId)),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
       weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
@@ -3413,6 +3396,17 @@ export class SimulationRuntime {
       goldCost: SETTLE_COST,
       commandId: input.commandId
     });
+    // Armed before the emits below: if either throws (callers like the
+    // territory-automation tick catch and log), the slot must still free.
+    this.scheduleAfter(settleDurationMs, () =>
+      this.resolvePendingSettlement({
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        commandId: input.commandId
+      })
+    );
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
       commandId: input.commandId,
@@ -3425,16 +3419,6 @@ export class SimulationRuntime {
     if (input.emitStartedUpdate !== false) {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     }
-
-    this.scheduleAfter(settleDurationMs, () =>
-      this.resolvePendingSettlement({
-        ownerId: input.playerId,
-        tileKey: input.targetKey,
-        startedAt: input.startedAt,
-        resolvesAt,
-        commandId: input.commandId
-      })
-    );
   }
 
   // Extracted from startSettlementProcess's scheduled-timer closure so
@@ -3599,42 +3583,14 @@ export class SimulationRuntime {
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
   /**
-   * Server-side auto-settle, unconditional for every player (was AI-only —
-   * see client-development-queue.ts for the client dispatcher humans used to
-   * rely on instead, which still exists and can race this harmlessly). Same
-   * manpower/gold cost and duration as a manual SETTLE (startSettlementProcess
-   * below is the same path handleSettleCommand uses) — this only removes the
-   * need to click SETTLE. Called once per territory-automation tick.
+   * Server-side auto-settle for every player, gated per tile category by the
+   * player's autoSettle prefs (shared auto-settle-prefs.ts; AI/legacy = all on,
+   * new humans = off until they answer the join prompt). Same manpower/gold
+   * cost and duration as a manual SETTLE — this only removes the need to click
+   * SETTLE. Called once per territory-automation tick.
    */
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
-    const actor = this.state.players.get(playerId);
-    if (!actor) return 0;
-    // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
-    this.autoSettleEligibilityRuntime().reconcileForOwner(playerId);
-    let settledCount = 0;
-    for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
-      if (settleRejectionForActor(actor)) break;
-      if (!this.hasAvailableDevelopmentSlot(playerId)) break;
-      const targetKey = simulationTileKey(x, y);
-      const target = this.state.tiles.get(targetKey);
-      if (!target || target.ownerId !== playerId || target.ownershipState !== "FRONTIER") continue;
-      if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
-      if (target.terrain !== "LAND") continue;
-      if (this.pendingSettlementsByTile.has(targetKey)) continue;
-      // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand
-      // above -- this path bypasses that handler, so it's repeated here.
-      if (!(target.town || target.dockId) && !this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
-      this.startSettlementProcess({
-        commandId,
-        playerId,
-        targetKey,
-        target,
-        startedAt: nowMs
-      });
-      settledCount++;
-    }
-    return settledCount;
+    return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
@@ -3787,11 +3743,8 @@ export class SimulationRuntime {
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
         isTileBombardBlockedByRadarImpl(
-          this.state.tiles,
-          (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-          actorId,
-          targetX,
-          targetY
+          this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+          actorId, targetX, targetY, this.now()
         ),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
@@ -3799,7 +3752,8 @@ export class SimulationRuntime {
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
-      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
+      drainAutoSettleForOwner: (playerId) => { this.autoSettleEligibilityRuntime().drainForOwner(playerId); }
     });
   }
 
@@ -3877,11 +3831,8 @@ export class SimulationRuntime {
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
     return isStructurePoweredImpl(
-      this.state.tiles,
-      ownerId,
-      tileKey,
-      structureType,
-      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field)
+      this.state.tiles, ownerId, tileKey, structureType,
+      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field), this.now()
     );
   }
 
@@ -3891,11 +3842,8 @@ export class SimulationRuntime {
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
     return isTileShieldedByEnemyAegisDomeImpl(
-      this.state.tiles,
-      (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-      actorId,
-      targetX,
-      targetY
+      this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      actorId, targetX, targetY, this.now()
     );
   }
 
@@ -4418,24 +4366,16 @@ export class SimulationRuntime {
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),
-      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command),
+      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command), handleAetherEmpCommand: (command) => handleAetherEmpCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherBridgeCommand: (command) => handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
       handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),
       handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
-      handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
-      handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
-      handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
-      handleImperialExchangeLevyCommand: (command) => handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command),
-      handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
-      handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
-      handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
-      handleTitaniumLevyMusterCommand: (command) => handleTitaniumLevyMusterCommandImpl(this.mapCommandContext(), command),
-      handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
+      ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
-      handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),
+      handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
       handleDevQueueCancelCommand: (command) => handleDevQueueCancelCommandImpl(this.devQueueCommandContext(), command),

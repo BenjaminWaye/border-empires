@@ -32,6 +32,7 @@ type RecoveredTileState = {
   economicStructure?: DomainTileState["economicStructure"];
   sabotage?: DomainTileState["sabotage"];
   muster?: DomainTileState["muster"];
+  afc?: DomainTileState["afc"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
   // crashing. The hydration layer ignores it until Phase 4 activates the reader.
@@ -102,7 +103,8 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
   ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-  ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+  ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
+  ...(tile.afc ? { afc: tile.afc } : {})
 });
 
 export const createRecoveredSimulationAccumulator = (
@@ -245,6 +247,13 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.muster
         ? { muster: existing.muster }
+        : {}),
+    ...("afcJson" in tileDelta
+      ? (tileDelta.afcJson
+          ? { afc: parseOptionalJson<DomainTileState["afc"]>(tileDelta.afcJson) }
+          : {})
+      : existing?.afc
+        ? { afc: existing.afc }
         : {})
   });
 };

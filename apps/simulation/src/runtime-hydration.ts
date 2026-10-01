@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { isChosenTrickleResource, landBiomeAt } from "@border-empires/shared";
+import { isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -73,6 +73,8 @@ export const createPlayersFromRecoveredState = (
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          // Legacy snapshots predate the field: normalize once here (missing => DEFAULT, all on).
+          autoSettle: normalizeAutoSettlePrefs(player.autoSettle),
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
@@ -142,7 +144,8 @@ export const createTilesFromInitialState = (
       // In Phase 3 we accept the field (see RecoveredTileState) and ignore it
       // so a Phase-4 snapshot can be loaded by a Phase-3-era binary safely.
       ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
-      ...(tile.muster ? { muster: tile.muster } : {})
+      ...(tile.muster ? { muster: tile.muster } : {}),
+      ...(tile.afc ? { afc: tile.afc } : {})
     });
   }
   return mergedTiles;

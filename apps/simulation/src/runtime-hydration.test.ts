@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { landBiomeAt, setWorldSeed } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, landBiomeAt, setWorldSeed } from "@border-empires/shared";
 import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
@@ -157,6 +157,14 @@ describe("createPlayersFromRecoveredState", () => {
     const player = result?.get("p1");
     expect(player?.allies).toEqual(new Set(["p2"]));
     expect(player?.truces).toEqual(new Set(["p3"]));
+  });
+
+  it("round-trips the per-category auto-settle prefs, and fills legacy snapshots with DEFAULT prefs once at the boundary", () => {
+    const answered = { answered: false, towns: false, food: false, resources: false };
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
+    const result = createPlayersFromRecoveredState(state);
+    expect(result?.get("p1")?.autoSettle).toEqual(answered);
+    expect(result?.get("legacy")?.autoSettle).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
   });
 
   it("defaults to an empty truces set when the snapshot has none", () => {

@@ -11,13 +11,12 @@ import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
 import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.js";
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
-import { createClientThreeTerrainRenderer } from "../client-map-3d/client-map-3d.js";
 import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
 import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
-import { createThreeRendererHost } from "../client-three-renderer-host/client-three-renderer-host.js";
+import { createBootstrapThreeRendererHost } from "./client-bootstrap-three-renderer.js";
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
-import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay/client-debug-season-end-overlay.js";
+import { installPostBootstrapHooks } from "../client-post-bootstrap-installs/client-post-bootstrap-installs.js";
 import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
 
 type BootstrapDeps = Record<string, any>;
@@ -204,17 +203,17 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   // The true-3D renderer is the default. Pass `?renderer=2d` to fall back to
   // the flat canvas renderer (e.g. for low-end devices or debugging); the host
   // also falls back on its own if 3D can't run on this device.
-  const threeRendererHost = createThreeRendererHost({
+  const threeRendererHost = createBootstrapThreeRendererHost({
     enabled: prefersTrue3DRendererMode,
-    isReady: () => state.authSessionReady,
+    state,
     resizeTwoDimensionalCanvas: () => resizeClientViewport({ dom: { canvas }, viewportSize }),
-    create: (onContextLost) =>
-      createClientThreeTerrainRenderer({
-        state, canvas, keyFor, wrapX, wrapY, terrainAt, effectiveOverlayColor, tileVisibilityStateAt,
-        settlementProgressForTile: actionFlow.settlementProgressForTile,
-        isPlacementValidForTile: actionFlow.isPlacementValidForTile,
-        resolveDockSeaRoute, isDockRouteVisibleForPlayer, onContextLost
-      })
+    syncAuthOverlay: () => syncAuthOverlay(),
+    rendererDeps: () => ({
+      state, canvas, keyFor, wrapX, wrapY, terrainAt, effectiveOverlayColor, tileVisibilityStateAt,
+      settlementProgressForTile: actionFlow.settlementProgressForTile,
+      isPlacementValidForTile: actionFlow.isPlacementValidForTile,
+      resolveDockSeaRoute, isDockRouteVisibleForPlayer
+    })
   });
   const ensureThreeTerrainRenderer = threeRendererHost.ensure;
 
@@ -625,7 +624,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
     requestAttackPreviewForHover: actionFlow.requestAttackPreviewForHover,
     requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
-    interactionFlags: actionFlow.mapInteractionFlags
+    interactionFlags: actionFlow.mapInteractionFlags, sendGameMessage: actionFlow.sendGameMessage, renderHud
   });
 
   // Paint the HUD/auth shell immediately instead of waiting for async auth/socket callbacks.
@@ -633,5 +632,5 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  installDebugSeasonEndOverlay(state, renderHud);
+  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, pushFeed });
 };

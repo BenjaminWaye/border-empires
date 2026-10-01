@@ -263,6 +263,12 @@ export type SettleAttemptContext = {
   isInReach: (playerId: string, tile: DomainTileState) => boolean;
   settleRejectionForActor: (playerId: string) => boolean;
   hasAvailableDevelopmentSlot: (playerId: string) => boolean;
+  /**
+   * Per-player, per-category opt-in (see @border-empires/shared's
+   * auto-settle-prefs.ts). Optional so existing fixtures stay valid; omitted
+   * means "allowed" (legacy/AI behavior).
+   */
+  isAutoSettleAllowed?: (playerId: string, tile: DomainTileState) => boolean;
   startSettlementProcess: (input: {
     commandId: string;
     playerId: string;
@@ -295,6 +301,12 @@ export const attemptImmediateSettle = (
     return;
   }
   if (!(target.town || target.dockId) && !ctx.isInReach(ownerId, target)) return;
+  // A category the player hasn't opted into stays queued (so the join prompt and
+  // settings can see it, and flipping the toggle on drains it) but never spends.
+  if (ctx.isAutoSettleAllowed && !ctx.isAutoSettleAllowed(ownerId, target)) {
+    insertEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey);
+    return;
+  }
   if (ctx.settleRejectionForActor(ownerId) || !ctx.hasAvailableDevelopmentSlot(ownerId)) {
     insertEligibleFrontierTile(eligibleFrontierByOwner, ownerId, tileKey);
     return;

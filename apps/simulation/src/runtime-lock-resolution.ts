@@ -79,6 +79,8 @@ export type RuntimeLockResolutionContext = {
   // caller can decide whether to stamp a decay timer BEFORE attempting the
   // mutation, never after (no reason to pay a settle cost only to also decay).
   canAutoSettleCapturedAnchor: (playerId: string) => boolean;
+  // Player's "towns" auto-settle opt-in (auto-settle-prefs.ts); optional so fixtures stay valid. Gates only town/dock anchors, not captured buildings.
+  isTownAutoSettleAllowed?: (playerId: string) => boolean;
   autoSettleCapturedAnchor: (playerId: string, targetKey: string, target: DomainTileState, commandId: string) => void;
   // Server-side waypoint/expand-queue auto-drain (runtime-waypoint-queue-
   // command-handlers.ts) -- called unconditionally once this EXPAND/ATTACK
@@ -256,13 +258,14 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // capturedTileWillAutoSettle's doc comment for why each qualifies.
     const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
     const capturedFields = capturedStructureFields(previousTarget, lock.playerId, context.now());
-    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure);
+    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure) || Boolean(capturedFields.afc);
     const willAutoSettle = capturedTileWillAutoSettle({
       playerId: lock.playerId,
       isAnchorStructureTile,
       hasCapturedBuilding,
       outOfReachDecayAt,
-      canAutoSettleCapturedAnchor: context.canAutoSettleCapturedAnchor
+      canAutoSettleCapturedAnchor: context.canAutoSettleCapturedAnchor,
+      ...(context.isTownAutoSettleAllowed ? { isAnchorAutoSettleAllowed: context.isTownAutoSettleAllowed } : {})
     });
     const resolvedTarget: DomainTileState = {
       x: lock.targetX,

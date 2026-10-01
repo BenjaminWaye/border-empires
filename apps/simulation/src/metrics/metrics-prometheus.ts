@@ -247,10 +247,20 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_full_vis_inline_build_total ${formatMetricValue(sample.simFullVisInlineBuildTotal)}`,
     "# TYPE sim_auto_fill_tiles_total counter",
     `sim_auto_fill_tiles_total ${formatMetricValue(sample.simAutoFillTilesTotal)}`,
+    "# TYPE sim_guest_join_rejected_full_total counter",
+    `sim_guest_join_rejected_full_total ${formatMetricValue(sample.simGuestJoinRejectedFullTotal)}`,
+    "# TYPE sim_guest_upgraded_total counter",
+    `sim_guest_upgraded_total ${formatMetricValue(sample.simGuestUpgradedTotal)}`,
+    "# TYPE sim_season_guest_players gauge",
+    `sim_season_guest_players ${formatMetricValue(sample.simSeasonGuestPlayers)}`,
     "# TYPE sim_auth_recovery_respawn_total counter",
     `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
     "# TYPE sim_auth_recovery_respawn_guarded_total counter",
-    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`
+    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`,
+    "# TYPE sim_rally_spawn_total counter",
+    `sim_rally_spawn_total ${formatMetricValue(sample.simRallySpawnTotal)}`,
+    "# TYPE sim_rally_spawn_fallback_total counter",
+    `sim_rally_spawn_fallback_total ${formatMetricValue(sample.simRallySpawnFallbackTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {

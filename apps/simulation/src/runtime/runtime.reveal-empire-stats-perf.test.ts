@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 /**
  * Perf gate for REVEAL_EMPIRE_STATS.
  *
@@ -38,6 +39,7 @@ const makePlayer = (id: string, isAi = false) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   strategicResources: { CRYSTAL: 1_000 }
 });
 
@@ -57,7 +59,7 @@ const revealEmpireStatsDurationMs = async (bulkTileCount: number): Promise<numbe
     { x: 11, y: 0, terrain: "LAND", ownerId: "viewer", ownershipState: "SETTLED", resource: "GEMS" }
   );
 
-  const viewer = { ...makePlayer("viewer"), techIds: new Set<string>(["surveying"]) };
+  const viewer = { ...makePlayer("viewer"), techIds: new Set<string>(["beacon-towers"]) };
   const runtime = new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([

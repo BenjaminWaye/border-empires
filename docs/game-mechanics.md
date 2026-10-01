@@ -16,7 +16,7 @@ When something here drifts from code, fix the code reference and update this doc
 - **Neighbors**: 4 cardinal directions (N, E, S, W) only. No diagonals for gameplay. `packages/shared/src/exposure/exposure.ts:5-10, 65-66`
 - **No chunk/region grid exists.** The world operates per-tile. Tile metadata can carry cluster tags (`FERTILE_PLAINS`, `TITANIUM_HILLS`) but those are not aggregation structures. `packages/shared/src/types.ts:7, 439-444`
 - **Terrain types**: `LAND` (claimable, passable), `SEA` / `COASTAL_SEA` (barrier, not claimable; combat blocked except via dock links/aether bridges), `MOUNTAIN` (barrier, mutable via aether abilities). Only `LAND` is claimable. `packages/shared/src/types.ts:1, 15, 200`
-- **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory structures extend vision radius and provide a 10-tile passive protection bubble against some aether abilities. `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:49-51`
+- **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory (Aether Tower) structures extend vision radius and shield their OWNER's tiles (never unowned or third-party land) within `OBSERVATORY_PROTECTION_RADIUS` from hostile tile-targeted Aether abilities -- Aether Purge, Aether EMP, Create/Remove Mountain and Aether Bridge landings -- while active, off cooldown and not dormant. Enforced in the simulation against full world state (`isTileShieldedByEnemyObservatory`), so a tower the caster can't see still blocks. Siphon has its own owner-tower rule (`isCoveredByOwnersActiveObservatory`). `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:49-51`
 - **Siphon (Observatory siphon mode)**: casting Siphon (tech `logistics`) on an enemy town/resource tile locks the caster's nearest ready Observatory into *siphon mode* (`observatory.siphon`) and stamps every enemy town/resource tile in the 3x3 with a `sabotage` that points back at that tower (`observatoryTileKey`). While it lasts: drained towns produce nothing, and each drained RESOURCE tile's slots count toward the caster's slot supply instead of the owner's (same resource, same count incl. the owner's boosts), so the owner's newest structures may go dormant and the caster's may wake up. There is no timer. It ends when the caster sends `CANCEL_SIPHON` from the tower, the victim gets an Observatory ACTIVE whose protection radius covers a drained tile (building or re-enabling one), the caster's tower stops being an active tower they own (destroyed, captured, removed, switched off), or a drained tile changes owner. Tiles their owner already covers with an active Observatory can't be siphoned. A tower in siphon mode can't cast other abilities; its 10-min cooldown starts when the siphon ends. `PURGE_SIPHON` stays rejected — the victim's counter is an Observatory. `apps/simulation/src/runtime-siphon-command-handlers.ts`, `apps/simulation/src/siphon-mode/`, `packages/shared/src/siphon-mode/siphon-mode.ts`
 - **Docks**: Maritime Supremacy counts settled dock tiles. Docks are also used for cross-island movement and linked-dock vision.
 
@@ -28,18 +28,18 @@ When something here drifts from code, fix the code reference and update this doc
 - **Barbarians (rewrite model, post-`f5ba210` / PR #256)**: not dynamic agents. Implemented as **tiles owned by player `"barbarian-1"`**, with 80 FRONTIER tiles seeded at world gen far from player spawns (`apps/simulation/src/season-seed-world.ts`, `seed-state.ts:183`). Behavior:
   - **Proximity activation**: a barb tile is only active when adjacent to a non-barb owner. Idle frontier barbs cost ~nothing. Per-tile 15s activation cooldown enforced in `system-job-worker.ts:48` via `barbarianCooldownByTileKey`.
   - **Walk / multiply**: when a barb tile wins an ATTACK/EXPAND (vs a player), per-tile progress accumulates in `SimulationRuntime.barbarianTileProgress` (`runtime.ts:675`). Progress gain: +2 if the target tile held a resource / town / fort / dock / siege, otherwise +1 (`runtime.ts:5976` `barbarianProgressGain`). At threshold 3 the source tile stays barb (multiply); below threshold it releases to neutral (walk). Progress is cleared when a player recaptures a barb tile (`runtime.ts:5946`).
-  - **Combat economics**: barbarians bypass gold and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
+  - **Combat economics**: barbarians bypass coin and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
 - **Legacy constants still present, mostly unused by the rewrite**: `BARBARIAN_OWNER_ID`, `BARBARIAN_TICK_MS`, `MIN_ACTIVE_BARBARIAN_AGENTS`, `BARBARIAN_MAINTENANCE_INTERVAL_MS`, `BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS` (`packages/game-domain/src/server-game-constants/server-game-constants.ts:9-37`) and the `BarbarianAgent` type (`packages/shared/src/types.ts:458-465`) are legacy-flavored. Treat them as stale unless you find an active call site.
 
 ## 3. Resources and economy
 
 For detailed live rules and a code-owner map for manpower, resource slots,
-gold, and dormancy, use [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md).
+coin, and dormancy, use [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md).
 The older manpower-economy rewrite plan is historical rationale, not a source
 of executable rules.
 
 - **Resource model**: tile resource kinds and player-economy resources are distinct. FOOD, TITANIUM, CRYSTAL, and UMBRITE power global resource-slot pools rather than being stockpiled currencies; SHARD does not use slots. See the focused economy reference for supply, demand, and converter rules. `packages/shared/src/structure-slots/structure-slots.ts`
-- **Gold and support**: gold is passive per-minute income and is rescaled by `GOLD_RESCALE_DIVISOR = 288`; town/network and structure modifiers apply in the simulation economy module. An unfed town produces no gold until its separate support system recovers. Gold above a town-linked cap is lost. `packages/game-domain/src/server-game-constants/server-game-constants.ts`, `apps/simulation/src/player-update-economy/`
+- **Coin and support**: coin is passive per-minute income and is rescaled by `GOLD_RESCALE_DIVISOR = 288`; town/network and structure modifiers apply in the simulation economy module. An unfed town produces no coin until its separate support system recovers. Coin above a town-linked cap is lost. `packages/game-domain/src/server-game-constants/server-game-constants.ts`, `apps/simulation/src/player-update-economy/`
 - **Manpower**: cap and regeneration come from the starting capital, towns, terrain, and qualifying structures/networks. The current tier values, diminishing town weighting, and action costs are in the focused economy reference and `packages/shared/src/config.ts`.
 - **Slots and dormancy**: structures occupy resource slots from build start through removal. A shortfall automatically makes the newest relevant consumers dormant first; this is not periodic resource drain. `apps/simulation/src/resource-slot-view/resource-slot-view.ts`
 
@@ -49,7 +49,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **ATTACK**: origin is owned by attacker, target is owned by an enemy. Manpower cost varies (`ATTACK_MANPOWER_COST`-family constants, modified by fort presence and breach-shock state). Combat resolves after `COMBAT_LOCK_MS` (phase lock). Winner takes the tile.
 - **EXPAND**: origin owned by attacker, target is neutral. Ownership transitions after `FRONTIER_CLAIM_MS`. `packages/shared/src/config.ts:44`
-- **SETTLE**: target must ALREADY be owned by the caller and `ownershipState === "FRONTIER"` (i.e. previously claimed via EXPAND, not neutral) — rejected `SETTLE_INVALID` otherwise. Costs `SETTLE_MANPOWER_COST` (20) + gold, resolves after a timer, then flips the tile to `ownershipState: "SETTLED"`. Critically, it does **not** fabricate a town: `resolvePendingSettlement` only carries a `town` record forward if the tile already had one (`...(latest.town ? { town: latest.town } : {})`, `apps/simulation/src/runtime/runtime.ts` in `resolvePendingSettlement`) — settling bare frontier land with no pre-existing town produces plain SETTLED land, not a town. `packages/shared/src/config.ts:92`
+- **SETTLE**: target must ALREADY be owned by the caller and `ownershipState === "FRONTIER"` (i.e. previously claimed via EXPAND, not neutral) — rejected `SETTLE_INVALID` otherwise. Costs `SETTLE_MANPOWER_COST` (20) + coin, resolves after a timer, then flips the tile to `ownershipState: "SETTLED"`. Critically, it does **not** fabricate a town: `resolvePendingSettlement` only carries a `town` record forward if the tile already had one (`...(latest.town ? { town: latest.town } : {})`, `apps/simulation/src/runtime/runtime.ts` in `resolvePendingSettlement`) — settling bare frontier land with no pre-existing town produces plain SETTLED land, not a town. `packages/shared/src/config.ts:92`
 - **Nothing "builds" a town or settlement, and no player command creates one from scratch.** The only ways to *end up owning* a town are: (1) EXPAND then SETTLE onto a tile that already carries a `town` record (almost always one of the neutral towns world gen pre-placed — see §2), or (2) ATTACK an enemy-owned town tile, which likewise transfers the existing town record rather than creating a new one. The one town every player has without doing either is their single free starting SETTLEMENT-tile, and even that is assigned by the *system's* spawn/respawn code, not a player action (`apps/simulation/src/runtime-respawn-helpers.ts:168`). Once owned, a town can *grow* through population tiers over time (SETTLEMENT → TOWN → CITY → GREAT_CITY → METROPOLIS, `packages/shared/src/town-growth/town-growth.ts`) based on food/resources/upkeep — passive growth, not a build action. `packages/shared/src/structure-registry/structure-registry.ts` is the actual buildable-things registry (Relay Beacon, Fort, Dock, etc.) — towns/settlements are never in it.
 - Movement is implicit. Frontier actions originate from any adjacent owned tile, or from dock-linked tiles, or from aether-bridged tiles. `packages/game-domain/src/index.ts:20, 171-257`, `packages/shared/src/types.ts:415-421`
 
@@ -60,7 +60,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
   - Economic: Farmstead, Umbrite Rig, Mine, Granary, Mintworks, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Trade Nexus, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
   - Military: Fort, Siege Battery, Observatory.
   - Monuments (late-game, ultra-high cost, built in 4 stages with shard cost): Imperial Exchange, World Engine, Aegis Dome, Astral Dock.
-- **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in gold + strategic resources.
+- **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in coin + strategic resources.
 - **Selection (AI)**: `build_economic_structure` scores per tile by:
   1. Resource on tile (FARM → FARMSTEAD, etc.)
   2. Player need (low food coverage → Granary; weak economy → income structures)
@@ -71,7 +71,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **Tech tree**: DAG with prerequisites; tier-based. Tree config is per-season (serialized config ID), so tech contents can vary across seasons.
 - **Effects**: each tech can unlock structures, grant stat mods (`attack`, `defense`, `income`, `vision` multipliers), or grant ability access.
-- **Research**: one tech at a time per player. Completes instantly on purchase (cost in gold only) — no research timer (`researchTimeMult` was removed as a dead effect, docs/manpower-economy-rewrite-plan.md §23.1).
+- **Research**: one tech at a time per player. Completes instantly on purchase (cost in coin only) — no research timer (`researchTimeMult` was removed as a dead effect, docs/manpower-economy-rewrite-plan.md §23.1).
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
 - References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 
@@ -82,7 +82,7 @@ Five concurrent victory paths, all per-season, all with a 24-hour hold requireme
 | Path | Trigger | Hold |
 |---|---|---|
 | `TOWN_CONTROL` | Control ≥50% of towns | 24h |
-| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 gold/min | 24h |
+| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 coin/min | 24h |
 | `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type | 24h |
 | `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
 | `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
@@ -136,7 +136,7 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/ai/automa
 - **Victory path selection**: scores all 5 paths every tick. Locks into a primary path unless an alternative scores >28 points higher (or >56 in emergency). `:305-322, 108-115`
 - **Strategic focus mode**: one of `BALANCED`, `ECONOMIC_RECOVERY`, `ISLAND_FOOTPRINT`, `MILITARY_PRESSURE`, `BORDER_CONTAINMENT`. Controls goal priorities and which actions are filtered out. `:439-460`
 - **Front posture**: one of `BREAK`, `CONTAIN`, `TRUCE`. Modulates frontier aggression. `:368-381`
-- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (gold + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`
+- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (coin + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`
 
 ## 12. Tile mutation chokepoints
 

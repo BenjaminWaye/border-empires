@@ -14,6 +14,16 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("accepts SET_AUTO_SETTLE_PREFS and rejects a non-boolean category", () => {
+    expect(ClientMessageSchema.parse({ type: "SET_AUTO_SETTLE_PREFS", towns: true, food: false, resources: false })).toEqual({
+      type: "SET_AUTO_SETTLE_PREFS",
+      towns: true,
+      food: false,
+      resources: false
+    });
+    expect(ClientMessageSchema.safeParse({ type: "SET_AUTO_SETTLE_PREFS", towns: "yes", food: false, resources: false }).success).toBe(false);
+  });
+
   it("accepts upgrade-town-tier messages", () => {
     expect(ClientMessageSchema.parse({ type: "UPGRADE_TOWN_TIER", x: 4, y: 9 })).toEqual({
       type: "UPGRADE_TOWN_TIER",
