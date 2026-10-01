@@ -20,7 +20,9 @@ export type MusterTickInput = {
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
-  railDepotPositionsByOwner: ReadonlyMap<string, ReadonlyArray<Position>>;
+  // Resolved per flag owner on demand (see railDepotPositionsForPlayer), not
+  // precomputed for every owner on every tick.
+  railDepotPositionsForPlayer: (playerId: string) => ReadonlyArray<Position>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
@@ -138,10 +140,11 @@ const humanAutoFireMusterTiles = (
     if (exclude.has(playerId) || musterKeys.size === 0) continue;
     context ??= buildContext(allMusterTilesByOwner);
     if (context.players.get(playerId)?.isAi !== false) continue;
-    const hasAutoFireFlag = [...musterKeys].some((tileKey) => {
-      const mode = context!.tiles.get(tileKey)?.muster?.mode;
-      return mode === "ADVANCE" || mode === "MARCH";
-    });
+    let hasAutoFireFlag = false;
+    for (const tileKey of musterKeys) {
+      const mode = context.tiles.get(tileKey)?.muster?.mode;
+      if (mode === "ADVANCE" || mode === "MARCH") { hasAutoFireFlag = true; break; }
+    }
     if (!hasAutoFireFlag) continue;
     candidates ??= new Map<string, Set<string>>();
     candidates.set(playerId, musterKeys);
@@ -194,7 +197,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     input.applyManpowerRegen(player, input.nowMs);
 
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
-    const depotPositions = input.railDepotPositionsByOwner.get(playerId) ?? [];
+    const depotPositions = input.railDepotPositionsForPlayer(playerId);
 
     // Count non-stale flags so throughput is split evenly across them.
     let activeMusterCount = 0;

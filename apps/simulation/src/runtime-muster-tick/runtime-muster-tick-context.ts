@@ -2,7 +2,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement-application.js";
-import { railDepotPositionsFromKeys } from "../runtime/runtime-rail-depot-positions.js";
+import { railDepotPositionsForPlayer } from "../runtime/runtime-rail-depot-positions.js";
 import type { ActiveAetherBridgeView, LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
 
@@ -40,9 +40,10 @@ export const buildMusterTickContext = (deps: MusterTickContextDeps): MusterTickC
   tiles: deps.tiles,
   activeSiegeOutpostsByOwner: deps.activeSiegeOutpostsByOwner,
   activeRelayBeaconsByOwner: deps.activeRelayBeaconsByOwner,
-  railDepotPositionsByOwner: railDepotPositionsFromKeys(deps.railDepotTilesByOwner, deps.tiles, (playerId, tileKey, field) =>
-    deps.isStructureDormant(playerId, tileKey, field)
-  ),
+  railDepotPositionsForPlayer: (playerId: string) =>
+    railDepotPositionsForPlayer(deps.railDepotTilesByOwner, playerId, deps.tiles, (ownerId, tileKey, field) =>
+      deps.isStructureDormant(ownerId, tileKey, field)
+    ),
   applyManpowerRegen: (player: RuntimePlayer, at?: number) => deps.applyManpowerRegen(player, at),
   playerManpowerCap: (player: RuntimePlayer) => deps.playerManpowerCap(player),
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => deps.replaceTileState(tileKey, tile, commandId),

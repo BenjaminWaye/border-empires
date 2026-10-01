@@ -5,6 +5,7 @@ import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { buildTerrainDistanceField, deviationFromMarchLine } from "./muster-march-pathfinding.js";
 import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
 import { MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 
 type MarchRouteScore = { routeLength: number; hitsSettled: boolean; remainingToTarget: number; lineDeviation: number };
 
@@ -173,14 +174,21 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     targetX,
     targetY,
     getTile,
-    straightLineFlagToTarget + ADVANCE_MAX_RANGE_TILES + 2
+    straightLineFlagToTarget + ADVANCE_MAX_RANGE_TILES + 2,
+    originKey
   );
-  // Tiles the flood never reached (cut off by water, out of the search cap,
-  // or simply undefined on the map -- as most coordinates are in unit tests)
-  // fall back to the straight-line estimate rather than being treated as
-  // infinitely far away.
+  // The flood stops once it reaches the flag (see buildTerrainDistanceField),
+  // which is cheap and loses nothing: a candidate no closer to the target than
+  // the flag is rejected below anyway. So when the flag was reached, a tile
+  // missing from the field is at least as far as the flag -- treat it as
+  // exactly that, never as "unknown". Only when the flood never reached the
+  // flag (cut off by water, past the search cap, or tiles simply undefined on
+  // the map -- as most coordinates are in unit tests) do tiles fall back to
+  // the straight-line estimate rather than being treated as infinitely far.
+  const flagReachedByFlood = terrainDistanceField.has(originKey);
   const distanceToTarget = (x: number, y: number): number =>
-    terrainDistanceField.get(simulationTileKey(x, y)) ?? chebyshevDistanceToroidal(x, y, targetX, targetY);
+    terrainDistanceField.get(simulationTileKey(x, y)) ??
+    (flagReachedByFlood ? Number.POSITIVE_INFINITY : chebyshevDistanceToroidal(x, y, targetX, targetY));
 
   // A march must never move away from its target: any candidate at least as
   // far from the target as the flag itself already is gets rejected below,
@@ -210,6 +218,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // every neutral (unowned) LAND tile bordering owned territory as an
   // EXPAND candidate.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
+  const actor = input.players.get(playerId);
   const visited = new Set<string>([originKey]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
@@ -266,6 +275,9 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         neighbor.ownerId &&
         !options.expandOnly &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
+        // Never "fight" an ally or truced player -- see the matching filter in
+        // muster-advance-fire.ts.
+        !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {

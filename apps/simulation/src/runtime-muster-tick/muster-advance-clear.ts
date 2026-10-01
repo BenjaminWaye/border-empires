@@ -1,35 +1,59 @@
 import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
-import { chebyshevDistanceToroidal, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
 
-const BARBARIAN_OWNER_ID = "barbarian-1";
-
 /**
  * "Clear this area and report back" behaviour for a human ADVANCE flag --
- * the macro-level order: plant a flag near a group of barbarians, set it to
+ * the macro-level order: plant a flag near a group of enemies, set it to
  * ADVANCE, walk away. Plain ADVANCE only ever sees enemies already touching
- * the player's own border, so barbarians standing out in the wilderness were
- * invisible to it and the player had to expand out to each one by hand.
+ * the player's own border, so barbarians standing out in the wilderness (or a
+ * rival's border a few tiles off) were invisible to it and the player had to
+ * expand out to each one by hand.
  *
  * AI flags are excluded: their planner budgets around today's behaviour, and
- * letting them expand toward barbarians would be a balance change.
+ * letting them expand toward enemies would be a balance change.
  */
 export const isHumanFlagOwner = (input: MusterTickInput, playerId: string): boolean =>
   input.players.get(playerId)?.isAi === false;
 
+const BARBARIAN_OWNER_ID = "barbarian-1";
+
+// Ownership states ADVANCE/MARCH treat as attackable -- see their BFS filters.
+const isAttackableState = (state: DomainTileState["ownershipState"]): boolean =>
+  state === "FRONTIER" || state === "SETTLED" || state === "BARBARIAN";
+
 /**
- * Nearest barbarian tile within ADVANCE_MAX_RANGE_TILES of the flag, or
- * undefined. Ties break on y then x so the choice is stable tick to tick.
+ * Nearest hostile tile within ADVANCE_MAX_RANGE_TILES (Chebyshev) of the flag:
+ * a barbarian, or land owned by another player who is not allied with or
+ * truced to the flag's owner. Ties prefer a barbarian (the softer target),
+ * then the lowest y, then x, so the choice is stable tick to tick.
+ *
+ * Only consulted when nothing hostile touches the flag's territory, so the
+ * flag knows which way to expand. A plain nested loop with one key per tile --
+ * no coordinate arrays -- since idle flags run it on every search.
  */
-export const nearestBarbarianInRange = (input: MusterTickInput, flag: DomainTileState): DomainTileState | undefined => {
+export const nearestHostileInRange = (input: MusterTickInput, flag: DomainTileState, playerId: string): DomainTileState | undefined => {
+  const actor = input.players.get(playerId);
+  if (!actor) return undefined;
   let best: { tile: DomainTileState; dist: number } | undefined;
-  for (const { x, y } of coordsInChebyshevRadius(flag.x, flag.y, ADVANCE_MAX_RANGE_TILES)) {
-    const tile = input.tiles.get(simulationTileKey(x, y));
-    if (tile?.ownerId !== BARBARIAN_OWNER_ID) continue;
-    const dist = chebyshevDistanceToroidal(flag.x, flag.y, x, y);
-    if (!best || dist < best.dist || (dist === best.dist && (y < best.tile.y || (y === best.tile.y && x < best.tile.x)))) {
+  for (let dy = -ADVANCE_MAX_RANGE_TILES; dy <= ADVANCE_MAX_RANGE_TILES; dy += 1) {
+    for (let dx = -ADVANCE_MAX_RANGE_TILES; dx <= ADVANCE_MAX_RANGE_TILES; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrapX(flag.x + dx, WORLD_WIDTH);
+      const y = wrapY(flag.y + dy, WORLD_HEIGHT);
+      const tile = input.tiles.get(simulationTileKey(x, y));
+      if (!tile?.ownerId || tile.ownerId === playerId || !isAttackableState(tile.ownershipState)) continue;
+      if (isAlliedOrTruced(actor, tile.ownerId)) continue;
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      if (best && dist > best.dist) continue;
+      if (best && dist === best.dist) {
+        const barbarianWins = tile.ownerId === BARBARIAN_OWNER_ID && best.tile.ownerId !== BARBARIAN_OWNER_ID;
+        const barbarianLoses = best.tile.ownerId === BARBARIAN_OWNER_ID && tile.ownerId !== BARBARIAN_OWNER_ID;
+        if (barbarianLoses || (!barbarianWins && (y > best.tile.y || (y === best.tile.y && x > best.tile.x)))) continue;
+      }
       best = { tile, dist };
     }
   }

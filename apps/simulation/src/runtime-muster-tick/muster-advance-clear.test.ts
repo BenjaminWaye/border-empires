@@ -24,11 +24,11 @@ const advanceFlag = (extra: Record<string, unknown> = {}) => ({ ownerId: "player
 const column = (x: number, fromY: number, toY: number): TileInit[] =>
   Array.from({ length: toY - fromY + 1 }, (_, i) => neutral(x, fromY + i));
 
-const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean } = {}) =>
+const buildRuntime = (tiles: TileInit[], options: { playerIsAi?: boolean; alliedWithRival?: boolean } = {}) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
-      ["player-1", { ...makePlayer("player-1"), isAi: options.playerIsAi ?? false }],
+      ["player-1", { ...makePlayer("player-1"), isAi: options.playerIsAi ?? false, allies: new Set(options.alliedWithRival ? ["player-2"] : []) }],
       ["player-2", makePlayer("player-2")],
       ["barbarian-1", { ...makePlayer("barbarian-1"), isAi: true }]
     ]),
@@ -50,7 +50,7 @@ const targets = (events: SimulationEvent[]) =>
     )
     .map((command) => `${command.actionType}:${command.targetX - BASE},${command.targetY - BASE}`);
 
-describe("ADVANCE clearing barbarians in the wilderness", () => {
+describe("ADVANCE clearing enemies in range", () => {
   it("expands toward a barbarian that does not touch its territory", () => {
     const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 13), barb(10, 14)]);
     const seen: SimulationEvent[] = [];
@@ -69,12 +69,59 @@ describe("ADVANCE clearing barbarians in the wilderness", () => {
     expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE" });
   });
 
-  it("never expands toward another player's land", () => {
+  it("expands toward a rival's border within range, then attacks it", () => {
     const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 13), rival(10, 14)]);
     const seen: SimulationEvent[] = [];
     runtime.onEvent((event) => seen.push(event));
     runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual(["EXPAND:10,11"]);
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE", clearing: true });
+  });
+
+  it("ignores a rival beyond the range cap", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 30), rival(10, 10 + ADVANCE_MAX_RANGE_TILES + 1)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
     expect(targets(seen)).toEqual([]);
+  });
+
+  it("heads for the nearer of a barbarian and a rival", () => {
+    const runtime = buildRuntime([
+      owned(10, 10, advanceFlag()), ...column(10, 11, 13), rival(10, 14),
+      neutral(9, 11), neutral(8, 11), neutral(7, 11), barb(6, 11)
+    ]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    // The barbarian is 4 tiles away, the rival 4 as well: a tie goes to the barbarian, so the flag steps west.
+    expect(targets(seen)).toEqual(["EXPAND:9,11"]);
+  });
+
+  it("treats an allied or truced player as no target at all", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 13), rival(10, 14)], { alliedWithRival: true });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+  });
+
+  it("does not attack an ally's tile on its border, and still finishes once only allies are left", () => {
+    // The ally's tile is the nearest "enemy" on the border. Without the ally
+    // filter the flag would re-pick it forever (the attack is always rejected)
+    // and never report the area cleared.
+    const runtime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true })), rival(11, 10)], { alliedWithRival: true });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "HOLD" });
+  });
+
+  it("does not finish while a rival is still in range", () => {
+    const runtime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true })), ...column(10, 11, 13), rival(10, 14)]);
+    runtime.tickMuster(1_000);
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE" });
   });
 
   it("attacks barbarians already touching its territory, from different border tiles, in parallel", () => {

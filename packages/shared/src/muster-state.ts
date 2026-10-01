@@ -57,7 +57,7 @@ export type MusterState = {
   // today's behavior.
   commitManpower?: number;
   // ADVANCE only: true once the flag has had something to work on (an attack
-  // launched, or a barbarian in range it is closing on). A human ADVANCE flag
+  // launched, or a hostile tile in range it is closing on). A human ADVANCE flag
   // that is `clearing` and then finds nothing hostile left in range reports
   // "area cleared" and returns to HOLD; one that never engaged keeps waiting
   // at a quiet front, as ADVANCE always has. See muster-advance-fire.ts.

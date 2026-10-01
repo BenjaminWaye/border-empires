@@ -3,8 +3,9 @@ import { MUSTER_MAX_CONCURRENT_ACTIONS } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
-import { completeAdvanceClearing, isHumanFlagOwner, markAdvanceClearing, nearestBarbarianInRange } from "./muster-advance-clear.js";
+import { completeAdvanceClearing, isHumanFlagOwner, markAdvanceClearing, nearestHostileInRange } from "./muster-advance-clear.js";
 import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
@@ -107,6 +108,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // ties between candidates found at the same hop depth.
   // Uses a head pointer instead of shift() to keep dequeue O(1).
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
+  const actor = input.players.get(playerId);
   const visited = new Set<string>([originKey]);
   const depthByKey = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
@@ -165,6 +167,10 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       } else if (
         neighbor.ownerId &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
+        // An ally's or truced player's tile is not a target: the attack would
+        // only be rejected, and as the nearest candidate it would be re-picked
+        // every tick in front of real enemies.
+        !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
@@ -186,12 +192,15 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // striking whatever unlocked tile happens to be reachable, however far.
   if (!best || best.hops > ADVANCE_MAX_RANGE_TILES) {
     if (isHumanFlagOwner(input, playerId)) {
-      // Barbarians that don't touch our border yet: close the distance by
-      // expanding toward the nearest one (the next search then attacks it).
-      const barbarian = nearestBarbarianInRange(input, musterTile);
-      if (barbarian) {
+      // Hostile land (a barbarian, or a rival who isn't an ally) that doesn't
+      // touch our border yet: close the distance by expanding toward the
+      // nearest such tile -- the next search then attacks it. Skipped while a
+      // reachable target is merely unaffordable: expanding costs manpower too,
+      // and the status line should say that the flag needs more.
+      const hostile = bestUnaffordable === undefined ? nearestHostileInRange(input, musterTile, playerId) : undefined;
+      if (hostile) {
         markAdvanceClearing(input, originKey);
-        maybeMarchFire(input, input.tiles.get(originKey) ?? musterTile, playerId, { target: { x: barbarian.x, y: barbarian.y }, expandOnly: true });
+        maybeMarchFire(input, input.tiles.get(originKey) ?? musterTile, playerId, { target: { x: hostile.x, y: hostile.y }, expandOnly: true });
         return;
       }
       // Nothing hostile left in range and nothing still fighting: the order
