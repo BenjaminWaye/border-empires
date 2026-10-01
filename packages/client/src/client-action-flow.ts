@@ -10,7 +10,7 @@ import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { captureAttackProgressView, incomingAttackProgressView } from "./client-battle-progress/client-battle-progress.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -572,7 +572,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
   const processAutoSettleTargets = (): void => {
     if (state.autoSettleTargets.size === 0) return;
-    const reach = resolveMyReach(state);
+    const reach = resolveMyReachCached(state);
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
@@ -715,7 +715,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // Can land outside reach (e.g. a Relay Beacon dying mid-capture); mirror
       // processAutoSettleTargets and drop the doomed settle instead of sending it.
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (!resolveMyReach(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
+        if (!resolveMyReachCached(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
         else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
@@ -1652,7 +1652,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
-      resolveMyReach(state).has(keyFor(x, y));
+      resolveMyReachCached(state).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also

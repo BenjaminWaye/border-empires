@@ -3,7 +3,7 @@
 // AGENTS.md's file-line-limit rule).
 export const createInitialReachState = () => ({
   // Fixed-borders-via-reach overlay. `undefined` means "not computed for this
-  // frame yet" (client-runtime-loop.ts lazily fills it via resolveMyReach,
+  // frame yet" (resolveMyReachCached lazily fills it via resolveMyReach,
   // which prefers serverReach below and only falls back to the local
   // approximation before the first REACH_UPDATE arrives).
   myReach: undefined as Set<string> | undefined,

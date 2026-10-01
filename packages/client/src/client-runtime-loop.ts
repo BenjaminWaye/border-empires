@@ -22,7 +22,7 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
-import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
   drawDormantFrontierTreatment,
   drawReachBoundaryLine,
@@ -251,15 +251,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
-    // Reach overlay: recompute only when tiles or server reach actually
-    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
-    // avoid collisions once tilesRevision outgrows the multiplier.
-    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
-    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
-      state.myReach = resolveMyReach(state);
-      state.myReachRevisionAtCompute = reachCacheKey;
-    }
-    const myReach = state.myReach;
+    // Reach overlay: resolveMyReachCached recomputes only when tiles or the
+    // server reach actually changed (same cache the 3D renderer uses).
+    const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
