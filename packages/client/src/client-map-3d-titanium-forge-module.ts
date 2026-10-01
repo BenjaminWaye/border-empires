@@ -34,6 +34,7 @@
 // stacked cylinders step down in radius — otherwise the seams Z-fight into
 // black line artifacts.
 
+import { makeYawAboutAnchor } from "./client-map-3d-afc-module-yaw.js";
 import {
   BufferGeometry,
   CapsuleGeometry,
@@ -186,7 +187,6 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
   const yawMatrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
-  const yawQuat = new Quaternion();
   const pieceQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpDir = new Vector3();
@@ -390,8 +390,7 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
-    yawMatrix.makeRotationFromQuaternion(yawQuat);
+    makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
     records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
@@ -414,8 +413,7 @@ export const createTitaniumForgeModuleOverlay = (scene: Scene, maxInstances: num
     if (count === 0 || hotMesh === undefined || whiteMesh === undefined) return;
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
-      yawQuat.setFromEuler(tmpEuler.set(0, -rec.yaw, 0, "XYZ"));
-      yawMatrix.makeRotationFromQuaternion(yawQuat);
+      makeYawAboutAnchor(yawMatrix, rec.yaw, rec.x, rec.z);
       const breathe = 1 + FORGE_AMPLITUDE * Math.sin(nowMs * FORGE_SPEED + rec.phase);
       position.set(rec.x + hotOffset.x * TITANIUM_FORGE_SCALE, rec.y + hotOffset.y * TITANIUM_FORGE_SCALE, rec.z + hotOffset.z * TITANIUM_FORGE_SCALE);
       scale.set(breathe * TITANIUM_FORGE_SCALE, breathe * TITANIUM_FORGE_SCALE, breathe * TITANIUM_FORGE_SCALE);

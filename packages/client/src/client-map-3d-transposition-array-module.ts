@@ -33,6 +33,7 @@
 // column passes between the two ring openings so the seams never Z-fight into
 // black line artifacts.
 
+import { makeYawAboutAnchor } from "./client-map-3d-afc-module-yaw.js";
 import {
   BufferGeometry,
   CapsuleGeometry,
@@ -148,7 +149,6 @@ export const createTranspositionArrayModuleOverlay = (scene: Scene, maxInstances
   const yawMatrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
-  const yawQuat = new Quaternion();
   const pieceQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpDir = new Vector3();
@@ -308,8 +308,7 @@ export const createTranspositionArrayModuleOverlay = (scene: Scene, maxInstances
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
     if (records.length >= C) return -1;
-    yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
-    yawMatrix.makeRotationFromQuaternion(yawQuat);
+    makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
     records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
