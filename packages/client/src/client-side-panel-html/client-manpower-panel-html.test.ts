@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { manpowerFullStatusText, renderManpowerPanelHtml } from "./client-side-panel-html.js";
+import { manpowerFullStatusText, musterStatusText, renderManpowerPanelHtml } from "./client-side-panel-html.js";
 
 const baseArgs = {
   manpower: 100,
@@ -65,5 +65,20 @@ describe("manpowerFullStatusText", () => {
   it("reads as paused, not an infinite countdown, when regen is zero or negative", () => {
     expect(manpowerFullStatusText(20, 200, 0, formatDuration)).toBe("Regen paused.");
     expect(manpowerFullStatusText(20, 200, -1, formatDuration)).toBe("Regen paused.");
+  });
+});
+
+describe("musterStatusText for a clearing ADVANCE flag", () => {
+  const flag = { x: 5, y: 5, amount: 90.7, mode: "ADVANCE" as const };
+
+  it("says it is clearing the area once it has engaged, instead of scouting", () => {
+    expect(musterStatusText({ ...flag, clearing: true })).toBe("Clearing the area — 90 manpower staged.");
+    expect(musterStatusText(flag)).toBe("Advancing 90 manpower — scouting for a target.");
+  });
+
+  it("still shows live fighting status while clearing", () => {
+    expect(musterStatusText({ ...flag, clearing: true, inFlight: true, inFlightCount: 2, fightX: 7, fightY: 8 })).toBe(
+      "Fighting at (7, 8) (2 actions active)."
+    );
   });
 });
