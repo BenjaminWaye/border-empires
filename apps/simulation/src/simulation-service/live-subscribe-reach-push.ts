@@ -35,6 +35,13 @@
  * payload in `session.pendingPayloads` and flushes it after init, so arriving
  * "early" within step 4 is safe.
  *
+ * Step 4 only reaches this RPC for the player's *first* socket: the gateway's
+ * `ensureSubscribed` short-circuits to its cached snapshot when the player is
+ * already subscribed (a second tab/device, or a reconnect before the old socket
+ * is reaped), so no push fires here for that login. The gateway covers that
+ * case itself by replaying the latest REACH_UPDATE it relayed
+ * (apps/realtime-gateway/src/reach-update-replay/reach-update-replay.ts).
+ *
  * `registerSubscribeAndMaybePushReach` is scoped to the gateway's actual
  * connect subscribe (`trigger: "gateway_live_subscribe"`) internally, not
  * every non-bootstrap SubscribePlayer call. Fog-toggle and reveal-map
