@@ -20,6 +20,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1790713309651,
+    introducedIn: "2026.09.29.4",
+    title: "AI empires can now build Titanium Bastion and Thunder Bastion forts again",
+    why: "Fort tiers pay their Titanium cost as a resource-slot occupation, not a stockpile spend, but the AI's build-planner still checked the opponent's Titanium stockpile against the old (already-retired) per-tier cost before proposing a fort -- since Titanium no longer accumulates as a stockpile, that check always failed. AI opponents with Fortified Walls or Steelworking researched could never actually build the fort tier those techs unlock.",
+    changes: [
+      "AI-controlled empires now build Titanium Bastion and Thunder Bastion forts once they have the researching tech and enough manpower, instead of silently failing every attempt",
+      "No change to human players -- fort build costs on the tile-menu and command flow were never affected by this"
+    ]
+  },
+  {
+    createdAt: 1790756000000, // frozen: was Date.now(), which check:client-changelog rejects
+    introducedIn: "2026.09.30.1",
+    title: "Economy panel no longer shows a gold cap",
+    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
+    changes: [
+      "The Gold card and detail view in the Economy panel now show just your gold total"
+    ]
+  },
+  {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
     title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
@@ -326,6 +345,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1790712449220,
+    introducedIn: "2026.09.29.3",
+    title: "Palisades and Forts now stack with Relay Beacons, and forts keep defending while they upgrade",
+    why: "Building a Palisade on a Relay Beacon or Harbor Exchange silently destroyed it, a Fort built on a Relay Beacon made the beacon vanish from the map, and the tile info only ever named one of the two. Palisades also never actually applied the defense their build menu advertised, and upgrading any fort left the tile undefended until the new tier finished.",
+    changes: [
+      "A Palisade now stacks on a Relay Beacon or Harbor Exchange exactly like a Fort does, instead of replacing it (a beacon already lost this way can't be restored)",
+      "A Relay Beacon that shares its tile with a Palisade or Fort is now drawn on the map, on both the 3D and the 2D map",
+      "The tile info's \"Built:\" line now lists every structure on the tile, e.g. \"Built: Fort, Relay Beacon\"",
+      "Palisades now really defend in combat: 1.35x defense, attackers need 150 mustered manpower and risk losing 100-150 of it",
+      "While a Palisade or Fort upgrades to its next tier, the current one keeps standing and defending until the upgrade completes; cancelling an upgrade, or losing the tile mid-upgrade, now keeps the current fort instead of destroying it",
+      "Existing Palisades are carried over automatically"
+    ]
+  },
+  {
     createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.29.3",
     title: "Empire names are now unique, and new players start with a noble house name",
@@ -363,7 +396,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790706701004, // frozen when the socket-delivery entry was merged into develop
     introducedIn: "2026.09.29.6",
     title: "Module deliveries now target their AFC socket",
     why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
@@ -372,13 +405,84 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790718792000, // frozen at authoring time
-    introducedIn: "2026.09.29.7",
-    title: "Every Fabrication Complex module now docks in its own slot",
-    why: "Only the first module docked into its slot: every later module was rotated around the map origin instead of its own dock, so it ended up far from your Fabrication Complex. Modules without their own 3D model also rendered nothing.",
+    createdAt: 1790724338616, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.2",
+    title: "Fishing sites have a new look",
+    why: "Fishing tiles were drawn as a few plain boxes. They now use a modelled fishing site that reads better on the map and lets the water or shore show through underneath.",
     changes: [
-      "Fixed modules after the first missing their slot -- each module now sits in its own slot on the Fabrication Complex",
-      "Modules that don't have their own 3D model yet now dock as a plain generic cartridge instead of leaving their slot empty"
+      "Every fishing resource tile in the 3D map now shows a low-poly fishing site with boats, a hut, a drying rack and a flag",
+      "The site has no ground plate, so the terrain beneath it stays visible",
+      "Each site turns to face the water, with its vats and cranes on the water side and the hut on the land side",
+      "The 2D fallback renderer is unchanged"
+    ]
+  },
+  {
+    createdAt: 1790706701004, // frozen, 1ms after the newest existing entry (this branch's photo-mode/opacity work predates "Modules now visibly land on your AFC" but merged in after it)
+    introducedIn: "2026.09.29.7",
+    title: "Photo mode for clean map screenshots",
+    why: "Sharing a screenshot of a border fight meant cropping around the top bar, minimap and tip popups, so it was hard to show the game off.",
+    changes: [
+      "Add ?photo=1 to the game address to hide the top bar, minimap, panels and tip popups and show only the map",
+      "Add &photoX=<tile>&photoY=<tile>&photoZoom=<zoom> to start on a specific spot; the view unlocks as soon as you drag, scroll or press a key",
+      "Works in both the 3D map and the 2D fallback map"
+    ]
+  },
+  {
+    createdAt: 1790706701005, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Empire colours on the 3D map are vivid again",
+    why: "Territory was drawn so see-through that the dark terrain underneath dulled every empire's colour, so a border between two empires was hard to spot at a glance.",
+    changes: [
+      "In the 3D map, land you have settled now shows your empire colour at full strength instead of a muddy blend with the ground (a gold empire is gold again, not olive)",
+      "Newly claimed frontier land stays lighter so it is still easy to tell from settled land"
+    ]
+  },
+  {
+    createdAt: 1790706701006, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Photo mode is now a Settings toggle too",
+    why: "Turning on Photo Mode meant typing a web address or opening the browser console, so it was easy to forget how and only realistic for whoever wrote it down.",
+    changes: [
+      "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
+      "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
+    ]
+  },
+  {
+    createdAt: 1790724338615, // frozen while resolving the develop merge
+    introducedIn: "2026.09.30.1",
+    title: "Rally links now show a proper preview card when you share them",
+    why: "A rally link pasted into WhatsApp, Discord, iMessage or X used to appear as plain \"Border Empires\" with no picture, so a friend had no idea why they should click it.",
+    changes: [
+      "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
+      "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
+    ]
+  },
+  {
+    createdAt: 1790757301381, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.2",
+    title: "More reliable guest sign-in",
+    why: "A busy game database could freeze the realtime gateway while a new guest was signing in, leaving Play Now stuck before the map opened.",
+    changes: [
+      "Guest sign-in now retries temporary database contention without freezing the realtime connection",
+      "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
+    ]
+  },
+  {
+    createdAt: 1790756975653,
+    introducedIn: "2026.09.30.3",
+    title: "Map overlays no longer float above hills",
+    why: "Flat tile overlays on hills were parked at the hill's tallest possible height, well above the visible ground, so they hovered in the air in the 3D map.",
+    changes: [
+      "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
+    ]
+  },
+  {
+    createdAt: 1790764591773, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.4",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    changes: [
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
     ]
   }
 ];

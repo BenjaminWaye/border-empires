@@ -5,5 +5,5 @@
     "types": ["vite/client"],
     "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src", "admin-app"]
 }

@@ -4,7 +4,7 @@ import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
@@ -24,15 +24,14 @@ import { renderClientGuideOverlay } from "../client-guide-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
-import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
-import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
+import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
 import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
-import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
+import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
+import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
@@ -989,7 +988,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
-  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindEmailNotificationsSettingsControls(dom.hud); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindRendererSettingsControls(dom.hud); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
       if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;
@@ -1063,61 +1062,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
   });
 
-  const canShowRendererPrompt = shouldShowRendererPrompt({
-    dismissed: state.rendererPrompt.dismissed,
-    true3DActive: isTrue3DRendererActive(),
-    sustainedLowFps: hasSustainedLowFps(RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, performance.now()),
-    connectionInitialized: state.connection === "initialized",
-    authSessionReady: state.authSessionReady,
-    profileSetupRequired: state.profileSetupRequired,
-    changelogOpen: state.changelog.open,
-    guideOpen: state.guide.open,
-    activityDashboardOpen: state.activityDashboard.open
-  });
-  dom.rendererPromptOverlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
-  if (canShowRendererPrompt) {
-    dom.rendererPromptOverlayEl.innerHTML = `
-      <div class="guide-backdrop" id="renderer-prompt-backdrop"></div>
-      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="renderer-prompt-title">
-        <div class="guide-modal-scroll">
-          <h2 id="renderer-prompt-title" class="guide-title">3D is running slow on this device</h2>
-          <p class="guide-body">Your device is rendering the 3D map at a low frame rate. Switch to the lighter 2D version for smoother performance?</p>
-          <div class="guide-actions">
-            <button id="renderer-prompt-keep" class="panel-btn guide-secondary-btn" type="button">Keep 3D</button>
-            <button id="renderer-prompt-switch" class="panel-btn guide-primary-btn" type="button">Switch to 2D</button>
-          </div>
-          <button id="renderer-prompt-download" class="panel-btn guide-secondary-btn renderer-prompt-download-btn" type="button">Download Diagnostics</button>
-        </div>
-      </div>
-    `;
-    const dismissPrompt = (): void => {
-      state.rendererPrompt.dismissed = true;
-      storageSet(RENDERER_PROMPT_STORAGE_KEY, "1");
-      renderClientHud(deps);
-    };
-    const keepBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-keep") as HTMLButtonElement | null;
-    const switchBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-switch") as HTMLButtonElement | null;
-    const backdropEl = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-backdrop") as HTMLDivElement | null;
-    if (keepBtn) keepBtn.onclick = dismissPrompt;
-    if (backdropEl) backdropEl.onclick = dismissPrompt;
-    if (switchBtn) {
-      switchBtn.onclick = (): void => {
-        storageSet(RENDERER_PROMPT_STORAGE_KEY, "1");
-        const url = new URL(window.location.href);
-        url.searchParams.set("renderer", "2d");
-        window.location.replace(url.toString());
-      };
-    }
-    const downloadBtn = dom.rendererPromptOverlayEl.querySelector("#renderer-prompt-download") as HTMLButtonElement | null;
-    if (downloadBtn) {
-      downloadBtn.onclick = (): void => {
-        const bundle = buildDiagnosticsBundle(state, wsUrl);
-        downloadDiagnosticsBundle(bundle);
-      };
-    }
-  } else if (dom.rendererPromptOverlayEl.innerHTML) {
-    dom.rendererPromptOverlayEl.innerHTML = "";
-  }
+  renderRendererPromptOverlay({ state, overlayEl: dom.rendererPromptOverlayEl, wsUrl, storageSet, renderHud: () => renderClientHud(deps) });
 
   renderRespawnOverlay({
     state, overlayEl: dom.respawnOverlayEl, renderHud: () => renderClientHud(deps),

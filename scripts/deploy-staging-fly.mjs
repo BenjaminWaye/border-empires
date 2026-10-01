@@ -77,6 +77,9 @@ const main = async () => {
     "--env", `BUILD_SHA=${targetSha}`
   ]);
 
+  log("Verifying sustained staging gateway and WebSocket health");
+  run("node", ["./scripts/verify-staging-realtime.mjs"]);
+
   log(`Fly deploy complete. SHA: ${targetShortSha}`);
 };
 

@@ -20,6 +20,7 @@ import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-ma
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
+import type { AfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 
 const TILE_CENTER_OFFSET = 0.5;
@@ -44,6 +45,7 @@ export type FxCastOverlayLayers = {
   aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
   unsettleFx: ReturnType<typeof createUnsettleFxLayer>;
   afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
+  afcDropFx: AfcDropFxLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -71,6 +73,7 @@ export type FxCastOverlaySyncs = {
   readonly syncImperialExchangeLevyFxQueue: () => void;
   readonly syncUnsettleFxQueue: () => void;
   readonly syncAfcModuleDeliveryFxQueue: () => void;
+  readonly syncAfcDropFxQueue: () => void;
   readonly syncAstralDockLaunchFxQueue: () => void;
   readonly syncAegisLockFxQueue: () => void;
 };
@@ -212,6 +215,15 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  const syncAfcDropFxQueue = (): void => {
+    while (state.afcJoinDropFxQueue.length > 0) {
+      const drop = state.afcJoinDropFxQueue.shift()!;
+      const { sceneX, sceneZ } = sceneXZ(drop.x, drop.y);
+      // The drop's timeline is anchored at when it started, not at this drain, so 3D and 2D stay in step.
+      layers.afcDropFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(drop.x, drop.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, drop.queuedAt);
+    }
+  };
+
   const syncAstralDockLaunchFxQueue = (): void => {
     while (state.astralDockLaunchFxQueue.length > 0) {
       const cast = state.astralDockLaunchFxQueue.shift()!;
@@ -249,6 +261,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncImperialExchangeLevyFxQueue,
     syncUnsettleFxQueue,
     syncAfcModuleDeliveryFxQueue,
+    syncAfcDropFxQueue,
     syncAstralDockLaunchFxQueue,
     syncAegisLockFxQueue
   };

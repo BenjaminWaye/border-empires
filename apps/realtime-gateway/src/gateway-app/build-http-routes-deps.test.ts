@@ -104,4 +104,13 @@ describe("buildGatewayHttpRoutesDeps activityApi.getPowerScore", () => {
     expect(powerScore).toHaveLength(1);
     expect(powerScore[0]!.name).toBe("Real Chosen Name");
   });
+
+  it("turns on Google sign-in for admin endpoints only when ADMIN_EMAIL is configured", () => {
+    const simulationClient = {} as unknown as ReturnType<typeof createSimulationClient>;
+    const withEmail = buildGatewayHttpRoutesDeps(Fastify(), buildMinimalCtx({ simulationClient, admin: { apiToken: "t", email: "admin@example.com" } }));
+    expect(withEmail.adminApiToken).toBe("t");
+    expect(withEmail.adminFirebaseAuth?.adminEmail).toBe("admin@example.com");
+    const withoutEmail = buildGatewayHttpRoutesDeps(Fastify(), buildMinimalCtx({ simulationClient, admin: { apiToken: "t" } }));
+    expect(withoutEmail.adminFirebaseAuth).toBeUndefined();
+  });
 });

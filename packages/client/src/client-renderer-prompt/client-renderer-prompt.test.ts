@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowRendererPrompt, shouldWakeRendererPromptHud } from "./client-renderer-prompt.js";
+import { shouldShowRendererPrompt, shouldShowTwoDimensionalNotice, shouldWakeRendererPromptHud } from "./client-renderer-prompt.js";
 
 describe("client renderer prompt", () => {
   it("wakes the HUD for sustained low FPS whenever true 3D is active", () => {
@@ -71,5 +71,31 @@ describe("client renderer prompt", () => {
         activityDashboardOpen: true
       })
     ).toBe(false);
+  });
+});
+
+describe("two-dimensional mode notice visibility", () => {
+  const ready = {
+    prefers2D: true,
+    connectionInitialized: true,
+    authSessionReady: true,
+    profileSetupRequired: false,
+    changelogOpen: false,
+    guideOpen: false
+  };
+
+  it("shows for a chosen-2D session once the gameplay HUD is ready", () => {
+    expect(shouldShowTwoDimensionalNotice(ready)).toBe(true);
+  });
+  it("never shows when 3D was wanted", () => {
+    expect(shouldShowTwoDimensionalNotice({ ...ready, prefers2D: false })).toBe(false);
+  });
+  it("waits out sign-in, profile setup and open modals", () => {
+    expect(shouldShowTwoDimensionalNotice({ ...ready, authSessionReady: false })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, connectionInitialized: false })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, profileSetupRequired: true })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, guideOpen: true })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, changelogOpen: true })).toBe(false);
+    expect(shouldShowTwoDimensionalNotice({ ...ready, activityDashboardOpen: true })).toBe(false);
   });
 });

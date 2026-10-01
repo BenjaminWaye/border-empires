@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import { renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
+import { JOIN_SEASON_PENDING_WATCHDOG_MS, joinWaitHint, renderJoinSeasonOverlay } from "./client-join-season-overlay.js";
 
 const makeState = (overrides: Record<string, unknown> = {}) => ({
   needsSeasonJoin: false,
@@ -278,5 +278,45 @@ describe("join-season overlay", () => {
     renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
     expect(overlayEl.querySelector(".respawn-modal")).not.toBe(firstNode);
     expect(overlayEl.textContent).toContain("2");
+  });
+
+  it("gives up on a join that never gets an ack so the button is not stuck on Joining... (regression)", () => {
+    vi.useFakeTimers();
+    try {
+      const overlayEl = document.createElement("div");
+      const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true }) as any;
+      const pushFeed = vi.fn();
+      const renderHud = vi.fn(() => renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true, pushFeed }));
+      renderJoinSeasonOverlay({ state, overlayEl, renderHud, joinSeason: () => true, pushFeed });
+      expect(overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm")?.disabled).toBe(true);
+      vi.advanceTimersByTime(JOIN_SEASON_PENDING_WATCHDOG_MS + 1);
+      expect(state.joinSeasonPending).toBe(false);
+      expect(pushFeed).toHaveBeenCalledTimes(1);
+      const btn = overlayEl.querySelector<HTMLButtonElement>("#join-season-confirm");
+      expect(btn?.disabled).toBe(false);
+      expect(btn?.textContent).toContain("Let's go!");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("animates the button and ticks a wait-time hint while joining, without rebuilding the overlay", () => {
+    vi.useFakeTimers();
+    try {
+      const overlayEl = document.createElement("div");
+      const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true }) as any;
+      renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
+      const btn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
+      expect(btn.classList.contains("is-joining")).toBe(true);
+      expect(btn.querySelector(".season-lobby-join-spinner")).not.toBeNull();
+      const hint = overlayEl.querySelector("#join-season-wait-hint") as HTMLElement;
+      expect(hint.textContent).toBe(joinWaitHint(0));
+      vi.advanceTimersByTime(12_000);
+      expect(overlayEl.querySelector("#join-season-confirm")).toBe(btn);
+      expect(hint.textContent).toBe(joinWaitHint(12));
+      expect(hint.textContent).toContain("longer than usual");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

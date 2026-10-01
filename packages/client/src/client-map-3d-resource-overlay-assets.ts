@@ -26,10 +26,6 @@ export const createResourceOverlayAssets = () => {
     emissive: "#1a4d7a",
     emissiveIntensity: 0.35
   });
-  const boatHullMaterial = new MeshStandardMaterial({ color: "#7a4d2e", roughness: 0.85, metalness: 0, flatShading: true });
-  const boatMastMaterial = new MeshStandardMaterial({ color: "#d8caa8", roughness: 0.78, metalness: 0, flatShading: true });
-  const fishingNetMaterial = new MeshStandardMaterial({ color: "#bdb39a", roughness: 0.9, metalness: 0, flatShading: true });
-  const fishMaterial = new MeshStandardMaterial({ color: "#5fa3c8", roughness: 0.62, metalness: 0.05, flatShading: true });
   const furBodyMaterial = new MeshStandardMaterial({ color: "#9b6a3e", roughness: 0.92, metalness: 0, flatShading: true });
   const furPostMaterial = new MeshStandardMaterial({ color: "#5a3e2a", roughness: 0.9, metalness: 0, flatShading: true });
   const oilDerrickMaterial = new MeshStandardMaterial({ color: "#3a3530", roughness: 0.85, metalness: 0.15, flatShading: true });
@@ -52,15 +48,10 @@ export const createResourceOverlayAssets = () => {
   // anisotropic Y-scale at addPiece time gives each crystal its spike
   // height; rank/size differs per crystal in the cluster.
   const gemCrystalGeo = new OctahedronGeometry(0.06, 0);
-  const boatHullGeo = new BoxGeometry(0.32, 0.06, 0.14);
-  const boatMastGeo = new CylinderGeometry(0.012, 0.012, 0.18, 5);
-  const boatSailGeo = new BoxGeometry(0.012, 0.13, 0.1);
-  const netRodGeo = new CylinderGeometry(0.014, 0.014, 0.32, 5);
-  const fishGeo = new BoxGeometry(0.07, 0.025, 0.03);
   const furPostGeo = new CylinderGeometry(0.02, 0.022, 0.22, 5);
   const furBodyGeo = new BoxGeometry(0.13, 0.085, 0.018);
   // Dedicated tripod pieces — the legacy furPost/furBody stay around for
-  // FISH's drying rack and any future small-prop reuse. Tripod legs are
+  // any future small-prop reuse. Tripod legs are
   // a thicker, longer cylinder so the silhouette reads from the
   // perspective camera; the pelt is a wider draped hide.
   const furTripodPostGeo = new CylinderGeometry(0.028, 0.034, 0.30, 7);
@@ -92,10 +83,6 @@ export const createResourceOverlayAssets = () => {
     ironOreMaterial,
     chimneyMaterial,
     gemBlueMaterial,
-    boatHullMaterial,
-    boatMastMaterial,
-    fishingNetMaterial,
-    fishMaterial,
     furBodyMaterial,
     furPostMaterial,
     oilDerrickMaterial,
@@ -113,11 +100,6 @@ export const createResourceOverlayAssets = () => {
     mineHillGeo,
     chimneyGeo,
     gemCrystalGeo,
-    boatHullGeo,
-    boatMastGeo,
-    boatSailGeo,
-    netRodGeo,
-    fishGeo,
     furPostGeo,
     furBodyGeo,
     furTripodPostGeo,

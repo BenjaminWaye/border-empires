@@ -111,19 +111,16 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
-# Healthcheck that hits the gateway /healthz endpoint. The gateway and
-# simulation share a Node event loop, so if planner / snapshot work blocks
-# the loop for ~5s+, /healthz cannot respond and Fly counts this as a
-# failure. After 3 consecutive failures (~45s of unresponsive loop) Fly
-# restarts the machine, clearing heap fragmentation and GC pressure until
-# we have a proper structural fix. Tune the timeout/interval down once the
-# long-tail of AI tick duration is reliably <1s.
+# Check the gateway's real readiness, including its connection to the
+# simulation. /healthz always returns HTTP 200 even when readiness.ok is
+# false, so Fly could mark an unusable gateway healthy. The two services
+# have separate Node event loops; a blocked gateway loop also times out here.
 [[http_service.checks]]
   grace_period = "60s"
   interval = "15s"
   method = "GET"
   timeout = "5s"
-  path = "/healthz"
+  path = "/health"
 
 [mounts]
   source = "be_combined_data"

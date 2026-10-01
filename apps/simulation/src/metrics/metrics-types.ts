@@ -265,6 +265,10 @@ export type SimulationMetricsSnapshot = {
   simAuthRecoveryRespawnTotal: number;
   /** auth_recovery respawn suppressed by the world-sanity guard (ctx.tiles empty at check time). */
   simAuthRecoveryRespawnGuardedTotal: number;
+  /** Rally-linked spawns placed (denominator for the fallback counter). */
+  simRallySpawnTotal: number;
+  /** Rally-linked spawns that landed outside RALLY_SPAWN_RADIUS of the inviter. */
+  simRallySpawnFallbackTotal: number;
   /** Counter per objective kind acted on (neutral_value / enemy / none). */
   simAiExpansionObjectiveTotalByKind: Record<string, number>;
   /** Counter per utility DecisionClass acted on. */

@@ -1,5 +1,6 @@
 import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
+import type { ClientTileFort } from "./client-tile-fort-type.js";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -108,13 +109,7 @@ export type Tile = {
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
-  fort?: {
-    ownerId: string;
-    status: "under_construction" | "active" | "removing";
-    variant?: "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
-    completesAt?: number;
-    disabledUntil?: number;
-  };
+  fort?: ClientTileFort;
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeOutpost?: {
     ownerId: string;

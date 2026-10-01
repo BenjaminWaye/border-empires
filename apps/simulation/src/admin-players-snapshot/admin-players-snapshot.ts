@@ -1,5 +1,5 @@
 import type { AdminPlayerRow } from "@border-empires/sim-protocol";
-import type { SimulationRuntime } from "./runtime/runtime.js";
+import type { SimulationRuntime } from "../runtime/runtime.js";
 
 export type ProtoAdminPlayersRequest = Record<string, never>;
 export type ProtoAdminPlayersResponse = { ok: boolean; players_json?: string };
@@ -42,6 +42,7 @@ export const buildAdminPlayerRows = (runtime: SimulationRuntime): AdminPlayerRow
       incomePerMinute: player.incomePerMinute,
       techs: player.techIds.length,
       manpower: player.manpower,
+      manpowerCap: player.manpowerCap,
       resourceSlotSupply: player.resourceSlotSupply,
       resourceSlotDemand: player.resourceSlotDemand,
       shardStockpile: player.shardStockpile,
