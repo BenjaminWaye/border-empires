@@ -434,10 +434,11 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         if (!isBarb && pendingPlayers.has(playerId)) continue;
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
+        let barbCommandId: string | undefined;
         try {
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           if (!command) continue;
-          if (isBarb) barbSettleRelay.onSubmitted(command.commandId);
+          if (isBarb) barbSettleRelay.onSubmitted((barbCommandId = command.commandId));
           else {
             pendingPlayers.add(playerId);
             pendingAddedAtMs.set(playerId, now());
@@ -446,7 +447,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
           await options.submitCommand(command);
         } catch {
           pendingPlayers.delete(playerId);
-          // swallow
+          // A barbarian command that never reached the runtime must not hold its tile in flight.
+          if (barbCommandId) barbSettleRelay.onEvent({ eventType: "COMMAND_REJECTED", playerId, commandId: barbCommandId });
         }
         return;
       }

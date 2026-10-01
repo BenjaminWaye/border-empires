@@ -70,6 +70,8 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
           await options.submitCommand(command);
         } catch {
           pendingPlayers.delete(playerId);
+          // A barbarian command that never reached the runtime must not hold its tile in flight.
+          if (isBarb) barbSettleRelay.onEvent({ eventType: "COMMAND_REJECTED", playerId, commandId: command.commandId });
         }
         return;
       }

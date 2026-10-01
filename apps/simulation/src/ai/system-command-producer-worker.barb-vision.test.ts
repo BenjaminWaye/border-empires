@@ -174,4 +174,31 @@ describe("worker system command producer — barbarian vision", () => {
     mockState.commandForPlan = undefined;
     producer.close();
   });
+
+  it("settles a barbarian command whose submission fails, so its tile is not held in flight", async () => {
+    mockState.commandForPlan = (seq) => ({
+      commandId: `barb-cmd-${seq}`,
+      sessionId: "system-runtime:barbarian-1",
+      playerId: "barbarian-1",
+      clientSeq: seq,
+      issuedAt: 0,
+      type: "EXPAND",
+      payloadJson: "{}"
+    });
+    const runtime = makeRuntime(() => []);
+    const producer = createWorkerSystemCommandProducer({
+      runtime: runtime.handle,
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async () => {
+        throw new Error("queue full");
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js",
+      now: () => 1_000_000
+    });
+    await producer.tick();
+    expect(lastWorker().posted.filter((m) => m.type === "barb_settled").map((m) => m.commandId)).toEqual(["barb-cmd-1"]);
+    mockState.commandForPlan = undefined;
+    producer.close();
+  });
 });

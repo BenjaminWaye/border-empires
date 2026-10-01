@@ -151,4 +151,29 @@ describe("system command producer", () => {
     expect(settled).toEqual([{ commandId: "barb-1", settledAt: 35_000 }]);
     producer.close();
   });
+
+  it("settles a barbarian command whose submission fails, so its tile is not held in flight", async () => {
+    const settled: string[] = [];
+    const producer = createSystemCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined,
+        chooseNextOwnedFrontierCommand: () => undefined,
+        barbarianBridge: () => ({
+          choose: () => ({ commandId: "barb-x", sessionId: "s", playerId: "barbarian-1", clientSeq: 1, issuedAt: 0, type: "EXPAND", payloadJson: "{}" }),
+          settle: (commandId) => {
+            settled.push(commandId);
+          }
+        })
+      },
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async () => {
+        throw new Error("queue full");
+      },
+      tickIntervalMs: 10_000
+    });
+    await producer.tick();
+    expect(settled).toEqual(["barb-x"]);
+    producer.close();
+  });
 });
