@@ -44,14 +44,13 @@ export const autoSettleCategoryForTile = (tile: {
   return "towns"; // plain support tile: follows the town setting
 };
 
-/** `prefs` undefined means legacy/AI (see DEFAULT_AUTO_SETTLE_PREFS): allowed. */
 export const isAutoSettleAllowed = (
-  prefs: Pick<AutoSettlePrefs, AutoSettleCategory> | undefined,
+  prefs: Pick<AutoSettlePrefs, AutoSettleCategory>,
   category: AutoSettleCategory
-): boolean => (prefs ? prefs[category] : true);
+): boolean => prefs[category];
 
 export const isAutoSettleAllowedForTile = (
-  prefs: Pick<AutoSettlePrefs, AutoSettleCategory> | undefined,
+  prefs: Pick<AutoSettlePrefs, AutoSettleCategory>,
   tile: Parameters<typeof autoSettleCategoryForTile>[0]
 ): boolean => isAutoSettleAllowed(prefs, autoSettleCategoryForTile(tile));
 

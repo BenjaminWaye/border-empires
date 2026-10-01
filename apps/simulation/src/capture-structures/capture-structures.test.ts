@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS } from "@border-empires/shared";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
@@ -15,7 +15,8 @@ const makePlayer = (id: string) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 describe("capture structure survival", () => {

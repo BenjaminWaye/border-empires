@@ -25,8 +25,8 @@ describe("autoSettleCategoryForTile", () => {
 });
 
 describe("isAutoSettleAllowedForTile", () => {
-  it("allows everything for legacy/AI (undefined prefs)", () => {
-    expect(isAutoSettleAllowedForTile(undefined, { resource: "FARM" })).toBe(true);
+  it("allows everything for the explicit legacy/AI default prefs", () => {
+    expect(isAutoSettleAllowedForTile(DEFAULT_AUTO_SETTLE_PREFS, { resource: "FARM" })).toBe(true);
   });
   it("blocks every category for a new player until they answer", () => {
     expect(isAutoSettleAllowedForTile(NEW_PLAYER_AUTO_SETTLE_PREFS, { town: {} })).toBe(false);
@@ -47,5 +47,12 @@ describe("normalizeAutoSettlePrefs", () => {
   });
   it("preserves an unanswered new-player value", () => {
     expect(normalizeAutoSettlePrefs({ ...NEW_PLAYER_AUTO_SETTLE_PREFS })).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
+  });
+});
+
+describe("isAutoSettleAllowedForTile typing", () => {
+  it("requires prefs: passing undefined does not compile (and throws rather than allowing)", () => {
+    // @ts-expect-error prefs are required: there is no implicit all-on value.
+    expect(() => isAutoSettleAllowedForTile(undefined, { resource: "FARM" })).toThrow();
   });
 });

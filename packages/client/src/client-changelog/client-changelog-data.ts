@@ -475,14 +475,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
     ]
-  },
+  },,
   {
-    createdAt: 1790764591773, // frozen Date.now() value for this release
-    introducedIn: "2026.09.30.4",
-    title: "Slow server replies no longer strand an expansion",
-    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    createdAt: 1790832148785, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.1",
+    title: "Auto-settle never guesses your choice",
+    why: "If your auto-settle choices hadn't reached the game yet, the client could treat everything as switched on and queue settlements, spending manpower you hadn't agreed to.",
     changes: [
-      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+      "Until your auto-settle choices load, nothing settles on its own and the settle prompt stays hidden; Settings > Gameplay shows a loading note instead of guessed checkboxes",
+      "Existing players keep everything on, exactly as before"
     ]
   }
 ];

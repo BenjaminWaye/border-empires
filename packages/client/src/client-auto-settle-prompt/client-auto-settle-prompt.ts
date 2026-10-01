@@ -5,6 +5,7 @@
 // overlay/highlighting, so there is no 2D-vs-3D renderer work here.
 import { DEVELOPMENT_PROCESS_LIMIT, SETTLE_MANPOWER_COST, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import {
   buildAutoSettlePromptModel,
   settleManpowerCost,
@@ -90,8 +91,9 @@ const submit = (model: AutoSettlePromptModel): void => {
   if (!deps) return;
   const { state } = deps;
   // Never switches a category OFF: shown categories are only ever turned on here, the rest keep their value.
-  const current = state.autoSettle;
-  const prefs = { towns: current?.towns ?? false, food: current?.food ?? false, resources: current?.resources ?? false };
+  if (state.autoSettle.status !== "loaded") return;
+  const current = state.autoSettle.prefs;
+  const prefs = { towns: current.towns, food: current.food, resources: current.resources };
   const toQueue: Array<{ x: number; y: number; tileKey: string }> = [];
   for (const section of model.sections) {
     const sectionState = sectionUi(section);
@@ -100,7 +102,7 @@ const submit = (model: AutoSettlePromptModel): void => {
   }
   if (!deps.sendGameMessage({ type: "SET_AUTO_SETTLE_PREFS", ...prefs }, "Finish sign-in before choosing settlement options.")) return;
   // Optimistic: the server's PLAYER_UPDATE confirms it.
-  state.autoSettle = { answered: true, ...prefs };
+  state.autoSettle = loadedAutoSettleState({ answered: true, ...prefs });
   const added = enqueueSettleTiles(state, toQueue, deps.persistDevelopmentQueue);
   if (added > 0) deps.pushFeed(`Settling ${added} tile${added === 1 ? "" : "s"}.`, "info", "success");
   // Whatever the player chose not to settle now counts as seen, so it doesn't immediately re-open the prompt.

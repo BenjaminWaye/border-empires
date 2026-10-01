@@ -19,5 +19,14 @@ export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
       "You are now asked whenever towns, food or resources come within reach and aren't set to auto-settle: pick how many to settle and see the manpower cost first, or close it and carry on",
       "Auto-settle is now a per-category setting (towns & docks, food, other resources) in Settings > Gameplay, and stays on for existing players"
     ]
+  },
+  {
+    createdAt: 1790764591773, // frozen Date.now() value for this release
+    introducedIn: "2026.09.30.4",
+    title: "Slow server replies no longer strand an expansion",
+    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
+    changes: [
+      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+    ]
   }
 ];
