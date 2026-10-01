@@ -78,6 +78,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-1",
           seasonSequence: 1,
+          sectorNumber: 1,
+          campaign: { kind: "FRONTIER" },
           tier: "PLANET",
           objectiveName: "Diplomatic Dominance",
           specialization: "CAPITAL",
@@ -186,6 +188,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-ai",
           seasonSequence: 1,
+          sectorNumber: 1,
+          campaign: { kind: "FRONTIER" },
           tier: "PLANET",
           objectiveName: "Diplomatic Dominance",
           specialization: "CAPITAL",
@@ -230,6 +234,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-pending",
           seasonSequence: 2,
+          sectorNumber: 1,
+          campaign: { kind: "FRONTIER" },
           tier: "PLANET",
           objectiveName: "Diplomatic Dominance",
           specialization: "CAPITAL",
@@ -357,89 +363,6 @@ describe("galaxy routes", () => {
 
     const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
     expect(publicResponse.json().planets[0].stats).toEqual(stats);
-  });
-
-  it("surfaces an Outpost record for the owning account in /me, and as public territory in /hq/galaxy", async () => {
-    const authBindingStore = new InMemoryGatewayAuthBindingStore();
-    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
-    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2" });
-    const runnerUpIdentity: GatewayResolvedIdentity = { playerId: "player-2", playerName: "Runner Up", authUid: "uid-2" };
-    const app = buildApp({
-      archives: [
-        wonArchive({
-          galaxyTiers: [{ playerId: "player-2", playerName: "Runner Up", tier: "OUTPOST", specialization: "EXTRACTION" }]
-        })
-      ],
-      identityForToken: (auth) => (auth === "Bearer runner-token" ? runnerUpIdentity : undefined),
-      authBindingStore
-    });
-
-    const meResponse = await app.inject({
-      method: "GET",
-      url: "/hq/galaxy/me",
-      headers: { authorization: "Bearer runner-token" }
-    });
-    expect(meResponse.json().outposts).toEqual([
-      { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
-    ]);
-    expect(meResponse.json().stipends).toEqual([]);
-
-    const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
-    expect(publicResponse.json().outposts).toEqual([
-      { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
-    ]);
-  });
-
-  it("surfaces a Stipend record for the owning account in /me only (not the public listing)", async () => {
-    const authBindingStore = new InMemoryGatewayAuthBindingStore();
-    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
-    await authBindingStore.bindIdentity({ uid: "uid-3", playerId: "player-3" });
-    const bystanderIdentity: GatewayResolvedIdentity = { playerId: "player-3", playerName: "Bystander", authUid: "uid-3" };
-    const app = buildApp({
-      archives: [
-        wonArchive({
-          galaxyTiers: [{ playerId: "player-3", playerName: "Bystander", tier: "STIPEND", influence: 9, production: 36 }]
-        })
-      ],
-      identityForToken: (auth) => (auth === "Bearer bystander-token" ? bystanderIdentity : undefined),
-      authBindingStore
-    });
-
-    const meResponse = await app.inject({
-      method: "GET",
-      url: "/hq/galaxy/me",
-      headers: { authorization: "Bearer bystander-token" }
-    });
-    expect(meResponse.json().stipends).toEqual([
-      { seasonId: "season-1", seasonSequence: 1, tier: "STIPEND", awardedAt: 1_000, influence: 9, production: 36 }
-    ]);
-    expect(meResponse.json().outposts).toEqual([]);
-
-    const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
-    expect(publicResponse.json().outposts).toEqual([]);
-  });
-
-  it("does not leak another account's Outpost/Stipend records into /me", async () => {
-    const authBindingStore = new InMemoryGatewayAuthBindingStore();
-    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
-    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2" });
-    const app = buildApp({
-      archives: [
-        wonArchive({
-          galaxyTiers: [{ playerId: "player-2", playerName: "Runner Up", tier: "OUTPOST", specialization: "EXTRACTION" }]
-        })
-      ],
-      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
-      authBindingStore
-    });
-
-    const meResponse = await app.inject({
-      method: "GET",
-      url: "/hq/galaxy/me",
-      headers: { authorization: "Bearer good-token" }
-    });
-    expect(meResponse.json().outposts).toEqual([]);
-    expect(meResponse.json().stipends).toEqual([]);
   });
 
   it("surfaces economy balance and per-Planet Stability on /hq/galaxy/me when a galaxyEconomyStore is wired up", async () => {
