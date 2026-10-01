@@ -311,7 +311,7 @@ See `.env.example` for a copyable local-dev template of these.
 STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-probe
 ```
 
-Runs 12 real WebSocket auth attempts against `wss://border-empires-combined-staging.fly.dev/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
+Runs 12 real WebSocket auth attempts against `wss://api-staging.borderempires.com/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
 
 **Login experience probe** (what the player sees from sign-in to map-ready, in real Chromium):
 
