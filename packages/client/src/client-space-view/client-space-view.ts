@@ -28,7 +28,7 @@ import { dukeStyle } from "../client-duke-panel/client-duke-style.js";
 import type { FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
-  planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean }>;
+  planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean; sectorNumber?: number }>;
   outposts?: Array<{ seasonId: string }>;
   // Only present once the gateway's galaxyEconomyStore is wired (galactic
   // v1) -- absent means "no economy yet", not "zero income", so this stays
@@ -169,7 +169,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     if (visible) scene?.resize();
   };
 
-  const ensureMounted = (welcomePlanet?: { seasonId: string; planetName: string | null; named: boolean }): void => {
+  const ensureMounted = (welcomePlanet?: { seasonId: string; planetName: string | null; named: boolean; sectorNumber?: number | undefined }): void => {
     if (screen) return;
     ensureStyle();
 
@@ -221,6 +221,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         seasonId: welcomePlanet.seasonId,
         planetName: welcomePlanet.planetName,
         named: welcomePlanet.named,
+        sectorNumber: welcomePlanet.sectorNumber,
         authEmail,
         wsUrl: deps.wsUrl,
         getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken()
@@ -448,7 +449,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       const firstPlanet = myPlanets[0];
       ensureMounted(
         firstPlanet
-          ? { seasonId: firstPlanet.seasonId, planetName: firstPlanet.planetName ?? null, named: firstPlanet.named ?? false }
+          ? {
+              seasonId: firstPlanet.seasonId,
+              planetName: firstPlanet.planetName ?? null,
+              named: firstPlanet.named ?? false,
+              sectorNumber: firstPlanet.sectorNumber
+            }
           : undefined
       );
       updateStats(meBody?.economy);
