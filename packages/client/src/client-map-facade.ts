@@ -39,6 +39,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
+import { isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 
 type MapFacadeDeps = {
   state: ClientState;
@@ -257,7 +258,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawTerrainTileOnCanvas(ctx, {
       wx,
       wy,
-      terrain,
+      // Footprint mountains the AFC landing flattened stay drawn until its join drop lands.
+      terrain: terrainWithAfcLandingHold(state.afcJoinDrop, wx, wy, terrain),
       px,
       py,
       size,
@@ -274,7 +276,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       }
     });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature);
+    drawForestOverlayOnCanvas(
+      ctx, wx, wy, px, py, size,
+      (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature,
+      (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y)
+    );
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianColossusOverlay = (px: number, py: number, size: number): void =>

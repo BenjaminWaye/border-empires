@@ -11,7 +11,7 @@ import {
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -57,7 +57,7 @@ import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-si
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
-import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js"; import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js"; import { createAfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js"; import { isAfcHiddenForJoinDrop } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
+import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js"; import { createAfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js"; import { createAfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js"; import { isAfcHiddenForJoinDrop, isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "../client-afc-join-drop/client-afc-join-drop-state.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
@@ -366,7 +366,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
 
   const terrainForWorldTile = (wx: number, wy: number): Tile["terrain"] => {
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    return tile?.terrain ?? deps.terrainAt(wx, wy);
+    return terrainWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy, tile?.terrain ?? deps.terrainAt(wx, wy)); // footprint mountains stay until the join drop lands
   };
   const emitOwnershipDebug = (payload: Record<string, unknown>): void => {
     if (!shouldDebugOwnership()) return;
@@ -785,7 +785,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     });
     const roadNetworkMs = performance.now() - roadNetworkStartAt; const roadDirsAt = (x: number, y: number): RoadDirections | undefined => roadNetwork.get(deps.keyFor(x, y));
     const heightfieldStartAt = performance.now();
-    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
+    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt });
     riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
     const heightfieldMs = performance.now() - heightfieldStartAt;
@@ -899,7 +899,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
-        const forestTile = isForestTile(wx, wy); const tropicalForestTile = forestTile && isTropicalForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
+        const forestTile = isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy); const tropicalForestTile = forestTile && isTropicalForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";

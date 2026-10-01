@@ -388,7 +388,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Your Fabrication Complex now always lands on a tile with no water on any of its 8 surrounding tiles",
       "Any mountains on the landing tile's 8 neighbours are flattened into open land when it lands",
-      "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight"
+      "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight",
+      "When you watch your Complex land, the trees and mountains disappear at touchdown, under the landing smoke"
     ]
   }
 ];

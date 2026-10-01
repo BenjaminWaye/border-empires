@@ -25,10 +25,13 @@ export const drawForestOverlay = (
   px: number,
   py: number,
   size: number,
-  prospectSignature?: ProspectSignature
+  prospectSignature?: ProspectSignature,
+  // Overridable so the caller can keep footprint forest drawn until an AFC
+  // join drop lands (isForestTileWithAfcLandingHold).
+  forestAt: (x: number, y: number) => boolean = isForestTile
 ): void => {
   if (isTrue3DRendererActive() || size < 12) return;
-  const isForest = isForestTile(wx, wy);
+  const isForest = forestAt(wx, wy);
   // Purely cosmetic sparse leaf sapling on light grass -- see
   // isLightGrassScatterTile's own doc comment (client-constants.ts) and
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).

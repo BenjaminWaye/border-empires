@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
-import { forestClearingEpoch, isForestClearedAt, resetForestClearings, setWorldSeed } from "../worldgen/worldgen.js";
+import { forestClearingEpoch, isForestClearedAt, resetForestClearings, setWorldSeed, wasForestBeforeClearingAt } from "../worldgen/worldgen.js";
+import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
+import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import { clearForestAroundAfcTile, clearForestAroundAfcTiles } from "./forest-clearing.js";
 import { isForestTileAt } from "./forest-terrain.js";
 
@@ -45,5 +47,22 @@ describe("AFC forest clearing", () => {
     expect(isForestTileAt(forest.x, forest.y)).toBe(false);
     setWorldSeed(77, "continents", 1);
     expect(isForestTileAt(forest.x, forest.y)).toBe(true);
+  });
+});
+
+describe("AFC forest clearing vs hills", () => {
+  afterEach(() => resetForestClearings());
+
+  it("leaves a cleared forest tile in a hills region as plain ground, not a hill", () => {
+    setWorldSeed(77, "continents", 1);
+    let target: { x: number; y: number } | undefined;
+    for (let y = 20; y < WORLD_HEIGHT - 20 && !target; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH && !target; x += 1) if (isForestTileAt(x, y) && isHillsRegionAt(x, y)) target = { x, y };
+    }
+    expect(target).toBeDefined();
+    expect(isHillsTileAt(target!.x, target!.y)).toBe(false);
+    clearForestAroundAfcTile(target!.x, target!.y);
+    expect(wasForestBeforeClearingAt(target!.x, target!.y)).toBe(true);
+    expect(isHillsTileAt(target!.x, target!.y)).toBe(false);
   });
 });

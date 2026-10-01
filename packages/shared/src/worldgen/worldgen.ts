@@ -402,7 +402,7 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
   const region = regionTypeAt(wx, wy);
   const version = worldgenVersion();
   const generatedShade = grassShadeFor(wx, wy, worldSeed(), version, region, biome);
-  const shade = generatedShade === "DARK" && forestClearedTiles[idx] === 1 ? "LIGHT" : generatedShade;
+  const shade = generatedShade === "DARK" && forestClearedTiles[idx] !== 0 ? "LIGHT" : generatedShade;
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
   return shade;
@@ -414,15 +414,19 @@ export const clearForestAt = (x: number, y: number): boolean => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const idx = worldIndex(wx, wy);
-  if (forestClearedTiles[idx] === 1) return false;
+  if (forestClearedTiles[idx] !== 0) return false;
   const wasForest = grassShadeAt(wx, wy) === "DARK";
-  forestClearedTiles[idx] = 1;
+  forestClearedTiles[idx] = wasForest ? 2 : 1;
   if (!wasForest) return false;
   grassShadeCacheReady[idx] = 0;
   forestClearingEpochValue += 1;
   return true;
 };
-export const isForestClearedAt = (x: number, y: number): boolean => forestClearedTiles[worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))] === 1;
+export const isForestClearedAt = (x: number, y: number): boolean => forestClearedTiles[worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))] !== 0;
+// True only for a tile that was forest until a clearing removed it -- lets a
+// renderer keep showing the original trees until the AFC landing animation
+// reaches touchdown (client-afc-join-drop-state.ts).
+export const wasForestBeforeClearingAt = (x: number, y: number): boolean => forestClearedTiles[worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))] === 2;
 // Bumped whenever a clearing changes some tile's forest-ness, so caches that
 // treat forest as static (e.g. the simulation's vision footprint table) know
 // to drop their forest-derived entries.

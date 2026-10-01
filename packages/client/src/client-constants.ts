@@ -14,6 +14,7 @@ import {
   isTropicalForestTileAt,
   landBiomeAt,
   seeded01,
+  wasForestBeforeClearingAt,
   worldSeed
 } from "@border-empires/shared";
 
@@ -115,10 +116,11 @@ export const isTropicalForestTile = isTropicalForestTileAt;
 // tree species (see client-map-3d-forest.ts / client-map-render-forest-
 // overlay.ts) on light-shaded grass tiles, so light grass doesn't read as
 // completely bare next to dense dark-grass forest. Never on a tile that's
-// already a real forest or hills tile.
+// already a real forest or hills tile, nor on one an AFC landing cleared of
+// forest (that ground is meant to read as cleared).
 const LIGHT_GRASS_SCATTER_CHANCE = 0.3;
 export const isLightGrassScatterTile = (x: number, y: number): boolean => {
-  if (isForestTile(x, y) || isHillsTile(x, y)) return false;
+  if (isForestTile(x, y) || isHillsTile(x, y) || wasForestBeforeClearingAt(x, y)) return false;
   if (landBiomeAt(x, y) !== "GRASS" || grassShadeAt(x, y) !== "LIGHT") return false;
   return seeded01(x * 131 + 7, y * 197 + 13, worldSeed() + 90210) < LIGHT_GRASS_SCATTER_CHANCE;
 };
