@@ -5,7 +5,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
-import { completeAdvanceClearing, isHumanFlagOwner, markAdvanceClearing, nearestHostileInRange } from "./muster-advance-clear.js";
+import { completeAdvanceClearing, isHumanFlagOwner, markAdvanceClearing, nearestHostileWithinSteps } from "./muster-advance-clear.js";
 import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
@@ -197,7 +197,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
       // nearest such tile -- the next search then attacks it. Skipped while a
       // reachable target is merely unaffordable: expanding costs manpower too,
       // and the status line should say that the flag needs more.
-      const hostile = bestUnaffordable === undefined ? nearestHostileInRange(input, musterTile, playerId) : undefined;
+      const hostile = bestUnaffordable === undefined ? nearestHostileWithinSteps(input, musterTile, playerId) : undefined;
       if (hostile) {
         markAdvanceClearing(input, originKey);
         maybeMarchFire(input, input.tiles.get(originKey) ?? musterTile, playerId, { target: { x: hostile.x, y: hostile.y }, expandOnly: true });

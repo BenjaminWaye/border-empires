@@ -3,6 +3,8 @@ import {
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  musterMarchDistanceTiles,
+  musterMarchTooFarAdvice,
   OBSERVATORY_BUILD_MS,
   RELAY_BEACON_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
@@ -175,6 +177,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     const marchTarget = context.tiles.get(simulationTileKey(payload.targetX!, payload.targetY!));
     if (!marchTarget || marchTarget.terrain !== "LAND") {
       rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
+      return;
+    }
+    // The client checks this first and shows the same text as plain advice, so
+    // this rejection is the backstop for a stale/modified client.
+    const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(payload.x, payload.y, payload.targetX!, payload.targetY!));
+    if (tooFarAdvice) {
+      rejectCommand(context, command, "MUSTER_MARCH_TOO_FAR", tooFarAdvice);
       return;
     }
   }

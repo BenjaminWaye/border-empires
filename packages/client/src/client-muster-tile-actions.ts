@@ -66,13 +66,13 @@ export const buildMusterActions = (
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within 10 tiles, then reports back.`,
+        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within 10 steps, then reports back.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        detail: `Mustering… ${staged} manpower staged · pick a target tile (up to 15 tiles away) to fight toward.`,
         ...avail()
       });
     } else if (muster.mode === "ADVANCE") {
@@ -85,7 +85,7 @@ export const buildMusterActions = (
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `${status} (${staged} staged) · pick a target tile to fight toward.`,
+        detail: `${status} (${staged} staged) · pick a target tile (up to 15 tiles away) to fight toward.`,
         ...avail()
       });
     } else {

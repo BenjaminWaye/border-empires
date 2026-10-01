@@ -464,7 +464,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Advance flags clear barbarians and report back",
     why: "Sending a flag after barbarians out in the wilderness (or a rival's border a few tiles off) meant expanding out to touch each one yourself and re-launching attacks by hand, and a flag only acted once every 30 seconds unless you had its menu open.",
     changes: [
-      "An Advance flag now walks toward barbarians and rival borders within 10 tiles that don't touch your territory yet, expanding across empty land to reach them, then attacks them",
+      "An Advance flag now walks toward barbarians and rival borders within 10 steps that don't touch your territory yet, expanding across empty land to reach them, then attacks them. Steps go through your land and empty land only, so enemies across water or behind mountains aren't counted",
+      "Marches are now limited to 15 tiles. Aiming one further shows advice to raise a muster flag closer instead, since troops take much longer to walk across the map than it takes to muster next to the fight",
       "Advance flags no longer try to attack allies or players you have a truce with",
       "Advance flags act every second, with up to three fights at once, even when you're not looking at them",
       "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",

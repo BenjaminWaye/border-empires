@@ -12,9 +12,10 @@ import { makePlayer } from "./muster-march-test-support.js";
 // The runtime's default world already owns tiles near (10,10), so scenarios
 // are written relative to BASE, in an empty part of the map.
 const BASE = 60;
-type TileInit = { x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED"; muster?: Record<string, unknown> };
+type TileInit = { x: number; y: number; terrain: "LAND" | "SEA" | "MOUNTAIN"; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED"; muster?: Record<string, unknown> };
 
 const barb = (x: number, y: number): TileInit => ({ x: x + BASE, y: y + BASE, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "FRONTIER" });
+const blocked = (x: number, y: number, terrain: "SEA" | "MOUNTAIN" = "SEA"): TileInit => ({ x: x + BASE, y: y + BASE, terrain });
 const neutral = (x: number, y: number): TileInit => ({ x: x + BASE, y: y + BASE, terrain: "LAND", ownershipState: "FRONTIER" });
 const rival = (x: number, y: number): TileInit => ({ x: x + BASE, y: y + BASE, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
 const owned = (x: number, y: number, muster?: Record<string, unknown>): TileInit => ({
@@ -96,6 +97,62 @@ describe("ADVANCE clearing enemies in range", () => {
     runtime.tickMuster(1_000);
     // The barbarian is 4 tiles away, the rival 4 as well: a tie goes to the barbarian, so the flag steps west.
     expect(targets(seen)).toEqual(["EXPAND:9,11"]);
+  });
+
+  it("does not count an enemy across water, even a few tiles away in a straight line", () => {
+    // The rival at (10,13) is 3 tiles from the flag, but a wall of sea at y=12
+    // (and nothing but undefined map beyond its ends) leaves no way to walk to it.
+    const wall = Array.from({ length: 21 }, (_, i) => blocked(i, 12));
+    const runtime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true })), neutral(10, 11), ...wall, rival(10, 13)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+    // Nothing reachable is left, so the order is finished.
+    expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "HOLD" });
+  });
+
+  it("does not count an enemy on the far side of a mountain range either", () => {
+    const range = Array.from({ length: 21 }, (_, i) => blocked(i, 12, "MOUNTAIN"));
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), neutral(10, 11), ...range, barb(10, 13)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+  });
+
+  it("walks around an obstacle over neutral land when the detour is within 10 steps", () => {
+    // Sea at (9..11,12); the way round is (11,11) -> (12,12) -> (11,13), 4 steps in all.
+    const runtime = buildRuntime([
+      owned(10, 10, advanceFlag()),
+      blocked(9, 12), blocked(10, 12), blocked(11, 12),
+      neutral(11, 11), neutral(12, 12), neutral(11, 13), rival(10, 13)
+    ]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual(["EXPAND:11,11"]);
+  });
+
+  it("ignores an enemy whose only route is longer than 10 steps", () => {
+    // Open land would put the rival at (10,13) 4 steps away, but the only road
+    // is a 12-tile detour east around a wall of sea.
+    const wall = Array.from({ length: 12 }, (_, i) => blocked(i + 4, 12));
+    const detour = [...column(16, 11, 12), neutral(15, 13), neutral(14, 13), neutral(13, 13), neutral(12, 13), neutral(11, 13)];
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), ...Array.from({ length: 6 }, (_, i) => neutral(11 + i, 11)), ...wall, ...detour, rival(10, 13)]);
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
+  });
+
+  it("never treats a third player's land as a road", () => {
+    // The only way to the rival at (10,15) is through land owned by a player we are allied with.
+    const runtime = buildRuntime([owned(10, 10, advanceFlag()), neutral(10, 11), rival(10, 12), { x: 10 + BASE, y: 13 + BASE, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }], { alliedWithRival: true });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.tickMuster(1_000);
+    expect(targets(seen)).toEqual([]);
   });
 
   it("treats an allied or truced player as no target at all", () => {

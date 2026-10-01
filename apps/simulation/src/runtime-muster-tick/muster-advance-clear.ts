@@ -25,36 +25,71 @@ const BARBARIAN_OWNER_ID = "barbarian-1";
 const isAttackableState = (state: DomainTileState["ownershipState"]): boolean =>
   state === "FRONTIER" || state === "SETTLED" || state === "BARBARIAN";
 
+type HostileFind = { tile: DomainTileState; steps: number };
+
+/** True when `a` is a better pick than `b` at the same step count: a barbarian (the softer target), then lowest y, then x. */
+const winsTie = (a: DomainTileState, b: DomainTileState): boolean => {
+  const aBarb = a.ownerId === BARBARIAN_OWNER_ID;
+  const bBarb = b.ownerId === BARBARIAN_OWNER_ID;
+  if (aBarb !== bBarb) return aBarb;
+  return a.y !== b.y ? a.y < b.y : a.x < b.x;
+};
+
 /**
- * Nearest hostile tile within ADVANCE_MAX_RANGE_TILES (Chebyshev) of the flag:
- * a barbarian, or land owned by another player who is not allied with or
- * truced to the flag's owner. Ties prefer a barbarian (the softer target),
- * then the lowest y, then x, so the choice is stable tick to tick.
+ * Nearest hostile tile within ADVANCE_MAX_RANGE_TILES *steps* of the flag, where
+ * a step moves through the flag owner's own land or neutral land -- never water
+ * or mountains, and never another player's land (that is a target, not a road).
+ * Hostile means a barbarian or a player who is not an ally and has no truce.
  *
- * Only consulted when nothing hostile touches the flag's territory, so the
- * flag knows which way to expand. A plain nested loop with one key per tile --
- * no coordinate arrays -- since idle flags run it on every search.
+ * This is how far a flag can really send troops, so it is also what decides
+ * whether the order is finished: an enemy across a lake or behind a mountain
+ * range is not in range even if it is close in a straight line, and an enemy
+ * that merely doesn't touch our border yet is, if neutral ground leads to it.
+ * It is the counterpart to the attack search in muster-advance-fire.ts, which
+ * only walks our own land (an attack must launch from an owned tile); this
+ * one also walks neutral land because that is where the flag expands next.
+ *
+ * Ties at the same step count prefer a barbarian, then the lowest y, then x, so
+ * the choice is stable tick to tick. A plain breadth-first walk with one key
+ * per tile and no per-neighbor arrays: idle flags run it on every search.
  */
-export const nearestHostileInRange = (input: MusterTickInput, flag: DomainTileState, playerId: string): DomainTileState | undefined => {
+export const nearestHostileWithinSteps = (input: MusterTickInput, flag: DomainTileState, playerId: string): DomainTileState | undefined => {
   const actor = input.players.get(playerId);
   if (!actor) return undefined;
-  let best: { tile: DomainTileState; dist: number } | undefined;
-  for (let dy = -ADVANCE_MAX_RANGE_TILES; dy <= ADVANCE_MAX_RANGE_TILES; dy += 1) {
-    for (let dx = -ADVANCE_MAX_RANGE_TILES; dx <= ADVANCE_MAX_RANGE_TILES; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const x = wrapX(flag.x + dx, WORLD_WIDTH);
-      const y = wrapY(flag.y + dy, WORLD_HEIGHT);
-      const tile = input.tiles.get(simulationTileKey(x, y));
-      if (!tile?.ownerId || tile.ownerId === playerId || !isAttackableState(tile.ownershipState)) continue;
-      if (isAlliedOrTruced(actor, tile.ownerId)) continue;
-      const dist = Math.max(Math.abs(dx), Math.abs(dy));
-      if (best && dist > best.dist) continue;
-      if (best && dist === best.dist) {
-        const barbarianWins = tile.ownerId === BARBARIAN_OWNER_ID && best.tile.ownerId !== BARBARIAN_OWNER_ID;
-        const barbarianLoses = best.tile.ownerId === BARBARIAN_OWNER_ID && tile.ownerId !== BARBARIAN_OWNER_ID;
-        if (barbarianLoses || (!barbarianWins && (y > best.tile.y || (y === best.tile.y && x > best.tile.x)))) continue;
+  const visited = new Set<number>([flag.y * WORLD_WIDTH + flag.x]);
+  const queueX: number[] = [flag.x];
+  const queueY: number[] = [flag.y];
+  const queueDepth: number[] = [0];
+  let best: HostileFind | undefined;
+  for (let head = 0; head < queueX.length; head += 1) {
+    const depth = queueDepth[head]!;
+    // Anything found from here on is at least depth + 1 steps away.
+    if (best && depth + 1 > best.steps) break;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const x = wrapX(queueX[head]! + dx, WORLD_WIDTH);
+        const y = wrapY(queueY[head]! + dy, WORLD_HEIGHT);
+        const numericKey = y * WORLD_WIDTH + x;
+        if (visited.has(numericKey)) continue;
+        visited.add(numericKey);
+        const tile = input.tiles.get(simulationTileKey(x, y));
+        if (!tile || tile.terrain !== "LAND") continue;
+        if (!tile.ownerId || tile.ownerId === playerId) {
+          // Our land or neutral land: a road. Hostile tiles found from a node
+          // at depth d are d + 1 steps away, so nodes at the cap stay leaves.
+          if (depth + 1 < ADVANCE_MAX_RANGE_TILES) {
+            queueX.push(x);
+            queueY.push(y);
+            queueDepth.push(depth + 1);
+          }
+          continue;
+        }
+        if (!isAttackableState(tile.ownershipState) || isAlliedOrTruced(actor, tile.ownerId)) continue;
+        if (!best || depth + 1 < best.steps || (depth + 1 === best.steps && winsTie(tile, best.tile))) {
+          best = { tile, steps: depth + 1 };
+        }
       }
-      best = { tile, dist };
     }
   }
   return best?.tile;
