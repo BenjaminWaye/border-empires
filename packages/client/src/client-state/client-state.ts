@@ -175,7 +175,7 @@ export const createInitialState = () => ({
   // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
-  imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
+  autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState, imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
@@ -359,7 +359,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | "admin" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,
@@ -495,7 +495,7 @@ export const createInitialState = () => ({
     applied?: boolean;
   }>,
   mapRevealEligible: false,
-  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Gameplay's photo-mode toggle (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
+  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Admin's photo-mode toggle (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,

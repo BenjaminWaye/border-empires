@@ -97,7 +97,8 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   galacticWonderVisionRadiusBonus: numberField("galacticWonderVisionRadiusBonus"),
   // Cheap authoritative Titanium/Umbrite Weapons Factory counts (see
   // player-snapshot.ts) -- no legacy/bootstrap fallback, plain passthrough.
-  weaponsFactoryCounts: presentField("weaponsFactoryCounts")
+  weaponsFactoryCounts: presentField("weaponsFactoryCounts"),
+  autoSettle: presentField("autoSettle")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 
 export type ReconnectPassthroughFields = Partial<PlayerStateSnapshot>;

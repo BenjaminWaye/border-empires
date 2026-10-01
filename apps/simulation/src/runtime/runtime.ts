@@ -40,7 +40,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST,
+  SETTLE_COST, isAutoSettleAllowed,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -1658,7 +1658,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId), maybeActivateWaystation: (targetKey, x, y, playerId, commandId) => this.activateWaystationAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
-      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), isTownAutoSettleAllowed: (playerId) => { const player = this.state.players.get(playerId); return player !== undefined && isAutoSettleAllowed(player.autoSettle, "towns"); }, autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
@@ -3553,42 +3553,14 @@ export class SimulationRuntime {
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
   /**
-   * Server-side auto-settle, unconditional for every player (was AI-only —
-   * see client-development-queue.ts for the client dispatcher humans used to
-   * rely on instead, which still exists and can race this harmlessly). Same
-   * manpower/gold cost and duration as a manual SETTLE (startSettlementProcess
-   * below is the same path handleSettleCommand uses) — this only removes the
-   * need to click SETTLE. Called once per territory-automation tick.
+   * Server-side auto-settle for every player, gated per tile category by the
+   * player's autoSettle prefs (shared auto-settle-prefs.ts; AI/legacy = all on,
+   * new humans = off until they answer the join prompt). Same manpower/gold
+   * cost and duration as a manual SETTLE — this only removes the need to click
+   * SETTLE. Called once per territory-automation tick.
    */
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
-    const actor = this.state.players.get(playerId);
-    if (!actor) return 0;
-    // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
-    this.autoSettleEligibilityRuntime().reconcileForOwner(playerId);
-    let settledCount = 0;
-    for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
-      if (settleRejectionForActor(actor)) break;
-      if (!this.hasAvailableDevelopmentSlot(playerId)) break;
-      const targetKey = simulationTileKey(x, y);
-      const target = this.state.tiles.get(targetKey);
-      if (!target || target.ownerId !== playerId || target.ownershipState !== "FRONTIER") continue;
-      if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
-      if (target.terrain !== "LAND") continue;
-      if (this.pendingSettlementsByTile.has(targetKey)) continue;
-      // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand
-      // above -- this path bypasses that handler, so it's repeated here.
-      if (!(target.town || target.dockId) && !this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
-      const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
-      this.startSettlementProcess({
-        commandId,
-        playerId,
-        targetKey,
-        target,
-        startedAt: nowMs
-      });
-      settledCount++;
-    }
-    return settledCount;
+    return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
@@ -3750,7 +3722,8 @@ export class SimulationRuntime {
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
-      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
+      drainAutoSettleForOwner: (playerId) => { this.autoSettleEligibilityRuntime().drainForOwner(playerId); }
     });
   }
 

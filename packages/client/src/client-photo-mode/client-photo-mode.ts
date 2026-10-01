@@ -6,7 +6,7 @@
 //   - URL: `?photo=1` (optionally `&photoX=<tile>&photoY=<tile>&photoZoom=<zoom>`)
 //   - Console, after toggling reveal: `borderEmpiresPhoto.enter({ x, y, zoom })`
 //     to hide the HUD and pin the camera, `borderEmpiresPhoto.exit()` to restore.
-//   - Settings > Gameplay (same fog-admin card as "Reveal Full Map", see
+//   - Settings > Admin (same fog-admin card as "Reveal Full Map", see
 //     client-hud-settings-panel.ts's mapRevealCardHtml) — this path has no
 //     x/y/zoom to give, so it hides the HUD without pinning the camera, and
 //     shows a floating exit control since the toggle button that started it
@@ -146,7 +146,7 @@ export type PhotoModeSettingsState = PhotoModeCameraState & {
   authSessionReady: boolean;
 };
 
-// Wires Settings > Gameplay's "Enter/Exit Photo Mode" button (see
+// Wires Settings > Admin's "Enter/Exit Photo Mode" button (see
 // mapRevealCardHtml in client-hud-settings-panel.ts) — kept here, not inlined
 // in client-hud.ts, which is already over the repo's 500-line cap and must
 // not grow (AGENTS.md's file-and-type-discipline rule); client-hud.ts's

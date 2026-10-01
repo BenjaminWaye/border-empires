@@ -11,7 +11,9 @@ import { CLIENT_CHANGELOG_ENTRIES_2D_ARROW_GESTURE_PARITY } from "./client-chang
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX } from "./client-changelog-arrow-gesture-lingering-fix.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH } from "./client-changelog-arrow-gesture-mac-shield-wash.js";
 import { CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH } from "./client-changelog-renderer-switch.js";
+import { CLIENT_CHANGELOG_ENTRIES_AI_FORT_AND_GOLD_CAP } from "./client-changelog-ai-fort-and-gold-cap.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP } from "./client-changelog-afc-join-drop.js";
+import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -27,5 +29,7 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH,
   ...CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH,
-  ...CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP,
+  ...CLIENT_CHANGELOG_ENTRIES_AI_FORT_AND_GOLD_CAP,
+  ...CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES
 ];

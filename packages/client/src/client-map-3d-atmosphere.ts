@@ -14,6 +14,13 @@ import {
   WebGLRenderer
 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { setBuildingEnvIntensity } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import {
+  SUN_DISTANCE,
+  getLightingSettings,
+  subscribeLightingSettings,
+  type LightingSettings
+} from "./client-lighting-tuner/client-lighting-tuner-settings.js";
 
 // These are black on purpose, and only one of them is ever drawn.
 //
@@ -188,7 +195,7 @@ export const createAtmosphere = (
   // and mood intact while giving those surfaces enough light to actually
   // show their color again.
   const hemiLight = new HemisphereLight("#b8c8ff", "#2a2030", 0.7);
-  const sun = new DirectionalLight("#fff0c0", 1.55);
+  const sun = new DirectionalLight("#fff0c0", 1.55); // real values are applied from the lighting settings below (defaults live in client-lighting-tuner-settings.ts)
   // On top of the fixed tilt noted above, the camera also never orbits --
   // camera.position.x/z only drift a few tiles for pan, no rotate control
   // exists. At the reference zoom it sits at roughly (0.5, 21, 15) looking at
@@ -212,8 +219,8 @@ export const createAtmosphere = (
   // camera's own side), so it now visibly differentiates camera-facing
   // (+Z-normal) walls from far-side (-Z-normal) walls instead of mostly
   // just tinting roofs.
-  const SUN_OFFSET = new Vector3(8, 42, 60);
-  sun.position.copy(SUN_OFFSET);
+  // Recomputed from the sun azimuth/elevation setting; see applyLighting below.
+  const sunOffset = new Vector3();
   const fillLight = new DirectionalLight("#ff8a5c", 0.55);
   fillLight.position.set(-30, 20, -40);
 
@@ -247,7 +254,7 @@ export const createAtmosphere = (
   // fought the ownership-tint overlay's multiply blend below by making owned
   // tiles' shadowed patches read as near-black instead of a visibly-tinted
   // darker patch.
-  sun.shadow.intensity = 0.6;
+  // (Value comes from the lighting settings, default 0.6; see applyLighting below.)
   scene.add(sun.target);
 
   // Orthographic shadow-camera frustum: square, centered on sun.target, sized
@@ -263,17 +270,43 @@ export const createAtmosphere = (
     cam.bottom = -half;
     cam.updateProjectionMatrix();
   };
-  // Keeps the light rigidly offset from its target along SUN_OFFSET's
+  // Keeps the light rigidly offset from its target along sunOffset's
   // direction so the frustum recenters without changing the sun's angle.
   const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
     sun.target.position.set(sceneX, 0, sceneZ);
-    sun.position.set(sceneX + SUN_OFFSET.x, SUN_OFFSET.y, sceneZ + SUN_OFFSET.z);
+    sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
   updateShadowFrame(0);
+
+  // Single place every tunable light value is applied, both at startup (the
+  // shipped defaults) and live from Settings > Admin > Lighting Tuner.
+  const applyLighting = (settings: LightingSettings): void => {
+    hemiLight.color.set(settings.hemiSkyColor);
+    hemiLight.groundColor.set(settings.hemiGroundColor);
+    hemiLight.intensity = settings.hemiIntensity;
+    sun.color.set(settings.sunColor);
+    sun.intensity = settings.sunIntensity;
+    sun.shadow.intensity = settings.shadowIntensity;
+    fillLight.color.set(settings.fillColor);
+    fillLight.intensity = settings.fillIntensity;
+    const azimuth = (settings.sunAzimuthDeg * Math.PI) / 180;
+    const elevation = (settings.sunElevationDeg * Math.PI) / 180;
+    sunOffset.set(
+      Math.sin(azimuth) * Math.cos(elevation) * SUN_DISTANCE,
+      Math.sin(elevation) * SUN_DISTANCE,
+      Math.cos(azimuth) * Math.cos(elevation) * SUN_DISTANCE
+    );
+    sun.position.set(sun.target.position.x + sunOffset.x, sunOffset.y, sun.target.position.z + sunOffset.z);
+    if (renderer) renderer.toneMappingExposure = settings.exposure;
+    setBuildingEnvIntensity(scene, buildingEnvironmentTexture, settings.envIntensity);
+  };
+  applyLighting(getLightingSettings());
+  const unsubscribeLighting = subscribeLightingSettings(applyLighting);
 
   scene.add(skyMesh, hemiLight, sun, fillLight);
 
   const dispose = (): void => {
+    unsubscribeLighting();
     scene.remove(skyMesh, hemiLight, sun, sun.target, fillLight);
     skyGeometry.dispose();
     skyMaterial.dispose();
