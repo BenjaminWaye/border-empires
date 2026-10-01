@@ -54,7 +54,8 @@ describe("renderer settings field", () => {
       mapRevealEnabled: false,
       fogDisabled: false,
       authEmail: "",
-      photoModeActive: false
+      photoModeActive: false,
+      autoSettle: undefined
     });
     expect(html).toContain("Map Renderer");
     expect(html).toContain("data-renderer-switch");
