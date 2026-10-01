@@ -551,6 +551,45 @@ this section's original wording:
   the new gesture (an in-progress arrow drag suppresses ordinary pan/tap
   tracking for the same pointer, restored on release/cancel).
 
+#### F-revision: the hold-drag gesture is replaced by click-to-target (2026-09-30)
+
+The hold-drag design above shipped and merged to `develop`
+(`agent/replenishment-plan-next` → PR #2153), but a real usability gap
+surfaced immediately in review: **panning is bound to the left mouse
+button, the drag gesture claims the right button, and there is no
+edge-of-screen auto-pan — so a target outside the current viewport was
+simply unreachable** while the gesture was held. The old 3-click
+March-To flow didn't have this problem because panning is free between
+each click. Rather than bolt on auto-pan complexity, the gesture is
+being reworked to keep the thing that already worked (decoupled clicks,
+free panning in between) and only change what happens *after* the
+target is picked:
+
+- **Arm/target: back to ordinary clicks**, reusing the pre-existing
+  March-To click-to-arm flow unchanged (`client-muster-march-targeting.ts`)
+  — click the flag, click "March To," click a target tile, panning freely
+  in between. No held button, no drag, no long-press. This also means
+  mobile needs no separate gesture code at all (a tap is a tap on both
+  platforms) — the long-press + touch-drag wiring is removed entirely.
+- **On the target click**, instead of sending `SET_MUSTER` immediately
+  (today's behavior), draw the static arrow from origin to the now-fixed
+  target and open the confirm sheet (manpower slider + 1x/1.5x/2x
+  presets) — the arrow visual, confirm-sheet UI, and win-chance-label
+  overlay code are all reused unchanged; only *what triggers them* moves
+  from "live drag update" to "one click, then fixed."
+- **Win-chance labels become slider-live**, closing the deviation noted
+  above: since the target is already fixed when the sheet opens, the
+  labels can recompute against the sheet's actual chosen commitment
+  (`commitManpower`) every time the slider or a preset changes, instead
+  of being frozen at the base-cost value computed once mid-drag.
+- Net effect: fewer files (the pointer-drag state machine and both
+  input-wiring modules are deleted), one shared flow for desktop and
+  mobile instead of two, and the off-screen-target gap is gone because
+  nothing is ever held down across a pan.
+- Implementation tracked as its own branch/PR
+  (`agent/arrow-click-targeting`); this doc will get a follow-up "done"
+  update once it ships, same as the hold-drag version got above.
+
 ### G. The visit loop UI
 
 From `docs/visit-as-a-turn.md`:

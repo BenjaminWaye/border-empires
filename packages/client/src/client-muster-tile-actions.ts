@@ -141,7 +141,7 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
     return true;
   }
   if (actionId === "muster_march") {
-    armMusterMarchTargeting(deps.state, x, y, { pushFeed: deps.pushFeed, sendGameMessage: deps.sendGameMessage });
+    armMusterMarchTargeting(deps.state, x, y, { pushFeed: deps.pushFeed });
     return true;
   }
   if ((MARCH_CANCEL_ACTION_IDS as readonly string[]).includes(actionId)) {

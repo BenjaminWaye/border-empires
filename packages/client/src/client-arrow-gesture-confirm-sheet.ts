@@ -1,20 +1,27 @@
 import { MUSTER_ATTACK_COST, requiredMusterForFort } from "@border-empires/shared";
 import { buildArrowGestureSetMusterPayload } from "./client-arrow-gesture-confirm-payload.js";
 import { MUSTER_COMMIT_PRESET_MULTIPLIERS, musterCommitPresetAmount, type MusterCommitPreset } from "./client-muster-commit-tab/client-muster-commit-tab.js";
-import type { ArrowGesturePoint } from "./client-map-input-arrow-gesture.js";
+import type { ArrowGesturePoint } from "./client-arrow-gesture-confirm-payload.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { triggerWinChancePaintOnMarchArm } from "./client-win-chance-paint-trigger.js";
 
-// F1 (docs/replenishment-update-plan.md): the confirm sheet shown after a
-// right-click-drag arrow gesture releases (client-arrow-gesture-confirm.ts's
-// seam). Self-contained DOM overlay, mounted on document.body and torn down
-// on dismiss -- same pattern as client-trickle-pick-modal.ts's promptFor*
-// modal (own <div>, own inline styles, Escape/backdrop-click to cancel)
-// rather than reusing client-tile-action-menu-ui.ts's tile-menu element,
-// since this sheet isn't about a tile menu tab and has no fixed tile to
-// anchor to reliably (the target tile may be off-screen after the drag).
+// F-revision (docs/replenishment-update-plan.md, "the hold-drag gesture is
+// replaced by click-to-target"): the confirm sheet shown after a March-To
+// target click (client-arrow-gesture-confirm.ts's seam). Self-contained DOM
+// overlay, mounted on document.body and torn down on dismiss -- same
+// pattern as client-trickle-pick-modal.ts's promptFor* modal (own <div>,
+// own inline styles, Escape/backdrop-click to cancel) rather than reusing
+// client-tile-action-menu-ui.ts's tile-menu element, since this sheet isn't
+// about a tile menu tab and has no fixed tile to anchor to reliably (the
+// target tile may be off-screen).
 //
 // Reuses client-muster-commit-tab.ts's preset multipliers/amount helper for
-// the Normal/Extra/Double buttons rather than reimplementing that math.
+// the Normal/Extra/Double buttons rather than reimplementing that math, and
+// client-win-chance-paint-trigger.ts's label trigger -- called once on open
+// and again on every slider/preset change, passing the currently chosen
+// commitManpower so the win-chance labels along the arrow are slider-live
+// (the old hold-drag version computed them once at the target's base cost
+// and never updated them against the chosen commitment).
 
 export type ArrowGestureConfirmSheetDeps = {
   sendGameMessage: (payload: unknown) => boolean;
@@ -45,7 +52,7 @@ export const hideArrowGestureConfirmSheet = (): void => {
  * "Go" and cancel/dismiss -- there is at most one pending confirm at a time.
  */
 export const showArrowGestureConfirmSheet = (
-  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm">,
+  state: Pick<ClientState, "tiles" | "manpowerCap" | "pendingArrowGestureConfirm" | "arrowGesture" | "me" | "winChancePaint">,
   origin: ArrowGesturePoint,
   target: ArrowGesturePoint,
   keyFor: (x: number, y: number) => string,
@@ -58,8 +65,17 @@ export const showArrowGestureConfirmSheet = (
   const cap = Math.max(floor, state.manpowerCap);
   let commitManpower = Math.min(cap, floor);
 
+  const recomputeWinChance = (): void => {
+    triggerWinChancePaintOnMarchArm(state, origin.x, origin.y, target.x, target.y, "visible", keyFor, performance.now(), {
+      committedManpower: commitManpower,
+      baseMusterCost: floor
+    });
+  };
+  recomputeWinChance();
+
   const dismiss = (): void => {
     state.pendingArrowGestureConfirm = undefined;
+    state.arrowGesture = undefined;
     hideArrowGestureConfirmSheet();
   };
 
@@ -128,6 +144,7 @@ export const showArrowGestureConfirmSheet = (
     slider.oninput = () => {
       commitManpower = Number(slider.value);
       if (valueEl) valueEl.textContent = String(commitManpower);
+      recomputeWinChance();
     };
   }
   card.querySelectorAll<HTMLButtonElement>("[data-arrow-confirm-preset]").forEach((btn) => {
@@ -137,6 +154,7 @@ export const showArrowGestureConfirmSheet = (
       commitManpower = amount;
       if (slider) slider.value = String(amount);
       if (valueEl) valueEl.textContent = String(amount);
+      recomputeWinChance();
     };
   });
   const cancelBtn = card.querySelector<HTMLButtonElement>("[data-arrow-confirm-cancel]");
@@ -146,6 +164,7 @@ export const showArrowGestureConfirmSheet = (
     goBtn.onclick = () => {
       deps.sendGameMessage(buildArrowGestureSetMusterPayload(origin, target, commitManpower));
       state.pendingArrowGestureConfirm = undefined;
+      state.arrowGesture = undefined;
       hideArrowGestureConfirmSheet();
       deps.renderHud();
     };

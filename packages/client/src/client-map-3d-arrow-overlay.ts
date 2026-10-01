@@ -1,12 +1,15 @@
 import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, Scene, ShaderMaterial } from "three";
 
-// Workstream F1 (docs/replenishment-update-plan.md): the 3D visual for the
-// right-click-drag arrow gesture (client-map-input-arrow-gesture.ts drives
-// the state; client-map-3d/client-map-3d.ts feeds this overlay the two
-// endpoints' already-toroid-wrapped scene positions each frame, the same way
-// it feeds client-map-3d-win-chance-paint-overlay.ts). Follows the same
-// clear/set.../commit/dispose shape client-map-3d-muster-transit-overlay.ts
-// and client-map-3d-win-chance-paint-overlay.ts use.
+// Workstream F (docs/replenishment-update-plan.md): the 3D visual for the
+// attack arrow. Draws between state.arrowGesture's origin/target -- set
+// once, statically, when a March-To target is clicked (client-arrow-
+// gesture-confirm.ts), not a live drag endpoint (see the F-revision note:
+// the hold-drag gesture this overlay originally served was replaced by
+// click-to-target). client-map-3d/client-map-3d.ts feeds this overlay the
+// two endpoints' already-toroid-wrapped scene positions each frame, the
+// same way it feeds client-map-3d-win-chance-paint-overlay.ts. Follows the
+// same clear/set.../commit/dispose shape client-map-3d-muster-transit-
+// overlay.ts and client-map-3d-win-chance-paint-overlay.ts use.
 //
 // A single flat polygon (painted-over-the-territory HOI4-style arrow, not a
 // 3D extruded shaft) laid along LOCAL +Z from the muster flag (z=0, wide
