@@ -1,6 +1,6 @@
 # AFC module delivery animation — implementation plan
 
-Status: Phase 1 (Module delivery) implemented 2026-09-29 -- detector, 3D FX drain, 2D pulse, changelog; the "AFC drop" section and Phase 2 backlog remain planned.
+Status: Phase 1 (Module delivery) implemented 2026-09-29 -- detector, 3D FX drain, 2D pulse, changelog; the join-time AFC drop (scope change 2026-09-30) is implemented -- see "Join drop" and its "Implementation status"; the mid-session AFC drop (tile-delta trigger) and Phase 2 backlog remain planned.
 
 Source: `docs/manifest-full-plan.md` §9 "3D delivery and overlay plan" →
 "Delivery animation" (the orbital-streak/impact/reveal sequence spec) and
@@ -290,9 +290,13 @@ down from orbit onto that tile. The same animation also covers every other
 way an AFC appears on a tile the viewer can already see:
 
 - the pre-AFC migration grant (PR #2150);
-- an elimination-respawn in view.
+- an elimination-respawn in view;
+- **the player's own home AFC when they join a season** (scope change
+  2026-09-30, see "Join drop" below). This is the player's first sight of
+  their empire, so it is the slowest and most deliberate variant.
 
-Every AFC arrival then looks the same.
+Every AFC arrival uses the same effect; the join drop is a slower preset of
+it, and it does not start until the player is looking at the map.
 
 ### Sequence (~3 s total, presentation only; the server applies the AFC instantly)
 
@@ -321,8 +325,10 @@ Every AFC arrival then looks the same.
    a snapshot of had **no** `afc` before the batch and has one after.
    Tiles seen for the first time never fire, per the same guard as
    Design decision 1 above. A player's own initial spawn arrives via
-   `INIT`, not a delta, so it gets no animation. That is acceptable and
-   deliberately not replayed.
+   `INIT`, not a delta, so this detector never sees it. **Superseded
+   2026-09-30:** the join-time drop is now in scope and uses its own
+   trigger and gate (see "Join drop"). Reconnects and returning players
+   are still deliberately not replayed.
    - **Visible to every viewer, not owner-only.** Unlike a module
      docking, an AFC dropping onto the map is a public event. Anyone
      with the tile in vision sees it, which is also what makes the
@@ -346,12 +352,201 @@ Every AFC arrival then looks the same.
    shared `AfcOverlayGroup` instance, for the same no-per-instance-identity
    reason as Design decision 3 above.
 
+### Join drop: the player's own AFC on entering a season (scope change 2026-09-30)
+
+Reported gap: a player joining the game sees no landing animation for
+their AFC. The AFC drop was planned only for AFCs appearing mid-session,
+and the join case was explicitly excluded. It is now in scope, with one
+overriding requirement: **the animation is slow and deliberate, and it
+plays only once the player has got through every dialog and popup and
+their eyes are on the map.** A drop that plays behind a modal is wasted,
+and one that fires the instant a modal closes is missed.
+
+#### When it plays: the "eyes on the map" gate
+
+The drop is *armed* as soon as the viewer's own freshly activated home AFC is seen (from `INIT`, a chunk or a delta alike) and *started* only when the gate is open.
+The gate is a single shared predicate, `isMapUnobstructed(state)`, in
+its own small module. It reuses the exact set of blockers that
+`shouldShowRendererPrompt` (`client-runtime-loop.ts`) already checks, so
+there is one definition of "the player can see the map" instead of two,
+and adds the blockers that check misses:
+
+- `state.authSessionReady` and `!state.profileSetupRequired` (auth /
+  name-and-colour setup; `#auth-overlay` is hidden only when both hold,
+  `client-auth-ui.ts`);
+- `!state.changelog.open` (a new player has `seenAt === 0`, so the
+  changelog auto-opens);
+- `!state.guide.open` (the tutorial auto-opens until
+  `GUIDE_STORAGE_KEY` is `"1"`);
+- `!state.activityDashboard.open`;
+- **not in the existing check, must be added:**
+  `!(state.needsSeasonJoin && state.joinSeasonOverlayOpen)` (join-season
+  lobby overlay, which goes full-screen), `!state.respawnOverlayOpen`, and
+  the season-end overlay.
+
+Non-blocking UI does **not** gate: the discovery-tip corner toast and the
+onboarding-checklist bubble sit at the screen edges and do not cover the
+map centre where the AFC lands.
+
+On top of the overlay check the gate also requires, all at once:
+
+1. **Frame is real.** `state.connection === "initialized"`, the initial
+   tile snapshot is applied (`state.firstChunkAt > 0`), and the 3D
+   renderer has drawn at least one frame with the home tile's terrain
+   (or the 2D canvas has, on the fallback path).
+2. **Tab is visible** (`document.visibilityState === "visible"`).
+   `requestAnimationFrame` stops in background tabs, and a join drop
+   played in one is silently lost.
+3. **The AFC tile is on screen.** New players get the camera snapped to
+   the home tile at `INIT`, but check anyway: if the camera has moved so
+   the AFC tile is outside the viewport, wait; do not steal the camera.
+4. **A dwell.** All of the above must have held continuously for
+   ~1200 ms. This absorbs the modal fade-out, so the drop does not fire
+   on the same frame the player clicked "Get Started", while their
+   attention is still on the button. The dwell is the "eyes on the map"
+   beat; nothing animates during it.
+
+If the gate closes during the dwell, the dwell restarts. Once the drop
+has *started* it is not paused by a modal that later opens, because by
+then every auto-opening dialog has already been dismissed and any new one
+is player-initiated. Note this as an accepted limitation. It also does
+not cancel on input: the player can pan and click while it plays, and the
+effect stays anchored in world space.
+
+**Safety net.** The gate has a very long fallback (5 minutes of the tab
+being visible with some overlay still open, `AFC_JOIN_FALLBACK_REVEAL_MS`)
+after which the AFC is simply revealed with no animation and the "played"
+flag is set. It is deliberately far longer than anyone needs to read the
+changelog and tutorial, so it never cuts a real player's animation; it
+exists only so a stuck overlay flag can never leave the AFC permanently
+invisible.
+
+#### Hold the real AFC hidden until the drop lands
+
+This extends Design decision 2. For the join drop the AFC exists from the
+first frame, so it would otherwise sit visibly on the map under the
+dialogs, then vanish and re-land. Instead a small `state.afcJoinDrop`
+record (phase, tile, timestamps; a fixed-size scalar record, so nothing
+growable) carries the hold:
+
+- While the phase is `waiting`, or `playing` before touchdown, both
+  renderers skip the AFC on that tile (`isAfcHiddenForJoinDrop`): 3D at
+  the `addAfc` call, 2D in `drawAfcTile2D`.
+- The tick bumps the tile revision (and records the changed key) when it
+  arms and again when it reveals at touchdown, so the 3D renderer
+  rebuilds its instances exactly then.
+- Every exit path (completion, safety-net reveal, AFC replaced) sets
+  `revealed`, so the hold can never outlive the drop.
+
+#### Once only
+
+The trigger is the AFC itself, not the join flow. This replaced an earlier
+idea (arm on the first `INIT` after the client observed the join flow),
+which missed most real paths: a fresh player joins through the lobby's
+"Let's go!" (`JOIN_SEASON_ACK`), and the AFC then arrives in a chunk or
+delta, with no second `INIT`.
+
+- The server stamps a spawn AFC with `activatedAt = ctx.now()`
+  (`apps/simulation/src/runtime-respawn-helpers.ts`). The client arms the
+  drop when the tile at `state.homeTile` carries an AFC owned by the
+  viewer whose `activatedAt` is at most 30 minutes old
+  (`AFC_JOIN_MAX_AGE_MS`). A returning player's old AFC is never that
+  young, so nothing replays for them, including on the rollout of this
+  feature. An elimination-respawn gets a new AFC with a new `activatedAt`,
+  so it drops again.
+- "Already played" is persisted when the drop *completes* (or the safety
+  net reveals), via the server-synced discovery-tip storage the Space
+  welcome letter uses (`isDiscoveryTipSeen` / `markDiscoveryTipSeen`).
+  The tip id is `AFC_JOIN_DROP_<activatedAt>`: unique per AFC, so a new
+  season or a respawn plays once each, and the 30-day tip TTL prunes old
+  ids. The gateway stores `dismissedHints` as an open string list, so no
+  id allow-list needed updating.
+- A player who reloads mid-animation replays it (nothing was persisted)
+  as long as the AFC is still under 30 minutes old. A player who reloads
+  after the animation finished does not.
+- If the AFC is replaced while waiting or playing (respawn, new season),
+  the controller stands down without marking anything played, reveals the
+  old one, and arms for the new one on the next frame.
+
+#### The join preset: slow and deliberate
+
+Actual values (`client-afc-join-drop-timeline.ts`, tuned in Storybook by
+scrubbing the timeline; the story owns its clock and has a slider):
+
+| Beat | Duration | What the player sees |
+| --- | --- | --- |
+| Settle dwell | 1200 ms | Nothing. Gate held open; the map is still. |
+| Re-entry | 2000 ms | AFC falls from orbit inside the module drop's streak, which fades in over the first 500 ms so it is seen *coming*. Accelerating fall. |
+| Braking burn | 1200 ms | Thruster cone and glow under the hull, a soft glow scouring the ground; the AFC decelerates to a standstill. Speed is continuous across the re-entry/braking seam and reaches zero at touchdown (unit-tested). |
+| Touchdown | ~260 ms flash, 1600 ms shockwave | Impact glow, thin ring, expanding shockwave. |
+| Smoke settle | ~2400 ms per puff, staggered | A soft dust bank (gradient sprites, not solid spheres) wraps the 3x3 footprint, then thins. |
+| Power-on | 1300-2700 ms after touchdown | Cyan glow swell as the smoke thins. The real AFC is revealed at touchdown under the smoke; the descending copy lingers 800 ms to cover rebuild throttling. |
+
+That is 6.2 s of animation after the 1.2 s dwell. The join drop is the
+only preset built so far; a mid-session drop (brisker, ~3 s, no dwell)
+would be a second preset over the same layer.
+
+**Onboarding checklist: not held (deferred).** The checklist's first-time
+auto-open is a corner card that does not cover the map centre, and it is
+rendered only from the tile-delta path with no hook to re-render when the
+drop ends, so holding it would need new plumbing for little gain. Revisit
+only if it proves to distract during touchdown.
+
+#### Renderer parity
+
+Per AGENTS.md, both renderers must be covered in the same branch.
+
+- **True-3D:** the full descent, braking burn, impact and smoke.
+- **2D fallback:** the join drop uses the same gate, the same hold-hidden
+  behaviour and the same timeline, with the simpler 2D companion: a slow
+  shrinking target ring for the descent, then the touchdown flash and
+  dust ring, then power-on glow. The 2D timings use the join preset too,
+  so a player on the fallback path gets the same unhurried beat.
+  Before calling this done, grep `isTrue3DRendererActive()` and confirm
+  both branches were touched.
+
+#### Implementation status (2026-09-30)
+
+Implemented (all in `packages/client/src`):
+
+- `client-afc-join-drop/`: timeline constants and easing, the state
+  machine (`tickAfcJoinDrop`), per-frame wiring
+  (`tickAfcJoinDropForFrame`, called from `client-runtime-loop.ts` before
+  either renderer draws), and the 2D companion (`drawAfcTile2D`).
+- `client-map-unobstructed/`: `isMapUnobstructed(state)`, the shared
+  "eyes on the map" predicate.
+- `client-map-3d-afc-drop-fx/`: the true-3D layer, with a private
+  descending AFC model, streak, braking burn, touchdown and smoke.
+- Hidden-until-touchdown: `client-map-3d.ts` skips `addAfc` while
+  `isAfcHiddenForJoinDrop`, and the tick bumps the tile revision on arm
+  and reveal so the 3D renderer rebuilds; `drawAfcTile2D` draws nothing
+  while waiting. (Implemented as `state.afcJoinDrop`, not the
+  `afcArrivalsByKey` map sketched under "AFC drop" Design decision 2.)
+- Storybook: `AfcDropFx.stories.ts` (real FX layer, scrub slider).
+- Changelog entry.
+
+Deliberately not built, and why:
+
+- **The mid-session AFC drop** (tile-delta detector for a bought AFC,
+  another player's AFC, elimination-respawn in view). Nothing produces
+  those events yet (the build-AFC command and picker are still open), so
+  a detector would be dead code. The FX layer and gate are reusable when
+  it lands; it would add a brisker preset (~3 s, no dwell).
+- **`shouldShowRendererPrompt` refactor** onto `isMapUnobstructed`. It
+  takes a differently shaped input and is also used by the HUD; left
+  alone to keep this change small.
+- **Onboarding checklist hold** (above).
+- **Audio.** No cue was added.
+
 ### Implementation steps
 
 1. **State.** `client-state.ts`:
    - `afcDropFxQueue: [] as Array<{ x; y; queuedAt }>` next to the other
      FX queues.
-   - `afcArrivalsByKey: new Map<string, number>()`.
+   - `afcArrivalsByKey: new Map<string, number>()`;
+   - `afcJoinDropPending: boolean` and `afcJoinDropGateSince: number`
+     (0 when the gate is closed; the timestamp the dwell started
+     otherwise). Both are plain scalars, so nothing growable is added.
 2. **Detection.** In the existing pre-merge snapshot loop of
    `client-tile-delta-batch-handler.ts`, record `hadAfc` for each touched
    tile. In the post-merge loop, fire on `hadAfc === false && resolved.afc`,
@@ -361,9 +556,25 @@ Every AFC arrival then looks the same.
    - no fire for a first-seen tile;
    - no fire when the tile already had an AFC (module change only);
    - fires for another player's AFC too.
+
+   Join-drop tests, next to the new gate module:
+   - armed on the first `INIT` after the join flow, not on a reconnect
+     `INIT`, and not for a returning player who never saw the join flow;
+   - gate stays closed for each blocker in turn (auth, profile setup,
+     changelog, guide, activity dashboard, join-season overlay, respawn
+     overlay, season-end overlay, hidden tab, AFC tile off screen);
+   - gate must hold for the full dwell, and the dwell restarts if a
+     blocker reappears part-way;
+   - the drop starts only after the dwell, and the hidden-AFC sentinel is
+     replaced by the real landing time at that moment;
+   - safety net reveals the AFC with no animation after the long timeout;
+   - the "played" flag is written on completion and not before, so an
+     abandoned session can replay it;
+   - the `Infinity` sentinel is cleared on completion, disconnect and
+     season change.
 3. **FX.** Extend `client-map-3d-afc-module-delivery-fx.ts`:
    - Parameterize the streak, smoke, and duration constants into a
-     preset (`MODULE_DROP` vs. `AFC_DROP`).
+     preset (`MODULE_DROP` vs. `AFC_DROP` vs. `AFC_JOIN_DROP`).
    - Add the braking-burn sprite and the descending single-instance AFC
      model.
    - Recheck `wc -l` first (the file is ~350 lines). If the AFC variant
@@ -383,10 +594,25 @@ Every AFC arrival then looks the same.
    - Draw it from `client-map-2d-afc-overlay.ts` (84 lines, room to
      grow), called at the same `client-runtime-loop.ts` sites.
 6. **Storybook.** Add an "AFC drop" story beside
-   `AfcModuleDeliveryFx.stories.ts` with a "Replay drop" button. Tune
-   durations there before wiring into the game, as with the module drop.
-7. **Changelog** is shared with the build-AFC feature's entry. There is no
+   `AfcModuleDeliveryFx.stories.ts` with a "Replay drop" button and a
+   preset switch (mid-session vs. join). Tune durations there before
+   wiring into the game, as with the module drop; the join preset's
+   pacing in particular can only be judged by watching it. The story
+   renders the real FX layer, not a mockup.
+7. **Join gate and arming.** New module (its own file, well under the
+   500-line cap) exporting `isMapUnobstructed(state)`, the arm-at-`INIT`
+   step in `client-network-init-message.ts` (a call into the new module,
+   not new logic in that file), and a per-frame gate tick from
+   `client-runtime-loop.ts` that starts the drop when the dwell
+   completes. Both `client-network-init-message.ts` and
+   `client-runtime-loop.ts` are large, so check `pnpm check:file-lines`
+   and extract before adding anything net-positive. Refactor
+   `shouldShowRendererPrompt`'s call site to use `isMapUnobstructed` too,
+   so there is one definition of "map visible".
+8. **Changelog** is shared with the build-AFC feature's entry. There is no
    separate entry unless the animation ships on its own branch first.
+   The join drop *is* user-visible, so if it ships on its own branch it
+   needs its own `CLIENT_CHANGELOG_ENTRIES` entry.
 
 ## Follow-up status (updated 2026-09-29)
 
