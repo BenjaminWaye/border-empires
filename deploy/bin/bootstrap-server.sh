@@ -75,7 +75,10 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 
 # --- directories + host config ---
 # 10001:10001 must match `user:` in deploy/compose.yml.
-install -d -m 750 -o 10001 -g 10001 /srv/border-empires/data /srv/border-empires/data/backups
+# (mkdir+chown, not `install -o 10001`: Ubuntu 26.04's uutils install rejects numeric ids.)
+mkdir -p /srv/border-empires/data/backups
+chown 10001:10001 /srv/border-empires/data /srv/border-empires/data/backups
+chmod 750 /srv/border-empires/data /srv/border-empires/data/backups
 install -d -m 755 -o deploy -g deploy /srv/border-empires
 install -d -m 755 -o root -g root /opt/border-empires /opt/border-empires/bin
 install -d -m 755 -o deploy -g deploy /opt/border-empires/env
