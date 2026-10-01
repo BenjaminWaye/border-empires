@@ -28,7 +28,6 @@ import {
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
-  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -241,6 +240,7 @@ import {
 } from "../runtime-muster-watch.js";
 import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
+import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
 import {
   AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
   cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
@@ -1364,49 +1364,18 @@ export class SimulationRuntime {
     return result;
   }
 
-  // Census Hall (tech-tree redesign): +20,000 population (and cap) per
-  // connected city with an active Incubation Engine (Granary) --
-  // network-scoped, recomputed every tick rather than granted once, so
-  // losing a connection or a neighbor's Granary shrinks the bonus back down.
-  // Mirrors the Assembly Works/Rail Depot "network scan" pattern rather than
-  // a simple empire-wide tally.
+  // Census Hall population bonus -- see runtime-census-hall-bonus.ts.
   private applyCensusHallPopulationBonuses(): void {
-    for (const [ownerId, censusHallKeys] of this.censusHallTilesByOwner) {
-      if (censusHallKeys.size === 0) continue;
-      for (const censusHallKey of censusHallKeys) {
-        const censusHallTile = this.state.tiles.get(censusHallKey);
-        if (!censusHallTile || censusHallTile.economicStructure?.status !== "active") continue;
-        const townKey = this.assignedTownKeyForSupportTile(ownerId, censusHallTile.x, censusHallTile.y);
-        if (!townKey) continue;
-        const townTile = this.state.tiles.get(townKey);
-        if (!townTile?.town || townTile.ownerId !== ownerId) continue;
-        const connectedGranaryCount = this.censusHallConnectedGranaryBonusCountForPlayer(ownerId, townKey);
-        const desiredBonus = connectedGranaryCount * CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
-        const appliedBonus = townTile.town.censusHallAppliedBonus ?? 0;
-        if (desiredBonus === appliedBonus) continue;
-        const delta = desiredBonus - appliedBonus;
-        const updatedTownTile: DomainTileState = {
-          ...townTile,
-          town: {
-            ...townTile.town,
-            maxPopulation: Math.max(0, (townTile.town.maxPopulation ?? 0) + delta),
-            // A growing bonus is an instant grant (matches Incubation
-            // Engine's "burst" flavor); a shrinking bonus only lowers the
-            // cap -- population naturally sitting above the new cap just
-            // stops growing further, it isn't forcibly clawed back.
-            population: delta > 0 ? (townTile.town.population ?? 0) + delta : (townTile.town.population ?? 0),
-            censusHallAppliedBonus: desiredBonus
-          }
-        };
-        this.replaceTileState(townKey, updatedTownTile);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: `census-hall-bonus:${ownerId}:${this.now()}`,
-          playerId: ownerId,
-          tileDeltas: [this.tileDeltaFromState(updatedTownTile)]
-        });
-      }
-    }
+    applyCensusHallPopulationBonusesImpl({
+      censusHallTilesByOwner: this.censusHallTilesByOwner,
+      tiles: this.state.tiles,
+      now: () => this.now(),
+      assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
+      connectedGranaryCountForTown: (playerId, townKey) => this.censusHallConnectedGranaryBonusCountForPlayer(playerId, townKey),
+      replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+    });
   }
 
   private shardRainContext() {
@@ -1515,6 +1484,7 @@ export class SimulationRuntime {
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event: SimulationEvent) => this.emitEvent(event),
+      emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => this.emitPlayerStateUpdate(input),
       tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
       requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
