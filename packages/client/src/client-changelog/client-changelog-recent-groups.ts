@@ -14,6 +14,7 @@ import { CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH } from "./client-changelog-ren
 import { CLIENT_CHANGELOG_ENTRIES_AI_FORT_AND_GOLD_CAP } from "./client-changelog-ai-fort-and-gold-cap.js";
 import { CLIENT_CHANGELOG_ENTRIES_SECTOR_NUMBERING } from "./client-changelog-sector-numbering.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP } from "./client-changelog-afc-join-drop.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS } from "./client-changelog-afc-module-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
@@ -31,6 +32,7 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING,
   ...CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS,
   ...CLIENT_CHANGELOG_ENTRIES_AI_FORT_AND_GOLD_CAP,
   ...CLIENT_CHANGELOG_ENTRIES_SECTOR_NUMBERING,
   ...CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES

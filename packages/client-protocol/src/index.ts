@@ -53,7 +53,8 @@ export const DurableCommandTypeSchema = z.enum([
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
+  "CLAIM_CONTINUATION_SET",
+  "SET_AUTO_SETTLE_PREFS"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;

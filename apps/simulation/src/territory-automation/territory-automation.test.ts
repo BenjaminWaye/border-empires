@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import {
   applySimulationEventsToRecoveredAccumulator,
@@ -23,7 +23,8 @@ const player = (id: string, points = 1_000, manpower = 1_000) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 const latestAutoSettlementQueue = (events: SimulationEvent[], playerId: string): string[] => {
