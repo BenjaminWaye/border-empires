@@ -58,14 +58,15 @@ export const buildMusterActions = (
       fightX: muster.fightX,
       fightY: muster.fightY,
       noTargetInRange: muster.noTargetInRange,
-      insufficientManpower: muster.insufficientManpower
+      insufficientManpower: muster.insufficientManpower,
+      clearing: muster.clearing
     });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
+        detail: `Mustering… ${staged} manpower staged · clears barbarians and enemies within 10 tiles, then reports back.`,
         ...avail()
       });
       out.push({

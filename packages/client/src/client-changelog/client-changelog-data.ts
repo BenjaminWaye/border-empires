@@ -10,6 +10,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-rece
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
+import { CLIENT_CHANGELOG_ENTRIES_LATE_SEP30 } from "./client-changelog-data-late-sep30.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -458,31 +459,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790757301381, // frozen Date.now() value for this release
-    introducedIn: "2026.09.30.2",
-    title: "More reliable guest sign-in",
-    why: "A busy game database could freeze the realtime gateway while a new guest was signing in, leaving Play Now stuck before the map opened.",
+    createdAt: 1790830401398,
+    introducedIn: "2026.10.01.1",
+    title: "Advance flags clear barbarians and report back",
+    why: "Sending a flag after barbarians out in the wilderness meant expanding out to touch each one yourself and re-launching attacks by hand, and a flag only acted once every 30 seconds unless you had its menu open.",
     changes: [
-      "Guest sign-in now retries temporary database contention without freezing the realtime connection",
-      "Staging release checks now include a real Play Now sign-in and wait longer for delayed server failures"
-    ]
-  },
-  {
-    createdAt: 1790756975653,
-    introducedIn: "2026.09.30.3",
-    title: "Map overlays no longer float above hills",
-    why: "Flat tile overlays on hills were parked at the hill's tallest possible height, well above the visible ground, so they hovered in the air in the 3D map.",
-    changes: [
-      "True-3D attack markers, weak-defence warnings, shield-area washes, win-chance labels, crystal targeting and dormant frontier tiles now sit on top of hill tiles instead of floating above them"
-    ]
-  },
-  {
-    createdAt: 1790764591773, // frozen Date.now() value for this release
-    introducedIn: "2026.09.30.4",
-    title: "Slow server replies no longer strand an expansion",
-    why: "When the server took more than 2 seconds to confirm an expansion, a late confirmation was thrown away and the tile stayed stuck on \"Expansion sync delayed\".",
-    changes: [
-      "A late expansion confirmation that arrives within 12 seconds is now picked up instead of ignored, so the claim completes normally"
+      "An Advance flag now walks toward barbarians within 10 tiles that don't touch your territory yet, expanding across empty land to reach them, then attacks them",
+      "Advance flags act every second, with up to three fights at once, even when you're not looking at them",
+      "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",
+      "A flag that is rejected (not enough coin or manpower) now backs off instead of retrying every second"
     ]
   }
 ];
@@ -490,6 +475,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_LATE_SEP30,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
 ];

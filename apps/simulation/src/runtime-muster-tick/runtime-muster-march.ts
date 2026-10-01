@@ -70,11 +70,21 @@ const isStraighterRoute = (a: MarchRouteScore, b: MarchRouteScore): boolean => {
  * once the target tile is actually owned by the player; see that check
  * below.
  */
-export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
+export type MarchFireOptions = {
+  // Steer toward this tile instead of the flag's own march target. Used by an
+  // ADVANCE flag closing on a barbarian that doesn't touch its territory yet
+  // (muster-advance-fire.ts); the flag's mode/target are left untouched.
+  target?: { x: number; y: number };
+  // Only expand across neutral land, never attack on the way. ADVANCE uses it
+  // so closing on a barbarian can't pick a fight with another player.
+  expandOnly?: boolean;
+};
+
+export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string, options: MarchFireOptions = {}): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
-  const targetX = musterTile.muster?.targetX;
-  const targetY = musterTile.muster?.targetY;
+  const targetX = options.target?.x ?? musterTile.muster?.targetX;
+  const targetY = options.target?.y ?? musterTile.muster?.targetY;
 
   if (targetX === undefined || targetY === undefined) {
     // No target set (shouldn't happen — SET_MUSTER requires one for MARCH) —
@@ -88,7 +98,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // Target already ours — the march is complete. Fall back to HOLD so the
   // flag stops searching and the client sees the march end.
   const targetTile = input.tiles.get(simulationTileKey(targetX, targetY));
-  if (targetTile?.ownerId === playerId) {
+  if (!options.target && targetTile?.ownerId === playerId) {
     const { targetX: _targetX, targetY: _targetY, ...restMuster } = musterTile.muster!;
     const clearedTile: DomainTileState = {
       ...musterTile,
@@ -254,6 +264,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         }
       } else if (
         neighbor.ownerId &&
+        !options.expandOnly &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
@@ -335,7 +346,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     simulationTileKey(to.x, to.y),
     input.nowMs
   );
-  input.handleFrontierCommand(
+  const result = input.handleFrontierCommand(
     {
       commandId,
       sessionId: `system-runtime:territory-automation:${playerId}`,
@@ -362,4 +373,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     },
     useAttack ? "ATTACK" : "EXPAND"
   );
+  // A rejected command (no coin/manpower, tile locked...) must not be retried
+  // every second now that flags tick at 1s -- back off like a far target.
+  if (!result.accepted) input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
 };
