@@ -480,6 +480,7 @@ import {
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
+import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
@@ -4109,14 +4110,6 @@ export class SimulationRuntime {
     return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
   }
 
-  private handleWatchMusterCommand(command: CommandEnvelope): void {
-    handleWatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
-  }
-
-  private handleUnwatchMusterCommand(command: CommandEnvelope): void {
-    handleUnwatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
-  }
-
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
 
   // Player-ids with at least one *player-issued* frontier lock - i.e. locks
@@ -4308,9 +4301,9 @@ export class SimulationRuntime {
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
-      handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command),
-      handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
-      handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),
+      handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),
+      handleWatchMusterCommand: (command) => handleWatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e)),
+      handleUnwatchMusterCommand: (command) => handleUnwatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e)),
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => handleCancelFortBuildCommandImpl(this.structureCommandContext(), command),
       handleCancelStructureBuildCommand: (command) => handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command),
