@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchGalaxyHoldings, trophyCaseHtml } from "./client-player-profile-galaxy.js";
+import { fetchGalaxyHoldings, trophyCaseHtml, galaxyHoldingsHtml } from "./client-player-profile-galaxy.js";
 
 const originalFetch = global.fetch;
 
@@ -53,5 +53,28 @@ describe("trophyCaseHtml", () => {
     expect(html).toContain("Diplomatic Dominance ×1");
     expect(html).toContain("🏰");
     expect(html).toContain("🤝");
+  });
+});
+
+describe("galaxyHoldingsHtml", () => {
+  it("falls back to the raw season label when the gateway hasn't sent sectorNumber yet", () => {
+    const html = galaxyHoldingsHtml({
+      planets: [{ seasonSequence: 4, objectiveName: "Conquest", specialization: "CAPITAL", planetName: null }],
+      outposts: [{ seasonSequence: 6, specialization: "EXTRACTION" }]
+    });
+    expect(html).toContain("Season 4");
+    expect(html).toContain("Season 6");
+  });
+
+  it("prefers the Sector NNN label once sectorNumber is present", () => {
+    const html = galaxyHoldingsHtml({
+      planets: [
+        { seasonSequence: 4, sectorNumber: 2, campaign: { kind: "FRONTIER" }, objectiveName: "Conquest", specialization: "CAPITAL", planetName: null }
+      ],
+      outposts: [{ seasonSequence: 6, sectorNumber: 2, campaign: { kind: "CONTESTATION", ordinal: 1 }, specialization: "EXTRACTION" }]
+    });
+    expect(html).toContain("Sector 002");
+    expect(html).not.toContain("Season 4");
+    expect(html).not.toContain("Season 6");
   });
 });

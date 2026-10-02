@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Hourly consistent SQLite snapshot -> zstd -> Backblaze B2 (via rclone).
+# Run by border-empires-backup.timer as `deploy`; installed at
+# /opt/border-empires/backup by `deploy`. Same VACUUM INTO technique as
+# scripts/ops/clone-prod-sqlite-snapshot.mjs (consistent, no WAL coordination).
+#
+# /etc/border-empires/host.conf: BE_ENV, optional BACKUP_BUCKET (e.g. be-backups-staging).
+# /etc/border-empires/rclone.conf: a `[b2]` remote scoped to that bucket.
+# Retention: B2 holds 48 hourly + 14 daily; the host keeps the newest 3.
+set -euo pipefail
+
+# One backup at a time: two overlapping VACUUM INTO runs (timer + a manual run)
+# on the live DB coincided with a 30s event-loop stall and a watchdog kill on
+# staging (2026-10-02). A second invocation just exits.
+exec 9>/tmp/border-empires-backup.lock
+flock -n 9 || { echo "another backup is running; skipping" >&2; exit 0; }
+
+. /etc/border-empires/host.conf
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+NAME="be-${BE_ENV}-${STAMP}.db"
+LOCAL_DIR=/srv/border-empires/backups   # deploy-owned; the container dir is uid 10001
+mkdir -p "$LOCAL_DIR"
+
+cd /opt/border-empires
+JS='
+const { DatabaseSync } = require("node:sqlite");
+const out = process.env.BACKUP_OUT;
+new DatabaseSync("/data/border-empires.db").exec(`VACUUM INTO \x27${out}\x27`);
+const row = new DatabaseSync(out).prepare("PRAGMA quick_check").get();
+if (Object.values(row)[0] !== "ok") { console.error("quick_check failed", row); process.exit(1); }
+console.log("snapshot ok " + out);
+'
+# nice: VACUUM INTO holds a read lock and burns CPU next to the live sim.
+docker compose exec -T -e "BACKUP_OUT=/data/backups/${NAME}" app nice -n 19 node -e "$JS"
+# Compress on the host by streaming out of the container (the host `deploy`
+# user cannot read files owned by the container uid), then drop the raw copy.
+docker compose exec -T app cat "/data/backups/${NAME}" | nice -n 19 zstd -q -3 -T1 -o "${LOCAL_DIR}/${NAME}.zst"
+docker compose exec -T app rm -f "/data/backups/${NAME}"
+ls -1t "${LOCAL_DIR}"/be-*.db.zst 2>/dev/null | tail -n +4 | xargs -r rm -f
+
+if [ -z "${BACKUP_BUCKET:-}" ]; then
+  echo "BACKUP_BUCKET not set in host.conf; kept local copy only" >&2
+  exit 0
+fi
+export RCLONE_CONFIG=/etc/border-empires/rclone.conf
+rclone copyto "${LOCAL_DIR}/${NAME}.zst" "b2:${BACKUP_BUCKET}/hourly/${NAME}.zst"
+if [ "$(date -u +%H)" = "00" ]; then
+  rclone copyto "${LOCAL_DIR}/${NAME}.zst" "b2:${BACKUP_BUCKET}/daily/${NAME}.zst"
+fi
+rclone delete --min-age 2d "b2:${BACKUP_BUCKET}/hourly/"
+rclone delete --min-age 14d "b2:${BACKUP_BUCKET}/daily/"
+echo "uploaded ${NAME}.zst to b2:${BACKUP_BUCKET}"

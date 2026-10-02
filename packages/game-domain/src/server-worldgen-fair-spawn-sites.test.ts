@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "./index/index.js";
-import { computeFairSpawnSites } from "./server-worldgen-fair-spawn-sites.js";
+import { computeFairSpawnSites, hasWaterNeighbor } from "./server-worldgen-fair-spawn-sites.js";
 
 describe("computeFairSpawnSites", () => {
   const buildLandGrid = (size: number): DomainTileState[] => {
@@ -28,7 +28,9 @@ describe("computeFairSpawnSites", () => {
     // entirely, not just demoted to a lower tier -- matches the same
     // too-close-to-town floor apps/simulation's per-player search enforces.
     const manhattanFromTown = (x: number, y: number): number => Math.abs(x - 3) + Math.abs(y - 3);
-    const tier1Tiles = tiles.filter((tile) => tile !== townTile && manhattanFromTown(tile.x, tile.y) >= 5);
+    // x === 6 borders the sea gap below, so the AFC dry-footprint rule
+    // (no water on any of the 8 neighbours) already rules those tiles out.
+    const tier1Tiles = tiles.filter((tile) => tile !== townTile && manhattanFromTown(tile.x, tile.y) >= 5 && tile.x < 6);
     const tier1CandidateCount = tier1Tiles.length;
 
     for (let y = 0; y < 7; y += 1) {
@@ -83,5 +85,29 @@ describe("computeFairSpawnSites", () => {
       }
       expect(minDistance).toBeGreaterThan(1);
     }
+  });
+});
+
+describe("AFC dry-footprint rule", () => {
+  it("hasWaterNeighbor flags any of the 8 neighbours being sea, but not mountains", () => {
+    const terrain = new Map<string, DomainTileState["terrain"]>([
+      ["5,5", "LAND"],
+      ["6,6", "COASTAL_SEA"],
+      ["4,5", "MOUNTAIN"]
+    ]);
+    const terrainAt = (x: number, y: number) => terrain.get(`${x},${y}`);
+    expect(hasWaterNeighbor(terrainAt, 5, 5)).toBe(true);
+    terrain.set("6,6", "LAND");
+    expect(hasWaterNeighbor(terrainAt, 5, 5)).toBe(false);
+  });
+
+  it("never rosters a site with water on a diagonal neighbour while dry sites exist", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 12; y += 1) {
+      for (let x = 0; x < 12; x += 1) tiles.push({ x, y, terrain: x === 0 ? "SEA" : "LAND" });
+    }
+    const sites = computeFairSpawnSites(tiles, 200);
+    expect(sites.length).toBeGreaterThan(0);
+    expect(sites.some((site) => site.x === 1)).toBe(false);
   });
 });

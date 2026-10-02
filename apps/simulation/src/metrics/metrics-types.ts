@@ -139,6 +139,9 @@ export type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;
+  /** Barbarian tiles (capped at MAX_BARBARIAN_TILES) and the size of the multiply-progress map; the latter must track the former. */
+  simBarbarianTiles: number;
+  simBarbarianTileProgressEntries: number;
   simManpowerCapBootstrapRestampedTotal: number;
   simTerritoryFlipLogEntries: number;
   simCombatManpowerLogEntries: number;
@@ -171,8 +174,6 @@ export type SimulationMetricsSnapshot = {
   simWriterQueueDepth: number;
   /** Times post() awaited drain because the queue hit its depth cap; 0 means backpressure never engaged. */
   simWriterQueueBackpressureWaitTotal: number;
-  /** Times ensureVisionUnionFresh skipped a recompute due to the min-interval throttle; 0 means it never engaged. */
-  simBarbVisionUnionRecomputeThrottledTotal: number;
   /** Times the tile-shedding tick skipped emitPlayerStateUpdate for an AI player; 0 means the skip never engaged. */
   simPlayerStateUpdateSkippedAiTotal: number;
   /** Entries in the replay cache embedded in each snapshot (gauge; was 122k pre-#615). */
@@ -296,4 +297,6 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerMusterFlagsGauge: Record<string, number>;
   /** Manpower staged inside the player's muster flags (gauge) — already out of the pool. */
   simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
+  /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
+  simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
 };

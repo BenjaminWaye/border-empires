@@ -1,4 +1,13 @@
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
+import {
+  BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY,
+  BUILDING_CATEGORY_EMPTY_REASON,
+  BUILDING_CATEGORY_ICONS,
+  BUILDING_CATEGORY_LABELS,
+  BUILDING_CATEGORY_ORDER,
+  buildingActionCategory,
+  type BuildingCategory
+} from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
 
 // Two-color versus bar shown on the "Battle in progress" / "Under attack"
@@ -19,6 +28,64 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
         <div class="tile-progress-battle-attacker" style="width:${attackerPct}%;background:${battle.attackerColor}"></div>
         <div class="tile-progress-battle-defender" style="width:${100 - attackerPct}%;background:${battle.defenderColor}"></div>
       </div>
+    </div>
+  `;
+};
+
+// Buildings tab shows a row of category squares (Military / Resource / Town
+// Support / Infrastructure) instead of one flat scrolling list -- a
+// developed settled tile can offer 15-30+ building options, and a flat list
+// makes the one a player actually wants hard to find. Pure-CSS toggle via
+// radio inputs, so no extra client state/re-render wiring is needed to
+// switch categories. A category with nothing buildable here is shown
+// disabled with a reason grounded in why it's empty (resourceTypes /
+// placementMode -- see client-tile-menu-building-category.ts).
+const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
+  const byCategory = new Map<BuildingCategory, TileActionDef[]>();
+  for (const action of actions) {
+    const category = buildingActionCategory(action);
+    const bucket = byCategory.get(category);
+    if (bucket) bucket.push(action);
+    else byCategory.set(category, [action]);
+  }
+  const uid = Math.random().toString(36).slice(2, 8);
+  const visibleCategories = BUILDING_CATEGORY_ORDER.filter(
+    (category) => (byCategory.get(category)?.length ?? 0) > 0 || !BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY.has(category)
+  );
+  const firstNonEmpty = visibleCategories.find((category) => (byCategory.get(category)?.length ?? 0) > 0);
+  // Radios live as direct siblings of .tile-building-category-panels (not
+  // nested inside the squares row) so the plain CSS sibling combinator
+  // (`.cat-x:checked ~ .tile-building-category-panels [data-category=x]`)
+  // can reach across to the matching panel -- see client-tile-menu-building-group-style.css.
+  const radiosHtml = visibleCategories.map((category) => {
+    const count = byCategory.get(category)?.length ?? 0;
+    const inputId = `tbc-${uid}-${category}`;
+    return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === firstNonEmpty ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
+  }).join("");
+  const squaresHtml = visibleCategories.map((category) => {
+    const count = byCategory.get(category)?.length ?? 0;
+    const isEmpty = count === 0;
+    const inputId = `tbc-${uid}-${category}`;
+    return `
+      <label for="${inputId}" class="tile-building-category-square cat-${category}${isEmpty ? " is-empty" : ""}" title="${isEmpty ? BUILDING_CATEGORY_EMPTY_REASON[category] : `${BUILDING_CATEGORY_LABELS[category]} (${count})`}">
+        <span class="tile-building-category-icon">${BUILDING_CATEGORY_ICONS[category]}</span>
+        <span class="tile-building-category-label">${BUILDING_CATEGORY_LABELS[category]}</span>
+        <span class="tile-building-category-count">${count}</span>
+      </label>
+    `;
+  }).join("");
+  const panelsHtml = visibleCategories.map((category) => {
+    const categoryActions = byCategory.get(category) ?? [];
+    if (categoryActions.length === 0) {
+      return `<div class="tile-building-category-panel" data-category="${category}"><div class="tile-menu-empty">${BUILDING_CATEGORY_EMPTY_REASON[category]}</div></div>`;
+    }
+    return `<div class="tile-building-category-panel" data-category="${category}"><div class="tile-action-list">${categoryActions.map(tileActionButtonHtml).join("")}</div></div>`;
+  }).join("");
+  return `
+    <div class="tile-building-category-group">
+      ${radiosHtml}
+      <div class="tile-building-categories" style="grid-template-columns:repeat(${visibleCategories.length},minmax(0,1fr))">${squaresHtml}</div>
+      <div class="tile-building-category-panels">${panelsHtml}</div>
     </div>
   `;
 };
@@ -176,6 +243,21 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   return "Progress";
 };
 
+export const tileActionButtonHtml = (action: TileActionDef): string => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
+          <span class="tile-action-icon">${actionIcon(action.id)}</span>
+          <span class="tile-action-copy">
+            <span class="tile-action-label">${action.label}</span>
+            ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}
+            ${action.disabled && action.disabledReason ? `<span class="tile-action-blocker">✗ ${action.disabledReason}</span>` : ""}
+          </span>
+          ${action.cost ? `<span class="tile-action-cost">${action.cost}</span>` : ""}
+        </button>`;
+
+// Buildings tab is the one that regularly grows past 15-30 options on a
+// developed settled tile, so it's the only tab grouped by category;
+// actions/crystal stay flat lists (short, and grouping would be noise).
+const BUILDING_GROUP_THRESHOLD = 6;
+
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   const actionsForTab =
     activeTab === "actions" ? view.actions : activeTab === "buildings" ? view.buildings : activeTab === "crystal" ? view.crystal : undefined;
@@ -184,19 +266,11 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       const label = activeTab === "buildings" ? "buildings" : activeTab === "crystal" ? "crystal actions" : "actions";
       return `<div class="tile-menu-empty">No ${label} available on this tile right now.</div>`;
     }
-    return `<div class="tile-action-list">${actionsForTab
-      .map(
-        (action: TileActionDef) => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
-          <span class="tile-action-icon">${actionIcon(action.id)}</span>
-          <span class="tile-action-copy">
-            <span class="tile-action-label">${action.label}</span>
-            ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}
-            ${action.disabled && action.disabledReason ? `<span class="tile-action-blocker">✗ ${action.disabledReason}</span>` : ""}
-          </span>
-          ${action.cost ? `<span class="tile-action-cost">${action.cost}</span>` : ""}
-        </button>`
-      )
-      .join("")}</div>${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
+    const listHtml =
+      activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
+        ? groupedBuildingActionListHtml(actionsForTab)
+        : `<div class="tile-action-list">${actionsForTab.map(tileActionButtonHtml).join("")}</div>`;
+    return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;

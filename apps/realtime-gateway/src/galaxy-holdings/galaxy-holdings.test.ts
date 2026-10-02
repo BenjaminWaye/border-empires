@@ -1,4 +1,4 @@
-import type { SeasonArchiveRow } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -16,6 +16,15 @@ const archive = (overrides: Partial<SeasonArchiveRow>): SeasonArchiveRow => ({
   replayEvents: [],
   ...overrides
 });
+
+const endedSummary = (overrides: Partial<CurrentSeasonSummary>): CurrentSeasonSummary =>
+  ({
+    seasonId: "season-default",
+    seasonSequence: 1,
+    status: "ended",
+    updatedAt: 1_000,
+    ...overrides
+  }) as CurrentSeasonSummary;
 
 describe("resolveGalaxyHoldingsByOwner", () => {
   it("groups an owner's won Planet and awarded Outposts together", async () => {
@@ -105,6 +114,70 @@ describe("resolveGalaxyHoldingsByOwner", () => {
 
     expect(byOwner.get("uid-original")).toBeUndefined();
     expect(byOwner.get("uid-conqueror")).toEqual([{ seasonId: "season-original", tier: "PLANET", specialization: "CAPITAL" }]);
+  });
+});
+
+describe("resolveEndedSeasons sector labels", () => {
+  it("attaches a Frontier sectorLabel to a won season, and a Contestation label to a tiered Defense Campaign season", async () => {
+    const archives: SeasonArchiveRow[] = [
+      archive({
+        seasonId: "season-1",
+        winner: { playerId: "player-1", playerName: "Player One", objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+      }),
+      archive({
+        seasonId: "season-dc",
+        seasonSequence: 5,
+        defenseCampaignTargetSeasonId: "season-1",
+        galaxyTiers: [{ playerId: "player-2", playerName: "Player Two", tier: "STIPEND", influence: 1, production: 1 }]
+      })
+    ];
+
+    const { won, tiered } = await resolveEndedSeasons({ listSeasonArchives: async () => archives });
+    expect(won).toEqual([
+      expect.objectContaining({ seasonId: "season-1", sectorLabel: { sectorNumber: 1, campaign: { kind: "FRONTIER" } } })
+    ]);
+    expect(tiered).toEqual([
+      expect.objectContaining({ seasonId: "season-dc", sectorLabel: { sectorNumber: 1, campaign: { kind: "CONTESTATION", ordinal: 1 } } })
+    ]);
+  });
+
+  it("leaves sectorLabel undefined for a tiered season nobody won outright", async () => {
+    const archives: SeasonArchiveRow[] = [
+      archive({ seasonId: "season-unwon", galaxyTiers: [{ playerId: "player-1", playerName: "Player One", tier: "STIPEND", influence: 1, production: 1 }] })
+    ];
+
+    const { tiered } = await resolveEndedSeasons({ listSeasonArchives: async () => archives });
+    expect(tiered).toEqual([expect.objectContaining({ seasonId: "season-unwon", sectorLabel: undefined })]);
+  });
+
+  it("folds an in-progress-but-ended current season into numbering so a later Frontier win doesn't undercount it", async () => {
+    const archives: SeasonArchiveRow[] = [
+      archive({
+        seasonId: "season-1",
+        winner: { playerId: "player-1", playerName: "Player One", objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+      }),
+      archive({
+        seasonId: "season-3",
+        seasonSequence: 3,
+        winner: { playerId: "player-3", playerName: "Player Three", objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", crownedAt: 3 }
+      })
+    ];
+
+    const { won } = await resolveEndedSeasons({
+      listSeasonArchives: async () => archives,
+      getCurrentSeasonSummary: async () =>
+        endedSummary({
+          seasonId: "season-2",
+          seasonSequence: 2,
+          seasonWinner: { playerId: "player-2", playerName: "Player Two", objectiveId: "RESOURCE_MONOPOLY", objectiveName: "Resource Monopoly", crownedAt: 2 },
+          updatedAt: 2_000
+        })
+    });
+
+    const bySeasonId = new Map(won.map((w) => [w.seasonId, w.sectorLabel.sectorNumber]));
+    expect(bySeasonId.get("season-1")).toBe(1);
+    expect(bySeasonId.get("season-2")).toBe(2);
+    expect(bySeasonId.get("season-3")).toBe(3);
   });
 });
 

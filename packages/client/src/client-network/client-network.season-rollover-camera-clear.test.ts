@@ -228,4 +228,19 @@ describe("SEASON_ROLLOVER clears persisted camera location", () => {
     expect(state.camY).toBe(0);
     expect(storage.has(CAMERA_LOCATION_STORAGE_KEY)).toBe(false);
   });
+
+  // clearRenderCaches re-derives AFC landing-footprint forest clearings from
+  // state.tiles, so it must not see the old season's AFC tiles -- otherwise
+  // they clear forest at the same coordinates in the new world.
+  it.each(["SEASON_ROLLOVER", "WORLD_REGENERATED"])("drops the old tiles before %s re-derives render caches", (type) => {
+    const state = createState();
+    state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", afc: { ownerId: "p1", status: "active", activatedAt: 1 } });
+    let tileCountAtCacheClear = -1;
+    const ws = new FakeWebSocket();
+    bindDeps(state, ws, { clearRenderCaches: vi.fn(() => { tileCountAtCacheClear = state.tiles.size; }) });
+
+    ws.emit("message", { data: JSON.stringify({ type, season: { worldSeed: 12345, mapStyle: "continents" } }) });
+
+    expect(tileCountAtCacheClear).toBe(0);
+  });
 });

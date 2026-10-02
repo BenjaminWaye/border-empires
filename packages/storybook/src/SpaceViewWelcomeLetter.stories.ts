@@ -52,5 +52,5 @@ export const NamingStep: Story = {
 };
 
 export const DecreeLetter: Story = {
-  render: () => renderStep(spaceViewWelcomeLetterStepHtml("Argenta"))
+  render: () => renderStep(spaceViewWelcomeLetterStepHtml("Argenta", 1))
 };

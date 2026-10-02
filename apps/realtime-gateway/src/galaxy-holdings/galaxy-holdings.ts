@@ -9,11 +9,17 @@ import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
+import type { SectorIndexArchive, SectorLabel } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
+import { buildSectorLabelIndex } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
 export type WonSeason = {
   seasonId: string;
   seasonSequence: number;
   winner: SeasonWinnerSnapshot;
+  // A won season is always itself the Frontier win that first claimed its
+  // territory (a Defense Campaign's own seasonId is excluded below), so this
+  // is always resolvable -- never undefined.
+  sectorLabel: SectorLabel;
 };
 
 // Seasons carrying galaxyTiers (§3 Outpost/Stipend records for non-winners).
@@ -22,6 +28,9 @@ export type TieredSeason = {
   seasonSequence: number;
   endedAt: number;
   galaxyTiers: SeasonGalaxyTierSnapshot[];
+  // Undefined when this season awarded Stipends without anyone winning
+  // outright -- no territory was ever created for it to label.
+  sectorLabel: SectorLabel | undefined;
 };
 
 export type ResolveGalaxyHoldingsDeps = {
@@ -51,6 +60,30 @@ export const resolveEndedSeasons = async (
   deps: ResolveGalaxyHoldingsDeps
 ): Promise<{ won: WonSeason[]; tiered: TieredSeason[] }> => {
   const archives = await deps.listSeasonArchives();
+
+  // The in-progress-but-ended current season (if any) has to be folded into
+  // the sector-numbering index too, not just into won/tiered below --
+  // otherwise its own sector number would be computed as if it didn't exist
+  // yet, undercounting it relative to any Frontier win that comes after it.
+  const indexInput: SectorIndexArchive[] = archives.map((a) => ({
+    seasonId: a.seasonId,
+    seasonSequence: a.seasonSequence,
+    winner: a.winner,
+    defenseCampaignTargetSeasonId: a.defenseCampaignTargetSeasonId
+  }));
+
+  const current = deps.getCurrentSeasonSummary ? await deps.getCurrentSeasonSummary() : undefined;
+  const currentEnded = current?.status === "ended" ? current : undefined;
+  if (currentEnded && !indexInput.some((a) => a.seasonId === currentEnded.seasonId)) {
+    indexInput.push({
+      seasonId: currentEnded.seasonId,
+      seasonSequence: currentEnded.seasonSequence,
+      winner: currentEnded.seasonWinner,
+      defenseCampaignTargetSeasonId: currentEnded.defenseCampaignTargetSeasonId
+    });
+  }
+  const sectorLabels = buildSectorLabelIndex(indexInput);
+
   const won: WonSeason[] = [];
   const tiered: TieredSeason[] = [];
   for (const archive of archives) {
@@ -62,27 +95,37 @@ export const resolveEndedSeasons = async (
     // both the transferred territory *and* a brand-new one at the DC's own
     // seasonId.
     if (archive.winner && !archive.defenseCampaignTargetSeasonId) {
-      won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
+      const sectorLabel = sectorLabels.get(archive.seasonId);
+      // Can't happen: a Frontier win is exactly what buildSectorLabelIndex
+      // numbers, but guard rather than silently mislabel if it ever does.
+      if (sectorLabel) won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner, sectorLabel });
     }
     if (archive.galaxyTiers && archive.galaxyTiers.length > 0) {
-      tiered.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, endedAt: archive.endedAt, galaxyTiers: archive.galaxyTiers });
+      tiered.push({
+        seasonId: archive.seasonId,
+        seasonSequence: archive.seasonSequence,
+        endedAt: archive.endedAt,
+        galaxyTiers: archive.galaxyTiers,
+        sectorLabel: sectorLabels.get(archive.seasonId)
+      });
     }
   }
 
-  if (deps.getCurrentSeasonSummary) {
-    const current = await deps.getCurrentSeasonSummary();
-    if (current.status === "ended") {
-      if (current.seasonWinner && !current.defenseCampaignTargetSeasonId && !won.some((season) => season.seasonId === current.seasonId)) {
-        won.push({ seasonId: current.seasonId, seasonSequence: current.seasonSequence, winner: current.seasonWinner });
+  if (currentEnded) {
+    if (currentEnded.seasonWinner && !currentEnded.defenseCampaignTargetSeasonId && !won.some((season) => season.seasonId === currentEnded.seasonId)) {
+      const sectorLabel = sectorLabels.get(currentEnded.seasonId);
+      if (sectorLabel) {
+        won.push({ seasonId: currentEnded.seasonId, seasonSequence: currentEnded.seasonSequence, winner: currentEnded.seasonWinner, sectorLabel });
       }
-      if (current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !tiered.some((season) => season.seasonId === current.seasonId)) {
-        tiered.push({
-          seasonId: current.seasonId,
-          seasonSequence: current.seasonSequence,
-          endedAt: current.endedAt ?? current.updatedAt,
-          galaxyTiers: current.seasonGalaxyTiers
-        });
-      }
+    }
+    if (currentEnded.seasonGalaxyTiers && currentEnded.seasonGalaxyTiers.length > 0 && !tiered.some((season) => season.seasonId === currentEnded.seasonId)) {
+      tiered.push({
+        seasonId: currentEnded.seasonId,
+        seasonSequence: currentEnded.seasonSequence,
+        endedAt: currentEnded.endedAt ?? currentEnded.updatedAt,
+        galaxyTiers: currentEnded.seasonGalaxyTiers,
+        sectorLabel: sectorLabels.get(currentEnded.seasonId)
+      });
     }
   }
   return { won, tiered };

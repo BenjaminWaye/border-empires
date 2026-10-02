@@ -624,7 +624,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
     requestAttackPreviewForHover: actionFlow.requestAttackPreviewForHover,
     requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
-    interactionFlags: actionFlow.mapInteractionFlags, sendGameMessage: actionFlow.sendGameMessage, renderHud
+    interactionFlags: actionFlow.mapInteractionFlags
   });
 
   // Paint the HUD/auth shell immediately instead of waiting for async auth/socket callbacks.

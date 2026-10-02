@@ -6,14 +6,13 @@ import type { Tile } from "./client-types.js";
 // Workstream F0 (docs/replenishment-update-plan.md): trigger for the
 // win-chance map paint. Originally painted the armed target tile + its 8
 // neighbors as tinted squares; per later design feedback this now instead
-// labels every ENEMY-owned tile the drag's straight arrow actually crosses
-// (origin -> target, Bresenham) with its win-chance percentage, so the
-// player reads odds along the whole line they're drawing, not just at the
-// tip. Reused by both the desktop right-drag wiring
-// (client-map-input-arrow-gesture-wiring.ts) and the mobile long-press-drag
-// wiring (client-map-input-arrow-gesture-touch-wiring.ts) on every drag
-// update, and by the legacy click-to-arm march-targeting flow
-// (client-muster-march-targeting.ts) as a single-tile fallback.
+// labels every ENEMY-owned tile the arrow actually crosses (origin ->
+// target, Bresenham) with its win-chance percentage, so the player reads
+// odds along the whole line, not just at the tip. Called once when the
+// March-To target is clicked (client-arrow-gesture-confirm.ts) and again on
+// every confirm-sheet slider/preset change (client-arrow-gesture-confirm-
+// sheet.ts), passing the currently chosen commitManpower, so the labels are
+// slider-live rather than frozen at the target's base cost.
 //
 // Kept out of client-map-3d.ts and client-action-flow.ts (both already well
 // over the repo's 500-line file cap) as its own module — only a single call
@@ -61,6 +60,11 @@ export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): 
  * tile is never labeled). No-op when targeting was cancelled (vis is
  * "unexplored") or origin===target, same cancel rule
  * handleMusterMarchTargetClick applies.
+ *
+ * `commit`, when passed, scores every label against that chosen
+ * commitManpower over the target tile's own base muster cost (the confirm
+ * sheet's slider-live recompute) instead of each tile's own "just enough"
+ * default (commit === base, i.e. no boost/penalty) used when omitted.
  */
 export const triggerWinChancePaintOnMarchArm = (
   state: Pick<ClientState, "tiles" | "winChancePaint" | "me">,
@@ -70,7 +74,8 @@ export const triggerWinChancePaintOnMarchArm = (
   targetY: number,
   vis: "visible" | "fogged" | "unexplored",
   keyFor: (x: number, y: number) => string,
-  nowMs: number
+  nowMs: number,
+  commit?: { committedManpower: number; baseMusterCost: number }
 ): void => {
   if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
   const entries: { x: number; y: number; winChance: number; color: string }[] = [];
@@ -84,7 +89,10 @@ export const triggerWinChancePaintOnMarchArm = (
     const tile = state.tiles.get(keyFor(x, y));
     if (!tile?.ownerId || tile.ownerId === state.me) continue; // only enemy-owned tiles the arrow crosses
     const knownShieldAmount = findKnownShieldAmount(x, y, tile.ownerId, knownShieldFlags);
-    const { winChance, color } = winChanceForTile(previewTileFor(tile), { knownShieldAmount });
+    const { winChance, color } = winChanceForTile(previewTileFor(tile), {
+      knownShieldAmount,
+      ...(commit ? { committedManpower: commit.committedManpower, baseMusterCost: commit.baseMusterCost } : {})
+    });
     entries.push({ x, y, winChance, color });
   }
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };

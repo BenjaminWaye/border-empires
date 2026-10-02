@@ -44,7 +44,7 @@ export const rallyApiOrigin = (
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
     return `${locationLike?.protocol === "https:" ? "https" : "http"}://127.0.0.1:3101`;
   }
-  if (isStagingHostname(hostname)) return "https://border-empires-combined-staging.fly.dev";
+  if (isStagingHostname(hostname)) return "https://api-staging.borderempires.com";
 
   const wsOrigin = serverHttpOriginFromWsUrl(wsUrl);
   if (wsOrigin !== "https://border-empires.fly.dev") return wsOrigin;

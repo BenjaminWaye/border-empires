@@ -14,6 +14,8 @@ import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
 import { mergePlannerTileDelta } from "./planner-tile-delta-merge.js";
 import type { CombinedWorkerChannel } from "./combined-worker-host.js";
+import { BARBARIAN_PLAYER_ID } from "./system-job-barbarian-planner.js";
+import { createBarbSettleRelay } from "./barbarian-settle-relay.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -26,8 +28,7 @@ type WorkerSystemCommandProducerOptions = {
     | "onEvent"
     | "exportPlannerWorldView"
     | "exportPlannerPlayerViews"
-    | "getBarbActivationVisionSignature"
-    | "exportBarbActivationVisibleUnion"
+    | "exportBarbTilesSeenByAnyPlayer"
   >;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
@@ -52,13 +53,8 @@ type WorkerSystemCommandProducerOptions = {
    */
   workerHost?: CombinedWorkerChannel;
   onTick?: (sample: { durationMs: number }) => void;
-  /** Minimum ms between exportBarbActivationVisibleUnion recomputes, regardless
-   *  of signature churn. See ensureVisionUnionFresh for why this is needed. */
+  /** Minimum ms between recomputes of the barbarian "seen by a player" set. */
   visionUnionMinRecomputeIntervalMs?: number;
-  /** Fires each time ensureVisionUnionFresh skips a recompute because the
-   *  signature changed before the throttle interval elapsed. Zero forever
-   *  means the throttle never actually engages under real load. */
-  onVisionUnionRecomputeThrottled?: () => void;
 };
 
 const resolveWorkerScript = (given?: string): string | URL =>
@@ -78,7 +74,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const systemPlayerIdSet = new Set(options.systemPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
-  let relevantTileKeys = new Set<string>();
+  let relevantTileKeys: ReadonlySet<string> = new Set<string>();
   let nextPeriodicPlayerSyncIndex = 0;
 
   const nextClientSeqByPlayer = new Map<string, number>(
@@ -86,7 +82,15 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   );
   const pendingPlayers = new Set<string>();
   const pendingAddedAtMs = new Map<string, number>();
-  // System producer issues one command per player at a time. If neither
+  // Barbarians are exempt from the one-command-per-player gate below: each barb
+  // tile has its own in-flight/rest tracking in the worker's planner, fed by
+  // this relay with settle events. (postToWorker is assigned later.)
+  const barbSettleRelay = createBarbSettleRelay({
+    barbPlayerId: BARBARIAN_PLAYER_ID,
+    postToWorker: (msg) => postToWorker(msg),
+    now
+  });
+  // System producer issues one command per non-barbarian player at a time. If neither
   // COMBAT_RESOLVED nor COMMAND_REJECTED fires (e.g. EXPAND to neutral
   // territory succeeds silently), the player stays in pendingPlayers forever.
   // A generous timeout (30 s) clears stuck entries without masking real latency.
@@ -100,20 +104,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   const pendingRequests = new Map<string, (command: CommandEnvelope | null) => void>();
   let closed = false;
-  // Barbarian activation needs the union of non-barb players' fog. The worker
-  // can't compute it (it doesn't receive non-barb player views), so we ship
-  // the union from here. Signature compare is cheap; the full key array is
-  // only allocated + posted when something actually moved.
-  let lastSentVisionSignature: string | null = null;
-  // The signature includes every non-barb player's tileCollectionVersion, so
-  // with ~25 concurrently-mutating empires it changes on essentially every
-  // system tick — without a time floor, exportBarbActivationVisibleUnion
-  // (an O(barb_tiles * radius^2) scan) recomputes back-to-back every tick.
-  // Barb activation doesn't need sub-second freshness, so bound recompute
-  // frequency independent of signature churn. Confirmed on staging
-  // 2026-07-05: this recompute alone measured 2879ms in a single
-  // event_loop_blocked capture with a ~1283-tile barbarian territory.
-  const visionUnionMinRecomputeIntervalMs = Math.max(0, options.visionUnionMinRecomputeIntervalMs ?? 3000);
+  // Barbarian activation needs to know which barb tiles any non-barb player can
+  // see. The worker can't compute it (it doesn't receive non-barb player views),
+  // so we ship the set from here whenever it changes. It is read straight from
+  // the real fog-of-war coverage: O(barb tiles x viewers) lookups, ~0.1ms.
+  // (The old hand-rolled union scanned every non-barb owned tile: ~11ms per
+  // recompute, and 2879ms in one staging event_loop_blocked capture.)
+  let lastSentVisionKey: string | null = null;
+  const visionUnionMinRecomputeIntervalMs = Math.max(0, options.visionUnionMinRecomputeIntervalMs ?? 1000);
   let lastVisionUnionComputedAtMs = 0;
   const workerMetrics: WorkerMemoryMetrics = { respawnCount: 0 };
 
@@ -188,9 +186,10 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const runtimeInit = (): void => {
     plannerPlayersById.clear();
     plannerTilesByKey.clear();
+    barbSettleRelay.clear();
     // Force a fresh vision_union push after (re)spawn — the new worker has
     // an empty default and the cached signature must not gate the first send.
-    lastSentVisionSignature = null;
+    lastSentVisionKey = null;
     lastVisionUnionComputedAtMs = 0;
     const worldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
     for (const player of worldView.players) plannerPlayersById.set(player.id, player);
@@ -198,7 +197,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
     }
     relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(worldView);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys(); // live read-only view; no per-sync copy
     postToWorker({
       type: "init",
       worldView
@@ -287,7 +286,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
     for (const player of players) plannerPlayersById.set(player.id, player);
     relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
-    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
+    relevantTileKeys = relevantTileKeyIndex.keys(); // live read-only view; no per-sync copy
     postToWorker({
       type: "sync_players",
       players
@@ -345,6 +344,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   };
 
   const stopListening = options.runtime.onEvent((event) => {
+    barbSettleRelay.onEvent(event);
     if (event.eventType === "TILE_DELTA_BATCH") {
       const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
       queueTileDeltas(tileDeltas);
@@ -384,19 +384,13 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   }, playerSyncIntervalMs);
 
   const ensureVisionUnionFresh = (): void => {
-    const sig = options.runtime.getBarbActivationVisionSignature();
-    if (sig === lastSentVisionSignature) return;
-    // Signature changed, but don't recompute more often than the floor —
-    // leave lastSentVisionSignature untouched so the next tick still sees a
-    // mismatch and retries once the interval has elapsed.
-    if (now() - lastVisionUnionComputedAtMs < visionUnionMinRecomputeIntervalMs) {
-      options.onVisionUnionRecomputeThrottled?.();
-      return;
-    }
-    const { keys, signature } = options.runtime.exportBarbActivationVisibleUnion();
-    postToWorker({ type: "vision_union", keys, version: signature });
-    lastSentVisionSignature = signature;
+    if (now() - lastVisionUnionComputedAtMs < visionUnionMinRecomputeIntervalMs) return;
     lastVisionUnionComputedAtMs = now();
+    const keys = options.runtime.exportBarbTilesSeenByAnyPlayer().sort();
+    const key = keys.join("|");
+    if (key === lastSentVisionKey) return;
+    lastSentVisionKey = key;
+    postToWorker({ type: "vision_union", keys });
   };
 
   const requestPlan = (
@@ -436,19 +430,25 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       }
       ensureVisionUnionFresh();
       for (const playerId of options.systemPlayerIds) {
-        if (pendingPlayers.has(playerId)) continue;
+        const isBarb = playerId === BARBARIAN_PLAYER_ID;
+        if (!isBarb && pendingPlayers.has(playerId)) continue;
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
+        let barbCommandId: string | undefined;
         try {
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           if (!command) continue;
-          pendingPlayers.add(playerId);
-          pendingAddedAtMs.set(playerId, now());
+          if (isBarb) barbSettleRelay.onSubmitted((barbCommandId = command.commandId));
+          else {
+            pendingPlayers.add(playerId);
+            pendingAddedAtMs.set(playerId, now());
+          }
           nextClientSeqByPlayer.set(playerId, clientSeq + 1);
           await options.submitCommand(command);
         } catch {
           pendingPlayers.delete(playerId);
-          // swallow
+          // A barbarian command that never reached the runtime must not hold its tile in flight.
+          if (barbCommandId) barbSettleRelay.onEvent({ eventType: "COMMAND_REJECTED", playerId, commandId: barbCommandId });
         }
         return;
       }

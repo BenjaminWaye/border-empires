@@ -14,6 +14,7 @@ on:
 # default GITHUB_TOKEN to read-only, which would 403 on push.
 permissions:
   contents: write
+  packages: write
 
 jobs:
   deploy-staging:
@@ -44,7 +45,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # STAGING_BACKEND (repo variable) selects the deploy target: unset or
+      # "fly" keeps the Fly path; "hetzner" uses the VPS. Flipping the variable
+      # is the rollback during the Hetzner trial. docs/hetzner-migration-plan.md
       - name: Install flyctl
+        if: vars.STAGING_BACKEND != 'hetzner'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       # DEPLOY_SHA (not GITHUB_SHA) deliberately: GITHUB_SHA is a reserved
@@ -73,7 +78,19 @@ jobs:
             --filter @border-empires/game-domain \
             build
 
+      - name: Deploy merged sim+gateway to Hetzner (staging)
+        if: vars.STAGING_BACKEND == 'hetzner'
+        uses: ./.github/actions/hetzner-deploy
+        with:
+          sha: ${{ github.event.workflow_run.head_sha }}
+          ssh-host: ${{ secrets.STAGING_SSH_HOST }}
+          ssh-key: ${{ secrets.STAGING_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+          platform: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
+
       - name: Deploy merged sim+gateway to Fly (staging)
+        if: vars.STAGING_BACKEND != 'hetzner'
         run: |
           flyctl deploy \
             --config fly.combined.staging.toml \

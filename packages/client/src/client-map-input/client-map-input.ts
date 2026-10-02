@@ -1,5 +1,3 @@
-import { bindArrowGestureInput } from "../client-map-input-arrow-gesture-wiring.js";
-import { bindArrowGestureTouchInput } from "../client-map-input-arrow-gesture-touch-wiring.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
@@ -35,8 +33,6 @@ type BindClientMapInputDeps = {
   requestAttackPreviewForHover: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
   interactionFlags: { suppressNextClick: boolean };
-  sendGameMessage: (payload: unknown) => boolean;
-  renderHud: () => void;
 };
 
 export const shouldCommitMouseSelection = (args: {
@@ -308,20 +304,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     }
   });
 
-  // F1 (docs/replenishment-update-plan.md): right-click-drag arrow gesture.
-  // The contextmenu handler above already preventDefault()s for any canvas
-  // click, right-drag included, so no extra suppression is needed here.
-  // Wiring lives in its own module (not inlined here) purely to keep this
-  // already-near-the-cap file's line count down -- see that module's header.
-  bindArrowGestureInput(state, {
-    canvas: deps.canvas,
-    keyFor: deps.keyFor,
-    worldTileFromPointer,
-    pushFeed: deps.pushFeed,
-    sendGameMessage: deps.sendGameMessage,
-    renderHud: deps.renderHud
-  });
-
   let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let pinchStart: { distance: number; zoom: number } | undefined;
   let lastTapTime = 0;
@@ -329,25 +311,6 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let lastDoubleTapZoomIn = true;
   const DOUBLE_TAP_MAX_DELAY_MS = 300;
   const DOUBLE_TAP_MAX_DISTANCE_PX = 20;
-
-  // F2 (docs/replenishment-update-plan.md): mobile long-press-drag arrow
-  // gesture, the touch counterpart to F1's desktop bindArrowGestureInput
-  // above. Given its own callback (rather than reading these locals
-  // directly) so the pan/tap state it clears stays owned by this closure.
-  bindArrowGestureTouchInput(state, {
-    canvas: deps.canvas,
-    keyFor: deps.keyFor,
-    worldTileFromPointer,
-    pushFeed: deps.pushFeed,
-    sendGameMessage: deps.sendGameMessage,
-    renderHud: deps.renderHud,
-    suppressPanAndTap: () => {
-      touchPanStart = undefined;
-      touchHoldStart = undefined;
-      touchTapCandidate = undefined;
-      pinchStart = undefined;
-    }
-  });
 
   deps.canvas.addEventListener(
     "touchstart",

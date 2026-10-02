@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_HEIGHT, WORLD_WIDTH, isForestTileAt, resetForestClearings, setWorldSeed } from "@border-empires/shared";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange, TILES_REVISION_CHANGED_KEYS_CAP } from "./client-tile-merge.js";
 import type { Tile, TileUpkeepEntry } from "../client-types.js";
 
@@ -132,5 +133,23 @@ describe("combatResultIncomingTile", () => {
     const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, ownerId: "me", ownershipState: "FRONTIER" }, terrainAt);
     expect(incoming.ownerId).toBe("me");
     expect(incoming.ownershipState).toBe("FRONTIER");
+  });
+});
+
+describe("applyCommonTileFields AFC forest clearing", () => {
+  it("clears procedural forest around a tile once it carries an AFC", () => {
+    setWorldSeed(77, "continents", 1);
+    let forest: { x: number; y: number } | undefined;
+    for (let y = 20; y < WORLD_HEIGHT - 20 && !forest; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH && !forest; x += 1) if (isForestTileAt(x, y)) forest = { x, y };
+    }
+    expect(forest).toBeDefined();
+    const landing = { x: forest!.x - 1, y: forest!.y };
+    const merged: Tile = { ...baseTile, ...landing };
+    applyCommonTileFields(undefined, merged, {}, { me: "me" });
+    expect(isForestTileAt(forest!.x, forest!.y)).toBe(true);
+    applyCommonTileFields(undefined, merged, { afc: { ownerId: "me", status: "active" } }, { me: "me" });
+    expect(isForestTileAt(forest!.x, forest!.y)).toBe(false);
+    resetForestClearings();
   });
 });

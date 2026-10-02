@@ -1,9 +1,9 @@
 /**
- * Forest-ness is purely procedural (land biome + grass shade), fixed at
- * world generation and never mutated in play — unlike terrain (which
- * CREATE_MOUNTAIN/REMOVE_MOUNTAIN can change on a live tile). Safe to treat
- * as a permanent property of the coordinate for caching purposes (see
- * vision-footprint-table.ts in apps/simulation).
+ * Forest-ness is procedural (land biome + grass shade), fixed at world
+ * generation with one exception: an AFC landing clears forest from its 3x3
+ * footprint (see forest-clearing.ts), which bumps forestClearingEpoch() so
+ * caches that otherwise treat forest as permanent (vision-footprint-table.ts
+ * in apps/simulation) can invalidate.
  */
 
 import { grassShadeAt, landBiomeAt } from "../worldgen/worldgen.js";
@@ -19,5 +19,11 @@ export const isForestTileAt = (x: number, y: number): boolean => landBiomeAt(x, 
 // variant instead of the regular pine/spruce forest. Purely cosmetic: game
 // mechanics (FARM/UMBRITE placement, etc.) still key off isForestTileAt
 // alone.
-export const isTropicalForestTileAt = (x: number, y: number): boolean =>
-  worldgenVersion() >= 7 && isForestTileAt(x, y) && isTropicalLatitudeAt(wrapY(y, WORLD_HEIGHT));
+export const isTropicalForestTileAt = (x: number, y: number): boolean => isForestTileAt(x, y) && isTropicalForestLatitudeAt(y);
+
+// The latitude half of isTropicalForestTileAt, for a renderer that already
+// knows the tile draws as forest -- including footprint forest an AFC landing
+// cleared but that is held on screen until touchdown, which isForestTileAt no
+// longer reports (client-afc-join-drop-state.ts).
+export const isTropicalForestLatitudeAt = (y: number): boolean =>
+  worldgenVersion() >= 7 && isTropicalLatitudeAt(wrapY(y, WORLD_HEIGHT));
