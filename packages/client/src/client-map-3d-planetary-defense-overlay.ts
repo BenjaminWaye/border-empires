@@ -8,8 +8,7 @@ import {
 } from "./client-map-3d-popup-marine/popup-marine-asset.js";
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
-import type { ActiveBattleOverlay } from "./client-battle-overlay/client-battle-overlay.js";
-import { isPlanetaryDefenseOwnerId, PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
 
 // Planetary Defense tile marker: a pair of dark-grey-armored soldiers
 // patrolling every barbarian-owned tile ("barbarian" is still the internal
@@ -22,7 +21,8 @@ import { isPlanetaryDefenseOwnerId, PLANETARY_DEFENSE_ARMOR_COLOR } from "./clie
 // is deliberate: syncBattleOverlayFx tints any Planetary Defense side of a
 // real fight with the same armor color, so when combat happens the squad
 // that marches out and fights IS these soldiers. While a tile is engaged in
-// a battle (as its origin or target — see planetaryDefenseEngagedTileKeys),
+// a battle (as its origin or target — see client-map-3d-planetary-defense-
+// engagement.ts),
 // its patrol is hidden so the battle squad stands in for it instead of the
 // same soldiers appearing twice.
 //
@@ -60,11 +60,11 @@ type Slot = {
   surfaceY: number;
   wx: number;
   wy: number;
-  // Per-soldier world positions the current move started from; undefined
-  // when not moving between tiles. Stamped lazily in tick() (see commit()).
+  // Per-soldier world positions (current camera frame) the current move
+  // started from; undefined when not moving between tiles. moveStartAt is
+  // stamped lazily on tick()'s own clock.
   moveFrom: Array<{ x: number; z: number }> | undefined;
   moveStartAt: number | undefined;
-  movePending: boolean;
 };
 
 export type PlanetaryDefenseOverlay = {
@@ -73,24 +73,6 @@ export type PlanetaryDefenseOverlay = {
   readonly commit: () => void;
   readonly tick: (nowMs: number, engagedTileKeys?: ReadonlySet<string>) => void;
   readonly dispose: () => void;
-};
-
-// Tiles whose Planetary Defense patrol is currently represented by a live
-// battle squad instead (see module comment). `nowMs` is the same
-// performance.now() clock ActiveBattleOverlay.endAt is stamped in.
-export const planetaryDefenseEngagedTileKeys = (
-  activeBattles: ReadonlyMap<string, ActiveBattleOverlay>,
-  keyFor: (x: number, y: number) => string,
-  nowMs: number
-): Set<string> => {
-  const engaged = new Set<string>();
-  for (const battle of activeBattles.values()) {
-    if (nowMs >= battle.endAt) continue;
-    if (!isPlanetaryDefenseOwnerId(battle.attackerOwnerId) && !isPlanetaryDefenseOwnerId(battle.defenderOwnerId)) continue;
-    engaged.add(keyFor(battle.originX, battle.originY));
-    engaged.add(keyFor(battle.targetX, battle.targetY));
-  }
-  return engaged;
 };
 
 const isAdjacent = (aWx: number, aWy: number, bWx: number, bWy: number): boolean =>
@@ -146,8 +128,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
     wx: 0,
     wy: 0,
     moveFrom: undefined,
-    moveStartAt: undefined,
-    movePending: false
+    moveStartAt: undefined
   });
 
   loadPopupMarineTemplate()
@@ -178,7 +159,6 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
   const resetMove = (slot: Slot): void => {
     slot.moveFrom = undefined;
     slot.moveStartAt = undefined;
-    slot.movePending = false;
   };
 
   const assign = (slot: Slot, tile: Pending): void => {
@@ -236,9 +216,18 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
       }
       const dest = arrivedRemaining.splice(matchIdx, 1)[0]!;
       resetMove(slot);
-      // The start points are captured from the soldiers' last rendered
-      // positions in tick(), on the same clock that times the move.
-      slot.movePending = true;
+      // Start from where the soldiers were last drawn. Those positions are in
+      // the previous rebuild's camera frame; this rebuild may have recentered
+      // it, so shift them by the frame delta (the departed tile isn't in this
+      // rebuild to diff against, so derive it from the adjacent destination:
+      // its old-frame position is the origin's plus their tile offset).
+      // Soldiers that weren't drawn (hidden during a fight) have no reliable
+      // last position and simply appear on the new tile's patrol.
+      const frameDx = dest.worldX - (slot.worldX + (dest.wx - slot.wx));
+      const frameDz = dest.worldZ - (slot.worldZ + (dest.wy - slot.wy));
+      if (slot.soldiers.every((s) => s.root.visible)) {
+        slot.moveFrom = slot.soldiers.map((s) => ({ x: s.root.position.x + frameDx, z: s.root.position.z + frameDz }));
+      }
       assign(slot, dest);
     }
 
@@ -273,11 +262,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
         hideSlot(slot);
         continue;
       }
-      if (slot.movePending) {
-        slot.moveFrom = slot.soldiers.map((s) => ({ x: s.root.position.x, z: s.root.position.z }));
-        slot.moveStartAt = nowMs;
-        slot.movePending = false;
-      }
+      if (slot.moveFrom && slot.moveStartAt === undefined) slot.moveStartAt = nowMs;
       const moveT =
         slot.moveFrom && slot.moveStartAt !== undefined ? Math.min(1, Math.max(0, (nowMs - slot.moveStartAt) / MOVE_DURATION_MS)) : 1;
       for (let i = 0; i < slot.soldiers.length; i += 1) {

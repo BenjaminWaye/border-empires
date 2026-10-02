@@ -3,10 +3,9 @@
 // skinned rig so these run instantly without network/glb parsing.
 import { AnimationClip, Bone, BufferGeometry, Group, MeshStandardMaterial, Object3D, Scene, Skeleton, SkinnedMesh } from "three";
 import { describe, expect, it, vi } from "vitest";
-import { createPlanetaryDefenseOverlay, planetaryDefenseEngagedTileKeys } from "./client-map-3d-planetary-defense-overlay.js";
+import { createPlanetaryDefenseOverlay } from "./client-map-3d-planetary-defense-overlay.js";
 import { PATROL_RADIUS, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
-import type { ActiveBattleOverlay } from "./client-battle-overlay/client-battle-overlay.js";
 
 vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./client-map-3d-popup-marine/popup-marine-asset.js")>();
@@ -23,41 +22,6 @@ vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOrigi
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const visibleSoldiers = (scene: Scene): Object3D[] => scene.children.filter((c) => c.visible);
-
-const battle = (overrides: Partial<ActiveBattleOverlay>): ActiveBattleOverlay => ({
-  originX: 4,
-  originY: 5,
-  targetX: 5,
-  targetY: 5,
-  attackerOwnerId: "barbarian-1",
-  defenderOwnerId: "player-1",
-  attackerWon: true,
-  startAt: 0,
-  clashAt: 0,
-  endAt: 2000,
-  fromSkirmish: false,
-  ...overrides
-});
-
-describe("planetaryDefenseEngagedTileKeys", () => {
-  const keyFor = (x: number, y: number): string => `${x},${y}`;
-
-  it("marks both the origin and target of a live Planetary Defense battle, in either role", () => {
-    const battles = new Map([
-      ["5,5", battle({})],
-      ["9,9", battle({ originX: 8, originY: 9, targetX: 9, targetY: 9, attackerOwnerId: "player-1", defenderOwnerId: "barbarian-1" })]
-    ]);
-    expect(planetaryDefenseEngagedTileKeys(battles, keyFor, 1000)).toEqual(new Set(["4,5", "5,5", "8,9", "9,9"]));
-  });
-
-  it("ignores battles between players and battles that have already ended", () => {
-    const battles = new Map([
-      ["5,5", battle({ attackerOwnerId: "player-2" })],
-      ["7,7", battle({ targetX: 7, targetY: 7, endAt: 500 })]
-    ]);
-    expect(planetaryDefenseEngagedTileKeys(battles, keyFor, 1000).size).toBe(0);
-  });
-});
 
 describe("createPlanetaryDefenseOverlay", () => {
   it("places dark-grey-armored soldiers patrolling inside the tile", async () => {
@@ -129,6 +93,30 @@ describe("createPlanetaryDefenseOverlay", () => {
     for (const soldier of visibleSoldiers(scene)) {
       expect(Math.hypot(soldier.position.x - 11.5, soldier.position.z - 10.5)).toBeLessThanOrEqual(PATROL_RADIUS + 1e-6);
     }
+    overlay.dispose();
+  });
+
+  it("does not jump when the camera window recenters in the same rebuild as a capture move", async () => {
+    const scene = new Scene();
+    const overlay = createPlanetaryDefenseOverlay(scene);
+    await flush();
+    overlay.addInstance("10,10", 10.5, 10.5, 0, 10, 10);
+    overlay.commit();
+    overlay.tick(0);
+    const before = visibleSoldiers(scene).map((s) => ({ x: s.position.x, z: s.position.z }));
+
+    // Same rebuild: the patrol moves 10,10 -> 11,10 AND the scene origin
+    // shifts by -5 tiles on x, so tile 11,10 is drawn at 6.5 instead of 11.5.
+    overlay.clear();
+    overlay.addInstance("11,10", 6.5, 10.5, 0, 11, 10);
+    overlay.commit();
+    overlay.tick(1);
+    const after = visibleSoldiers(scene);
+    after.forEach((soldier, i) => {
+      // Same spot in the new frame: shifted by exactly the -5 recenter.
+      expect(soldier.position.x).toBeCloseTo(before[i]!.x - 5, 2);
+      expect(soldier.position.z).toBeCloseTo(before[i]!.z, 2);
+    });
     overlay.dispose();
   });
 
