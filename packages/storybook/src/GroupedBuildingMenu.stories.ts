@@ -50,6 +50,8 @@ import { realBuildingMenuView } from "./tile-menu/real-building-menu-view.js";
  */
 const town = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { populationTier: "CITY" } } as unknown as Tile;
 
+const greatCity = { ...town, x: 20, y: 20, town: { populationTier: "GREAT_CITY" } } as unknown as Tile;
+const greatCitySupportTile = { x: 21, y: 20, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as unknown as Tile;
 const supportTile = { x: 11, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as unknown as Tile;
 const plainSettledTile = { x: 40, y: 40, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as unknown as Tile;
 const farmTile = { x: 50, y: 12, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as unknown as Tile;
@@ -60,6 +62,11 @@ const columns: { label: string; description: string; view: TileMenuView }[] = [
     label: "Support tile next to a City",
     description: "Everything buildable on a town's support ring, plus the any-settled-tile structures.",
     view: realBuildingMenuView({ tile: supportTile, supportedTowns: [town] }, "Support tile (11, 10)", "Settled")
+  },
+  {
+    label: "Support tile next to a Great City",
+    description: "Monument components unlock in a Great City (a plain City shows them locked).",
+    view: realBuildingMenuView({ tile: greatCitySupportTile, supportedTowns: [greatCity] }, "Support tile (21, 20)", "Settled")
   },
   {
     label: "Plain settled land",

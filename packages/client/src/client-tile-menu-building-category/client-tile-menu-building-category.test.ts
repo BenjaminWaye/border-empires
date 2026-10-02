@@ -7,16 +7,28 @@ const expectCategory = (category: BuildingCategory, types: StructurePlacementTyp
 };
 
 describe("structureBuildingCategory", () => {
-  it("puts fort, siege, detection, and attack/defense wonder structures in Military", () => {
+  it("puts fort, siege, bombardment and detection structures in Military", () => {
     expectCategory("military", [
       "FORT",
       "WOODEN_FORT",
       "SIEGE_OUTPOST",
       "AIRPORT",
       "OBSERVATORY",
-      "RADAR_SYSTEM",
-      "AEGIS_DOME",
-      "WORLD_ENGINE_PART_1"
+      "RADAR_SYSTEM"
+    ]);
+  });
+
+  it("puts every monument and each of its components in Monuments", () => {
+    expectCategory("monument", [
+      "IMPERIAL_EXCHANGE",
+      "IMPERIAL_EXCHANGE_PART_2",
+      "WORLD_ENGINE",
+      "WORLD_ENGINE_PART_1",
+      "AEGIS_DOME_PART_3",
+      "ASTRAL_DOCK",
+      "POPULATION_BUREAU_PART_1",
+      "TITANIUM_LEVY",
+      "TITANIUM_LEVY_PART_3"
     ]);
   });
 

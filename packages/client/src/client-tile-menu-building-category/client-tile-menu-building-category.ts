@@ -12,42 +12,42 @@ import type { TileActionDef } from "../client-types.js";
 // factories in with granaries, and its "military" tier includes
 // vision/utility structures like Relay Beacon and Observatory. This module
 // classifies by actual function instead, in this order (first match wins):
-//   1. Military     -- curated set below (combat role isn't in metadata)
-//   2. Resource     -- resourceTypes present (needs a specific resource tile)
-//   3. Town Support -- structureRequiresTownOrSupportTile (only buildable on
+//   1. Monument     -- the 6 monuments + their components (curated set)
+//   2. Military     -- curated set below (combat role isn't in metadata)
+//   3. Resource     -- resourceTypes present (needs a specific resource tile)
+//   4. Town Support -- structureRequiresTownOrSupportTile (only buildable on
 //                      a town / its support ring, never generic settled land)
-//   4. Infrastructure -- everything else, i.e. buildable on any owned
+//   5. Infrastructure -- everything else, i.e. buildable on any owned
 //                      settled tile (vision, admin, utility)
 // Deliberately NOT based on placementMode: that field only says whether a
 // structure caps at one-per-town or can stack, not where it can be built
 // (Mintworks is "same_tile" purely so it can stack, yet is still
 // support-ring-only) -- see the NOTE in structure-placement.ts.
-export type BuildingCategory = "military" | "resource" | "town_support" | "infrastructure";
+export type BuildingCategory = "military" | "resource" | "town_support" | "infrastructure" | "monument";
 
-export const BUILDING_CATEGORY_ORDER: BuildingCategory[] = ["military", "resource", "town_support", "infrastructure"];
+export const BUILDING_CATEGORY_ORDER: BuildingCategory[] = ["military", "resource", "town_support", "infrastructure", "monument"];
 
 export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   military: "Military",
   resource: "Resource",
   town_support: "Town Support",
-  infrastructure: "Infra\u00ADstructure"
+  infrastructure: "Infra\u00ADstructure",
+  monument: "Monuments"
 };
 
 export const BUILDING_CATEGORY_ICONS: Record<BuildingCategory, string> = {
   military: "⚔",
   resource: "⛏",
   town_support: "⚑",
-  infrastructure: "⚙"
+  infrastructure: "⚙",
+  monument: "♛"
 };
 
-// Fort/siege families, Airport (bombardment), the
-// defensive detection structures (Observatory blocks hostile crystal
-// actions, Radar System blocks sky bombardment), and the offensive/defensive
-// wonder chains (each *_PART_n plus its completed form). Garrison Hall (a
-// manpower hub), Aether Tower (a power node) and the Weapons Factories
-// (support-ring empire-wide bonuses) are deliberately NOT here -- they fall
-// through to Town Support / Infrastructure. Everything else that isn't
-// resource-tile-gated or town-support-only falls through to Infrastructure.
+// Fort/siege families, Airport (bombardment), and the defensive detection
+// structures (Observatory blocks hostile crystal actions, Radar System blocks
+// sky bombardment). Garrison Hall (a manpower hub), Aether Tower (a power
+// node) and the Weapons Factories (support-ring empire-wide bonuses) are
+// deliberately NOT here -- they fall through to Town Support / Infrastructure.
 const MILITARY_STRUCTURE_TYPES = new Set<StructurePlacementType>([
   "FORT",
   "WOODEN_FORT",
@@ -58,22 +58,24 @@ const MILITARY_STRUCTURE_TYPES = new Set<StructurePlacementType>([
   "DREAD_TOWER",
   "AIRPORT",
   "OBSERVATORY",
-  "RADAR_SYSTEM",
-  "AEGIS_DOME",
-  "AEGIS_DOME_PART_1",
-  "AEGIS_DOME_PART_2",
-  "AEGIS_DOME_PART_3",
-  "ASTRAL_DOCK",
-  "ASTRAL_DOCK_PART_1",
-  "ASTRAL_DOCK_PART_2",
-  "ASTRAL_DOCK_PART_3",
-  "WORLD_ENGINE",
-  "WORLD_ENGINE_PART_1",
-  "WORLD_ENGINE_PART_2",
-  "WORLD_ENGINE_PART_3"
+  "RADAR_SYSTEM"
 ]);
 
+// The 6 monuments and their 3 components each (see MONUMENT_COMPONENT_TYPES
+// in client-tile-action-monument-parts.ts) -- late-game, Great City /
+// Monumental City builds, so they get their own category rather than being
+// split across Military / Town Support / Infrastructure by effect.
+const MONUMENT_STRUCTURE_TYPES = new Set<StructurePlacementType>(
+  (["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const).flatMap((monument) => [
+    monument,
+    `${monument}_PART_1` as const,
+    `${monument}_PART_2` as const,
+    `${monument}_PART_3` as const
+  ])
+);
+
 export const structureBuildingCategory = (type: StructurePlacementType): BuildingCategory => {
+  if (MONUMENT_STRUCTURE_TYPES.has(type)) return "monument";
   if (MILITARY_STRUCTURE_TYPES.has(type)) return "military";
   const metadata = structurePlacementMetadata(type);
   if (metadata.resourceTypes && metadata.resourceTypes.length > 0) return "resource";
@@ -93,5 +95,6 @@ export const BUILDING_CATEGORY_EMPTY_REASON: Record<BuildingCategory, string> = 
   military: "No military structures available on this tile.",
   resource: "Requires a farm, fish, titanium, gem, or umbrite resource tile.",
   town_support: "Requires an available town-support tile in this town's ring.",
-  infrastructure: "No infrastructure structures available on this tile."
+  infrastructure: "No infrastructure structures available on this tile.",
+  monument: "Requires a Great City or Monumental City and the monument's tech."
 };

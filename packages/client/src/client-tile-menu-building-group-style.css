@@ -11,8 +11,8 @@
 }
 .tile-building-categories {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
 }
 .tile-building-category-square {
   display: grid;
@@ -23,7 +23,7 @@
   border-radius: 10px;
   background: rgba(20, 16, 10, 0.55);
   color: var(--sp-parchment-muted, #eef6ff);
-  padding: 8px 3px;
+  padding: 8px 1px 6px;
   cursor: pointer;
   text-align: center;
   position: relative;
@@ -38,10 +38,10 @@
   color: var(--sp-brass-300, #ffd166);
 }
 .tile-building-category-label {
-  font-size: 9px;
+  font-size: 7.5px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--sp-parchment-300, #d6e8ff);
   line-height: 1.2;
   white-space: normal;
@@ -77,13 +77,15 @@
 .tile-building-category-radio.cat-military:checked ~ .tile-building-categories .cat-military,
 .tile-building-category-radio.cat-resource:checked ~ .tile-building-categories .cat-resource,
 .tile-building-category-radio.cat-town_support:checked ~ .tile-building-categories .cat-town_support,
-.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-categories .cat-infrastructure {
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-categories .cat-infrastructure,
+.tile-building-category-radio.cat-monument:checked ~ .tile-building-categories .cat-monument {
   border-color: var(--sp-brass-300, #ffd166);
   background: rgba(217, 173, 82, 0.2);
 }
 .tile-building-category-radio.cat-military:checked ~ .tile-building-category-panels [data-category="military"],
 .tile-building-category-radio.cat-resource:checked ~ .tile-building-category-panels [data-category="resource"],
 .tile-building-category-radio.cat-town_support:checked ~ .tile-building-category-panels [data-category="town_support"],
-.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-category-panels [data-category="infrastructure"] {
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-category-panels [data-category="infrastructure"],
+.tile-building-category-radio.cat-monument:checked ~ .tile-building-category-panels [data-category="monument"] {
   display: block;
 }
