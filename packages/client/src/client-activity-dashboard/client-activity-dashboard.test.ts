@@ -268,4 +268,20 @@ describe("renderClientActivityDashboardOverlay", () => {
 
     expect((deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement).scrollTop).toBe(0);
   });
+
+  it("starts a newly selected tab at the top instead of reusing the previous tab's offset", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    const deps = makeDeps(state);
+    deps.renderHud.mockImplementation(() => renderClientActivityDashboardOverlay(deps));
+    renderClientActivityDashboardOverlay(deps);
+    const yoursScroll = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    yoursScroll.scrollTop = 200;
+    yoursScroll.dispatchEvent(new Event("scroll"));
+
+    (deps.overlayEl.querySelector('[data-activity-dashboard-view="WORLD_PULSE"]') as HTMLButtonElement).click();
+
+    expect(state.activityDashboard.activeView).toBe("WORLD_PULSE");
+    expect((deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement).scrollTop).toBe(0);
+  });
 });

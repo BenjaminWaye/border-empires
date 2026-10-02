@@ -141,6 +141,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
       const view = tab.dataset.activityDashboardView;
       if (view !== "YOURS" && view !== "WORLD_PULSE" && view !== "UPDATES") return;
       state.activityDashboard.activeView = view;
+      resetActivityDashboardScroll(state.activityDashboard); // a newly opened tab starts at the top
       if (view === "WORLD_PULSE") requestWorldPulse(state, deps);
       deps.renderHud();
     };
