@@ -1816,7 +1816,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());
     out.push(createMountainAction());
-    if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory", detail: deps.buildDetailTextForAction("abandon_territory", tile) });
+    if (tile.town?.populationTier !== "SETTLEMENT" && tile.afc?.ownerId !== tile.ownerId) out.push({ id: "abandon_territory", label: "Abandon Territory", detail: deps.buildDetailTextForAction("abandon_territory", tile) });
     return out;
   }
   if (deps.isTileOwnedByAlly(tile)) return [...crystalCoreActions(), createMountainAction()];

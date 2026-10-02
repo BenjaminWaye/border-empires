@@ -111,6 +111,12 @@ export const uncaptureSelected = (
     deps.renderHud();
     return;
   }
+  // Mirrors the sim's UNCAPTURE_AFC rejection (runtime-economic-structure-command-handlers.ts).
+  if (tile.afc?.ownerId === state.me) {
+    notifySelectedActionBlocked(deps, "Action blocked", "You cannot abandon your Automated Fabrication Complex.");
+    deps.renderHud();
+    return;
+  }
   deps.sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
 };
 
