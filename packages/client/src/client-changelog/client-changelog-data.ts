@@ -470,6 +470,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Monuments square only appears once you have researched a monument's tech",
       "Hydrogardens now say they add +2 FOOD slots on grain resource tiles"
     ]
+  },
+  {
+    createdAt: 1790958525863, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.3",
+    title: "You can no longer abandon your Fabrication Complex",
+    why: "Abandoning your Automated Fabrication Complex took away the reach it gives, so every frontier tile around it started decaying as \"Beyond your reach\".",
+    changes: [
+      "Abandon Territory is no longer offered on your own Automated Fabrication Complex, and the server rejects it",
+      "Your Complex can still be lost in combat, the same as your Settlement"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
