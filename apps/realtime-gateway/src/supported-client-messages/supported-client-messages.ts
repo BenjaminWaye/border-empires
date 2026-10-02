@@ -13,6 +13,7 @@ export const supportedClientMessageTypes = [
   "BUILD_SIEGE_OUTPOST",
   "SET_MUSTER",
   "CLEAR_MUSTER",
+  "UPGRADE_MUSTER_CAP",
   "WATCH_MUSTER",
   "UNWATCH_MUSTER",
   "BUILD_ECONOMIC_STRUCTURE",
