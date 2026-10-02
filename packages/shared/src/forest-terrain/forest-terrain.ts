@@ -19,5 +19,11 @@ export const isForestTileAt = (x: number, y: number): boolean => landBiomeAt(x, 
 // variant instead of the regular pine/spruce forest. Purely cosmetic: game
 // mechanics (FARM/UMBRITE placement, etc.) still key off isForestTileAt
 // alone.
-export const isTropicalForestTileAt = (x: number, y: number): boolean =>
-  worldgenVersion() >= 7 && isForestTileAt(x, y) && isTropicalLatitudeAt(wrapY(y, WORLD_HEIGHT));
+export const isTropicalForestTileAt = (x: number, y: number): boolean => isForestTileAt(x, y) && isTropicalForestLatitudeAt(y);
+
+// The latitude half of isTropicalForestTileAt, for a renderer that already
+// knows the tile draws as forest -- including footprint forest an AFC landing
+// cleared but that is held on screen until touchdown, which isForestTileAt no
+// longer reports (client-afc-join-drop-state.ts).
+export const isTropicalForestLatitudeAt = (y: number): boolean =>
+  worldgenVersion() >= 7 && isTropicalLatitudeAt(wrapY(y, WORLD_HEIGHT));

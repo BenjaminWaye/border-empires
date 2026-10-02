@@ -11,7 +11,7 @@ import {
   grassShadeAt,
   isForestTileAt,
   isHillsTileAt,
-  isTropicalForestTileAt,
+  isTropicalForestLatitudeAt,
   landBiomeAt,
   seeded01,
   wasForestBeforeClearingAt,
@@ -109,7 +109,8 @@ export const formatManpowerAmount = (manpower: number): string => manpower.toFix
 
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;
-export const isTropicalForestTile = isTropicalForestTileAt;
+// Call only for a tile already known to draw as forest (see isTropicalForestLatitudeAt).
+export const isTropicalForestLatitude = isTropicalForestLatitudeAt;
 
 // Purely cosmetic (no vision/claim-timing effect, unlike isForestTile/
 // isHillsTile above): a sparse decorative scattering of the leaf/deciduous

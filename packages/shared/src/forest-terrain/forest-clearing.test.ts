@@ -4,7 +4,7 @@ import { forestClearingEpoch, isForestClearedAt, resetForestClearings, setWorldS
 import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
 import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import { clearForestAroundAfcTile, clearForestAroundAfcTiles } from "./forest-clearing.js";
-import { isForestTileAt } from "./forest-terrain.js";
+import { isForestTileAt, isTropicalForestLatitudeAt, isTropicalForestTileAt } from "./forest-terrain.js";
 
 const findForestTile = (): { x: number; y: number } => {
   for (let y = 20; y < WORLD_HEIGHT - 20; y += 1) {
@@ -64,5 +64,22 @@ describe("AFC forest clearing vs hills", () => {
     clearForestAroundAfcTile(target!.x, target!.y);
     expect(wasForestBeforeClearingAt(target!.x, target!.y)).toBe(true);
     expect(isHillsTileAt(target!.x, target!.y)).toBe(false);
+  });
+});
+
+describe("AFC forest clearing vs tropical forest", () => {
+  afterEach(() => resetForestClearings());
+
+  it("keeps the tropical latitude for a cleared tile so a held footprint still draws palms", () => {
+    setWorldSeed(77, "continents", 7);
+    let target: { x: number; y: number } | undefined;
+    for (let y = 0; y < WORLD_HEIGHT && !target; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH && !target; x += 1) if (isTropicalForestTileAt(x, y)) target = { x, y };
+    }
+    expect(target).toBeDefined();
+    clearForestAroundAfcTile(target!.x, target!.y);
+    expect(isTropicalForestTileAt(target!.x, target!.y)).toBe(false);
+    expect(wasForestBeforeClearingAt(target!.x, target!.y)).toBe(true);
+    expect(isTropicalForestLatitudeAt(target!.y)).toBe(true);
   });
 });

@@ -11,7 +11,7 @@ import {
 import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
+import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -899,7 +899,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
-        const forestTile = isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy); const tropicalForestTile = forestTile && isTropicalForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
+        const forestTile = isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, wx, wy); const tropicalForestTile = forestTile && isTropicalForestLatitude(wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
