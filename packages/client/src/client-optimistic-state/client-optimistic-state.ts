@@ -153,7 +153,12 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
 
   const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
     if (!enabled) return;
-    const completesAt = Date.now() + structureBuildDurationMs(kind);
+    // Relay Beacon's first 5 build instantly; the server decides by owned count.
+    let ownedBeacons = 0;
+    if (kind === "RELAY_BEACON") {
+      for (const t of state.tiles.values()) if (t.ownerId === state.me && t.economicStructure?.type === "RELAY_BEACON") ownedBeacons += 1;
+    }
+    const completesAt = Date.now() + structureBuildDurationMs(kind, ownedBeacons);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
       writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt);

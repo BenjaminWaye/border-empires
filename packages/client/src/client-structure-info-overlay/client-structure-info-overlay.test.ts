@@ -33,3 +33,14 @@ describe("renderStructureInfoOverlay monument components checklist", () => {
     expect(html).not.toContain("Monument Components");
   });
 });
+
+describe("Relay Beacon build-time label", () => {
+  const info = (ownedCountOfType: number) =>
+    structureInfoForKey("RELAY_BEACON", { formatCooldownShort: (ms) => `${ms}ms`, prettyToken: (value) => value, ownedCountOfType });
+
+  it("reads instant for a player's first 5 beacons and an hour from the 6th", () => {
+    expect(info(0).buildTimeLabel).toBe("0ms");
+    expect(info(4).buildTimeLabel).toBe("0ms");
+    expect(info(5).buildTimeLabel).toBe("3600000ms");
+  });
+});
