@@ -18,6 +18,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP } from "./client-changelog-afc-j
 import { CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS } from "./client-changelog-afc-module-slots.js";
 import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
+import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -39,5 +40,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_AI_FORT_AND_GOLD_CAP,
   ...CLIENT_CHANGELOG_ENTRIES_SECTOR_NUMBERING,
   ...CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES,
-  ...CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING
+  ...CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING,
+  ...CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT
 ];

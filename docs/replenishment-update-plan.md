@@ -57,7 +57,7 @@ Status: active proposal
 | D9 | **Build time follows manpower cost:** **100 MP = 1 hour** for structures. Growth over the season comes from the existing cost scaling, so there's no separate time table. |
 | D10 | **Manpower is charged when a build starts**, not when it's queued. A queued build waits for manpower if the pool is empty. |
 | D11 | **Alert the player when manpower is full** (the pool has reached its cap). No alert per finished building. |
-| D12 | **Relay Beacons:** the **first 5 are instant**. They came down with the landing party, so they only need to be put in place. From the 6th, beacons cost **100 MP (+10% per beacon)** and follow the time-follows-cost rule (≈1 h and growing). |
+| D12 | **Relay Beacons:** the **first 5 are instant**. They came down with the landing party, so they only need to be put in place. From the 6th, beacons cost **100 MP flat** (growth removed 2026-09-25) and follow the time-follows-cost rule (≈1 h and growing). |
 | D13 | **Siege tiers scale their MP** (60 / 120 / 240), so their times scale too. |
 | D14 | **Town tier-ups stay instant.** They cost gold, and the time rule only covers manpower. |
 | D15 | **Cooldowns stay as they are.** The cooldowns-to-charges idea is dropped. |
@@ -154,7 +154,7 @@ effects):
 
 | Structure | MP | Time | Today |
 |---|---|---|---|
-| Relay Beacon, 1st–5th | **50 flat** (landing party, pre-fab) | 30 min | 60 s |
+| Relay Beacon, 1st–5th | **50 flat** (landing party, pre-fab) | **instant** (time decoupled from cost, 2026-10-02) | 60 s |
 | Relay Beacon, 6th+ | **100 flat** | 1 h | 60 s |
 | Farmstead, Mine, Granary, Waterworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
 | Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h | 5 min |
@@ -168,7 +168,8 @@ effects):
 
 **Cost changes that come with it:**
 - **Relay Beacons (D12, D23):** the first 5 owned cost a discounted flat 50
-  MP (30 min build); they came down with the landing party, pre-fab, not
+  MP and build instantly (2026-10-02: time decoupled from cost; was 30 min
+  for a few days after 2026-09-25); they came down with the landing party, pre-fab, not
   free. From the 6th, a flat 100 MP.
   **Growth per beacon removed 2026-09-25** (design discussion): compounding
   per-copy cost was judged the wrong lever for "a large manpower pool should
