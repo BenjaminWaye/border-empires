@@ -472,14 +472,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790961825638, // frozen Date.now() value for this release
+    createdAt: 1790958525863, // frozen Date.now() value for this release
     introducedIn: "2026.10.02.3",
-    title: "Barbarians are now the Planetary Defense",
-    why: "The barbarians are what is left of this planet's own defense force after it was prepared for the planetary games, and they should look like soldiers, not monsters.",
+    title: "You can no longer abandon your Fabrication Complex",
+    why: "Abandoning your Automated Fabrication Complex took away the reach it gives, so every frontier tile around it started decaying as \"Beyond your reach\".",
     changes: [
-      "Barbarians (\"The Bleed\") are renamed to Planetary Defense everywhere in the game",
-      "The crystal monster on their tiles is replaced by soldiers in dark grey armor that patrol around their tiles",
-      "When Planetary Defense fights, its side of the battle is those same dark grey soldiers"
+      "Abandon Territory is no longer offered on your own Automated Fabrication Complex, and the server rejects it",
+      "Your Complex can still be lost in combat, the same as your Settlement"
     ]
   }
 ];
