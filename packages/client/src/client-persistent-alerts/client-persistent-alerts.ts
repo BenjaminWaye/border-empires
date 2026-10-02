@@ -57,7 +57,8 @@ const musterLabel = (tile: Tile): string => {
     fightX: muster.fightX,
     fightY: muster.fightY,
     noTargetInRange: muster.noTargetInRange,
-    insufficientManpower: muster.insufficientManpower
+    insufficientManpower: muster.insufficientManpower,
+    unfundableTarget: muster.unfundableTarget
   });
 };
 

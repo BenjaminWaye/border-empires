@@ -1,3 +1,4 @@
+import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -35,13 +36,15 @@ export const buildMusterActions = (
     out.push({
       id: "muster_hold",
       label: "Stage Muster",
-      detail: `Accumulate manpower on this tile. Switch to Advance when ready to auto-attack.`,
+      detail: `Accumulate up to ${Math.floor(musterFlagCap(state.manpowerCap, 0))} manpower on this tile. Switch to Advance when ready to auto-attack.`,
       ...avail()
     });
   } else {
+    const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
     const staged = Math.floor(
-      predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, state.manpowerCap, state.manpower)
+      predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower)
     );
+    const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
     // Live auto-fire status (traveling/fighting/cooldown), synced from the
     // server — see musterStatusText's doc comment for what each mode+status
     // combination renders as.
@@ -58,43 +61,58 @@ export const buildMusterActions = (
       fightX: muster.fightX,
       fightY: muster.fightY,
       noTargetInRange: muster.noTargetInRange,
-      insufficientManpower: muster.insufficientManpower
+      insufficientManpower: muster.insufficientManpower,
+      unfundableTarget: muster.unfundableTarget
     });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · auto-fire at an adjacent enemy when ready.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile to fight toward.`,
         ...avail()
       });
     } else if (muster.mode === "ADVANCE") {
       out.push({
         id: "muster_hold",
         label: "Set Hold",
-        detail: `${status} (${staged} staged) · switch to HOLD to pause auto-fire.`,
+        detail: `${status} (${staged}/${cap} staged) · switch to HOLD to pause auto-fire.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `${status} (${staged} staged) · pick a target tile to fight toward.`,
+        detail: `${status} (${staged}/${cap} staged) · pick a target tile to fight toward.`,
         ...avail()
       });
     } else {
       out.push({
         id: "muster_march_cancel",
         label: "Cancel March",
-        detail: `${status} (${staged} staged) · switch back to HOLD.`,
+        detail: `${status} (${staged}/${cap} staged) · switch back to HOLD.`,
         ...avail()
       });
     }
+    // Free for now (see MUSTER_FLAG_CAP_MANPOWER_FRACTION in shared/config.ts
+    // for why) — a planned FOOD-slot cost isn't designed yet. musterFlagCap
+    // clamps to the player's manpower cap, so once cap === nextCap there's
+    // no more room to grow into and further presses would be a no-op.
+    const maxedOut = nextCap <= cap;
+    out.push({
+      id: "muster_expand_cap",
+      label: "Expand Capacity",
+      detail: maxedOut
+        ? `Already at your manpower cap (${cap}) — can't expand further.`
+        : `Raise this flag's cap from ${cap} to ${nextCap} manpower.`,
+      disabled: maxedOut,
+      ...(maxedOut ? { disabledReason: "Already at your manpower cap" } : {})
+    });
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
@@ -148,6 +166,10 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   }
   if (actionId === "muster_clear") {
     deps.sendGameMessage({ type: "CLEAR_MUSTER", x, y });
+    return true;
+  }
+  if (actionId === "muster_expand_cap") {
+    deps.sendGameMessage({ type: "UPGRADE_MUSTER_CAP", x, y });
     return true;
   }
   return false;

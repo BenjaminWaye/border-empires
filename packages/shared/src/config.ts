@@ -336,11 +336,7 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// D20 (docs/replenishment-update-plan.md): a flag has no enforced cap of its
-// own any more (removed 2026-09-26, with "Expand Capacity"/UPGRADE_MUSTER_CAP)
-// -- it fills until the player's manpower pool runs dry. The plan's stated
-// "or the size the player chose on the sheet" alternative ceiling depends on
-// the drag-arrow gesture (F), not yet built.
+// Muster flag cap (musterFlagCap, "Expand Capacity") lives in muster-config.ts.
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as

@@ -296,4 +296,6 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerMusterFlagsGauge: Record<string, number>;
   /** Manpower staged inside the player's muster flags (gauge) — already out of the pool. */
   simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
+  /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
+  simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
 };
