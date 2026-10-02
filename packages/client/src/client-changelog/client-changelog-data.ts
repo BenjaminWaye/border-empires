@@ -448,6 +448,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight",
       "When you watch your Complex land, the trees and mountains disappear at touchdown, under the landing smoke"
     ]
+  },
+  {
+    createdAt: 1790945926297, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.2",
+    title: "Buildings are now sorted into categories",
+    why: "A developed tile can offer 30 or more buildings, and finding the one you wanted meant scrolling a single long list.",
+    changes: [
+      "The Buildings tab now has category squares: Military, Resource, Town Support, Infrastructure and Monuments",
+      "A category with nothing you can build on that tile is grayed out, and hovering it tells you why",
+      "The Monuments square only appears once you have researched a monument's tech",
+      "Hydrogardens now say they add +2 FOOD slots on grain resource tiles"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
