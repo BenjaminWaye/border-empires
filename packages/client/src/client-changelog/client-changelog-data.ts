@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1790884828288, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.1",
+    title: "Smoother 3D map while a tile is selected",
+    why: "With a tile selected, the 3D map re-worked out which ground was in your reach on every frame, which made it stutter and lag on larger empires.",
+    changes: [
+      "Your reach is now worked out once per change instead of every frame, so selecting tiles no longer drags down the frame rate in the 3D map",
+      "The 2D map shares the same reach cache. Reach borders and the orange out-of-reach selection tint look and behave exactly as before"
+    ]
+  },
+  {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
     title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
