@@ -158,6 +158,14 @@ export const parseRetortRecastPayload = (payloadJson: string): { x: number; y: n
   }
 };
 
+export const parseRedeployAfcModulePayload = (payloadJson: string): { x: number; y: number; techId: string } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.techId !== "string") return null;
+    return { x: parsed.x, y: parsed.y, techId: parsed.techId };
+  } catch { return null; }
+};
+
 export const parseRevealPayload = (payloadJson: string): { targetPlayerId: string } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;

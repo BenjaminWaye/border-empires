@@ -2706,6 +2706,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "RETORT_RECAST") {
             await dispatchDurableCommand("RETORT_RECAST", { x: message.x, y: message.y, targetResource: message.targetResource }, true);
+          } else if (message.type === "REDEPLOY_AFC_MODULE") {
+            await dispatchDurableCommand("REDEPLOY_AFC_MODULE", { x: message.x, y: message.y, techId: message.techId }, true);
           } else if (message.type === "AIRPORT_BOMBARD") {
             await dispatchDurableCommand(
               "AIRPORT_BOMBARD",

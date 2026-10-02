@@ -457,6 +457,27 @@ Extra AFCs are purely risk-spreading module hosts.
    baseline (including the drop from two baselines to one for anyone
    holding a captured AFC).
 
+#### Remaining execution: AFC authority (added 2026-10-02)
+
+Two linked gaps remain and must ship together:
+
+1. **Build AFC is a real action, not a menu placeholder.** Register
+   `BUILD_AFC`, validate/charge it only in the simulation, emit its normal
+   tile delta, and expose it from the owned-AFC action list in Infrastructure.
+   The picker must share the landing predicate with the server and render its
+   valid-site affordance in both 2D and true-3D. The existing `activatedAt`
+   join/drop timeline is the arrival effect; do not add a second drop system.
+2. **AFC Modules are deployable House assets, not cosmetic research badges.**
+   Research creates one House-owned module copy. An owned AFC exposes a
+   **Call down module** action that redeploys that copy to it, removing it
+   from the previous AFC; a House therefore has one copy of each researched
+   module at a time. Captured AFCs retain their installed modules and can
+   produce extra captured copies, but research never duplicates one. A
+   building whose unlock tech has `manifestCategory: AFC_MODULE` requires the
+   researched tech and that module installed on any active, owned, settled
+   AFC. Keep this check in the shared availability path used by client actions
+   and simulation validation, with regressions for move, capture, and loss.
+
 ## 5. Great Projects
 
 Dossiers do not let a player lock everyone else out merely by buying plans.

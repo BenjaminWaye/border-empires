@@ -481,6 +481,7 @@ import {
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
+import { handleRedeployAfcModuleCommand as handleRedeployAfcModuleCommandImpl } from "../runtime-redeploy-afc-module-command-handler.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
@@ -4082,6 +4083,7 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId, true), // forceFresh: hasFreeResourceSlots can't tolerate stale totals
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId, true),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
@@ -4298,6 +4300,7 @@ export class SimulationRuntime {
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
+      handleRedeployAfcModuleCommand: (command) => handleRedeployAfcModuleCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),
