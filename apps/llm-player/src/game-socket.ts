@@ -10,6 +10,7 @@ import WebSocket from "ws";
 import { ClientMessageSchema, type ClientMessage, type EconomicStructureType, type SlotResource } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { sleep } from "./sleep.js";
+import { asAutoSettlementQueue, asEventLogEntry, asResourceSlots, asTechIds, isRecord, tileKey } from "./wire-parsers.js";
 
 // §5 (docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/UMBRITE
 // build costs are retired as a stockpile spend (strategicResources) -- a
@@ -28,11 +29,6 @@ export type ResourceSlots = { supply: Record<SlotResource, number>; demand: Reco
 // supply-minus-demand formula can't quietly drift between them.
 export const freeResourceSlotCount = (resourceSlots: ResourceSlots, resource: SlotResource): number =>
   resourceSlots.supply[resource] - resourceSlots.demand[resource];
-
-const EMPTY_RESOURCE_SLOTS: ResourceSlots = {
-  supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
-  demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
-};
 
 export type GameTile = PlayerSubscriptionSnapshot["tiles"][number];
 export type EventLogEntry = NonNullable<PlayerSubscriptionSnapshot["player"]>["eventLog"] extends
@@ -94,16 +90,21 @@ export type BotAction =
 // only forwards commandId/clientSeq for commands it dispatches with
 // withMetadata=true (SETTLE, RUSH_BUY, ...) -- BUILD_ECONOMIC_STRUCTURE isn't
 // one of them (apps/realtime-gateway/src/gateway-app/gateway-app.ts, same for
-// CHOOSE_TECH below). There is no ACTION_ACCEPTED/ERROR to correlate back to
-// either call, so unlike sendAction() neither can report accepted/rejected --
-// both are fire-and-forget, same as a real player waiting out a build timer
-// or a tech's "completed" TECH_UPDATE with no synchronous confirmation
-// dialog either. structureType is typed broadly (any EconomicStructureType)
-// at this wire layer; which types the bot actually offers the LLM is a
-// curated allowlist decided in structures.ts, not here.
+// CHOOSE_TECH below). So unlike sendAction() neither call can be matched to
+// an ACTION_ACCEPTED/ERROR by id. A rejection still reaches us as an ERROR
+// tagged with a server-generated commandId (captured via
+// drainUnmatchedErrors) and success shows up in state; intent-ledger.ts ties
+// the two back to the call. structureType is typed broadly (any
+// EconomicStructureType) at this wire layer; which types the bot actually
+// offers the LLM is a curated allowlist decided in structures.ts, not here.
 export type BuildEconomicStructureAction = { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 export type ChooseTechAction = { type: "CHOOSE_TECH"; techId: string };
 export type FireAndForgetAction = BuildEconomicStructureAction | ChooseTechAction;
+
+export type UnmatchedError = { commandId: string; receivedAt: number; code: string; message: string };
+const MAX_UNMATCHED_ERRORS = 20;
+const MAX_SEEN_REJECTION_IDS = 100;
+const OWN_COMMAND_ID_PREFIX = "llm-player-";
 
 export type CommandResult = { outcome: "accepted" } | { outcome: "error"; code: string; message: string };
 
@@ -117,46 +118,6 @@ const JOIN_SEASON_TIMEOUT_MS = 15_000;
 // .ts's hasOwnedTileInCache check, the real client's equivalent signal).
 // Give it a moment to land before the caller reads currentState().
 const SPAWN_SETTLE_MS = 1_000;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-export const tileKey = (x: number, y: number): string => `${x},${y}`;
-
-const asAutoSettlementQueue = (value: unknown): Array<{ x: number; y: number }> => {
-  if (!Array.isArray(value)) return [];
-  const entries: Array<{ x: number; y: number }> = [];
-  for (const entry of value) {
-    if (isRecord(entry) && typeof entry.x === "number" && typeof entry.y === "number") entries.push({ x: entry.x, y: entry.y });
-  }
-  return entries;
-};
-
-const asTechIds = (value: unknown): string[] => (Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
-
-const asSlotRecord = (value: unknown): Record<SlotResource, number> => {
-  if (!isRecord(value)) return { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
-  const at = (key: SlotResource): number => (typeof value[key] === "number" ? (value[key] as number) : 0);
-  return { FOOD: at("FOOD"), TITANIUM: at("TITANIUM"), CRYSTAL: at("CRYSTAL"), UMBRITE: at("UMBRITE") };
-};
-
-const asResourceSlots = (value: unknown): ResourceSlots => {
-  if (!isRecord(value)) return EMPTY_RESOURCE_SLOTS;
-  return { supply: asSlotRecord(value.supply), demand: asSlotRecord(value.demand) };
-};
-
-const asEventLogEntry = (value: unknown): EventLogEntry | undefined => {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== "string" ||
-    typeof value.type !== "string" ||
-    typeof value.text !== "string" ||
-    typeof value.occurredAt !== "number"
-  ) {
-    return undefined;
-  }
-  const x = typeof value.x === "number" ? value.x : undefined;
-  const y = typeof value.y === "number" ? value.y : undefined;
-  return { id: value.id, type: value.type, text: value.text, occurredAt: value.occurredAt, ...(x !== undefined ? { x } : {}), ...(y !== undefined ? { y } : {}) };
-};
 
 const parseInitState = (message: Record<string, unknown>): GameInitState => {
   const player = isRecord(message.player) ? message.player : {};
@@ -207,6 +168,8 @@ export class GameSession {
   private autoSettlementQueue: Array<{ x: number; y: number }>;
   private techIds: string[];
   private resourceSlots: ResourceSlots;
+  private unmatchedErrors: UnmatchedError[] = [];
+  private readonly seenRejectionIds = new Set<string>();
   private player: { id: string; name: string; gold: number; manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
   // Set once the connection is confirmed gone (clean close or socket error)
   // so a bot meant to run unattended (cron/launchd, per README) fails each
@@ -237,6 +200,42 @@ export class GameSession {
     // required, not just informative, once we're past the connect() phase's
     // own (temporary) "error" listener.
     this.socket.on("error", (error) => this.handleDisconnect(error instanceof Error ? error : new Error(String(error))));
+  }
+
+  // BUILD_ECONOMIC_STRUCTURE/CHOOSE_TECH carry no client commandId, so the
+  // gateway tags their rejection ERROR with a server-generated one
+  // (apps/realtime-gateway/src/gateway-app/gateway-app.ts's COMMAND_REJECTED
+  // branch) that nothing here is waiting on. Keep those -- bounded -- so the
+  // intent ledger can attribute them. Only ERRORs that carry a foreign
+  // commandId are rejections of a command: gateway-level ERRORs with none
+  // (COMMAND_RATE_LIMITED, BAD_MSG, SERVER_STARTING, ...) say nothing about
+  // which command failed and must not be pinned on a pending build or tech.
+  // A late ERROR for one of our own sendAction ids (already timed out) isn't
+  // one of these either, and a repeated delivery of the same rejection is
+  // counted once.
+  private recordUnmatchedError(message: Record<string, unknown>, commandId: string | undefined): void {
+    if (message.type !== "ERROR" || !commandId) return;
+    if (commandId.startsWith(OWN_COMMAND_ID_PREFIX)) return;
+    if (this.seenRejectionIds.has(commandId)) return;
+    this.seenRejectionIds.add(commandId);
+    if (this.seenRejectionIds.size > MAX_SEEN_REJECTION_IDS) {
+      const oldest = this.seenRejectionIds.values().next().value;
+      if (oldest !== undefined) this.seenRejectionIds.delete(oldest);
+    }
+    this.unmatchedErrors.push({
+      commandId,
+      receivedAt: Date.now(),
+      code: typeof message.code === "string" ? message.code : "UNKNOWN",
+      message: typeof message.message === "string" ? message.message : ""
+    });
+    if (this.unmatchedErrors.length > MAX_UNMATCHED_ERRORS) this.unmatchedErrors.splice(0, this.unmatchedErrors.length - MAX_UNMATCHED_ERRORS);
+  }
+
+  // Returns and clears everything captured since the last call.
+  drainUnmatchedErrors(): UnmatchedError[] {
+    const drained = this.unmatchedErrors;
+    this.unmatchedErrors = [];
+    return drained;
   }
 
   isClosed(): boolean {
@@ -364,9 +363,11 @@ export class GameSession {
     }
 
     const commandId = typeof message.commandId === "string" ? message.commandId : undefined;
-    if (!commandId) return;
-    const pending = this.pending.get(commandId);
-    if (!pending) return;
+    const pending = commandId ? this.pending.get(commandId) : undefined;
+    if (!commandId || !pending) {
+      this.recordUnmatchedError(message, commandId);
+      return;
+    }
 
     if (message.type === "ACTION_ACCEPTED") {
       clearTimeout(pending.timeoutId);
@@ -439,7 +440,7 @@ export class GameSession {
   sendAction(action: BotAction): Promise<CommandResult> {
     if (this.connectionError) return Promise.reject(this.connectionError);
 
-    const commandId = `llm-player-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const commandId = `${OWN_COMMAND_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const clientSeq = this.nextClientSeq;
     this.nextClientSeq += 1;
 
@@ -456,8 +457,9 @@ export class GameSession {
     });
   }
 
-  // See FireAndForgetAction's doc comment: no ack exists for either of these
-  // commands, so this can only report "sent", not "accepted"/"rejected".
+  // See FireAndForgetAction's doc comment: no ack can be correlated to these
+  // commands, so this only reports "sent" -- the caller records an intent and
+  // learns the real outcome from state / drainUnmatchedErrors.
   async sendFireAndForget(action: FireAndForgetAction): Promise<void> {
     if (this.connectionError) throw this.connectionError;
     const validated = ClientMessageSchema.parse(action);

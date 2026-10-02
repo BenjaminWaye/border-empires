@@ -67,7 +67,7 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
     name: "build_relay_beacon",
     description:
-      "Build a Relay Beacon on a settled tile of yours that's on the edge of your empire (see \"beaconSites\"). This is the actual way to grow your reach beyond its current border -- it activates a reach disk that turns neutral land around it into free-to-claim frontier territory. Costs manpower and takes time to complete; there's no immediate confirmation, check back next session.",
+      "Build a Relay Beacon on a settled tile of yours that's on the edge of your empire (see \"beaconSites\"). This is the actual way to grow your reach beyond its current border -- it activates a reach disk that turns neutral land around it into free-to-claim frontier territory. Costs manpower and takes time to complete; its result isn't immediate -- see \"recentOutcomes\" on later turns for whether it landed.",
     input_schema: {
       type: "object",
       properties: {
@@ -81,7 +81,7 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
     name: "build_structure",
     description:
-      "Build a basic structure on a settled tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile (both require the matching tech already researched); WOODEN_FORT is a starter defensive fort on any settled tile, no tech needed -- it raises the manpower cost an attacker pays to take that tile. All three are only offered when there's actually room to build them right now. No immediate confirmation, same as build_relay_beacon.",
+      "Build a basic structure on a settled tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile (both require the matching tech already researched); WOODEN_FORT is a starter defensive fort on any settled tile, no tech needed -- it raises the manpower cost an attacker pays to take that tile. All three are only offered when there's actually room to build them right now. Its result shows up in \"recentOutcomes\" on later turns.",
     input_schema: {
       type: "object",
       properties: {
@@ -96,7 +96,7 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
     name: "choose_tech",
     description:
-      "Research a tech (see \"techChoices\" for what's currently reachable and affordable). Instant -- no build timer -- but costs gold up front and there's no immediate confirmation (no ack for this command); check \"techIds\" next turn to see if it landed.",
+      "Research a tech (see \"techChoices\" for what's currently reachable and affordable). Instant -- no build timer -- but costs gold up front; whether it landed shows up in \"recentOutcomes\" on later turns.",
     input_schema: {
       type: "object",
       properties: {

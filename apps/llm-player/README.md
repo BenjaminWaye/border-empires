@@ -63,10 +63,20 @@ frontier before it can expand again. `build_structure`/`choose_tech` cover
 the economy and defense side of the loop (resource tiles → structures gated
 by tech; `WOODEN_FORT` needs no tech and raises the manpower cost an
 attacker pays to take that tile — the bot's only defensive tool today).
-Unlike the other commands, none of these three has an accept/reject response
-— the bot finds out it worked when the effect shows up in a later turn (new
-frontier, a new structure, a new tech id), the same way a human player would
-after a build timer finishes with no confirmation dialog.
+Unlike expand/attack/settle, none of these three can be matched to an ack by
+id (their wire messages carry no `commandId`). Instead an **intent ledger**
+(`intent-ledger.ts`) records each one when sent and resolves it on later
+turns: *confirmed* when the effect shows up in state (a tech id via
+`TECH_UPDATE`, a structure on the tile), *rejected* when the gateway's
+rejection `ERROR` arrives (its `commandId` is server-generated, so it's
+attributed to the most recently sent pending intent -- a heuristic, hence "probably
+REJECTED" in what the model sees), or *unconfirmed* after a few turns. Each turn
+reconciles before the prompt is built and again before dispatch (the model call
+takes seconds), a blocked action is never sent, and a final reconcile after a
+short wait reports anything still unresolved when the session ends. The
+model sees these as `recentOutcomes`; anything pending or recently rejected is
+withheld from `beaconSites`/`structureSites`/`techChoices` so it can't resend
+the same doomed command every turn.
 
 **Auto-settle**, separately from the LLM's one action per turn: at the start
 of every turn the bot mirrors what the real browser client does on every
@@ -103,6 +113,11 @@ from for the full background.
 - Basic economic structures (`build_structure`): `FARMSTEAD`/`MINE`, gated by
   tech and the real per-resource slot supply/demand pool, not the retired
   stockpile-cost fields (Phase 2).
+- Feedback loop for no-ack commands (Phase 4): intent ledger + captured
+  rejection errors + `recentOutcomes`, covered by a wire-level test against a
+  local fake gateway (`game-socket.test.ts`). Motivated by four review
+  findings in a row where the server silently rejected a build/tech and the
+  bot assumed success.
 - Basic defense (`build_structure`): `WOODEN_FORT` on any settled tile, no
   tech needed -- closes the gap where the system prompt told the bot to
   "defend" a threatened tile with no actual defensive tool to do it with

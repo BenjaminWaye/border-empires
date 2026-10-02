@@ -11,7 +11,8 @@
 // tiles a real player gets for free, starving it of turns for actual
 // strategic decisions (expand/attack/beacon/pan).
 import { SETTLE_MANPOWER_COST } from "@border-empires/shared";
-import { tileKey, type GameInitState } from "./game-socket.js";
+import type { GameInitState } from "./game-socket.js";
+import { tileKey } from "./wire-parsers.js";
 import type { TileIndex } from "./viewport.js";
 
 export type AutoSettlementQueueEntry = GameInitState["autoSettlementQueue"][number];

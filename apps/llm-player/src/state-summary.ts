@@ -2,6 +2,7 @@
 // view of the map (see viewport.ts) instead of the full known-tile array,
 // which can run to thousands of entries for a large empire.
 import type { EventLogEntry } from "./game-socket.js";
+import type { IntentLedger } from "./intent-ledger.js";
 import { buildStructureSites, type StructureSite } from "./structures.js";
 import { reachableTechChoices, type TechChoice } from "./tech-tree.js";
 import {
@@ -40,6 +41,9 @@ export type TurnContext = {
   // matches beaconSites/structureSites' pattern of handing the LLM a
   // pre-filtered, directly actionable list rather than the full tech tree.
   techChoices: TechChoice[];
+  // Pending/resolved outcomes of the bot's own recent build/tech commands --
+  // the only feedback those no-ack commands get (see intent-ledger.ts).
+  recentOutcomes: string[];
   recentEvents: RecentEvent[];
 };
 
@@ -55,7 +59,9 @@ export const summarizeTurn = (
   index: TileIndex,
   status: PlayerStatus,
   camera: CameraPosition,
-  eventLog: EventLogEntry[]
+  eventLog: EventLogEntry[],
+  intents: Pick<IntentLedger, "blocksTech" | "blocksStructure" | "summaryLines">,
+  turn: number
 ): TurnContext => {
   let ownedTileCount = 0;
   for (const tile of index.values()) if (tile.ownerId === status.playerId) ownedTileCount += 1;
@@ -77,9 +83,18 @@ export const summarizeTurn = (
     viewport: buildViewport(index, camera),
     minimap: buildMinimap(index, camera),
     frontier: buildViewportFrontier(index, camera, status.playerId),
-    beaconSites: buildBeaconSites(index, camera, status.playerId, status.resourceSlots),
-    structureSites: buildStructureSites(index, camera, status.playerId, status.techIds, status.resourceSlots),
-    techChoices: reachableTechChoices(status.techIds).filter((choice) => choice.goldCost <= status.gold),
+    // Anything the ledger says is in flight (or recently rejected) is withheld
+    // so the model can't re-send the same command while it's unresolved.
+    beaconSites: buildBeaconSites(index, camera, status.playerId, status.resourceSlots).filter(
+      (site) => !intents.blocksStructure(site.x, site.y, "RELAY_BEACON")
+    ),
+    structureSites: buildStructureSites(index, camera, status.playerId, status.techIds, status.resourceSlots).filter(
+      (site) => !intents.blocksStructure(site.x, site.y, site.structureType)
+    ),
+    techChoices: reachableTechChoices(status.techIds).filter(
+      (choice) => choice.goldCost <= status.gold && !intents.blocksTech(choice.id)
+    ),
+    recentOutcomes: intents.summaryLines(turn),
     recentEvents
   };
 };

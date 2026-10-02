@@ -6,7 +6,8 @@
 // sends on every connection regardless of camera position -- no new
 // protocol/server work needed, this is purely about what we hand the LLM.
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
-import { freeResourceSlotCount, tileKey, type GameInitState, type GameTile, type ResourceSlots } from "./game-socket.js";
+import { freeResourceSlotCount, type GameInitState, type GameTile, type ResourceSlots } from "./game-socket.js";
+import { tileKey } from "./wire-parsers.js";
 
 export const VIEWPORT_HALF_SIZE = 10; // ~20x20 tiles, roughly a normal player screen at default zoom
 const MINIMAP_CELL_SIZE = 20; // world tiles per minimap cell
@@ -64,7 +65,7 @@ const tileValueFields = (tile: GameTile): TileValueFields => ({
   ...(isUnclaimedWaystation(tile) ? { isWaystation: true } : {})
 });
 
-const economicStructureType = (tile: GameTile): string | undefined => {
+export const economicStructureType = (tile: GameTile): string | undefined => {
   if (!tile.economicStructureJson) return undefined;
   try {
     const parsed: unknown = JSON.parse(tile.economicStructureJson);

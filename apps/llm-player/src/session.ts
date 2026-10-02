@@ -7,7 +7,8 @@ import { selectAutoSettlementTargets } from "./auto-settle.js";
 import type { BotConfig } from "./config.js";
 import { postToDiscord } from "./discord-notify.js";
 import { signInBotAccount } from "./firebase-auth.js";
-import { GameSession, type GameInitState } from "./game-socket.js";
+import { GameSession, type FireAndForgetAction, type GameInitState } from "./game-socket.js";
+import { describeOutcome, IntentLedger, reconcileFromState, type Intent } from "./intent-ledger.js";
 import { createAnthropicClient, decideNextAction, writeSessionJournal } from "./llm-agent.js";
 import { sleep } from "./sleep.js";
 import { summarizeTurn } from "./state-summary.js";
@@ -28,16 +29,44 @@ const describeResult = (
   if (action.type === "PAN_CAMERA") return "";
   if (action.type === "CHOOSE_TECH") {
     if (result?.outcome === "error") return `CHOOSE_TECH(${action.techId}): failed to send (${result.code})`;
-    return `CHOOSE_TECH(${action.techId}): sent (no ack for this command)`;
+    return `CHOOSE_TECH(${action.techId}): sent (result tracked on later turns)`;
   }
   const target = "toX" in action ? `(${action.fromX},${action.fromY})->(${action.toX},${action.toY})` : `(${action.x},${action.y})`;
   if (action.type === "BUILD_ECONOMIC_STRUCTURE") {
     if (result?.outcome === "error") return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: failed to send (${result.code})`;
-    return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: sent (no ack for this command)`;
+    return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: sent (result tracked on later turns)`;
   }
   if (!result) return `${action.type} ${target}: no response`;
   return result.outcome === "accepted" ? `${action.type} ${target}: accepted` : `${action.type} ${target}: rejected (${result.code})`;
 };
+
+const intentFromAction = (action: FireAndForgetAction): Intent =>
+  action.type === "CHOOSE_TECH"
+    ? { kind: "TECH", techId: action.techId }
+    : { kind: "STRUCTURE", x: action.x, y: action.y, structureType: action.structureType };
+
+// Resolves whatever the ledger can from current state plus any rejection
+// errors received since the last call, and logs each resolution.
+const reportOutcomes = (game: GameSession, intents: IntentLedger, turn: number, log: string[]): void => {
+  const errors = game.drainUnmatchedErrors();
+  // Nothing in flight and no late rejection to attach: skip the O(tiles)
+  // state copy and index rebuild.
+  if (!intents.hasPending() && errors.length === 0 && !intents.hasUpgradableOutcome()) return;
+  for (const outcome of reconcileFromState(intents, game.currentState(), errors, turn)) {
+    const line = `outcome: ${describeOutcome(outcome, turn)}`;
+    console.log(line);
+    log.push(line);
+  }
+};
+
+// Last line of defence behind withholding blocked options from the prompt:
+// never actually send something the ledger says is in flight or just rejected.
+const isWithheld = (action: FireAndForgetAction, intents: IntentLedger): boolean =>
+  action.type === "CHOOSE_TECH" ? intents.blocksTech(action.techId) : intents.blocksStructure(action.x, action.y, action.structureType);
+
+// How long to let the gateway's late TECH_UPDATE/TILE_DELTA/rejection ERROR
+// land before the final end-of-session reconcile.
+const FINAL_RECONCILE_SETTLE_MS = 1_500;
 
 const reportConnectionLost = (turn: number, totalTurns: number, log: string[]): void => {
   const line = `turn ${turn}/${totalTurns}: connection lost, ending session early`;
@@ -111,6 +140,8 @@ export const runSession = async (config: BotConfig): Promise<void> => {
 
   let camera: CameraPosition = defaultCamera(initial);
   const pendingAutoSettleTileKeys = new Set<string>();
+  const intents = new IntentLedger();
+  let turnsPlayed = 0;
 
   try {
     for (let turn = 1; turn <= config.turnsPerSession; turn += 1) {
@@ -126,6 +157,10 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         index = buildTileIndex(state);
       }
 
+      // BUILD_ECONOMIC_STRUCTURE/CHOOSE_TECH have no ack -- find out here
+      // whether last turn's landed, was rejected, or is still in flight.
+      reportOutcomes(game, intents, turn, log);
+
       const status = {
         playerId: state.playerId,
         playerName: state.playerName,
@@ -136,8 +171,11 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         techIds: state.techIds,
         resourceSlots: state.resourceSlots
       };
-      const context = summarizeTurn(index, status, camera, state.eventLog);
+      const context = summarizeTurn(index, status, camera, state.eventLog, intents, turn);
       const { action } = await decideNextAction(anthropic, context);
+      // The decision call takes seconds -- pick up anything that resolved
+      // meanwhile so the guard below judges against current ledger state.
+      reportOutcomes(game, intents, turn, log);
 
       let outcomeLine: string;
       let result: { outcome: "accepted" } | { outcome: "error"; code: string; message: string } | undefined;
@@ -154,19 +192,25 @@ export const runSession = async (config: BotConfig): Promise<void> => {
           outcomeLine = `ignored pan to (${candidate.x},${candidate.y}) -- no known tiles there`;
         }
       } else if (action !== "wait" && (action.type === "BUILD_ECONOMIC_STRUCTURE" || action.type === "CHOOSE_TECH")) {
-        // No ACTION_ACCEPTED/ERROR ack path for either command (see
-        // FireAndForgetAction's doc comment in game-socket.ts) -- only
-        // report that it was sent, not whether the server accepted it.
-        try {
-          await game.sendFireAndForget(action);
-        } catch (error) {
-          result = {
-            outcome: "error",
-            code: game.isClosed() ? "DISCONNECTED" : "SEND_FAILED",
-            message: error instanceof Error ? error.message : String(error)
-          };
+        // No commandId-correlated ack for either command (see
+        // FireAndForgetAction's doc comment in game-socket.ts) -- only report
+        // that it was sent; intents.reconcile resolves the real outcome on a
+        // later turn from state changes and the server's rejection ERRORs.
+        if (isWithheld(action, intents)) {
+          outcomeLine = `ignored ${action.type} -- same target is pending or was just rejected (see recentOutcomes)`;
+        } else {
+          try {
+            await game.sendFireAndForget(action);
+            intents.record(intentFromAction(action), turn, Date.now());
+          } catch (error) {
+            result = {
+              outcome: "error",
+              code: game.isClosed() ? "DISCONNECTED" : "SEND_FAILED",
+              message: error instanceof Error ? error.message : String(error)
+            };
+          }
+          outcomeLine = describeResult(action, result);
         }
-        outcomeLine = describeResult(action, result);
       } else if (action !== "wait") {
         try {
           result = await game.sendAction(action);
@@ -186,6 +230,7 @@ export const runSession = async (config: BotConfig): Promise<void> => {
       const line = `turn ${turn}/${config.turnsPerSession}: ${outcomeLine}`;
       console.log(line);
       log.push(line);
+      turnsPlayed += 1;
 
       // No point attempting the remaining turns against a connection that's
       // confirmed gone -- each would otherwise fail immediately anyway (see
@@ -198,6 +243,20 @@ export const runSession = async (config: BotConfig): Promise<void> => {
 
       if (turn < config.turnsPerSession) await sleep(config.turnIntervalMs);
     }
+    // An intent sent on the final turn has no "later turn" to resolve on --
+    // give the gateway a moment, reconcile once more, and report anything
+    // still unresolved so the log/journal/Discord digest isn't blind to it.
+    // Runs after a lost connection too: state and any rejection received
+    // before the close are still local, only the settle wait is pointless.
+    if (intents.pendingLines().length > 0) {
+      if (!game.isClosed()) await sleep(FINAL_RECONCILE_SETTLE_MS);
+      reportOutcomes(game, intents, config.turnsPerSession, log);
+      for (const pendingLine of intents.pendingLines()) {
+        const line = `unresolved at session end: ${pendingLine}`;
+        console.log(line);
+        log.push(line);
+      }
+    }
   } finally {
     game.close();
   }
@@ -206,7 +265,7 @@ export const runSession = async (config: BotConfig): Promise<void> => {
   console.log(`\nSession journal:\n${journal}`);
 
   if (config.discordWebhookUrl) {
-    const message = [`**${config.botDisplayName} played a session** (${log.length} turns)`, "", ...log, "", `_${journal}_`].join("\n");
+    const message = [`**${config.botDisplayName} played a session** (${turnsPlayed}/${config.turnsPerSession} turns)`, "", ...log, "", `_${journal}_`].join("\n");
     await postToDiscord(config.discordWebhookUrl, message);
   }
 };
