@@ -5,8 +5,8 @@
 import WebSocket from "ws";
 import { FIREBASE_API_KEY, refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
-const DEFAULT_HEALTH_URL = "https://border-empires-combined-staging.fly.dev/health";
-const DEFAULT_WS_URL = "wss://border-empires-combined-staging.fly.dev/ws?channel=control";
+const DEFAULT_HEALTH_URL = "https://api-staging.borderempires.com/health";
+const DEFAULT_WS_URL = "wss://api-staging.borderempires.com/ws?channel=control";
 const FIREBASE_ACCOUNTS_URL = "https://identitytoolkit.googleapis.com/v1/accounts";
 
 const createAnonymousFirebaseToken = async (fetchImpl, timeoutMs) => {

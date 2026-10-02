@@ -10,6 +10,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-rece
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
+import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-muster-save-up.js";
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 export type ClientChangelogEntry = {
@@ -415,12 +416,33 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",
       "A flag that is rejected (not enough coin or manpower) now backs off instead of retrying every second"
     ]
+  },
+  {
+    createdAt: 1790885511154, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.3",
+    title: "Your reach border is correct when you play in a second tab or device",
+    why: "If you were still connected somewhere else (another tab, your phone, or a reconnect before the old connection timed out), the new session never received your real reach border. It drew an estimate instead, and waypoints could keep planning expansions the server then refused as out of reach.",
+    changes: [
+      "Every new session now receives your current reach border as soon as it loads, even while you're connected elsewhere",
+      "Waypoints in that session plan against your real border, so they stop retrying expansions that are out of reach"
+    ]
+  },
+  {
+    createdAt: 1790891485732, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.4",
+    title: "The staging game server moved to faster hosting",
+    why: "Staging ran on a throttled shared CPU that froze for 30 seconds or more under load, which made logins on staging fail or stall.",
+    changes: [
+      "Staging now connects to api-staging.borderempires.com on a dedicated server",
+      "Logins on staging should no longer stall while the server catches up"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
+  ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,

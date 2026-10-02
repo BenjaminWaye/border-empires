@@ -5,7 +5,14 @@
 // resolves a season playerId to its durable authUid and returns that
 // account's public holdings -- no auth needed, unlike /hq/galaxy/me.
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
-import type { GalaxyHoldingsView } from "./client-player-profile-types.js";
+import type { GalaxyHoldingsView, GalaxyHoldingsOutpostView, GalaxyHoldingsPlanetView } from "./client-player-profile-types.js";
+import { sectorNumberLabel } from "../client-galaxy-view/galaxy-sector-label.js";
+
+// Falls back to the raw seasonSequence label only when the gateway hasn't
+// been redeployed with sector numbering yet (sectorNumber absent) -- same
+// reasoning as client-galaxy-view's sectorOrSeasonLabel.
+const sectorOrSeasonLabel = (holding: GalaxyHoldingsPlanetView | GalaxyHoldingsOutpostView): string =>
+  holding.sectorNumber !== undefined ? sectorNumberLabel(holding.sectorNumber) : `Season ${holding.seasonSequence}`;
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -70,11 +77,11 @@ export const galaxyHoldingsHtml = (holdings: GalaxyHoldingsView | "loading" | un
       (planet) =>
         `<li>${planet.planetName ? `<strong>${escapeHtml(planet.planetName)}</strong>` : "Unnamed Planet"} — ${escapeHtml(
           specializationLabel(planet.specialization)
-        )} (won ${escapeHtml(planet.objectiveName)}, season ${planet.seasonSequence})</li>`
+        )} (won ${escapeHtml(planet.objectiveName)}, ${escapeHtml(sectorOrSeasonLabel(planet))})</li>`
     )
     .join("");
   const outpostItems = holdings.outposts
-    .map((outpost) => `<li>Outpost — ${escapeHtml(specializationLabel(outpost.specialization))} (season ${outpost.seasonSequence})</li>`)
+    .map((outpost) => `<li>Outpost — ${escapeHtml(specializationLabel(outpost.specialization))} (${escapeHtml(sectorOrSeasonLabel(outpost))})</li>`)
     .join("");
   return `<div class="intel-stockpile">
     <div class="intel-section-label">Galactic Holdings</div>

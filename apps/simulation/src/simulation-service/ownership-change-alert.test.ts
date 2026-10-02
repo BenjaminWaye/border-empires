@@ -42,6 +42,10 @@ describe("resolveEnvironmentLabel", () => {
 
   it("falls back to FLY_APP_NAME, then unknown", () => {
     expect(resolveEnvironmentLabel({ FLY_APP_NAME: "some-app" } as NodeJS.ProcessEnv)).toBe("some-app");
+    expect(resolveEnvironmentLabel({ DEPLOY_APP_NAME: "vps-app" } as NodeJS.ProcessEnv)).toBe("vps-app");
+    expect(
+      resolveEnvironmentLabel({ DEPLOY_APP_NAME: "vps-app", FLY_APP_NAME: "fly-app" } as NodeJS.ProcessEnv)
+    ).toBe("vps-app");
     expect(resolveEnvironmentLabel({} as NodeJS.ProcessEnv)).toBe("unknown");
   });
 });
