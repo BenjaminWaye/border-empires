@@ -7,8 +7,10 @@ import { selectAutoSettlementTargets } from "./auto-settle.js";
 import type { BotConfig } from "./config.js";
 import { postToDiscord } from "./discord-notify.js";
 import { signInBotAccount } from "./firebase-auth.js";
-import { GameSession, type FireAndForgetAction, type GameInitState } from "./game-socket.js";
-import { describeOutcome, IntentLedger, reconcileFromState, type Intent } from "./intent-ledger.js";
+import { describeFireAndForgetResult, intentFromAction, isFireAndForgetAction, withholdReason } from "./fire-and-forget.js";
+import { GameSession } from "./game-socket.js";
+import type { GameInitState } from "./game-types.js";
+import { describeOutcome, IntentLedger, reconcileFromState } from "./intent-ledger.js";
 import { createAnthropicClient, decideNextAction, writeSessionJournal } from "./llm-agent.js";
 import { sleep } from "./sleep.js";
 import { summarizeTurn } from "./state-summary.js";
@@ -27,23 +29,11 @@ const describeResult = (
 ): string => {
   if (action === "wait") return "waited";
   if (action.type === "PAN_CAMERA") return "";
-  if (action.type === "CHOOSE_TECH") {
-    if (result?.outcome === "error") return `CHOOSE_TECH(${action.techId}): failed to send (${result.code})`;
-    return `CHOOSE_TECH(${action.techId}): sent (result tracked on later turns)`;
-  }
+  if (isFireAndForgetAction(action)) return describeFireAndForgetResult(action, result);
   const target = "toX" in action ? `(${action.fromX},${action.fromY})->(${action.toX},${action.toY})` : `(${action.x},${action.y})`;
-  if (action.type === "BUILD_ECONOMIC_STRUCTURE") {
-    if (result?.outcome === "error") return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: failed to send (${result.code})`;
-    return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: sent (result tracked on later turns)`;
-  }
   if (!result) return `${action.type} ${target}: no response`;
   return result.outcome === "accepted" ? `${action.type} ${target}: accepted` : `${action.type} ${target}: rejected (${result.code})`;
 };
-
-const intentFromAction = (action: FireAndForgetAction): Intent =>
-  action.type === "CHOOSE_TECH"
-    ? { kind: "TECH", techId: action.techId }
-    : { kind: "STRUCTURE", x: action.x, y: action.y, structureType: action.structureType };
 
 // Resolves whatever the ledger can from current state plus any rejection
 // errors received since the last call, and logs each resolution.
@@ -58,11 +48,6 @@ const reportOutcomes = (game: GameSession, intents: IntentLedger, turn: number, 
     log.push(line);
   }
 };
-
-// Last line of defence behind withholding blocked options from the prompt:
-// never actually send something the ledger says is in flight or just rejected.
-const isWithheld = (action: FireAndForgetAction, intents: IntentLedger): boolean =>
-  action.type === "CHOOSE_TECH" ? intents.blocksTech(action.techId) : intents.blocksStructure(action.x, action.y, action.structureType);
 
 // How long to let the gateway's late TECH_UPDATE/TILE_DELTA/rejection ERROR
 // land before the final end-of-session reconcile.
@@ -169,7 +154,8 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         manpowerCap: state.manpowerCap,
         manpowerRegenPerMinute: state.manpowerRegenPerMinute,
         techIds: state.techIds,
-        resourceSlots: state.resourceSlots
+        resourceSlots: state.resourceSlots,
+        domains: state.domains
       };
       const context = summarizeTurn(index, status, camera, state.eventLog, intents, turn);
       const { action } = await decideNextAction(anthropic, context);
@@ -191,13 +177,14 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         } else {
           outcomeLine = `ignored pan to (${candidate.x},${candidate.y}) -- no known tiles there`;
         }
-      } else if (action !== "wait" && (action.type === "BUILD_ECONOMIC_STRUCTURE" || action.type === "CHOOSE_TECH")) {
+      } else if (action !== "wait" && isFireAndForgetAction(action)) {
         // No commandId-correlated ack for either command (see
-        // FireAndForgetAction's doc comment in game-socket.ts) -- only report
+        // FireAndForgetAction's doc comment in game-types.ts) -- only report
         // that it was sent; intents.reconcile resolves the real outcome on a
         // later turn from state changes and the server's rejection ERRORs.
-        if (isWithheld(action, intents)) {
-          outcomeLine = `ignored ${action.type} -- same target is pending or was just rejected (see recentOutcomes)`;
+        const withheld = withholdReason(action, game.currentState(), intents);
+        if (withheld) {
+          outcomeLine = `ignored ${action.type} -- ${withheld}`;
         } else {
           try {
             await game.sendFireAndForget(action);

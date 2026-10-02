@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SETTLE_MANPOWER_COST } from "@border-empires/shared";
-import type { GameInitState, GameTile } from "./game-socket.js";
+import type { GameInitState, GameTile } from "./game-types.js";
 import { buildTileIndex } from "./viewport.js";
 import { selectAutoSettlementTargets } from "./auto-settle.js";
 

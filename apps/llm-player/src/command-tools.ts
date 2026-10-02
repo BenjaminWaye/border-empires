@@ -1,6 +1,6 @@
 // Tool definitions for the subset of DurableCommandTypes this v1 bot can
 // issue. EXPAND/ATTACK/SETTLE/BUILD_ECONOMIC_STRUCTURE (Relay Beacon plus a
-// small curated set of resource/defense structures)/CHOOSE_TECH covers the
+// small curated set of resource/defense structures)/CHOOSE_TECH/CHOOSE_DOMAIN covers the
 // core frontier-growth-economy-defense loop (apps/simulation/src/ai/
 // frontier-command-planner.ts covers the same frontier actions for the
 // rule-based in-sim AI).
@@ -13,12 +13,12 @@
 // only grows when there's evidence a given capability is actually load-
 // bearing for how this bot plays.
 import type Anthropic from "@anthropic-ai/sdk";
-import type { BotAction, BuildEconomicStructureAction, ChooseTechAction } from "./game-socket.js";
+import type { BotAction, BuildEconomicStructureAction, ChooseDomainAction, ChooseTechAction } from "./game-types.js";
 import { BUILDABLE_STRUCTURE_TYPES } from "./structures.js";
 import { VIEWPORT_HALF_SIZE } from "./viewport.js";
 
 export type PanCameraAction = { type: "PAN_CAMERA"; x: number; y: number };
-export type ChosenAction = BotAction | BuildEconomicStructureAction | ChooseTechAction | PanCameraAction | "wait";
+export type ChosenAction = BotAction | BuildEconomicStructureAction | ChooseTechAction | ChooseDomainAction | PanCameraAction | "wait";
 
 export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
@@ -107,6 +107,19 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
     }
   },
   {
+    name: "choose_domain",
+    description:
+      "Adopt a domain (see \"domainChoices\"): a PERMANENT empire-wide doctrine. You get one pick per tier and it can never be changed or swapped, so only choose one when its description clearly fits how you're playing -- waiting is fine. Costs gold up front; whether it landed shows up in \"recentOutcomes\" on later turns.",
+    input_schema: {
+      type: "object",
+      properties: {
+        domainId: { type: "string", description: "A domain id from \"domainChoices\"" }
+      },
+      required: ["domainId"],
+      additionalProperties: false
+    }
+  },
+  {
     name: "wait",
     description: "Take no action this turn (e.g. nothing useful to do, or saving resources).",
     input_schema: { type: "object", properties: {}, additionalProperties: false }
@@ -163,6 +176,11 @@ export const botActionFromToolUse = (toolName: string, input: unknown): ChosenAc
     const techId = args.techId;
     if (typeof techId !== "string" || techId.length === 0) return undefined;
     return { type: "CHOOSE_TECH", techId };
+  }
+  if (toolName === "choose_domain") {
+    const domainId = args.domainId;
+    if (typeof domainId !== "string" || domainId.length === 0) return undefined;
+    return { type: "CHOOSE_DOMAIN", domainId };
   }
   return undefined;
 };

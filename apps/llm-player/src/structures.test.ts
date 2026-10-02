@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GameInitState, GameTile } from "./game-socket.js";
+import type { GameInitState, GameTile } from "./game-types.js";
 import { buildTileIndex } from "./viewport.js";
 import { buildStructureSites } from "./structures.js";
 

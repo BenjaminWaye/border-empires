@@ -48,14 +48,27 @@ the bot gets what a human player effectively sees:
   tree (mirrors `reachableTechChoices` in
   `apps/simulation/src/tech-domain-bridge/`), since the server only pushes
   this list reactively after a research round-trip.
+- **`domainChoices`** — open domains it can adopt right now: the server's
+  own open-choice list and per-domain requirements (shipped in
+  `INIT`/`TECH_UPDATE`/`DOMAIN_UPDATE`, so there is no bundled copy of the
+  domain tree to drift), re-checked against live gold, owned tech, and the
+  strategic-resource stockpile. A domain is a **permanent, mutually exclusive
+  pick per tier**, so the prompt tells the model to take one only when its
+  description clearly fits how the bot plays, and that waiting is fine. Tier 1
+  costs gold only; tier 2+ also costs `SHARD`, which this bot never collects,
+  so in practice only tier 1 is ever offered. Domains that make you pick a
+  trickle resource up front (Clockwork Stipend) are never offered — the bot
+  doesn't send that sub-choice. Because a domain pick can't be undone, a `choose_domain`/`choose_tech`
+  id that isn't in the list the bot would offer *right now* (stale, invented, or
+  no longer affordable) is refused before anything is sent.
 - **Waystation awareness** — a frontier/viewport tile can carry
   `isWaystation: true` (rare, ~1 per 400 tiles): expanding onto one grants a
   random permanent reward, so the bot treats it as a higher priority than an
   ordinary resource or town tile.
 
 Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
-`build_relay_beacon`, `build_structure`, `choose_tech`, `pan_camera`, or
-`wait`. `build_relay_beacon` is the actual reach-growth mechanism of the core
+`build_relay_beacon`, `build_structure`, `choose_tech`, `choose_domain`,
+`pan_camera`, or `wait`. `build_relay_beacon` is the actual reach-growth mechanism of the core
 gameplay loop: `expand` only claims land already within reach of an anchor (a
 town/dock/outpost or an active beacon), so once a reach disk is fully claimed
 the bot has to build a new beacon on its territory's edge to open up more
@@ -63,11 +76,11 @@ frontier before it can expand again. `build_structure`/`choose_tech` cover
 the economy and defense side of the loop (resource tiles → structures gated
 by tech; `WOODEN_FORT` needs no tech and raises the manpower cost an
 attacker pays to take that tile — the bot's only defensive tool today).
-Unlike expand/attack/settle, none of these three can be matched to an ack by
+Unlike expand/attack/settle, none of these four can be matched to an ack by
 id (their wire messages carry no `commandId`). Instead an **intent ledger**
 (`intent-ledger.ts`) records each one when sent and resolves it on later
 turns: *confirmed* when the effect shows up in state (a tech id via
-`TECH_UPDATE`, a structure on the tile), *rejected* when the gateway's
+`TECH_UPDATE`, a domain id via `DOMAIN_UPDATE`, a structure on the tile), *rejected* when the gateway's
 rejection `ERROR` arrives (its `commandId` is server-generated, so it's
 attributed to the most recently sent pending intent -- a heuristic, hence "probably
 REJECTED" in what the model sees), or *unconfirmed* after a few turns. Each turn
@@ -75,7 +88,8 @@ reconciles before the prompt is built and again before dispatch (the model call
 takes seconds), a blocked action is never sent, and a final reconcile after a
 short wait reports anything still unresolved when the session ends. The
 model sees these as `recentOutcomes`; anything pending or recently rejected is
-withheld from `beaconSites`/`structureSites`/`techChoices` so it can't resend
+withheld from `beaconSites`/`structureSites`/`techChoices`/`domainChoices`
+(a pending domain withholds *every* domain, since only one per tier is allowed) so it can't resend
 the same doomed command every turn.
 
 **Auto-settle**, separately from the LLM's one action per turn: at the start
@@ -124,14 +138,18 @@ from for the full background.
   (Phase 3, narrowed to the one starter-tier structure rather than the full
   Fort/Siege Outpost tier ladders).
 
+- Domains (`choose_domain`, Phase 5): driven by the server's own catalog and
+  open-choice list rather than a bundled copy, offered only when open,
+  researched-for and affordable, with prompt guidance that it's a one-way
+  door and a pending pick blocks all domains. Confirmed via `DOMAIN_UPDATE`
+  and tracked by the same intent ledger.
+
 **Explicitly descoped from the original plan, not just deferred:**
-- **`CHOOSE_DOMAIN`** was in the original Phase 1 scope alongside
-  `CHOOSE_TECH` but was not implemented. Domains are a meaningfully bigger
-  design lift than tech: each tier is a *permanent, mutually-exclusive*
-  choice among several options (unlike tech, which is eventually additive),
-  so a cheap model choosing one needs real strategy guidance, not a
-  copy-paste of the tech-choice prompt. Needs its own scoping pass before
-  it's worth adding, not a bolt-on.
+- **Domains beyond tier 1, and Clockwork Stipend.** Tier 2+ need `SHARD`
+  (collecting it is a separate command and strategy this bot doesn't have),
+  and Clockwork Stipend needs a trickle-resource sub-choice the bot doesn't
+  send. Both are filtered out of `domainChoices` rather than offered and
+  rejected.
 - The full ~35-type economic structure catalog, monuments, diplomacy,
   muster/army commands, and the aether-ability/sky-dock/scouting systems
   remain out of scope for the CivBench-underutilization reason above.

@@ -6,7 +6,7 @@
 // sends on every connection regardless of camera position -- no new
 // protocol/server work needed, this is purely about what we hand the LLM.
 import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
-import { freeResourceSlotCount, type GameInitState, type GameTile, type ResourceSlots } from "./game-socket.js";
+import { freeResourceSlotCount, type DomainState, type GameInitState, type GameTile, type ResourceSlots } from "./game-types.js";
 import { tileKey } from "./wire-parsers.js";
 
 export const VIEWPORT_HALF_SIZE = 10; // ~20x20 tiles, roughly a normal player screen at default zoom
@@ -24,6 +24,7 @@ export type PlayerStatus = {
   manpowerRegenPerMinute: number;
   techIds: string[];
   resourceSlots: ResourceSlots;
+  domains: DomainState;
 };
 // resource/townType/townPopulationTier are the actual strategic signal a
 // player expands toward (see apps/simulation/src/ai/frontier-command-

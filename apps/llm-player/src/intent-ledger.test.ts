@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { GameInitState, GameTile } from "./game-socket.js";
-import { IntentLedger, reconcileFromState, type ReconcileInput } from "./intent-ledger.js";
+import type { GameInitState, GameTile } from "./game-types.js";
+import { describeOutcome, IntentLedger, reconcileFromState, type ReconcileInput } from "./intent-ledger.js";
 
 const baseInput = (overrides: Partial<ReconcileInput> = {}): ReconcileInput => ({
   turn: 2,
   techIds: [],
+  domainIds: [],
   structureTypeAt: () => undefined,
   errors: [],
   ...overrides
 });
 
 const TECH = { kind: "TECH", techId: "mining" } as const;
+const DOMAIN = { kind: "DOMAIN", domainId: "frontier-doctrine" } as const;
 const FORT = { kind: "STRUCTURE", x: 3, y: 4, structureType: "WOODEN_FORT" } as const;
 
 describe("IntentLedger", () => {
@@ -171,7 +173,7 @@ describe("IntentLedger", () => {
 });
 
 describe("reconcileFromState", () => {
-  const stateWith = (tiles: GameTile[], techIds: string[] = []): GameInitState => ({
+  const stateWith = (tiles: GameTile[], techIds: string[] = [], domainIds: string[] = []): GameInitState => ({
     playerId: "me",
     playerName: "Bot",
     gold: 0,
@@ -182,6 +184,7 @@ describe("reconcileFromState", () => {
     eventLog: [],
     autoSettlementQueue: [],
     techIds,
+    domains: { domainIds, openChoiceIds: [], catalog: [], strategicResources: {} },
     resourceSlots: {
       supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
       demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
@@ -217,5 +220,67 @@ describe("reconcileFromState", () => {
     const ledger = new IntentLedger();
     ledger.record(TECH, 1, 1_000);
     expect(reconcileFromState(ledger, stateWith([], ["mining"]), [], 2).map((outcome) => outcome.status)).toEqual(["confirmed"]);
+  });
+
+  it("confirms a domain from state domainIds", () => {
+    const ledger = new IntentLedger();
+    ledger.record(DOMAIN, 1, 1_000);
+    expect(reconcileFromState(ledger, stateWith([], [], ["frontier-doctrine"]), [], 2).map((outcome) => outcome.status)).toEqual(["confirmed"]);
+  });
+});
+
+describe("domain intents", () => {
+  it("blocks every domain while any domain intent is pending (one permanent pick per tier)", () => {
+    const ledger = new IntentLedger();
+    ledger.record(DOMAIN, 1, 1_000);
+    expect(ledger.blocksDomain("frontier-doctrine")).toBe(true);
+    expect(ledger.blocksDomain("mercantile-charter")).toBe(true);
+    expect(ledger.blocksTech("frontier-doctrine")).toBe(false);
+  });
+
+  it("after a rejection only cools down the refused domain", () => {
+    const ledger = new IntentLedger();
+    ledger.record(DOMAIN, 1, 1_000);
+    const resolved = ledger.reconcile(
+      baseInput({ errors: [{ commandId: "srv", receivedAt: 1_500, code: "DOMAIN_INVALID", message: "requirements not met" }] })
+    );
+    expect(resolved.map((outcome) => outcome.status)).toEqual(["rejected"]);
+    expect(ledger.blocksDomain("frontier-doctrine")).toBe(true);
+    expect(ledger.blocksDomain("mercantile-charter")).toBe(false);
+    expect(describeOutcome(resolved[0]!, 2)).toContain("CHOOSE_DOMAIN(frontier-doctrine): probably REJECTED");
+  });
+});
+
+describe("error-code affinity", () => {
+  it("does not pin a DOMAIN_ error on a more recent tech or structure intent", () => {
+    const ledger = new IntentLedger();
+    ledger.record(DOMAIN, 1, 1_000);
+    ledger.record(TECH, 1, 1_100);
+    ledger.record(FORT, 1, 1_200);
+    const resolved = ledger.reconcile(
+      baseInput({ errors: [{ commandId: "srv", receivedAt: 1_500, code: "DOMAIN_INVALID", message: "requirements not met" }] })
+    );
+    expect(resolved.map((outcome) => [outcome.intent.kind, outcome.status])).toEqual([["DOMAIN", "rejected"]]);
+    expect(ledger.blocksTech("mining")).toBe(true); // still just pending, not rejected
+    expect(ledger.pendingLines()).toHaveLength(2);
+  });
+
+  it("drops a typed error when no pending intent of that kind exists rather than mispinning it", () => {
+    const ledger = new IntentLedger();
+    ledger.record(TECH, 1, 1_000);
+    const resolved = ledger.reconcile(
+      baseInput({ errors: [{ commandId: "srv", receivedAt: 1_500, code: "DOMAIN_INVALID", message: "" }] })
+    );
+    expect(resolved).toEqual([]);
+    expect(ledger.pendingLines()).toHaveLength(1);
+  });
+
+  it("still attributes a shared code like INSUFFICIENT_GOLD to the latest pending intent of any kind", () => {
+    const ledger = new IntentLedger();
+    ledger.record(TECH, 1, 1_000);
+    const resolved = ledger.reconcile(
+      baseInput({ errors: [{ commandId: "srv", receivedAt: 1_500, code: "INSUFFICIENT_GOLD", message: "" }] })
+    );
+    expect(resolved.map((outcome) => outcome.status)).toEqual(["rejected"]);
   });
 });

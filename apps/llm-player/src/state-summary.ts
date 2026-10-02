@@ -1,7 +1,8 @@
 // Assembles what one turn hands the LLM: player status plus a human-scale
 // view of the map (see viewport.ts) instead of the full known-tile array,
 // which can run to thousands of entries for a large empire.
-import type { EventLogEntry } from "./game-socket.js";
+import { availableDomainChoices, type DomainChoice } from "./domains.js";
+import type { EventLogEntry } from "./game-types.js";
 import type { IntentLedger } from "./intent-ledger.js";
 import { buildStructureSites, type StructureSite } from "./structures.js";
 import { reachableTechChoices, type TechChoice } from "./tech-tree.js";
@@ -41,6 +42,9 @@ export type TurnContext = {
   // matches beaconSites/structureSites' pattern of handing the LLM a
   // pre-filtered, directly actionable list rather than the full tech tree.
   techChoices: TechChoice[];
+  // Open, affordable domains the bot can send. A domain is a permanent pick
+  // (one per tier, can't be undone), so it's usually empty and rarely offered.
+  domainChoices: DomainChoice[];
   // Pending/resolved outcomes of the bot's own recent build/tech commands --
   // the only feedback those no-ack commands get (see intent-ledger.ts).
   recentOutcomes: string[];
@@ -60,7 +64,7 @@ export const summarizeTurn = (
   status: PlayerStatus,
   camera: CameraPosition,
   eventLog: EventLogEntry[],
-  intents: Pick<IntentLedger, "blocksTech" | "blocksStructure" | "summaryLines">,
+  intents: Pick<IntentLedger, "blocksTech" | "blocksDomain" | "blocksStructure" | "summaryLines">,
   turn: number
 ): TurnContext => {
   let ownedTileCount = 0;
@@ -93,6 +97,9 @@ export const summarizeTurn = (
     ),
     techChoices: reachableTechChoices(status.techIds).filter(
       (choice) => choice.goldCost <= status.gold && !intents.blocksTech(choice.id)
+    ),
+    domainChoices: availableDomainChoices(status.domains, status.techIds, status.gold).filter(
+      (choice) => !intents.blocksDomain(choice.id)
     ),
     recentOutcomes: intents.summaryLines(turn),
     recentEvents

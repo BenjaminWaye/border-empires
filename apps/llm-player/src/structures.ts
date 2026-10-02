@@ -35,7 +35,7 @@ import {
   type EconomicStructureType,
   type ResourceType
 } from "@border-empires/shared";
-import { freeResourceSlotCount, type ResourceSlots } from "./game-socket.js";
+import { freeResourceSlotCount, type ResourceSlots } from "./game-types.js";
 import { ownedSettledSitesInViewport, type CameraPosition, type TileIndex } from "./viewport.js";
 
 export const BUILDABLE_STRUCTURE_TYPES = ["FARMSTEAD", "MINE", "WOODEN_FORT"] as const satisfies readonly EconomicStructureType[];

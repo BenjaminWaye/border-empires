@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { GameInitState, GameTile } from "./game-socket.js";
+import type { DomainState, GameInitState, GameTile } from "./game-types.js";
 import { IntentLedger } from "./intent-ledger.js";
 import { summarizeTurn } from "./state-summary.js";
 import { buildTileIndex } from "./viewport.js";
 
 const PLAYER = "me";
 const AMPLE = { supply: { FOOD: 99, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } };
+
+const NO_DOMAINS: DomainState = { domainIds: [], openChoiceIds: [], catalog: [], strategicResources: {} };
 
 const stateWith = (tiles: GameTile[]): GameInitState => ({
   playerId: PLAYER,
@@ -18,11 +20,12 @@ const stateWith = (tiles: GameTile[]): GameInitState => ({
   eventLog: [],
   autoSettlementQueue: [],
   techIds: [],
-  resourceSlots: AMPLE
+  resourceSlots: AMPLE,
+  domains: NO_DOMAINS
 });
 
-const summarize = (ledger: IntentLedger, tiles: GameTile[], turn = 2) => {
-  const state = stateWith(tiles);
+const summarize = (ledger: IntentLedger, tiles: GameTile[], turn = 2, overrides: Partial<GameInitState> = {}) => {
+  const state = { ...stateWith(tiles), ...overrides };
   return summarizeTurn(
     buildTileIndex(state),
     { ...state, resourceSlots: AMPLE },
@@ -66,5 +69,37 @@ describe("summarizeTurn intent-ledger wiring", () => {
     ledger.record({ kind: "TECH", techId: "agriculture" }, 1, 1_000);
     const context = summarize(ledger, tiles);
     expect(context.recentOutcomes).toEqual([expect.stringContaining("PENDING CHOOSE_TECH(agriculture)")]);
+  });
+});
+
+describe("summarizeTurn domainChoices", () => {
+  const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" }];
+  const domains: DomainState = {
+    domainIds: [],
+    openChoiceIds: ["frontier-doctrine"],
+    catalog: [
+      {
+        id: "frontier-doctrine",
+        tier: 1,
+        name: "Frontier Doctrine",
+        description: "faster settling",
+        requiresTechId: "organized-supply",
+        goldCost: 40,
+        resourceCost: {},
+        needsResourceChoice: false
+      }
+    ],
+    strategicResources: {}
+  };
+  const withTech = { techIds: ["organized-supply"], domains };
+
+  it("offers an open, affordable domain whose tech is owned", () => {
+    expect(summarize(new IntentLedger(), tiles, 2, withTech).domainChoices.map((choice) => choice.id)).toEqual(["frontier-doctrine"]);
+  });
+
+  it("withholds the domain while a domain intent is pending", () => {
+    const ledger = new IntentLedger();
+    ledger.record({ kind: "DOMAIN", domainId: "frontier-doctrine" }, 1, 1_000);
+    expect(summarize(ledger, tiles, 2, withTech).domainChoices).toEqual([]);
   });
 });

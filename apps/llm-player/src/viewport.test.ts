@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GameInitState, GameTile } from "./game-socket.js";
+import type { GameInitState, GameTile } from "./game-types.js";
 import { buildBeaconSites, buildTileIndex, buildViewport, buildViewportFrontier } from "./viewport.js";
 
 const PLAYER = "me";

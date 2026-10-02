@@ -1,18 +1,20 @@
-// Tracks fire-and-forget commands (BUILD_ECONOMIC_STRUCTURE, CHOOSE_TECH) until
-// their effect is observed, so the bot learns whether they landed instead of
-// logging "sent" and assuming success.
+// Tracks fire-and-forget commands (BUILD_ECONOMIC_STRUCTURE, CHOOSE_TECH,
+// CHOOSE_DOMAIN) until their effect is observed, so the bot learns whether they
+// landed instead of logging "sent" and assuming success.
 //
-// Neither command carries a client commandId, so there is no ack to correlate.
+// None of these commands carries a client commandId, so there is no ack to
+// correlate.
 // Two signals exist instead:
-//   - success: the effect shows up in state (techIds via TECH_UPDATE; a
-//     structure as economicStructureJson on the tile -- a build goes straight
-//     to status "under_construction" at accept time, see apps/simulation/src/
-//     runtime-structure-command-handlers.ts).
+//   - success: the effect shows up in state (techIds via TECH_UPDATE, domainIds
+//     via DOMAIN_UPDATE, a structure as economicStructureJson on the tile -- a
+//     build goes straight to status "under_construction" at accept time, see
+//     apps/simulation/src/runtime-structure-command-handlers.ts).
 //   - rejection: the gateway sends the submitting player an ERROR whose
 //     commandId is server-generated (apps/realtime-gateway/src/gateway-app/
 //     gateway-app.ts's COMMAND_REJECTED branch), which GameSession captures as
 //     an UnmatchedError. It can't be matched by id, so it's attributed to the
-//     most recently sent intent that precedes it: the gateway rejects within
+//     most recently sent intent that precedes it (restricted to the matching
+//     kind when the code names one -- DOMAIN_*, TECH_*, BUILD_*): the gateway rejects within
 //     moments of receiving a command, whereas an older still-pending intent has
 //     already had at least a full turn to show its effect. It is still a
 //     heuristic, hence the "probable" wording shown to the model. A rejection
@@ -25,12 +27,13 @@
 // discipline.md): pending is capped, outcomes are a short ring, cooldown keys
 // expire.
 import type { EconomicStructureType } from "@border-empires/shared";
-import type { GameInitState, UnmatchedError } from "./game-socket.js";
+import type { GameInitState, UnmatchedError } from "./game-types.js";
 import { buildTileIndex, economicStructureType } from "./viewport.js";
 import { tileKey } from "./wire-parsers.js";
 
 export type Intent =
   | { kind: "TECH"; techId: string }
+  | { kind: "DOMAIN"; domainId: string }
   | { kind: "STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
 export type OutcomeStatus = "confirmed" | "rejected" | "unconfirmed";
@@ -42,6 +45,7 @@ type RecordedOutcome = { outcome: Outcome; sentAtMs: number };
 export type ReconcileInput = {
   turn: number;
   techIds: readonly string[];
+  domainIds: readonly string[];
   // economicStructure.type on the tile at (x, y), if any.
   structureTypeAt: (x: number, y: number) => string | undefined;
   errors: readonly UnmatchedError[];
@@ -56,14 +60,61 @@ const EXPIRE_AFTER_TURNS = 3;
 // choices, so the model doesn't immediately re-send the same doomed command.
 const COOLDOWN_TURNS = 5;
 
-const describeIntent = (intent: Intent): string =>
-  intent.kind === "TECH"
-    ? `CHOOSE_TECH(${intent.techId})`
-    : `BUILD_ECONOMIC_STRUCTURE(${intent.structureType}) at (${intent.x},${intent.y})`;
+const assertNever = (value: never): never => {
+  throw new Error(`Unhandled intent: ${JSON.stringify(value)}`);
+};
 
-const pendingKey = (intent: Intent): string => (intent.kind === "TECH" ? `tech:${intent.techId}` : `tile:${intent.x},${intent.y}`);
-const cooldownKey = (intent: Intent): string =>
-  intent.kind === "TECH" ? `tech:${intent.techId}` : `tile:${intent.x},${intent.y}:${intent.structureType}`;
+const describeIntent = (intent: Intent): string => {
+  switch (intent.kind) {
+    case "TECH":
+      return `CHOOSE_TECH(${intent.techId})`;
+    case "DOMAIN":
+      return `CHOOSE_DOMAIN(${intent.domainId})`;
+    case "STRUCTURE":
+      return `BUILD_ECONOMIC_STRUCTURE(${intent.structureType}) at (${intent.x},${intent.y})`;
+    default:
+      return assertNever(intent);
+  }
+};
+
+// What a pending intent occupies. Domains are one permanent pick per tier, so
+// any in-flight domain intent blocks every domain, not just its own id.
+const pendingKey = (intent: Intent): string => {
+  switch (intent.kind) {
+    case "TECH":
+      return `tech:${intent.techId}`;
+    case "DOMAIN":
+      return "domain";
+    case "STRUCTURE":
+      return `tile:${intent.x},${intent.y}`;
+    default:
+      return assertNever(intent);
+  }
+};
+// What a rejection puts on cooldown: the specific target that was refused.
+const cooldownKey = (intent: Intent): string => {
+  switch (intent.kind) {
+    case "TECH":
+      return `tech:${intent.techId}`;
+    case "DOMAIN":
+      return `domain:${intent.domainId}`;
+    case "STRUCTURE":
+      return `tile:${intent.x},${intent.y}:${intent.structureType}`;
+    default:
+      return assertNever(intent);
+  }
+};
+
+// Only some rejection codes say which command they belong to (the sim's
+// handlers use DOMAIN_INVALID / TECH_INVALID / BUILD_INVALID; INSUFFICIENT_*
+// and the like are shared). When a code does say, an error must never be
+// pinned on a pending intent of another kind.
+const kindForErrorCode = (code: string): Intent["kind"] | undefined => {
+  if (code.startsWith("DOMAIN_")) return "DOMAIN";
+  if (code.startsWith("TECH_")) return "TECH";
+  if (code.startsWith("BUILD_")) return "STRUCTURE";
+  return undefined;
+};
 
 export class IntentLedger {
   private pending: PendingIntent[] = [];
@@ -103,13 +154,14 @@ export class IntentLedger {
     // that has in fact already landed.
     for (const entry of [...this.pending]) {
       const { intent } = entry;
-      const landed =
-        intent.kind === "TECH" ? input.techIds.includes(intent.techId) : input.structureTypeAt(intent.x, intent.y) === intent.structureType;
-      if (landed) resolve(entry, "confirmed");
+      if (this.hasLanded(intent, input)) resolve(entry, "confirmed");
     }
 
     for (const error of [...input.errors].sort((left, right) => left.receivedAt - right.receivedAt)) {
-      const target = [...this.pending].reverse().find((entry) => entry.sentAtMs <= error.receivedAt);
+      const errorKind = kindForErrorCode(error.code);
+      const target = [...this.pending]
+        .reverse()
+        .find((entry) => entry.sentAtMs <= error.receivedAt && (errorKind === undefined || entry.intent.kind === errorKind));
       if (target) {
         resolve(target, "rejected", error);
         continue;
@@ -128,10 +180,31 @@ export class IntentLedger {
     return resolved;
   }
 
+  private hasLanded(intent: Intent, input: ReconcileInput): boolean {
+    switch (intent.kind) {
+      case "TECH":
+        return input.techIds.includes(intent.techId);
+      case "DOMAIN":
+        return input.domainIds.includes(intent.domainId);
+      case "STRUCTURE":
+        return input.structureTypeAt(intent.x, intent.y) === intent.structureType;
+      default:
+        return assertNever(intent);
+    }
+  }
+
   // A rejection with nothing pending may belong to an intent that already
   // expired as "unconfirmed" -- the server's reason is worth more than "no sign".
   private upgradeLateRejection(error: UnmatchedError, turn: number): Outcome | undefined {
-    const candidate = [...this.outcomes].reverse().find((entry) => entry.outcome.status === "unconfirmed" && entry.sentAtMs <= error.receivedAt);
+    const errorKind = kindForErrorCode(error.code);
+    const candidate = [...this.outcomes]
+      .reverse()
+      .find(
+        (entry) =>
+          entry.outcome.status === "unconfirmed" &&
+          entry.sentAtMs <= error.receivedAt &&
+          (errorKind === undefined || entry.outcome.intent.kind === errorKind)
+      );
     if (!candidate) return undefined;
     candidate.outcome = { intent: candidate.outcome.intent, status: "rejected", turn, code: error.code, message: error.message };
     this.cooldownUntilTurn.set(cooldownKey(candidate.outcome.intent), turn + COOLDOWN_TURNS);
@@ -160,6 +233,10 @@ export class IntentLedger {
 
   blocksTech(techId: string): boolean {
     return this.isBlocked({ kind: "TECH", techId });
+  }
+
+  blocksDomain(domainId: string): boolean {
+    return this.isBlocked({ kind: "DOMAIN", domainId });
   }
 
   blocksStructure(x: number, y: number, structureType: EconomicStructureType): boolean {
@@ -206,6 +283,7 @@ export const reconcileFromState = (
   return ledger.reconcile({
     turn,
     techIds: state.techIds,
+    domainIds: state.domains.domainIds,
     structureTypeAt: (x, y) => {
       const tile = index.get(tileKey(x, y));
       return tile && tile.ownerId === state.playerId ? economicStructureType(tile) : undefined;

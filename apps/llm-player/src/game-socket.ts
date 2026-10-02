@@ -7,106 +7,33 @@
 // by apps/realtime-gateway/src/init-payload/init-payload.ts for display
 // purposes), so it's read defensively here rather than cast to a strict type.
 import WebSocket from "ws";
-import { ClientMessageSchema, type ClientMessage, type EconomicStructureType, type SlotResource } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { ClientMessageSchema, type ClientMessage } from "@border-empires/shared";
+import type {
+  BotAction,
+  DomainState,
+  CommandResult,
+  EventLogEntry,
+  FireAndForgetAction,
+  GameInitState,
+  GameTile,
+  ResourceSlots,
+  UnmatchedError
+} from "./game-types.js";
 import { sleep } from "./sleep.js";
-import { asAutoSettlementQueue, asEventLogEntry, asResourceSlots, asTechIds, isRecord, tileKey } from "./wire-parsers.js";
+import {
+  asAutoSettlementQueue,
+  asEventLogEntry,
+  asResourceSlots,
+  asTechIds,
+  emptyDomainState,
+  isRecord,
+  mergeDomainState,
+  tileKey
+} from "./wire-parsers.js";
 
-// §5 (docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/UMBRITE
-// build costs are retired as a stockpile spend (strategicResources) -- a
-// structure needing one of these permanently occupies a SLOT instead
-// (packages/shared/src/structure-slots/structure-slots.ts), gated by a
-// global per-resource supply/demand pool. This is the same precomputed pair
-// the server's own hasFreeResourceSlots gates BUILD_STRUCTURE on
-// (packages/sim-protocol/src/index.ts's doc comment on `resourceSlots`).
-// strategicResources itself isn't tracked here -- SHARD is the only key it
-// still governs (monument assembly), and monuments are out of scope for
-// this bot (see structures.ts's doc comment).
-export type ResourceSlots = { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
-
-// Shared by every eligibility check that needs a real free-slot count
-// (structures.ts's hasFreeSlots, viewport.ts's buildBeaconSites) so the
-// supply-minus-demand formula can't quietly drift between them.
-export const freeResourceSlotCount = (resourceSlots: ResourceSlots, resource: SlotResource): number =>
-  resourceSlots.supply[resource] - resourceSlots.demand[resource];
-
-export type GameTile = PlayerSubscriptionSnapshot["tiles"][number];
-export type EventLogEntry = NonNullable<PlayerSubscriptionSnapshot["player"]>["eventLog"] extends
-  | Array<infer Entry>
-  | undefined
-  ? Entry
-  : never;
-
-export type GameInitState = {
-  playerId: string;
-  playerName: string;
-  gold: number;
-  manpower: number;
-  manpowerCap: number;
-  // Base is MANPOWER_BASE_REGEN_PER_MINUTE (packages/shared/src/config.ts) --
-  // ~0.2/min, i.e. ~12h to refill an empty pool from scratch. Town
-  // population growth raises this (and the cap), so read the live value
-  // here rather than assuming the base rate.
-  manpowerRegenPerMinute: number;
-  tiles: GameTile[];
-  // §20 durable "what happened while I was away" feed (see
-  // packages/sim-protocol/src/index.ts) -- most-recent-last, deduplicated by
-  // id since it's unclear from the wire alone whether a later PLAYER_UPDATE
-  // resends the full log or only new entries; merging by id is correct
-  // either way.
-  // Always the server's latest full log for this player (already capped
-  // server-side), not something to accumulate across updates -- see
-  // packages/client/src/client-network/client-network.ts's identical
-  // `state.eventLog = incomingEventLog` full-replace handling.
-  eventLog: EventLogEntry[];
-  // Server-computed candidates (town/dock/resource/town-ring FRONTIER tiles
-  // in reach) for the "Auto-settle" mechanic -- the real browser client
-  // drains this itself by firing ordinary SETTLE commands
-  // (packages/client/src/client-development-queue/client-development-queue.ts's
-  // applyAutoSettlementQueueFromServer), budget-gated by manpower; a human
-  // player never manually settles these. Always the server's latest full
-  // queue (see client-network.ts's identical handling), not something to
-  // accumulate across updates.
-  autoSettlementQueue: Array<{ x: number; y: number }>;
-  // Researched tech ids. Only refreshed via a TECH_UPDATE event (fires after
-  // a CHOOSE_TECH round-trip, or other progression changes) -- unlike
-  // eventLog/autoSettlementQueue this is NOT part of PLAYER_UPDATE (see
-  // packages/client/src/client-network/client-network.ts's separate
-  // TECH_UPDATE handler), so a session that never sees one keeps whatever
-  // INIT reported.
-  techIds: string[];
-  // The real gate for FOOD/TITANIUM/CRYSTAL/UMBRITE structure eligibility --
-  // see ResourceSlots's doc comment. Refreshed via PLAYER_UPDATE.
-  resourceSlots: ResourceSlots;
-};
-
-export type BotAction =
-  | { type: "EXPAND"; fromX: number; fromY: number; toX: number; toY: number }
-  | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
-  | { type: "SETTLE"; x: number; y: number };
-
-// Separate from BotAction: BUILD_ECONOMIC_STRUCTURE carries no commandId in
-// its own schema (packages/shared/src/messages/messages.ts), and the gateway
-// only forwards commandId/clientSeq for commands it dispatches with
-// withMetadata=true (SETTLE, RUSH_BUY, ...) -- BUILD_ECONOMIC_STRUCTURE isn't
-// one of them (apps/realtime-gateway/src/gateway-app/gateway-app.ts, same for
-// CHOOSE_TECH below). So unlike sendAction() neither call can be matched to
-// an ACTION_ACCEPTED/ERROR by id. A rejection still reaches us as an ERROR
-// tagged with a server-generated commandId (captured via
-// drainUnmatchedErrors) and success shows up in state; intent-ledger.ts ties
-// the two back to the call. structureType is typed broadly (any
-// EconomicStructureType) at this wire layer; which types the bot actually
-// offers the LLM is a curated allowlist decided in structures.ts, not here.
-export type BuildEconomicStructureAction = { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
-export type ChooseTechAction = { type: "CHOOSE_TECH"; techId: string };
-export type FireAndForgetAction = BuildEconomicStructureAction | ChooseTechAction;
-
-export type UnmatchedError = { commandId: string; receivedAt: number; code: string; message: string };
 const MAX_UNMATCHED_ERRORS = 20;
 const MAX_SEEN_REJECTION_IDS = 100;
 const OWN_COMMAND_ID_PREFIX = "llm-player-";
-
-export type CommandResult = { outcome: "accepted" } | { outcome: "error"; code: string; message: string };
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const COMMAND_TIMEOUT_MS = 15_000;
@@ -142,7 +69,10 @@ const parseInitState = (message: Record<string, unknown>): GameInitState => {
     eventLog,
     autoSettlementQueue: asAutoSettlementQueue(rawPlayer.autoSettlementQueue),
     techIds: asTechIds(rawPlayer.techIds),
-    resourceSlots: asResourceSlots(rawPlayer.resourceSlots)
+    resourceSlots: asResourceSlots(rawPlayer.resourceSlots),
+    // domainChoices/domainCatalog sit at the top level of INIT; domainIds and
+    // strategicResources on the curated `player` object.
+    domains: mergeDomainState(mergeDomainState(emptyDomainState(), message), { ...rawPlayer, ...player })
   };
 };
 
@@ -168,6 +98,7 @@ export class GameSession {
   private autoSettlementQueue: Array<{ x: number; y: number }>;
   private techIds: string[];
   private resourceSlots: ResourceSlots;
+  private domains: DomainState;
   private unmatchedErrors: UnmatchedError[] = [];
   private readonly seenRejectionIds = new Set<string>();
   private player: { id: string; name: string; gold: number; manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
@@ -194,6 +125,7 @@ export class GameSession {
     this.autoSettlementQueue = init.autoSettlementQueue;
     this.techIds = init.techIds;
     this.resourceSlots = init.resourceSlots;
+    this.domains = init.domains;
     this.socket.on("message", (data) => this.handleMessage(data));
     this.socket.on("close", () => this.handleDisconnect(new Error("Gateway connection closed")));
     // ws throws if an "error" event has no listener at all -- this one is
@@ -202,7 +134,7 @@ export class GameSession {
     this.socket.on("error", (error) => this.handleDisconnect(error instanceof Error ? error : new Error(String(error))));
   }
 
-  // BUILD_ECONOMIC_STRUCTURE/CHOOSE_TECH carry no client commandId, so the
+  // BUILD_ECONOMIC_STRUCTURE/CHOOSE_TECH/CHOOSE_DOMAIN carry no client commandId, so the
   // gateway tags their rejection ERROR with a server-generated one
   // (apps/realtime-gateway/src/gateway-app/gateway-app.ts's COMMAND_REJECTED
   // branch) that nothing here is waiting on. Keep those -- bounded -- so the
@@ -267,7 +199,8 @@ export class GameSession {
       eventLog: this.eventLog,
       autoSettlementQueue: this.autoSettlementQueue,
       techIds: this.techIds,
-      resourceSlots: this.resourceSlots
+      resourceSlots: this.resourceSlots,
+      domains: this.domains
     };
   }
 
@@ -350,6 +283,9 @@ export class GameSession {
       if (typeof message.name === "string") this.player.name = message.name;
       if ("autoSettlementQueue" in message) this.autoSettlementQueue = asAutoSettlementQueue(message.autoSettlementQueue);
       if ("resourceSlots" in message) this.resourceSlots = asResourceSlots(message.resourceSlots);
+      // The live stockpile (SHARD is what domain costs read) -- the real
+      // client refreshes it here too, not only on TECH_UPDATE/DOMAIN_UPDATE.
+      if ("strategicResources" in message) this.domains = mergeDomainState(this.domains, { strategicResources: message.strategicResources });
       if (Array.isArray(message.eventLog)) {
         this.eventLog = message.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined);
       }
@@ -360,6 +296,15 @@ export class GameSession {
     // (never via PLAYER_UPDATE). Always the full owned-tech list, not a diff.
     if (message.type === "TECH_UPDATE" && Array.isArray(message.techIds)) {
       this.techIds = asTechIds(message.techIds);
+    }
+
+    // DOMAIN_UPDATE follows a CHOOSE_DOMAIN round-trip and carries the new
+    // domainIds/open choices/catalog; TECH_UPDATE resends the same fields (a
+    // new tech can open a domain). Gold is deliberately NOT read from these:
+    // they can be replayed after a reconnect with the gold of the moment they
+    // were first computed, and only PLAYER_UPDATE is a live source for it.
+    if (message.type === "TECH_UPDATE" || message.type === "DOMAIN_UPDATE") {
+      this.domains = mergeDomainState(this.domains, message);
     }
 
     const commandId = typeof message.commandId === "string" ? message.commandId : undefined;
