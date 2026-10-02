@@ -30,7 +30,7 @@ export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   military: "Military",
   resource: "Resource",
   town_support: "Town Support",
-  infrastructure: "Infrastructure"
+  infrastructure: "Infra\u00ADstructure"
 };
 
 export const BUILDING_CATEGORY_ICONS: Record<BuildingCategory, string> = {

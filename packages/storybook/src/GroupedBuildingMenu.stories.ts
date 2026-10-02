@@ -1,110 +1,80 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import "@client/style.css";
+import "@client/client-player-name-link-style.css";
+import "@client/client-placement-overlay-style.css";
+import "@client/client-victory-alert-style.css";
+import "@client/client-player-profile-style.css";
+import "@client/client-ally-alert-style.css";
+import "@client/client-dev-queue-state-style.css";
+import "@client/client-capture-mustering-style.css";
+import "@client/client-capture-goto-style.css";
+import "@client/client-town-stat-grid-style.css";
+import "@client/client-feed-unread-style.css";
+import "@client/client-rush-buy-style.css";
+import "@client/client-season-lobby-style.css";
+import "@client/client-rally-link-settings-style.css";
+import "@client/client-bug-report-style.css";
+import "@client/client-hud-settings-discord-style.css";
+import "@client/client-founding-engineer-style.css";
+import "@client/client-duke-title-style.css";
+import "@client/client-tile-progress-queued-next-style.css";
+import "@client/client-season-end-score-graph.css";
+import "@client/client-tile-progress-battle-style.css";
 import "@client/client-tile-menu-building-group-style.css";
+import "@client/client-resource-discovery-info-style.css";
+import "@client/client-steampunk-theme-style.css";
+import "@client/client-steampunk-panels-style.css";
+import "@client/client-steampunk-modals-style.css";
+import "@client/client-steampunk-settings-style.css";
+import "@client/client-steampunk-economy-domain-tech-style.css";
+import "@client/client-steampunk-alliance-style.css";
+import "@client/client-steampunk-tile-menu-style.css";
+import "@client/client-tile-ownership-help-style.css";
+import "@client/client-activity-dashboard-style.css";
+import "@client/client-muster-commit-tab-style.css";
+import "@client/client-auth-busy-progress-style.css";
+import "@client/client-photo-mode-style.css";
+import "@client/client-auth-guest-style.css";
+import "@client/client-guest-save-style.css";
+import "@client/client-auto-settle-prompt/client-auto-settle-prompt-style.css";
 import { tileActionMenuHtml } from "@client/client-tile-menu-html.js";
-import type { TileActionDef, TileMenuView } from "@client/client-types.js";
+import type { Tile, TileMenuView } from "@client/client-types.js";
+import { realBuildingMenuView } from "./tile-menu/real-building-menu-view.js";
 
 /**
- * Renders the *real* implementation (client-tile-menu-html.ts) to demo a
- * proposed fix: a developed settled tile can offer 15-30+ building actions
- * in one flat scrolling .tile-action-list. This groups the same buildings
- * tab data under four category squares -- Military, Resource, Town Support,
- * Infrastructure -- classified in client-tile-menu-building-category.ts
- * (NOT the shared sortGroup field, which is a sort-priority tier that mixes
- * weapons factories into its "support" bucket and vision structures like
- * Relay Beacon into its "military" bucket -- see that file's header comment
- * for the real classification rules: resourceTypes for Resource,
- * placementMode for Town Support, a curated set for Military).
+ * Every building row here (label, detail text, cost, disabled reason) comes
+ * from the shipped client code: menuActionsForSingleTile + the real detail
+ * and cost text + splitTileActionsIntoTabs. Only the game state around it is
+ * faked (a fully-teched player with plenty of resources). The category
+ * squares are the proposal; the rows underneath are not hand-written.
  */
-const buildingAction = (id: TileActionDef["id"], label: string, cost: string): TileActionDef => ({
-  id,
-  label,
-  cost
-});
+const town = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { populationTier: "CITY" } } as unknown as Tile;
 
-const manyBuildings: TileActionDef[] = [
-  buildingAction("build_relay_beacon", "Relay Beacon", "80 manpower"),
-  buildingAction("build_rail_depot", "Rail Depot", "220 manpower"),
-  buildingAction("build_caravanary", "Caravanary", "140 manpower"),
-  buildingAction("build_customs_house", "Customs House", "260 manpower"),
-  buildingAction("build_farmstead", "Farmstead", "60 manpower"),
-  buildingAction("build_granary", "Granary", "180 manpower"),
-  buildingAction("build_mine", "Mine", "150 manpower"),
-  buildingAction("build_mintworks", "Mintworks", "300 manpower"),
-  buildingAction("build_census_hall", "Census Hall", "220 manpower"),
-  buildingAction("build_clearing_house", "Clearing House", "260 manpower"),
-  buildingAction("build_foundry", "Foundry", "280 manpower"),
-  buildingAction("build_umbrite_rig", "Umbrite Rig", "200 manpower"),
-  buildingAction("build_umbrite_synthesizer", "Umbrite Synthesizer", "400 manpower"),
-  buildingAction("build_titanium_works", "Titanium Works", "380 manpower"),
-  buildingAction("build_crystal_synthesizer", "Crystal Synthesizer", "420 manpower"),
-  buildingAction("build_waterworks", "Waterworks", "180 manpower"),
-  buildingAction("build_observatory", "Observatory", "80 manpower"),
-  buildingAction("build_radar_system", "Radar System", "240 manpower"),
-  buildingAction("build_airport", "Airport", "500 manpower"),
-  buildingAction("build_aether_tower", "Aether Tower", "460 manpower"),
-  buildingAction("build_fortification", "Fortification", "300 manpower"),
-  buildingAction("build_wooden_fort", "Wooden Fort", "120 manpower"),
-  buildingAction("build_siege_camp", "Siege Camp", "260 manpower"),
-  buildingAction("build_garrison_hall", "Garrison Hall", "300 manpower"),
-  buildingAction("build_titanium_weapons_factory", "Titanium Weapons Factory", "440 manpower"),
-  buildingAction("build_umbrite_weapons_factory", "Umbrite Weapons Factory", "440 manpower"),
-  buildingAction("build_governors_office", "Governor's Office", "260 manpower"),
-  buildingAction("build_logistics_guild", "Logistics Guild", "300 manpower"),
-  buildingAction("build_assembly_works", "Assembly Works", "360 manpower")
-];
+const supportTile = { x: 11, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as unknown as Tile;
+const plainSettledTile = { x: 40, y: 40, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as unknown as Tile;
+const farmTile = { x: 50, y: 12, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as unknown as Tile;
+const dockTile = { x: 60, y: 30, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dock-1" } as unknown as Tile;
 
-const fewBuildings: TileActionDef[] = manyBuildings.slice(0, 4);
-
-// A frontier outpost tile: only Military and Resource structures make
-// sense here (no town ring for Town Support, no city offices for
-// Infrastructure) -- demonstrates the empty-category gray-out + reason.
-const frontierOutpostBuildings: TileActionDef[] = [
-  buildingAction("build_wooden_fort", "Wooden Fort", "120 manpower"),
-  buildingAction("build_siege_camp", "Siege Camp", "260 manpower"),
-  buildingAction("build_farmstead", "Farmstead", "60 manpower"),
-  buildingAction("build_mine", "Mine", "150 manpower"),
-  buildingAction("build_umbrite_rig", "Umbrite Rig", "200 manpower"),
-  buildingAction("build_relay_beacon", "Relay Beacon", "30 manpower"),
-  buildingAction("build_observatory", "Observatory", "80 manpower")
-];
-
-const viewFor = (buildings: TileActionDef[]): TileMenuView => ({
-  title: "Ironhold City (118, 64)",
-  subtitle: "Great City · Settled",
-  tabs: ["overview", "actions", "buildings"],
-  overviewLines: [],
-  actions: [],
-  buildings,
-  crystal: []
-});
-
-const columns: { label: string; description: string; view: TileMenuView; tab: "buildings" | "actions" }[] = [
+const columns: { label: string; description: string; view: TileMenuView }[] = [
   {
-    label: "Before — flat list (unaffected, few buildings)",
-    description: "6 or fewer building options still render as a single flat list — no grouping overhead for simple tiles.",
-    view: viewFor(fewBuildings),
-    tab: "buildings"
+    label: "Support tile next to a City",
+    description: "Everything buildable on a town's support ring, plus the any-settled-tile structures.",
+    view: realBuildingMenuView({ tile: supportTile, supportedTowns: [town] }, "Support tile (11, 10)", "Settled")
   },
   {
-    label: "Before — flat list (many buildings)",
-    description: `${manyBuildings.length} building options in one .tile-action-list, exactly what a developed capital city offers today. Scrolling to find one specific building is slow. (Rendered via the "actions" tab here only to bypass the new grouping and show the old behavior for comparison.)`,
-    view: { ...viewFor([]), actions: manyBuildings },
-    tab: "actions"
+    label: "Plain settled land",
+    description: "No town nearby: Town Support is grayed out with the reason.",
+    view: realBuildingMenuView({ tile: plainSettledTile }, "Settled land (40, 40)", "Settled")
   },
   {
-    label: "After — category squares",
-    description:
-      "Same data, grouped under 4 category squares: Military, Resource, Town Support, Infrastructure. Click a square to filter the list below it (pure CSS radio toggle). Threshold is 6 buildings before this kicks in.",
-    view: viewFor(manyBuildings),
-    tab: "buildings"
+    label: "Farm resource tile",
+    description: "A resource tile: Resource is available alongside the generic structures.",
+    view: realBuildingMenuView({ tile: farmTile }, "Farm (50, 12)", "Settled")
   },
   {
-    label: "After — empty category grayed out",
-    description:
-      "Frontier outpost tile: only Military and Resource structures are buildable here. Town Support and Infrastructure squares are disabled with a tooltip explaining why (hover to see it), and the panel below shows the same reason.",
-    view: viewFor(frontierOutpostBuildings),
-    tab: "buildings"
+    label: "Dock tile",
+    description: "A dock tile.",
+    view: realBuildingMenuView({ tile: dockTile }, "Dock (60, 30)", "Settled")
   }
 ];
 
@@ -124,29 +94,18 @@ const render = (): HTMLElement => {
     colEl.style.alignContent = "start";
 
     const heading = document.createElement("h3");
-    heading.style.margin = "0";
-    heading.style.color = "#ffd166";
-    heading.style.fontSize = "13px";
-    heading.style.fontWeight = "800";
-    heading.style.textTransform = "uppercase";
-    heading.style.letterSpacing = "0.06em";
+    heading.style.cssText = "margin:0;color:#ffd166;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em";
     heading.textContent = col.label;
     colEl.appendChild(heading);
 
     const desc = document.createElement("p");
-    desc.style.margin = "0 0 4px 0";
-    desc.style.color = "rgba(201, 216, 236, 0.72)";
-    desc.style.fontSize = "12px";
-    desc.style.lineHeight = "1.5";
+    desc.style.cssText = "margin:0 0 4px 0;color:rgba(201,216,236,0.72);font-size:12px;line-height:1.5";
     desc.textContent = col.description;
     colEl.appendChild(desc);
 
     const menuWrap = document.createElement("div");
-    menuWrap.style.position = "relative";
-    menuWrap.style.width = "340px";
-    menuWrap.style.maxHeight = "560px";
-    menuWrap.style.overflow = "auto";
-    menuWrap.innerHTML = tileActionMenuHtml(col.view, col.tab, false);
+    menuWrap.style.cssText = "position:relative;width:340px;max-height:640px;overflow:auto";
+    menuWrap.innerHTML = tileActionMenuHtml(col.view, "buildings", false);
     colEl.appendChild(menuWrap);
 
     row.appendChild(colEl);
@@ -162,4 +121,4 @@ const meta: Meta = {
 };
 export default meta;
 
-export const Comparison: StoryObj = {};
+export const RealBuildMenu: StoryObj = {};
