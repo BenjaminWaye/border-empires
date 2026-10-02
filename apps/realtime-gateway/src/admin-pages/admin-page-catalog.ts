@@ -202,7 +202,7 @@ export const ADMIN_ENVIRONMENTS: AdminEnvironment[] = [
   {
     label: "Staging",
     flyApp: "border-empires-combined-staging",
-    gatewayOrigin: "https://border-empires-combined-staging.fly.dev",
+    gatewayOrigin: "https://api-staging.borderempires.com",
     playOrigin: "https://staging.borderempires.com"
   }
 ];

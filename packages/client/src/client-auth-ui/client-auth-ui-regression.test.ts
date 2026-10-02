@@ -36,7 +36,7 @@ describe("syncAuthOverlay", () => {
         authBusyTitle: "Securing session",
         authBusyDetail: "Game server reached. Verifying your Google session...",
         activeBackend: "gateway",
-        bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+        bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
         seasonFull: false,
         seasonFullNotifyAcknowledged: false,
         authEmail: ""
@@ -71,7 +71,7 @@ describe("syncAuthOverlay", () => {
     expect(authBusyTitleEl.textContent).toBe("Securing session");
     expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session... (4s elapsed)");
     expect(authDebugRouteEl.textContent).toContain("Backend gateway");
-    expect(authDebugRouteEl.textContent).toContain("border-empires-combined-staging");
+    expect(authDebugRouteEl.textContent).toContain("api-staging.borderempires.com");
   });
 
   const baseDeps = () => ({
@@ -112,7 +112,7 @@ describe("syncAuthOverlay", () => {
     authBusyTitle: "Finishing up...",
     authBusyDetail: "Building session data for a large empire (18s)…",
     activeBackend: "gateway" as const,
-    bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+    bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
     seasonFull: false,
     seasonFullNotifyAcknowledged: false,
     authEmail: ""

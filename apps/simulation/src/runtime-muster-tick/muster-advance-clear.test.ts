@@ -341,6 +341,7 @@ describe("only an accepted command counts as engaging", () => {
       dockLinksByDockTileKey: new Map(),
       aetherBridgeNeighborKeysForPlayer: () => new Map(),
       requiredMusterForTarget: () => 10,
+      playerManpowerCap: () => 1_000,
       nextTerritoryAutomationCommandId: () => "cmd",
       handleFrontierCommand: () => ({ accepted }),
       replaceTileState: (key: string, tile: unknown) => tiles.set(key, tile),

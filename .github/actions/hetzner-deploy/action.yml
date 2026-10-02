@@ -1,0 +1,71 @@
+name: Deploy to Hetzner
+description: >
+  Builds Dockerfile.combined, pushes it to GHCR tagged with the commit sha, then
+  runs the server's forced-command deploy over SSH (`<sha>`): pull, switch,
+  health-gate on /health, auto-rollback. See docs/hetzner-migration-plan.md.
+inputs:
+  sha:
+    description: Full 40-char commit sha to build and deploy
+    required: true
+  ssh-host:
+    required: true
+  ssh-user:
+    required: false
+    default: deploy
+  ssh-key:
+    required: true
+  ssh-known-hosts:
+    required: true
+  ghcr-token:
+    description: Token with packages:write (the workflow GITHUB_TOKEN)
+    required: true
+  platform:
+    description: linux/amd64 (CX23) or linux/arm64 (CAX11)
+    required: false
+    default: linux/amd64
+runs:
+  using: composite
+  steps:
+    - name: Compute image name
+      id: image
+      shell: bash
+      run: |
+        owner="${GITHUB_REPOSITORY_OWNER,,}"
+        echo "name=ghcr.io/${owner}/border-empires-combined" >> "$GITHUB_OUTPUT"
+
+    - uses: docker/setup-buildx-action@v3
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.ghcr-token }}
+
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: Dockerfile.combined
+        platforms: ${{ inputs.platform }}
+        push: true
+        tags: ${{ steps.image.outputs.name }}:${{ inputs.sha }}
+        build-args: |
+          CACHE_BUST=${{ inputs.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Configure ssh
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        KNOWN_HOSTS: ${{ inputs.ssh-known-hosts }}
+      run: |
+        install -m 700 -d ~/.ssh
+        printf '%s\n' "$SSH_KEY" > ~/.ssh/hetzner_deploy
+        chmod 600 ~/.ssh/hetzner_deploy
+        printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        printf 'Host hetzner-target\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/hetzner_deploy\n  StrictHostKeyChecking yes\n  ServerAliveInterval 30\n' \
+          "${{ inputs.ssh-host }}" "${{ inputs.ssh-user }}" > ~/.ssh/config
+
+    - name: Deploy (health-gated, auto-rollback)
+      shell: bash
+      run: ssh hetzner-target "${{ inputs.sha }}"

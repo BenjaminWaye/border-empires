@@ -60,7 +60,7 @@ Status: active proposal
 | D17 | **Every cost lives in one place.** The Palisade keeps the 30 MP players pay today (18 min under D9); the unused 150 in `FORT_TIER_LADDER` goes. |
 | D18 | **Combat base costs are the ones we already have:** the attack-muster ladder (settled 60, Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960). |
 | D19 | **Enemy arrows are never revealed.** Defenders see the battles on their tiles, not the order behind them. No new warning: the existing attack alerts already cover it. |
-| D20 | **Muster flags have no cap.** A flag holds whatever the player puts in it. `musterFlagCap` and "Expand Capacity" go away. |
+| D20 | ~~**Muster flags have no cap.**~~ **Reversed (2026-10-01):** flags are capped again and "Expand Capacity" is back. A fresh flag's cap is `max(150, 10% of the manpower cap)` (was `min(…)`), plus another 10% share per "Expand Capacity" press, never above the manpower cap. An ADVANCE flag saves up for its nearest target only if the flag can hold that target's cost; otherwise it skips it, attacks what it can afford and tells the player to expand the flag. |
 | D21 | **Settling and structures keep sharing the development slots** (`DEVELOPMENT_PROCESS_LIMIT` = 3, plus `developmentProcessCapacityAdd`). While three long builds run, no tile is settled, auto-settle included. That's a deliberate build-or-grow trade-off. |
 | D22 | **Manpower priority:** the next queued build sets aside its cost first. Server auto-settle only spends manpower above that. A muster flag fills up to the size the player set on the slider, which is the player's own choice. |
 | D23 | **The 5 instant beacons count beacons built this season**, not beacons owned. Lose one and the replacement costs 100 MP (tough luck). The FOOD-slot waiver (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT` = 5) is a separate rule and stays as it is: it covers the 5 oldest beacons you still own. **Implemented as owned count instead** (2026-09-25) — see B2's Relay Beacons entry for why. |
@@ -458,7 +458,8 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
     and the "attacking flag auto-commits to match the defense" convenience
     (Efficient ≈ 55% / Fast) — the attacker still picks `commitManpower`
     manually via the D6 commit tab.
-- **No flag cap (D20). ✅ Implemented 2026-09-26.** `musterFlagCap` (was 10% of
+- **Flag cap restored (2026-10-01) -- D20 reversed.** The 2026-09-26 removal below was undone: `musterFlagCap`, `capLevel`, the `UPGRADE_MUSTER_CAP` command, the "Expand Capacity" button and the AI flag-capacity metrics are back (lives in `packages/shared/src/muster-config.ts`), with the default now `max(150, 10% of the manpower cap)`. The D6 commit-view fix and the no-`commitManpower`-on-FRONTIER fix bundled with that commit were kept.
+- **No flag cap (D20). ~~✅ Implemented 2026-09-26.~~ Reversed, see above.** `musterFlagCap` (was 10% of
   the manpower cap, at most 150, plus "Expand Capacity" upgrades) is removed
   entirely — a flag now fills straight to the player's whole manpower cap,
   limited only by the pool itself (`tickMuster` in `runtime-muster-tick.ts`
