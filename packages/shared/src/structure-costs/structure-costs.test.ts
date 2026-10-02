@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -346,5 +346,22 @@ describe("relayBeaconManpowerCost", () => {
       expect(cost).toBeGreaterThanOrEqual(previous);
       previous = cost;
     }
+  });
+});
+
+// D12: first-tier beacons keep paying manpower but are placed instantly; the
+// 6th+ follow time-follows-cost (100 MP = 1 hour).
+describe("relayBeaconBuildDurationMs", () => {
+  test("the first 5 beacons a player owns build instantly despite costing manpower", () => {
+    for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
+      expect(relayBeaconManpowerCost(owned)).toBeGreaterThan(0);
+      expect(relayBeaconBuildDurationMs(owned)).toBe(0);
+      expect(economicStructureBuildDurationMs("RELAY_BEACON", owned)).toBe(0);
+    }
+  });
+
+  test("the 6th+ beacon takes an hour (100 MP x 36s)", () => {
+    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(3_600_000);
+    expect(relayBeaconBuildDurationMs(20)).toBe(3_600_000);
   });
 });
