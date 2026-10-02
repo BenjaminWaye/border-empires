@@ -47,7 +47,7 @@ const render = (
       authBusyTitle: "Finishing up...",
       authBusyDetail: "Packaging your session for delivery.",
       activeBackend: "gateway",
-      bridgeDebugWsUrl: "wss://border-empires-combined.fly.dev/ws",
+      bridgeDebugWsUrl: "wss://api.borderempires.com/ws",
       seasonFull: false,
       seasonFullNotifyAcknowledged: false,
       authEmail: ""
