@@ -1,0 +1,91 @@
+.tile-building-category-group {
+  display: grid;
+  gap: 10px;
+}
+.tile-building-category-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+.tile-building-categories {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.tile-building-category-square {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  border: 1px solid var(--sp-brass-700, rgba(255, 209, 102, 0.28));
+  border-radius: 10px;
+  background: rgba(20, 16, 10, 0.55);
+  color: var(--sp-parchment-muted, #eef6ff);
+  padding: 8px 1px 6px;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  min-width: 0;
+}
+.tile-building-category-square:hover {
+  background: rgba(217, 173, 82, 0.12);
+  border-color: var(--sp-brass-300, rgba(255, 209, 102, 0.5));
+}
+.tile-building-category-icon {
+  font-size: 16px;
+  color: var(--sp-brass-300, #ffd166);
+}
+.tile-building-category-label {
+  font-size: 7.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--sp-parchment-300, #d6e8ff);
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  width: 100%;
+  max-width: 100%;
+  justify-self: stretch;
+}
+.tile-building-category-count {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: rgba(217, 173, 82, 0.2);
+  color: var(--sp-brass-100, #ffd166);
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.tile-building-category-square.is-empty {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.tile-building-category-square.is-empty .tile-building-category-icon,
+.tile-building-category-square.is-empty .tile-building-category-label {
+  color: var(--sp-parchment-muted, #6d7f97);
+}
+.tile-building-category-panel {
+  display: none;
+}
+.tile-building-category-radio.cat-military:checked ~ .tile-building-categories .cat-military,
+.tile-building-category-radio.cat-resource:checked ~ .tile-building-categories .cat-resource,
+.tile-building-category-radio.cat-town_support:checked ~ .tile-building-categories .cat-town_support,
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-categories .cat-infrastructure,
+.tile-building-category-radio.cat-monument:checked ~ .tile-building-categories .cat-monument {
+  border-color: var(--sp-brass-300, #ffd166);
+  background: rgba(217, 173, 82, 0.2);
+}
+.tile-building-category-radio.cat-military:checked ~ .tile-building-category-panels [data-category="military"],
+.tile-building-category-radio.cat-resource:checked ~ .tile-building-category-panels [data-category="resource"],
+.tile-building-category-radio.cat-town_support:checked ~ .tile-building-category-panels [data-category="town_support"],
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-category-panels [data-category="infrastructure"],
+.tile-building-category-radio.cat-monument:checked ~ .tile-building-category-panels [data-category="monument"] {
+  display: block;
+}

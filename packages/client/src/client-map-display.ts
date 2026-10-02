@@ -234,7 +234,7 @@ export const structureInfoForKey = (
     if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["Farm tiles only — no effect on fish tiles"];
+    if (key === "FARMSTEAD") return ["Grain resource tiles only — no effect on fish tiles"];
     if (key === "WATERWORKS") return [];
     if (key === "UMBRITE_RIG") return [];
     if (key === "MINE") return [];
@@ -387,7 +387,7 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Hydrogarden",
-      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
+      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slots on grain resource tiles. No effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
