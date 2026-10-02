@@ -336,7 +336,9 @@ describe("computeFairSpawnSites", () => {
     const foodTile = tiles.find((tile) => tile.x === 5 && tile.y === 3)!;
     foodTile.resource = "FARM";
     const manhattanFromTown = (x: number, y: number): number => Math.abs(x - 3) + Math.abs(y - 3);
-    const tier1Tiles = tiles.filter((tile) => tile !== townTile && manhattanFromTown(tile.x, tile.y) >= 5);
+    // x === 6 borders the sea gap below, so the AFC dry-footprint rule
+    // (no water on any of the 8 neighbours) already rules those tiles out.
+    const tier1Tiles = tiles.filter((tile) => tile !== townTile && manhattanFromTown(tile.x, tile.y) >= 5 && tile.x < 6);
     const tier1CandidateCount = tier1Tiles.length;
 
     // A 2-tile sea gap keeps island B a separate land region with no
@@ -362,5 +364,33 @@ describe("computeFairSpawnSites", () => {
     // The remaining 12 sites must come from island B, not double up on island A.
     const islandBCount = sites.filter((site) => site.x >= 9).length;
     expect(islandBCount).toBe(12);
+  });
+});
+
+describe("chooseLegacySpawnPlacement AFC dry-footprint rule", () => {
+  it("never lands on a tile with water on any of its 8 neighbours while a dry tile exists", () => {
+    // A checkerboard-ish coast: every column x <= 3 is land fringed by sea at
+    // x === 0, so x === 1 tiles touch water; the rest of the strip is dry.
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 20; y += 1) {
+      for (let x = 0; x < 20; x += 1) tiles.push({ x, y, terrain: x === 0 ? "SEA" : "LAND" });
+    }
+    const terrainAt = (x: number, y: number) => tiles.find((tile) => tile.x === x && tile.y === y)?.terrain;
+    for (let index = 0; index < 40; index += 1) {
+      const spawn = chooseLegacySpawnPlacement({ playerId: `player-${index}`, tiles });
+      expect(spawn).toBeDefined();
+      expect(spawn!.x).toBeGreaterThan(1);
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) expect(terrainAt(spawn!.x + dx, spawn!.y + dy)).not.toBe("SEA");
+      }
+    }
+  });
+
+  it("still finds a spawn when every candidate touches water", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 5; y += 1) {
+      for (let x = 0; x < 5; x += 1) tiles.push({ x, y, terrain: x === 2 && y === 2 ? "LAND" : "SEA" });
+    }
+    expect(chooseLegacySpawnPlacement({ playerId: "lonely", tiles })).toEqual({ x: 2, y: 2 });
   });
 });
