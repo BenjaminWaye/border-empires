@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 /**
@@ -23,34 +23,61 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
  * unbounded flood over the whole map. Tiles beyond the cap, or that the
  * flood never reaches (cut off by water, map edge, etc.), simply have no
  * entry -- callers fall back to a straight-line estimate for those.
+ *
+ * `stopAtKey` ends the flood early: once that tile has been reached, only the
+ * rest of the level before it is expanded, so every tile *closer* to the root
+ * than `stopAtKey` is in the field (which is all MARCH needs -- it never moves
+ * to a tile that is no closer to the target than the flag). A tile missing
+ * from an early-stopped field is therefore known to be at least as far as
+ * `stopAtKey`, never "unknown". Muster ticks run this every second per
+ * flag, and for a short march this cuts the flooded area by an order of
+ * magnitude. If `stopAtKey` is never reached the flood runs to the cap, as
+ * without it.
+ *
+ * The inner loop avoids the per-neighbor coordinate arrays and key strings
+ * the shared radius helper allocates: a numeric visited set filters repeat
+ * visits first, so each tile builds its string key at most once.
  */
 export const buildTerrainDistanceField = (
   rootX: number,
   rootY: number,
   getTile: (x: number, y: number) => DomainTileState | undefined,
-  maxSteps: number
+  maxSteps: number,
+  stopAtKey?: string
 ): Map<string, number> => {
   const dist = new Map<string, number>();
   const rootKey = simulationTileKey(rootX, rootY);
   dist.set(rootKey, 0);
-  const queue: Array<{ x: number; y: number }> = [{ x: rootX, y: rootY }];
-  let head = 0;
-
-  while (head < queue.length) {
-    const current = queue[head++]!;
-    const currentDist = dist.get(simulationTileKey(current.x, current.y))!;
-    if (currentDist >= maxSteps) continue;
-
-    for (const { x, y } of coordsInChebyshevRadius(current.x, current.y, 1)) {
-      const tile = getTile(x, y);
-      if (!tile || tile.terrain !== "LAND") continue;
-      const key = simulationTileKey(x, y);
-      if (dist.has(key)) continue;
-      dist.set(key, currentDist + 1);
-      queue.push({ x, y });
+  if (rootKey === stopAtKey) return dist;
+  const visited = new Set<number>([rootY * WORLD_WIDTH + rootX]);
+  const queueX: number[] = [rootX];
+  const queueY: number[] = [rootY];
+  const queueDist: number[] = [0];
+  let stopDist = maxSteps;
+  for (let head = 0; head < queueX.length; head += 1) {
+    const currentDist = queueDist[head]!;
+    if (currentDist >= stopDist) break;
+    const cx = queueX[head]!;
+    const cy = queueY[head]!;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const x = wrapX(cx + dx, WORLD_WIDTH);
+        const y = wrapY(cy + dy, WORLD_HEIGHT);
+        const numericKey = y * WORLD_WIDTH + x;
+        if (visited.has(numericKey)) continue;
+        visited.add(numericKey);
+        const tile = getTile(x, y);
+        if (!tile || tile.terrain !== "LAND") continue;
+        const key = simulationTileKey(x, y);
+        dist.set(key, currentDist + 1);
+        queueX.push(x);
+        queueY.push(y);
+        queueDist.push(currentDist + 1);
+        if (key === stopAtKey) stopDist = Math.min(stopDist, currentDist + 1);
+      }
     }
   }
-
   return dist;
 };
 

@@ -22,13 +22,12 @@ export const handleGetAdminPlayers = (
  */
 export const buildAdminPlayerRows = (runtime: SimulationRuntime): AdminPlayerRow[] => {
   const playerSnapshot = runtime.exportPlayerDebugSnapshot();
-  // One combined union across every barbarian-* player (see
-  // exportBarbActivationVisibleUnion — it doesn't split the result out per
-  // barbarian id), computed once (memoised on the visibility signature) and
-  // stamped onto every barbarian-* row below. Skipped entirely when there's
+  // One combined count across every barbarian-* player (see
+  // exportBarbTilesSeenByAnyPlayer — it doesn't split the result out per
+  // barbarian id), computed once and stamped onto every barbarian-* row below. Skipped entirely when there's
   // no barbarian player to report on.
   const barbActivationVisibleTileCount = playerSnapshot.some((player) => player.id.startsWith("barbarian-"))
-    ? runtime.exportBarbActivationVisibleUnion().keys.length
+    ? runtime.exportBarbTilesSeenByAnyPlayer().length
     : undefined;
   return playerSnapshot.map((player) => {
     const isBarbarian = player.id.startsWith("barbarian-");

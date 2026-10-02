@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 // Shared setup for the runtime-waystation-activation*.test.ts suites.
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -19,7 +20,7 @@ export function queueRandom(values: number[]): () => number {
 }
 
 export function makePlayer(overrides: Partial<DomainPlayer> = {}): DomainPlayer {
-  return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set(), ...overrides };
+  return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set(), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }, ...overrides };
 }
 
 export function createInput(

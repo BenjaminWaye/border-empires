@@ -12,6 +12,7 @@ import { handleRetortRecastCommand as handleRetortRecastCommandImpl } from "../r
 import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl } from "../runtime-titanium-levy-command.js";
+import { handleSetAutoSettlePrefsCommand as handleSetAutoSettlePrefsCommandImpl } from "../runtime-auto-settle-prefs-command-handler.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 
 // Extracted from runtime.ts's commandDispatchHandlers() (500-line source
@@ -30,5 +31,6 @@ export const buildMapCommandDispatchHandlers = (mapCommandContext: () => Runtime
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => handleAstralDockLaunchCommandImpl(mapCommandContext(), command),
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => handleTitaniumLevyMusterCommandImpl(mapCommandContext(), command),
   handleActivateImperialWardCommand: (command: CommandEnvelope) => handleActivateImperialWardCommandImpl(mapCommandContext(), command),
+  handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => handleSetAutoSettlePrefsCommandImpl(mapCommandContext(), command),
   handleSyncTruceCommand: (command: CommandEnvelope) => handleSyncTruceCommandImpl(mapCommandContext(), command)
 });

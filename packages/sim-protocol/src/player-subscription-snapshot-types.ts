@@ -1,7 +1,7 @@
 // Extracted from index.ts (500-line source budget, see AGENTS.md) to make
 // room for new tile-overlay wire fields without growing that file further.
 
-import type { ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
+import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
 
 export type PlayerSubscriptionDock = {
@@ -88,6 +88,9 @@ export type PlayerSubscriptionSnapshot = {
     // @border-empires/shared so client and sim can't drift on which keys
     // count as valid trickle picks.
     chosenTrickleResource?: ChosenTrickleResource;
+    // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Legacy/AI
+    // players always report answered:true with everything on.
+    autoSettle?: AutoSettlePrefs;
     // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining
     // Imperial Ward activations. The active 10-minute invulnerability window
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player

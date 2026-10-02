@@ -29,7 +29,7 @@
 // that type without adding a rule here and this file fails to compile --
 // the previous conditional-spread style let a field-by-field allowlist grow
 // silently incomplete with no compiler signal at all.
-import { isChosenTrickleResource } from "@border-empires/shared";
+import { isAutoSettlePrefsValue, isChosenTrickleResource, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "../index.js";
 
 export type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
@@ -111,6 +111,7 @@ const PLAYER_MERGE_RULES = {
   // omitted for the same reason id/name are: a future PLAYER_UPDATE payload
   // that starts carrying one of these needs a single-line change here, not
   // a rediscovery of this whole class of bug.
+  autoSettle: (p) => (isAutoSettlePrefsValue(p.autoSettle) ? { autoSettle: normalizeAutoSettlePrefs(p.autoSettle) } : undefined),
   imperialWardCharges: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,

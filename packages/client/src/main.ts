@@ -6,6 +6,7 @@
 // 4. keep implementation details out of this file
 import "./client-global-error-guard/client-global-error-guard.js";
 import "./style.css";
+import "./client-lighting-tuner/client-lighting-tuner.css";
 import "./client-player-name-link-style.css";
 import "./client-placement-overlay-style.css";
 import "./client-victory-alert-style.css";
@@ -41,4 +42,5 @@ import "./client-auth-busy-progress-style.css";
 import "./client-photo-mode-style.css";
 import "./client-auth-guest-style.css";
 import "./client-guest-save-style.css";
+import "./client-auto-settle-prompt/client-auto-settle-prompt-style.css";
 import "./client-app/client-app.js";

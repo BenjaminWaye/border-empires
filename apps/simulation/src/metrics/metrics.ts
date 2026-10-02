@@ -97,6 +97,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // per-player O(territory) planner sync cost — the key scale signal to correlate against event-loop lag).
   let simOwnedTilesTotal = 0;
   let simMaxEmpireTiles = 0;
+  let simBarbarianTiles = 0;
+  let simBarbarianTileProgressEntries = 0;
   // Boot-time manpowerCapSnapshot corrections — a recovered player whose
   // persisted manpowerCapSnapshot disagreed with what boot hydration
   // computed once tiles were fully loaded (see the applyManpowerRegen loop
@@ -127,7 +129,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simPersistenceConstraintViolationTotal = 0;
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
-  let simBarbVisionUnionRecomputeThrottledTotal = 0;
   let simPlayerStateUpdateSkippedAiTotal = 0;
   let simReplayRecordedCommandHistory = 0;
   let simReplayHistoryEvictedTotal = 0;
@@ -153,6 +154,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simEventLoopMaxMs,
     simOwnedTilesTotal,
     simMaxEmpireTiles,
+    simBarbarianTiles,
+    simBarbarianTileProgressEntries,
     simManpowerCapBootstrapRestampedTotal,
     ...activityLogMetrics.snapshot(),
     ...runtimeCounters.snapshot(),
@@ -181,7 +184,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simPersistenceConstraintViolationTotal,
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
-    simBarbVisionUnionRecomputeThrottledTotal,
     simPlayerStateUpdateSkippedAiTotal,
     simReplayRecordedCommandHistory,
     simReplayHistoryEvictedTotal,
@@ -265,6 +267,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     setSimMaxEmpireTiles(value: number): void {
       simMaxEmpireTiles = clampMetric(value);
     },
+    setSimBarbarianState(value: { tiles: number; progressEntries: number }): void {
+      simBarbarianTiles = clampMetric(value.tiles);
+      simBarbarianTileProgressEntries = clampMetric(value.progressEntries);
+    },
     setSimManpowerCapBootstrapRestampedTotal(value: number): void {
       simManpowerCapBootstrapRestampedTotal = clampMetric(value);
     },
@@ -327,12 +333,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     // cap — zero forever means backpressure never engages under normal load.
     incrementSimWriterQueueBackpressureWait(): void {
       simWriterQueueBackpressureWaitTotal += 1;
-    },
-    // Fires each time ensureVisionUnionFresh skips a recompute because the
-    // signature changed before the min-interval floor elapsed — zero forever
-    // means the throttle never actually engages under real load.
-    incrementSimBarbVisionUnionRecomputeThrottled(): void {
-      simBarbVisionUnionRecomputeThrottledTotal += 1;
     },
     // Fires each time the tile-shedding tick skips emitPlayerStateUpdate for
     // an AI player — zero forever means the skip never engages.

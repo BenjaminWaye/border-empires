@@ -44,7 +44,7 @@ export const rallyApiOrigin = (
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
     return `${locationLike?.protocol === "https:" ? "https" : "http"}://127.0.0.1:3101`;
   }
-  if (isStagingHostname(hostname)) return "https://border-empires-combined-staging.fly.dev";
+  if (isStagingHostname(hostname)) return "https://api-staging.borderempires.com";
 
   const wsOrigin = serverHttpOriginFromWsUrl(wsUrl);
   if (wsOrigin !== "https://border-empires.fly.dev") return wsOrigin;
@@ -59,6 +59,21 @@ export const rallyLinkEndpoint = (
 ): string => {
   const base = `${rallyApiOrigin(wsUrl, locationLike, env)}/rally/links`;
   return code ? `${base}/${encodeURIComponent(code)}` : base;
+};
+
+// The share URL is built from the page the link was minted on, not taken
+// from the server's `url`: the gateway's PLAY_ORIGIN defaults to production,
+// so a link minted on staging used to point at play.borderempires.com, whose
+// rally API has never heard of the code -- the guest got "expired or no
+// longer available" for a link created seconds earlier. This page's origin
+// always resolves (via rallyApiOrigin) to the same backend that minted it.
+export const rallyShareUrl = (
+  link: Pick<RallyLinkView, "code" | "url">,
+  locationLike: Pick<Location, "origin"> | undefined = typeof window !== "undefined" ? window.location : undefined
+): string => {
+  const origin = normalizedOrigin(locationLike?.origin);
+  if (!origin || origin === "null") return link.url;
+  return `${origin}/r/${encodeURIComponent(link.code)}`;
 };
 
 const formatExpiry = (expiresAt: number): string => {
@@ -156,7 +171,7 @@ const openRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void =
         return;
       }
       minted = true;
-      input.value = body.url;
+      input.value = rallyShareUrl(body);
       output.hidden = false;
       status.textContent = `Share this link. ${body.usesRemaining} joins remaining.`;
     } finally {

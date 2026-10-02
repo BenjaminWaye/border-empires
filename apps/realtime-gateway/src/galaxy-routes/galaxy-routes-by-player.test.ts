@@ -54,6 +54,8 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
         {
           seasonId: "season-1",
           seasonSequence: 1,
+          sectorNumber: 1,
+          campaign: { kind: "FRONTIER" },
           tier: "PLANET",
           objectiveName: "Diplomatic Dominance",
           specialization: "CAPITAL",
@@ -85,7 +87,16 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
     expect(response.json()).toEqual({
       planets: [],
       outposts: [
-        { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
+        {
+          seasonId: "season-1",
+          seasonSequence: 1,
+          sectorNumber: 1,
+          campaign: { kind: "FRONTIER" },
+          tier: "OUTPOST",
+          specialization: "EXTRACTION",
+          awardedAt: 1_000,
+          holderName: "Runner Up"
+        }
       ],
       trophyCase: []
     });

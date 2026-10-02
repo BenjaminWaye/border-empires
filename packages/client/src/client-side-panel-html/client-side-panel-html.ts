@@ -15,6 +15,7 @@ export type ManpowerPanelMusterFlag = {
   noTargetInRange?: boolean | undefined;
   insufficientManpower?: boolean | undefined;
   unfundableTarget?: { x: number; y: number; required: number } | undefined;
+  clearing?: boolean | undefined;
 };
 
 /**
@@ -30,7 +31,7 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower" | "unfundableTarget"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget"
   >,
   nowMs: number = Date.now()
 ): string => {
@@ -64,6 +65,7 @@ const musterBaseStatusText = (
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
     return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
   }
+  if (flag.clearing) return `Clearing the area — ${Math.floor(flag.amount)} manpower staged.`;
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 

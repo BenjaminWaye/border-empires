@@ -1,6 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { ADVANCE_MAX_RANGE_TILES, isNearerAdvanceCandidate, type AdvanceCandidate } from "./muster-auto-fire-shared.js";
 
@@ -29,6 +30,7 @@ export const scanAdvanceCandidates = (
   // ties between candidates found at the same hop depth.
   // Uses a head pointer instead of shift() to keep dequeue O(1).
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
+  const actor = input.players.get(playerId);
   const visited = new Set<string>([originKey]);
   const depthByKey = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
@@ -88,6 +90,10 @@ export const scanAdvanceCandidates = (
       } else if (
         neighbor.ownerId &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
+        // An ally's or truced player's tile is not a target: the attack would
+        // only be rejected, and as the nearest candidate it would be re-picked
+        // every tick in front of real enemies.
+        !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {

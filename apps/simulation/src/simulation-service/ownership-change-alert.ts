@@ -15,7 +15,7 @@ export const resolveEnvironmentLabel = (env: NodeJS.ProcessEnv): string => {
   const nodeEnv = (env.NODE_ENV ?? "").toLowerCase();
   if (nodeEnv === "production") return "prod";
   if (nodeEnv === "staging") return "staging";
-  return env.FLY_APP_NAME ?? "unknown";
+  return env.DEPLOY_APP_NAME ?? env.FLY_APP_NAME ?? "unknown";
 };
 
 type SlackMessage = {

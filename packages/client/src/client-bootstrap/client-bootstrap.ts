@@ -16,7 +16,7 @@ import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
 import { createBootstrapThreeRendererHost } from "./client-bootstrap-three-renderer.js";
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
-import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay/client-debug-season-end-overlay.js";
+import { installPostBootstrapHooks } from "../client-post-bootstrap-installs/client-post-bootstrap-installs.js";
 import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
 
 type BootstrapDeps = Record<string, any>;
@@ -632,5 +632,5 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  installDebugSeasonEndOverlay(state, renderHud);
+  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, pushFeed });
 };

@@ -76,6 +76,19 @@ The clone script runs `VACUUM INTO` on the remote server to produce a single con
 
 `pnpm deploy:prod:all` runs the same verification internally. The result must be `ok: true`, recent by default within 6 hours, and stamped with the exact deploy SHA.
 
+## Hetzner backend (opt-in per environment; Fly stays the default)
+
+Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migration-plan.md). The repo-side pieces live in `deploy/` and `.github/actions/hetzner-deploy/`.
+
+- **Switch:** repo variables `STAGING_BACKEND` / `PROD_BACKEND` (`hetzner` selects the VPS; unset or `fly` keeps Fly — flipping the variable back is the rollback). Do not set either variable to `hetzner` before plan Phase 1 (stable `api[-staging].borderempires.com` hostnames) and the server provisioning phases are done: the staging soak/probe scripts and client defaults still point at `*.fly.dev`. Image builds use `DEPLOY_PLATFORM` (default `linux/amd64`; `linux/arm64` for CAX11).
+- **Deploy:** the workflow builds `Dockerfile.combined`, pushes `ghcr.io/<owner>/border-empires-combined:<sha>`, then runs `ssh deploy@host <sha>`. The CI key is a forced command (`deploy/bin/deploy`), so it can only `<sha>`, `rollback` or `snapshot`. The server fetches `deploy/compose.yml`, `Caddyfile`, `env/<env>.env` and `bin/backup` at that sha from GitHub, switches, and polls `127.0.0.1:8080/health` for `ok:true` (15 min); an unhealthy deploy auto-rolls back. Updating `deploy/bin/deploy` itself needs a re-run of `bootstrap-server.sh`.
+- **Env:** `deploy/env/*.env` are generated from `fly.combined*.toml` (`pnpm ops:hetzner:render-env`; a test fails if stale) until Fly is retired. Secrets live only in `/etc/border-empires/secrets.env` on the server (`pnpm ops:hetzner:copy-fly-secrets`; values never printed).
+- **Logs:** `scripts/ops/backend-logs.sh <staging|production>` (needs `BE_STAGING_HOST`/`BE_PRODUCTION_HOST`), or `ssh deploy@host "cd /opt/border-empires && docker compose logs -f app"`.
+- **Rollback:** `ssh deploy@host rollback` (admin key) or flip `*_BACKEND` back to `fly`.
+- **Metrics/debug port:** `ssh -L 50052:127.0.0.1:50052 deploy@host`, then `curl 127.0.0.1:50052/metrics`.
+- **Prod-shape clone:** `pnpm ops:prod-shape:clone-snapshot --ssh deploy@host` (uses the `snapshot` forced command; Fly path is `--app`).
+- **Backups:** hourly `VACUUM INTO` → zstd → B2 (`deploy/bin/backup`, systemd timer). Restore: download the `.zst` from B2, `zstd -d`, stop the app, copy over `/srv/border-empires/data/border-empires.db` (remove `-wal`/`-shm`, chown `10001:10001`), start the app.
+
 ## Vercel
 
 - Use exactly one Vercel project: `border-empires-client` (`projectId` `prj_QczQjhdpgV6Mu8Q03r4Ot6KWD1va`, `orgId` `team_GdmtYDKeSISxfvppIgLt4Rma`).
