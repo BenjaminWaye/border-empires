@@ -1,4 +1,4 @@
-import { edgeRiversActive, townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
+import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, edgeRiversActive, townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
 
 import { riverAdjacentTilesFor } from "./server-worldgen-river-adjacent.js";
 
@@ -170,13 +170,17 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
   const assignMissingTownNamesForWorld = (): void => assignMissingTownNames(townsByTile.values(), getIslandMap().islandIdByTile, activeSeason.worldSeed);
 
   const ensureBaselineEconomyCoverage = (seed: number): void => {
-    for (let by = 0; by < WORLD_HEIGHT; by += 30) {
-      for (let bx = 0; bx < WORLD_WIDTH; bx += 30) {
+    // Coverage cell size shrinks with a shrunken world (per-env WORLD_WIDTH/
+    // HEIGHT override) so a half-size map keeps the same number of cells, and
+    // therefore the same town/food counts; 30 at default size.
+    const cell = Math.max(10, Math.round(30 * Math.min(1, CONFIGURED_WORLD_HEIGHT / DEFAULT_WORLD_HEIGHT)));
+    for (let by = 0; by < WORLD_HEIGHT; by += cell) {
+      for (let bx = 0; bx < WORLD_WIDTH; bx += cell) {
         const land: Array<{ x: number; y: number }> = [];
         let hasTown = false;
         let hasFood = false;
-        for (let dy = 0; dy < 30; dy += 1) {
-          for (let dx = 0; dx < 30; dx += 1) {
+        for (let dy = 0; dy < cell; dy += 1) {
+          for (let dx = 0; dx < cell; dx += 1) {
             const x = wrapX(bx + dx, WORLD_WIDTH);
             const y = wrapY(by + dy, WORLD_HEIGHT);
             if (terrainAt(x, y) !== "LAND") continue;

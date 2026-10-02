@@ -1,5 +1,5 @@
 import type { TileKey } from "@border-empires/shared";
-import { WATCHTOWER_TARGET_COEFFICIENT, WATCHTOWER_TARGET_MIN_COUNT } from "@border-empires/shared";
+import { WATCHTOWERS_ENABLED, WATCHTOWER_TARGET_COEFFICIENT, WATCHTOWER_TARGET_MIN_COUNT } from "@border-empires/shared";
 
 import type { ServerWorldgenWatchtowersDeps, ServerWorldgenWatchtowersRuntime } from "./server-world-runtime-types.js";
 
@@ -29,6 +29,7 @@ export const createServerWorldgenWatchtowers = (deps: ServerWorldgenWatchtowersD
 
   const generateWatchtowers = (seed: number): void => {
     watchtowersByTile.clear();
+    if (!WATCHTOWERS_ENABLED) return;
     const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
     const target = Math.max(WATCHTOWER_TARGET_MIN_COUNT, Math.floor(WATCHTOWER_TARGET_COEFFICIENT * worldScale));
     const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
