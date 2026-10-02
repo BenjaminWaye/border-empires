@@ -1,4 +1,5 @@
 import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
+import type { ActivityDashboardView } from "../client-activity-dashboard/client-activity-dashboard-scroll.js";
 
 // Extracted into its own factory (matching every sibling *-defaults.ts file
 // here) rather than inlined into client-state.ts's createInitialState, which
@@ -15,13 +16,18 @@ export const createInitialActivityDashboardState = () => ({
     loading: false,
     timeline: undefined as PersonalActivityTimeline | undefined,
     error: undefined as string | undefined,
-    activeView: "YOURS" as "YOURS" | "WORLD_PULSE" | "UPDATES",
+    activeView: "YOURS" as ActivityDashboardView,
     worldPulse: undefined as WorldPulse | undefined,
     worldPulseLoading: false,
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
-    autoOpenedThisSession: false
+    autoOpenedThisSession: false,
+    // Scroll offset per tab, kept so rebuilds/tab switches do not snap to the top; cleared on close.
+    scrollTopByView: {} as Partial<Record<ActivityDashboardView, number>>,
+    // changelog.seenAt as of when the Updates tab opened. Reading marks entries seen, so
+    // without this the list would swap from "new" to "recent 10" right after the first paint.
+    updatesBaselineSeenAt: undefined as number | undefined
   },
   activitySeen: {
     lastActivitySeenAt: 0,

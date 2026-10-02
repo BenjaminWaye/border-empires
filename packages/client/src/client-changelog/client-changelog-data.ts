@@ -436,6 +436,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Staging now connects to api-staging.borderempires.com on a dedicated server",
       "Logins on staging should no longer stall while the server catches up"
     ]
+  },
+  {
+    createdAt: 1790935039000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.1",
+    title: "What's New no longer jumps back to the top while you scroll",
+    why: "The Activity window rebuilt itself every time the game refreshed in the background, which reset your scroll position, and the Updates list also shrank to the latest ten entries right after you opened it.",
+    changes: [
+      "Scrolling through What's New, Yours or World Pulse now stays where you left it",
+      "Opening Updates keeps showing the new entries for as long as the window stays open"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
