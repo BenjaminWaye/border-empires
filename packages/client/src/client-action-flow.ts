@@ -916,7 +916,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const tileProductionRequirementLabel = (tile: Tile): string | undefined => tileProductionRequirementLabelFromModule(tile, prettyToken);
 
   const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state));
+    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state), state.me);
 
   const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedSettlementProgressForTileFromModule(tile, {
