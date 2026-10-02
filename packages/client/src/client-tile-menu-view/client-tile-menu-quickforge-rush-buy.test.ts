@@ -20,9 +20,9 @@ describe("Quickforge rush-buy price preview", () => {
       }
     };
 
-    const withoutQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs });
-    const withUnusedQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: true, wonderLastFreeRushBuyAt: 0, nowMs });
-    const withUsedQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: true, wonderLastFreeRushBuyAt: nowMs, nowMs });
+    const withoutQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs }, "me");
+    const withUnusedQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: true, wonderLastFreeRushBuyAt: 0, nowMs }, "me");
+    const withUsedQuickforge = constructionProgressForTile(tile, () => "1:00", { hasQuickforge: true, wonderLastFreeRushBuyAt: nowMs, nowMs }, "me");
 
     const priceOf = (label: string | undefined) => Number(label?.match(/💰(\d+)/)?.[1]);
     const basePrice = priceOf(withoutQuickforge?.rushBuyLabel);

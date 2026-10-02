@@ -4,12 +4,15 @@
 // tip storage client-space-view-intro.ts uses), gated on owning at least
 // one Space-eligible planet -- see client-space-view.ts's call site.
 //
-// "Frontier Sector #001" is hardcoded for now: the galactic layer only has
-// one sector today, and seasons/sectors aren't yet numbered in a way that's
-// safe to surface here (see the seasonSequence field's own caveats in
-// galaxy-view-html.ts). Swap in the real sector id/number once that exists.
+// This letter only ever fires on first christening of a brand-new planet
+// (galaxy-planet-store.ts's one-time christen), so the season it names is
+// always a Frontier win, never a Defense Campaign -- the sector number
+// alone is enough here, no campaign-type label needed (contrast
+// galaxy-sector-label.ts's campaignLabel, used where a Contestation can
+// also appear).
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
+import { sectorNumberLabel } from "../client-galaxy-view/galaxy-sector-label.js";
 
 export const SPACE_VIEW_WELCOME_TIP_ID = "SPACE_WELCOME_LETTER";
 
@@ -59,7 +62,11 @@ export const spaceViewWelcomeNamingStepHtml = (): string => `
   </div>
 `;
 
-export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
+// sectorNumber is undefined only when the gateway hasn't been redeployed
+// with sector numbering yet (see GalaxyMeMinimal.planets in
+// client-space-view.ts) -- falls back to unnumbered copy rather than a
+// stale/misleading placeholder number in that case.
+export const spaceViewWelcomeLetterStepHtml = (planetName: string, sectorNumber?: number): string => `
   <div class="sv-welcome-backdrop" data-space-view-welcome>
     <div class="sv-welcome-frame">
       <div class="sv-welcome-card sv-welcome-letter" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-letter-title">
@@ -67,7 +74,7 @@ export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
         <div class="sv-welcome-divider">${flourishSvg()}</div>
         <p class="sv-welcome-letter-body">
           To the Duke of Planet ${escapeHtml(planetName)},<br /><br />
-          The Court extends its congratulations on your victory in Frontier Sector #001.<br /><br />
+          The Court extends its congratulations on your victory in ${sectorNumber !== undefined ? escapeHtml(sectorNumberLabel(sectorNumber)) : "the Frontier"}.<br /><br />
           Your achievement has secured your place among the Empire's recognized dominions and opened another passage toward the frontier.<br /><br />
           The Court is pleased to see your administration prosper. We trust that your continued efforts will prove equally valuable to the Empire and to the interests of the Senate.<br /><br />
           Your work has been noticed.<br /><br />
@@ -112,6 +119,9 @@ export type SpaceViewWelcomeLetterDeps = {
   seasonId: string;
   planetName: string | null;
   named: boolean;
+  // Undefined only when the gateway hasn't been redeployed with sector
+  // numbering yet -- see spaceViewWelcomeLetterStepHtml's fallback copy.
+  sectorNumber?: number | undefined;
   authEmail: string | null | undefined;
   wsUrl: string;
   getIdToken: () => Promise<string | undefined>;
@@ -133,7 +143,7 @@ export const mountSpaceViewWelcomeLetter = (deps: SpaceViewWelcomeLetterDeps): v
   };
 
   const showLetter = (planetName: string): void => {
-    wrapper.innerHTML = spaceViewWelcomeLetterStepHtml(planetName);
+    wrapper.innerHTML = spaceViewWelcomeLetterStepHtml(planetName, deps.sectorNumber);
     wrapper.querySelector("[data-space-view-welcome-dismiss]")?.addEventListener("click", dismiss);
   };
 

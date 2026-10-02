@@ -31,8 +31,8 @@ export type AdminPlayerRow = {
   /**
    * barbarian-* rows only: how many tiles owned by ANY barbarian-* player
    * (not just this row's) are currently visible to at least one
-   * non-barbarian player — exportBarbActivationVisibleUnion computes one
-   * combined union across every barbarian, it does not break the count down
+   * non-barbarian player — exportBarbTilesSeenByAnyPlayer computes one
+   * combined set across every barbarian, it does not break the count down
    * per barbarian id. This is the eligibility set the barbarian AI planner
    * acts from (see system-job-barbarian-planner.ts). Identical on every
    * barbarian-* row; omitted for every non-barbarian row.

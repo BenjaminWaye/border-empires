@@ -83,7 +83,7 @@ import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
-import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
@@ -176,9 +176,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
-  // Cache of the client-local reach approximation, recomputed only when tiles actually changed (same revision-gated pattern as the 2D path's
-  // state.myReach in client-runtime-loop.ts). Kept as a local rather than on ClientState since the 2D path guards its own state.myReach update
-  // with !isTrue3DRendererActive() and only one renderer is ever active.
+  // Land-filtered copy of the player's reach for the border trace, rebuilt only when reachCacheKey changes. The unfiltered set itself comes from
+  // resolveMyReachCached (shared with the 2D path via state.myReach); this stays a local because the sea-trimmed variant is 3D-only.
+  // Not used for the selection-ring colour: that needs the unfiltered set, or in-reach sea tiles would read as out of reach.
   let reach3DCache: Set<string> | undefined;
   let reach3DCacheRevision = ""; let dockRouteSyncKey = ""; // dock-route overlay revision key -- resynced on selection/dockPairs/sceneOrigin change (sceneOrigin moves on a terrain rebuild), not every frame (see renderLoop)
   // Sparse pylon placement points + connecting chords, sampled from the traced reach-boundary perimeter (see client-reach-overlay.ts's
@@ -816,7 +816,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     upgradeReadyBadgeOverlay.clear();
-    musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
+    musterOverlay.clear(); winChancePaintOverlay.clear(); if (deps.state.winChancePaint && performance.now() > deps.state.winChancePaint.expiresAt && !deps.state.pendingArrowGestureConfirm) deps.state.winChancePaint = undefined; shieldAreaOverlay.clear(); const knownShieldFlags = collectKnownShieldFlags(deps.state.tiles.values()); // F3: recomputed once per frame; cheap (bounded by live muster-flag count, not tile count)
     supplyLineOverlay.clear();
     dockOverlay.clear();
     waterSurface.clear();
@@ -845,21 +845,21 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
     // Fixed-borders-via-reach 3D overlay data source. Reuses the exact same
-    // pure resolveMyReach/isDormantFrontierTile/isReachBoundaryTile
+    // pure resolveMyReachCached/isDormantFrontierTile/isReachBoundaryTile
     // helpers the 2D canvas path uses (client-reach-overlay.ts) so both
     // renderers always agree on what's in reach. Only computed while the
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
+      const reach3DKey = reachCacheKey(deps.state); // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
         // open water -- filtered here so the boundary trace/pylons never
         // draw out into the sea. Gameplay legality (EXPAND requiring LAND
         // terrain) is unaffected; this only trims the visual reach set.
-        reach3DCache = filterReachToLand(resolveMyReach(deps.state), deps.state.tiles, deps.keyFor);
+        reach3DCache = filterReachToLand(resolveMyReachCached(deps.state), deps.state.tiles, deps.keyFor);
         reach3DCacheRevision = reach3DKey;
         const loops = traceReachBoundaryEdgeLoops(reach3DCache, reach3DDeps);
         const { pylons, segments } = samplePerimeterPylons(loops);
@@ -1509,7 +1509,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     // GL calls on a lost context are no-ops that still cost a frame of scene syncing.
     if (contextGuard.isContextLost()) return;
     const nowMs = performance.now();
-    maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReach(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
+    maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReachCached(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();

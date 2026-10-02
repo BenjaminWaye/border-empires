@@ -10,6 +10,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-rece
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
+import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-muster-save-up.js";
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 export type ClientChangelogEntry = {
@@ -21,6 +22,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1790884828288, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.1",
+    title: "Smoother 3D map while a tile is selected",
+    why: "With a tile selected, the 3D map re-worked out which ground was in your reach on every frame, which made it stutter and lag on larger empires.",
+    changes: [
+      "Your reach is now worked out once per change instead of every frame, so selecting tiles no longer drags down the frame rate in the 3D map",
+      "The 2D map shares the same reach cache. Reach borders and the orange out-of-reach selection tint look and behave exactly as before"
+    ]
+  },
   {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
@@ -381,8 +392,54 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790866856971, // frozen Date.now() value for this release
+    createdAt: 1790874861641, // frozen Date.now() value for this release
     introducedIn: "2026.10.01.2",
+    title: "Barbarians no longer stand frozen in front of you",
+    why: "A barbarian one tile off your border could sit still for minutes while another barbarian elsewhere on the map kept attacking, because all barbarians shared a single turn and attacks always went first.",
+    changes: [
+      "Every barbarian you can see now takes its own turns, so one fight elsewhere can't hold the rest back",
+      "A barbarian rests 15 seconds after its action finishes (it used to count from when the attack started, so there was no rest at all after a 30 second fight)",
+      "Barbarians only wake when a player can actually see them, using the same fog of war you do, and when many barbarians want to attack at once the extra ones walk instead of standing still",
+      "At the 100-tile barbarian limit, barbarians in view keep moving and fighting while unseen ones are released, and a win at the limit no longer grows their territory"
+    ]
+  },
+  {
+    createdAt: 1790830401398,
+    introducedIn: "2026.10.01.1",
+    title: "Advance flags clear barbarians and report back",
+    why: "Sending a flag after barbarians out in the wilderness (or a rival's border a few tiles off) meant expanding out to touch each one yourself and re-launching attacks by hand, and a flag only acted once every 30 seconds unless you had its menu open.",
+    changes: [
+      "An Advance flag now walks toward barbarians and rival borders within 10 steps that don't touch your territory yet, expanding across empty land to reach them, then attacks them. Steps go through your land and empty land only, so enemies across water or behind mountains aren't counted",
+      "Marches are now limited to 15 tiles. Aiming one further shows advice to raise a muster flag closer instead, since troops take much longer to walk across the map than it takes to muster next to the fight",
+      "Advance flags no longer try to attack allies or players you have a truce with",
+      "Advance flags act every second, with up to three fights at once, even when you're not looking at them",
+      "When nothing hostile is left in range, the flag returns to Hold and posts \"Area cleared\" to your Activity Feed",
+      "A flag that is rejected (not enough coin or manpower) now backs off instead of retrying every second"
+    ]
+  },
+  {
+    createdAt: 1790885511154, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.3",
+    title: "Your reach border is correct when you play in a second tab or device",
+    why: "If you were still connected somewhere else (another tab, your phone, or a reconnect before the old connection timed out), the new session never received your real reach border. It drew an estimate instead, and waypoints could keep planning expansions the server then refused as out of reach.",
+    changes: [
+      "Every new session now receives your current reach border as soon as it loads, even while you're connected elsewhere",
+      "Waypoints in that session plan against your real border, so they stop retrying expansions that are out of reach"
+    ]
+  },
+  {
+    createdAt: 1790891485732, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.4",
+    title: "The staging game server moved to faster hosting",
+    why: "Staging ran on a throttled shared CPU that froze for 30 seconds or more under load, which made logins on staging fail or stall.",
+    changes: [
+      "Staging now connects to api-staging.borderempires.com on a dedicated server",
+      "Logins on staging should no longer stall while the server catches up"
+    ]
+  },
+  {
+    createdAt: 1790935593754, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.1",
     title: "Cleaner landing sites for your Fabrication Complex",
     why: "A new empire's Automated Fabrication Complex could land hemmed in by water, mountains or thick forest, leaving a cramped and slow start.",
     changes: [
@@ -397,6 +454,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
+  ...CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,

@@ -49,6 +49,7 @@
 // teeth are placed off the press face, and the accumulator caps sit at their
 // own height — otherwise the seams Z-fight into black line artifacts.
 
+import { makeYawAboutAnchor } from "./client-map-3d-afc-module-yaw.js";
 import {
   BufferGeometry,
   CapsuleGeometry,
@@ -205,7 +206,6 @@ export const createGeoformEngineModuleOverlay = (scene: Scene, maxInstances: num
   const yawMatrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
-  const yawQuat = new Quaternion();
   const pieceQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpDir = new Vector3();
@@ -412,8 +412,7 @@ export const createGeoformEngineModuleOverlay = (scene: Scene, maxInstances: num
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
     if (records.length >= C) return -1;
-    yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
-    yawMatrix.makeRotationFromQuaternion(yawQuat);
+    makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
     records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();

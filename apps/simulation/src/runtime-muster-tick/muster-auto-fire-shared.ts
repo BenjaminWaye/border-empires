@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_MAX_TILES } from "@border-empires/shared";
+import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MAX_TILES } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
 
@@ -8,7 +8,7 @@ import type { LockRecord } from "../runtime-types.js";
  * tech/domain/wonder bonuses) — the same calc handleSetMusterCommand uses to
  * gate a new flag. Shared here so the accumulation tick can divide a
  * player's manpower cap evenly across their unlocked flag slots instead of
- * letting a single flag draw down the whole cap.
+ * letting a single flag draw down the whole cap (see musterFlagCap).
  */
 export const playerMusterFlagLimit = (
   actor: Pick<DomainPlayer, "techIds" | "domainIds"> & { wonderMusterExtraFlag?: number }
@@ -46,7 +46,7 @@ export const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
 // nobody expects a flag to reach further than ~10 tiles in any direction. Keep
 // this small — search cost grows with the *area* covered, so raising it back to
 // the old 60 is ~36x the work per flag per tick, not 6x.
-export const ADVANCE_MAX_RANGE_TILES = 10;
+export const ADVANCE_MAX_RANGE_TILES = MUSTER_ADVANCE_RANGE_STEPS;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
@@ -77,6 +77,10 @@ type MusterStatusPatch = {
   // afford to attack it (including having 0 manpower staged). Mutually
   // exclusive with noTargetInRange — see MusterState's doc comment.
   insufficientManpower?: boolean | undefined;
+  // The nearest enemy tile this flag can't hold enough to fight (its cost
+  // exceeds the flag's cap and what it holds), which ADVANCE skips past. See
+  // MusterState.unfundableTarget.
+  unfundableTarget?: UnfundableTarget | undefined;
 };
 
 type MusterStatusSyncDeps<TDelta> = {
@@ -115,7 +119,10 @@ export const syncMusterStatus = <TDelta>(
     muster.fightX === patch.fightX &&
     muster.fightY === patch.fightY &&
     (muster.noTargetInRange ?? false) === (patch.noTargetInRange ?? false) &&
-    (muster.insufficientManpower ?? false) === (patch.insufficientManpower ?? false)
+    (muster.insufficientManpower ?? false) === (patch.insufficientManpower ?? false) &&
+    muster.unfundableTarget?.x === patch.unfundableTarget?.x &&
+    muster.unfundableTarget?.y === patch.unfundableTarget?.y &&
+    muster.unfundableTarget?.required === patch.unfundableTarget?.required
   ) {
     return;
   }
@@ -129,7 +136,8 @@ export const syncMusterStatus = <TDelta>(
       fightX: patch.fightX,
       fightY: patch.fightY,
       noTargetInRange: patch.noTargetInRange || undefined,
-      insufficientManpower: patch.insufficientManpower || undefined
+      insufficientManpower: patch.insufficientManpower || undefined,
+      unfundableTarget: patch.unfundableTarget
     }
   };
   deps.replaceTileState(originKey, updatedTile);
@@ -139,4 +147,34 @@ export const syncMusterStatus = <TDelta>(
     playerId,
     tileDeltas: [deps.tileDeltaFromState(updatedTile)]
   });
+};
+
+export type AdvanceCandidate = { from: DomainTileState; enemy: DomainTileState; hops: number; dist: number; required: number };
+
+/** Fewest BFS hops wins; Chebyshev distance to the flag breaks ties. */
+export const isNearerAdvanceCandidate = (a: AdvanceCandidate, b: AdvanceCandidate | undefined): boolean =>
+  !b || a.hops < b.hops || (a.hops === b.hops && a.dist < b.dist);
+
+export type UnfundableTarget = { x: number; y: number; required: number };
+
+/**
+ * ADVANCE target choice. The flag commits to its nearest enemy tile: if it
+ * can't afford it yet it saves up (`best` undefined) rather than spending on a
+ * cheaper, farther tile -- otherwise cheap FRONTIER attacks would drain it
+ * before it ever reached a SETTLED tile's cost. The flag can only ever hold
+ * `flagCap` (musterFlagCap, raised by "Expand Capacity"), so it only waits for
+ * a cost up to that. A nearest tile above it is skipped: the flag falls back
+ * to the nearest affordable tile and reports the skipped one in `unfundable`
+ * so the player can be told to expand the flag. A flag that already holds the
+ * full cost just attacks.
+ */
+export const pickAdvanceTarget = (
+  nearest: AdvanceCandidate,
+  nearestAffordable: AdvanceCandidate | undefined,
+  availableMuster: number,
+  flagCap: number
+): { best: AdvanceCandidate | undefined; unfundable: UnfundableTarget | undefined } => {
+  if (availableMuster >= nearest.required) return { best: nearestAffordable, unfundable: undefined };
+  if (nearest.required <= flagCap) return { best: undefined, unfundable: undefined };
+  return { best: nearestAffordable, unfundable: { x: nearest.enemy.x, y: nearest.enemy.y, required: nearest.required } };
 };

@@ -1,0 +1,8 @@
+# Auto-TLS (Let's Encrypt) + WebSocket passthrough. The DNS record for
+# BE_HOSTNAME must point at this server before Caddy can get a certificate.
+{$BE_HOSTNAME} {
+	reverse_proxy app:8080 {
+		# The gateway streams WebSocket/event traffic; don't buffer.
+		flush_interval -1
+	}
+}

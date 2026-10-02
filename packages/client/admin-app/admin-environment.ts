@@ -22,7 +22,7 @@ export const resolveAdminEnvironment = (hostnameRaw: string, configuredGatewayWs
   const defaultWsUrl = isLocal
     ? "ws://127.0.0.1:3101/ws"
     : isStaging
-      ? "wss://border-empires-combined-staging.fly.dev/ws"
+      ? "wss://api-staging.borderempires.com/ws"
       : "wss://border-empires-combined.fly.dev/ws";
   return {
     label: isLocal ? "Local" : isStaging ? "Staging" : "Production",

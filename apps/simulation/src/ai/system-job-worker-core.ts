@@ -23,7 +23,7 @@ import {
 } from "@border-empires/shared";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "../dock-network/dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { BARBARIAN_PLAYER_ID, createBarbarianPlanner } from "./system-job-barbarian-planner.js";
+import { BARBARIAN_PLAYER_ID, createBarbarianPlanner, type BarbarianPlayerRef } from "./system-job-barbarian-planner.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -101,7 +101,7 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
     tilesByKey.set(key, next);
   };
 
-  const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
+  const resolveOwnedTiles = (player: BarbarianPlayerRef): PlannerTileView[] => {
     const cached = playerTileCacheById.get(player.id);
     if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
       return cached.ownedTiles;
@@ -131,11 +131,13 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
   ): CommandEnvelope | null => {
     const player = playersById.get(playerId);
     if (!player) return null;
-    if (player.hasActiveLock) return null;
 
+    // Barbarians are gated per tile inside the planner (in-flight + rest), not
+    // by the faction-wide lock flag — one tile's fight must not freeze the rest.
     if (playerId === BARBARIAN_PLAYER_ID) {
       return barbarianPlanner.choose(player, clientSeq, issuedAt);
     }
+    if (player.hasActiveLock) return null;
 
     const ownedTiles = resolveOwnedTiles(player);
 
@@ -223,6 +225,11 @@ export const createSystemJobWorkerCore = (post: (msg: Record<string, unknown>) =
         for (const tileDelta of tileDeltas) {
           applyTileDelta(tileDelta);
         }
+        break;
+      }
+
+      case "barb_settled": {
+        barbarianPlanner.settle(message.commandId as string, message.settledAt as number);
         break;
       }
 

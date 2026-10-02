@@ -5,7 +5,7 @@ import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/cl
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
-import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
@@ -308,7 +308,7 @@ export const renderTileActionMenu = (
         const wrapX = (x: number): number => wrapCoord(x, WORLD_WIDTH);
         const wrapY = (y: number): number => wrapCoord(y, WORLD_HEIGHT);
         const keyFor = (x: number, y: number): string => `${x},${y}`;
-        const myReach = resolveMyReach(state);
+        const myReach = resolveMyReachCached(state);
         const neighborReach = {
           north: myReach.has(keyFor(wrapX(tileX), wrapY(tileY - 1))),
           east: myReach.has(keyFor(wrapX(tileX + 1), wrapY(tileY))),
