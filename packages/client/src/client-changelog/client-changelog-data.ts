@@ -415,6 +415,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every new session now receives your current reach border as soon as it loads, even while you're connected elsewhere",
       "Waypoints in that session plan against your real border, so they stop retrying expansions that are out of reach"
     ]
+  },
+  {
+    createdAt: 1790891485732, // frozen Date.now() value for this release
+    introducedIn: "2026.10.01.4",
+    title: "The staging game server moved to faster hosting",
+    why: "Staging ran on a throttled shared CPU that froze for 30 seconds or more under load, which made logins on staging fail or stall.",
+    changes: [
+      "Staging now connects to api-staging.borderempires.com on a dedicated server",
+      "Logins on staging should no longer stall while the server catches up"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -2,7 +2,7 @@
 import { refreshFirebaseAuthToken } from "./firebase-token-refresh.mjs";
 
 const DEFAULTS = {
-  url: "wss://border-empires-combined-staging.fly.dev/ws?channel=control",
+  url: "wss://api-staging.borderempires.com/ws?channel=control",
   attempts: 10,
   timeoutMs: 8_000,
   intervalMs: 250,
