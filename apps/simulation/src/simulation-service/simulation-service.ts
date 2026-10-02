@@ -57,7 +57,7 @@ import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore }
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
-import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot/admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
@@ -74,7 +74,7 @@ import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../pa
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
-import { applyAiPlayerDebugSnapshotToMetrics, sampleActivityLogMetrics } from "./simulation-service-metrics-sampling.js";
+import { applyAiPlayerDebugSnapshotToMetrics, sampleRuntimeGaugeMetrics } from "./simulation-service-metrics-sampling.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
@@ -102,7 +102,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
+import { resolveSeasonCaps } from "../season-caps/season-caps.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
@@ -1101,7 +1101,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
+  const { maxSeasonPlayers, maxSeasonGuests } = resolveSeasonCaps(options);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -1679,13 +1679,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                 trackSyncMainThreadTaskWithMetrics("system_export_planner_player_views", { playerCount: playerIds.length }, () =>
                   runtime.exportPlannerPlayerViews(playerIds)
                 ),
-              getBarbActivationVisionSignature: () =>
-                trackSyncMainThreadTaskWithMetrics("system_get_barb_activation_vision_signature", undefined, () =>
-                  runtime.getBarbActivationVisionSignature()
-                ),
-              exportBarbActivationVisibleUnion: () =>
-                trackSyncMainThreadTaskWithMetrics("system_export_barb_activation_visible_union", undefined, () =>
-                  runtime.exportBarbActivationVisibleUnion()
+              exportBarbTilesSeenByAnyPlayer: () =>
+                trackSyncMainThreadTaskWithMetrics("system_export_barb_tiles_seen", undefined, () =>
+                  runtime.exportBarbTilesSeenByAnyPlayer()
                 )
             },
             systemPlayerIds,
@@ -1696,9 +1692,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             ...(combinedWorkerHost ? { workerHost: combinedWorkerHost.channel("system") } : {}),
             onTick: ({ durationMs }) => {
               simulationMetrics.observeSimTickDurationMs("system", durationMs);
-            },
-            onVisionUnionRecomputeThrottled: () => {
-              simulationMetrics.incrementSimBarbVisionUnionRecomputeThrottled();
             }
           })
         : createSystemCommandProducer({
@@ -1908,16 +1901,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // season right now, so endedSummary is that season's real final state
       // either way, not an in-progress snapshot.
       await seasonSummaryStore.recordSeasonParticipation(archiveSummary.seasonId, archiveSummary.seasonSequence, archiveSummary.endedAt, endedSummary.overall);
-      // Only yield if status is already "ended" — that's what makes
-      // SubmitCommand/tickers no-op; force=true bypasses it, so fall back to
-      // an unyielded (slower, not racy) block in that case.
+      // Safe to yield unconditionally: seasonRolloverInFlight (set above,
+      // not status === "ended") is what makes SubmitCommand reject mid-yield.
+      // Unyielded, a ~200k-tile build blocked 100s+, losing to the watchdog.
       const bootstrap = await buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
         now: Date.now(),
-        ...(currentSeasonState.status === "ended" ? { onYield: yieldToEventLoop } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
+        onYield: yieldToEventLoop, ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
       });
       warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
       const nextRuntime = new SimulationRuntime({
@@ -2027,8 +2020,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
-          if (currentSeasonState.status === "ended") {
-            simTracer.stage("sim_rejected", { reason: "season_ended" });
+          if (currentSeasonState.status === "ended" || seasonRolloverInFlight) { // "season ended" message fixed: frontier-submit.ts gateway-side string-matches it
+            simTracer.stage("sim_rejected", { reason: seasonRolloverInFlight ? "season_rollover_in_progress" : "season_ended" });
             callback(new Error("season ended"), { ok: false });
             return;
           }
@@ -2073,7 +2066,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
     ) {
       preparePlayerHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers, maxSeasonGuests },
         call,
         callback
       );
@@ -2083,7 +2076,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
     ) {
       joinSeasonHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers, maxSeasonGuests },
         call,
         callback
       );
@@ -2498,7 +2491,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return;
+        if (currentSeasonState.status === "ended") return; try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); } // "Manpower full" email piggybacks on this 60s tick -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
         // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
         // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
         // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
@@ -2591,7 +2584,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // Async with per-player yields — cachedEconomySnapshot can rebuild
         // O(settledTiles) per player on cache miss (after territory mutations).
         // Running all 6 players back-to-back synchronously was a 15s stall risk.
-        void runtime.applyPassiveIncomeAsync(Date.now(), 12 * 60 * 60 * 1000, yieldToEventLoop)
+        void runtime.applyPassiveIncomeAsync(Date.now(), 24 * 60 * 60 * 1000, yieldToEventLoop) // kept in sync with OFFLINE_YIELD_ACCUM_MAX_MS (game-domain) — docs/replenishment-update-plan.md D4
           .catch((error) => { log.error({ err: error }, "passive income tick failed"); })
           .finally(() => { passiveIncomeRunning = false; });
       }, 15_000);
@@ -2642,7 +2635,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
-        sampleActivityLogMetrics(runtime, simulationMetrics);
+        sampleRuntimeGaugeMetrics(runtime, simulationMetrics);
         applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({

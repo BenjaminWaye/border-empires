@@ -9,7 +9,7 @@
  * project a request targets, they do not grant access on their own). Only
  * the refresh token itself is sensitive.
  */
-const FIREBASE_API_KEY = "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
+export const FIREBASE_API_KEY = "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
 
 export const refreshFirebaseAuthToken = async (refreshToken) => {
   const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {

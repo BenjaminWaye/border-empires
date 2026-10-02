@@ -4,6 +4,8 @@
 // first-part broadcasts, Ancient Ruins discoveries, tech completions, etc.).
 // Extracted out of index.ts (that file is at the repo's 500-line cap and may
 // not grow) -- a pure code move plus the WAYSTATION_ACTIVATED addition.
+import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+
 export type PlayerEventLogEntryType =
   | "TOWN_LOST"
   | "IMPERIAL_EXCHANGE_LEVY_HIT"
@@ -13,7 +15,10 @@ export type PlayerEventLogEntryType =
   | "MONUMENT_CONSTRUCTION_STARTED"
   | "NATURAL_WONDER_CLAIMED"
   | "WAYSTATION_ACTIVATED"
-  | "OCCUPATION_SURVEY";
+  | "OCCUPATION_SURVEY"
+  // An ADVANCE muster flag finished clearing its area:
+  // no hostile tiles are left within range of the flag.
+  | "AREA_CLEARED";
 
 // Structured fields a WAYSTATION_ACTIVATED entry carries alongside the flat
 // text/x/y every entry has, so the client can render the same rich
@@ -21,7 +26,7 @@ export type PlayerEventLogEntryType =
 // client-waystation-activation.ts's WaystationActivationInfo) instead of
 // just a plain feed line when the player catches up after being offline.
 export type PlayerEventLogWaystationFields = {
-  grantedEffect?: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  grantedEffect?: WaystationGrantedEffect;
   revealedAtX?: number;
   revealedAtY?: number;
   grantedTechId?: string;
@@ -29,6 +34,9 @@ export type PlayerEventLogWaystationFields = {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  grantedManpower?: number;
 };
 
 export type PlayerOccupationSurveyFields = {
@@ -78,6 +86,9 @@ export const appendPlayerEventLogEntry = (
     ...(input.grantedTownName ? { grantedTownName: input.grantedTownName } : {}),
     ...(typeof input.grantedTownX === "number" ? { grantedTownX: input.grantedTownX } : {}),
     ...(typeof input.grantedTownY === "number" ? { grantedTownY: input.grantedTownY } : {}),
+    ...(typeof input.grantedGold === "number" ? { grantedGold: input.grantedGold } : {}),
+    ...(input.grantedGoldTier ? { grantedGoldTier: input.grantedGoldTier } : {}),
+    ...(typeof input.grantedManpower === "number" ? { grantedManpower: input.grantedManpower } : {}),
     ...(input.surveyResource ? { surveyResource: input.surveyResource } : {}),
     ...(input.surveySignature ? { surveySignature: input.surveySignature } : {}),
     ...(typeof input.surveyX === "number" ? { surveyX: input.surveyX } : {}),

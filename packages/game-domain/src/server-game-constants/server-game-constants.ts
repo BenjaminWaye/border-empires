@@ -26,7 +26,7 @@ import {
   type PopulationTier,
   type TileKey
 } from "@border-empires/shared";
-import type { AbilityDefinition, VictoryPressureDefinition } from "../server-shared-types.js";
+import type { VictoryPressureDefinition } from "../server-shared-types.js";
 
 export const key = (x: number, y: number): TileKey => `${x},${y}`;
 export const parseKey = (k: TileKey): [number, number] => {
@@ -41,7 +41,8 @@ export const PASSIVE_INCOME_MULT = 1.0;
 export const GOLD_COST_EPSILON = 1e-6;
 export const TILE_YIELD_CAP_GOLD = 24;
 export const TILE_YIELD_CAP_RESOURCE = 6;
-export const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
+// 12h -> 24h with the gold cap removal (docs/replenishment-update-plan.md D4) so an abandoned account doesn't accrue gold forever offline. Keep in sync with simulation-service.ts's applyPassiveIncomeAsync cutoff.
+export const OFFLINE_YIELD_ACCUM_MAX_MS = 24 * 60 * 60 * 1000;
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 export const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
@@ -82,12 +83,9 @@ export const FARMSTEAD_GOLD_UPKEEP = 0;
 export const UMBRITE_RIG_GOLD_UPKEEP = 0;
 export const MINE_GOLD_UPKEEP = 0;
 export const GRANARY_GOLD_UPKEEP = 0;
-export const SEED_GRANARY_SLOTS = 5;
-export const SEED_GRANARY_GROWTH_MULT = 1.30;
-
 /**
- * Pure town population-growth multiplier from Granary/Seed Granary — the
- * single shared source of truth for both the live-tick engine
+ * Pure town population-growth multiplier from Granary — the single shared
+ * source of truth for both the live-tick engine
  * (apps/simulation/src/runtime-population-growth.ts) and the display/
  * fallback snapshot paths (apps/simulation/src/live-town-summary.ts,
  * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts,
@@ -101,13 +99,12 @@ export const SEED_GRANARY_GROWTH_MULT = 1.30;
  * burst. On 2026-08-26, per a new explicit user decision, that call was
  * reversed at a lower value: a plain Granary now also grants a flat
  * GRANARY_ONGOING_GROWTH_MULT (+10%) ongoing growth-rate multiplier for its
- * town, stacking with the burst. A Seed Granary's buffed-radius bonus
- * (SEED_GRANARY_GROWTH_MULT) stacks multiplicatively on top of that base
- * when the tile is covered by an active Seed Granary's 3x3 buff radius.
+ * town, stacking with the burst. (Seed Granary, which used to add a further
+ * buffed-radius multiplier on top of this, was removed from the game.)
  */
-export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number => {
-  if (!hasAnyGranary) return 1;
-  return seedGranaryBuffed ? GRANARY_ONGOING_GROWTH_MULT * SEED_GRANARY_GROWTH_MULT : GRANARY_ONGOING_GROWTH_MULT;
+export const granaryGrowthMultiplier = (hasGranary: boolean): number => {
+  if (!hasGranary) return 1;
+  return GRANARY_ONGOING_GROWTH_MULT;
 };
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
@@ -293,6 +290,10 @@ export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 0; // §17: free
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
+export const AETHER_EMP_CRYSTAL_COST = 0; // §17: free
+export const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
+export const AETHER_EMP_DURATION_MS = 15 * 60_000;
+export const AETHER_EMP_RADIUS = 5; // tactical strike radius around the target Ambaric Transformer; not yet balance-tuned (Manifest plan §7 item 6)
 export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 export const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
@@ -308,6 +309,8 @@ export const TERRAIN_SHAPING_CRYSTAL_COST = 0; // §17: free (gold cost is separ
 export const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
+export const RETORT_RECAST_CRYSTAL_COST = 0; // §17: free, matches terrain-shaping/wall/siphon precedent
+export const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
  * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
@@ -427,71 +430,3 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];
-export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = {
-  reveal_empire: {
-    id: "reveal_empire",
-    name: "Reveal Empire",
-    requiredTechIds: ["cryptography"],
-    crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
-    cooldownMs: 0,
-    upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
-  },
-  reveal_empire_stats: {
-    id: "reveal_empire_stats",
-    name: "Reveal Empire Stats",
-    requiredTechIds: ["surveying"],
-    crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
-    cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
-  },
-  survey_sweep: {
-    id: "survey_sweep",
-    name: "Survey Sweep",
-    requiredTechIds: ["surveying"],
-    crystalCost: SURVEY_SWEEP_CRYSTAL_COST,
-    cooldownMs: SURVEY_SWEEP_COOLDOWN_MS
-  },
-  aether_lance: {
-    id: "aether_lance",
-    name: "Aether Purge",
-    requiredTechIds: ["signal-fires"],
-    crystalCost: AETHER_LANCE_CRYSTAL_COST,
-    cooldownMs: AETHER_LANCE_COOLDOWN_MS
-  },
-  aether_bridge: {
-    id: "aether_bridge",
-    name: "Aether Bridge",
-    requiredTechIds: ["navigation"],
-    crystalCost: AETHER_BRIDGE_CRYSTAL_COST,
-    cooldownMs: AETHER_BRIDGE_COOLDOWN_MS,
-    durationMs: AETHER_BRIDGE_DURATION_MS
-  },
-  aether_wall: {
-    id: "aether_wall",
-    name: "Aether Wall",
-    requiredTechIds: ["harborcraft"],
-    crystalCost: AETHER_WALL_CRYSTAL_COST,
-    cooldownMs: AETHER_WALL_COOLDOWN_MS,
-    durationMs: AETHER_WALL_DURATION_MS
-  },
-  siphon: {
-    id: "siphon",
-    name: "Siphon",
-    requiredTechIds: ["logistics"],
-    crystalCost: SIPHON_CRYSTAL_COST,
-    cooldownMs: SIPHON_COOLDOWN_MS
-  },
-  create_mountain: {
-    id: "create_mountain",
-    name: "Create Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  },
-  remove_mountain: {
-    id: "remove_mountain",
-    name: "Remove Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  }
-};

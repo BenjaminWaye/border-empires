@@ -43,6 +43,7 @@ export type PersistedActivityLogs = {
   flips: TerritoryFlip[];
   combat: CombatManpowerLoss[];
   personalImpacts: PersonalImpactEvent[];
+  personalImpactCapHits?: number;
 };
 
 /** The newest `limit` entries, oldest-first (the order the logs store them in). */
@@ -52,12 +53,13 @@ const newestTail = <T>(entries: readonly T[], limit: number): T[] =>
 export const exportActivityLogs = (
   flipLog: Pick<TerritoryFlipLog, "entries">,
   combatLog: Pick<CombatManpowerLog, "entries">,
-  personalImpactLog: Pick<PersonalImpactLog, "entries">,
+  personalImpactLog: Pick<PersonalImpactLog, "entries" | "gauge">,
   limit: number = ACTIVITY_LOG_PERSIST_LIMIT
 ): PersistedActivityLogs => ({
   flips: newestTail(flipLog.entries(), limit),
   combat: newestTail(combatLog.entries(), limit),
-  personalImpacts: newestTail(personalImpactLog.entries(), limit)
+  personalImpacts: newestTail(personalImpactLog.entries(), limit),
+  personalImpactCapHits: personalImpactLog.gauge().capHits
 });
 
 /**
@@ -75,7 +77,7 @@ export const restoreActivityLogs = (
   if (!logs) return;
   if (Array.isArray(logs.flips)) flipLog.restore(logs.flips, now);
   if (Array.isArray(logs.combat)) combatLog.restore(logs.combat, now);
-  if (Array.isArray(logs.personalImpacts)) personalImpactLog.restore(logs.personalImpacts, now);
+  if (Array.isArray(logs.personalImpacts)) personalImpactLog.restore(logs.personalImpacts, now, logs.personalImpactCapHits);
 };
 
 /**

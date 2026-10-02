@@ -1,5 +1,7 @@
 # Manpower Economy Rewrite — Full Plan
 
+Status: historical design and implementation record
+
 > **Status: historical design and implementation record.** This consolidated
 > plan preserves rationale and delivered-work history from a long design
 > discussion. It is not an execution plan. Current rules live in

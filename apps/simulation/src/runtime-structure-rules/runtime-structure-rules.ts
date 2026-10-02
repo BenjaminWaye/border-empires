@@ -34,7 +34,6 @@ export const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType)
   if (type === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
   if (type === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  if (type === "SEED_GRANARY") return "GRANARY";
   return undefined;
 };
 

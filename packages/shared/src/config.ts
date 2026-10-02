@@ -317,6 +317,25 @@ export const SEASON_LENGTH_DAYS = 30;
 
 export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
 export const BARBARIAN_MULTIPLY_THRESHOLD = 5;
+// Hard cap on barbarian territory. An uncapped barbarian on staging grew to
+// 941 tiles; the sim main thread re-exports the barbarian's full planner view
+// (O(territory)) on every ownership change, which starved gateway logins. At or
+// above the cap the barbarian stops multiplying and sheds tiles nobody can see.
+export const MAX_BARBARIAN_TILES = 100;
+// A barbarian tile rests this long after its action SETTLES (combat resolved,
+// claim resolved, or command rejected) before it may act again. Counted from
+// settle, not issue: combat locks for COMBAT_LOCK_MS, so counting from issue
+// leaves no rest at all between fights.
+export const BARBARIAN_TILE_REST_MS = 15_000;
+// Faction-wide budget of barbarian ATTACKS started per rolling minute (all barb
+// tiles on the map combined, not per tile). Attacks are the expensive action
+// (~15ms main thread each, mostly the encirclement flood-fill); walks are cheap
+// (~0.5ms) and unbudgeted. A tile that wants to attack with the budget spent
+// walks instead, so it still visibly moves.
+export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
+// Safety net if no settle event ever arrives for an in-flight barb command.
+// Longer than COMBAT_LOCK_MS.
+export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
 export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
@@ -336,43 +355,7 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// A fresh muster flag's default cap is this fraction of the player's manpower
-// cap, capped at MUSTER_FLAG_BASE_CAP_CEILING — keeps a single flag from being
-// able to draw down the player's entire manpower pool by default without
-// requiring a flat number that goes stale as manpower caps grow. Each
-// "Expand Capacity" press adds another share of the *current* manpower cap,
-// uncapped, so upgrading stays meaningful late-game instead of being
-// dwarfed by a fixed increment.
-export const MUSTER_FLAG_CAP_MANPOWER_FRACTION = 0.1;
-// Ceiling on the default (capLevel 0) share above — without it, a very high
-// manpower cap would let a lone, never-upgraded flag hold most of the pool.
-export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
-// "Expand Capacity" is currently FREE (no manpower or resource cost) — see
-// handleUpgradeMusterCapCommand (runtime-muster-cap-upgrade-command.ts).
-// Deliberately temporary: the intended cost is a FOOD resource-slot
-// occupation (the same supply/demand-slot mechanic Forts/Siege
-// Outposts/Observatories use — resource-slot-view.ts), a real design task
-// of its own that hasn't been done yet. No constant lives here for that
-// cost until it's designed; don't reintroduce a flat manpower charge in
-// its place.
-
-/**
- * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
- * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
- * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
- * but never more than the player's manpower cap itself. Without that final
- * clamp, enough upgrades would let a single flag demand more manpower than
- * the player's empire-wide pool can ever hold, which defeats the point of
- * capping flags in the first place. Recomputed live off the player's
- * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
- * headroom calc, the tile-menu display), so it tracks growth/loss of that
- * cap automatically — including this ceiling.
- */
-export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
-  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
-  const raw = Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
-  return Math.min(raw, manpowerCap);
-};
+// Muster flag cap (musterFlagCap, "Expand Capacity") lives in muster-config.ts.
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as
@@ -380,6 +363,15 @@ export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined)
 export const MUSTER_MAX_TILES = 2;
 // Auto-clear stale musters after this many milliseconds since the flag was set.
 export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+// docs/muster-fronts-proposal.md §4 / docs/replenishment-update-plan.md D7:
+// a HOLD-mode ("Defend") flag shields every tile within this Chebyshev radius
+// of itself, matching an attacker's commitment there (see shieldDefenseMultiplier
+// in frontier-combat.ts). An attacking (ADVANCE/MARCH) flag also shields its
+// own tile regardless of mode, independent of this radius. When more than one
+// of a defender's flags could shield the same tile, only the largest (by
+// staged amount) counts -- shields don't stack (open question #1, resolved
+// 2026-09-26).
+export const SHIELD_RADIUS_TILES = 3;
 // Multiplier to muster inflow when the tile is inside an outpost depot zone
 // but NOT boosted by a nearby Rail Depot (base outpost speed).
 export const MUSTER_DEPOT_SPEED_MULT = 1.25;
@@ -483,6 +475,12 @@ export const INTEGRITY_ECON_MIN_MULT = 0.85;
 export const INTEGRITY_ECON_MAX_MULT = 1.15;
 export const INTEGRITY_GROWTH_MIN_MULT = 0.9;
 export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
+// New-empire grace: integrity can't drop below INTEGRITY_GRACE_FLOOR until the
+// player has settled INTEGRITY_GRACE_TILES tiles. Past that the floor fades
+// linearly to zero over INTEGRITY_GRACE_FADE_TILES more tiles (no cliff).
+export const INTEGRITY_GRACE_TILES = 50;
+export const INTEGRITY_GRACE_FLOOR = 0.9;
+export const INTEGRITY_GRACE_FADE_TILES = 50;
 
 // --- Utility AI policy ---
 export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";

@@ -105,6 +105,14 @@ describe("applyPlayerMessageToSnapshot", () => {
     expect(updated.player?.chosenTrickleResource).toBe("TITANIUM");
   });
 
+  it("merges autoSettle prefs from a PLAYER_UPDATE and ignores a malformed value", () => {
+    const prefs = { answered: true, towns: true, food: false, resources: false };
+    const updated = applyPlayerMessageToSnapshot(snapshot(), { type: "PLAYER_UPDATE", autoSettle: prefs });
+    expect(updated.player?.autoSettle).toEqual(prefs);
+    const untouched = applyPlayerMessageToSnapshot(updated, { type: "PLAYER_UPDATE", autoSettle: { towns: "yes" } });
+    expect(untouched.player?.autoSettle).toEqual(prefs);
+  });
+
   it("merges economyBreakdown, upkeepPerMinute, and upkeepLastTick from a PLAYER_UPDATE into the cached snapshot", () => {
     // Regression: merged by the sim's old copy but dropped by the gateway's.
     const updated = applyPlayerMessageToSnapshot(snapshot(), {

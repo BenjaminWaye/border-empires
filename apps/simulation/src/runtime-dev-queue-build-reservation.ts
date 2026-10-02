@@ -11,7 +11,7 @@ import {
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
-  nextFortTierForUpgrade,
+  fortTierForBuild,
   nextSiegeTierForUpgrade,
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
@@ -26,6 +26,7 @@ import {
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 export type DevQueueSlotRequirement = { resource: SlotResource; count: number };
 
@@ -68,7 +69,7 @@ export function devQueueBuildReservationContext(context: RuntimeStructureCommand
     },
     refundManpowerReservation: (playerId, amount) => {
       const player = context.players.get(playerId);
-      if (player) player.manpower = Math.min(context.playerManpowerCap(player), player.manpower + amount);
+      if (player) creditManpower(player, amount, context.playerManpowerCap(player));
     }
   };
 }
@@ -100,7 +101,7 @@ function estimateDevQueueBuildReservation(
   let manpowerCost: number;
   let slotStructureType: SlotStructureType = structureType as BuildableStructureType;
   if (spec.kind === "FORT") {
-    const fortTier = target.fort ? (nextFortTierForUpgrade(target.fort.variant, hasTech) ?? bestFortTierForTech(hasTech)) : bestFortTierForTech(hasTech);
+    const fortTier = fortTierForBuild(structureType, target.fort?.variant, hasTech) ?? bestFortTierForTech(hasTech);
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {

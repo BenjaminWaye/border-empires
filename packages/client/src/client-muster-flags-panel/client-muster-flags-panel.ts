@@ -37,7 +37,9 @@ export const buildManpowerPanelMusterFlags = (
       ...(tile.muster.fightX !== undefined ? { fightX: tile.muster.fightX } : {}),
       ...(tile.muster.fightY !== undefined ? { fightY: tile.muster.fightY } : {}),
       ...(tile.muster.noTargetInRange !== undefined ? { noTargetInRange: tile.muster.noTargetInRange } : {}),
-      ...(tile.muster.insufficientManpower !== undefined ? { insufficientManpower: tile.muster.insufficientManpower } : {})
+      ...(tile.muster.insufficientManpower !== undefined ? { insufficientManpower: tile.muster.insufficientManpower } : {}),
+      ...(tile.muster.unfundableTarget !== undefined ? { unfundableTarget: tile.muster.unfundableTarget } : {}),
+      ...(tile.muster.clearing !== undefined ? { clearing: tile.muster.clearing } : {})
     });
   }
   return flags;

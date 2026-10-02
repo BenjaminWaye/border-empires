@@ -33,22 +33,22 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN: {
     id: "TOWN",
     title: "First Town Discovered!",
-    body: "Towns generate Gold, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and settle towns to expand your empire."
+    body: "Towns generate Coin, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and settle towns to expand your empire."
   },
   TOWN_TERRAIN_PROFILE: {
     id: "TOWN_TERRAIN_PROFILE",
     title: "Every Town Has a Civic Character",
-    body: "Terrain shapes a town's gold, manpower capacity, and regeneration at every population tier. Trade Towns excel at gold, Fertile Towns balance output, and Tundra Towns favor industry. Coastal Town adds extra gold and manpower on top of any terrain. Check the town's Gold and Manpower cards to plan its role."
+    body: "Terrain shapes a town's coin, manpower capacity, and regeneration at every population tier. Trade Towns excel at coin, Fertile Towns balance output, and Tundra Towns favor industry. Coastal Town adds extra coin and manpower on top of any terrain. Check the town's Coin and Manpower cards to plan its role."
   },
   DOCK: {
     id: "DOCK",
     title: "Dock Discovered!",
-    body: "Docks generate Gold and connect to other docks across the sea, allowing your armies to attack and expand onto distant shores. Capture a dock to unlock maritime routes."
+    body: "Docks generate Coin and connect to other docks across the sea, allowing your armies to attack and expand onto distant shores. Capture a dock to unlock maritime routes."
   },
   BARBARIAN: {
     id: "BARBARIAN",
     title: "The Bleed Discovered!",
-    body: "The Bleed raids your empire. Attack and clear its tiles to earn Gold and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
+    body: "The Bleed raids your empire. Attack and clear its tiles to earn Coin and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
   },
   FOOD: {
     id: "FOOD",

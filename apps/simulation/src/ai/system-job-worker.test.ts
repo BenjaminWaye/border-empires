@@ -80,8 +80,7 @@ const makeRuntime = (depths: {
       return () => eventEmitter.off("event", listener);
     },
     exportPlannerPlayerViews: () => [],
-    getBarbActivationVisionSignature: () => "",
-    exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
+    exportBarbTilesSeenByAnyPlayer: () => []
   };
 };
 
@@ -354,8 +353,7 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        getBarbActivationVisionSignature: () => "",
-        exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
+        exportBarbTilesSeenByAnyPlayer: () => []
       },
       systemPlayerIds: ["barbarian-1"],
       submitCommand: async () => undefined,
@@ -413,8 +411,7 @@ describe("worker system command producer backpressure", () => {
           eventEmitter.on("event", listener);
           return () => eventEmitter.off("event", listener);
         },
-        getBarbActivationVisionSignature: () => "",
-        exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "" })
+        exportBarbTilesSeenByAnyPlayer: () => []
       },
       systemPlayerIds: ["barbarian-1"],
       submitCommand: async () => undefined,

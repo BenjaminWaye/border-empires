@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { musterFlagCap } from "@border-empires/shared";
+import { MUSTER_FLAG_BASE_CAP_FLOOR, musterFlagCap } from "@border-empires/shared";
 import { buildMusterActions } from "./client-muster-tile-actions.js";
 import type { Tile } from "./client-types.js";
 
@@ -23,8 +23,8 @@ const ownTile = (overrides: Partial<Tile> = {}): Tile => ({
   ...overrides
 });
 
-// A manpowerCap well above MUSTER_FLAG_BASE_CAP_CEILING so the 10% share is
-// the binding term, not the ceiling — keeps cap math legible in tests.
+// A manpowerCap where 10% (100) is under MUSTER_FLAG_BASE_CAP_FLOOR (150), so
+// the floor is the binding term for a default flag — keeps cap math legible.
 const MANPOWER_CAP = 1_000;
 
 describe("buildMusterActions", () => {
@@ -92,7 +92,7 @@ describe("buildMusterActions", () => {
     expect(expand?.cost).toBeUndefined();
   });
 
-  it("shows staged manpower against a 10%-of-manpowerCap default cap, and Expand Capacity's next-cap preview", () => {
+  it("shows staged manpower against the default cap (the 150 floor at this pool size), and Expand Capacity's next-cap preview", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
@@ -100,19 +100,19 @@ describe("buildMusterActions", () => {
     );
     const cap = musterFlagCap(MANPOWER_CAP, 0);
     const nextCap = musterFlagCap(MANPOWER_CAP, 1);
-    expect(cap).toBe(100); // 10% of 1000, under the MUSTER_FLAG_BASE_CAP_CEILING
-    expect(nextCap).toBe(200); // +another 10% share per upgrade
+    expect(cap).toBe(MUSTER_FLAG_BASE_CAP_FLOOR); // 10% of 1000 is only 100, so the floor wins
+    expect(nextCap).toBe(250); // floor + another 10% share per upgrade
     expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain(`40/${cap}`);
     expect(actions.find((a) => a.id === "muster_expand_cap")?.detail).toContain(`${cap} to ${nextCap}`);
   });
 
-  it("clamps the default cap at MUSTER_FLAG_BASE_CAP_CEILING once 10% would exceed it", () => {
+  it("lets the default cap grow past MUSTER_FLAG_BASE_CAP_FLOOR once 10% of the manpower cap exceeds it", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/150");
+    expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/1000");
   });
 
   it("disables Expand Capacity once the flag's cap already equals the player's manpower cap", () => {

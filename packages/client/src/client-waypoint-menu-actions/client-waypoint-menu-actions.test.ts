@@ -225,7 +225,7 @@ describe("injectWaypointActions", () => {
       pickOriginForTarget: noAdjacentOrigin
     });
     expect(v.actions[0]?.id).toBe("cancel_waypoint");
-    expect(v.actions[0]?.detail).toMatch(/5 gold/);
+    expect(v.actions[0]?.detail).toMatch(/5 coin/);
     expect(v.tabs[0]).toBe("actions");
   });
 

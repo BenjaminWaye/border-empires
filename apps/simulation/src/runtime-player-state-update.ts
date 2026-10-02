@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity, normalizeAutoSettlePrefs } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -53,7 +53,7 @@ export function emitPlayerStateUpdate(
   const metrics = context.cachedDefensibilityMetrics(playerId, summary);
   const economy = context.cachedEconomySnapshot(player);
   player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
-  const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+  const storageCap = computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
   const lastCap = context.lastEmittedStorageCapByPlayer.get(playerId);
   const capChanged =
     !lastCap ||
@@ -127,6 +127,7 @@ export function emitPlayerStateUpdate(
       // muster flag, instead of firing a SET_MUSTER that's silently rejected
       // and only discovered 5s later via the request-timeout fallback.
       musterFlagLimit: playerMusterFlagLimit(player),
+      autoSettle: normalizeAutoSettlePrefs(player.autoSettle),
       ...(capChanged ? { storageCap } : {})
     }
   );

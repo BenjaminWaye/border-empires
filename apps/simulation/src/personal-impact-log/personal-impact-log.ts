@@ -1,3 +1,5 @@
+import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
+
 // Durable, bounded 24-hour source for the personal Activity dashboard's
 // high-signal milestones. Unlike DomainPlayer.eventLog this is not snapshot
 // state: it is a global rolling tail persisted alongside territory/combat
@@ -16,7 +18,7 @@ type PersonalImpactBase = {
 
 export type PersonalImpactWaystationActivated = PersonalImpactBase & {
   kind: "WAYSTATION_ACTIVATED";
-  grantedEffect: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  grantedEffect: WaystationGrantedEffect;
   revealedAtX?: number;
   revealedAtY?: number;
   grantedTechId?: string;
@@ -24,6 +26,9 @@ export type PersonalImpactWaystationActivated = PersonalImpactBase & {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  grantedManpower?: number;
   populationBurst?: number;
 };
 
@@ -65,7 +70,7 @@ export type PersonalImpactLog = {
   prune: (now: number) => void;
   entries: () => readonly PersonalImpactEvent[];
   gauge: () => PersonalImpactLogGauge;
-  restore: (events: readonly PersonalImpactEvent[], now: number) => void;
+  restore: (events: readonly PersonalImpactEvent[], now: number, capHits?: number) => void;
 };
 
 export const createPersonalImpactLog = (options: { now?: () => number } = {}): PersonalImpactLog => {
@@ -88,12 +93,13 @@ export const createPersonalImpactLog = (options: { now?: () => number } = {}): P
     }
   };
 
-  const restore = (restored: readonly PersonalImpactEvent[], at: number): void => {
+  const restore = (restored: readonly PersonalImpactEvent[], at: number, restoredCapHits = 0): void => {
     const cutoff = at - PERSONAL_IMPACT_WINDOW_MS;
     events = restored
       .filter((event) => event.occurredAt >= cutoff)
       .sort((left, right) => left.occurredAt - right.occurredAt)
       .slice(-PERSONAL_IMPACT_LOG_MAX_ENTRIES);
+    capHits = Math.max(capHits, Number.isFinite(restoredCapHits) ? Math.max(0, restoredCapHits) : 0);
   };
 
   return {

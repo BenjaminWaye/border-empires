@@ -1,9 +1,15 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  ECONOMIC_STRUCTURE_BUILD_MS,
+  FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  musterMarchDistanceTiles,
+  musterMarchTooFarAdvice,
+  OBSERVATORY_BUILD_MS,
+  RELAY_BEACON_BUILD_MS,
+  SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
-  structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -18,11 +24,13 @@ import {
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { standingFortAfterLostUpgrade } from "./fort-upgrade-standing.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 function rejectCommand(
   context: RuntimeStructureCommandContext,
@@ -88,7 +96,7 @@ function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourc
 
 export function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
   actor.points += refund.gold;
-  actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + refund.manpower);
+  creditManpower(actor, refund.manpower, context.playerManpowerCap(actor));
   for (const resource of Object.keys(refund.strategic) as StrategicResourceKey[]) {
     creditStrategicResource(actor, resource, refund.strategic[resource] ?? 0);
   }
@@ -171,6 +179,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
       return;
     }
+    // The client checks this first and shows the same text as plain advice, so
+    // this rejection is the backstop for a stale/modified client.
+    const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(payload.x, payload.y, payload.targetX!, payload.targetY!));
+    if (tooFarAdvice) {
+      rejectCommand(context, command, "MUSTER_MARCH_TOO_FAR", tooFarAdvice);
+      return;
+    }
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
@@ -190,6 +205,15 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       mode: payload.mode,
       ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
       ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
+      // docs/replenishment-update-plan.md D6: a SET_MUSTER without
+      // commitManpower keeps whatever was already set on this flag (e.g.
+      // re-arming MARCH with a new target shouldn't silently reset the
+      // player's chosen commitment) -- only an explicit new value overwrites it.
+      ...(typeof payload.commitManpower === "number"
+        ? { commitManpower: payload.commitManpower }
+        : target.muster?.commitManpower != null
+          ? { commitManpower: target.muster.commitManpower }
+          : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }
@@ -236,7 +260,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     rejectCommand(context, command, "MUSTER_INVALID", "no muster on owned tile");
     return;
   }
-  actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + target.muster.amount);
+  creditManpower(actor, target.muster.amount, context.playerManpowerCap(actor));
   const updatedTile: DomainTileState = { ...target, muster: undefined };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
   context.emitEvent({
@@ -270,7 +294,7 @@ export function handleCancelFortBuildCommand(context: RuntimeStructureCommandCon
     return;
   }
   applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
-  const updatedTile: DomainTileState = { ...target, fort: undefined };
+  const updatedTile: DomainTileState = { ...target, fort: standingFortAfterLostUpgrade(target.fort) };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
@@ -312,7 +336,7 @@ function cancelStructureActionTile(
     return {
       ...target,
       fort: target.fort.status === "under_construction"
-        ? undefined
+        ? standingFortAfterLostUpgrade(target.fort)
         : { ...target.fort, status: target.fort.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined }
     };
   }
@@ -397,17 +421,23 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   let removeDurationMs: number;
   let updatedTile: DomainTileState;
   if (fort) {
-    removeDurationMs = structureBuildDurationMs("FORT");
+    // docs/replenishment-update-plan.md D9 only covers BUILD time -- removal
+    // keeps the pre-replenishment flat per-type duration rather than
+    // structureBuildDurationMs's new manpower-cost-derived one, which is
+    // meaningless here (it depends on the exact tier/count a fresh BUILD
+    // would pay, not on what's actually being torn down, and can be 0 for a
+    // free Relay Beacon -- an instant removal was never the intent).
+    removeDurationMs = FORT_BUILD_MS;
     updatedTile = { ...target, fort: { ...fort, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
   } else if (observatory) {
-    removeDurationMs = structureBuildDurationMs("OBSERVATORY");
+    removeDurationMs = OBSERVATORY_BUILD_MS;
     updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
   } else if (siegeOutpost) {
-    removeDurationMs = structureBuildDurationMs("SIEGE_OUTPOST");
+    removeDurationMs = SIEGE_OUTPOST_BUILD_MS;
     updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
-    removeDurationMs = structureBuildDurationMs(structure.type);
+    removeDurationMs = structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
     updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
   }
   context.replaceTileState(targetKey, updatedTile);

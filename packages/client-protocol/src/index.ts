@@ -27,6 +27,7 @@ export const DurableCommandTypeSchema = z.enum([
   "REVEAL_EMPIRE_STATS",
   "SURVEY_SWEEP",
   "AETHER_LANCE",
+  "AETHER_EMP",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",
   "SIPHON_TILE",
@@ -34,6 +35,7 @@ export const DurableCommandTypeSchema = z.enum([
   "CANCEL_SIPHON",
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
+  "RETORT_RECAST",
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",
@@ -52,7 +54,8 @@ export const DurableCommandTypeSchema = z.enum([
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
+  "CLAIM_CONTINUATION_SET",
+  "SET_AUTO_SETTLE_PREFS"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;

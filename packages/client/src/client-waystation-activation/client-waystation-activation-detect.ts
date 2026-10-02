@@ -18,6 +18,9 @@ export type WaystationActivationDetail = {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationActivationInfo["grantedGoldTier"];
+  grantedManpower?: number;
 };
 
 /**
@@ -55,6 +58,9 @@ export const buildWaystationActivationInfo = (
     ...(waystation.grantedTownName ? { grantedTownName: waystation.grantedTownName } : {}),
     ...(typeof waystation.grantedTownX === "number" ? { grantedTownX: waystation.grantedTownX } : {}),
     ...(typeof waystation.grantedTownY === "number" ? { grantedTownY: waystation.grantedTownY } : {}),
+    ...(typeof waystation.grantedGold === "number" ? { grantedGold: waystation.grantedGold } : {}),
+    ...(waystation.grantedGoldTier ? { grantedGoldTier: waystation.grantedGoldTier } : {}),
+    ...(typeof waystation.grantedManpower === "number" ? { grantedManpower: waystation.grantedManpower } : {}),
     onJumpToLocation,
     ...(onViewTech ? { onViewTech } : {})
   };

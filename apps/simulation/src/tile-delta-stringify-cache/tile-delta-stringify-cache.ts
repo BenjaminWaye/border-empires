@@ -43,6 +43,7 @@ export type TileLastEmittedRefs = {
   watchtowerRef: unknown;
   waystationRef: unknown;
   musterRef: unknown;
+  afcRef: unknown;
 };
 
 interface Entry {
@@ -68,6 +69,8 @@ interface Entry {
   waystationRef: unknown;
   musterJson: string | undefined;
   musterRef: unknown;
+  afcJson: string | undefined;
+  afcRef: unknown;
   lastEmitted: TileLastEmittedRefs | undefined;
 }
 
@@ -83,6 +86,7 @@ export type AllSubstructureJson = {
   watchtowerJson: string | undefined;
   waystationJson: string | undefined;
   musterJson: string | undefined;
+  afcJson: string | undefined;
 };
 
 export class TileDeltaStringifyCache {
@@ -107,6 +111,7 @@ export class TileDeltaStringifyCache {
         watchtowerJson: undefined, watchtowerRef: undefined,
         waystationJson: undefined, waystationRef: undefined,
         musterJson: undefined, musterRef: undefined,
+        afcJson: undefined, afcRef: undefined,
         lastEmitted: undefined
       };
       this.entries.set(tileKey, entry);
@@ -156,6 +161,10 @@ export class TileDeltaStringifyCache {
       entry.musterRef = tile.muster;
       entry.musterJson = tile.muster ? JSON.stringify(tile.muster) : undefined;
     }
+    if (tile.afc !== entry.afcRef) {
+      entry.afcRef = tile.afc;
+      entry.afcJson = tile.afc ? JSON.stringify(tile.afc) : undefined;
+    }
 
     return {
       townJson: entry.townJson,
@@ -168,7 +177,8 @@ export class TileDeltaStringifyCache {
       naturalWonderJson: entry.naturalWonderJson,
       watchtowerJson: entry.watchtowerJson,
       waystationJson: entry.waystationJson,
-      musterJson: entry.musterJson
+      musterJson: entry.musterJson,
+      afcJson: entry.afcJson
     };
   }
 
@@ -268,6 +278,7 @@ export class TileDeltaStringifyCache {
     if (tile.naturalWonder !== last.naturalWonderRef) { (delta as Record<string, unknown>).naturalWonderJson = fullDelta.naturalWonderJson; hasFieldChanges = true; }
     if (tile.watchtower !== last.watchtowerRef) { (delta as Record<string, unknown>).watchtowerJson = fullDelta.watchtowerJson; hasFieldChanges = true; }
     if (tile.waystation !== last.waystationRef) { (delta as Record<string, unknown>).waystationJson = fullDelta.waystationJson; hasFieldChanges = true; }
+    if (tile.afc !== last.afcRef) { (delta as Record<string, unknown>).afcJson = fullDelta.afcJson; hasFieldChanges = true; }
 
     const lastTown = last.townRef as DomainTileState["town"] | undefined;
     if (tile.town?.type !== lastTown?.type) { (delta as Record<string, unknown>).townType = tile.town?.type; hasFieldChanges = true; }
@@ -318,6 +329,7 @@ export class TileDeltaStringifyCache {
         watchtowerJson: undefined, watchtowerRef: undefined,
         waystationJson: undefined, waystationRef: undefined,
         musterJson: undefined, musterRef: undefined,
+        afcJson: undefined, afcRef: undefined,
         lastEmitted: undefined
       };
       this.entries.set(tileKey, entry);
@@ -343,6 +355,7 @@ export class TileDeltaStringifyCache {
       watchtowerRef: tile.watchtower,
       waystationRef: tile.waystation,
       musterRef: tile.muster,
+      afcRef: tile.afc,
     };
   }
 
@@ -366,6 +379,7 @@ export class TileDeltaStringifyCache {
       entry.watchtowerJson = undefined; entry.watchtowerRef = undefined;
       entry.waystationJson = undefined; entry.waystationRef = undefined;
       entry.musterJson = undefined; entry.musterRef = undefined;
+      entry.afcJson = undefined; entry.afcRef = undefined;
       entry.lastEmitted = preserved;
     }
   }

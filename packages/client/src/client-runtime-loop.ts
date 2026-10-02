@@ -8,15 +8,13 @@ import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-ren
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
+import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
+import { tickAfcJoinDropForFrame } from "./client-afc-join-drop/client-afc-join-drop-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
-import {
-  fortificationOpeningForTile,
-  fortificationOverlayKindForTile
-} from "./client-fortification-overlays/client-fortification-overlays.js";
-import { drawFortificationOverlay2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
+import { drawTileFortificationOverlays2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
@@ -24,7 +22,7 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
-import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
   drawDormantFrontierTreatment,
   drawReachBoundaryLine,
@@ -32,7 +30,7 @@ import {
 } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
-import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
@@ -48,7 +46,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrai
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
-import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js";
+import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
 // up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
@@ -218,23 +216,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
+    tickAfcJoinDropForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor); // before either renderer draws, so the joining AFC is hidden from its first frame
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
-      const fps = getCurrentFps();
-      const readouts = document.querySelectorAll<HTMLElement>("[data-fps-readout]");
-      if (readouts.length > 0) {
-        const label = fps === undefined ? "—" : Math.round(fps).toString();
-        readouts.forEach((el) => {
-          if (el.textContent !== label) el.textContent = label;
-        });
-      }
-      const zoomReadouts = document.querySelectorAll<HTMLElement>("[data-zoom-readout]");
-      if (zoomReadouts.length > 0) {
-        const zoomLabel = Math.round(state.zoom).toString();
-        zoomReadouts.forEach((el) => {
-          if (el.textContent !== zoomLabel) el.textContent = zoomLabel;
-        });
-      }
+      paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);
       if (
         !lowFpsRendererHudPinged &&
         shouldShowRendererPrompt({
@@ -266,15 +251,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
-    // Reach overlay: recompute only when tiles or server reach actually
-    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
-    // avoid collisions once tilesRevision outgrows the multiplier.
-    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
-    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
-      state.myReach = resolveMyReach(state);
-      state.myReachRevisionAtCompute = reachCacheKey;
-    }
-    const myReach = state.myReach;
+    // Reach overlay: resolveMyReachCached recomputes only when tiles or the
+    // server reach actually changed (same cache the 3D renderer uses).
+    const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -306,7 +285,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       });
       roadNetworkBuiltAt = nowMs;
     }
-    const overlayTiles: VisibleRenderTile[] = [];
+    const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
     const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
       if (tile) return undefined;
       if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
@@ -453,9 +432,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
-      if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!);
+      if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
         const marker = Math.max(4, Math.floor(size * 0.22));
@@ -468,18 +447,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
-        const fortificationKind = fortificationOverlayKindForTile(t);
-        if (fortificationKind) {
-          const opening = fortificationOpeningForTile(t, {
-            tiles: state.tiles,
-            keyFor: deps.keyFor,
-            wrapX: deps.wrapX,
-            wrapY: deps.wrapY
-          });
-          const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
-          drawFortificationOverlay2D(deps.ctx, t, fortificationKind, overlay, px, py, size,
-            { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
-        }
+        drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
+          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor);
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
         // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
@@ -515,7 +484,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-        const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
         // Structures handled by the 3D structure overlay — skip the 2D
         // image / fallback so the canvas stays clean over them.
@@ -526,8 +494,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const handled3DStructure =
           isTrue3DRendererActive() &&
           isStructureHandledBy3D(t.economicStructure.type);
-        if (fortificationKind || handled3DStructure) {
-          // 3D-rendered (forts + 3D-overlay structures); no 2D fallback.
+        // A Relay Beacon is drawn by the fortification overlay pass; any other
+        // economic structure still gets drawn when a fort shares its tile.
+        if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
@@ -1033,7 +1002,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
 
         if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
@@ -1360,7 +1329,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const roadOverlayMs = phaseMs();
 
-    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
+    for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile); if (!isTrue3DRendererActive() && state.arrowGesture) drawArrowGesture2D(deps.ctx, state.arrowGesture, (wx2, wy2) => deps.worldToScreen(wx2, wy2, size, halfW, halfH), size); // F4: 2D arrow-gesture visual (F1/F2 parity)
     const tileOverlayMs = phaseMs();
 
     if (debugWindow && isTrue3DRendererActive() && debugSelected) {

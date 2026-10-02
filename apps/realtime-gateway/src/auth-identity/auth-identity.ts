@@ -1,29 +1,13 @@
 import { anonymizedEmpireNameForId, isOpaquePlayerId } from "@border-empires/shared";
 
-const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
-  const parts = token.split(".");
-  if (parts.length < 2) return undefined;
-  try {
-    const json = Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
-    const parsed = JSON.parse(json) as Record<string, unknown>;
-    return parsed && typeof parsed === "object" ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
+import type { FirebaseTokenVerifier } from "./firebase-token-verifier.js";
 
-const decodeFirebaseTokenFallback = (
-  token: string
-): { uid: string; email?: string; name?: string } | undefined => {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return undefined;
-  const uid = typeof payload.user_id === "string" ? payload.user_id : typeof payload.sub === "string" ? payload.sub : "";
-  if (!uid) return undefined;
-  const decoded: { uid: string; email?: string; name?: string } = { uid };
-  if (typeof payload.email === "string") decoded.email = payload.email;
-  if (typeof payload.name === "string") decoded.name = payload.name;
-  return decoded;
-};
+// A Firebase ID token is a compact JWT: exactly three dot-separated segments.
+// Anything shaped like one is never trusted until it verifies (signature,
+// issuer, audience, expiry); it is not decoded or used as a direct player id.
+// isGuest (below) is likewise computed inside the verifier from the verified
+// payload, not re-decoded here -- see firebase-token-verifier.ts.
+const looksLikeJwt = (token: string): boolean => token.split(".").length === 3;
 
 const normalizeDisplayName = (value: string | undefined): string | undefined => {
   const trimmed = value?.trim();
@@ -64,36 +48,46 @@ export type GatewayResolvedIdentity = {
   playerName: string;
   authUid?: string;
   authEmail?: string;
+  isGuest?: boolean;
 };
 
-export const resolveGatewayAuthIdentity = (
+export const resolveGatewayAuthIdentity = async (
   token: string,
   options: {
     allowDirectPlayerIdToken?: boolean;
     defaultHumanPlayerId?: string;
     authIdentities?: Array<{ uid: string; playerId: string; name?: string; email?: string }>;
+    verifyFirebaseToken?: FirebaseTokenVerifier;
   } = {}
-): GatewayResolvedIdentity | undefined => {
-  const directMappedIdentity = options.authIdentities?.find(
-    (identity) => identity.uid === token || identity.email === token || identity.playerId === token
-  );
-  if (directMappedIdentity) {
-    return {
-      playerId: directMappedIdentity.playerId,
-      playerName: normalizeDisplayName(directMappedIdentity.name) ?? fallbackDisplayNameForToken(token),
-      authUid: directMappedIdentity.uid,
-      ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email } : {})
-    };
+): Promise<GatewayResolvedIdentity | undefined> => {
+  // Dev/test shortcut: a token that is literally a known uid/email/player id.
+  // Only honored where direct player-id tokens are (i.e. a configured default
+  // human player, which managed runtimes refuse) -- uids are visible to every
+  // client, so outside dev this would let anyone log in as anyone.
+  if (options.allowDirectPlayerIdToken === true) {
+    const directMappedIdentity = options.authIdentities?.find(
+      (identity) => identity.uid === token || identity.email === token || identity.playerId === token
+    );
+    if (directMappedIdentity) {
+      return {
+        playerId: directMappedIdentity.playerId,
+        playerName: normalizeDisplayName(directMappedIdentity.name) ?? fallbackDisplayNameForToken(token),
+        authUid: directMappedIdentity.uid,
+        ...(directMappedIdentity.email ? { authEmail: directMappedIdentity.email } : {})
+      };
+    }
   }
 
-  const decoded = decodeFirebaseTokenFallback(token);
-  if (!decoded) {
+  if (!looksLikeJwt(token)) {
     if (options.allowDirectPlayerIdToken !== true) return undefined;
     return {
       playerId: token,
       playerName: fallbackDisplayNameForToken(token)
     };
   }
+
+  const decoded = options.verifyFirebaseToken ? await options.verifyFirebaseToken(token) : undefined;
+  if (!decoded) return undefined;
 
   const playerName =
     normalizeDisplayName(decoded.name) ??
@@ -107,6 +101,7 @@ export const resolveGatewayAuthIdentity = (
     playerId: mappedIdentity?.playerId ?? options.defaultHumanPlayerId ?? decoded.uid,
     playerName: normalizeDisplayName(mappedIdentity?.name) ?? playerName,
     authUid: decoded.uid,
-    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {})
+    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {}),
+    ...(decoded.isGuest ? { isGuest: true } : {})
   };
 };

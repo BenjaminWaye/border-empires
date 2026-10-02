@@ -34,6 +34,18 @@ describe("handleJoinSeasonMessage", () => {
     expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
   });
 
+  it("reports a spawn to the player funnel only when the join spawned territory", async () => {
+    const onSpawned = vi.fn();
+    await handleJoinSeasonMessage(buildDeps({ onSpawned }));
+    expect(onSpawned).toHaveBeenCalledWith("player-1");
+    const notSpawned = vi.fn();
+    await handleJoinSeasonMessage(buildDeps({
+      onSpawned: notSpawned,
+      simulationClient: { preparePlayer: vi.fn(), joinSeason: vi.fn(async () => ({ playerId: "player-1", spawned: false })) }
+    }));
+    expect(notSpawned).not.toHaveBeenCalled();
+  });
+
   it("sends SEASON_PENDING with scheduledStartAt when the season hasn't started yet", async () => {
     const deps = buildDeps({
       simulationClient: {
@@ -122,6 +134,35 @@ describe("handleJoinSeasonMessage", () => {
     const deps = buildDeps({ resolveSpawnTile });
     await handleJoinSeasonMessage(deps);
     expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
+  });
+
+  it("sends the ack without spawnTile when resolveSpawnTile hangs (regression: Joining... stuck for 15s+)", async () => {
+    vi.useFakeTimers();
+    try {
+      const resolveSpawnTile = vi.fn(() => new Promise<{ x: number; y: number }>(() => {}));
+      const deps = buildDeps({ resolveSpawnTile });
+      const done = handleJoinSeasonMessage(deps);
+      await vi.advanceTimersByTimeAsync(5_000);
+      await done;
+      expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sends JOIN_SEASON_FAILED when the join RPC never answers", async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = buildDeps({
+        simulationClient: { preparePlayer: vi.fn(), joinSeason: vi.fn(() => new Promise<never>(() => {})) }
+      });
+      const done = handleJoinSeasonMessage(deps);
+      await vi.advanceTimersByTimeAsync(21_000);
+      await done;
+      expect(deps.sent).toEqual([{ type: "ERROR", code: "JOIN_SEASON_FAILED", message: "Could not join the season. Try again." }]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sends JOIN_SEASON_FAILED when the simulation call throws", async () => {

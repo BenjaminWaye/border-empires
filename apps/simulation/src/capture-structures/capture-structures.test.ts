@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, COMBAT_LOCK_MS } from "@border-empires/shared";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
@@ -15,7 +15,8 @@ const makePlayer = (id: string) => ({
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
-  allies: new Set<string>()
+  allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS }
 });
 
 describe("capture structure survival", () => {
@@ -208,7 +209,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "active" }
+              fort: { ownerId: "player-2", status: "active", variant: "WOODEN_FORT" }
             }
           ],
           activeLocks: []
@@ -229,20 +230,20 @@ describe("capture structure survival", () => {
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({
+      expect(capturedTile?.economicStructureJson).toBeUndefined();
+      expect(JSON.parse(capturedTile?.fortJson ?? "null")).toEqual({
         ownerId: "player-1",
-        type: "WOODEN_FORT",
         status: "active",
-        activatedAt: 1_000,
-        modeLockedUntil: 1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS
-      }));
+        variant: "WOODEN_FORT",
+        activatedAt: 1_000
+      });
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
   });
 
-  it("keeps the wooden fort when a fort upgrade is captured mid-build", async () => {
+  it("keeps the standing Palisade when a Palisade->Fort upgrade is captured mid-build", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -269,8 +270,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-2", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 },
-              economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "active" }
+              fort: { ownerId: "player-2", status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT", completesAt: COMBAT_LOCK_MS + 20_000 }
             }
           ],
           activeLocks: []
@@ -292,14 +292,13 @@ describe("capture structure survival", () => {
 
       const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
       expect(capturedTile).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
-      expect(capturedTile?.fortJson).toBeUndefined();
-      expect(capturedTile?.economicStructureJson).toBe(JSON.stringify({
+      expect(capturedTile?.economicStructureJson).toBeUndefined();
+      expect(JSON.parse(capturedTile?.fortJson ?? "null")).toEqual({
         ownerId: "player-1",
-        type: "WOODEN_FORT",
         status: "active",
-        activatedAt: 1_000,
-        modeLockedUntil: 1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS
-      }));
+        variant: "WOODEN_FORT",
+        activatedAt: 1_000
+      });
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

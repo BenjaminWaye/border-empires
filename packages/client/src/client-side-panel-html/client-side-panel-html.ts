@@ -14,6 +14,8 @@ export type ManpowerPanelMusterFlag = {
   fightY?: number | undefined;
   noTargetInRange?: boolean | undefined;
   insufficientManpower?: boolean | undefined;
+  unfundableTarget?: { x: number; y: number; required: number } | undefined;
+  clearing?: boolean | undefined;
 };
 
 /**
@@ -29,9 +31,23 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget"
   >,
   nowMs: number = Date.now()
+): string => {
+  const status = musterBaseStatusText(flag, nowMs);
+  const skipped = flag.unfundableTarget;
+  // ADVANCE skipped its nearest tile because it costs more than the flag can
+  // hold (a high-tier fort) -- say so instead of silently attacking
+  // elsewhere.
+  return skipped
+    ? `${status} Skipping (${skipped.x}, ${skipped.y}): needs ${Math.ceil(skipped.required)} manpower, more than this flag can hold — use Expand Capacity.`
+    : status;
+};
+
+const musterBaseStatusText = (
+  flag: Parameters<typeof musterStatusText>[0],
+  nowMs: number
 ): string => {
   if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
   if (flag.inFlight) {
@@ -49,6 +65,7 @@ export const musterStatusText = (
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
     return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
   }
+  if (flag.clearing) return `Clearing the area — ${Math.floor(flag.amount)} manpower staged.`;
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 
@@ -73,6 +90,25 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
   `;
 };
 
+/**
+ * "Manpower full in 3h 42min" — the personal, no-turns clock D1 calls for
+ * (docs/replenishment-update-plan.md workstream A). Pure function of the
+ * same manpower/manpowerCap/manpowerRegenPerMinute fields already on the
+ * wire, so this needs no new server plumbing: it's just the inverse of the
+ * continuous-regen formula the server already uses (effectiveManpowerAt).
+ * A regen of 0 or less (the manpower-panel wire value is never 0 from a
+ * genuine lack of towns — STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE and
+ * MANPOWER_REGEN_GLOBAL_FLOOR both keep it positive — so 0 here means the
+ * Titanium Levy's regen freeze is active) reads as "paused", not a countdown
+ * to Infinity.
+ */
+export const manpowerFullStatusText = (manpower: number, manpowerCap: number, manpowerRegenPerMinute: number, formatDuration: (ms: number) => string): string => {
+  if (manpower >= manpowerCap) return "Manpower full.";
+  if (manpowerRegenPerMinute <= 0) return "Regen paused.";
+  const msUntilFull = ((manpowerCap - manpower) / manpowerRegenPerMinute) * 60_000;
+  return `Manpower full in ${formatDuration(msUntilFull)}.`;
+};
+
 export const renderManpowerPanelHtml = (args: {
   manpower: number;
   manpowerCap: number;
@@ -84,11 +120,13 @@ export const renderManpowerPanelHtml = (args: {
   musterFlags: ManpowerPanelMusterFlag[];
   formatManpowerAmount: (value: number) => string;
   rateToneClass: (rate: number) => string;
+  formatDuration: (ms: number) => string;
 }): string => {
   const current = args.formatManpowerAmount(args.manpower);
   const cap = args.formatManpowerAmount(args.manpowerCap);
   const regen = args.manpowerRegenPerMinute;
   const regenText = `${regen >= 0 ? "+" : ""}${regen.toFixed(1)}/m`;
+  const fullStatusText = manpowerFullStatusText(args.manpower, args.manpowerCap, args.manpowerRegenPerMinute, args.formatDuration);
   const sectionHtml = (
     title: string,
     lines: Array<{ label: string; amount: number; note?: string }>
@@ -113,6 +151,7 @@ export const renderManpowerPanelHtml = (args: {
           </div>
           <div class="economy-rate ${args.rateToneClass(regen)}">${regenText}</div>
         </div>
+        <div class="economy-footnote manpower-full-eta">${fullStatusText}</div>
         <div class="economy-footnote">Manpower gates attacks. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}

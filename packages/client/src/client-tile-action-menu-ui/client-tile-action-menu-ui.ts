@@ -1,11 +1,11 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
-import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
@@ -235,6 +235,53 @@ export const renderTileActionMenu = (
         deps.hideTileActionMenu();
       };
     });
+    // docs/replenishment-update-plan.md D6: the commit-choice tab (muster
+    // flag's own tile menu). Slider drag and preset clicks only patch the
+    // value/odds text in place -- no full tile-menu re-render per tick, per
+    // tileMenuRenderSignature's reuse guard above. Only "Save" writes
+    // anything server-side (SET_MUSTER), which then re-renders naturally via
+    // the resulting tile delta.
+    const commitSlider = deps.tileActionMenuEl.querySelector<HTMLInputElement>("[data-muster-commit-slider]");
+    if (commitSlider) {
+      const valueEl = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-muster-commit-value]");
+      const oddsEl = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-muster-commit-odds]");
+      const floor = Number(commitSlider.dataset.musterCommitFloor ?? commitSlider.min);
+      const baseOddsRaw = commitSlider.dataset.musterCommitBaseOdds;
+      const baseOddsPercent = baseOddsRaw ? Number(baseOddsRaw) : undefined;
+      const updateCommitPreview = (): void => {
+        const value = Number(commitSlider.value);
+        if (valueEl) valueEl.textContent = String(value);
+        if (oddsEl && baseOddsPercent != null && floor > 0) {
+          const pct = Math.max(0, Math.min(100, Math.round(baseOddsPercent * commitOddsMultiplier(value, floor))));
+          oddsEl.textContent = `${pct}% win chance`;
+        }
+      };
+      commitSlider.oninput = updateCommitPreview;
+      deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-muster-commit-preset]").forEach((btn) => {
+        btn.onclick = () => {
+          const amount = Number(btn.dataset.musterCommitPreset);
+          if (!Number.isFinite(amount)) return;
+          commitSlider.value = String(amount);
+          updateCommitPreview();
+        };
+      });
+      const saveBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("[data-muster-commit-save]");
+      if (saveBtn) {
+        saveBtn.onclick = () => {
+          const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
+          if (!tile?.muster) return;
+          deps.sendGameMessage({
+            type: "SET_MUSTER",
+            x: tile.x,
+            y: tile.y,
+            mode: tile.muster.mode,
+            ...(tile.muster.targetX != null ? { targetX: tile.muster.targetX } : {}),
+            ...(tile.muster.targetY != null ? { targetY: tile.muster.targetY } : {}),
+            commitManpower: Number(commitSlider.value)
+          });
+        };
+      }
+    }
     const debugButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-debug-download]");
     debugButtons.forEach((btn) => {
       btn.onclick = () => {
@@ -261,7 +308,7 @@ export const renderTileActionMenu = (
         const wrapX = (x: number): number => wrapCoord(x, WORLD_WIDTH);
         const wrapY = (y: number): number => wrapCoord(y, WORLD_HEIGHT);
         const keyFor = (x: number, y: number): string => `${x},${y}`;
-        const myReach = resolveMyReach(state);
+        const myReach = resolveMyReachCached(state);
         const neighborReach = {
           north: myReach.has(keyFor(wrapX(tileX), wrapY(tileY - 1))),
           east: myReach.has(keyFor(wrapX(tileX + 1), wrapY(tileY))),
@@ -415,7 +462,7 @@ export const openBulkTileActionMenu = (
     actions.push({
       id: "settle_land",
       label: `Settle Land (${neutralCount})`,
-      cost: `${FRONTIER_CLAIM_COST} gold, ${EXPAND_MANPOWER_COST} manpower each`
+      cost: `${FRONTIER_CLAIM_COST} coin, ${EXPAND_MANPOWER_COST} manpower each`
     });
   }
   if (enemyCount > 0) {

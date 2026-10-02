@@ -46,7 +46,7 @@ describe("client structure effects", () => {
     };
 
     expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
-      { reason: "Foundry", effect: "+100% titanium production", tone: "positive" }
+      { reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }
     ]);
   });
 
@@ -141,7 +141,7 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+      fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" }
     };
     const settledTile: Tile = {
       x: 41,

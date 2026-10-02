@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import type { GatewayAuthBindingStore, StoredAuthIdentityBinding } from "./auth-binding-store/auth-binding-store.js";
+import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
 
 type Row = {
   auth_uid: string;
@@ -33,14 +34,14 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
   }
 
   async getByUid(uid: string): Promise<StoredAuthIdentityBinding | undefined> {
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(`SELECT auth_uid, player_id, auth_email, updated_at FROM auth_identity_bindings WHERE auth_uid = ?`)
-      .get(uid) as Row | undefined;
+      .get(uid) as Row | undefined);
     return row ? toBinding(row) : undefined;
   }
 
   async getByEmail(email: string): Promise<StoredAuthIdentityBinding | undefined> {
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `SELECT auth_uid, player_id, auth_email, updated_at
          FROM auth_identity_bindings
@@ -48,12 +49,12 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
          ORDER BY updated_at DESC
          LIMIT 1`
       )
-      .get(email) as Row | undefined;
+      .get(email) as Row | undefined);
     return row ? toBinding(row) : undefined;
   }
 
   async getByPlayerId(playerId: string): Promise<StoredAuthIdentityBinding | undefined> {
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `SELECT auth_uid, player_id, auth_email, updated_at
          FROM auth_identity_bindings
@@ -61,19 +62,19 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
          ORDER BY updated_at DESC
          LIMIT 1`
       )
-      .get(playerId) as Row | undefined;
+      .get(playerId) as Row | undefined);
     return row ? toBinding(row) : undefined;
   }
 
   async listAllWithEmail(): Promise<StoredAuthIdentityBinding[]> {
-    const rows = this.db
+    const rows = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `SELECT auth_uid, player_id, auth_email, updated_at
          FROM auth_identity_bindings
          WHERE auth_email IS NOT NULL
          ORDER BY player_id, updated_at DESC`
       )
-      .all() as Row[];
+      .all() as Row[]);
     const latestByPlayerId = new Map<string, StoredAuthIdentityBinding>();
     for (const row of rows) {
       if (!latestByPlayerId.has(row.player_id)) latestByPlayerId.set(row.player_id, toBinding(row));
@@ -83,7 +84,7 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
 
   async bindIdentity(binding: { uid: string; playerId: string; email?: string }): Promise<StoredAuthIdentityBinding> {
     const now = this.now();
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO auth_identity_bindings (auth_uid, player_id, auth_email, updated_at)
          VALUES (?, ?, ?, ?)
@@ -92,7 +93,7 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
            updated_at = excluded.updated_at
          RETURNING auth_uid, player_id, auth_email, updated_at`
       )
-      .get(binding.uid, binding.playerId, binding.email ?? null, now) as Row;
+      .get(binding.uid, binding.playerId, binding.email ?? null, now) as Row);
     return toBinding(row);
   }
 }

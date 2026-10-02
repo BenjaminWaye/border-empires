@@ -8,7 +8,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
-  MUSTER_FLAG_BASE_CAP_CEILING,
+  MUSTER_FLAG_BASE_CAP_FLOOR,
   musterFlagCap,
   RAIL_DEPOT_BOOSTED_MUSTER_MULT
 } from "@border-empires/shared";
@@ -113,19 +113,19 @@ describe("muster accumulation tick", () => {
     expect(before - after).toBeCloseTo(accumulated, 5);
   });
 
-  it("caps a fresh flag at MUSTER_FLAG_BASE_CAP_CEILING once 10% of a large manpower cap would exceed it", async () => {
+  it("caps a fresh flag at 10% of a large manpower cap (above the MUSTER_FLAG_BASE_CAP_FLOOR) rather than the whole pool", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
         // Several GREAT_CITY tiles push the player's manpower cap well above
-        // MUSTER_FLAG_BASE_CAP_CEILING * 10, so a flag stopping at the
-        // ceiling proves the default cap is enforced independently of (and
-        // below) the pool cap -- a single fresh flag can't soak up the pool.
-        // (Uses GREAT_CITY rather than TOWN so this stays well above the
-        // ceiling regardless of §upgrade-bonus-rebalance's halved per-tier
-        // manpower increases.)
+        // MUSTER_FLAG_BASE_CAP_FLOOR * 10, so 10% of it beats the floor, and a
+        // flag stopping at that share proves the default cap is enforced
+        // independently of (and below) the pool cap -- a single fresh flag
+        // can't soak up the pool. (Uses GREAT_CITY rather than TOWN so this
+        // stays well above the floor regardless of §upgrade-bonus-rebalance's
+        // halved per-tier manpower increases.)
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } },
@@ -137,16 +137,17 @@ describe("muster accumulation tick", () => {
     });
     await setMuster(runtime, 10, 10, 1);
     const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
-    expect(cap).toBeGreaterThan(MUSTER_FLAG_BASE_CAP_CEILING * 10);
+    expect(cap).toBeGreaterThan(MUSTER_FLAG_BASE_CAP_FLOOR * 10);
 
     // Advance a very long time so accumulation would vastly exceed the full
     // manpower cap if nothing else bounded it.
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
-    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(MUSTER_FLAG_BASE_CAP_CEILING, 5);
+    expect(musterFlagCap(cap, 0)).toBeCloseTo(cap * 0.1, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap * 0.1, 5);
   });
 
-  it("caps a fresh flag at 10% of a modest manpower cap when that's under the ceiling", async () => {
+  it("caps a fresh flag at the MUSTER_FLAG_BASE_CAP_FLOOR when 10% of a modest manpower cap is under it", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -158,7 +159,8 @@ describe("muster accumulation tick", () => {
     });
     await setMuster(runtime, 10, 10, 1);
     const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
-    expect(cap * 0.1).toBeLessThan(MUSTER_FLAG_BASE_CAP_CEILING);
+    expect(cap * 0.1).toBeLessThan(MUSTER_FLAG_BASE_CAP_FLOOR);
+    expect(musterFlagCap(cap, 0)).toBe(Math.min(MUSTER_FLAG_BASE_CAP_FLOOR, cap));
 
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);

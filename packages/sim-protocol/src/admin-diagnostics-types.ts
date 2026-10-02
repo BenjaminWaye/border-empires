@@ -10,7 +10,10 @@ export type AdminPlayerRow = {
   ownedTiles: number;
   incomePerMinute: number;
   techs: number;
+  /** Stored manpower as of the player's last regen update (not re-projected to "now"). */
   manpower: number;
+  /** Current manpower cap (playerManpowerCap), for reading `manpower` as "x / cap". */
+  manpowerCap: number;
   /**
    * FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
    * (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
@@ -28,8 +31,8 @@ export type AdminPlayerRow = {
   /**
    * barbarian-* rows only: how many tiles owned by ANY barbarian-* player
    * (not just this row's) are currently visible to at least one
-   * non-barbarian player — exportBarbActivationVisibleUnion computes one
-   * combined union across every barbarian, it does not break the count down
+   * non-barbarian player — exportBarbTilesSeenByAnyPlayer computes one
+   * combined set across every barbarian, it does not break the count down
    * per barbarian id. This is the eligibility set the barbarian AI planner
    * acts from (see system-job-barbarian-planner.ts). Identical on every
    * barbarian-* row; omitted for every non-barbarian row.
@@ -87,3 +90,14 @@ export type PlayerCombatSummary = {
   domainIds: string[];
   weaponsFactoryCounts: { titanium: number; umbrite: number };
 };
+
+/**
+ * Server-to-server PLAYER_MESSAGE from the simulation's onboarding-milestone
+ * tracker to the gateway's player-funnel store (/admin/players/insights).
+ * The gateway consumes it and never relays it to a client.
+ */
+export const ONBOARDING_MILESTONE_MESSAGE_TYPE = "ONBOARDING_MILESTONE";
+
+export type OnboardingMilestonePayload =
+  | { type: typeof ONBOARDING_MILESTONE_MESSAGE_TYPE; kind: "TEN_TILES"; at: number; ownedTiles: number }
+  | { type: typeof ONBOARDING_MILESTONE_MESSAGE_TYPE; kind: "FIRST_CONTACT"; at: number; withPlayerId: string; withIsAi: boolean };

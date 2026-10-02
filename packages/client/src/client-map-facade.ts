@@ -1,6 +1,7 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
-  buildMiniMapBase as buildMiniMapBaseFromModule,
+  buildMiniMapBaseRows,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
   isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
   markDockDiscovered as markDockDiscoveredFromModule
@@ -206,6 +207,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     }
     if (biome === "PLAINS") {
       const value = groupedNoise(x, y, 32, 917);
+      if (worldgenVersion() >= 9) return value < 0.5 ? "#7cb342" : "#8cc152"; // v9 bright-green PLAINS
       return value < 0.5 ? "#b3a35c" : "#c2b26a";
     }
     if (biome === "JUNGLE") {
@@ -320,10 +322,19 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       keyFor
     });
 
+  // Sliced across tasks (see client-minimap-base-builder.ts); the minimap
+  // shows its placeholder until the base is complete.
+  const miniMapBaseBuilder = createMiniMapBaseBuilder({
+    rowCount: () => miniMapBase.height,
+    buildRows: (fromRow, toRow) => buildMiniMapBaseRows({ miniMapBase, miniMapBaseCtx, cachedTerrainColorAt }, fromRow, toRow),
+    onComplete: () => {
+      miniMapBaseReady = true;
+      miniMapLastDrawCamX = Number.NaN;
+    }
+  });
   const buildMiniMapBase = (): void => {
-    buildMiniMapBaseFromModule({ miniMapBase, miniMapBaseCtx, cachedTerrainColorAt });
-    miniMapBaseReady = true;
-    miniMapLastDrawCamX = Number.NaN;
+    miniMapBaseReady = false;
+    miniMapBaseBuilder.start();
   };
 
   const rebuildStrategicReplayState = (targetIndex: number): void => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { syncAuthOverlay } from "./client-auth-ui.js";
+import { authLabelForUser, syncAuthOverlay } from "./client-auth-ui.js";
 
 const makeButton = (): HTMLButtonElement => ({ disabled: false, style: { display: "" } } as unknown as HTMLButtonElement);
 const makeInput = (): HTMLInputElement => ({ disabled: false, value: "" } as HTMLInputElement);
@@ -26,6 +26,7 @@ describe("syncAuthOverlay", () => {
       {
         authSessionReady: false,
         initTransfer: null,
+        mapPrep: null,
         profileSetupRequired: false,
         authBusy: true,
         authBusyStartedAt: 8_000,
@@ -35,7 +36,7 @@ describe("syncAuthOverlay", () => {
         authBusyTitle: "Securing session",
         authBusyDetail: "Game server reached. Verifying your Google session...",
         activeBackend: "gateway",
-        bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+        bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
         seasonFull: false,
         seasonFullNotifyAcknowledged: false,
         authEmail: ""
@@ -47,6 +48,7 @@ describe("syncAuthOverlay", () => {
         authRegisterBtn: makeButton(),
         authEmailLinkBtn: makeButton(),
         authGoogleBtn: makeButton(),
+        authPlayNowBtn: makeButton(),
         authEmailEl: makeInput(),
         authPasswordEl: makeInput(),
         authDisplayNameEl: makeInput(),
@@ -69,7 +71,7 @@ describe("syncAuthOverlay", () => {
     expect(authBusyTitleEl.textContent).toBe("Securing session");
     expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session... (4s elapsed)");
     expect(authDebugRouteEl.textContent).toContain("Backend gateway");
-    expect(authDebugRouteEl.textContent).toContain("border-empires-combined-staging");
+    expect(authDebugRouteEl.textContent).toContain("api-staging.borderempires.com");
   });
 
   const baseDeps = () => ({
@@ -79,6 +81,7 @@ describe("syncAuthOverlay", () => {
     authRegisterBtn: makeButton(),
     authEmailLinkBtn: makeButton(),
     authGoogleBtn: makeButton(),
+    authPlayNowBtn: makeButton(),
     authEmailEl: makeInput(),
     authPasswordEl: makeInput(),
     authDisplayNameEl: makeInput(),
@@ -99,6 +102,7 @@ describe("syncAuthOverlay", () => {
   const baseState = () => ({
     authSessionReady: false,
     initTransfer: null,
+    mapPrep: null,
     profileSetupRequired: false,
     authBusy: true,
     authBusyStartedAt: 1_000,
@@ -108,7 +112,7 @@ describe("syncAuthOverlay", () => {
     authBusyTitle: "Finishing up...",
     authBusyDetail: "Building session data for a large empire (18s)…",
     activeBackend: "gateway" as const,
-    bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+    bridgeDebugWsUrl: "wss://api-staging.borderempires.com/ws",
     seasonFull: false,
     seasonFullNotifyAcknowledged: false,
     authEmail: ""
@@ -136,5 +140,28 @@ describe("syncAuthOverlay", () => {
     const authBusyDiagnosticsBtn = makeButton();
     syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyDiagnosticsBtn });
     expect(authBusyDiagnosticsBtn.style.display).toBe("none");
+  });
+
+  it("disables Play now together with the other sign-in buttons while busy or unconfigured", () => {
+    const authPlayNowBtn = makeButton();
+    const deps = { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authPlayNowBtn };
+
+    syncAuthOverlay({ ...baseState(), authBusy: true, authConfigured: true }, deps);
+    expect(authPlayNowBtn.disabled).toBe(true);
+
+    syncAuthOverlay({ ...baseState(), authBusy: false, authConfigured: true }, deps);
+    expect(authPlayNowBtn.disabled).toBe(false);
+
+    syncAuthOverlay({ ...baseState(), authBusy: false, authConfigured: false }, deps);
+    expect(authPlayNowBtn.disabled).toBe(true);
+  });
+});
+
+describe("authLabelForUser", () => {
+  it("names a guest 'Guest' rather than 'Authenticated user', and keeps real names and emails first", () => {
+    expect(authLabelForUser({ displayName: null, email: null, isAnonymous: true } as never)).toBe("Guest");
+    expect(authLabelForUser({ displayName: " Ada ", email: "a@x.com", isAnonymous: false } as never)).toBe("Ada");
+    expect(authLabelForUser({ displayName: null, email: "a@x.com", isAnonymous: false } as never)).toBe("a@x.com");
+    expect(authLabelForUser({ displayName: null, email: null, isAnonymous: false } as never)).toBe("Authenticated user");
   });
 });

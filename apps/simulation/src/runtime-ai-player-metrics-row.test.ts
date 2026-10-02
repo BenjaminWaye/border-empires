@@ -1,4 +1,4 @@
-import { MUSTER_FLAG_BASE_CAP_CEILING, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_FLAG_BASE_CAP_FLOOR, musterFlagCap } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { musterFlagTotalsForPlayer } from "./runtime-ai-player-metrics-row.js";
@@ -25,8 +25,8 @@ describe("musterFlagTotalsForPlayer", () => {
     expect(totals.musterFlagCount).toBe(2);
     expect(totals.musterStagedManpower).toBeCloseTo(130.5);
     expect(totals.musterFlagCapacity).toBe(musterFlagCap(1_500, undefined) + musterFlagCap(1_500, 2));
-    // Base cap is the ceiling for a big pool, so an unupgraded flag is not unbounded.
-    expect(musterFlagCap(1_500, undefined)).toBe(MUSTER_FLAG_BASE_CAP_CEILING);
+    // Base cap is the floor at this pool size (10% of 1,500 is exactly 150), so an unupgraded flag is not unbounded.
+    expect(musterFlagCap(1_500, undefined)).toBe(MUSTER_FLAG_BASE_CAP_FLOOR);
   });
 
   it("ignores indexed keys whose tile lost its flag or belongs to another owner (stale index entry)", () => {

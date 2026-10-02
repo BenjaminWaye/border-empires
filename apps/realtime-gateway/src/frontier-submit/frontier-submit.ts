@@ -14,6 +14,9 @@ type FrontierCommandMessage = {
   toY: number;
   commandId?: string;
   clientSeq?: number;
+  // docs/replenishment-update-plan.md D6: the player's chosen commitment for
+  // a manual ATTACK, above the required floor. Ignored for EXPAND.
+  commitManpower?: number;
 };
 
 export type GatewaySocketSession = {
@@ -159,7 +162,8 @@ export const submitFrontierCommand = async (
         fromX: message.fromX,
         fromY: message.fromY,
         toX: message.toX,
-        toY: message.toY
+        toY: message.toY,
+        ...(message.type === "ATTACK" && typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {})
       },
       ...(typeof message.commandId === "string" ? { commandId: message.commandId } : {}),
       ...(typeof message.clientSeq === "number" ? { clientSeq: message.clientSeq } : {})

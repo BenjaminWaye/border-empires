@@ -3,7 +3,7 @@
 // file to stay under the repo's per-file line cap.
 import { BARBARIAN_RAID_COST } from "../config.js";
 import { frontierClaimDurationMsAt } from "../frontier-claim-duration/frontier-claim-duration.js";
-import { requiredMusterForFort } from "../structure-costs/structure-costs.js";
+import { defendingFortVariant, requiredMusterForFort } from "../structure-costs/structure-costs.js";
 import type { FortVariant } from "../types.js";
 
 export type WaypointAction = "EXPAND" | "ATTACK";
@@ -72,7 +72,7 @@ export type WaypointPlannerTile = {
   fogged?: boolean | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: string | undefined;
-  fort?: { status?: string | undefined; variant?: FortVariant | undefined } | null | undefined;
+  fort?: { status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | null | undefined;
 };
 
 export type WaypointPlannerState = {
@@ -171,5 +171,5 @@ export const classifyTile = (
 
 export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined): number => {
   if (!tile || tile.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
-  return requiredMusterForFort(tile.fort?.status === "active" ? tile.fort.variant : undefined);
+  return requiredMusterForFort(defendingFortVariant(tile.fort));
 };

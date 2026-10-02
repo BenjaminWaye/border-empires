@@ -4,7 +4,8 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { buildTerrainDistanceField, deviationFromMarchLine } from "./muster-march-pathfinding.js";
 import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
-import { MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { MUSTER_MARCH_MAX_DISTANCE_TILES, MUSTER_MAX_CONCURRENT_ACTIONS, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 
 type MarchRouteScore = { routeLength: number; hitsSettled: boolean; remainingToTarget: number; lineDeviation: number };
 
@@ -55,6 +56,8 @@ const isStraighterRoute = (a: MarchRouteScore, b: MarchRouteScore): boolean => {
  * Attack and expand candidates share the same ranking; an attack wins an
  * exact tie.
  *
+ * Returns true when it launched a command that was accepted.
+ *
  * Every command MARCH issues (ATTACK or EXPAND) carries musterSourceX/Y set
  * to the flag's own tile, not whatever intermediate owned tile the BFS
  * launches the final hop from — runtime-frontier-command.ts uses that to
@@ -70,11 +73,21 @@ const isStraighterRoute = (a: MarchRouteScore, b: MarchRouteScore): boolean => {
  * once the target tile is actually owned by the player; see that check
  * below.
  */
-export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
+export type MarchFireOptions = {
+  // Steer toward this tile instead of the flag's own march target. Used by an
+  // ADVANCE flag closing on a barbarian that doesn't touch its territory yet
+  // (muster-advance-fire.ts); the flag's mode/target are left untouched.
+  target?: { x: number; y: number };
+  // Only expand across neutral land, never attack on the way. ADVANCE uses it
+  // so closing on a barbarian can't pick a fight with another player.
+  expandOnly?: boolean;
+};
+
+export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string, options: MarchFireOptions = {}): boolean => {
   const musterAmount = musterTile.muster?.amount ?? 0;
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
-  const targetX = musterTile.muster?.targetX;
-  const targetY = musterTile.muster?.targetY;
+  const targetX = options.target?.x ?? musterTile.muster?.targetX;
+  const targetY = options.target?.y ?? musterTile.muster?.targetY;
 
   if (targetX === undefined || targetY === undefined) {
     // No target set (shouldn't happen — SET_MUSTER requires one for MARCH) —
@@ -82,13 +95,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt });
-    return;
+    return false;
   }
 
   // Target already ours — the march is complete. Fall back to HOLD so the
   // flag stops searching and the client sees the march end.
   const targetTile = input.tiles.get(simulationTileKey(targetX, targetY));
-  if (targetTile?.ownerId === playerId) {
+  if (!options.target && targetTile?.ownerId === playerId) {
     const { targetX: _targetX, targetY: _targetY, ...restMuster } = musterTile.muster!;
     const clearedTile: DomainTileState = {
       ...musterTile,
@@ -102,7 +115,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       tileDeltas: [input.tileDeltaFromState(clearedTile)]
     });
     input.advanceCooldowns.delete(originKey);
-    return;
+    return false;
   }
 
   const inFlightLocks = locksSourcedFromMusterTile(input.locksByTile, originKey);
@@ -121,7 +134,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       fightY: nextLock.targetY,
       inFlightCount: inFlightLocks.length
     });
-    return;
+    return false;
   }
 
   // Not a new search, so carry the previous search's reason forward instead
@@ -136,7 +149,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       noTargetInRange: musterTile.muster?.noTargetInRange,
       insufficientManpower: musterTile.muster?.insufficientManpower
     });
-    return;
+    return false;
   }
 
   const reservedMuster = inFlightLocks.reduce((total, lock) => total + (lock.actionType === "ATTACK" ? lock.manpowerCost : 0), 0);
@@ -145,7 +158,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt, insufficientManpower: true });
-    return;
+    return false;
   }
 
   const getTile = (x: number, y: number): DomainTileState | undefined =>
@@ -163,14 +176,23 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     targetX,
     targetY,
     getTile,
-    straightLineFlagToTarget + ADVANCE_MAX_RANGE_TILES + 2
+    // A flag set before the march cap existed can still have a far target;
+    // bound the flood by the cap so it cannot cost more than a capped march.
+    Math.min(straightLineFlagToTarget, MUSTER_MARCH_MAX_DISTANCE_TILES) + ADVANCE_MAX_RANGE_TILES + 2,
+    originKey
   );
-  // Tiles the flood never reached (cut off by water, out of the search cap,
-  // or simply undefined on the map -- as most coordinates are in unit tests)
-  // fall back to the straight-line estimate rather than being treated as
-  // infinitely far away.
+  // The flood stops once it reaches the flag (see buildTerrainDistanceField),
+  // which is cheap and loses nothing: a candidate no closer to the target than
+  // the flag is rejected below anyway. So when the flag was reached, a tile
+  // missing from the field is at least as far as the flag -- treat it as
+  // exactly that, never as "unknown". Only when the flood never reached the
+  // flag (cut off by water, past the search cap, or tiles simply undefined on
+  // the map -- as most coordinates are in unit tests) do tiles fall back to
+  // the straight-line estimate rather than being treated as infinitely far.
+  const flagReachedByFlood = terrainDistanceField.has(originKey);
   const distanceToTarget = (x: number, y: number): number =>
-    terrainDistanceField.get(simulationTileKey(x, y)) ?? chebyshevDistanceToroidal(x, y, targetX, targetY);
+    terrainDistanceField.get(simulationTileKey(x, y)) ??
+    (flagReachedByFlood ? Number.POSITIVE_INFINITY : chebyshevDistanceToroidal(x, y, targetX, targetY));
 
   // A march must never move away from its target: any candidate at least as
   // far from the target as the flag itself already is gets rejected below,
@@ -200,6 +222,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // every neutral (unowned) LAND tile bordering owned territory as an
   // EXPAND candidate.
   const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
+  const actor = input.players.get(playerId);
   const visited = new Set<string>([originKey]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
@@ -254,7 +277,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         }
       } else if (
         neighbor.ownerId &&
+        !options.expandOnly &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
+        // Never "fight" an ally or truced player -- see the matching filter in
+        // muster-advance-fire.ts.
+        !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
@@ -304,7 +331,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       insufficientManpower: foundUnaffordable,
       noTargetInRange: !foundUnaffordable
     });
-    return;
+    return false;
   }
 
   // Straightest route wins whether it's fought or walked; an attack wins an
@@ -335,7 +362,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     simulationTileKey(to.x, to.y),
     input.nowMs
   );
-  input.handleFrontierCommand(
+  const result = input.handleFrontierCommand(
     {
       commandId,
       sessionId: `system-runtime:territory-automation:${playerId}`,
@@ -349,9 +376,21 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         toX: to.x,
         toY: to.y,
         musterSourceX: musterTile.x,
-        musterSourceY: musterTile.y
+        musterSourceY: musterTile.y,
+        // docs/replenishment-update-plan.md D6: carry this flag's chosen
+        // commitment into the ATTACK it fires -- but only against a SETTLED
+        // target, where the commit-odds multiplier actually does anything.
+        // A FRONTIER target auto-captures regardless of commitment
+        // (resolveAttackCombat's GUARANTEED_CAPTURE path), so spending the
+        // flag's full commitManpower there would just waste manpower on a
+        // win that was already free. EXPAND has no commitManpower field.
+        ...(useAttack && to.ownershipState === "SETTLED" && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {})
       })
     },
     useAttack ? "ATTACK" : "EXPAND"
   );
+  // A rejected command (no coin/manpower, tile locked...) must not be retried
+  // every second now that flags tick at 1s -- back off like a far target.
+  if (!result.accepted) input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
+  return result.accepted;
 };

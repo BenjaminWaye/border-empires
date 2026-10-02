@@ -1,8 +1,7 @@
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
-import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
-import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { bindMinimapDrag } from "../client-map-input-minimap-drag.js";
 import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { FeedSeverity, FeedType, Tile } from "../client-types.js";
@@ -108,47 +107,13 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     return true;
   };
 
-  const setCameraFromMinimapPointer = (clientX: number, clientY: number): void => {
-    const rect = deps.miniMapEl.getBoundingClientRect();
-    const px = Math.max(0, Math.min(rect.width, clientX - rect.left));
-    const py = Math.max(0, Math.min(rect.height, clientY - rect.top));
-    const nx = rect.width <= 0 ? 0 : px / rect.width;
-    const ny = rect.height <= 0 ? 0 : py / rect.height;
-    const box = computeMiniMapViewBox({
-      tiles: state.tiles,
-      fogDisabled: effectiveFogDisabled(state),
-      canvasW: rect.width,
-      canvasH: rect.height
-    });
-    state.camX = deps.wrapX(Math.floor(box.x0 + nx * box.w));
-    state.camY = deps.wrapY(Math.floor(box.y0 + ny * box.h));
-    state.camSubX = 0;
-    state.camSubY = 0;
-    deps.requestViewRefresh(2, true);
-    window.setTimeout(() => deps.maybeRefreshForCamera(), 120);
-  };
-
-  let minimapDragging = false;
-  deps.miniMapEl.addEventListener("mousedown", (ev) => {
-    minimapDragging = true;
-    setCameraFromMinimapPointer(ev.clientX, ev.clientY);
+  bindMinimapDrag(state, {
+    miniMapEl: deps.miniMapEl,
+    wrapX: deps.wrapX,
+    wrapY: deps.wrapY,
+    requestViewRefresh: deps.requestViewRefresh,
+    maybeRefreshForCamera: deps.maybeRefreshForCamera
   });
-  window.addEventListener("mousemove", (ev) => {
-    if (!minimapDragging) return;
-    setCameraFromMinimapPointer(ev.clientX, ev.clientY);
-  });
-  window.addEventListener("mouseup", () => {
-    minimapDragging = false;
-  });
-  deps.miniMapEl.addEventListener(
-    "touchstart",
-    (ev) => {
-      const t = ev.touches[0];
-      if (!t) return;
-      setCameraFromMinimapPointer(t.clientX, t.clientY);
-    },
-    { passive: true }
-  );
 
   deps.canvas.addEventListener("click", (ev) => {
     if (deps.interactionFlags.suppressNextClick) {

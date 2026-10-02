@@ -10,7 +10,7 @@ import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { captureAttackProgressView, incomingAttackProgressView } from "./client-battle-progress/client-battle-progress.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
@@ -23,7 +23,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js"; import { handleArrowGestureConfirm } from "./client-arrow-gesture-confirm.js";
 import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
@@ -141,7 +141,7 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
-import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js"; import { buildMusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
@@ -172,6 +172,7 @@ import type {
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
+import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -571,7 +572,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
   const processAutoSettleTargets = (): void => {
     if (state.autoSettleTargets.size === 0) return;
-    const reach = resolveMyReach(state);
+    const reach = resolveMyReachCached(state);
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
@@ -629,8 +630,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
       sendGameMessage
     });
 
@@ -714,7 +715,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // Can land outside reach (e.g. a Relay Beacon dying mid-capture); mirror
       // processAutoSettleTargets and drop the doomed settle instead of sending it.
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (!resolveMyReach(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
+        if (!resolveMyReachCached(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
         else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
@@ -915,7 +916,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const tileProductionRequirementLabel = (tile: Tile): string | undefined => tileProductionRequirementLabelFromModule(tile, prettyToken);
 
   const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state));
+    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state), state.me);
 
   const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedSettlementProgressForTileFromModule(tile, {
@@ -1056,7 +1057,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
-      combatBreakdownForTile: attackPreviewBreakdownForTarget,
+      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor }),
       state,
       pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });
@@ -1263,11 +1264,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check gold and development slots.", "warn");
+      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check coin and development slots.", "warn");
       pushFeed(
         queued > 0
           ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No settlements queued — check gold / slots.",
+          : "No settlements queued — check coin / slots.",
         "combat",
         queued > 0 ? "info" : "warn"
       );
@@ -1282,10 +1283,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold."); else pushFeed(
+        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin."); else pushFeed(
           out.queued > 0
             ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
-            : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
+            : "No frontier claims queued. Targets must touch your territory and you need enough coin.",
           "combat",
           out.queued > 0 ? "info" : "warn"
         );
@@ -1313,7 +1314,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             if (out.queued > 0) {
               processActionQueue();
             } else {
-              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough coin.");
             }
           } else {
             // Not adjacent yet, but still inside reach (that's the only way
@@ -1505,14 +1506,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    const retortTargetResource =
-      actionId === "retort_recast_food"
-        ? "FARM"
-        : actionId === "retort_recast_titanium"
-          ? "TITANIUM"
-          : actionId === "retort_recast_crystal"
-            ? "GEMS"
-            : undefined;
+    const retortTargetResource = retortTargetResourceForAction(actionId);
     if (retortTargetResource) {
       if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
         state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });
@@ -1647,7 +1641,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.musterMarchTargeting.active) { handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed, sendGameMessage }); renderHud(); return; }
+    if (state.musterMarchTargeting.active) { const result = handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed }); if (result.type === "armed") handleArrowGestureConfirm(state, { x: result.originX, y: result.originY }, { x: result.targetX, y: result.targetY }, { pushFeed, sendGameMessage, renderHud, keyFor }); renderHud(); return; }
     if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
@@ -1658,7 +1652,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
-      resolveMyReach(state).has(keyFor(x, y));
+      resolveMyReachCached(state).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also

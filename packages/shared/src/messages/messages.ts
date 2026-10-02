@@ -31,6 +31,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toX: z.number().int(),
     toY: z.number().int(),
     powerupId: z.string().optional(),
+    // docs/replenishment-update-plan.md D6: the player's chosen commitment
+    // for this attack, above the required floor (server clamps/validates —
+    // see validateFrontierCommand in game-domain).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({
@@ -104,7 +108,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "MINE",
       "MINTWORKS",
       "GRANARY",
-      "SEED_GRANARY",
       "CENSUS_HALL",
       "CLEARING_HOUSE",
       "AIRPORT",
@@ -205,6 +208,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     mode: z.enum(["HOLD", "ADVANCE", "MARCH"]),
     targetX: z.number().int().optional(),
     targetY: z.number().int().optional(),
+    // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
+    // whatever attack its auto-fire launches (see MusterState.commitManpower).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CLEAR_MUSTER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -230,7 +236,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("RETORT_RECAST"),
     x: z.number().int(),
     y: z.number().int(),
-    targetResource: z.enum(["FARM", "TITANIUM", "GEMS"]),
+    targetResource: z.enum(["FARM", "TITANIUM", "GEMS", "UMBRITE"]),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -352,6 +358,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // gateway forwards an empty payload and the sim rejects with
     // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
+  }),
+  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
+  // (including "Not now" with everything false) marks the join prompt answered.
+  z.object({
+    type: z.literal("SET_AUTO_SETTLE_PREFS"),
+    towns: z.boolean(),
+    food: z.boolean(),
+    resources: z.boolean()
   })
 ]);
 

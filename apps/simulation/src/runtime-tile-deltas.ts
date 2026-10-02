@@ -22,5 +22,6 @@ export const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWire
   ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
   ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
   ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-  ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {})
+  ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
+  ...(tile.afc ? { afcJson: JSON.stringify(tile.afc) } : {})
 });

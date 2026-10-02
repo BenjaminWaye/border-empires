@@ -7,10 +7,13 @@
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
+import { createFirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
+import type { PlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
+import type { PlayerFunnelTracker } from "../player-funnel-tracker/player-funnel-tracker.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
@@ -50,7 +53,11 @@ export type BuildGatewayHttpRoutesDepsContext = {
   recentGatewayEvents: GatewayDebugEvent[];
   buildAttackDebug: () => GatewayAttackDebug;
   buildAttackTraces: () => GatewayAttackTrace[];
-  gatewayMetrics: { renderPrometheus: () => string; observeWorldPulsePayloadBytes: (bytes: number) => void };
+  gatewayMetrics: {
+    renderPrometheus: () => string;
+    observeActivityApiPayloadBytes: (bytes: number) => void;
+    incrementAdminIdTokenRejectedTotal: () => void;
+  };
   // GET /api/activity's social-state half; omitted only in tests that don't wire social state.
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
@@ -71,7 +78,10 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyDukeService?: GalaxyDukeService;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
-  adminApiToken?: string;
+  // Static admin token (ADMIN_API_TOKEN) and the one admin identity
+  // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
+  // endpoints (admin-firebase-auth.ts).
+  admin?: { apiToken?: string | undefined; email?: string | undefined };
   adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
@@ -79,6 +89,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
   snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[]; truceBreaksThisSeason: PublicSocialTruceBreak[] };
+  playerFunnel?: { store: PlayerFunnelStore; tracker: PlayerFunnelTracker };
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -143,14 +154,23 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
-    preparePlayer: (playerId: string) => ctx.simulationClient.preparePlayer(playerId),
+    preparePlayer: (playerId: string, options: { isGuest: boolean }) => ctx.simulationClient.preparePlayer(playerId, undefined, options),
     subscribePlayer: (playerId: string) =>
       ctx.simulationClient.subscribePlayer(
         playerId,
         JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false, trigger: "gateway_rally_link" })
       ),
     ...(ctx.simDiagnostics ? { simDiagnostics: ctx.simDiagnostics } : {}),
-    ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
+    ...(ctx.admin?.apiToken ? { adminApiToken: ctx.admin.apiToken } : {}),
+    ...(ctx.admin?.email
+      ? {
+          adminFirebaseAuth: {
+            verifyIdToken: createFirebaseTokenVerifier({ projectId: process.env.GATEWAY_FIREBASE_PROJECT_ID ?? process.env.FIREBASE_PROJECT_ID }),
+            adminEmail: ctx.admin.email,
+            onReject: () => ctx.gatewayMetrics.incrementAdminIdTokenRejectedTotal()
+          }
+        }
+      : {}),
     adminGithubAuth: ctx.adminGithubAuth ?? DEFAULT_ADMIN_GITHUB_REPO,
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEconomyStore: ctx.galaxyEconomyStore,
@@ -163,6 +183,15 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.galaxyDukeService ? { galaxyDukeService: ctx.galaxyDukeService } : {}),
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore,
+    ...(ctx.playerFunnel
+      ? {
+          playerInsights: {
+            store: ctx.playerFunnel.store,
+            tracker: ctx.playerFunnel.tracker,
+            getPlayerName: async (playerId: string) => (await ctx.profileStore.get(playerId))?.name
+          }
+        }
+      : {}),
     ...(ctx.getSocialSnapshot
       ? {
           activityApi: {
@@ -181,7 +210,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
               (await hydrateCurrentSeasonSummaryDisplayNames(await ctx.simulationClient.getCurrentSeasonSummary(), ctx.profileStore))
                 .overall,
             growthBaselineStore: ctx.growthBaselineStore,
-            observeWorldPulsePayloadBytes: ctx.gatewayMetrics.observeWorldPulsePayloadBytes
+            observeActivityApiPayloadBytes: ctx.gatewayMetrics.observeActivityApiPayloadBytes
           }
         }
       : {})

@@ -11,7 +11,6 @@ import {
   AIRPORT_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
-  TERRAIN_SHAPING_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
@@ -21,7 +20,6 @@ import {
   parseAegisLockPayload,
   parseAirportBombardPayload,
   parseAstralDockLaunchPayload,
-  parseTilePayload,
   parseWorldEngineStrikePayload
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -44,7 +42,7 @@ export type RuntimeMapCommandContext = {
   // §5.4: true when the structure's own resource demand isn't covered by
   // supply — a dormant monument/ability structure can't fire its command,
   // same as isStructurePowered's Ambaric Transformer check but for slot dormancy.
-  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean;
+  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure" | "observatory") => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileBombardBlockedByRadar: (actorId: string, targetX: number, targetY: number) => boolean;
@@ -59,7 +57,13 @@ export type RuntimeMapCommandContext = {
     player: DomainPlayer,
     input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
+  // Starts settles for tiles the player just opted into (SET_AUTO_SETTLE_PREFS); optional so fixtures stay valid.
+  drainAutoSettleForOwner?: (playerId: string) => void;
 };
+
+// CREATE_MOUNTAIN / REMOVE_MOUNTAIN live in their own module (500-line cap);
+// re-exported so callers keep importing every map-command handler from here.
+export { handleCreateMountainCommand, handleRemoveMountainCommand } from "./runtime-terrain-shaping-command-handlers/runtime-terrain-shaping-command-handlers.js";
 
 export function rejectCommand(
   context: RuntimeMapCommandContext,
@@ -74,102 +78,6 @@ export function rejectCommand(
     code,
     message
   });
-}
-
-export function handleCreateMountainCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseTilePayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Terrain Engineering");
-    return;
-  }
-  if (
-    !target ||
-    target.terrain !== "LAND" ||
-    target.town ||
-    target.dockId ||
-    target.fort ||
-    target.observatory ||
-    target.siegeOutpost ||
-    target.economicStructure
-  ) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "cannot create mountain on this tile");
-    return;
-  }
-  if (!context.ownedLandWithinRange(actor.id, target.x, target.y, 2)) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "target must be within 2 tiles of your land");
-    return;
-  }
-  const now = context.now();
-  const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
-  if (!observatoryKey) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready observatory in range");
-    return;
-  }
-  context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
-  const hadMuster = Boolean(target.muster);
-  const updatedTile: DomainTileState = {
-    ...target,
-    terrain: "MOUNTAIN",
-    ownerId: undefined,
-    ownershipState: undefined,
-    sabotage: undefined,
-    fort: undefined,
-    observatory: undefined,
-    naturalWonder: undefined,
-    siegeOutpost: undefined,
-    economicStructure: undefined,
-    muster: undefined // mirrors bombardment/capture/shed: ownership loss destroys a staged muster flag
-  };
-  context.replaceTileState(targetKey, updatedTile);
-  context.bumpTerrainEpoch();
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
-  if (hadMuster) {
-    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${command.commandId}:bc`, playerId: "__broadcast__", tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: "", ownershipState: "", musterJson: "" }] });
-  }
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseTilePayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Terrain Engineering");
-    return;
-  }
-  if (!target || target.terrain !== "MOUNTAIN") {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "target must be mountain");
-    return;
-  }
-  const now = context.now();
-  const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
-  if (!observatoryKey) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready observatory in range");
-    return;
-  }
-  context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
-  const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
-  context.replaceTileState(targetKey, updatedTile);
-  context.bumpTerrainEpoch();
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTile)]
-  });
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
 export function handleAirportBombardCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
@@ -216,7 +124,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     return;
   }
   if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient coin for bombardment");
     return;
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
@@ -347,7 +255,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     return;
   }
   if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient coin");
     return;
   }
   actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;

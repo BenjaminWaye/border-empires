@@ -133,3 +133,15 @@ describe("ownership overlay partial color update", () => {
     overlayB.dispose();
   });
 });
+
+describe("ownership overlay opacities", () => {
+  // Project owner rule: settled tiles must read as decisively owned. A drop to 0.6 shipped unnoticed once and washed every empire colour toward the terrain.
+  it("keeps settled territory at 0.85 and frontier at 0.3 by default", () => {
+    const overlay = createOwnershipOverlay(new Scene(), 4);
+    const opacityOf = (mesh: { material: unknown }): number => (mesh.material as { opacity: number }).opacity;
+    expect(opacityOf(overlay.settledMesh)).toBe(0.85);
+    expect(opacityOf(overlay.settledHillMesh)).toBe(0.85);
+    expect(opacityOf(overlay.frontierMesh)).toBe(0.3);
+    expect(opacityOf(overlay.frontierHillMesh)).toBe(0.3);
+  });
+});

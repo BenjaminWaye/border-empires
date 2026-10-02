@@ -1,4 +1,4 @@
-import { Group, InstancedMesh, Object3D, Scene, SkinnedMesh } from "three";
+import { GreaterDepth, Group, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SkinnedMesh, Vector3 } from "three";
 import { describe, expect, it, vi } from "vitest";
 
 // A stand-in for the real .glb (the real asset is covered separately by
@@ -61,6 +61,7 @@ import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./p
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
 import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
 import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
+import { MARINE_SILHOUETTE_NAME } from "./popup-marine-occlusion-silhouette.js";
 
 const strikeCountIn = (scene: Scene): number => {
   const layer = scene.children.find((c): c is Group => c instanceof Group && c.name === "battle-strike-fx");
@@ -299,6 +300,69 @@ describe("popup-marine overlay fx", () => {
       if (boltMeshIn(scene).count > 0) sawBolts = true;
     }
     expect(sawBolts).toBe(true);
+    fx.dispose();
+  });
+
+  // Regression: marines stood at bare terrain height and rendered as plain
+  // depth-tested meshes, so anything opaque on or in front of their tile (the
+  // farm plot's crop beds, a structure, a hill) hid the fight entirely. Each
+  // marine now carries a team-coloured silhouette drawn only where it's
+  // occluded, after the world's geometry but before the body itself.
+  it("gives every marine a team-tinted occluded-only silhouette drawn just before its body", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    fx.tick(2400, [makeBattle()]);
+
+    const visible = visibleMarinesIn(scene);
+    expect(visible.length).toBe(MARINES_PER_SIDE * 2);
+    const tints = new Set<string>();
+    for (const marine of visible) {
+      const silhouette = marine.getObjectByName(MARINE_SILHOUETTE_NAME);
+      expect(silhouette).toBeInstanceOf(SkinnedMesh);
+      const ghost = silhouette as SkinnedMesh;
+      const body = ghost.parent as SkinnedMesh;
+      const material = ghost.material as MeshBasicMaterial;
+      // Only where something nearer already drew, and never occluding the body.
+      expect(material.depthFunc).toBe(GreaterDepth);
+      expect(material.depthWrite).toBe(false);
+      expect(material.transparent).toBe(false);
+      // After world geometry (default renderOrder 0), before the body.
+      expect(ghost.renderOrder).toBeGreaterThan(0);
+      expect(ghost.renderOrder).toBeLessThan(body.renderOrder);
+      // Deforms with the body's live animation, not a frozen rest pose.
+      expect(ghost.skeleton).toBe(body.skeleton);
+      expect(ghost.geometry).toBe(body.geometry);
+      expect(material.color.getHexString()).toBe((body.material as MeshBasicMaterial).color.getHexString());
+      tints.add(material.color.getHexString());
+    }
+    expect(tints).toEqual(new Set(["4fb3ff", "ff5d5d"]));
+    fx.dispose();
+  });
+
+  // A killed marine topples and sinks into the ground on purpose; x-raying
+  // it would make the corpse glow through the terrain instead of leaving.
+  it("hides a fallen marine's silhouette while upright marines keep theirs", async () => {
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed: tileHashSeed(3, 4)
+    };
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    // The siege tower's victim dies at combat start; well past its fall.
+    fx.tick(APPROACH_MS + 5000, [], [skirmish], { x: 3, y: 4 });
+
+    // A fallen marine's root is tipped over; an upright one's up axis stays vertical.
+    const isUpright = (m: Object3D): boolean => new Vector3(0, 1, 0).applyQuaternion(m.quaternion).y > 0.999;
+    const marines = visibleMarinesIn(scene);
+    expect(marines.some((m) => !isUpright(m))).toBe(true);
+    expect(marines.some(isUpright)).toBe(true);
+    for (const marine of marines) {
+      expect(marine.getObjectByName(MARINE_SILHOUETTE_NAME)!.visible).toBe(isUpright(marine));
+    }
     fx.dispose();
   });
 });

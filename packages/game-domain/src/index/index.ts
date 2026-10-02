@@ -1,6 +1,8 @@
 // Re-export domain modules promoted into game-domain.
 export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
+export * from "../server-game-constants/ability-defs.js";
+export * from "../ability-gating/ability-gating.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../world-pulse-types.js";
@@ -25,24 +27,26 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  defendingFortVariant,
   EXPAND_MANPOWER_COST,
+  isFortDefending,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ProspectSignature,
+  type AutoSettlePrefs,
   type ChosenTrickleResource,
   type MusterState,
   type Tile,
   type WaystationTileState
 } from "@border-empires/shared";
 
-export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
-  if (tile.fort?.status === "active") {
-    if (tile.fort.variant === "THUNDER_BASTION") return 20;
-    if (tile.fort.variant === "TITANIUM_BASTION") return 10;
-    return 5;
-  }
-  if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
-  return 1;
+export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
+  if (!isFortDefending(tile.fort)) return 1;
+  const variant = defendingFortVariant(tile.fort);
+  if (variant === "THUNDER_BASTION") return 20;
+  if (variant === "TITANIUM_BASTION") return 10;
+  if (variant === "WOODEN_FORT") return 1.5;
+  return 5;
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
@@ -110,12 +114,20 @@ export type DomainPlayer = {
   // domainGrantedResourceSlots' output at each resourceSlotSupplyForPlayer
   // call site rather than tied to any tile.
   waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
+  // How far above the manpower cap this player may currently sit, granted by
+  // a Waystation's MANPOWER reward (see runtime-manpower-ceiling.ts). Shrinks
+  // as the player spends back down; only waystation manpower may overflow.
+  waystationManpowerOverflow?: number;
   // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
   // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
   // an ephemeral live toast a player only sees if they're online at the
   // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
   // drop off), most-recent-last here; client renders most-recent-first.
   eventLog?: PlayerEventLogEntry[];
+  // Per-category opt-in for server-side auto-settle (spends manpower without a
+  // click) -- see @border-empires/shared's auto-settle-prefs.ts. Required, so
+  // a construction site that forgets it is a compile error, not "all on".
+  autoSettle: AutoSettlePrefs;
 };
 
 export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
@@ -193,6 +205,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["fort"]>["status"];
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
+        upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
@@ -219,6 +232,15 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
+      }
+    | undefined;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  afc?:
+    | {
+        ownerId: string;
+        status: NonNullable<Tile["afc"]>["status"];
+        activatedAt?: number | undefined;
+        modules?: string[] | undefined;
       }
     | undefined;
   economicStructure?:
@@ -290,6 +312,18 @@ export type ValidateFrontierCommandInput = {
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
   /**
+   * docs/replenishment-update-plan.md D6: the player's chosen commitment for
+   * a manual ATTACK, above the `requiredMuster` floor -- raises win odds via
+   * `commitOddsMultiplier` in frontier-combat.ts, at the cost of losing that
+   * much manpower instead of just the floor on either outcome. Clamped to
+   * `requiredMuster` as a lower bound (never lets a client under-commit below
+   * what the attack already requires to launch) and otherwise uncapped here;
+   * the real ceiling is whatever `originMuster` the flag/tile actually holds,
+   * enforced by the existing INSUFFICIENT_MUSTER check below. Ignored for
+   * barbarian raids/attacks, which don't use the muster ladder at all.
+   */
+  commitManpower?: number | undefined;
+  /**
    * Fixed-border reach (packages/shared/src/reach/reach.ts): whether `to` is
    * inside the actor's reach. No longer gates EXPAND (out-of-reach EXPAND is
    * allowed and instead subject to out-of-reach frontier decay -- see
@@ -347,7 +381,17 @@ export const validateFrontierCommand = (
   // legacy fort multiplier. Barbarian raids skip muster wind-up and are funded
   // from the player pool at BARBARIAN_RAID_COST. Barbarian-origin attacks are
   // limited by per-tile cooldown instead of manpower.
-  const effectiveCost = isBarbarianAttack ? 0 : isBarbRaid ? BARBARIAN_RAID_COST : requiredMuster;
+  // docs/replenishment-update-plan.md D6: a manual attack against a real
+  // (non-barbarian, non-raid) target may commit more than the floor for
+  // better odds. Clamped up to at least requiredMuster so a bogus/low
+  // client-supplied value can never under-pay what the attack requires to
+  // launch at all; the upper bound is enforced below by the ordinary
+  // INSUFFICIENT_MUSTER check against whatever muster is actually available.
+  const requestedCommit =
+    musterAttack && !isBarbarianAttack && !isBarbRaid && typeof input.commitManpower === "number" && Number.isFinite(input.commitManpower)
+      ? Math.max(requiredMuster, input.commitManpower)
+      : undefined;
+  const effectiveCost = isBarbarianAttack ? 0 : isBarbRaid ? BARBARIAN_RAID_COST : requestedCommit ?? requiredMuster;
   const manpowerMin = musterAttack ? effectiveCost : legacy.manpowerMin;
   const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
@@ -411,11 +455,15 @@ export const validateFrontierCommand = (
       };
     }
   } else if (musterAttack && !isBarbarianAttack) {
-    if ((input.originMuster ?? 0) < requiredMuster) {
+    // Checked against effectiveCost (the floor, or the player's higher
+    // requested commitment) rather than the bare floor -- a commitment the
+    // flag can't actually fund must fail the same way an unaffordable
+    // floor-only attack always has.
+    if ((input.originMuster ?? 0) < effectiveCost) {
       return {
         ok: false,
         code: "INSUFFICIENT_MUSTER",
-        message: `need ${requiredMuster.toFixed(0)} mustered manpower to launch attack`
+        message: `need ${effectiveCost.toFixed(0)} mustered manpower to launch attack`
       };
     }
   } else if (input.actor.manpower < manpowerMin) {
