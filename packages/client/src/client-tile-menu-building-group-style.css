@@ -1,0 +1,89 @@
+.tile-building-category-group {
+  display: grid;
+  gap: 10px;
+}
+.tile-building-category-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+.tile-building-categories {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.tile-building-category-square {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  border: 1px solid rgba(255, 209, 102, 0.28);
+  border-radius: 10px;
+  background: rgba(15, 25, 37, 0.55);
+  color: #eef6ff;
+  padding: 8px 3px;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  min-width: 0;
+}
+.tile-building-category-square:hover {
+  background: rgba(255, 209, 102, 0.1);
+  border-color: rgba(255, 209, 102, 0.5);
+}
+.tile-building-category-icon {
+  font-size: 16px;
+  color: #ffd166;
+}
+.tile-building-category-label {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #d6e8ff;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  width: 100%;
+  max-width: 100%;
+  justify-self: stretch;
+}
+.tile-building-category-count {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: rgba(255, 209, 102, 0.14);
+  color: #ffd166;
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.tile-building-category-square.is-empty {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.tile-building-category-square.is-empty .tile-building-category-icon,
+.tile-building-category-square.is-empty .tile-building-category-label {
+  color: #6d7f97;
+}
+.tile-building-category-panel {
+  display: none;
+}
+.tile-building-category-radio.cat-military:checked ~ .tile-building-categories .cat-military,
+.tile-building-category-radio.cat-resource:checked ~ .tile-building-categories .cat-resource,
+.tile-building-category-radio.cat-town_support:checked ~ .tile-building-categories .cat-town_support,
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-categories .cat-infrastructure {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.16);
+}
+.tile-building-category-radio.cat-military:checked ~ .tile-building-category-panels [data-category="military"],
+.tile-building-category-radio.cat-resource:checked ~ .tile-building-category-panels [data-category="resource"],
+.tile-building-category-radio.cat-town_support:checked ~ .tile-building-category-panels [data-category="town_support"],
+.tile-building-category-radio.cat-infrastructure:checked ~ .tile-building-category-panels [data-category="infrastructure"] {
+  display: block;
+}
