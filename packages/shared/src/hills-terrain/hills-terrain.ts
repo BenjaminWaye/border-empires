@@ -6,10 +6,14 @@
  * vision-footprint-table.ts in apps/simulation).
  *
  * Mutually exclusive with forest-ness so a tile is never visually/mechanically
- * both a dark forest (vision-clamping) and a hill (vision-boosting).
+ * both a dark forest (vision-clamping) and a hill (vision-boosting). Keyed off
+ * the *generated* forest, so an AFC landing clearing forest (forest-clearing.ts)
+ * leaves plain grass behind rather than turning the tile into a hill.
  */
 
 import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
 import { isForestTileAt } from "../forest-terrain/forest-terrain.js";
+import { wasForestBeforeClearingAt } from "../worldgen/worldgen.js";
 
-export const isHillsTileAt = (x: number, y: number): boolean => isHillsRegionAt(x, y) && !isForestTileAt(x, y);
+export const isHillsTileAt = (x: number, y: number): boolean =>
+  isHillsRegionAt(x, y) && !isForestTileAt(x, y) && !wasForestBeforeClearingAt(x, y);

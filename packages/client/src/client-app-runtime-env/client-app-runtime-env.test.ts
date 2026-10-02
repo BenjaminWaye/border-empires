@@ -123,10 +123,10 @@ describe("client app runtime env", () => {
 
     const setup = createClientSocketSetup(state as never);
 
-    expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://border-empires-combined.fly.dev/ws");
-    expect(setup.wsUrl).toBe("wss://border-empires-combined.fly.dev/ws");
+    expect(createMultiplexWebSocket).toHaveBeenCalledWith("wss://api.borderempires.com/ws");
+    expect(setup.wsUrl).toBe("wss://api.borderempires.com/ws");
     expect(state.localhostDevAetherWall).toBe(false);
-    expect(state.bridgeDebugWsUrl).toBe("wss://border-empires-combined.fly.dev/ws");
+    expect(state.bridgeDebugWsUrl).toBe("wss://api.borderempires.com/ws");
     expect(state.bridgeDebugMode).toBe("rewrite-gateway");
   });
 

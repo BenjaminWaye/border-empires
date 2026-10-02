@@ -436,6 +436,60 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Staging now connects to api-staging.borderempires.com on a dedicated server",
       "Logins on staging should no longer stall while the server catches up"
     ]
+  },
+  {
+    createdAt: 1790939769000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.2",
+    title: "What's New no longer jumps back to the top while you scroll",
+    why: "The Activity window rebuilt itself every time the game refreshed in the background, which reset your scroll position, and the Updates list also shrank to the latest ten entries right after you opened it.",
+    changes: [
+      "Scrolling through What's New, Yours or World Pulse now stays where you left it",
+      "Opening Updates keeps showing the new entries for as long as the window stays open"
+    ]
+  },
+  {
+    createdAt: 1790935593754, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.1",
+    title: "Cleaner landing sites for your Fabrication Complex",
+    why: "A new empire's Automated Fabrication Complex could land hemmed in by water, mountains or thick forest, leaving a cramped and slow start.",
+    changes: [
+      "Your Fabrication Complex now always lands on a tile with no water on any of its 8 surrounding tiles",
+      "Any mountains on the landing tile's 8 neighbours are flattened into open land when it lands",
+      "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight",
+      "When you watch your Complex land, the trees and mountains disappear at touchdown, under the landing smoke"
+    ]
+  },
+  {
+    createdAt: 1790945926297, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.2",
+    title: "Buildings are now sorted into categories",
+    why: "A developed tile can offer 30 or more buildings, and finding the one you wanted meant scrolling a single long list.",
+    changes: [
+      "The Buildings tab now has category squares: Military, Resource, Town Support, Infrastructure and Monuments",
+      "A category with nothing you can build on that tile is grayed out, and hovering it tells you why",
+      "The Monuments square only appears once you have researched a monument's tech",
+      "Hydrogardens now say they add +2 FOOD slots on grain resource tiles"
+    ]
+  },
+  {
+    createdAt: 1790958525863, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.3",
+    title: "You can no longer abandon your Fabrication Complex",
+    why: "Abandoning your Automated Fabrication Complex took away the reach it gives, so every frontier tile around it started decaying as \"Beyond your reach\".",
+    changes: [
+      "Abandon Territory is no longer offered on your own Automated Fabrication Complex, and the server rejects it",
+      "Your Complex can still be lost in combat, the same as your Settlement"
+    ]
+  },
+  {
+    createdAt: 1790957901665, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.4",
+    title: "The game server moved to faster, dedicated hosting",
+    why: "The server ran on a shared, throttled CPU, which could freeze for 30 seconds or more under load and make logins stall.",
+    changes: [
+      "The game now connects to api.borderempires.com",
+      "Logins and moves should stay responsive when the server is busy"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

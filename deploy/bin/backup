@@ -9,6 +9,12 @@
 # Retention: B2 holds 48 hourly + 14 daily; the host keeps the newest 3.
 set -euo pipefail
 
+# One backup at a time: two overlapping VACUUM INTO runs (timer + a manual run)
+# on the live DB coincided with a 30s event-loop stall and a watchdog kill on
+# staging (2026-10-02). A second invocation just exits.
+exec 9>/tmp/border-empires-backup.lock
+flock -n 9 || { echo "another backup is running; skipping" >&2; exit 0; }
+
 . /etc/border-empires/host.conf
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="be-${BE_ENV}-${STAMP}.db"

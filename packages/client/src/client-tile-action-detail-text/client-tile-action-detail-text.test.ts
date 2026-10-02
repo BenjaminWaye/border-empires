@@ -29,3 +29,14 @@ describe("buildDetailTextForAction — build_mintworks", () => {
     expect(text).toContain("+10 instant coin on completion");
   });
 });
+
+describe("buildDetailTextForAction — build_farmstead (Hydrogarden)", () => {
+  it("says it adds +2 FOOD slots on grain resource tiles", () => {
+    const text = buildDetailTextForAction("build_farmstead", { ...baseTile, resource: "FARM" });
+    expect(text).toBe("Adds +2 FOOD slots on grain resource tiles.");
+  });
+
+  it("says it does not boost fish tiles", () => {
+    expect(buildDetailTextForAction("build_farmstead", { ...baseTile, resource: "FISH" })).toBe("Hydrogardens do not boost fish output.");
+  });
+});

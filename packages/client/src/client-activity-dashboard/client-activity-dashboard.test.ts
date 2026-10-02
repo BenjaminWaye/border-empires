@@ -16,7 +16,9 @@ const makeState = () => ({
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
-    autoOpenedThisSession: false
+    autoOpenedThisSession: false,
+    scrollTopByView: {} as Partial<Record<"YOURS" | "WORLD_PULSE" | "UPDATES", number>>,
+    updatesBaselineSeenAt: undefined as number | undefined
   },
   activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" },
   camX: 0,
@@ -185,5 +187,101 @@ describe("renderClientActivityDashboardOverlay", () => {
     expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
     expect(deps.persistSeenAt).toHaveBeenCalled();
     expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
+  });
+
+  it("keeps the same DOM and scroll position when re-rendered with unchanged state (ticker renders)", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    renderClientActivityDashboardOverlay(deps); // settle: marking Updates seen drops the tab badge once
+    const scrollEl = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    scrollEl.scrollTop = 240;
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    renderClientActivityDashboardOverlay(deps);
+    renderClientActivityDashboardOverlay(deps);
+
+    expect(deps.overlayEl.querySelector(".activity-dashboard-modal-scroll")).toBe(scrollEl);
+    expect(scrollEl.scrollTop).toBe(240);
+  });
+
+  it("restores the scroll position when the markup does change", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    const firstScrollEl = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    firstScrollEl.scrollTop = 180;
+    firstScrollEl.dispatchEvent(new Event("scroll"));
+
+    state.activityDashboard.worldPulse = {
+      generatedAt: "2026-09-26T12:00:00.000Z", seasonId: "season-1", rank: 2, leadingPowers: [], stories: []
+    };
+    renderClientActivityDashboardOverlay(deps);
+
+    const secondScrollEl = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    expect(secondScrollEl).not.toBe(firstScrollEl);
+    expect(secondScrollEl.scrollTop).toBe(180);
+  });
+
+  it("keeps showing the entries that were new when Updates opened after they are marked seen", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    const firstPaint = deps.overlayEl.querySelector("#activity-dashboard-view")!.innerHTML;
+    expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
+    expect(firstPaint).toContain("new update");
+
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.querySelector("#activity-dashboard-view")!.innerHTML).toBe(firstPaint);
+  });
+
+  it("opens the Updates tab by click showing the unseen entries rather than only the recent ten", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    const deps = makeDeps(state);
+    deps.renderHud.mockImplementation(() => renderClientActivityDashboardOverlay(deps));
+    renderClientActivityDashboardOverlay(deps);
+    (deps.overlayEl.querySelector('[data-activity-dashboard-view="UPDATES"]') as HTMLButtonElement).click();
+    expect(deps.overlayEl.querySelector(".activity-dashboard-updates-summary")!.textContent).toContain("new update");
+  });
+
+  it("forgets scroll positions when the dashboard closes", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    const scrollEl = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    scrollEl.scrollTop = 300;
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    state.activityDashboard.open = false;
+    renderClientActivityDashboardOverlay(deps);
+    state.activityDashboard.open = true;
+    renderClientActivityDashboardOverlay(deps);
+
+    expect((deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement).scrollTop).toBe(0);
+  });
+
+  it("starts a newly selected tab at the top instead of reusing the previous tab's offset", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    const deps = makeDeps(state);
+    deps.renderHud.mockImplementation(() => renderClientActivityDashboardOverlay(deps));
+    renderClientActivityDashboardOverlay(deps);
+    const yoursScroll = deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement;
+    yoursScroll.scrollTop = 200;
+    yoursScroll.dispatchEvent(new Event("scroll"));
+
+    (deps.overlayEl.querySelector('[data-activity-dashboard-view="WORLD_PULSE"]') as HTMLButtonElement).click();
+
+    expect(state.activityDashboard.activeView).toBe("WORLD_PULSE");
+    expect((deps.overlayEl.querySelector(".activity-dashboard-modal-scroll") as HTMLElement).scrollTop).toBe(0);
   });
 });

@@ -19,7 +19,9 @@ const makeState = () => ({
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
-    autoOpenedThisSession: false
+    autoOpenedThisSession: false,
+    scrollTopByView: {},
+    updatesBaselineSeenAt: undefined as number | undefined
   },
   activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" },
   changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },

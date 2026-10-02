@@ -42,6 +42,14 @@ export function handleUncaptureTileCommand(context: RuntimeEconomicStructureComm
   if (target.ownerId !== command.playerId) { context.rejectCommand(command, "UNCAPTURE_NOT_OWNER", "tile is not owned by you"); return; }
   if (context.ownedTileCountForPlayer(command.playerId) <= 1) { context.rejectCommand(command, "UNCAPTURE_LAST_TILE", "cannot uncapture your last tile"); return; }
   if (target.town?.populationTier === "SETTLEMENT") { context.rejectCommand(command, "UNCAPTURE_SETTLEMENT", "cannot abandon your settlement"); return; }
+  // An owned AFC is a House's opening tile and a TOWN-radius reach anchor:
+  // abandoning it vacates that reach disk, stamping out-of-reach decay on the
+  // whole frontier ring around it, and leaves an inert AFC (modules and all)
+  // on neutral land while ensurePlayerHasAfc grants a fresh one on reconnect.
+  // Same treatment as a SETTLEMENT: it can be lost in combat, never given up.
+  // Keyed on afc.ownerId so an inert AFC another player left behind on this
+  // tile doesn't pin it.
+  if (target.afc?.ownerId === command.playerId) { context.rejectCommand(command, "UNCAPTURE_AFC", "cannot abandon your Automated Fabrication Complex"); return; }
   const summary = context.summaryForPlayer(command.playerId);
   if (summary.ownedTownTierByTile.size <= 1 && summary.ownedTownTierByTile.has(targetKey)) {
     context.rejectCommand(command, "UNCAPTURE_LAST_TOWN", "cannot abandon your last town"); return;

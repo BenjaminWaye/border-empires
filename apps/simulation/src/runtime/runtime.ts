@@ -510,7 +510,7 @@ import {
 } from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isAlliedOrTruced } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
-  finalizeRespawnNotice as finalizeRespawnNoticeImpl,
+  consumeRespawnNotice as consumeRespawnNoticeImpl, finalizeRespawnNotice as finalizeRespawnNoticeImpl,
   preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
   respawnIfEliminated as respawnIfEliminatedImpl,
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
@@ -1530,6 +1530,7 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
@@ -1701,9 +1702,7 @@ export class SimulationRuntime {
   }
 
   consumeRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
-    const notice = this.lastRespawnNoticeByPlayerId.get(playerId);
-    this.lastRespawnNoticeByPlayerId.delete(playerId);
-    return notice;
+    return consumeRespawnNoticeImpl(this.lastRespawnNoticeByPlayerId, playerId);
   }
 
   private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void { finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey); }

@@ -29,11 +29,36 @@ const STRUCTURE_PLACEMENT_METADATA = structurePlacementMetadataJson as Record<St
 
 export const structurePlacementMetadata = (type: StructurePlacementType): StructurePlacementMetadata => STRUCTURE_PLACEMENT_METADATA[type];
 
+// NOTE: placementMode is NOT "where this structure is allowed to be built" --
+// it's "does this structure cap at one per town (town_support) or can it
+// stack (same_tile)". MINTWORKS, GARRISON_HALL, TITANIUM_WEAPONS_FACTORY and
+// UMBRITE_WEAPONS_FACTORY are placementMode "same_tile" specifically so they
+// can stack multiple copies per town (see
+// apps/simulation/src/runtime-structure-town-support-target.ts,
+// STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES) -- but they still only
+// show on town/support tiles, exactly like the capped town_support
+// structures. Don't use isTownSupportPlacementStructure (or placementMode
+// generally) to answer "is this tile-location-restricted to a town's
+// support ring" -- it answers the stacking-cap question instead. Use
+// structureRequiresTownOrSupportTile below for the location question.
 export const isTownSupportPlacementStructure = (type: StructurePlacementType): boolean =>
   structurePlacementMetadata(type).placementMode === "town_support";
 
 export const isDockSupportPlacementStructure = (type: StructurePlacementType): boolean =>
   structurePlacementMetadata(type).placementMode === "dock_support";
+
+// Whether this structure can ONLY be built on a town tile or its support
+// ring (never on generic owned settled land) -- derived from showOn, not
+// placementMode (see the NOTE above). True for both the one-per-town
+// town_support structures (Caravanary, Granary, synthesizers, ...) and the
+// stacking same_tile ones that are still support-ring-only (Mintworks,
+// Garrison Hall, both Weapons Factories). False for structures like
+// Observatory/Relay Beacon/Waterworks/Airport whose showOn also includes
+// "settled", meaning they're buildable on any owned settled tile.
+export const structureRequiresTownOrSupportTile = (type: StructurePlacementType): boolean => {
+  const { showOn } = structurePlacementMetadata(type);
+  return (showOn.includes("town") || showOn.includes("support")) && !showOn.includes("settled");
+};
 
 export const structureTileSurfaces = (input: TileSurfaceInput): StructureTileSurface[] => {
   const surfaces = new Set<StructureTileSurface>();

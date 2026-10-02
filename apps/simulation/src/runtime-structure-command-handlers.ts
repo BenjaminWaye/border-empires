@@ -5,6 +5,7 @@ import {
   defendingFortVariant,
   fortTierForBuild,
   nextSiegeTierForUpgrade,
+  relayBeaconBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
@@ -418,9 +419,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // copy gets a duration that matches what it paid, not a flat per-type
   // number. RELAY_BEACON keeps today's "no speed-mult lever" behavior (its
   // spec.kind is "OUTPOST" but it's excluded from the OUTPOST branch below,
-  // same exclusion the cost-resolution branch above already used) -- a free
-  // beacon (manpowerCost 0) now builds instantly, matching D12.
-  const structureDurationMs = structureBuildDurationMsForManpowerCost(manpowerCost);
+  // same exclusion the cost-resolution branch above already used) -- and its
+  // first-tier beacons build instantly (D12) while still paying manpower, so
+  // its duration comes from relayBeaconBuildDurationMs, not the cost.
+  const structureDurationMs = structureType === "RELAY_BEACON"
+    ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
+    : structureBuildDurationMsForManpowerCost(manpowerCost);
   const buildMs = spec.kind === "FORT"
     ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
     : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"

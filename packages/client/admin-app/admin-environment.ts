@@ -23,7 +23,7 @@ export const resolveAdminEnvironment = (hostnameRaw: string, configuredGatewayWs
     ? "ws://127.0.0.1:3101/ws"
     : isStaging
       ? "wss://api-staging.borderempires.com/ws"
-      : "wss://border-empires-combined.fly.dev/ws";
+      : "wss://api.borderempires.com/ws";
   return {
     label: isLocal ? "Local" : isStaging ? "Staging" : "Production",
     gatewayOrigin: serverHttpOriginFromWsUrl(configuredGatewayWsUrl ?? defaultWsUrl),
