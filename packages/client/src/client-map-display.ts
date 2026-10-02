@@ -208,7 +208,7 @@ export const structureInfoForKey = (
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined }
 ): StructureInfoView => {
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
-    deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
+    deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key), deps.ownedCountOfType ?? 0));
   // Single shared source of truth for "what does this cost to keep running"
   // (client-structure-upkeep-text.ts) -- also used by the build-menu action
   // list and the dormant-structure warning line, so all three can never

@@ -57,7 +57,7 @@ describe("Relay Beacon instant first tier", () => {
       }
       expect(events).toEqual([]);
       const after = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
-      expect(before - after).toBeGreaterThanOrEqual(5 * relayBeaconManpowerCost(0) - 1);
+      expect(before - after).toBe(5 * relayBeaconManpowerCost(0));
     } finally {
       vi.useRealTimers();
     }
