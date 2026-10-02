@@ -1,4 +1,4 @@
-import { isSeaTerrain } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isSeaTerrain, wrapX, wrapY, type Terrain } from "@border-empires/shared";
 import { key } from "./server-game-constants/server-game-constants.js";
 import type { DomainTileState } from "./index/index.js";
 
@@ -15,6 +15,36 @@ export type FairSpawnSite = { x: number; y: number };
 
 const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+/**
+ * True if any of (x, y)'s 8 neighbours is water. An AFC must land with a
+ * fully dry 3x3 footprint; neighbouring mountains are fine because the
+ * landing flattens them (see apps/simulation's afc-landing-footprint.ts). A
+ * neighbour the lookup doesn't know counts as dry.
+ */
+export const hasWaterNeighbor = (terrainAt: (x: number, y: number) => Terrain | undefined, x: number, y: number): boolean => {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const terrain = terrainAt(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+      if (terrain && isSeaTerrain(terrain)) return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * Narrows spawn candidates to those with a dry 3x3 footprint (see
+ * hasWaterNeighbor), falling back to the full list only when none qualify so
+ * a tiny or waterlogged map still places a spawn rather than none.
+ */
+export const preferDryFootprintCandidates = <T extends { x: number; y: number }>(
+  candidates: readonly T[],
+  terrainAt: (x: number, y: number) => Terrain | undefined
+): T[] => {
+  const dry = candidates.filter((tile) => !hasWaterNeighbor(terrainAt, tile.x, tile.y));
+  return dry.length > 0 ? dry : [...candidates];
+};
 
 export const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
   const landByKey = new Map<string, DomainTileState>();
@@ -194,12 +224,14 @@ export const computeFairSpawnSites = (
   const isTooCloseToTown = (x: number, y: number): boolean =>
     townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) < MIN_TOWN_SPAWN_DISTANCE && sameLandRegion(x, y, town.x, town.y));
 
-  const baseCandidates = tileList.filter((tile) => {
+  const terrainByKey = new Map<string, Terrain>();
+  for (const tile of tileList) terrainByKey.set(key(tile.x, tile.y), tile.terrain);
+  const baseCandidates = preferDryFootprintCandidates(tileList.filter((tile) => {
     const tileKeyValue = key(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
     if (isTooCloseToTown(tile.x, tile.y)) return false;
     return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKeyValue);
-  });
+  }), (x, y) => terrainByKey.get(key(x, y)));
   if (baseCandidates.length === 0) return [];
 
   // Mutually exclusive, in priority order — every candidate falls into

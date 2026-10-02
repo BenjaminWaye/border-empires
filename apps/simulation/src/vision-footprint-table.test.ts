@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Terrain } from "@border-empires/shared";
-import { HILLS_VISION_BONUS, setWorldSeed } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, resetForestClearings, setWorldSeed } from "@border-empires/shared";
 import { VisionFootprintTable } from "./vision-footprint-table.js";
 
 // A real hills tile (isHillsTileAt true) under seed 1, found by scanning a
@@ -192,5 +192,17 @@ describe("VisionFootprintTable", () => {
     // identical to 0 for every real purpose here.
     expect(offsets[0][0] == 0).toBe(true);
     expect(offsets[0][1] == 0).toBe(true);
+  });
+
+  it("drops forest-only memoized footprints when an AFC landing clears forest (forestClearingEpoch)", () => {
+    const forests = new Set(["51,50"]);
+    const { table } = makeTable(new Set(), 200, 200, forests);
+    const occluded = table.getOffsets(50, 50, 4);
+    expect(occluded.length).toBeLessThan(9 * 9);
+    // The forest is cleared in play; without the clearing epoch, the
+    // permanent (forest-only) memo would keep serving the occluded footprint.
+    forests.clear();
+    resetForestClearings();
+    expect(table.getOffsets(50, 50, 4).length).toBe(9 * 9);
   });
 });
