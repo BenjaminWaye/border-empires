@@ -24,6 +24,12 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 - When a user says "deploy" without naming an environment, treat that as **staging by default**. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes it unambiguous.
 - Before any manual production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
 
+## Per-environment world size
+
+- `WORLD_WIDTH` / `WORLD_HEIGHT` (default 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging sets 320x160 with watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
+- The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 320x160 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
+- On a shrunken world, worldgen keeps the default-size counts for resource clusters, the town target, waystations and coverage cells, and shrinks the spacing so they fit. A size change only shows up after a forced season rollover (`POST /admin/season/start-next?force=true`), because a restart reloads the persisted season.
+
 ## Production shape gate
 
 Production deploys must prove the candidate can handle a live-shaped world before any remote prod mutation happens. The gate must run against an isolated local clone of the prod SQLite database, not live production.

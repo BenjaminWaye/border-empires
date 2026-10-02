@@ -1,5 +1,12 @@
 import type { TileKey } from "@border-empires/shared";
-import { WAYSTATION_TARGET_SPACING_TILES, WAYSTATION_TARGET_TILES_PER_SITE } from "@border-empires/shared";
+import {
+  DEFAULT_WORLD_HEIGHT,
+  DEFAULT_WORLD_WIDTH,
+  WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT,
+  WORLD_WIDTH as CONFIGURED_WORLD_WIDTH,
+  WAYSTATION_TARGET_SPACING_TILES,
+  WAYSTATION_TARGET_TILES_PER_SITE
+} from "@border-empires/shared";
 
 import type { ServerWorldgenWaystationsDeps, ServerWorldgenWaystationsRuntime } from "./server-world-runtime-types.js";
 
@@ -33,9 +40,14 @@ export const createServerWorldgenWaystations = (deps: ServerWorldgenWaystationsD
 
   const generateWaystations = (seed: number): void => {
     waystationsByTile.clear();
-    const worldTileCount = WORLD_WIDTH * WORLD_HEIGHT;
+    // A shrunken world keeps the default-size site count (like towns and
+    // resource clusters, which are fixed counts) and scales spacing down with
+    // the map height so that many sites can still fit.
+    const worldTileCount = CONFIGURED_WORLD_WIDTH * CONFIGURED_WORLD_HEIGHT < DEFAULT_WORLD_WIDTH * DEFAULT_WORLD_HEIGHT
+      ? DEFAULT_WORLD_WIDTH * DEFAULT_WORLD_HEIGHT
+      : WORLD_WIDTH * WORLD_HEIGHT;
     const target = Math.max(1, Math.floor(worldTileCount / WAYSTATION_TARGET_TILES_PER_SITE));
-    const minSpacing = WAYSTATION_TARGET_SPACING_TILES;
+    const minSpacing = Math.max(5, Math.floor((WAYSTATION_TARGET_SPACING_TILES * Math.min(1, CONFIGURED_WORLD_HEIGHT / DEFAULT_WORLD_HEIGHT))));
     const placed: Array<{ x: number; y: number }> = [];
     for (let index = 0; index < 200_000 && placed.length < target; index += 1) {
       const x = Math.floor(seeded01(index * 43, index * 47, seed + 33_401) * WORLD_WIDTH);

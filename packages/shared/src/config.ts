@@ -12,8 +12,7 @@ declare const process: {
 // texture is. Chosen to keep roughly the same total tile count as the old
 // 450x450 square (202,500) so map size/performance/gameplay pacing don't
 // shift as a side effect of the aspect-ratio fix.
-export const WORLD_WIDTH = 640;
-export const WORLD_HEIGHT = 320;
+export { DEFAULT_WORLD_HEIGHT, DEFAULT_WORLD_WIDTH, WATCHTOWERS_ENABLED, WORLD_HEIGHT, WORLD_WIDTH } from "./world-size.js";
 export const CHUNK_SIZE = 64;
 export const PLAYER_BASE_VISION = 1;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,
