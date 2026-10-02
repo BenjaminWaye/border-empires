@@ -30,7 +30,21 @@ const economicStructureRemoveDurationMs = (type: EconomicStructureType): number 
   return ECONOMIC_STRUCTURE_BUILD_MS;
 };
 
+// Cancel / rush-buy only make sense on the viewer's own construction; on a
+// foreign tile the card is informational (timer + progress) with no actions.
 export const constructionProgressForTile = (
+  tile: Tile,
+  formatCountdownClock: (ms: number) => string,
+  quickforge: QuickforgeRushBuyContext,
+  viewerId: string
+): TileMenuProgressView | undefined => {
+  const progress = ownConstructionProgressForTile(tile, formatCountdownClock, quickforge);
+  if (!progress || tile.ownerId === viewerId) return progress;
+  const { cancelLabel: _cancelLabel, cancelActionId: _cancelActionId, rushBuyLabel: _rushBuyLabel, rushBuyActionId: _rushBuyActionId, ...readOnly } = progress;
+  return readOnly;
+};
+
+const ownConstructionProgressForTile = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string,
   quickforge: QuickforgeRushBuyContext

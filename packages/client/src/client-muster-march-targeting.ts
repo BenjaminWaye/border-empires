@@ -1,10 +1,8 @@
-import { musterMarchDistanceTiles, musterMarchTooFarAdvice } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 type MarchTargetingDeps = {
   pushFeed: (msg: string, type?: string, severity?: string) => void;
-  sendGameMessage: (payload: unknown) => boolean;
 };
 
 /** Arms march-target picking for the flag at (x, y): the next tile click sets its march target. */
@@ -20,10 +18,19 @@ export const armMusterMarchTargeting = (
   deps.pushFeed("Select a tile to march toward.", "combat", "info");
 };
 
+export type MusterMarchTargetResult =
+  | { type: "cancelled" }
+  | { type: "armed"; originX: number; originY: number; targetX: number; targetY: number };
+
 /**
- * Consumes an armed march-target click: sends SET_MUSTER with the clicked
- * tile as the march target, or cancels back to HOLD if the click landed on
- * unexplored ground or the flag's own tile. Always disarms targeting.
+ * Consumes an armed march-target click: disarms targeting and, if the click
+ * landed on a legal target (not unexplored ground, not the flag's own
+ * tile), returns it "armed" for the caller to hand to
+ * client-arrow-gesture-confirm.ts's handleArrowGestureConfirm -- which
+ * draws the static arrow, opens the commit-amount confirm sheet, and is the
+ * single place that actually sends SET_MUSTER (also where the march-cap
+ * "too far" advice now lives, so it isn't duplicated here). A click on
+ * unexplored ground or the origin's own tile cancels back to HOLD instead.
  */
 export const handleMusterMarchTargetClick = (
   state: Pick<ClientState, "musterMarchTargeting">,
@@ -31,19 +38,14 @@ export const handleMusterMarchTargetClick = (
   wy: number,
   vis: "visible" | "fogged" | "unexplored",
   deps: MarchTargetingDeps
-): void => {
+): MusterMarchTargetResult => {
   const { originX, originY } = state.musterMarchTargeting;
   state.musterMarchTargeting.active = false;
-  // A march over the cap is advice, not an error: say what to do instead and
-  // don't send anything (the server would only reject it with the same text).
-  const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(originX, originY, wx, wy));
-  if (tooFarAdvice) {
-    deps.pushFeed(tooFarAdvice, "combat", "info");
-  } else if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
-    deps.sendGameMessage({ type: "SET_MUSTER", x: originX, y: originY, mode: "MARCH", targetX: wx, targetY: wy });
-  } else {
-    deps.pushFeed("March target cancelled.", "combat", "info");
+  if (vis !== "unexplored" && (wx !== originX || wy !== originY)) {
+    return { type: "armed", originX, originY, targetX: wx, targetY: wy };
   }
+  deps.pushFeed("March target cancelled.", "combat", "info");
+  return { type: "cancelled" };
 };
 
 export type MarchTargetEntry = { originX: number; originY: number };

@@ -24,10 +24,15 @@ Status: active proposal
 > deliberate deviations from this doc's original D8/F wording — see F's
 > own section below for the full list (straight-line arrow instead of the
 > real MARCH route; no "Defend here" tap gesture; no front highlight; no
-> persistent post-confirm order arrow; win-chance shown as labels along
-> the drag instead of a per-tile paint recomputed on slider change). The
-> client win-chance preview still doesn't subtract a shield's effect from
-> its *base* number (by design, the reveal substitutes for that — see E),
+> persistent post-confirm order arrow). **F was then revised 2026-09-30**
+> (`agent/arrow-click-targeting`): the hold-drag/long-press gesture was
+> replaced by ordinary click-to-target (flag → "March To" → target tile,
+> free panning in between) after review found the drag gesture made any
+> off-screen target unreachable. The win-chance labels are now slider-live
+> (recomputed on every confirm-sheet slider/preset change), closing that
+> deviation — see F's own section for the full revision. The client
+> win-chance preview still doesn't subtract a shield's effect from its
+> *base* number (by design, the reveal substitutes for that — see E),
 > though F3 does now show a lower number specifically for tiles within a
 > *known* shield's coverage (a narrower, client-safe version of the same
 > idea). The AI planner doesn't yet account for shields or the arrow
@@ -552,6 +557,55 @@ this section's original wording:
   the new gesture (an in-progress arrow drag suppresses ordinary pan/tap
   tracking for the same pointer, restored on release/cancel).
 
+#### F-revision: the hold-drag gesture is replaced by click-to-target (2026-09-30)
+
+The hold-drag design above shipped and merged to `develop`
+(`agent/replenishment-plan-next` → PR #2153), but a real usability gap
+surfaced immediately in review: **panning is bound to the left mouse
+button, the drag gesture claims the right button, and there is no
+edge-of-screen auto-pan — so a target outside the current viewport was
+simply unreachable** while the gesture was held. The old 3-click
+March-To flow didn't have this problem because panning is free between
+each click. Rather than bolt on auto-pan complexity, the gesture is
+being reworked to keep the thing that already worked (decoupled clicks,
+free panning in between) and only change what happens *after* the
+target is picked:
+
+- **Arm/target: back to ordinary clicks**, reusing the pre-existing
+  March-To click-to-arm flow unchanged (`client-muster-march-targeting.ts`)
+  — click the flag, click "March To," click a target tile, panning freely
+  in between. No held button, no drag, no long-press. This also means
+  mobile needs no separate gesture code at all (a tap is a tap on both
+  platforms) — the long-press + touch-drag wiring is removed entirely.
+- **On the target click**, instead of sending `SET_MUSTER` immediately
+  (today's behavior), draw the static arrow from origin to the now-fixed
+  target and open the confirm sheet (manpower slider + 1x/1.5x/2x
+  presets) — the arrow visual, confirm-sheet UI, and win-chance-label
+  overlay code are all reused unchanged; only *what triggers them* moves
+  from "live drag update" to "one click, then fixed."
+- **Win-chance labels become slider-live**, closing the deviation noted
+  above: since the target is already fixed when the sheet opens, the
+  labels can recompute against the sheet's actual chosen commitment
+  (`commitManpower`) every time the slider or a preset changes, instead
+  of being frozen at the base-cost value computed once mid-drag.
+- Net effect: fewer files (the pointer-drag state machine and both
+  input-wiring modules are deleted), one shared flow for desktop and
+  mobile instead of two, and the off-screen-target gap is gone because
+  nothing is ever held down across a pan.
+- ✅ **Implemented** (2026-09-30/10-01, `agent/arrow-click-targeting` →
+  PR #2197): all of the above shipped as described -- the pointer-drag
+  state machine and both input-wiring modules deleted,
+  `handleMusterMarchTargetClick` returns an "armed" result instead of
+  sending directly, `handleArrowGestureConfirm` draws the static arrow
+  and opens the confirm sheet, and
+  `triggerWinChancePaintOnMarchArm` accepts an optional
+  `{ committedManpower, baseMusterCost }` override recomputed on every
+  slider/preset change. Verified with unit tests
+  (`client-muster-march-targeting-cap.test.ts`,
+  `client-win-chance-paint-trigger.test.ts`) and a Storybook screenshot
+  check showing the arrow stays fixed while the win-chance labels
+  animate. No new deviations from this revision's own design.
+
 ### G. The visit loop UI
 
 From `docs/visit-as-a-turn.md`:
@@ -585,7 +639,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
 | **3a. Shield flags (server + reveal)** ✅ done (2026-09-26/28) | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, the matching-commitment defense multiplier, and the reactive shield reveal (combat broadcast + force-reveal + 3D reinforcement march) are all shipped. By design, not wired into the client's win-chance preview (the reveal substitutes for that); the AI planner still doesn't account for shields at all (deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
-| **3b. Arrow UX (client)** ✅ done (2026-09-29) | F (gestures, arrow, sheet, win-chance labels), both renderers — shipped with documented deviations (straight-line arrow not the MARCH route, no Defend-here gesture, no front highlight, no persistent order arrow, win-chance not slider-live); see F's own section for the full list | 3a |
+| **3b. Arrow UX (client)** ✅ done (2026-09-29), revised (2026-09-30) | F (gestures, arrow, sheet, win-chance labels), both renderers — shipped with documented deviations (straight-line arrow not the MARCH route, no Defend-here gesture, no front highlight, no persistent order arrow), then revised to click-to-target (gesture claimed the pan button, so off-screen targets were unreachable) and win-chance labels made slider-live; see F's own section for the full list | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 
