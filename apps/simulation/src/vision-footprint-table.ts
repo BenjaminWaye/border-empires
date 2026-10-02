@@ -24,9 +24,9 @@
  *   pair is reused across every future capture/loss/resync of that same
  *   tile, this cost is paid at most once per distinct tile+radius
  *   combination, not once per mutation.
- * - Forest terrain never mutates in play, so any entry whose computation
- *   never touched a mountain is cached in `permanentByKey` and never
- *   invalidated. Only entries that *did* involve a mountain (which
+ * - Forest terrain only changes when an AFC landing clears it (once per
+ *   spawn, via forestClearingEpoch), so any entry whose computation never
+ *   touched a mountain is cached in `permanentByKey` and kept until then. Only entries that *did* involve a mountain (which
  *   CREATE_MOUNTAIN/REMOVE_MOUNTAIN can change) go in `epochScopedByKey`,
  *   cleared via the runtime's existing `terrainEpoch` counter. This split
  *   matters because forest is common terrain — without it, a single rare
@@ -50,7 +50,7 @@
  */
 
 import type { Terrain } from "@border-empires/shared";
-import { HILLS_VISION_BONUS, isForestTileAt, isHillsTileAt } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, forestClearingEpoch, isForestTileAt, isHillsTileAt } from "@border-empires/shared";
 import { computeLosOffsets, squareOffsets } from "./vision-line-of-sight.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -73,8 +73,8 @@ export class VisionFootprintTable {
   private readonly worldHeight: number;
   private readonly deps: VisionFootprintTableDeps;
   private readonly plainSquareByRadius = new Map<number, ReadonlyArray<[number, number]>>();
-  // Forest-only (or fully clean) results — forest terrain is static, so
-  // these never need invalidation. `null` means "clean, use the shared
+  // Forest-only (or fully clean) results — forest only changes on an AFC
+  // landing (forestClearingEpoch), so these are otherwise never invalidated. `null` means "clean, use the shared
   // plain square"; an array means "forest-occluded, use this footprint".
   private readonly permanentByKey = new Map<number, ReadonlyArray<[number, number]> | null>();
   // Results whose computation touched a mountain — cleared on terrainEpoch
@@ -83,6 +83,7 @@ export class VisionFootprintTable {
   // common) forest-adjacent footprint to be recomputed too.
   private readonly epochScopedByKey = new Map<number, ReadonlyArray<[number, number]>>();
   private epoch = -1;
+  private forestEpoch = forestClearingEpoch();
   private readonly forestAt: (x: number, y: number) => boolean;
 
   constructor(worldWidth: number, worldHeight: number, deps: VisionFootprintTableDeps) {
@@ -166,12 +167,21 @@ export class VisionFootprintTable {
   }
 
   private invalidateIfEpochChanged(): void {
+    // An AFC landing clearing forest is the one in-play forest change (see
+    // forest-clearing.ts in @border-empires/shared) -- rare, so dropping
+    // every memoized footprint is cheaper than tracking which it touched.
+    const currentForestEpoch = forestClearingEpoch();
+    if (currentForestEpoch !== this.forestEpoch) {
+      this.forestEpoch = currentForestEpoch;
+      this.permanentByKey.clear();
+      this.epochScopedByKey.clear();
+    }
     const currentEpoch = this.deps.getTerrainEpoch();
     if (currentEpoch === this.epoch) return;
     this.epoch = currentEpoch;
     this.epochScopedByKey.clear();
     // permanentByKey and plainSquareByRadius are both mountain-independent
-    // (forest-only or fully clean) — never need invalidation.
+    // (forest-only or fully clean) — only a forest clearing (above) drops them.
   }
 }
 

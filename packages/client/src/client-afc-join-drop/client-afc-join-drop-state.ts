@@ -1,3 +1,13 @@
+import {
+  AFC_LANDING_FOOTPRINT_RADIUS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  isForestTileAt,
+  terrainAt as generatedTerrainAt,
+  wasForestBeforeClearingAt,
+  type Terrain
+} from "@border-empires/shared";
+
 // State for the join-time AFC drop. Lives in its own file (and is spread
 // into the initial client state) so client-state.ts does not grow.
 //
@@ -49,3 +59,28 @@ export const createAfcJoinDropState = (): AfcJoinDropState => ({
 /** True while the real AFC on (x, y) must not be drawn because the drop has not landed yet. */
 export const isAfcHiddenForJoinDrop = (drop: AfcJoinDropState, x: number, y: number): boolean =>
   drop.x === x && drop.y === y && (drop.phase === "waiting" || (drop.phase === "playing" && !drop.revealed));
+
+// AFC landing footprint hold: the landing flattens mountains and clears
+// forest from the AFC's 3x3 footprint (forest-clearing.ts in
+// @border-empires/shared), but while the join drop is still hiding the real
+// AFC both renderers keep drawing the original terrain there, so the trees
+// and mountains vanish at touchdown under the smoke instead of before the
+// AFC has even appeared.
+const wrappedDistance = (a: number, b: number, size: number): number => {
+  const d = Math.abs(a - b) % size;
+  return Math.min(d, size - d);
+};
+
+/** True while (x, y) lies in the 3x3 footprint of an AFC the join drop is still hiding. */
+export const isInHeldAfcLandingFootprint = (drop: AfcJoinDropState, x: number, y: number): boolean =>
+  (drop.phase === "waiting" || (drop.phase === "playing" && !drop.revealed)) &&
+  wrappedDistance(drop.x, x, WORLD_WIDTH) <= AFC_LANDING_FOOTPRINT_RADIUS &&
+  wrappedDistance(drop.y, y, WORLD_HEIGHT) <= AFC_LANDING_FOOTPRINT_RADIUS;
+
+/** The terrain to draw at (x, y): a footprint mountain the landing flattened stays a mountain until touchdown. */
+export const terrainWithAfcLandingHold = (drop: AfcJoinDropState, x: number, y: number, terrain: Terrain): Terrain =>
+  terrain === "LAND" && isInHeldAfcLandingFootprint(drop, x, y) && generatedTerrainAt(x, y) === "MOUNTAIN" ? "MOUNTAIN" : terrain;
+
+/** Forest-ness to draw at (x, y): footprint forest the landing cleared stays drawn until touchdown. */
+export const isForestTileWithAfcLandingHold = (drop: AfcJoinDropState, x: number, y: number): boolean =>
+  isForestTileAt(x, y) || (wasForestBeforeClearingAt(x, y) && isInHeldAfcLandingFootprint(drop, x, y));

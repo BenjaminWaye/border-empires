@@ -436,6 +436,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Staging now connects to api-staging.borderempires.com on a dedicated server",
       "Logins on staging should no longer stall while the server catches up"
     ]
+  },
+  {
+    createdAt: 1790935593754, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.1",
+    title: "Cleaner landing sites for your Fabrication Complex",
+    why: "A new empire's Automated Fabrication Complex could land hemmed in by water, mountains or thick forest, leaving a cramped and slow start.",
+    changes: [
+      "Your Fabrication Complex now always lands on a tile with no water on any of its 8 surrounding tiles",
+      "Any mountains on the landing tile's 8 neighbours are flattened into open land when it lands",
+      "Forest is cleared from the landing tile and all 8 neighbours, so the area around your Complex is quick to claim and settle and doesn't block your sight",
+      "When you watch your Complex land, the trees and mountains disappear at touchdown, under the landing smoke"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
