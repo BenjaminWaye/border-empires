@@ -13,9 +13,17 @@ describe("buildPlayerNameResolver", () => {
     expect(nameFor("ai-1")).toBe("Alden Vale");
   });
 
-  it("falls back to 'Barbarians' for barbarian-1, which never appears on the leaderboard", () => {
+  it("names barbarian-1 'Planetary Defense', which never appears on the leaderboard", () => {
     const nameFor = buildPlayerNameResolver(powerScore);
-    expect(nameFor("barbarian-1")).toBe("Barbarians");
+    expect(nameFor("barbarian-1")).toBe("Planetary Defense");
+  });
+
+  it("names barbarian-1 'Planetary Defense' even when an older world's leaderboard still says 'Barbarians'", () => {
+    const nameFor = buildPlayerNameResolver([
+      ...powerScore,
+      { id: "barbarian-1", name: "Barbarians", tiles: 5, incomePerMinute: 0, techs: 0, score: 1, rank: 2 }
+    ]);
+    expect(nameFor("barbarian-1")).toBe("Planetary Defense");
   });
 
   it("falls back to the raw id when the player is unresolvable", () => {

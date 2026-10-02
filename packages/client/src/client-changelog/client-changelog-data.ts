@@ -470,6 +470,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Monuments square only appears once you have researched a monument's tech",
       "Hydrogardens now say they add +2 FOOD slots on grain resource tiles"
     ]
+  },
+  {
+    createdAt: 1790961825638, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.3",
+    title: "Barbarians are now the Planetary Defense",
+    why: "The barbarians are what is left of this planet's own defense force after it was prepared for the planetary games, and they should look like soldiers, not monsters.",
+    changes: [
+      "Barbarians (\"The Bleed\") are renamed to Planetary Defense everywhere in the game",
+      "The crystal monster on their tiles is replaced by soldiers in dark grey armor that patrol around their tiles",
+      "When Planetary Defense fights, its side of the battle is those same dark grey soldiers"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

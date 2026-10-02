@@ -16,7 +16,7 @@ import {
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
   drawAetherWallSegment as drawAetherWallSegmentOnCanvas,
-  drawBarbarianColossusOverlay as drawBarbarianColossusOverlayOnCanvas,
+  drawPlanetaryDefenseOverlay as drawPlanetaryDefenseOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
@@ -283,8 +283,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     );
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
-  const drawBarbarianColossusOverlay = (px: number, py: number, size: number): void =>
-    drawBarbarianColossusOverlayOnCanvas(ctx, px, py, size);
+  const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
+    drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
     drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt);
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
@@ -458,7 +458,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawTerrainTile,
     drawForestOverlay,
     drawHillsOverlay,
-    drawBarbarianColossusOverlay,
+    drawPlanetaryDefenseOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
     drawTownMarker,

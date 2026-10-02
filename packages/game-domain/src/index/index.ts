@@ -451,7 +451,7 @@ export const validateFrontierCommand = (
       return {
         ok: false,
         code: "INSUFFICIENT_MANPOWER",
-        message: `need ${BARBARIAN_RAID_COST} manpower for barbarian raid`
+        message: `need ${BARBARIAN_RAID_COST} manpower for Planetary Defense raid`
       };
     }
   } else if (musterAttack && !isBarbarianAttack) {

@@ -51,7 +51,7 @@ const isEligibleAllianceTargetId = (playerId: string, activePlayerIds: ReadonlyS
 export const allianceTargetSuggestions = (state: SocialSuggestionState): AllianceTargetSuggestion[] => {
   const suggestions: AllianceTargetSuggestion[] = [];
   const seen = new Set<string>();
-  const excluded = new Set<string>(["barbarians"]);
+  const excluded = new Set<string>(["barbarians", "planetary defense"]);
   if (state.meName.trim()) excluded.add(state.meName.trim().toLocaleLowerCase());
   const activePlayerIds = new Set(state.leaderboard.overall.map((entry) => entry.id));
 

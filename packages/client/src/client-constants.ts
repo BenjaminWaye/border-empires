@@ -84,7 +84,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for coin."
+    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
   },
   {
     title: "Win the Season",
