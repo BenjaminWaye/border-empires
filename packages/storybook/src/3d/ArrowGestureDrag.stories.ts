@@ -5,35 +5,44 @@ import { createWinChancePaintOverlay, type WinChancePaintEntry } from "@client/c
 import { winChanceColor } from "@border-empires/shared";
 import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.js";
 
-// Workstream F1/F2 (docs/replenishment-update-plan.md): design review for the
-// right-click-drag (desktop) / long-press-drag (mobile) attack gesture --
-// drag a straight arrow from an owned muster flag's tile to a target tile,
-// with the win-chance paint (F0) live-updating on the tile currently under
-// the drag's endpoint, exactly as client-map-input-arrow-gesture-wiring.ts /
-// client-map-input-arrow-gesture-touch-wiring.ts drive it frame-by-frame in
-// the real client. This story fakes the drag with a looping animation
-// instead of real pointer input so it can be watched hands-free.
+// Workstream F, revised (docs/replenishment-update-plan.md, "the hold-drag
+// gesture is replaced by click-to-target"): design review for the attack
+// arrow + win-chance labels as they actually work today -- click a muster
+// flag, click "March To", click a target tile (ordinary decoupled clicks,
+// free panning in between, no held button or long-press). The arrow is then
+// STATIC (origin and target are both already fixed) while the confirm
+// sheet is open, and the win-chance labels along it are slider-live: this
+// story illustrates that by looping the "chosen commitment" the confirm
+// sheet's manpower slider would report, through its low/normal/high range,
+// recomputing the labels each time -- the arrow itself never moves, only
+// the numbers change, since there is no drag to animate anymore.
 const FLAG_COLOR = "#4a90ff";
 const ORIGIN = { x: -2.5, z: 0 };
 const TARGET = { x: 2.5, z: 0.6 };
+// Tiles a straight line from ORIGIN to TARGET would cross (illustrative
+// integer points standing in for tilesAlongLine's Bresenham trace,
+// client-win-chance-paint-trigger.ts, over a real terrain-less stage).
+const LABEL_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 type Args = {
   cameraDistance: number;
-  dragMs: number;
-  holdAtTargetMs: number;
-  pauseAtOriginMs: number;
+  sliderCycleMs: number;
 };
 
-// Illustrative win chance that rises the further along the arrow a labeled
-// tile sits, purely so the labels' red->amber->green sweep is visible --
-// the real client computes each tile's own winChanceForTile independently
-// (client-win-chance-paint-trigger.ts), not from position along the line.
-const winChanceForProgress = (t: number): number => Math.min(1, Math.max(0, t));
+// Illustrative: as if the confirm sheet's manpower slider swept low -> high
+// and back, each label's win chance rising with the chosen commitment --
+// client-win-chance-paint-trigger.ts's real recompute is driven by the
+// sheet's actual commitManpower input, not by time.
+const winChanceForSliderPhase = (labelFraction: number, sliderPhase: number): number =>
+  Math.min(1, Math.max(0, sliderPhase * (0.4 + labelFraction * 0.6)));
 
-const labelEntryFor = (x: number, z: number, t: number): WinChancePaintEntry => {
-  const winChance = winChanceForProgress(t);
-  return { sceneX: x, sceneZ: z, surfaceY: 0, winChance, color: winChanceColor(winChance) };
-};
+const labelEntryFor = (x: number, z: number, winChance: number): WinChancePaintEntry => ({
+  sceneX: x,
+  sceneZ: z,
+  surfaceY: 0,
+  winChance,
+  color: winChanceColor(winChance)
+});
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: 0.85, background: "#12210f" });
@@ -47,57 +56,35 @@ const render = (args: Args): HTMLElement => {
   flagOverlay.addMuster(ORIGIN.x, ORIGIN.z, 0, 1, FLAG_COLOR, false, 0, 0);
   flagOverlay.commit();
 
+  // Static: set once, never updated -- the target was already fixed by an
+  // ordinary click before the sheet (and this story) ever appears.
+  arrowOverlay.setEndpoints({ sceneX: ORIGIN.x, sceneZ: ORIGIN.z, surfaceY: 0 }, { sceneX: TARGET.x, sceneZ: TARGET.z, surfaceY: 0 });
+  arrowOverlay.commit();
+
   const disposers: Array<() => void> = [ground.dispose, flagOverlay.dispose, arrowOverlay.dispose, paintOverlay.dispose];
 
-  const cycleMs = args.pauseAtOriginMs + args.dragMs + args.holdAtTargetMs;
   let cycleStart = performance.now();
 
   let rafId = 0;
   const animate = (): void => {
     const now = performance.now();
     let elapsed = now - cycleStart;
-    if (elapsed >= cycleMs) {
+    if (elapsed >= args.sliderCycleMs) {
       cycleStart = now;
       elapsed = 0;
     }
+    // Low -> high -> low, a triangle wave standing in for a player dragging
+    // the slider up then back down.
+    const t = elapsed / args.sliderCycleMs;
+    const sliderPhase = t < 0.5 ? t * 2 : 2 - t * 2;
 
-    // Drag progress: sits at the origin, eases out to the target, holds there.
-    let t = 0;
-    if (elapsed >= args.pauseAtOriginMs) {
-      const dragElapsed = Math.min(args.dragMs, elapsed - args.pauseAtOriginMs);
-      const linear = dragElapsed / args.dragMs;
-      t = 1 - (1 - linear) * (1 - linear); // ease-out, matches a real drag decelerating near release
-    }
-
-    const currentX = ORIGIN.x + (TARGET.x - ORIGIN.x) * t;
-    const currentZ = ORIGIN.z + (TARGET.z - ORIGIN.z) * t;
-
-    // Real design (post-feedback): a "XX%" label on every enemy tile the
-    // arrow crosses, not a tinted square at the target + its neighbors --
-    // illustrated here with a handful of evenly-spaced integer tiles along
-    // the origin->current line, standing in for tilesAlongLine's Bresenham
-    // trace (client-win-chance-paint-trigger.ts) over a real (terrain-less)
-    // stage.
     paintOverlay.clear();
-    if (t > 0.02) {
-      const steps = Math.max(1, Math.round(t * 5));
-      for (let i = 1; i <= steps; i++) {
-        const st = (i / steps) * t;
-        const x = ORIGIN.x + (TARGET.x - ORIGIN.x) * st;
-        const z = ORIGIN.z + (TARGET.z - ORIGIN.z) * st;
-        paintOverlay.addTile(labelEntryFor(x, z, st));
-      }
+    for (const fraction of LABEL_FRACTIONS) {
+      const x = ORIGIN.x + (TARGET.x - ORIGIN.x) * fraction;
+      const z = ORIGIN.z + (TARGET.z - ORIGIN.z) * fraction;
+      paintOverlay.addTile(labelEntryFor(x, z, winChanceForSliderPhase(fraction, sliderPhase)));
     }
     paintOverlay.commit();
-
-    arrowOverlay.clear();
-    if (t > 0.02) {
-      arrowOverlay.setEndpoints(
-        { sceneX: ORIGIN.x, sceneZ: ORIGIN.z, surfaceY: 0 },
-        { sceneX: currentX, sceneZ: currentZ, surfaceY: 0 }
-      );
-    }
-    arrowOverlay.commit();
 
     rafId = requestAnimationFrame(animate);
   };
@@ -113,24 +100,22 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "Design review for the arrow-gesture attack UX (Workstream F1/F2): right-click-drag on desktop or long-press+" +
-          "drag on mobile paints a straight arrow from an owned muster flag's tile to wherever the drag currently is, " +
-          "with a win-chance percentage label (dark shadow, color-coded red/amber/green) floating above every enemy " +
-          "tile the arrow crosses (F0, redesigned from an earlier tinted-square version). On release this opens the " +
-          "confirm sheet (size slider + Normal/Extra/Double presets) which sends the real SET_MUSTER command -- not " +
-          "shown here, this story is only the drag visual. The drag itself is faked with a looping ease-out animation " +
-          "instead of real pointer input so it can be watched hands-free; pacing is illustrative, not timed to any " +
-          "real input latency."
+          "Design review for the attack-arrow + win-chance-label UX (Workstream F, revised): the target is picked by " +
+          "ordinary clicks (flag -> March To -> target tile), not a held drag, so the arrow drawn here is STATIC -- " +
+          "fixed the moment this story 'opens', same as it would be once the real confirm sheet appears. What animates " +
+          "is the win-chance percentage labels (dark shadow, red/amber/green) along the arrow, standing in for the " +
+          "confirm sheet's manpower slider being moved: each label recomputes against the chosen commitment, exactly " +
+          "as client-win-chance-paint-trigger.ts's real trigger does on every slider/preset change. The confirm sheet " +
+          "itself (manpower slider + Normal/Extra/Double presets + Go, sending the real SET_MUSTER command) is not " +
+          "shown here -- this story is only the map visual."
       }
     }
   },
   argTypes: {
     cameraDistance: { control: { type: "range", min: 4, max: 20, step: 1 } },
-    dragMs: { control: { type: "range", min: 200, max: 2500, step: 100 } },
-    holdAtTargetMs: { control: { type: "range", min: 0, max: 2000, step: 100 } },
-    pauseAtOriginMs: { control: { type: "range", min: 0, max: 1500, step: 100 } }
+    sliderCycleMs: { control: { type: "range", min: 800, max: 6000, step: 200 } }
   },
-  args: { cameraDistance: 9, dragMs: 900, holdAtTargetMs: 700, pauseAtOriginMs: 400 },
+  args: { cameraDistance: 9, sliderCycleMs: 2400 },
   render
 };
 
@@ -139,16 +124,9 @@ type Story = StoryObj<Args>;
 
 export const Default: Story = {};
 
-export const SlowDrag: Story = {
-  args: { dragMs: 2500, holdAtTargetMs: 1200, pauseAtOriginMs: 600, cameraDistance: 11 },
+export const SlowSliderSweep: Story = {
+  args: { sliderCycleMs: 6000, cameraDistance: 11 },
   parameters: {
-    docs: { description: { story: "Slowed down for inspection -- watch the arrow lengthen and the win-chance labels sweep from red to green as the drag travels." } }
-  }
-};
-
-export const QuickFlick: Story = {
-  args: { dragMs: 300, holdAtTargetMs: 400, pauseAtOriginMs: 150, cameraDistance: 9 },
-  parameters: {
-    docs: { description: { story: "A fast drag, closer to how it actually feels in the real client." } }
+    docs: { description: { story: "Slowed down for inspection -- watch each label's win chance rise and fall together as the (illustrative) commitment sweeps low to high and back, while the arrow itself never moves." } }
   }
 };
