@@ -196,7 +196,7 @@ export const ADMIN_ENVIRONMENTS: AdminEnvironment[] = [
   {
     label: "Production",
     flyApp: "border-empires-combined",
-    gatewayOrigin: "https://border-empires-combined.fly.dev",
+    gatewayOrigin: "https://api.borderempires.com",
     playOrigin: "https://play.borderempires.com"
   },
   {

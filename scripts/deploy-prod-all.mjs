@@ -10,7 +10,7 @@
 //      branch always tracks the last successful deploy (parallel to how
 //      staging tracks origin/main on origin/staging).
 //   4. Pass PRODUCTION_GATEWAY_WS_URL through to the client build so the
-//      bundle hardcodes wss://border-empires-combined.fly.dev/ws and the
+//      bundle hardcodes wss://api.borderempires.com/ws and the
 //      client defaults to the rewrite gateway in prod.
 //
 // What this does, in order:
@@ -51,7 +51,7 @@ import { createInterface } from "node:readline";
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const productionClientAlias = process.env.PRODUCTION_CLIENT_ALIAS ?? "play.borderempires.com";
 const productionGatewayWsUrl =
-  process.env.PRODUCTION_GATEWAY_WS_URL ?? "wss://border-empires-combined.fly.dev/ws";
+  process.env.PRODUCTION_GATEWAY_WS_URL ?? "wss://api.borderempires.com/ws";
 const buildShaArtifactPath = resolve(rootDir, "packages/client/public/__build_sha.txt");
 
 const log = (msg) => console.log(`\n[deploy-prod-all] ${msg}`);
@@ -132,7 +132,7 @@ const main = async () => {
   if (process.env.ALLOW_UNCONFIRMED_PROD_DEPLOY !== "1") {
     const expected = `DEPLOY PROD ${targetShortSha}`;
     const answer = (await prompt(
-      `\nAbout to deploy ${targetShortSha} to production (border-empires-combined.fly.dev + ${productionClientAlias}).\n` +
+      `\nAbout to deploy ${targetShortSha} to production (api.borderempires.com + ${productionClientAlias}).\n` +
         `Type '${expected}' to continue: `
     )).trim();
     if (answer !== expected) {
