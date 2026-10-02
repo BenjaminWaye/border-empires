@@ -88,6 +88,12 @@ export const buildingActionCategory = (action: TileActionDef): BuildingCategory 
   return structureType ? structureBuildingCategory(structureType) : "infrastructure";
 };
 
+// Categories whose square is omitted entirely (rather than grayed out) when
+// nothing in them is available -- Monuments only appear once you've
+// researched a monument's tech, since the client already drops tech-locked
+// actions from the list.
+export const BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY: ReadonlySet<BuildingCategory> = new Set<BuildingCategory>(["monument"]);
+
 // Shown on a category square when it has zero buildings on this tile --
 // grounded in the actual gate that empties it (resourceTypes / placementMode)
 // rather than a generic "nothing here".

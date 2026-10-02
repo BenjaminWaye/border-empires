@@ -69,6 +69,11 @@ const columns: { label: string; description: string; view: TileMenuView }[] = [
     view: realBuildingMenuView({ tile: greatCitySupportTile, supportedTowns: [greatCity] }, "Support tile (21, 20)", "Settled")
   },
   {
+    label: "Great City, monument techs not researched",
+    description: "No monument tech researched, so the client lists no monument actions and the Monuments square is omitted.",
+    view: realBuildingMenuView({ tile: greatCitySupportTile, supportedTowns: [greatCity], monumentTechsResearched: false }, "Support tile (21, 20)", "Settled")
+  },
+  {
     label: "Plain settled land",
     description: "No town nearby: Town Support is grayed out with the reason.",
     view: realBuildingMenuView({ tile: plainSettledTile }, "Settled land (40, 40)", "Settled")

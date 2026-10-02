@@ -2,6 +2,7 @@ import { createClientRuntimeDisplaySupport } from "@client/client-app-runtime-di
 import { createInitialState, type ClientState } from "@client/client-state/client-state.js";
 import { buildDetailTextForAction } from "@client/client-tile-action-detail-text/client-tile-action-detail-text.js";
 import { menuActionsForSingleTile, type TileActionLogicDeps } from "@client/client-tile-action-logic/client-tile-action-logic.js";
+import { MONUMENT_COMPONENT_BUILD_DEFS } from "@client/client-tile-action-monument-parts/client-tile-action-monument-parts.js";
 import { splitTileActionsIntoTabs } from "@client/client-tile-action-support/client-tile-action-support.js";
 import type { Tile, TileMenuView } from "@client/client-types.js";
 
@@ -15,14 +16,17 @@ import type { Tile, TileMenuView } from "@client/client-types.js";
  */
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
-const allTechsUnlocked = (): string[] => Object.assign([] as string[], { includes: () => true });
+const allTechsUnlockedExcept = (locked: ReadonlySet<string>): string[] =>
+  Object.assign([] as string[], { includes: (techId: string) => !locked.has(techId) });
 
-const richState = (): ClientState => {
+const MONUMENT_TECH_IDS: ReadonlySet<string> = new Set(MONUMENT_COMPONENT_BUILD_DEFS.map((def) => def.techId));
+
+const richState = (monumentTechsResearched: boolean): ClientState => {
   const state = createInitialState();
   state.me = "me";
   state.gold = 100_000;
   state.manpower = 100_000;
-  state.techIds = allTechsUnlocked();
+  state.techIds = allTechsUnlockedExcept(monumentTechsResearched ? new Set() : MONUMENT_TECH_IDS);
   state.resourceSlots = {
     supply: { FOOD: 30, TITANIUM: 30, CRYSTAL: 30, UMBRITE: 30 },
     demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
@@ -33,10 +37,12 @@ const richState = (): ClientState => {
 export type RealMenuScenario = {
   tile: Tile;
   supportedTowns?: Tile[];
+  /** Defaults to true. False leaves out every monument's unlock tech. */
+  monumentTechsResearched?: boolean;
 };
 
 export const realBuildingMenuView = (scenario: RealMenuScenario, title: string, subtitle: string): TileMenuView => {
-  const state = richState();
+  const state = richState(scenario.monumentTechsResearched ?? true);
   state.tiles.set(keyFor(scenario.tile.x, scenario.tile.y), scenario.tile);
   for (const town of scenario.supportedTowns ?? []) state.tiles.set(keyFor(town.x, town.y), town);
   const display = createClientRuntimeDisplaySupport({ state, formatCooldownShort: (ms) => `${Math.round(ms / 1000)}s`, prettyToken: (v) => v });

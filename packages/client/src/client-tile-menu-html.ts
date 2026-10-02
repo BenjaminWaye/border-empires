@@ -1,5 +1,6 @@
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
+  BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY,
   BUILDING_CATEGORY_EMPTY_REASON,
   BUILDING_CATEGORY_ICONS,
   BUILDING_CATEGORY_LABELS,
@@ -48,17 +49,20 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
     else byCategory.set(category, [action]);
   }
   const uid = Math.random().toString(36).slice(2, 8);
-  const firstNonEmpty = BUILDING_CATEGORY_ORDER.find((category) => (byCategory.get(category)?.length ?? 0) > 0);
+  const visibleCategories = BUILDING_CATEGORY_ORDER.filter(
+    (category) => (byCategory.get(category)?.length ?? 0) > 0 || !BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY.has(category)
+  );
+  const firstNonEmpty = visibleCategories.find((category) => (byCategory.get(category)?.length ?? 0) > 0);
   // Radios live as direct siblings of .tile-building-category-panels (not
   // nested inside the squares row) so the plain CSS sibling combinator
   // (`.cat-x:checked ~ .tile-building-category-panels [data-category=x]`)
   // can reach across to the matching panel -- see client-tile-menu-building-group-style.css.
-  const radiosHtml = BUILDING_CATEGORY_ORDER.map((category) => {
+  const radiosHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
     const inputId = `tbc-${uid}-${category}`;
     return `<input type="radio" name="tile-building-category-${uid}" id="${inputId}" class="tile-building-category-radio cat-${category}" ${category === firstNonEmpty ? "checked" : ""} ${count === 0 ? "disabled" : ""} />`;
   }).join("");
-  const squaresHtml = BUILDING_CATEGORY_ORDER.map((category) => {
+  const squaresHtml = visibleCategories.map((category) => {
     const count = byCategory.get(category)?.length ?? 0;
     const isEmpty = count === 0;
     const inputId = `tbc-${uid}-${category}`;
@@ -70,7 +74,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
       </label>
     `;
   }).join("");
-  const panelsHtml = BUILDING_CATEGORY_ORDER.map((category) => {
+  const panelsHtml = visibleCategories.map((category) => {
     const categoryActions = byCategory.get(category) ?? [];
     if (categoryActions.length === 0) {
       return `<div class="tile-building-category-panel" data-category="${category}"><div class="tile-menu-empty">${BUILDING_CATEGORY_EMPTY_REASON[category]}</div></div>`;
@@ -80,7 +84,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
   return `
     <div class="tile-building-category-group">
       ${radiosHtml}
-      <div class="tile-building-categories">${squaresHtml}</div>
+      <div class="tile-building-categories" style="grid-template-columns:repeat(${visibleCategories.length},minmax(0,1fr))">${squaresHtml}</div>
       <div class="tile-building-category-panels">${panelsHtml}</div>
     </div>
   `;
