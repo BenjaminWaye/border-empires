@@ -470,6 +470,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Monuments square only appears once you have researched a monument's tech",
       "Hydrogardens now say they add +2 FOOD slots on grain resource tiles"
     ]
+  },
+  {
+    createdAt: 1790958525863, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.3",
+    title: "You can no longer abandon your Fabrication Complex",
+    why: "Abandoning your Automated Fabrication Complex took away the reach it gives, so every frontier tile around it started decaying as \"Beyond your reach\".",
+    changes: [
+      "Abandon Territory is no longer offered on your own Automated Fabrication Complex, and the server rejects it",
+      "Your Complex can still be lost in combat, the same as your Settlement"
+    ]
+  },
+  {
+    createdAt: 1790957901665, // frozen Date.now() value for this release
+    introducedIn: "2026.10.02.4",
+    title: "The game server moved to faster, dedicated hosting",
+    why: "The server ran on a shared, throttled CPU, which could freeze for 30 seconds or more under load and make logins stall.",
+    changes: [
+      "The game now connects to api.borderempires.com",
+      "Logins and moves should stay responsive when the server is busy"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

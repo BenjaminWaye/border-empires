@@ -194,8 +194,8 @@ jobs:
         run: node ./scripts/deploy-client-prod.mjs
         env:
           GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          VITE_GATEWAY_WS_URL: "wss://border-empires-combined.fly.dev/ws"
-          VITE_WS_URL: "wss://border-empires-combined.fly.dev/ws"
+          VITE_GATEWAY_WS_URL: "wss://api.borderempires.com/ws"
+          VITE_WS_URL: "wss://api.borderempires.com/ws"
           VITE_BACKEND_DEFAULT: "gateway"
           ALLOW_NON_MAIN_PROD_DEPLOY: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

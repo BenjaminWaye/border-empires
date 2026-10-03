@@ -79,6 +79,14 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
       },
       {
         method: "GET",
+        path: "/admin/world",
+        kind: "json",
+        auth: "read",
+        title: "World size",
+        description: "Configured map size and watchtowers vs. the size the current season was generated at, plus AI count. sizeStatus rollover_pending = new size deployed but not yet applied."
+      },
+      {
+        method: "GET",
         path: "/admin/players/insights.json",
         kind: "json",
         auth: "read",
@@ -196,7 +204,7 @@ export const ADMIN_ENVIRONMENTS: AdminEnvironment[] = [
   {
     label: "Production",
     flyApp: "border-empires-combined",
-    gatewayOrigin: "https://border-empires-combined.fly.dev",
+    gatewayOrigin: "https://api.borderempires.com",
     playOrigin: "https://play.borderempires.com"
   },
   {

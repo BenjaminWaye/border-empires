@@ -6,7 +6,7 @@ describe("resolveAdminEnvironment", () => {
   it("points each deployment's /admin at its own gateway and offers the other one", () => {
     expect(resolveAdminEnvironment("play.borderempires.com", undefined)).toEqual({
       label: "Production",
-      gatewayOrigin: "https://border-empires-combined.fly.dev",
+      gatewayOrigin: "https://api.borderempires.com",
       otherAdminUrl: STAGING_ADMIN_URL
     });
     expect(resolveAdminEnvironment("staging.borderempires.com", undefined)).toEqual({

@@ -44,7 +44,10 @@ export default defineConfig({
     // Shared package dist files reference Node's `process.env` directly.
     // Replace with a subset so browser builds don't throw.
     "process.env": JSON.stringify({
-      EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
+      EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true",
+      // Must match the server's WORLD_WIDTH/WORLD_HEIGHT (undefined -> default size).
+      WORLD_WIDTH: process.env.WORLD_WIDTH,
+      WORLD_HEIGHT: process.env.WORLD_HEIGHT
     })
   },
   test: {

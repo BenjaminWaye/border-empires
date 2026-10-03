@@ -4,9 +4,9 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Stack targeting
 
-- **Staging and production both run the rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). Staging uses `border-empires-combined-staging`; production uses `border-empires-combined`.
+- **Staging and production both run the rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). Both run on Hetzner Cloud (staging `api-staging.borderempires.com`, production `api.borderempires.com`); the Fly apps `border-empires-combined-staging` / `border-empires-combined` are stopped legacy rollbacks.
 - **Default target for new work is the rewrite stack.** Do not modify or instrument `packages/server` unless the user explicitly says "legacy" or names `packages/server`. If a search turns up logic only in `packages/server`, surface that as stale legacy code — do not extend it as the active runtime.
-- Full deploy/Fly/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
+- Full deploy/Hetzner/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
 
 ## Renderer parity (2D canvas + true-3D map)
 

@@ -175,18 +175,20 @@ describe("structureBuildDurationMs derives from the real (existingCount=0) manpo
   // were never meant to be keyed by these, same as before this change.
   const TIER_UPGRADE_ONLY_TYPES = new Set(["TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_TOWER", "DREAD_TOWER"]);
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-    if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type)) continue;
+    // RELAY_BEACON's first-tier beacon is the one exception: it pays manpower
+    // but builds instantly (D12), covered by its own test below.
+    if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type) || type === "RELAY_BEACON") continue;
     test(`${type}: matches manpowerCost x MANPOWER_COST_MS_PER_POINT`, () => {
-      // structureBuildManpowerCostScaled, not the flat structureBuildManpowerCost:
-      // RELAY_BEACON's first (existingCount=0) beacon costs a discounted flat
-      // rate (D12), which only the scaled function reflects -- the flat one
-      // still reports its post-first-tier base cost (see its comment in
-      // structure-costs.ts).
       expect(structureBuildDurationMs(type as any)).toBe(
         structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type as any, 0))
       );
     });
   }
+
+  test("RELAY_BEACON: the first (existingCount=0) beacon pays manpower but builds instantly (D12)", () => {
+    expect(structureBuildManpowerCostScaled("RELAY_BEACON", 0)).toBeGreaterThan(0);
+    expect(structureBuildDurationMs("RELAY_BEACON")).toBe(0);
+  });
 });
 
 // ── Tech ID parity: cross-check against live source ────────────────
