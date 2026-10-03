@@ -1,14 +1,12 @@
 // Compact, non-blocking join prompt: "settle the towns/farms already in your reach for you?"
 // Docked card with no backdrop so the map stays visible and usable behind it.
-// Held back (not dismissed) while the What's New / tutorial / other auto-opening
-// dialogs cover the map, then shown once the player can actually see it.
+// Not auto-opened: candidates are marked on the map and the dialog opens when the player clicks one.
 // Shown once to a brand-new player (autoSettle.answered === false) as soon as
 // the server reports at least one settle candidate. Nothing auto-settles until
 // they answer -- see apps/simulation's SET_AUTO_SETTLE_PREFS handler. No map
 // overlay/highlighting, so there is no 2D-vs-3D renderer work here.
 import { DEVELOPMENT_PROCESS_LIMIT, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import {
   buildAutoSettlePromptModel,
@@ -36,27 +34,15 @@ let ui: Partial<Record<AutoSettleCategory, SectionUi>> = {};
 // is obtrusive for anything new but never nags about the same candidates twice (session memory only).
 const dismissedTileKeys = new Set<string>();
 let escapeListenerInstalled = false;
-let gatePollTimer: ReturnType<typeof setInterval> | undefined;
-let lastGateOpen = false;
-
-// Other dialogs closing has no hook of its own, so re-check the gate on a slow timer and refresh only when it flips.
-const startGatePoll = (): void => {
-  if (gatePollTimer !== undefined) clearInterval(gatePollTimer);
-  lastGateOpen = false;
-  gatePollTimer = setInterval(() => {
-    if (!deps) return;
-    const open = isMapUnobstructed(deps.state);
-    if (open === lastGateOpen) return;
-    lastGateOpen = open;
-    refreshAutoSettlePrompt();
-  }, 500);
-};
+// The dialog never opens by itself: candidate tiles get a marker on the map (see syncSettleMarkers) and
+// clicking one calls openAutoSettlePromptForTile.
+let promptOpen = false;
+let markerTiles: Array<{ x: number; y: number }> = [];
 
 export const installAutoSettlePrompt = (next: PromptDeps): void => {
   deps = next;
   dismissedTileKeys.clear();
   ui = {};
-  startGatePoll();
   refreshAutoSettlePrompt();
 };
 
@@ -86,6 +72,7 @@ const sectionUi = (section: AutoSettlePromptSection): SectionUi => {
 };
 
 const hide = (): void => {
+  promptOpen = false;
   if (!overlayEl) return;
   overlayEl.style.display = "none";
   overlayEl.innerHTML = "";
@@ -105,6 +92,7 @@ const ensureOverlay = (): HTMLDivElement => {
 const dismiss = (model: AutoSettlePromptModel): void => {
   for (const section of model.sections) for (const entry of section.tiles) dismissedTileKeys.add(entry.tileKey);
   hide();
+  refreshAutoSettlePrompt(); // drops the map markers for the tiles just waved away
 };
 
 const submit = (model: AutoSettlePromptModel): void => {
@@ -223,17 +211,41 @@ export const dismissCurrentAutoSettleCandidates = (): void => {
 /** Re-evaluates whether the prompt should be showing; cheap and idempotent (called on every queue/prefs update). */
 export const refreshAutoSettlePrompt = (): void => {
   if (!deps || typeof document === "undefined") return;
-  if (!isMapUnobstructed(deps.state)) {
-    hide();
-    return;
-  }
   // Forget dismissals for tiles that are no longer candidates so the set stays bounded by the server's queue.
   const live = new Set(deps.state.autoSettlementQueue.map((entry) => `${entry.x},${entry.y}`));
   for (const key of dismissedTileKeys) if (!live.has(key)) dismissedTileKeys.delete(key);
   const model = buildAutoSettlePromptModel(deps.state, dismissedTileKeys);
-  if (model.sections.length === 0) {
-    hide();
+  syncSettleMarkers(deps.state, model);
+  if (model.sections.length === 0 || !promptOpen) {
+    if (model.sections.length === 0) hide();
+    else if (overlayEl) overlayEl.style.display = "none";
     return;
   }
   render(model);
+};
+
+/** Map markers: the existing highlight-ring list (drawn by both the 2D and true-3D renderers) gets one ring per held-back candidate. */
+const syncSettleMarkers = (state: ClientState, model: AutoSettlePromptModel): void => {
+  const previous = new Set(markerTiles.map((tile) => `${tile.x},${tile.y}`));
+  markerTiles = model.sections.flatMap((section) => section.tiles.map(({ x, y }) => ({ x, y })));
+  const base = state.onboardingHighlightTiles.filter((tile) => !previous.has(`${tile.x},${tile.y}`));
+  state.onboardingHighlightTiles = withSettleMarkers(base);
+};
+
+/** Appends the current settle markers to a highlight list (deduped); the checklist refresh recomputes the list and re-applies them. */
+export const withSettleMarkers = (tiles: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> => {
+  const seen = new Set(tiles.map((tile) => `${tile.x},${tile.y}`));
+  return [...tiles, ...markerTiles.filter((tile) => !seen.has(`${tile.x},${tile.y}`))];
+};
+
+/** Called when the player clicks a tile: if it carries a settle marker, show the dialog instead of the tile menu. */
+export const openAutoSettlePromptForTile = (state: ClientState, tile: { x: number; y: number }): boolean => {
+  if (!deps || deps.state !== state) return false;
+  const tileKey = `${tile.x},${tile.y}`;
+  if (!markerTiles.some((entry) => `${entry.x},${entry.y}` === tileKey)) return false;
+  const model = buildAutoSettlePromptModel(state, dismissedTileKeys);
+  if (model.sections.length === 0) return false;
+  promptOpen = true;
+  render(model);
+  return true;
 };

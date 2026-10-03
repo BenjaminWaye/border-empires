@@ -1,3 +1,4 @@
+import { openAutoSettlePromptForTile } from "../client-auto-settle-prompt/client-auto-settle-prompt.js";
 import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
@@ -416,6 +417,7 @@ export const openSingleTileActionMenu = (
   deps: TileActionMenuUiDeps,
   options: { requestAttackPreview?: boolean; preserveTab?: boolean; openTab?: TileMenuTab } = {}
 ): void => {
+  if (!options.preserveTab && openAutoSettlePromptForTile(state, tile)) return; // marked settle candidate: show the settle card, not the tile menu
   if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];

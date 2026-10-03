@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEW_PLAYER_AUTO_SETTLE_PREFS, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
-import { dismissCurrentAutoSettleCandidates, installAutoSettlePrompt, refreshAutoSettlePrompt } from "./client-auto-settle-prompt.js";
+import { dismissCurrentAutoSettleCandidates, installAutoSettlePrompt, openAutoSettlePromptForTile, refreshAutoSettlePrompt } from "./client-auto-settle-prompt.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import { buildAutoSettlePromptModel, townFoodWarning, yieldSummary } from "./client-auto-settle-prompt-model.js";
 
@@ -127,6 +127,11 @@ describe("prompt DOM", () => {
     installAutoSettlePrompt({ state, sendGameMessage: send, pushFeed: () => undefined, persistDevelopmentQueue: () => undefined });
   const overlay = (): HTMLElement => document.getElementById("auto-settle-prompt-overlay")!;
   const visible = (): boolean => document.getElementById("auto-settle-prompt-overlay")?.style.display === "grid";
+  // The player's click on the first marked tile (the card never opens by itself).
+  const openIt = (state: ReturnType<typeof newPlayerState>): boolean => {
+    const marker = state.onboardingHighlightTiles[0];
+    return marker ? openAutoSettlePromptForTile(state, marker) && visible() : false;
+  };
   let nextTileX = 100;
   const addFarm = (state: ReturnType<typeof newPlayerState>): void => {
     const x = nextTileX++;
@@ -138,7 +143,9 @@ describe("prompt DOM", () => {
     const state = newPlayerState();
     state.autoSettlementQueue = QUEUE;
     install(state, () => true);
-    expect(visible()).toBe(true);
+    expect(visible()).toBe(false); // marked on the map, but nothing pops up
+    expect(state.onboardingHighlightTiles.map((tile) => `${tile.x},${tile.y}`).sort()).toEqual(["11,12", "12,10", "13,10", "9,8"]);
+    expect(openIt(state)).toBe(true);
     expect(overlay().textContent).toContain("Cost 60 manpower"); // 3 food tiles x 20
   });
 
@@ -147,7 +154,7 @@ describe("prompt DOM", () => {
     state.autoSettle = loadedAutoSettleState({ answered: true, towns: false, food: true, resources: false });
     state.autoSettlementQueue = QUEUE;
     install(state, () => true);
-    expect(visible()).toBe(true);
+    expect(openIt(state)).toBe(true);
     expect(overlay().querySelector('[data-category="towns"]')).not.toBeNull();
     expect(overlay().querySelector('[data-category="food"]')).toBeNull(); // food is auto: nothing to ask
     state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, resources: false });
@@ -166,16 +173,16 @@ describe("prompt DOM", () => {
       state.autoSettlementQueue = [...QUEUE];
       const send = vi.fn(() => true);
       install(state, send);
-      expect(visible()).toBe(true);
+      expect(openIt(state)).toBe(true);
       close();
       expect(visible()).toBe(false);
       expect(send).not.toHaveBeenCalled();
       expect(state.developmentQueue).toEqual([]);
-      refreshAutoSettlePrompt(); // same candidates arriving again: stays away
-      expect(visible()).toBe(false);
-      addFarm(state); // a new candidate: back
+      refreshAutoSettlePrompt(); // same candidates arriving again: no markers, nothing to click
+      expect(state.onboardingHighlightTiles).toEqual([]);
+      addFarm(state); // a new candidate: marked again
       refreshAutoSettlePrompt();
-      expect(visible()).toBe(true);
+      expect(openIt(state)).toBe(true);
       expect(overlay().textContent).toContain("Cost 20 manpower");
     }
   });
@@ -185,6 +192,7 @@ describe("prompt DOM", () => {
     state.autoSettlementQueue = QUEUE;
     const send = vi.fn(() => true);
     install(state, send);
+    expect(openIt(state)).toBe(true);
     (overlay().querySelector('[data-step="food:-1"]') as HTMLButtonElement).click(); // 3 -> 2 food tiles
     expect(overlay().querySelector('[data-category="food"]')!.textContent).toContain("Cost 40 manpower");
     (overlay().querySelector('[data-auto="towns"]') as HTMLInputElement).click();
@@ -202,6 +210,7 @@ describe("prompt DOM", () => {
     state.autoSettlementQueue = QUEUE;
     const send = vi.fn(() => true);
     install(state, send);
+    expect(openIt(state)).toBe(true);
     (overlay().querySelector('[data-auto="food"]') as HTMLInputElement).click();
     (overlay().querySelector("#auto-settle-go") as HTMLButtonElement).click();
     expect(send).toHaveBeenCalledWith({ type: "SET_AUTO_SETTLE_PREFS", towns: false, food: true, resources: true }, expect.any(String));
@@ -211,13 +220,12 @@ describe("prompt DOM", () => {
     const state = newPlayerState();
     state.autoSettlementQueue = [...QUEUE];
     install(state, () => true);
-    expect(visible()).toBe(true);
     dismissCurrentAutoSettleCandidates();
     refreshAutoSettlePrompt();
-    expect(visible()).toBe(false);
+    expect(state.onboardingHighlightTiles).toEqual([]);
     addFarm(state);
     refreshAutoSettlePrompt();
-    expect(visible()).toBe(true);
+    expect(openIt(state)).toBe(true);
   });
 
   it("stays hidden with no candidates, and for tiles the player cancelled", () => {
@@ -231,14 +239,18 @@ describe("prompt DOM", () => {
     expect(visible()).toBe(false);
   });
 
-  it("waits for What's New to close before showing, without treating the tiles as dismissed", () => {
+  it("never opens by itself, keeps other highlight rings, and a click on a non-candidate tile does nothing", () => {
     const state = newPlayerState();
+    state.onboardingHighlightTiles = [{ x: 1, y: 1 }];
     state.autoSettlementQueue = [...QUEUE];
-    state.changelog.open = true;
     install(state, () => true);
     expect(visible()).toBe(false);
-    state.changelog.open = false;
-    refreshAutoSettlePrompt();
-    expect(visible()).toBe(true);
+    expect(state.onboardingHighlightTiles).toContainEqual({ x: 1, y: 1 });
+    expect(state.onboardingHighlightTiles).toHaveLength(5);
+    expect(openAutoSettlePromptForTile(state, { x: 1, y: 1 })).toBe(false);
+    expect(visible()).toBe(false);
+    expect(openAutoSettlePromptForTile(state, { x: 9, y: 8 })).toBe(true);
+    (overlay().querySelector("#auto-settle-later") as HTMLElement).click();
+    expect(state.onboardingHighlightTiles).toEqual([{ x: 1, y: 1 }]); // candidates waved away: their rings go, the checklist's stays
   });
 });
