@@ -75,17 +75,37 @@ describe("incomingAttackProgressView", () => {
     expect(incomingAttackProgressView(state, tile({ ownerId: "me-1" }), keyFor, () => "0:02")).toBeUndefined();
   });
 
-  it("shows a neutral 50/50 versus bar naming the attacker for a tile under attack", () => {
+  // Regression: the defender used to get a placeholder 50/50 versus bar,
+  // which read as real odds.
+  it("shows no versus bar for the defender of a settled tile", () => {
     const state = baseState();
     state.incomingAttacksByTile.set("5,5", { attackerName: "Enemy One", resolvesAt: Date.now() + 2000, attackerId: "enemy-1" });
     const view = incomingAttackProgressView(state, tile({ ownerId: "me-1" }), keyFor, () => "0:02");
     expect(view?.title).toBe("Under attack");
-    expect(view?.battle).toEqual({
-      attackerColor: "#ff0000",
-      defenderColor: "#00ff00",
-      attackerShare: 0.5,
-      attackerLabel: "Enemy One",
-      defenderLabel: "You"
+    expect(view?.battle).toBeUndefined();
+    expect(view?.note).toBe("Combat resolves in a single roll when the timer ends.");
+  });
+
+  it("explains a FRONTIER tile is a guaranteed capture with no roll", () => {
+    const state = baseState();
+    state.incomingAttacksByTile.set("5,5", { attackerName: "Enemy One", resolvesAt: Date.now() + 2000, attackerId: "enemy-1" });
+    const view = incomingAttackProgressView(state, tile({ ownerId: "me-1", ownershipState: "FRONTIER" }), keyFor, () => "0:02");
+    expect(view?.title).toBe("Being captured");
+    expect(view?.detail).toContain("no defending force");
+    expect(view?.battle).toBeUndefined();
+  });
+
+  it("says the enemy company is still marching while its transit runs", () => {
+    const state = baseState();
+    state.incomingAttacksByTile.set("5,5", {
+      attackerName: "Enemy One",
+      resolvesAt: Date.now() + 60_000,
+      transitEndsAt: Date.now() + 30_000,
+      attackerId: "enemy-1"
     });
+    const view = incomingAttackProgressView(state, tile({ ownerId: "me-1", ownershipState: "FRONTIER" }), keyFor, () => "0:30");
+    expect(view?.title).toBe("Attack incoming");
+    expect(view?.detail).toContain("marching here");
+    expect(view?.progress).toBe(0);
   });
 });

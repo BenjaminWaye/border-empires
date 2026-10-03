@@ -50,6 +50,8 @@ const createState = (renderHud: () => void, tileActionMenu: { visible: boolean; 
     tilesRevisionChangedKeys: new Set<string>(),
     tilesRevisionOverflowed: false,
     incomingAttacksByTile: new Map(),
+    musterTransitByTile: new Map(),
+    deferredAttackByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     settleProgressByTile: new Map(),
     me: "me",
