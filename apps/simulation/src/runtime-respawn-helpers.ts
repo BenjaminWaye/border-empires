@@ -1,5 +1,5 @@
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
-import { hasWaterNeighbor, type DomainTileState } from "@border-empires/game-domain";
+import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
@@ -64,6 +64,9 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
   // AFC dry-footprint rule: a precomputed site (possibly from a roster built
   // before this rule existed) next to water is skipped, not handed out.
   if (hasWaterNeighbor(terrainLookup(ctx), x, y)) return false;
+  // Same for towns/docks/resources on or around the site -- re-checked against
+  // live tiles, since the roster was computed from worldgen-time tiles.
+  if (!isAfcSiteClear((nx, ny) => tileBlocksAfcSite(ctx.tiles.get(simulationTileKey(nx, ny))), x, y)) return false;
   return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE);
 };
 

@@ -517,6 +517,7 @@ import {
   type RallySpawnOutcome, type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
+import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
 
@@ -4178,16 +4179,7 @@ export class SimulationRuntime {
     if (!targetKey) return false;
     const target = this.state.tiles.get(targetKey);
     if (!target) return false;
-    const relocated: DomainTileState = {
-      ...target,
-      ownershipState: "SETTLED",
-      town: {
-        name: `${options.namePrefix} ${target.x},${target.y}`,
-        type: "FARMING",
-        populationTier: "SETTLEMENT",
-        population
-      }
-    };
+    const relocated = buildRelocatedSettlementTile(target, options.namePrefix, population);
     this.replaceTileState(targetKey, relocated, commandId);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
