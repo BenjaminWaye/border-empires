@@ -4,11 +4,12 @@ export const CLIENT_CHANGELOG_ENTRIES_SETTLE_PROMPT_AFTER_WHATS_NEW: ClientChang
   {
     createdAt: 1791052155804,
     introducedIn: "2026.10.03.2",
-    title: "Settle prompt is now a map marker",
-    why: "The \"Settle nearby tiles?\" card popped up on top of What's New and the tutorial before you had seen the map.",
+    title: "Settle from the tile menu, with auto-settle",
+    why: "The \"Settle nearby tiles?\" dialog popped up over the game (and over What's New) before you had seen the map.",
     changes: [
-      "Towns and resources you can settle are now marked with a green ring on the map instead of a dialog opening by itself",
-      "Click a ringed tile to open the settle card; \"Not now\" clears the rings until new tiles show up"
+      "The settle dialog is gone. Towns, docks and resource tiles you own now show Settle Land right in their tile menu from the start",
+      "The button says what you gain and what upkeep you take on, for example a town's food-slot upkeep and whether you are short",
+      "Under it, tick \"settle automatically from now on\" to auto-settle that kind of tile (towns, farms and fish, or other resources); you can still change it in Settings"
     ]
   }
 ];

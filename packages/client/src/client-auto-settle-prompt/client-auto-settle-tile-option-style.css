@@ -1,0 +1,12 @@
+.tile-auto-settle-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 2px 4px 8px;
+  padding: 0 4px;
+  font-size: 0.85em;
+  opacity: 0.9;
+  cursor: pointer;
+}
+
+.tile-auto-settle-option input { margin-top: 2px; }

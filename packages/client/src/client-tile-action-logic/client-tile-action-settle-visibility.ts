@@ -6,6 +6,7 @@
 // there's nothing to gain from it. Once shown, manual settling is really only
 // for cheap defense, connecting towns, or consolidating territory.
 import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { canAffordCost, isForestTile } from "../client-constants.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { settleDurationMsForState, type DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
@@ -33,7 +34,11 @@ export const settleActionsForFrontierTile = (
   slots: DevelopmentSlotSummary,
   queuedSettlement: boolean
 ): TileActionDef[] => {
-  if (!hasEstablishedTownAndFoodTile(state)) return [];
+  // Towns, docks and resource tiles always get the button: settling them has a real payoff (and carries the
+  // "auto-settle these" checkbox, which new players need most). Plain tiles stay hidden until the economy exists.
+  const hasPayoff = Boolean(tile.town || tile.dockId || tile.resource);
+  const established = hasEstablishedTownAndFoodTile(state);
+  if (!hasPayoff && !established) return [];
   if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
   // Fixed-border reach: SETTLE is still reach-gated server-side even though EXPAND
   // itself is not -- see runtime-structure-command-handlers.ts. On a FRONTIER tile
@@ -46,7 +51,8 @@ export const settleActionsForFrontierTile = (
     {
       id: "settle_land",
       label: "Settle Land",
-      detail: deps.buildDetailTextForAction("settle_land", tile),
+      detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile)].filter(Boolean).join(" "),
+      autoSettleOption: autoSettleOptionForTile(state, tile),
       ...tileActionAvailabilityWithDevelopmentSlot(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
@@ -63,7 +69,7 @@ export const settleActionsForFrontierTile = (
   const actionableKeys = connectedKeys.filter(
     (k) => !state.settleProgressByTile.has(k) && !hasQueuedSettlementForTile(state.developmentQueue, k)
   );
-  if (actionableKeys.length >= 2) {
+  if (established && actionableKeys.length >= 2) {
     const totalCost = SETTLE_COST * actionableKeys.length;
     out.push({
       id: "settle_connected_frontier",

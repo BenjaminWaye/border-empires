@@ -1,3 +1,4 @@
+import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
   BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY,
@@ -243,7 +244,9 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   return "Progress";
 };
 
-export const tileActionButtonHtml = (action: TileActionDef): string => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
+export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
+
+const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}</span>

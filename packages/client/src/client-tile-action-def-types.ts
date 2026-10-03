@@ -117,4 +117,6 @@ export type TileActionDef = {
   disabledReason?: string;
   targetKey?: string;
   originKey?: string;
+  /** Settle Land on a frontier tile: the "auto-settle these from now on" checkbox rendered under the button. */
+  autoSettleOption?: import("./client-auto-settle-prompt/client-auto-settle-tile-option.js").AutoSettleOption | undefined;
 };
