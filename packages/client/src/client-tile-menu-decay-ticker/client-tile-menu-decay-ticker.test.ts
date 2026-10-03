@@ -19,7 +19,9 @@ const makeState = (tile: Tile | undefined): ClientState =>
       scrollTopByTab: {},
       renderSignature: ""
     },
-    tiles: new Map(tile ? [["1,1", tile]] : [])
+    tiles: new Map(tile ? [["1,1", tile]] : []),
+    activeBattles: new Map(),
+    outgoingMusterAttacksByTile: new Map()
   }) as unknown as ClientState;
 
 const stubView = {} as TileMenuView;
@@ -52,4 +54,44 @@ describe("startTileMenuDecayTicker", () => {
     vi.advanceTimersByTime(3_000);
     expect(renderTileActionMenu).not.toHaveBeenCalled();
   });
+});
+
+
+describe("battle menu repaint", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("refreshes a muster attack timer and clears it after expiry", () => {
+    const state = makeState(baseTile);
+    state.outgoingMusterAttacksByTile.set("1,1", { originX: 0, originY: 1, targetX: 1, targetY: 1, resolvesAt: Date.now() + 2500 });
+    const render = vi.fn();
+    startTileMenuDecayTicker(state, () => stubView, render);
+    vi.advanceTimersByTime(4000);
+    expect(render).toHaveBeenCalledTimes(3);
+  });
+
+  it("clears resolved battle details even when map pruning removes the record first", () => {
+    const state = makeState(baseTile);
+    state.activeBattles.set("1,1", {
+      originX: 0, originY: 1, targetX: 1, targetY: 1,
+      attackerOwnerId: "me", defenderOwnerId: "ai-1", attackerWon: true,
+      startAt: Date.now(), clashAt: Date.now(), endAt: Date.now() + 2500, fromSkirmish: false
+    });
+    const render = vi.fn();
+    startTileMenuDecayTicker(state, () => stubView, render);
+    vi.advanceTimersByTime(1000);
+    state.activeBattles.clear();
+    vi.advanceTimersByTime(3000);
+    expect(render).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears an animation that expires before the first ticker callback", () => {
+    const state = makeState(baseTile);
+    state.tileActionMenu.renderSignature = JSON.stringify({ statusText: "Battle resolved" });
+    const render = vi.fn(() => { state.tileActionMenu.renderSignature = ""; });
+    startTileMenuDecayTicker(state, () => stubView, render);
+    vi.advanceTimersByTime(3000);
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
 });
