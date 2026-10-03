@@ -14,6 +14,7 @@ import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
 import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
 import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-claim-plates.js";
+import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // Short walk from the firing tile onto the claimed tile before the company
@@ -454,6 +455,13 @@ export function syncMusterTransitOverlay(
     if (outgoing.resolvesAt <= nowEpochMs) continue;
     if (!outgoing.isExpand && !claimKeys.has(targetKey)) continue;
     addMarch(outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, outgoing.transitEndsAt, outgoing.transitEndsAt + CLAIM_STEP_IN_MS, outgoing.resolvesAt);
+  }
+  // Defending side of the same capture: the attacker's company steps onto
+  // this player's FRONTIER tile, in the attacker's colour, and holds it until
+  // the claim resolves -- the skirmish FX deliberately skips these tiles.
+  for (const incoming of activeIncomingFrontierClaims(state, nowEpochMs)) {
+    if (incoming.fromX === undefined || incoming.fromY === undefined || !incoming.attackerId) continue;
+    addMarch(incoming.fromX, incoming.fromY, incoming.targetX, incoming.targetY, incoming.startAt, incoming.startAt + CLAIM_STEP_IN_MS, incoming.resolvesAt, effectiveOverlayColor(incoming.attackerId));
   }
 
   transitOverlay.commit();

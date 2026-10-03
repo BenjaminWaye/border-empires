@@ -24,6 +24,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     me: "me",
     playerColors: new Map([["me", "#00ff00"]]),
     outgoingMusterAttacksByTile: new Map(),
+    incomingAttacksByTile: new Map(),
     capture: undefined,
     tiles: new Map(),
     ...overrides
@@ -35,6 +36,25 @@ const sync = (state: ClientState, plates: FakePlate[]): void =>
   syncFrontierClaimPlates(state, keyFor, heightfield, plates as never, 0, 0, 0, wrapX, wrapY, neverHills);
 
 describe("frontier claim plate sourcing", () => {
+  // Regression: an enemy taking this player's own FRONTIER tile got no claim
+  // sweep (only the red cross), and the tile never visibly went neutral.
+  it("renders an attacker-coloured plate and hides my tint for an enemy attack on my FRONTIER tile", () => {
+    const state = createState({
+      playerColors: new Map([["me", "#00ff00"], ["enemy", "#ff0000"]]),
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }]]),
+      incomingAttacksByTile: new Map([["5,5", { attackerName: "Enemy", attackerId: "enemy", resolvesAt: Date.now() + 5_000, fromX: 6, fromY: 5 }]])
+    });
+    const plates = createPool(2);
+    const colors: string[] = [];
+    plates[0]!.material.color.set = (c: string) => { colors.push(c); };
+
+    sync(state, plates);
+
+    expect(plates[0]?.visible).toBe(true);
+    expect(colors).toEqual(["#ff0000"]);
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now()).has("5,5")).toBe(true);
+  });
+
   it("renders a plate for this client's own manually-dispatched EXPAND claim", () => {
     const state = createState({
       capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "EXPAND" }

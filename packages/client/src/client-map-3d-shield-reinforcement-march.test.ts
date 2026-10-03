@@ -49,6 +49,7 @@ const makeState = (activeBattles: ClientState["activeBattles"]): ClientState =>
     dockPairs: [],
     musterTransitByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
+    incomingAttacksByTile: new Map(),
     deferredAttackByTile: new Map(),
     activeBattles
   }) as unknown as ClientState;
