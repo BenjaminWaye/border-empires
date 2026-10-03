@@ -8,6 +8,7 @@ import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
 import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
+import { registerAdminWorldRoute } from "./register-admin-world-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
@@ -191,6 +192,12 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     metrics: deps.metrics,
     ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {}),
     ...(deps.playerInsights ? { playerInsights: deps.playerInsights } : {})
+  });
+
+  registerAdminWorldRoute(app, {
+    adminRequestAuthorized,
+    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    getAdminPlayers: deps.getAdminPlayers
   });
 
   app.get("/admin/players", async (request, reply) => {
