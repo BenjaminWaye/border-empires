@@ -12,7 +12,8 @@ import type { Tile, TileMenuView } from "../client-types.js";
  * no timer at all (reported for the tile menu's Overview tab, but the same
  * header status shows on every tab).
  *
- * Re-render once a second, but only while a decaying tile's menu is
+ * Also refresh battle countdowns and clear their text after the map animation ends.
+ * Re-render once a second, but only while a decaying or battling tile's menu is
  * actually open, so this stays as cheap as the other per-second HUD tickers
  * (renderShardAlert, renderVictoryHoldAlert) it sits alongside. This calls
  * renderTileActionMenu directly (the same call renderHud makes internally
@@ -26,10 +27,25 @@ export const startTileMenuDecayTicker = (
   tileMenuViewForTile: (tile: Tile) => TileMenuView,
   renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void
 ): void => {
+  let lastBattleTileKey = "";
   setInterval(() => {
     if (!state.tileActionMenu.visible || state.tileActionMenu.mode !== "single" || !state.tileActionMenu.currentTileKey) return;
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
-    if (menuTile?.frontierDecayAt === undefined) return;
+    if (!menuTile) return;
+    const key = state.tileActionMenu.currentTileKey;
+    const nowMs = Date.now();
+    const capture = state.capture;
+    const outgoing = state.outgoingMusterAttacksByTile?.get(key);
+    const hasBattle = !menuTile.fogged && Boolean(
+      (capture?.actionType === "ATTACK" && capture.target.x === menuTile.x && capture.target.y === menuTile.y && capture.resolvesAt > nowMs) ||
+      (menuTile.ownerId === state.me && (state.incomingAttacksByTile?.get(key)?.resolvesAt ?? 0) > nowMs) ||
+      (outgoing && !outgoing.isExpand && outgoing.resolvesAt > nowMs) ||
+      (state.activeBattles?.get(key)?.endAt ?? 0) > nowMs
+    );
+    // Repaint once after expiry, even if the map loop already pruned the FX.
+    const battleEnded = lastBattleTileKey === key;
+    lastBattleTileKey = hasBattle ? key : "";
+    if (menuTile.frontierDecayAt === undefined && !hasBattle && !battleEnded) return;
     renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
   }, 1_000);
 };
