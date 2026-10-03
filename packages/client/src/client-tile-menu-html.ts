@@ -246,10 +246,10 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 
 export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
-const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
+const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(action.id)}</span>
           <span class="tile-action-copy">
-            <span class="tile-action-label">${action.label}</span>
+            <span class="tile-action-label">${action.label}${action.recommended ? '<span class="tile-action-recommended-badge">★ Recommended</span>' : ""}</span>
             ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}
             ${action.disabled && action.disabledReason ? `<span class="tile-action-blocker">✗ ${action.disabledReason}</span>` : ""}
           </span>
@@ -260,6 +260,9 @@ const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button cla
 // developed settled tile, so it's the only tab grouped by category;
 // actions/crystal stay flat lists (short, and grouping would be noise).
 const BUILDING_GROUP_THRESHOLD = 6;
+
+// Recommended actions (e.g. Settle Land on a town or resource) lead the list; everything else keeps its order.
+const recommendedFirst = (actions: TileActionDef[]): TileActionDef[] => [...actions.filter((a) => a.recommended), ...actions.filter((a) => !a.recommended)];
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   const actionsForTab =
@@ -272,7 +275,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     const listHtml =
       activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
         ? groupedBuildingActionListHtml(actionsForTab)
-        : `<div class="tile-action-list">${actionsForTab.map(tileActionButtonHtml).join("")}</div>`;
+        : `<div class="tile-action-list">${recommendedFirst(actionsForTab).map(tileActionButtonHtml).join("")}</div>`;
     return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
   if (activeTab === "progress") {

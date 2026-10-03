@@ -35,8 +35,8 @@ export const settleActionsForFrontierTile = (
   queuedSettlement: boolean
 ): TileActionDef[] => {
   // Towns, docks and resource tiles always get the button: settling them has a real payoff (and carries the
-  // "auto-settle these" checkbox, which new players need most). Plain tiles stay hidden until the economy exists.
-  const hasPayoff = Boolean(tile.town || tile.dockId || tile.resource);
+  // "auto-settle these" checkbox, which new players need most), and are listed first and highlighted as recommended. Plain tiles stay hidden until the economy exists.
+  const hasPayoff = Boolean(tile.town || tile.dockId || tile.resource || tile.naturalWonder);
   const established = hasEstablishedTownAndFoodTile(state);
   if (!hasPayoff && !established) return [];
   if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
@@ -53,6 +53,7 @@ export const settleActionsForFrontierTile = (
       label: "Settle Land",
       detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile)].filter(Boolean).join(" "),
       autoSettleOption: autoSettleOptionForTile(state, tile),
+      ...(hasPayoff ? { recommended: true } : {}),
       ...tileActionAvailabilityWithDevelopmentSlot(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,

@@ -140,7 +140,20 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     const settle = findAction(actions, "settle_land");
     expect(settle?.detail).toContain("Gain: +1 food slot. Upkeep: none.");
     expect(settle?.autoSettleOption).toMatchObject({ category: "food", checked: false });
+    expect(settle?.recommended).toBe(true);
     expect(findAction(actions, "settle_connected_frontier")).toBeUndefined();
+  });
+
+  it("also recommends it on a natural wonder, but not on a plain tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    state.tiles.set(keyFor(0, 0), settledTownTile);
+    state.tiles.set(keyFor(2, 0), { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile);
+    const wonder = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", naturalWonder: { type: "RAINBOW_RIDGE" } } as unknown as Tile;
+    expect(findAction(menuActionsForSingleTile(state, wonder, baseDeps as never), "settle_land")?.recommended).toBe(true);
+    expect(findAction(menuActionsForSingleTile(state, frontierTile, baseDeps as never), "settle_land")?.recommended).toBeUndefined();
   });
 
   it("shows settle_land at the bottom of the actions list once the economy is established", () => {
