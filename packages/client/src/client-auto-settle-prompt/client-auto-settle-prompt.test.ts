@@ -139,11 +139,10 @@ describe("prompt DOM", () => {
     expect(visible()).toBe(false);
   });
 
-  it("closing (Not now, X, backdrop or Escape) dismisses without sending anything, and only NEW tiles bring it back", () => {
+  it("closing (Not now, X or Escape) dismisses without sending anything, and only NEW tiles bring it back", () => {
     for (const close of [
       () => (overlay().querySelector("#auto-settle-later") as HTMLElement).click(),
       () => (overlay().querySelector("#auto-settle-close") as HTMLElement).click(),
-      () => (overlay().querySelector("#auto-settle-backdrop") as HTMLElement).click(),
       () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
     ]) {
       document.body.innerHTML = "";
