@@ -25,10 +25,16 @@ describe("building env map intensity", () => {
     expect(other.envMapIntensity).toBe(1);
   });
 
-  it("starts a newly built material at the currently tuned strength", () => {
-    setLightingSetting("envIntensity", 0.5);
+  it("starts a newly built material at the shipped default (half-strength) reflections when untuned", () => {
     const mat = new MeshStandardMaterial();
     applyBuildingEnvMap(mat, new Texture());
     expect(mat.envMapIntensity).toBe(0.5);
+  });
+
+  it("starts a newly built material at the currently tuned strength", () => {
+    setLightingSetting("envIntensity", 0.8);
+    const mat = new MeshStandardMaterial();
+    applyBuildingEnvMap(mat, new Texture());
+    expect(mat.envMapIntensity).toBe(0.8);
   });
 });
