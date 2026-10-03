@@ -13,6 +13,7 @@ export type TechInfo = {
   // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
   // manpower, aether) this tech belongs to.
   branch?: string;
+  manifestCategory?: "AFC_MODULE" | "CREW_OFFICE_CONSIGNMENT" | "CHARTER_WARRANT" | "DOSSIER";
   prereqIds?: string[];
   description: string;
   mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;

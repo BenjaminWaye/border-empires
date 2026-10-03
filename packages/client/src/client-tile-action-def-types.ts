@@ -72,6 +72,7 @@ export type TileActionDef = {
     | "build_weapons_workshop"
     | "build_titanium_weapons_factory"
     | "build_umbrite_weapons_factory"
+    | "build_afc"
     | "grow_settlement_to_town"
     | "grow_town_to_city"
     | "grow_city_to_great_city"
@@ -108,7 +109,8 @@ export type TileActionDef = {
     | "remove_mountain"
     | "cancel_waypoint"
     | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
-    | "expand_here";
+    | "expand_here"
+    | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;
   detail?: string | undefined;

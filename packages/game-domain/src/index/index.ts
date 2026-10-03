@@ -39,6 +39,7 @@ import {
   type Tile,
   type WaystationTileState
 } from "@border-empires/shared";
+import type { DomainAfcState } from "../domain-afc-state.js";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
   if (!isFortDefending(tile.fort)) return 1;
@@ -235,14 +236,7 @@ export type DomainTileState = {
       }
     | undefined;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
-  afc?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["afc"]>["status"];
-        activatedAt?: number | undefined;
-        modules?: string[] | undefined;
-      }
-    | undefined;
+  afc?: DomainAfcState | undefined;
   economicStructure?:
     | {
         ownerId: string;

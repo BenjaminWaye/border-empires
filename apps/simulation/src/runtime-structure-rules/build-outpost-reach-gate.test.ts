@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 /**
  * Fixed-border reach regression coverage (docs/agents pointer: reach only
@@ -59,7 +60,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
       now: () => 1_000,
       initialPlayers: new Map([["player-1", buildPlayer()]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           // Far outside TOWN_REACH_RADIUS (3) — never granted to the reach
           // border. Outposts skip the SETTLED requirement, so without the
@@ -100,7 +101,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
         ["player-2", buildPlayer({ id: "player-2" })]
       ]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           // player-1's own reach never covers (20, 10) — same as the
           // rejection case above.
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },

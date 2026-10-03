@@ -19,6 +19,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS } from "./client-changelog-af
 import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
 import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION } from "./client-changelog-afc-construction.js";
 import { CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE } from "./client-changelog-planetary-defense.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT } from "./client-changelog-compact-auto-settle-prompt.js";
 import { CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS } from "./client-changelog-softer-metal-reflections.js";
@@ -47,5 +48,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT,
   ...CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE,
   ...CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION,
   ...CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS
 ];
