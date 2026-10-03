@@ -78,6 +78,18 @@ describe("buildCurrentSeasonSummary", () => {
     expect(summary.totalPlayers).toBe(2);
     expect(summary.overall.map((entry) => entry.id)).toEqual(expect.arrayContaining(["player-1", "ai-1"]));
     expect(summary.townCount).toBe(3);
+    // Seasons created before world size was stamped report it as unknown.
+    expect(summary.worldWidth).toBeUndefined();
+    expect(summary.worldHeight).toBeUndefined();
+
+    const stamped = buildCurrentSeasonSummary({
+      seasonState: { ...seasonState, worldWidth: 320, worldHeight: 160 },
+      runtimeState,
+      onlinePlayers: 0,
+      updatedAt: 2_500
+    });
+    expect(stamped.worldWidth).toBe(320);
+    expect(stamped.worldHeight).toBe(160);
   });
 
   it("reuses a caller-provided worldStatus instead of re-scanning runtimeState", () => {
