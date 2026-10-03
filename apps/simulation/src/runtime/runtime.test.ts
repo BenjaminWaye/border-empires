@@ -5746,7 +5746,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          { x: 5, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
           // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
           // 2nd=2, 3rd=3 CRYSTAL slots), so 3 Observatories need 1+2+3=6
           // CRYSTAL slots total, not a flat 3, for none of them to go dormant.
@@ -5810,7 +5810,7 @@ describe("simulation runtime", () => {
       clientSeq: 5,
       issuedAt: 1_000,
       type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 1, y: 2 })
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
     });
 
     await Promise.resolve();

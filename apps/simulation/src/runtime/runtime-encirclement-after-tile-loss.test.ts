@@ -149,4 +149,54 @@ describe("encirclement after non-combat tile loss", () => {
     expect(ownerOf(runtime, "2,22")).toBeUndefined();
     expect(ownerOf(runtime, "2,23")).toBeUndefined();
   });
+
+  it("cuts off the previous owner's stranded frontier tiles when Create Mountain turns their tile to rock", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialPlayers: new Map([
+        [
+          "player-1",
+          buildPlayer("player-1", {
+            points: 5_000,
+            manpower: 10_000,
+            techIds: new Set<string>(["terrain-engineering"]),
+            strategicResources: { CRYSTAL: 500 }
+          })
+        ],
+        ["player-2", buildAiOpponent({ manpower: 100 })]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 4, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 4, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ] as never,
+        activeLocks: []
+      }
+    });
+    runtime.submitCommand({
+      commandId: "mountain-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CREATE_MOUNTAIN",
+      payloadJson: JSON.stringify({ x: 5, y: 0 })
+    });
+    await Promise.resolve();
+
+    expect(runtime.wireDeltaForTileKey("5,0", "player-1")?.terrain).toBe("MOUNTAIN");
+    // (4,1),(4,2) only reached settled land through the tile that is now rock.
+    expect(ownerOf(runtime, "4,1")).toBeUndefined();
+    expect(ownerOf(runtime, "4,2")).toBeUndefined();
+    // (6,0) still borders player-2's settled (7,0).
+    expect(ownerOf(runtime, "6,0")).toBe("player-2");
+    expect(ownerOf(runtime, "7,0")).toBe("player-2");
+  });
 });
