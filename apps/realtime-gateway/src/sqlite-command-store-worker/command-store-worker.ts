@@ -83,11 +83,15 @@ if (!parentPort) throw new Error("command-store-worker must run inside a Worker 
 const { sqlitePath, applySchema } = workerData as { sqlitePath: string; applySchema: boolean };
 
 const db = new DatabaseSync(sqlitePath);
+// busy_timeout must come first: the journal_mode switch is the first statement to
+// take a lock, and with SQLite's default 0ms timeout a concurrent opener of the
+// same file (gateway + simulation booting together) fails instantly with
+// "database is locked".
 db.exec(`
+  PRAGMA busy_timeout = 5000;
   PRAGMA journal_mode = WAL;
   PRAGMA synchronous = NORMAL;
   PRAGMA foreign_keys = ON;
-  PRAGMA busy_timeout = 5000;
 `);
 
 if (applySchema) {
