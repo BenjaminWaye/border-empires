@@ -8,6 +8,7 @@
  * active.
  */
 import { describe, expect, it, vi } from "vitest";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 import {
   economicStructureBuildDurationMs
 } from "@border-empires/shared";
@@ -36,7 +37,7 @@ const buildTwoTownNetworkRuntime = () => {
       ]
     ]),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"), 
         { x: 16, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Town A", type: "FARMING", populationTier: "TOWN" } },
         { x: 17, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 18, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },

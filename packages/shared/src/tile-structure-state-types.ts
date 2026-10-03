@@ -50,10 +50,13 @@ export type TileAfcState = {
   ownerId: PlayerId;
   status: AfcStatus;
   activatedAt?: number;
-  // Tech ids of AFC_MODULE-category Manifests docked here (docs/
-  // manifest-full-plan.md §3-4) -- auto-assigned to a player's home AFC on
-  // research completion, purely presentational bookkeeping for now.
+  // Tech ids of AFC_MODULE-category Manifests installed here. Modules without
+  // a matching houseModules entry are captured copies (including legacy
+  // saves created before provenance was added).
   modules?: string[];
+  // The researched, House-owned copy of each module. A player may redeploy
+  // this one between their AFCs; captured copies deliberately stay put.
+  houseModules?: string[];
 };
 
 export type TileEconomicStructureState = {

@@ -48,6 +48,8 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
   "RETORT_RECAST",
+  "REDEPLOY_AFC_MODULE",
+  "BUILD_AFC",
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",
