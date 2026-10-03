@@ -88,6 +88,9 @@ export const yieldSummary = (section: AutoSettlePromptSection, count: number): s
   const parts: string[] = [];
   if (towns.length > 0) parts.push("+ Coin", "+ Manpower");
   if (docks > 0) parts.push("+ Coin (docks)");
+  // Towns eat food slots once settled (docks and SETTLEMENT-tier towns don't), so say so next to the yield.
+  const upkeep = townFoodSlotDemand(section, count);
+  if (upkeep > 0) parts.push(`Food upkeep ${upkeep} slot${upkeep === 1 ? "" : "s"}`);
   return parts.join(" · ");
 };
 
@@ -107,5 +110,5 @@ export const townFoodWarning = (
   if (demand <= 0) return undefined;
   const supplyAfter = state.resourceSlots.supply.FOOD + foodSlotsAdded;
   const demandAfter = state.resourceSlots.demand.FOOD + demand;
-  return supplyAfter >= demandAfter ? undefined : `Needs ${demand} food slots; you'd be ${demandAfter - supplyAfter} short, so it would sit idle until you settle more food.`;
+  return supplyAfter >= demandAfter ? undefined : `Needs ${demand} food slots (${demandAfter - supplyAfter} short) – idle until you settle more food.`;
 };
