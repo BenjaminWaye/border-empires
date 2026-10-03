@@ -35,6 +35,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791002214000, // Date.now() frozen for this entry
+    introducedIn: "2026.10.03.1",
+    title: "Cleaner starting grounds and no trees under towns or docks",
+    why: "A new empire's Automated Fabrication Complex could land on, or right next to, a town, dock or resource, and trees could be left standing on town and dock tiles.",
+    changes: [
+      "Your Automated Fabrication Complex now only lands where its tile and all 8 neighbouring tiles are free of towns, docks and resources, so you settle those yourself",
+      "Trees are now cleared from every town and dock tile"
+    ]
+  },
+  {
     createdAt: 1791140199531, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
     title: "Safer spawns and full AFC reach",
