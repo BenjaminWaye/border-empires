@@ -34,6 +34,7 @@
 // exact same distance from the axis — otherwise the seams Z-fight into black
 // line artifacts.
 
+import { makeYawAboutAnchor } from "./client-map-3d-afc-module-yaw.js";
 import {
   BufferGeometry,
   CylinderGeometry,
@@ -208,7 +209,6 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
   const yawMatrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
-  const yawQuat = new Quaternion();
   const pieceQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpDir = new Vector3();
@@ -375,8 +375,7 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     if (records.length >= C) return -1;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
-    yawMatrix.makeRotationFromQuaternion(yawQuat);
+    makeYawAboutAnchor(yawMatrix, yaw, sceneX, sceneZ);
     records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
@@ -399,8 +398,7 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     if (count === 0 || lensCoreMesh === undefined) return;
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
-      yawQuat.setFromEuler(tmpEuler.set(0, -rec.yaw, 0, "XYZ"));
-      yawMatrix.makeRotationFromQuaternion(yawQuat);
+      makeYawAboutAnchor(yawMatrix, rec.yaw, rec.x, rec.z);
       const breathe = 1 + 0.12 * Math.sin(nowMs * CORE_SPEED + rec.phase);
       position.set(rec.x, rec.y + 0.13 * SIEGE_LENS_SCALE, rec.z);
       scale.set(breathe * SIEGE_LENS_SCALE, breathe * SIEGE_LENS_SCALE, breathe * SIEGE_LENS_SCALE);

@@ -316,7 +316,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyAutoSettlementQueueFromServer(
     state,
     player.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-    { keyFor }
+    { keyFor, autoSettle: player.autoSettle }
   );
   state.allies = (player.allies as string[]) ?? [];
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
@@ -328,7 +328,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
-  seedProfileSetupFields((player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
+  seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up
   for (const style of ((msg.playerStyles as any[]) ?? [])) {
     if (style.name) state.playerNames.set(style.id, style.name);
     if (style.tileColor) state.playerColors.set(style.id, style.tileColor);

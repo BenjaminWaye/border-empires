@@ -14,6 +14,8 @@ export type ManpowerPanelMusterFlag = {
   fightY?: number | undefined;
   noTargetInRange?: boolean | undefined;
   insufficientManpower?: boolean | undefined;
+  unfundableTarget?: { x: number; y: number; required: number } | undefined;
+  clearing?: boolean | undefined;
 };
 
 /**
@@ -29,9 +31,23 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower" | "clearing" | "unfundableTarget"
   >,
   nowMs: number = Date.now()
+): string => {
+  const status = musterBaseStatusText(flag, nowMs);
+  const skipped = flag.unfundableTarget;
+  // ADVANCE skipped its nearest tile because it costs more than the flag can
+  // hold (a high-tier fort) -- say so instead of silently attacking
+  // elsewhere.
+  return skipped
+    ? `${status} Skipping (${skipped.x}, ${skipped.y}): needs ${Math.ceil(skipped.required)} manpower, more than this flag can hold — use Expand Capacity.`
+    : status;
+};
+
+const musterBaseStatusText = (
+  flag: Parameters<typeof musterStatusText>[0],
+  nowMs: number
 ): string => {
   if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
   if (flag.inFlight) {
@@ -49,6 +65,7 @@ export const musterStatusText = (
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
     return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
   }
+  if (flag.clearing) return `Clearing the area — ${Math.floor(flag.amount)} manpower staged.`;
   return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 

@@ -65,8 +65,7 @@ const makeSystemRuntime = () => ({
   exportPlannerWorldView: () => ({ tiles: [], players: [] }),
   exportPlannerPlayerViews: () => [],
   onEvent: () => () => undefined,
-  getBarbActivationVisionSignature: () => "sig-1",
-  exportBarbActivationVisibleUnion: () => ({ keys: [], signature: "sig-1" })
+  exportBarbTilesSeenByAnyPlayer: () => []
 });
 
 describe("createCombinedWorkerHost", () => {

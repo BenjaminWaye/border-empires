@@ -92,7 +92,7 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         kind: "json",
         auth: "read",
         title: "AI players",
-        description: "AI player economy and territory plus their last five commands."
+        description: "AI player economy, manpower (vs cap) and territory plus their last five commands."
       },
       {
         method: "GET",
@@ -196,13 +196,13 @@ export const ADMIN_ENVIRONMENTS: AdminEnvironment[] = [
   {
     label: "Production",
     flyApp: "border-empires-combined",
-    gatewayOrigin: "https://border-empires-combined.fly.dev",
+    gatewayOrigin: "https://api.borderempires.com",
     playOrigin: "https://play.borderempires.com"
   },
   {
     label: "Staging",
     flyApp: "border-empires-combined-staging",
-    gatewayOrigin: "https://border-empires-combined-staging.fly.dev",
+    gatewayOrigin: "https://api-staging.borderempires.com",
     playOrigin: "https://staging.borderempires.com"
   }
 ];

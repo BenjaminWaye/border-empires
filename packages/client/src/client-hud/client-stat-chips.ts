@@ -15,7 +15,8 @@ export const integrityWarningTipHtml = (show: boolean): string =>
   show
     ? `<div class="integrity-warning-tip" role="alert">
         <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
-        <p>Empire Integrity is below 90% — exposed borders are cutting into your income and growth bonus.</p>
-        <button class="integrity-warning-tip-ack" type="button" data-dismiss-integrity-warning="ok">I understand</button>
+        <p><strong>Integrity below 90%</strong><br />Less Coin &middot; Growth</p>
+        <button class="integrity-warning-tip-ack" type="button" data-defensibility-open="true">More info</button>
+        <button class="integrity-warning-tip-ack" type="button" data-dismiss-integrity-warning="ok">Got it</button>
       </div>`
     : "";

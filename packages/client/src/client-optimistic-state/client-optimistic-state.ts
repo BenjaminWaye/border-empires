@@ -1,4 +1,5 @@
-import { bestFortTierForTech, nextFortTierForUpgrade, structureBuildDurationMs, type FortVariant, bestSiegeTierForTech, nextSiegeTierForUpgrade, type SiegeOutpostVariant } from "@border-empires/shared";
+import { structureBuildDurationMs } from "@border-empires/shared";
+import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
@@ -137,14 +138,14 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const tileHasStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
-    if (kind === "FORT") return Boolean(tile.fort);
+    if (kind === "FORT" || kind === "WOODEN_FORT") return Boolean(tile.fort);
     if (kind === "OBSERVATORY") return Boolean(tile.observatory);
     if (kind === "SIEGE_OUTPOST") return Boolean(tile.siegeOutpost);
     return tile.economicStructure?.type === kind;
   };
 
   const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
-    if (kind === "FORT") return tile.fort?.status === "under_construction";
+    if (kind === "FORT" || kind === "WOODEN_FORT") return tile.fort?.status === "under_construction";
     if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
     if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
     return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
@@ -152,36 +153,15 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
 
   const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
     if (!enabled) return;
-    const completesAt = Date.now() + structureBuildDurationMs(kind);
+    // Relay Beacon's first 5 build instantly; the server decides by owned count.
+    let ownedBeacons = 0;
+    if (kind === "RELAY_BEACON") {
+      for (const t of state.tiles.values()) if (t.ownerId === state.me && t.economicStructure?.type === "RELAY_BEACON") ownedBeacons += 1;
+    }
+    const completesAt = Date.now() + structureBuildDurationMs(kind, ownedBeacons);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      if (kind === "FORT") {
-        const hasTech = (id: string) => state.techIds.includes(id);
-        // If the tile already has a fort at max tier with no upgrade path,
-        // don't write an optimistic under_construction state the sim will reject.
-        if (tile.fort && !nextFortTierForUpgrade(tile.fort.variant, hasTech)) return;
-        const variant: FortVariant = tile.fort
-          ? nextFortTierForUpgrade(tile.fort.variant, hasTech)!.variant
-          : bestFortTierForTech(hasTech).variant;
-        tile.fort = { ownerId: state.me, status: "under_construction", variant, completesAt };
-        return;
-      }
-      if (kind === "OBSERVATORY") {
-        tile.observatory = { ownerId: state.me, status: "under_construction", completesAt };
-        return;
-      }
-      if (kind === "SIEGE_OUTPOST") {
-        delete tile.economicStructure;
-        const hasTech = (id: string) => state.techIds.includes(id);
-        // If max tier with no upgrade path, don't write invalid optimistic state.
-        if (tile.siegeOutpost && !nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)) return;
-        const variant: SiegeOutpostVariant = tile.siegeOutpost
-          ? nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)!.variant
-          : bestSiegeTierForTech(hasTech).variant;
-        tile.siegeOutpost = { ownerId: state.me, status: "under_construction", variant, completesAt };
-        return;
-      }
-      tile.economicStructure = { ownerId: state.me, type: kind, status: "under_construction", completesAt };
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt);
     });
   };
 
@@ -215,10 +195,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (!enabled) return;
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_cancel";
-      delete tile.fort;
-      delete tile.observatory;
-      delete tile.siegeOutpost;
-      delete tile.economicStructure;
+      writeOptimisticStructureCancel(tile);
     });
   };
 
@@ -354,7 +331,9 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
                 ? existing.economicStructure.type
                 : undefined;
       if (!optimisticKind) return incoming;
-      if (tileHasStructureKind(incoming, optimisticKind)) return incoming;
+      // A fort build (fresh or upgrade) is confirmed once the server shows the new tier, not just any fort.
+      const confirmed = optimisticKind === "FORT" ? incoming.fort?.variant === existing.fort?.variant : tileHasStructureKind(incoming, optimisticKind);
+      if (confirmed) return incoming;
       const merged: Tile = {
         ...incoming,
         optimisticPending: existing.optimisticPending
@@ -383,10 +362,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         ...incoming,
         optimisticPending: existing.optimisticPending
       };
-      delete merged.fort;
-      delete merged.observatory;
-      delete merged.siegeOutpost;
-      delete merged.economicStructure;
+      writeOptimisticStructureCancel(merged);
       return merged;
     }
     if (existing.optimisticPending === "structure_remove") {

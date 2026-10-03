@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { isChosenTrickleResource, landBiomeAt } from "@border-empires/shared";
+import { clearForestAroundAfcTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -73,6 +73,8 @@ export const createPlayersFromRecoveredState = (
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          // Legacy snapshots predate the field: normalize once here (missing => DEFAULT, all on).
+          autoSettle: normalizeAutoSettlePrefs(player.autoSettle),
           ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.waystationManpowerOverflow === "number" && player.waystationManpowerOverflow > 0 ? { waystationManpowerOverflow: player.waystationManpowerOverflow } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
@@ -91,6 +93,22 @@ export const createPlayersFromRecoveredState = (
 };
 
 export const createTilesFromInitialState = (
+  initialState: RecoveredSimulationState | undefined,
+  seedTiles: Map<string, DomainTileState>,
+  mergeSeedTilesWithInitialState: boolean
+): Map<string, DomainTileState> => withAfcForestClearings(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState));
+
+// AFC landing sites clear forest from their 3x3 footprint, which is never
+// persisted itself -- re-derived from the (permanent) tile.afc on every
+// runtime build, starting from a clean slate so an in-process season
+// rollover can't inherit the previous world's clearings.
+const withAfcForestClearings = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
+  resetForestClearings();
+  clearForestAroundAfcTiles(tiles.values());
+  return tiles;
+};
+
+const createTilesFromInitialStateUncleared = (
   initialState: RecoveredSimulationState | undefined,
   seedTiles: Map<string, DomainTileState>,
   mergeSeedTilesWithInitialState: boolean

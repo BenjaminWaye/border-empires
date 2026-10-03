@@ -27,24 +27,26 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  defendingFortVariant,
   EXPAND_MANPOWER_COST,
+  isFortDefending,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ProspectSignature,
+  type AutoSettlePrefs,
   type ChosenTrickleResource,
   type MusterState,
   type Tile,
   type WaystationTileState
 } from "@border-empires/shared";
 
-export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
-  if (tile.fort?.status === "active") {
-    if (tile.fort.variant === "THUNDER_BASTION") return 20;
-    if (tile.fort.variant === "TITANIUM_BASTION") return 10;
-    return 5;
-  }
-  if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
-  return 1;
+export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
+  if (!isFortDefending(tile.fort)) return 1;
+  const variant = defendingFortVariant(tile.fort);
+  if (variant === "THUNDER_BASTION") return 20;
+  if (variant === "TITANIUM_BASTION") return 10;
+  if (variant === "WOODEN_FORT") return 1.5;
+  return 5;
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
@@ -122,6 +124,10 @@ export type DomainPlayer = {
   // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
   // drop off), most-recent-last here; client renders most-recent-first.
   eventLog?: PlayerEventLogEntry[];
+  // Per-category opt-in for server-side auto-settle (spends manpower without a
+  // click) -- see @border-empires/shared's auto-settle-prefs.ts. Required, so
+  // a construction site that forgets it is a compile error, not "all on".
+  autoSettle: AutoSettlePrefs;
 };
 
 export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
@@ -199,6 +205,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["fort"]>["status"];
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
+        upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         disabledUntil?: number | undefined;

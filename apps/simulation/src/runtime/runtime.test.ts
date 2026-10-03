@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, FORT_TIER_LADDER, MAX_BARBARIAN_TILES, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -2988,60 +2988,6 @@ describe("simulation runtime", () => {
       tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
       expect(tile?.fortJson).toContain("\"status\":\"active\"");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("keeps an active wooden fort until its full fort upgrade completes", async () => {
-    vi.useFakeTimers();
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          [
-            "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 300, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
-          ]
-        ]),
-        initialState: {
-          tiles: [
-            {
-              x: 10,
-              y: 10,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
-              economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
-            },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "fort-upgrade-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "BUILD_FORT",
-        payloadJson: JSON.stringify({ x: 10, y: 10 })
-      });
-
-      await Promise.resolve();
-      const buildingTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      expect(buildingTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
-      expect(buildingTile?.fortJson).toContain("\"status\":\"under_construction\"");
-
-      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
-
-      const completedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      expect(completedTile?.economicStructureJson).toBeUndefined();
-      expect(completedTile?.fortJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
@@ -7080,12 +7026,12 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("multiplies past the old 200-tile population cap (removed as dead code — unreachable behind MAX_BARBARIAN_TILES)", () => {
-      // BARBARIAN_POPULATION_CAP used to block multiply at 200 tiles; removed
-      // since MAX_BARBARIAN_TILES (100) already stops the planner from
-      // expanding past 100, so 200 never actually bound in real play.
+    it("walks instead of multiplying once the barbarian is at the territory cap, keeping its progress", () => {
+      // The planner now keeps attacking at the cap (it used to only erode), so
+      // the runtime enforces MAX_BARBARIAN_TILES itself: a win that reaches the
+      // multiply threshold releases the origin (a walk) instead of growing.
       const barbTiles: Array<{ x: number; y: number }> = [];
-      for (let i = 0; i < 200; i += 1) {
+      for (let i = 0; i < MAX_BARBARIAN_TILES; i += 1) {
         barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
       }
       const { runtime, randomSpy, runResolve } = buildBarbRuntime({
@@ -7102,13 +7048,13 @@ describe("simulation runtime", () => {
       const state = runtime.exportState();
       const origin = state.tiles.find((tile) => tile.x === 100 && tile.y === 100);
       const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
-      // Multiply: source keeps its owner, target gained — net +1, progress reset on both.
-      expect(origin?.ownerId).toBe("barbarian-1");
+      expect(origin?.ownerId).toBeUndefined(); // walk: origin released, target gained, count unchanged
       expect(target?.ownerId).toBe("barbarian-1");
-      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(201);
+      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(MAX_BARBARIAN_TILES);
+      // The progress follows the barbarian to its new tile, so it multiplies once it is back under the cap.
       const progress = readProgress(runtime);
-      expect(progress.get("100,100")).toBe(0);
-      expect(progress.get("50,50")).toBe(0);
+      expect(progress.has("100,100")).toBe(false);
+      expect(progress.get("50,50")).toBe(5);
 
       randomSpy.mockRestore();
     });

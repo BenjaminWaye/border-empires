@@ -65,6 +65,11 @@ describe("reconnectPassthroughFields", () => {
     expect(result.galacticWonderVisionRadiusBonus).toBe(2);
   });
 
+  it("carries autoSettle through so a reconnecting new player is still asked (answered:false)", () => {
+    const prefs = { answered: false, towns: false, food: false, resources: false };
+    expect(reconnectPassthroughFields(basePlayer({ autoSettle: prefs })).autoSettle).toEqual(prefs);
+  });
+
   it("carries imperialWardCharges and wonderLastFreeRushBuyAt through", () => {
     const result = reconnectPassthroughFields(
       basePlayer({ imperialWardCharges: 1, wonderLastFreeRushBuyAt: 123 })

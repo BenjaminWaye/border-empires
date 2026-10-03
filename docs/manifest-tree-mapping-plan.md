@@ -292,6 +292,10 @@ anchor afterward).
 - Added to both `capturedStructureFields` (combat capture) and
   `abandonedStructureFields` (`UNCAPTURE_TILE` — the AFC survives, inert,
   for whoever claims the tile next, same as a fort/economicStructure would).
+  Update 2026-10-02: abandoning your *own* AFC is now rejected outright
+  (`UNCAPTURE_AFC`) — it dropped the AFC's reach anchor and stamped
+  out-of-reach decay on the whole frontier ring around it. The keep-on-abandon
+  rule now only matters for an inert AFC another player left on your tile.
 - A captured AFC counts toward `hasCapturedBuilding` in
   `runtime-lock-resolution.ts`, so it auto-settles instead of landing
   FRONTIER and sitting idle — same reasoning as a captured fort/economic

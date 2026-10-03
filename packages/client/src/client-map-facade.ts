@@ -1,6 +1,7 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
-  buildMiniMapBase as buildMiniMapBaseFromModule,
+  buildMiniMapBaseRows,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
   isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
   markDockDiscovered as markDockDiscoveredFromModule
@@ -38,6 +39,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
+import { isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 
 type MapFacadeDeps = {
   state: ClientState;
@@ -93,6 +95,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const terrainColorCacheOrder: string[] = [];
 
   const clearRenderCaches = (): void => {
+    // Every caller follows either a setWorldSeed (which drops AFC forest
+    // clearings along with the other worldgen caches -- and on first
+    // connect runs only AFTER the initial tiles were merged) or a terrain
+    // change, so re-derive the clearings from the AFC tiles already known.
+    clearForestAroundAfcTiles(state.tiles.values());
     terrainColorCache.clear();
     terrainColorCacheOrder.length = 0;
     state.dockRouteCache.clear();
@@ -234,7 +241,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       terrain === "LAND"
         ? `${visibleTile?.terrain === "LAND" ? visibleTile.landBiome ?? "" : ""}|${visibleTile?.terrain === "LAND" ? visibleTile.regionType ?? "" : ""}`
         : "";
-    const cacheKey = `${x},${y},${terrain},${landContextKey}`;
+    const cacheKey = `${x},${y},${terrain},${landContextKey}${isForestClearedAt(x, y) ? ",cleared" : ""}`;
     const cached = terrainColorCache.get(cacheKey);
     if (cached) return cached;
     const color = terrainColorAt(x, y, terrain);
@@ -251,7 +258,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawTerrainTileOnCanvas(ctx, {
       wx,
       wy,
-      terrain,
+      // Footprint mountains the AFC landing flattened stay drawn until its join drop lands.
+      terrain: terrainWithAfcLandingHold(state.afcJoinDrop, wx, wy, terrain),
       px,
       py,
       size,
@@ -268,7 +276,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       }
     });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature);
+    drawForestOverlayOnCanvas(
+      ctx, wx, wy, px, py, size,
+      (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature,
+      (x, y) => isForestTileWithAfcLandingHold(state.afcJoinDrop, x, y)
+    );
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianColossusOverlay = (px: number, py: number, size: number): void =>
@@ -321,10 +333,19 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       keyFor
     });
 
+  // Sliced across tasks (see client-minimap-base-builder.ts); the minimap
+  // shows its placeholder until the base is complete.
+  const miniMapBaseBuilder = createMiniMapBaseBuilder({
+    rowCount: () => miniMapBase.height,
+    buildRows: (fromRow, toRow) => buildMiniMapBaseRows({ miniMapBase, miniMapBaseCtx, cachedTerrainColorAt }, fromRow, toRow),
+    onComplete: () => {
+      miniMapBaseReady = true;
+      miniMapLastDrawCamX = Number.NaN;
+    }
+  });
   const buildMiniMapBase = (): void => {
-    buildMiniMapBaseFromModule({ miniMapBase, miniMapBaseCtx, cachedTerrainColorAt });
-    miniMapBaseReady = true;
-    miniMapLastDrawCamX = Number.NaN;
+    miniMapBaseReady = false;
+    miniMapBaseBuilder.start();
   };
 
   const rebuildStrategicReplayState = (targetIndex: number): void => {

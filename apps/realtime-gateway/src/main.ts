@@ -1,6 +1,7 @@
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
+import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
 
 const runtimeEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 const gateway = await createRealtimeGatewayApp({
@@ -20,6 +21,7 @@ const gateway = await createRealtimeGatewayApp({
   emailAlerts: runtimeEnv.emailAlerts
 });
 
+setRuntimeSqliteBusyTimeout();
 const started = await gateway.start();
 
 startDailyActivityDigestPoll({

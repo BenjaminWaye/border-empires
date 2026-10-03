@@ -1,4 +1,5 @@
 import type { RuntimePlayer } from "./runtime-types.js";
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { createAiRuntimePlayer, createHumanRuntimePlayer, isAiPlayerId } from "./runtime-player-factory.js";
 
 export type GrossIncomeRepairContext = {
@@ -36,7 +37,8 @@ export const repairZeroGrossIncomeSettlements = (
     let player = ctx.players.get(playerId);
     if (!player) {
       if (!ctx.hasTerritory(playerId)) continue;
-      player = isAiId ? createAiRuntimePlayer(playerId) : createHumanRuntimePlayer(playerId);
+      // A record rebuilt from existing territory is an established player, not a new join: keep the legacy all-on behavior.
+      player = isAiId ? createAiRuntimePlayer(playerId) : { ...createHumanRuntimePlayer(playerId), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } };
       ctx.players.set(playerId, player);
     } else if (isAiId && !player.isAi) {
       player = { ...player, isAi: true };

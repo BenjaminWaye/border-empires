@@ -11,6 +11,8 @@
  * Fix: a manpowerBudget mirrors the existing settlementBudget (gold) check,
  * so the loop stops as soon as either resource runs out.
  */
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 import { describe, expect, it, vi } from "vitest";
 import { SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
@@ -38,6 +40,7 @@ describe("applyAutoSettlementQueueFromServer manpower budget", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
     state.me = "me";
     state.gold = 1_000;
     state.manpower = SETTLE_MANPOWER_COST; // exactly one settle's worth
@@ -61,6 +64,7 @@ describe("applyAutoSettlementQueueFromServer manpower budget", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
     state.me = "me";
     state.gold = 1_000;
     state.manpower = SETTLE_MANPOWER_COST * 2;

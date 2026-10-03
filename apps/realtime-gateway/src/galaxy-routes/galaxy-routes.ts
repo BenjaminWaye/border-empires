@@ -15,6 +15,7 @@ import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-stor
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
+import type { SectorCampaign } from "../galaxy-sector-numbering/galaxy-sector-numbering.js";
 
 export type RegisterGalaxyRoutesDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -39,9 +40,14 @@ export type RegisterGalaxyRoutesDeps = {
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
 };
 
+// A Planet always comes from a wonSeason, whose sectorLabel is always
+// resolvable (see WonSeason in galaxy-holdings.ts) -- so sectorNumber is
+// required here, unlike on GalaxyOutpostView/GalaxyStipendView below.
 type GalaxyMePlanetView = {
   seasonId: string;
   seasonSequence: number;
+  sectorNumber: number;
+  campaign: SectorCampaign;
   tier: "PLANET";
   objectiveName: string;
   specialization: GalaxySpecialization;
@@ -55,6 +61,8 @@ type GalaxyMePlanetView = {
 type GalaxyPublicPlanetView = {
   seasonId: string;
   seasonSequence: number;
+  sectorNumber: number;
+  campaign: SectorCampaign;
   tier: "PLANET";
   objectiveName: string;
   specialization: GalaxySpecialization;
@@ -67,9 +75,15 @@ type GalaxyPublicPlanetView = {
 // Outposts are public territory like Planets (§3: "minor permanent
 // holding"), so both /hq/galaxy/me and /hq/galaxy surface them — unlike
 // Stipends (one-time payouts, no territory), which only appear on /hq/galaxy/me.
+// Unlike a Planet, an Outpost can come from a season nobody won outright
+// (a strong-runner-up tier with no overall Planet winner that season), so
+// sectorNumber/campaign are optional here -- absent means that season never
+// created a persistent territory to number.
 type GalaxyOutpostView = {
   seasonId: string;
   seasonSequence: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
   tier: "OUTPOST";
   specialization: GalaxySpecialization;
   awardedAt: number;
@@ -92,9 +106,13 @@ export type GalaxyTrophyView = {
   count: number;
 };
 
+// Same optionality reasoning as GalaxyOutpostView -- a Stipend can also come
+// from a season nobody won outright.
 type GalaxyStipendView = {
   seasonId: string;
   seasonSequence: number;
+  sectorNumber?: number;
+  campaign?: SectorCampaign;
   tier: "STIPEND";
   awardedAt: number;
   influence: number;
@@ -127,6 +145,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
+        sectorNumber: season.sectorLabel.sectorNumber,
+        campaign: season.sectorLabel.campaign,
         tier: "PLANET",
         objectiveName: season.winner.objectiveName,
         specialization: specializationForVictoryPath(season.winner.objectiveId),
@@ -171,6 +191,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
           outposts.push({
             seasonId: season.seasonId,
             seasonSequence: season.seasonSequence,
+            ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
             tier: "OUTPOST",
             specialization: tier.specialization,
             awardedAt: season.endedAt,
@@ -178,7 +199,15 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
             ...(outpostStability !== undefined ? { stability: outpostStability } : {})
           });
         } else if (tier.tier === "STIPEND") {
-          stipends.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "STIPEND", awardedAt: season.endedAt, influence: tier.influence ?? 0, production: tier.production ?? 0 });
+          stipends.push({
+            seasonId: season.seasonId,
+            seasonSequence: season.seasonSequence,
+            ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
+            tier: "STIPEND",
+            awardedAt: season.endedAt,
+            influence: tier.influence ?? 0,
+            production: tier.production ?? 0
+          });
         }
       }
     }
@@ -253,6 +282,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
+        sectorNumber: season.sectorLabel.sectorNumber,
+        campaign: season.sectorLabel.campaign,
         tier: "PLANET",
         objectiveName: season.winner.objectiveName,
         specialization: specializationForVictoryPath(season.winner.objectiveId),
@@ -271,7 +302,15 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     for (const season of tieredSeasons) {
       for (const tier of season.galaxyTiers) {
         if (tier.tier !== "OUTPOST" || !tier.specialization) continue;
-        outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+        outposts.push({
+          seasonId: season.seasonId,
+          seasonSequence: season.seasonSequence,
+          ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
+          tier: "OUTPOST",
+          specialization: tier.specialization,
+          awardedAt: season.endedAt,
+          holderName: tier.playerName
+        });
       }
     }
     outposts.sort((a, b) => b.awardedAt - a.awardedAt);
@@ -326,6 +365,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
+        sectorNumber: season.sectorLabel.sectorNumber,
+        campaign: season.sectorLabel.campaign,
         tier: "PLANET",
         objectiveName: season.winner.objectiveName,
         specialization: specializationForVictoryPath(season.winner.objectiveId),
@@ -358,7 +399,15 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       for (const tier of season.galaxyTiers) {
         if (tier.tier !== "OUTPOST" || !tier.specialization) continue;
         if (tierUidByPlayerId.get(tier.playerId) !== authUid) continue;
-        outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+        outposts.push({
+          seasonId: season.seasonId,
+          seasonSequence: season.seasonSequence,
+          ...(season.sectorLabel ? { sectorNumber: season.sectorLabel.sectorNumber, campaign: season.sectorLabel.campaign } : {}),
+          tier: "OUTPOST",
+          specialization: tier.specialization,
+          awardedAt: season.endedAt,
+          holderName: tier.playerName
+        });
       }
     }
     outposts.sort((a, b) => b.awardedAt - a.awardedAt);

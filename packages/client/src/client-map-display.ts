@@ -208,7 +208,7 @@ export const structureInfoForKey = (
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined }
 ): StructureInfoView => {
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
-    deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
+    deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key), deps.ownedCountOfType ?? 0));
   // Single shared source of truth for "what does this cost to keep running"
   // (client-structure-upkeep-text.ts) -- also used by the build-menu action
   // list and the dormant-structure warning line, so all three can never
@@ -234,7 +234,7 @@ export const structureInfoForKey = (
     if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["Farm tiles only — no effect on fish tiles"];
+    if (key === "FARMSTEAD") return ["Grain resource tiles only — no effect on fish tiles"];
     if (key === "WATERWORKS") return [];
     if (key === "UMBRITE_RIG") return [];
     if (key === "MINE") return [];
@@ -367,7 +367,7 @@ export const structureInfoForKey = (
   if (type === "OBSERVATORY") {
     return structure({
       title: "Aether Tower",
-      detail: "Aether Towers add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
+      detail: "Aether Towers add local vision, protect your own nearby tiles (never unclaimed or other players' land) against hostile Aether abilities, and let you cast crystal abilities inside their radius.",
       glyph: "◉",
       placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
       costBits: costBitsFor(type),
@@ -379,7 +379,7 @@ export const structureInfoForKey = (
       title: "Palisade",
       detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
       glyph: "🪵",
-      placement: "Build on an owned border tile or dock with no town, resource, or other structure.",
+      placement: "Build on a settled tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -387,7 +387,7 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Hydrogarden",
-      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
+      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slots on grain resource tiles. No effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),

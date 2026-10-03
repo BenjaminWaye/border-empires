@@ -55,7 +55,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Barbarians
 
-- Barbarian tiles are seeded far from player spawns at world gen. They activate when a non-barbarian player becomes adjacent.
+- Barbarian tiles are seeded far from player spawns at world gen. A barbarian tile acts only while some player (human or AI) can see it in their fog of war; each seen tile takes its own turns and rests 15s after an action finishes.
 - Barbarian tiles attack nearby players and can multiply or walk based on accumulated progress. Recapturing a tile clears its progress.
 
 ### Strategic Layers
@@ -217,7 +217,7 @@ project. Match it.
 
 ## CI and branch flow
 
-`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging and `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
+`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging, checks the gateway and WebSocket for ten minutes, verifies a real anonymous guest reaches INIT, then publishes the client; `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
 
 Run the same gate locally from a clean worktree before opening a PR:
 
@@ -266,9 +266,10 @@ When shipping a user-facing client update, add a new entry to `packages/client/s
 
 Production (`play.borderempires.com`) and staging (`staging.borderempires.com`) both run the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined`.
 
-- Production Fly app: `border-empires-combined` (`fly.combined.toml`)
-- Staging Fly app: `border-empires-combined-staging` (`fly.combined.staging.toml`)
+- Production backend: Hetzner Cloud server behind `api.borderempires.com` (`deploy/`); Fly app `border-empires-combined` is stopped (rollback only)
+- Staging backend: Hetzner Cloud server behind `api-staging.borderempires.com`; Fly app `border-empires-combined-staging` is stopped (rollback only)
 - Client: Vercel project `border-empires-client`
+- Hetzner backend details: `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
 
 **Deploy to staging:**
 ```bash
@@ -310,7 +311,20 @@ See `.env.example` for a copyable local-dev template of these.
 STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-probe
 ```
 
-Runs 12 real WebSocket auth attempts against `wss://border-empires-combined-staging.fly.dev/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
+Runs 12 real WebSocket auth attempts against `wss://api-staging.borderempires.com/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
+
+**Login experience probe** (what the player sees from sign-in to map-ready, in real Chromium):
+
+```bash
+# 1. Local rewrite stack with a grown world and the localhost dev-auth bypass:
+SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 SIMULATION_SEED_PROFILE=season-20ai \
+SIMULATION_ENABLE_AI_AUTOPILOT=1 SIMULATION_AI_TICK_MS=25 \
+GATEWAY_DEFAULT_HUMAN_PLAYER_ID=probe-human pnpm dev
+# 2. Once the AIs have expanded for a few minutes, log in as one (phone-like 4x CPU throttle):
+pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/login-probe
+```
+
+Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
 
 **Env drift check** (staging Fly secrets vs. checked-in toml):
 

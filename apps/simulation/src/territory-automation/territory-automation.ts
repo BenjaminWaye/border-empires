@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isFortDefending, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState, DomainPlayer } from "@border-empires/game-domain";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -223,7 +223,7 @@ export const siegeAutoAttackCandidates = (
   return autoAttackCandidates.sort((left, right) => {
       const stateScore = (tile: DomainTileState): number => tile.ownershipState === "FRONTIER" ? 0 : 1;
       const townScore = (tile: DomainTileState): number => tile.town ? 1 : 0;
-      const fortScore = (tile: DomainTileState): number => tile.fort?.status === "active" ? 1 : 0;
+      const fortScore = (tile: DomainTileState): number => isFortDefending(tile.fort) ? 1 : 0;
       return (
         stateScore(left) - stateScore(right) ||
         fortScore(left) - fortScore(right) ||
@@ -235,7 +235,7 @@ export const siegeAutoAttackCandidates = (
 };
 
 /**
- * Fort auto-attack candidates: frontier enemy tiles (no fort or wooden-fort)
+ * Fort auto-attack candidates: frontier enemy tiles with no fortification
  * within chebyshev radius. Sorted by resource/town value desc, then x/y asc.
  *
  * Hot-path callers (tickTerritoryAutomation fort patrol) should prefer
@@ -257,8 +257,7 @@ export const fortAutoAttackCandidates = (
             tile.ownerId &&
             tile.ownerId !== playerId &&
             tile.ownershipState === "FRONTIER" &&
-            !tile.fort &&
-            (tile.economicStructure?.type !== "WOODEN_FORT" || tile.economicStructure.status !== "active")
+            !tile.fort
         )
     )
     .sort((left, right) => {

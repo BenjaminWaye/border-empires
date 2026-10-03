@@ -6,12 +6,12 @@ import {
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  FORT_VARIANT_LABELS,
   OBSERVATORY_BUILD_MS,
   RELAY_BEACON_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   structureBuildManpowerCost,
-  WOODEN_FORT_BUILD_MS,
   type EconomicStructureType
 } from "@border-empires/shared";
 import { rushBuyLabel, type QuickforgeRushBuyContext } from "../client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
@@ -26,12 +26,25 @@ import type { Tile, TileMenuProgressView } from "../client-types.js";
 // count a fresh BUILD would pay right now, not what's being torn down, and
 // can be 0 for a free Relay Beacon -- an instant removal was never the intent).
 const economicStructureRemoveDurationMs = (type: EconomicStructureType): number => {
-  if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
   if (type === "RELAY_BEACON") return RELAY_BEACON_BUILD_MS;
   return ECONOMIC_STRUCTURE_BUILD_MS;
 };
 
+// Cancel / rush-buy only make sense on the viewer's own construction; on a
+// foreign tile the card is informational (timer + progress) with no actions.
 export const constructionProgressForTile = (
+  tile: Tile,
+  formatCountdownClock: (ms: number) => string,
+  quickforge: QuickforgeRushBuyContext,
+  viewerId: string
+): TileMenuProgressView | undefined => {
+  const progress = ownConstructionProgressForTile(tile, formatCountdownClock, quickforge);
+  if (!progress || tile.ownerId === viewerId) return progress;
+  const { cancelLabel: _cancelLabel, cancelActionId: _cancelActionId, rushBuyLabel: _rushBuyLabel, rushBuyActionId: _rushBuyActionId, ...readOnly } = progress;
+  return readOnly;
+};
+
+const ownConstructionProgressForTile = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string,
   quickforge: QuickforgeRushBuyContext
@@ -39,9 +52,12 @@ export const constructionProgressForTile = (
   const nowMs = Date.now();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
     const remaining = Math.max(0, tile.fort.completesAt - nowMs);
+    const standing = tile.fort.upgradingFrom;
     return {
-      title: "Fortification under construction",
-      detail: "This tile will gain fortified defense when construction completes.",
+      title: standing ? `Upgrading to ${FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"]}` : "Fortification under construction",
+      detail: standing
+        ? `The current ${FORT_VARIANT_LABELS[standing]} keeps defending this tile until the upgrade completes.`
+        : "This tile will gain fortified defense when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
       note: "Construction is underway on this tile.",

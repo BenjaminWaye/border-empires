@@ -1,4 +1,5 @@
 import {
+  isFortDefending,
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
@@ -297,7 +298,7 @@ export const menuOverviewForTile = (
   if (tile.observatory) {
     if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
-      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not blocking hostile crystal actions nearby right now." : "Aether Tower is active here and blocks hostile crystal actions nearby.");
+      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not protecting its owner's nearby tiles from hostile Aether abilities right now." : "Aether Tower is active here and protects its owner's nearby tiles from hostile Aether abilities.");
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
         const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -317,10 +318,10 @@ export const menuOverviewForTile = (
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (tile.fort?.status === "active" && tile.ownerId && structureRecentlyCaptured) {
+  if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (tile.fort?.status === "active" && tile.ownerId && !structureRecentlyCaptured) {
+  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand — including the cheap

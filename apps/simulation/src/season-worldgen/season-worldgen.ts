@@ -1,5 +1,5 @@
 import { STARTING_CAPITAL_MANPOWER_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import type { WorldStyle } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, type WorldStyle } from "@border-empires/shared";
 
 import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
@@ -63,6 +63,7 @@ const createRuntimePlayer = (id: string): DomainPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-seasonal",
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
   strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });

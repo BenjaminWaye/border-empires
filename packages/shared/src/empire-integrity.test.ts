@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
   empireIntegrity,
   integrityEconomyMult,
-  integrityGrowthMult
+  integrityGrowthMult,
+  defensibilityScore
 } from "./index.js";
 
 describe("empireIntegrity", () => {
@@ -21,8 +22,9 @@ describe("empireIntegrity", () => {
   });
 
   test("a ragged territory with high exposure scores well below 1", () => {
-    // Ts=10, Es=200: ideal=14, ratio=0.07, score=0.07/(0.2+0.056)≈0.27
-    const score = empireIntegrity(10, 200);
+    // Past the new-empire grace period (100 tiles, floor fully faded):
+    // Ts=100, Es=800: ideal=40, ratio=0.05, score=0.05/(0.2+0.04)≈0.21
+    const score = empireIntegrity(100, 800);
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThan(0.5);
   });
@@ -60,5 +62,23 @@ describe("integrity multipliers respond to real shape, not a fixed ~50% (the bug
   test("a higher integrity value always yields higher multipliers", () => {
     expect(integrityEconomyMult(0.25)).toBeLessThan(integrityEconomyMult(0.75));
     expect(integrityGrowthMult(0.25)).toBeLessThan(integrityGrowthMult(0.75));
+  });
+
+  test("stays at or above 90% until 50 settled tiles, however ragged", () => {
+    for (const Ts of [1, 10, 30, 50]) {
+      expect(empireIntegrity(Ts, 10_000)).toBeGreaterThanOrEqual(0.9);
+    }
+  });
+
+  test("the grace floor fades out smoothly after 50 tiles instead of dropping off a cliff", () => {
+    expect(empireIntegrity(51, 10_000)).toBeLessThan(0.9);
+    expect(empireIntegrity(51, 10_000)).toBeGreaterThan(0.85);
+    expect(empireIntegrity(75, 10_000)).toBeCloseTo(0.45, 1);
+    expect(empireIntegrity(100, 10_000)).toBeLessThan(0.15);
+    expect(empireIntegrity(200, 10_000)).toBeCloseTo(defensibilityScore(200, 10_000), 5);
+  });
+
+  test("never lowers a score that is already above the grace floor", () => {
+    expect(empireIntegrity(100, 0)).toBe(1);
   });
 });

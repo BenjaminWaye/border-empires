@@ -5,6 +5,7 @@
 // one entry here -- client-map-3d.ts never needs to change.
 import type { Scene, Texture } from "three";
 import { createFabricationComplexOverlay, AFC_SOCKET_COUNT, type FabricationComplexOverlay } from "./client-map-3d-fabrication-complex.js";
+import { createAfcGenericModuleOverlay } from "./client-map-3d-afc-generic-module.js";
 import { createAetherResonanceModuleOverlay } from "./client-map-3d-aether-resonance-module.js";
 import { createAetherwardCoilModuleOverlay } from "./client-map-3d-aetherward-coil-module.js";
 import { createGeoformEngineModuleOverlay } from "./client-map-3d-geoform-engine-module.js";
@@ -31,8 +32,8 @@ type ModuleFamilyFactory = (scene: Scene, maxInstances: number, buildingEnvironm
 
 // Tech id -> module family factory, for the families built so far. A tech
 // id docked on a player's AFC with no entry here (one of the remaining
-// families, being built on a separate branch) simply gets no socket
-// instance -- not an error, see docs/manifest-afc-overlay-wiring-plan.md.
+// families, being built on a separate branch) has no bespoke model yet and
+// docks a generic cartridge instead, see docs/manifest-afc-overlay-wiring-plan.md.
 const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   masonry: createTitaniumForgeModuleOverlay,
   leatherworking: createRiggingWorksModuleOverlay,
@@ -59,6 +60,10 @@ export type AfcOverlayGroup = {
   // Docks the AFC itself plus up to AFC_SOCKET_COUNT of moduleTechIds (in
   // order) into their matching family overlay's next socket attachment.
   readonly addAfc: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]) => void;
+  /** Current scene-space socket for a rendered module. The delivery FX reads
+   * this after the visible-terrain rebuild, so a cargo streak lands on the
+   * same socket as the permanent module rather than the AFC tile centre. */
+  readonly attachmentFor: (worldTileX: number, worldTileY: number, techId: string) => { x: number; y: number; z: number } | undefined;
 };
 
 export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, buildingEnvironmentTexture?: Texture): AfcOverlayGroup => {
@@ -67,22 +72,29 @@ export const createAfcOverlayGroup = (scene: Scene, maxAfcInstances: number, bui
   const families = new Map<string, ModuleFamilyOverlay>(
     Object.entries(MODULE_FAMILY_FACTORIES).map(([techId, factory]) => [techId, factory(scene, familyCapacity, buildingEnvironmentTexture)])
   );
-  const allFamilies = [...families.values()];
+  // Any docked tech without a bespoke family still occupies its socket with
+  // a plain generic cartridge, so an unlocked module is never invisible.
+  const genericFamily = createAfcGenericModuleOverlay(scene, familyCapacity, buildingEnvironmentTexture);
+  const allFamilies = [...families.values(), genericFamily];
+  const attachmentsByModule = new Map<string, { x: number; y: number; z: number }>();
+  const attachmentKey = (worldTileX: number, worldTileY: number, techId: string): string => `${worldTileX},${worldTileY}:${techId}`;
 
   const addAfc = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, moduleTechIds: readonly string[]): void => {
     const index = afc.addInstance(sceneX, sceneZ, surfaceY, worldTileX, worldTileY);
     const attachments = afc.moduleSocketAttachments(index);
     moduleTechIds.slice(0, attachments.length).forEach((techId, i) => {
-      const family = families.get(techId);
+      const family = families.get(techId) ?? genericFamily;
       const attachment = attachments[i];
-      if (!family || !attachment) return;
+      if (!attachment) return;
+      attachmentsByModule.set(attachmentKey(worldTileX, worldTileY, techId), attachment);
       family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, worldTileX, worldTileY);
     });
   };
 
   return {
     addAfc,
-    clear: () => { afc.clear(); for (const family of allFamilies) family.clear(); },
+    attachmentFor: (worldTileX, worldTileY, techId) => attachmentsByModule.get(attachmentKey(worldTileX, worldTileY, techId)),
+    clear: () => { attachmentsByModule.clear(); afc.clear(); for (const family of allFamilies) family.clear(); },
     commit: () => { afc.commit(); for (const family of allFamilies) family.commit(); },
     update: (nowMs) => { afc.update(nowMs); for (const family of allFamilies) family.update(nowMs); },
     dispose: () => { afc.dispose(); for (const family of allFamilies) family.dispose(); }

@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import type { EmailNotificationPrefs, GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
+import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
 
 const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at";
 
@@ -150,9 +151,9 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
   }
 
   async get(playerId: string): Promise<StoredPlayerProfile | undefined> {
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(`SELECT ${PROFILE_COLUMNS} FROM player_profiles WHERE player_id = ?`)
-      .get(playerId) as Row | undefined;
+      .get(playerId) as Row | undefined);
     return row ? toProfile(row) : undefined;
   }
 
@@ -160,22 +161,22 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const ids = [...new Set([...playerIds].filter((id) => id.trim().length > 0))];
     if (ids.length === 0) return [];
     const placeholders = ids.map(() => "?").join(",");
-    const rows = this.db
+    const rows = await withGatewaySqliteRetry(() => this.db
       .prepare(`SELECT ${PROFILE_COLUMNS} FROM player_profiles WHERE player_id IN (${placeholders})`)
-      .all(...ids) as Row[];
+      .all(...ids) as Row[]);
     return rows.map(toProfile);
   }
 
   async listAllNamed(): Promise<StoredPlayerProfile[]> {
-    const rows = this.db
+    const rows = await withGatewaySqliteRetry(() => this.db
       .prepare(`SELECT ${PROFILE_COLUMNS} FROM player_profiles WHERE display_name IS NOT NULL AND length(display_name) > 0`)
-      .all() as Row[];
+      .all() as Row[]);
     return rows.map(toProfile);
   }
 
   async setTileColor(playerId: string, tileColor: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile> {
     const now = this.now();
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, tile_color, color_changed_season_id, updated_at)
          VALUES (?, ?, ?, ?)
@@ -185,16 +186,16 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, tileColor, colorChangedSeasonId ?? null, now) as Row;
+      .get(playerId, tileColor, colorChangedSeasonId ?? null, now) as Row);
     return toProfile(row);
   }
 
-  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile> {
+  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string, options?: { profileComplete?: boolean }): Promise<StoredPlayerProfile> {
     const now = this.now();
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at)
-         VALUES (?, ?, ?, 1, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            display_name = excluded.display_name,
            tile_color = excluded.tile_color,
@@ -204,13 +205,13 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, name, tileColor, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row;
+      .get(playerId, name, tileColor, options?.profileComplete === false ? 0 : 1, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row);
     return toProfile(row);
   }
 
   async setCountryFlag(playerId: string, countryFlag: string): Promise<StoredPlayerProfile> {
     const now = this.now();
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, country_flag, updated_at)
          VALUES (?, ?, ?)
@@ -219,7 +220,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, countryFlag, now) as Row;
+      .get(playerId, countryFlag, now) as Row);
     return toProfile(row);
   }
 
@@ -229,7 +230,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const hintsMutedInt = typeof patch.hintsMuted === "boolean" ? (patch.hintsMuted ? 1 : 0) : null;
     const checklistInt = typeof patch.onboardingChecklistCompleted === "boolean" ? (patch.onboardingChecklistCompleted ? 1 : 0) : null;
     const musterUnlockedSeasonId = patch.musterUnlockedSeasonId ?? null;
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
@@ -241,7 +242,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, now) as Row;
+      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, now) as Row);
     return toProfile(row);
   }
 
@@ -249,7 +250,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const now = this.now();
     const existing = await this.get(playerId);
     const mergedPrefs = JSON.stringify({ ...existing?.emailNotificationPrefs, ...patch });
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, email_notification_prefs, updated_at)
          VALUES (?, ?, ?)
@@ -258,7 +259,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, mergedPrefs, now) as Row;
+      .get(playerId, mergedPrefs, now) as Row);
     return toProfile(row);
   }
 
@@ -267,7 +268,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const existing = await this.get(playerId);
     const sameSeason = existing?.lastActivitySeenSeasonId === seasonId;
     const lastActivitySeenAt = sameSeason ? Math.max(existing?.lastActivitySeenAt ?? 0, seenAtMs) : seenAtMs;
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, last_activity_seen_at, last_activity_seen_season_id, updated_at)
          VALUES (?, ?, ?, ?)
@@ -277,13 +278,13 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, lastActivitySeenAt, seasonId, now) as Row;
+      .get(playerId, lastActivitySeenAt, seasonId, now) as Row);
     return toProfile(row);
   }
 
   async setWorldPulseRank(playerId: string, rank: number, seasonId: string): Promise<StoredPlayerProfile> {
     const now = this.now();
-    const row = this.db
+    const row = await withGatewaySqliteRetry(() => this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, last_world_pulse_rank, last_world_pulse_rank_season_id, updated_at)
          VALUES (?, ?, ?, ?)
@@ -293,7 +294,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, rank, seasonId, now) as Row;
+      .get(playerId, rank, seasonId, now) as Row);
     return toProfile(row);
   }
 }

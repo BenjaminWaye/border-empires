@@ -72,17 +72,43 @@ describe("settings panel regression guard", () => {
     expect(settingsPanelSource.slice(accountStart, accountEnd)).not.toContain("data-auth-logout");
   });
 
-  it("keeps the map reveal button reachable from the gameplay page", () => {
+  it("keeps the map reveal button reachable from the admin page", () => {
     const hudSource = sourceFor("./client-hud.ts");
+    const adminBindingsSource = sourceFor("./client-hud-admin-settings.ts");
     const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
 
-    expect(settingsPanelSource).toContain("mapRevealCardHtml(state)");
+    const gameplayStart = settingsPanelSource.indexOf("export const settingsGameplayPageHtml");
+    const adminStart = settingsPanelSource.indexOf("export const settingsAdminPageHtml");
+    expect(settingsPanelSource.slice(gameplayStart, adminStart)).not.toContain("mapRevealCardHtml");
+    expect(settingsPanelSource.slice(adminStart)).toContain("mapRevealCardHtml(state)");
+    expect(settingsPanelSource).toContain("lightingTunerCardHtml()");
     expect(settingsPanelSource).toContain("data-map-reveal");
     expect(settingsPanelSource).toContain("Reveal Full Map");
     expect(settingsPanelSource).toContain("Restore Fog");
-    expect(hudSource).toContain("const mapRevealButtons = dom.hud.querySelectorAll(\"[data-map-reveal]\")");
-    expect(hudSource).toContain('type: "REQUEST_REVEAL_MAP"');
-    expect(hudSource).toContain('type: "SET_FOG_DISABLED"');
+    expect(hudSource).toContain("bindAdminSettingsControls(dom.hud,");
+    expect(adminBindingsSource).toContain("[data-map-reveal]");
+    expect(adminBindingsSource).toContain('type: "REQUEST_REVEAL_MAP"');
+    expect(adminBindingsSource).toContain('type: "SET_FOG_DISABLED"');
+  });
+
+  it("puts the Photo Mode toggle in the same card as map reveal, gated the same way", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+    const photoModeSource = sourceFor("../client-photo-mode/client-photo-mode.ts");
+
+    const revealCardStart = settingsPanelSource.indexOf("export const mapRevealCardHtml");
+    const revealCardEnd = settingsPanelSource.indexOf("const SETTINGS_NAV_ITEMS");
+    const revealCardBody = settingsPanelSource.slice(revealCardStart, revealCardEnd);
+
+    expect(revealCardBody).toContain("data-photo-mode-toggle");
+    expect(revealCardBody).toContain("Enter Photo Mode");
+    expect(revealCardBody).toContain("Exit Photo Mode");
+    // Same fog-admin availability check as the reveal button in this card, not a separate/looser gate.
+    expect(revealCardBody).toContain("if (!mapRevealAvailable(");
+
+    expect(hudSource).toContain("bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps))");
+    expect(photoModeSource).toContain("export const bindPhotoModeSettingsControls =");
+    expect(photoModeSource).toContain("mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })");
   });
 
   it("opens the rally link panel in place instead of a full page navigation", () => {

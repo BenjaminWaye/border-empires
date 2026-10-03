@@ -16,6 +16,7 @@ on:
 # push.
 permissions:
   contents: write
+  packages: write
 
 jobs:
   deploy-prod:
@@ -46,7 +47,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # PROD_BACKEND (repo variable) selects the deploy target: unset or "fly"
+      # keeps the Fly path; "hetzner" uses the VPS (and gates against an SSH
+      # clone of it). See docs/hetzner-migration-plan.md.
       - name: Install flyctl
+        if: vars.PROD_BACKEND != 'hetzner'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Build workspace internal packages
@@ -64,7 +69,18 @@ jobs:
       - name: Clone prod SQLite snapshot
         id: clone
         run: |
-          pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt
+          if [ "${PROD_BACKEND}" = "hetzner" ]; then
+            install -m 700 -d ~/.ssh
+            printf '%s\n' "${PROD_SSH_KEY}" > ~/.ssh/hetzner_deploy
+            chmod 600 ~/.ssh/hetzner_deploy
+            printf '%s\n' "${PROD_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+            pnpm ops:prod-shape:clone-snapshot \
+              --ssh "deploy@${PROD_SSH_HOST}" \
+              --ssh-opts "-i ${HOME}/.ssh/hetzner_deploy -o StrictHostKeyChecking=yes" \
+              | tee /tmp/clone-output.txt
+          else
+            pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt
+          fi
           LOCAL_DB="$(grep -oE 'local_db=.*' /tmp/clone-output.txt | tail -1 | sed 's/^local_db=//')"
           if [ -z "${LOCAL_DB}" ]; then
             echo "::error::could not find local_db= line in clone-snapshot output"
@@ -73,6 +89,10 @@ jobs:
           echo "local_db=${LOCAL_DB}" >> "$GITHUB_OUTPUT"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PROD_BACKEND: ${{ vars.PROD_BACKEND }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
 
       - name: Boot combined stack against the clone
         run: |
@@ -139,7 +159,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Deploy merged sim+gateway to Hetzner (production)
+        if: vars.PROD_BACKEND == 'hetzner'
+        uses: ./.github/actions/hetzner-deploy
+        with:
+          sha: ${{ github.event.workflow_run.head_sha }}
+          ssh-host: ${{ secrets.PROD_SSH_HOST }}
+          ssh-key: ${{ secrets.PROD_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+          platform: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
+
       - name: Deploy merged sim+gateway to Fly (production)
+        if: vars.PROD_BACKEND != 'hetzner'
         run: |
           flyctl deploy \
             --config fly.combined.toml \
@@ -162,8 +194,8 @@ jobs:
         run: node ./scripts/deploy-client-prod.mjs
         env:
           GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          VITE_GATEWAY_WS_URL: "wss://border-empires-combined.fly.dev/ws"
-          VITE_WS_URL: "wss://border-empires-combined.fly.dev/ws"
+          VITE_GATEWAY_WS_URL: "wss://api.borderempires.com/ws"
+          VITE_WS_URL: "wss://api.borderempires.com/ws"
           VITE_BACKEND_DEFAULT: "gateway"
           ALLOW_NON_MAIN_PROD_DEPLOY: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

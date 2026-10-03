@@ -11,6 +11,7 @@ export type RuntimeCommandDispatchHandlers = {
   normalizeLegacyBuildCommand: (command: CommandEnvelope) => CommandEnvelope;
   handleSetMusterCommand: (command: CommandEnvelope) => void;
   handleClearMusterCommand: (command: CommandEnvelope) => void;
+  handleUpgradeMusterCapCommand: (command: CommandEnvelope) => void;
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
@@ -46,6 +47,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
+  handleSetAutoSettlePrefsCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleCollectShardCommand: (command: CommandEnvelope) => void;
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
@@ -77,6 +79,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
   if ((command.type as string) === "SET_MUSTER") return handlers.handleSetMusterCommand(command);
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
+  if ((command.type as string) === "UPGRADE_MUSTER_CAP") return handlers.handleUpgradeMusterCapCommand(command);
   if ((command.type as string) === "WATCH_MUSTER") return handlers.handleWatchMusterCommand(command);
   if ((command.type as string) === "UNWATCH_MUSTER") return handlers.handleUnwatchMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
@@ -114,6 +117,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
+  if (command.type === "SET_AUTO_SETTLE_PREFS") return handlers.handleSetAutoSettlePrefsCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
   if (command.type === "SYNC_ALLIANCE") return handlers.handleSyncAllianceCommand(command);
@@ -145,6 +149,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   isLegacyBuildCommand(command) ||
   (command.type as string) === "SET_MUSTER" ||
   (command.type as string) === "CLEAR_MUSTER" ||
+  (command.type as string) === "UPGRADE_MUSTER_CAP" ||
   (command.type as string) === "WATCH_MUSTER" ||
   (command.type as string) === "UNWATCH_MUSTER" ||
   command.type === "CANCEL_CAPTURE" ||
@@ -182,6 +187,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
+  command.type === "SET_AUTO_SETTLE_PREFS" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE" ||

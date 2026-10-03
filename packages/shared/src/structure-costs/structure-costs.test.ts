@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -120,26 +120,30 @@ describe("FORT_TIER_LADDER", () => {
     expect(FORT_TIER_LADDER.FORT.manpower).toBe(structureBuildManpowerCost("FORT"));
   });
 
-  test("FORT is the base tier with 0 gold, 45 titanium, 300 manpower, 2.5x defense", () => {
+  // Fort-tier TITANIUM cost is a resource-slot occupation (structure-slots.ts:
+  // FORT/TITANIUM_BASTION/THUNDER_BASTION require 1/2/4 TITANIUM slots), not
+  // a stockpile spend, so `titanium` here stays 0 for every tier — see the
+  // comment above FORT_TIER_LADDER in structure-costs.ts.
+  test("FORT is the base tier with 0 gold, 0 titanium (slot-gated), 300 manpower, 2.5x defense", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(45);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(300);
     expect(tier.defenseMult).toBe(2.5);
   });
 
-  test("TITANIUM_BASTION costs 0 gold, 90 titanium, 480 manpower, 4x defense", () => {
+  test("TITANIUM_BASTION costs 0 gold, 0 titanium (slot-gated), 480 manpower, 4x defense", () => {
     const tier = FORT_TIER_LADDER.TITANIUM_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(90);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(480);
     expect(tier.defenseMult).toBe(4);
   });
 
-  test("THUNDER_BASTION costs 0 gold, 180 titanium, 960 manpower, 8x defense", () => {
+  test("THUNDER_BASTION costs 0 gold, 0 titanium (slot-gated), 960 manpower, 8x defense", () => {
     const tier = FORT_TIER_LADDER.THUNDER_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(180);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(960);
     expect(tier.defenseMult).toBe(6.5);
   });
@@ -342,5 +346,22 @@ describe("relayBeaconManpowerCost", () => {
       expect(cost).toBeGreaterThanOrEqual(previous);
       previous = cost;
     }
+  });
+});
+
+// D12: first-tier beacons keep paying manpower but are placed instantly; the
+// 6th+ follow time-follows-cost (100 MP = 1 hour).
+describe("relayBeaconBuildDurationMs", () => {
+  test("the first 5 beacons a player owns build instantly despite costing manpower", () => {
+    for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
+      expect(relayBeaconManpowerCost(owned)).toBeGreaterThan(0);
+      expect(relayBeaconBuildDurationMs(owned)).toBe(0);
+      expect(economicStructureBuildDurationMs("RELAY_BEACON", owned)).toBe(0);
+    }
+  });
+
+  test("the 6th+ beacon takes an hour (100 MP x 36s)", () => {
+    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(3_600_000);
+    expect(relayBeaconBuildDurationMs(20)).toBe(3_600_000);
   });
 });

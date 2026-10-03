@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 
@@ -28,6 +29,11 @@ const resolveBuildVersion = (): string => {
 export default defineConfig({
   build: {
     rollupOptions: {
+      // admin.html is a separate, tiny entry (admin-app/) so /admin never loads the game client.
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        admin: fileURLToPath(new URL("./admin.html", import.meta.url))
+      },
       output: {
         manualChunks: manualChunkFor
       }
@@ -38,7 +44,10 @@ export default defineConfig({
     // Shared package dist files reference Node's `process.env` directly.
     // Replace with a subset so browser builds don't throw.
     "process.env": JSON.stringify({
-      EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
+      EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true",
+      // Must match the server's WORLD_WIDTH/WORLD_HEIGHT (undefined -> default size).
+      WORLD_WIDTH: process.env.WORLD_WIDTH,
+      WORLD_HEIGHT: process.env.WORLD_HEIGHT
     })
   },
   test: {

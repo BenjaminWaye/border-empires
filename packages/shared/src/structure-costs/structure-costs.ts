@@ -41,8 +41,8 @@ const SIEGE_TOWER_MANPOWER = 120;
 const DREAD_TOWER_MANPOWER = 240;
 // D12/D23: the first 5 Relay Beacons a player OWNS come down pre-fab with
 // the landing party -- a discounted flat RELAY_BEACON_FIRST_TIER_MANPOWER,
-// not free (2026-09-25: changed from free/instant -- see the design
-// discussion in docs/replenishment-update-plan.md). From the 6th, a beacon
+// not free (2026-09-25), but placed instantly (2026-10-02: build time is
+// decoupled from cost for this tier, see relayBeaconBuildDurationMs). From the 6th, a beacon
 // costs a flat RELAY_BEACON_MANPOWER, same for every beacon beyond that (no
 // per-copy growth: compounding per-copy cost was judged the wrong lever for
 // "big manpower pool should matter for building", which the manpower-cost/
@@ -180,11 +180,21 @@ export type FortTierInfo = {
   defenseMult: number;
 };
 
+// The `titanium` field below is vestigial: fort-tier TITANIUM cost is
+// charged as a resource-slot occupation (structure-slots.ts,
+// FORT/TITANIUM_BASTION/THUNDER_BASTION each require 1/2/4 TITANIUM slots),
+// not a stockpile spend — stripRetiredStockpileCost strips this value out
+// before spendStrategicCost ever sees it (runtime-structure-command-handlers.ts).
+// It stays zeroed (not removed, to keep FortTierInfo's shape) so it can't
+// leak back in as a phantom stockpile requirement — it previously did,
+// gating chooseBestFortBuild's `resourceStock(player, "TITANIUM") <
+// fortTier.titanium` check on a stockpile that no longer accumulates,
+// silently blocking every AI fort build.
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: WOODEN_FORT_MANPOWER,      defenseMult: 1.35 },
-  FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: FORT_MANPOWER,             defenseMult: 2.5 },
-  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
+  FORT:             { variant: "FORT",             gold: 0,  titanium: 0,   manpower: FORT_MANPOWER,             defenseMult: 2.5 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 0,   manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 0,   manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
 };
 
 // Manpower an attacker risks losing hitting a SETTLED target, and the
@@ -240,6 +250,38 @@ export const nextFortTierForUpgrade = (
   if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.TITANIUM_BASTION;
   if (resolved === "TITANIUM_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   return null;
+};
+
+// The tier a fort is defending as right now: its own once active, or -- while
+// an upgrade is under construction -- the tier it's upgrading from, which keeps
+// standing until the new one completes. undefined = not defending.
+type DefendingFortInput =
+  | { status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined }
+  | null
+  | undefined;
+
+export const isFortDefending = (fort: DefendingFortInput): boolean =>
+  fort?.status === "active" || (fort?.status === "under_construction" && fort.upgradingFrom !== undefined);
+
+export const defendingFortVariant = (fort: DefendingFortInput): FortVariant | undefined => {
+  if (fort?.status === "active") return fort.variant;
+  if (fort?.status === "under_construction") return fort.upgradingFrom;
+  return undefined;
+};
+
+// Tier a fort-family BUILD_STRUCTURE resolves to, or null when it can't be
+// built here. A Palisade only goes on a tile with no fortification; any other
+// fort build on a Palisade tile goes straight to the best tier the player's
+// tech allows, exactly as on bare ground (the Palisade isn't a ladder rung
+// that gates the real forts).
+export const fortTierForBuild = (
+  structureType: string,
+  currentVariant: FortVariant | undefined,
+  has: (id: string) => boolean,
+): FortTierInfo | null => {
+  if (structureType === "WOODEN_FORT") return currentVariant ? null : FORT_TIER_LADDER.WOODEN_FORT;
+  if (!currentVariant || currentVariant === "WOODEN_FORT") return bestFortTierForTech(has);
+  return nextFortTierForUpgrade(currentVariant, has);
 };
 
 // ── Siege outpost tier ladder ──────────────────────────────────────
@@ -299,8 +341,8 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
 
 // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
 // TIER_COUNT beacons a player owns cost a discounted flat
-// RELAY_BEACON_FIRST_TIER_MANPOWER (2026-09-25: no longer free/instant --
-// see the design discussion above RELAY_BEACON_FIRST_TIER_COUNT); the 6th+
+// RELAY_BEACON_FIRST_TIER_MANPOWER (2026-09-25: no longer free; still instant
+// to build, see relayBeaconBuildDurationMs below); the 6th+
 // costs a flat RELAY_BEACON_MANPOWER, same for every beacon after that (no
 // growth per beacon either). `existingOwnedCount` here is the player's
 // current OWNED count (same convention structureBuildManpowerCostScaled's
@@ -332,8 +374,17 @@ export const MANPOWER_COST_MS_PER_POINT = 36_000;
 export const structureBuildDurationMsForManpowerCost = (manpowerCost: number): number =>
   Math.max(0, Math.round(manpowerCost * MANPOWER_COST_MS_PER_POINT));
 
+// D12: the first RELAY_BEACON_FIRST_TIER_COUNT beacons still pay their
+// discounted manpower (relayBeaconManpowerCost) but are placed instantly --
+// they "came down with the landing party". This is the one structure whose
+// build time does NOT follow its manpower cost; the 6th+ follow D9 as usual.
+export const relayBeaconBuildDurationMs = (existingOwnedCount: number): number =>
+  existingOwnedCount < RELAY_BEACON_FIRST_TIER_COUNT
+    ? 0
+    : structureBuildDurationMsForManpowerCost(relayBeaconManpowerCost(existingOwnedCount));
+
 export const economicStructureBuildDurationMs = (type: EconomicStructureType, existingCount = 0): number => {
-  if (type === "RELAY_BEACON") return structureBuildDurationMsForManpowerCost(relayBeaconManpowerCost(existingCount));
+  if (type === "RELAY_BEACON") return relayBeaconBuildDurationMs(existingCount);
   return structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type, existingCount));
 };
 

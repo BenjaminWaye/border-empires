@@ -1,9 +1,10 @@
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { hasWaterNeighbor, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
-import { chooseLegacySpawnPlacement } from "./spawn-placement/spawn-placement.js";
+import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
@@ -22,6 +23,8 @@ export type RuntimeRespawnContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  /** Invalidates terrain-derived caches after the AFC landing flattens mountains (same as REMOVE_MOUNTAIN). */
+  bumpTerrainEpoch: () => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
@@ -58,8 +61,14 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
   const tile = ctx.tiles.get(simulationTileKey(x, y));
   if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
   if (blockedTileKeys.has(simulationTileKey(x, y))) return false;
+  // AFC dry-footprint rule: a precomputed site (possibly from a roster built
+  // before this rule existed) next to water is skipped, not handed out.
+  if (hasWaterNeighbor(terrainLookup(ctx), x, y)) return false;
   return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE);
 };
+
+const terrainLookup = (ctx: RuntimeRespawnContext) => (x: number, y: number): DomainTileState["terrain"] | undefined =>
+  ctx.tiles.get(simulationTileKey(x, y))?.terrain;
 
 export const preparePlayerRespawnNotice = (
   ctx: RuntimeRespawnContext,
@@ -84,6 +93,12 @@ export const preparePlayerRespawnNotice = (
   });
 };
 
+export const consumeRespawnNotice = (lastRespawnNoticeByPlayerId: Map<string, PlayerRespawnNotice>, playerId: string): PlayerRespawnNotice | undefined => {
+  const notice = lastRespawnNoticeByPlayerId.get(playerId);
+  lastRespawnNoticeByPlayerId.delete(playerId);
+  return notice;
+};
+
 export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: string, spawnTileKey: string): void => {
   const pending = ctx.pendingRespawnNoticeByPlayerId.get(playerId);
   if (!pending) return;
@@ -105,10 +120,17 @@ export const finalizeRespawnNotice = (ctx: RuntimeRespawnContext, playerId: stri
   });
 };
 
+export type RallySpawnOutcome = {
+  spawn: { x: number; y: number };
+  distance: number;
+  withinRadius: boolean;
+};
+
 export const ensurePlayerHasSpawnTerritory = (
   ctx: RuntimeRespawnContext,
   playerId: string,
-  rallyAnchor?: { x: number; y: number }
+  rallyAnchor?: { x: number; y: number },
+  onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void
 ): boolean => {
   let player = ctx.players.get(playerId);
   if (!player) {
@@ -153,6 +175,7 @@ export const ensurePlayerHasSpawnTerritory = (
       hasNearbySettled: ctx.hasNearbySettled,
       hasNearbyTown: ctx.hasNearbyTown,
       hasNearbyFood: ctx.hasNearbyFood,
+      terrainAt: terrainLookup(ctx),
       ...(rallyAnchor ? { rallyAnchor } : {})
     });
   if (!spawn) return false;
@@ -171,11 +194,18 @@ export const ensurePlayerHasSpawnTerritory = (
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, spawnedTile);
   finalizeRespawnNotice(ctx, playerId, tileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(spawnedTile)] });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
+  if (rallyAnchor && onRallySpawnPlaced) {
+    // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
+    // the nearest site with no radius cap) and not only the legacy search's random fallback.
+    const distance = Math.max(Math.abs(spawn.x - rallyAnchor.x), Math.abs(spawn.y - rallyAnchor.y));
+    onRallySpawnPlaced({ spawn: { x: spawn.x, y: spawn.y }, distance, withinRadius: distance <= RALLY_SPAWN_RADIUS });
+  }
   return true;
 };
 
@@ -235,6 +265,7 @@ export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string)
     hasNearbySettled: ctx.hasNearbySettled,
     hasNearbyTown: ctx.hasNearbyTown,
     hasNearbyFood: ctx.hasNearbyFood,
+    terrainAt: terrainLookup(ctx),
     rallyAnchor: anchor
   });
   if (!spawn) return false;
@@ -248,9 +279,10 @@ export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string)
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const commandId = `afc-migration:${playerId}:${ctx.now()}`;
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, afcTile, commandId);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(afcTile)] });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [afcTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
   ctx.runtimeLogInfo(
     { type: "afc_migration_granted", playerId, commandId, tileKey, anchorTileKey: anchorKey },
@@ -273,7 +305,8 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
       coastalLandKeys: ctx.coastalLandKeys(),
       hasNearbySettled: ctx.hasNearbySettled,
       hasNearbyTown: ctx.hasNearbyTown,
-      hasNearbyFood: ctx.hasNearbyFood
+      hasNearbyFood: ctx.hasNearbyFood,
+      terrainAt: terrainLookup(ctx)
     });
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
@@ -290,10 +323,11 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [ctx.tileDeltaFromState(respawnedTile)] });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
   ctx.runtimeLogInfo(
     {
@@ -333,7 +367,8 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
       coastalLandKeys: ctx.coastalLandKeys(),
       hasNearbySettled: ctx.hasNearbySettled,
       hasNearbyTown: ctx.hasNearbyTown,
-      hasNearbyFood: ctx.hasNearbyFood
+      hasNearbyFood: ctx.hasNearbyFood,
+      terrainAt: terrainLookup(ctx)
     });
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
@@ -350,6 +385,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
@@ -357,7 +393,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     eventType: "TILE_DELTA_BATCH",
     commandId: respawnCommandId,
     playerId,
-    tileDeltas: [ctx.tileDeltaFromState(respawnedTile)]
+    tileDeltas: [respawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile))
   });
   if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
 };

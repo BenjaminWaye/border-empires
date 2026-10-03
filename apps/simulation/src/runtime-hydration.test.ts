@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { landBiomeAt, setWorldSeed } from "@border-empires/shared";
+import { afterEach, describe, it, expect } from "vitest";
+import {
+  DEFAULT_AUTO_SETTLE_PREFS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  clearForestAroundAfcTile,
+  isForestTileAt,
+  landBiomeAt,
+  resetForestClearings,
+  setWorldSeed
+} from "@border-empires/shared";
 import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
@@ -159,6 +168,14 @@ describe("createPlayersFromRecoveredState", () => {
     expect(player?.truces).toEqual(new Set(["p3"]));
   });
 
+  it("round-trips the per-category auto-settle prefs, and fills legacy snapshots with DEFAULT prefs once at the boundary", () => {
+    const answered = { answered: false, towns: false, food: false, resources: false };
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", autoSettle: answered }, { id: "legacy" }] };
+    const result = createPlayersFromRecoveredState(state);
+    expect(result?.get("p1")?.autoSettle).toEqual(answered);
+    expect(result?.get("legacy")?.autoSettle).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
+  });
+
   it("defaults to an empty truces set when the snapshot has none", () => {
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1" }] };
     const result = createPlayersFromRecoveredState(state);
@@ -216,5 +233,34 @@ describe("createDocksFromInitialState", () => {
     const state: RecoveredSimulationState = { ...minimalState([]), docks: [{ dockId: "a", tileKey: "1,1", pairedDockId: "b" }] };
     const result = createDocksFromInitialState(state, []);
     expect(result[0]?.routeWaypointsByLinkedDockId).toBeUndefined();
+  });
+});
+
+// AFC forest clearings are never persisted: every runtime build re-derives
+// them from the (permanent) tile.afc, starting from a clean slate.
+const findForestTile = (): { x: number; y: number } => {
+  for (let y = 20; y < WORLD_HEIGHT - 20; y += 1) {
+    for (let x = 1; x < WORLD_WIDTH - 1; x += 1) if (isForestTileAt(x, y)) return { x, y };
+  }
+  throw new Error("no forest tile in this world");
+};
+
+describe("createTilesFromInitialState AFC forest clearings", () => {
+  afterEach(() => resetForestClearings());
+
+  it("re-derives the cleared footprint from a hydrated AFC tile", () => {
+    setWorldSeed(77, "continents", 1);
+    const forest = findForestTile();
+    const afcTile = { x: forest.x + 1, y: forest.y, terrain: "LAND" as const, ownerId: "p1", afc: { ownerId: "p1", status: "active" as const, activatedAt: 1 } };
+    createTilesFromInitialState({ tiles: [afcTile], activeLocks: [] }, new Map(), false);
+    expect(isForestTileAt(forest.x, forest.y)).toBe(false);
+  });
+
+  it("drops clearings left over from a previous build that no AFC justifies", () => {
+    setWorldSeed(77, "continents", 1);
+    const forest = findForestTile();
+    clearForestAroundAfcTile(forest.x, forest.y);
+    createTilesFromInitialState({ tiles: [{ x: forest.x, y: forest.y, terrain: "LAND" }], activeLocks: [] }, new Map(), false);
+    expect(isForestTileAt(forest.x, forest.y)).toBe(true);
   });
 });

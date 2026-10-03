@@ -1,3 +1,4 @@
+import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 /**
  * Perf gate for the incremental upkeep cache.
  *
@@ -24,6 +25,7 @@ const makePlayer = (): DomainPlayer => ({
   manpower: 0,
   techIds: new Set<string>(),
   allies: new Set<string>(),
+  autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS },
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   strategicResources: {}
 });

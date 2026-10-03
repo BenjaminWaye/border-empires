@@ -701,7 +701,7 @@ the dashboard behavior, log caps, persistence, and client contracts remain
 unchanged. Do not respond by disabling the existing hard caps or extending
 retention.
 
-#### Phase 4b — zero-cash retention boundary (planned)
+#### Phase 4b — zero-cash restart-safe calibration ✅ shipped (PR #2138)
 
 The deployed rewrite stack exposes Prometheus text but does not configure a
 retained collector. Therefore the bounded in-process quantile arrays and
@@ -709,36 +709,41 @@ counters reset on every process restart, including a normal deploy. No-cost
 operation must not pretend that a scrape endpoint alone provides a seven-day
 window.
 
-The smallest zero-cash follow-up is a gateway-owned
+The zero-cash implementation is a gateway-owned
 `activity-calibration-store/` SQLite module, constructed beside the existing
 gateway stores and wired in `gateway-app.ts`. It owns one singleton JSON row
 containing only the fixed calibration numbers already held by
 `metrics/metrics.ts` plus the scalar truncation counter. It flushes from the
 existing one-second gateway metrics tick no more than once every 15 seconds;
-it must not write on a dashboard request, retain payload/card text, player
+it does not write on a dashboard request, retain payload/card text, player
 ids, coordinates, raw activity rows, or extend a snapshot.
 
-The simulation counterpart belongs in `season-activity-persistence/` and
-`season-summary-store.ts`, as one scalar-only row on the existing summary
-cadence. Its persisted cap-hit value is a carry total plus the current
-`personalImpactLogGauge().capHits` delta; restoring only the current gauge
-would be overwritten by the next metrics tick and would silently lose the
-pre-restart count. It retains only the three current log-entry gauges and
-that carried cap-hit total. Both producer rows must be restored before their
-first sampling tick, be independently bounded to one row, and fail open to
-current in-memory metrics if their optional schema/storage operation fails.
-Expose retained values with explicit `_restart_safe` metric names rather than
-silently changing the meaning of existing process-lifetime series.
+**Delivered progress.** Gateway restoration validates every persisted scalar,
+rejects corrupt rows without preventing startup, keeps each sample series at
+its existing fixed limit, and performs its first normal write only after the
+15-second cadence. Closing a healthy gateway performs one final best-effort
+flush. This is calibration continuity only: it neither changes materiality
+thresholds nor changes the existing 24-hour activity-retention policy.
 
-Add `activity-calibration-store.test.ts` for SQLite/in-memory round trips,
-corrupt rows, and 15-second coalescing; add a restart test beside
-`metrics/metrics.test.ts`; and extend
-`season-activity-persistence.test.ts` plus
-`simulation-service-activity-log-metrics.test.ts` for the scalar cap-hit
-carry. Roll back by disabling the optional store wiring; never block the
-gateway, simulation, or dashboard on calibration persistence. This remains
-operational continuity only: a seven-day threshold change still requires a
-retained collector or a manually captured seven-day evidence set.
+The simulation counterpart uses the existing bounded `season_activity_logs`
+row rather than introducing another scalar table: `personalImpactCapHits` is
+saved beside the already-persisted personal-impact tail and restored into the
+log’s cap-hit gauge before the first metrics tick. This preserves the one
+counter that otherwise reset while keeping the three entry-count gauges
+derived from their restored bounded logs. Gateway and simulation metrics now
+represent a bounded restart-safe calibration window, not an unbounded
+process-lifetime total; this is documented here instead of silently implying
+long-term retention. Both paths fail open to current in-memory metrics if
+their optional persistence operation fails.
+
+Regression coverage in `activity-calibration-store.test.ts` proves SQLite
+round trips and corrupt-row rejection; `metrics/metrics.test.ts` proves
+restart restoration stays at the fixed sample bound; and
+`personal-impact-log.test.ts` proves cap-hit carry restoration without extra
+events. Roll back by disabling the optional gateway store wiring; never block
+the gateway, simulation, or dashboard on calibration persistence. This
+remains operational continuity only: a seven-day threshold change still
+requires a retained collector or a manually captured seven-day evidence set.
 
 ## 7. Tests and release gates
 

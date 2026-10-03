@@ -1,16 +1,18 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogSeen, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
+import { type GuideCompletionState, changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogSeen, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
 import { activityCardCoordinates, activityCardText, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardScroll, syncActivityDashboardScroll } from "./client-activity-dashboard-scroll.js";
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
 
 type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
     "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "changelog" | "authSessionReady" | "profileSetupRequired"
-  >;
+  > &
+    GuideCompletionState;
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   renderHud: () => void;
@@ -37,11 +39,17 @@ export const activityDashboardUnreadCount = (state: Pick<ClientState, "activityD
 export const toggleActivityDashboard = (deps: ActivityDashboardDeps): void => {
   const { state } = deps;
   state.activityDashboard.open = !state.activityDashboard.open;
+  if (!state.activityDashboard.open) resetActivityDashboardView(state);
   if (state.activityDashboard.open) {
     requestPersonalActivity(state, deps);
     requestWorldPulse(state, deps);
   }
   deps.renderHud();
+};
+
+const resetActivityDashboardView = (state: Pick<ClientState, "activityDashboard">): void => {
+  resetActivityDashboardScroll(state.activityDashboard);
+  state.activityDashboard.updatesBaselineSeenAt = undefined;
 };
 
 const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string, playerNames: (id: string) => string | undefined): string => {
@@ -62,7 +70,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
   const canShow = state.activityDashboard.open;
   overlayEl.style.display = canShow ? "grid" : "none";
   if (!canShow) {
-    if (overlayEl.innerHTML) overlayEl.innerHTML = "";
+    clearActivityDashboard(overlayEl);
+    resetActivityDashboardView(state);
     return;
   }
 
@@ -78,12 +87,17 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
           ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id))).join("")}
         `;
-  const updates = unseenClientChangelogEntries(state.changelog.seenAt);
-  const updateEntries = updates.length > 0 ? updates : sortedClientChangelogEntries().slice(0, 10);
-  const updatesBodyHtml = updateEntries.length > 0
-    ? `<p class="activity-dashboard-updates-summary">${updates.length > 0 ? `${updates.length} new update${updates.length === 1 ? "" : "s"}.` : "Recent updates."}</p><div class="changelog-entry-list">${changelogBodyHtml(updateEntries)}</div>`
-    : '<div class="activity-dashboard-empty-state">No release notes yet.</div>';
   const activeView = state.activityDashboard.activeView;
+  const updates = unseenClientChangelogEntries(state.changelog.seenAt);
+  // Viewing Updates marks them seen; pin the list to what was unseen when the tab opened so it
+  // does not collapse to "recent 10" (and jump) on the next render.
+  if (activeView !== "UPDATES") state.activityDashboard.updatesBaselineSeenAt = undefined;
+  else state.activityDashboard.updatesBaselineSeenAt ??= state.changelog.seenAt;
+  const shownUpdates = activeView === "UPDATES" ? unseenClientChangelogEntries(state.activityDashboard.updatesBaselineSeenAt ?? state.changelog.seenAt) : updates;
+  const updateEntries = shownUpdates.length > 0 ? shownUpdates : sortedClientChangelogEntries().slice(0, 10);
+  const updatesBodyHtml = updateEntries.length > 0
+    ? `<p class="activity-dashboard-updates-summary">${shownUpdates.length > 0 ? `${shownUpdates.length} new update${shownUpdates.length === 1 ? "" : "s"}.` : "Recent updates."}</p><div class="changelog-entry-list">${changelogBodyHtml(updateEntries)}</div>`
+    : '<div class="activity-dashboard-empty-state">No release notes yet.</div>';
   const bodyHtml = activeView === "YOURS"
     ? yoursBodyHtml
     : activeView === "WORLD_PULSE"
@@ -94,7 +108,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         })
       : updatesBodyHtml;
 
-  overlayEl.innerHTML = `
+  paintActivityDashboard(overlayEl, `
     <div class="activity-dashboard-backdrop" id="activity-dashboard-backdrop"></div>
     <div class="activity-dashboard-modal card" role="dialog" aria-modal="true" aria-labelledby="activity-dashboard-title">
       <button id="activity-dashboard-close" class="activity-dashboard-close-btn" type="button" aria-label="Close activity">×</button>
@@ -109,12 +123,14 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         <div id="activity-dashboard-view" role="tabpanel">${bodyHtml}</div>
       </div>
     </div>
-  `;
+  `);
+  syncActivityDashboardScroll(overlayEl, state.activityDashboard);
 
   const closeBtn = overlayEl.querySelector("#activity-dashboard-close") as HTMLButtonElement | null;
   const backdropBtn = overlayEl.querySelector("#activity-dashboard-backdrop") as HTMLDivElement | null;
   const close = (): void => {
     state.activityDashboard.open = false;
+    resetActivityDashboardView(state);
     deps.renderHud();
   };
   if (closeBtn) closeBtn.onclick = close;
@@ -125,8 +141,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
       const view = tab.dataset.activityDashboardView;
       if (view !== "YOURS" && view !== "WORLD_PULSE" && view !== "UPDATES") return;
       state.activityDashboard.activeView = view;
+      resetActivityDashboardScroll(state.activityDashboard); // a newly opened tab starts at the top
       if (view === "WORLD_PULSE") requestWorldPulse(state, deps);
-      if (view === "UPDATES") markClientChangelogSeen(state, latestClientChangelogTimestamp(), deps.persistSeenAt);
       deps.renderHud();
     };
   });

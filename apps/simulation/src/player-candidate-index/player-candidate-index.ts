@@ -87,8 +87,7 @@ const isFortAttackTarget = (tile: DomainTileState, ownerId: string): boolean =>
   !!tile.ownerId &&
   tile.ownerId !== ownerId &&
   tile.ownershipState === "FRONTIER" &&
-  !tile.fort &&
-  (tile.economicStructure?.type !== "WOODEN_FORT" || tile.economicStructure.status !== "active");
+  !tile.fort;
 
 /**
  * Build the per-radius claim candidate list for an anchor at (ax, ay).

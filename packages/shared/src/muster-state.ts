@@ -1,8 +1,9 @@
 // Wire/domain shape of a tile's muster flag, shared by game-domain (the
 // authoritative tile schema), the simulation (tickMuster/maybeAdvanceFire/
 // maybeMarchFire), and the client (HUD panel, tile menu, on-map alert) —
-// extracted out to one place so the three copies of this shape can't
-// silently diverge.
+// extracted out to one place so the three copies of this shape (which had
+// already drifted: the wire type here was missing capLevel that game-domain
+// and the client both carried) can't silently diverge again.
 export type MusterState = {
   ownerId: string;
   amount: number;
@@ -11,6 +12,9 @@ export type MusterState = {
   targetY?: number;
   setAt?: number;
   updatedAt: number;
+  // Number of "Expand Capacity" upgrades purchased on this flag — see
+  // musterFlagCap (shared/config.ts).
+  capLevel?: number;
   // ADVANCE/MARCH auto-fire status for UI feedback (see syncMusterStatus in
   // apps/simulation/src/runtime-muster-tick/muster-auto-fire-shared.ts).
   // true while an attack this flag funded is in flight; absent/undefined for
@@ -40,6 +44,12 @@ export type MusterState = {
   // funding. Lets the client say "Not enough manpower for the nearest
   // target" instead of the generic cooldown text.
   insufficientManpower?: boolean | undefined;
+  // The nearest enemy tile this ADVANCE flag won't save up for: its required
+  // manpower exceeds this flag's cap (musterFlagCap, a high-tier fort
+  // typically) and more than the flag holds, so waiting could never fund it. The
+  // flag skips it and keeps attacking what it can afford; the client uses
+  // this to tell the player which tile is being skipped and that Expand Capacity would let the flag take it.
+  unfundableTarget?: { x: number; y: number; required: number } | undefined;
   // Manpower/min this flag is currently accruing at, computed by tickMuster
   // (MUSTER_BASE_RATE_PER_MIN / activeMusterCount * depotMult *
   // wonderMusterRateMult, quantized to ~3 decimals). Lets the client
@@ -56,4 +66,10 @@ export type MusterState = {
   // manual attack now carries. Absent means "just the floor", identical to
   // today's behavior.
   commitManpower?: number;
+  // ADVANCE only: true once the flag has had something to work on (an attack
+  // launched, or a hostile tile in range it is closing on). A human ADVANCE flag
+  // that is `clearing` and then finds nothing hostile left in range reports
+  // "area cleared" and returns to HOLD; one that never engaged keeps waiting
+  // at a quiet front, as ADVANCE always has. See muster-advance-fire.ts.
+  clearing?: boolean | undefined;
 };

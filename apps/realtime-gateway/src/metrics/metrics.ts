@@ -24,6 +24,14 @@ type QuantileSample = {
   p99: number;
 };
 
+export type GatewayActivityCalibrationState = {
+  activityTimelinePayloadBytes: number[];
+  activityTimelineCardCount: number[];
+  activityTimelineTruncatedTotal: number;
+  activityApiPayloadBytes: number[];
+  worldPulsePayloadBytes: number[];
+};
+
 export type GatewaySnapshotMetricSample = {
   trigger: string;
   playerId: string;
@@ -63,12 +71,19 @@ export type GatewayMetricsSnapshot = {
   revealActiveStreams: number;
   revealChunksSent: number;
   revealCacheEntries: number;
+  reachReplayEntries: number;
+  reachReplaySentTotal: number;
+  reachReplayEvictionsTotal: number;
   gatewaySqliteRetryTotal: number;
   colorCollisionRejectedTotal: number;
+  guestDiplomacyBlockedTotal: number;
+  displayNameCollisionRejectedTotal: number;
+  guestProfileProvisionedTotal: number;
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
   authVerificationRejectedTotal: number;
+  adminIdTokenRejectedTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
@@ -107,12 +122,19 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let revealActiveStreams = 0;
   let revealChunksSent = 0;
   let revealCacheEntries = 0;
+  let reachReplayEntries = 0;
+  let reachReplaySentTotal = 0;
+  let reachReplayEvictionsTotal = 0;
   let gatewaySqliteRetryTotal = 0;
   let colorCollisionRejectedTotal = 0;
+  let guestDiplomacyBlockedTotal = 0;
+  let displayNameCollisionRejectedTotal = 0;
+  let guestProfileProvisionedTotal = 0;
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
   let authVerificationRejectedTotal = 0;
+  let adminIdTokenRejectedTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
@@ -129,6 +151,26 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     p95: quantile(series, 0.95),
     p99: quantile(series, 0.99)
   });
+
+  const exportActivityCalibrationState = (): GatewayActivityCalibrationState => ({
+    activityTimelinePayloadBytes: [...activityTimelinePayloadBytes],
+    activityTimelineCardCount: [...activityTimelineCardCount],
+    activityTimelineTruncatedTotal,
+    activityApiPayloadBytes: [...activityApiPayloadBytes],
+    worldPulsePayloadBytes: [...worldPulsePayloadBytes]
+  });
+
+  const restoreSeries = (target: number[], restored: readonly number[]): void => {
+    target.splice(0, target.length, ...restored.slice(-limit).map(clampMetric));
+  };
+
+  const restoreActivityCalibrationState = (state: GatewayActivityCalibrationState): void => {
+    restoreSeries(activityTimelinePayloadBytes, state.activityTimelinePayloadBytes);
+    restoreSeries(activityTimelineCardCount, state.activityTimelineCardCount);
+    activityTimelineTruncatedTotal = clampMetric(state.activityTimelineTruncatedTotal);
+    restoreSeries(activityApiPayloadBytes, state.activityApiPayloadBytes);
+    restoreSeries(worldPulsePayloadBytes, state.worldPulsePayloadBytes);
+  };
 
   const snapshot = (): GatewayMetricsSnapshot => ({
     gatewayEventLoopMaxMs,
@@ -154,12 +196,19 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     revealActiveStreams,
     revealChunksSent,
     revealCacheEntries,
+    reachReplayEntries,
+    reachReplaySentTotal,
+    reachReplayEvictionsTotal,
     gatewaySqliteRetryTotal,
     colorCollisionRejectedTotal,
+    guestDiplomacyBlockedTotal,
+    displayNameCollisionRejectedTotal,
+    guestProfileProvisionedTotal,
     loginQueuedTotal,
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
     authVerificationRejectedTotal,
+    adminIdTokenRejectedTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
     tileDetailSelfHealTotal,
@@ -230,11 +279,29 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     setRevealCacheEntries(value: number): void {
       revealCacheEntries = Math.max(0, Math.floor(clampMetric(value)));
     },
+    setReachReplayEntries(value: number): void {
+      reachReplayEntries = Math.max(0, Math.floor(clampMetric(value)));
+    },
+    incrementReachReplaySentTotal(count = 1): void {
+      reachReplaySentTotal += Math.max(0, Math.floor(count));
+    },
+    incrementReachReplayEvictionsTotal(count = 1): void {
+      reachReplayEvictionsTotal += Math.max(0, Math.floor(count));
+    },
     incrementGatewaySqliteRetryTotal(count = 1): void {
       gatewaySqliteRetryTotal += Math.max(0, Math.floor(count));
     },
     incrementColorCollisionRejectedTotal(count = 1): void {
       colorCollisionRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementGuestDiplomacyBlockedTotal(): void {
+      guestDiplomacyBlockedTotal += 1;
+    },
+    incrementDisplayNameCollisionRejectedTotal(): void {
+      displayNameCollisionRejectedTotal += 1;
+    },
+    incrementGuestProfileProvisionedTotal(): void {
+      guestProfileProvisionedTotal += 1;
     },
     incrementLoginQueuedTotal(count = 1): void {
       loginQueuedTotal += Math.max(0, Math.floor(count));
@@ -247,6 +314,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementAuthVerificationRejectedTotal(count = 1): void {
       authVerificationRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    // Bearer tokens presented to a read-only /admin endpoint that were not a
+    // verified ADMIN_EMAIL Google sign-in (admin-firebase-auth.ts).
+    incrementAdminIdTokenRejectedTotal(count = 1): void {
+      adminIdTokenRejectedTotal += Math.max(0, Math.floor(count));
     },
     incrementSimulationSubmitTimeoutTolerated(count = 1): void {
       simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
@@ -280,6 +352,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     observeWorldPulsePayloadBytes(value: number): void {
       appendSample(worldPulsePayloadBytes, value, limit);
     },
+    exportActivityCalibrationState,
+    restoreActivityCalibrationState,
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
@@ -348,10 +422,22 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_reveal_chunks_sent ${formatMetricValue(sample.revealChunksSent)}`,
         "# TYPE gateway_reveal_cache_entries gauge",
         `gateway_reveal_cache_entries ${formatMetricValue(sample.revealCacheEntries)}`,
+        "# TYPE gateway_reach_replay_entries gauge",
+        `gateway_reach_replay_entries ${formatMetricValue(sample.reachReplayEntries)}`,
+        "# TYPE gateway_reach_replay_sent_total counter",
+        `gateway_reach_replay_sent_total ${formatMetricValue(sample.reachReplaySentTotal)}`,
+        "# TYPE gateway_reach_replay_evictions_total counter",
+        `gateway_reach_replay_evictions_total ${formatMetricValue(sample.reachReplayEvictionsTotal)}`,
         "# TYPE gateway_sqlite_retry_total counter",
         `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
         "# TYPE gateway_color_collision_rejected_total counter",
         `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`,
+        "# TYPE gateway_guest_diplomacy_blocked_total counter",
+        `gateway_guest_diplomacy_blocked_total ${formatMetricValue(sample.guestDiplomacyBlockedTotal)}`,
+        "# TYPE gateway_display_name_collision_rejected_total counter",
+        `gateway_display_name_collision_rejected_total ${formatMetricValue(sample.displayNameCollisionRejectedTotal)}`,
+        "# TYPE gateway_guest_profile_provisioned_total counter",
+        `gateway_guest_profile_provisioned_total ${formatMetricValue(sample.guestProfileProvisionedTotal)}`,
         "# TYPE gateway_login_queued_total counter",
         `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
         "# TYPE gateway_login_queue_rejected_total counter",
@@ -360,6 +446,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_login_abandoned_before_attach_total ${formatMetricValue(sample.loginAbandonedBeforeAttachTotal)}`,
         "# TYPE gateway_auth_verification_rejected_total counter",
         `gateway_auth_verification_rejected_total ${formatMetricValue(sample.authVerificationRejectedTotal)}`,
+        "# TYPE gateway_admin_id_token_rejected_total counter",
+        `gateway_admin_id_token_rejected_total ${formatMetricValue(sample.adminIdTokenRejectedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",

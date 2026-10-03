@@ -104,8 +104,8 @@ export const createClientSocketSetup = (
   const gatewayDefault = isLocalHost
     ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3101/ws`
     : isStagingHost
-      ? "wss://border-empires-combined-staging.fly.dev/ws"
-      : "wss://border-empires-combined.fly.dev/ws";
+      ? "wss://api-staging.borderempires.com/ws"
+      : "wss://api.borderempires.com/ws";
   const gatewayWsUrl =
     (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault;
 

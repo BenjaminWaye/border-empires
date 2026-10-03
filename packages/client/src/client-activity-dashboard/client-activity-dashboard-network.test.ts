@@ -19,10 +19,13 @@ const makeState = () => ({
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
-    autoOpenedThisSession: false
+    autoOpenedThisSession: false,
+    scrollTopByView: {},
+    updatesBaselineSeenAt: undefined as number | undefined
   },
   activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" },
   changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },
+  guide: { completed: true },
   authSessionReady: true,
   profileSetupRequired: false
 });
@@ -76,6 +79,19 @@ describe("applyPersonalActivityTimelineMessage", () => {
     applyPersonalActivityTimelineMessage({ timeline }, state, { sendGameMessage: vi.fn(), renderHud: vi.fn() });
     expect(state.activityDashboard.open).toBe(true);
     expect(state.activityDashboard.autoOpenedThisSession).toBe(true);
+  });
+
+  it("never auto-opens for a new player who hasn't finished the tutorial (activity or release notes)", () => {
+    const state = makeState();
+    state.guide.completed = false;
+    state.changelog.seenAt = 0;
+    const timeline = timelineWith({ cards: [{ kind: "COMBAT", occurredAt: 900 }] });
+    const renderHud = vi.fn();
+    applyPersonalActivityTimelineMessage({ timeline }, state, { sendGameMessage: vi.fn(), renderHud });
+    expect(state.activityDashboard.open).toBe(false);
+    expect(state.activityDashboard.autoOpenedThisSession).toBe(false);
+    expect(state.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
+    expect(renderHud).toHaveBeenCalled();
   });
 
   it("does not auto-open a second time in the same session, even with newer activity", () => {

@@ -3,6 +3,8 @@ import {
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  musterMarchDistanceTiles,
+  musterMarchTooFarAdvice,
   OBSERVATORY_BUILD_MS,
   RELAY_BEACON_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
@@ -11,7 +13,6 @@ import {
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
-  WOODEN_FORT_BUILD_MS,
   type BuildableStructureType,
   type FortVariant,
   type SiegeOutpostVariant
@@ -23,6 +24,7 @@ import {
   parseStructureTilePayload
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { standingFortAfterLostUpgrade } from "./fort-upgrade-standing.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -177,6 +179,13 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
       return;
     }
+    // The client checks this first and shows the same text as plain advice, so
+    // this rejection is the backstop for a stale/modified client.
+    const tooFarAdvice = musterMarchTooFarAdvice(musterMarchDistanceTiles(payload.x, payload.y, payload.targetX!, payload.targetY!));
+    if (tooFarAdvice) {
+      rejectCommand(context, command, "MUSTER_MARCH_TOO_FAR", tooFarAdvice);
+      return;
+    }
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
@@ -285,7 +294,7 @@ export function handleCancelFortBuildCommand(context: RuntimeStructureCommandCon
     return;
   }
   applyStructureCancelRefund(context, actor, fortCancelRefund(actor, target.fort.variant));
-  const updatedTile: DomainTileState = { ...target, fort: undefined };
+  const updatedTile: DomainTileState = { ...target, fort: standingFortAfterLostUpgrade(target.fort) };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);
@@ -327,7 +336,7 @@ function cancelStructureActionTile(
     return {
       ...target,
       fort: target.fort.status === "under_construction"
-        ? undefined
+        ? standingFortAfterLostUpgrade(target.fort)
         : { ...target.fort, status: target.fort.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined }
     };
   }
@@ -428,7 +437,7 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
-    removeDurationMs = structure.type === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
+    removeDurationMs = structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
     updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
   }
   context.replaceTileState(targetKey, updatedTile);

@@ -12,8 +12,7 @@ declare const process: {
 // texture is. Chosen to keep roughly the same total tile count as the old
 // 450x450 square (202,500) so map size/performance/gameplay pacing don't
 // shift as a side effect of the aspect-ratio fix.
-export const WORLD_WIDTH = 640;
-export const WORLD_HEIGHT = 320;
+export { DEFAULT_WORLD_HEIGHT, DEFAULT_WORLD_WIDTH, WATCHTOWERS_ENABLED, WORLD_HEIGHT, WORLD_WIDTH } from "./world-size.js";
 export const CHUNK_SIZE = 64;
 export const PLAYER_BASE_VISION = 1;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,
@@ -317,6 +316,25 @@ export const SEASON_LENGTH_DAYS = 30;
 
 export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
 export const BARBARIAN_MULTIPLY_THRESHOLD = 5;
+// Hard cap on barbarian territory. An uncapped barbarian on staging grew to
+// 941 tiles; the sim main thread re-exports the barbarian's full planner view
+// (O(territory)) on every ownership change, which starved gateway logins. At or
+// above the cap the barbarian stops multiplying and sheds tiles nobody can see.
+export const MAX_BARBARIAN_TILES = 100;
+// A barbarian tile rests this long after its action SETTLES (combat resolved,
+// claim resolved, or command rejected) before it may act again. Counted from
+// settle, not issue: combat locks for COMBAT_LOCK_MS, so counting from issue
+// leaves no rest at all between fights.
+export const BARBARIAN_TILE_REST_MS = 15_000;
+// Faction-wide budget of barbarian ATTACKS started per rolling minute (all barb
+// tiles on the map combined, not per tile). Attacks are the expensive action
+// (~15ms main thread each, mostly the encirclement flood-fill); walks are cheap
+// (~0.5ms) and unbudgeted. A tile that wants to attack with the budget spent
+// walks instead, so it still visibly moves.
+export const BARBARIAN_ATTACKS_PER_MINUTE = 12;
+// Safety net if no settle event ever arrives for an in-flight barb command.
+// Longer than COMBAT_LOCK_MS.
+export const BARBARIAN_INFLIGHT_TIMEOUT_MS = 45_000;
 export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
 export const BARBARIAN_DEFENSE_POWER = 0.67;
@@ -336,11 +354,7 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// D20 (docs/replenishment-update-plan.md): a flag has no enforced cap of its
-// own any more (removed 2026-09-26, with "Expand Capacity"/UPGRADE_MUSTER_CAP)
-// -- it fills until the player's manpower pool runs dry. The plan's stated
-// "or the size the player chose on the sheet" alternative ceiling depends on
-// the drag-arrow gesture (F), not yet built.
+// Muster flag cap (musterFlagCap, "Expand Capacity") lives in muster-config.ts.
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as
@@ -460,6 +474,12 @@ export const INTEGRITY_ECON_MIN_MULT = 0.85;
 export const INTEGRITY_ECON_MAX_MULT = 1.15;
 export const INTEGRITY_GROWTH_MIN_MULT = 0.9;
 export const INTEGRITY_GROWTH_MAX_MULT = 1.1;
+// New-empire grace: integrity can't drop below INTEGRITY_GRACE_FLOOR until the
+// player has settled INTEGRITY_GRACE_TILES tiles. Past that the floor fades
+// linearly to zero over INTEGRITY_GRACE_FADE_TILES more tiles (no cliff).
+export const INTEGRITY_GRACE_TILES = 50;
+export const INTEGRITY_GRACE_FLOOR = 0.9;
+export const INTEGRITY_GRACE_FADE_TILES = 50;
 
 // --- Utility AI policy ---
 export const AI_UTILITY_POLICY_ENABLED = process.env["AI_UTILITY_POLICY_ENABLED"] === "true";

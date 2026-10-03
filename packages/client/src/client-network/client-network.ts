@@ -21,6 +21,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
@@ -59,7 +60,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js"; import { applyGuestRejection } from "../client-guest-play/client-guest-play.js"; import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -399,12 +400,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     return true;
   };
 
-  const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
-
-  const clearLateFrontierAck = (tileKey: string): void => {
-    if (!tileKey) return;
-    state.frontierLateAckUntilByTarget.delete(tileKey);
-  };
+  const { clearLateFrontierAck, rebindLateFrontierAck, matchesCurrentOrLateFrontierAck } = createLateFrontierAckHandlers({ state, keyFor });
 
   const currentActionCanResolveFromFrontierOwnership = (targetKey: string): boolean => {
     if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
@@ -417,31 +413,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (state.actionCurrent.actionType !== "ATTACK") return false;
     if (!state.capture || keyFor(state.capture.target.x, state.capture.target.y) !== targetKey) return false;
     return Date.now() >= state.capture.resolvesAt;
-  };
-
-  const rebindLateFrontierAck = (
-    target: { x: number; y: number },
-    source: "ACTION_ACCEPTED" | "COMBAT_START",
-    actionType?: "EXPAND" | "ATTACK"
-  ): void => {
-    const targetKey = keyFor(target.x, target.y);
-    const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
-    if (!lateFrontierAckPending(targetKey)) return;
-    state.actionInFlight = true;
-    state.actionTargetKey = targetKey;
-    if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
-      state.actionCurrent = { x: target.x, y: target.y, retries: 0, ...(actionType ? { actionType } : {}) };
-    } else if (actionType) {
-      state.actionCurrent.actionType = actionType;
-    }
-    if (!state.actionStartedAt) state.actionStartedAt = Date.now();
-    clearLateFrontierAck(targetKey);
-    attackSyncLog("late-frontier-ack-rebound", {
-      source,
-      target,
-      targetKey,
-      lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
-    });
   };
 
   const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
@@ -1250,11 +1221,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
         );
       }
-      if ("autoSettlementQueue" in msg) {
+      if ("autoSettlementQueue" in msg || "autoSettle" in msg) {
         applyAutoSettlementQueueFromServer(
           state,
           msg.autoSettlementQueue as Array<{ x: number; y: number }> | undefined,
-          { keyFor }
+          { keyFor, autoSettle: msg.autoSettle }
         );
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
@@ -1384,7 +1355,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "ACTION_ACCEPTED") {
       if (handleMusterAdvanceExpandAccepted(state, keyFor, msg as Record<string, unknown>)) return;
-      if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
+      if (!matchesCurrentOrLateFrontierAck(msg)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,
           commandId: msg.commandId,
@@ -1840,7 +1811,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         resolveFrontierCapture,
         openSingleTileActionMenu,
         renderHud,
-        requestViewRefresh
+        requestViewRefresh, pushFeed
       });
       return;
     }
@@ -2296,7 +2267,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
+      if (errorCode === "GUEST_DIPLOMACY_LOCKED") { openGuestSavePanel("diplomacy"); return; } if (errorCode === "GUEST_SLOTS_FULL" || (errorCode === "SEASON_FULL" && state.authIsGuest)) { void applyGuestRejection({ state, firebaseAuth, setAuthStatus, syncAuthOverlay }, errorCode, errorMessage); return; } if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
@@ -2759,6 +2730,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
+      state.tiles.clear(); // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();
@@ -2776,7 +2748,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.camSubX = 0; state.camSubY = 0;
       }
       state.pendingShardCollect = undefined;
-      state.tiles.clear();
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;

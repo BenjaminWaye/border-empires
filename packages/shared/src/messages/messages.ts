@@ -214,6 +214,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CLEAR_MUSTER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("UPGRADE_MUSTER_CAP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SURVEY_SWEEP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -357,6 +358,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // gateway forwards an empty payload and the sim rejects with
     // `resource choice required` even when the client picked one.
     chosenTrickleResource: z.enum(TRICKLE_RESOURCE_KEYS).optional()
+  }),
+  // Per-category auto-settle opt-in (shared auto-settle-prefs.ts). Answering
+  // (including "Not now" with everything false) marks the join prompt answered.
+  z.object({
+    type: z.literal("SET_AUTO_SETTLE_PREFS"),
+    towns: z.boolean(),
+    food: z.boolean(),
+    resources: z.boolean()
   })
 ]);
 

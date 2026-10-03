@@ -591,7 +591,7 @@ describe("menuOverviewForTile", () => {
   it("describes active observatories and their crystal upkeep", () => {
     const lines = menuOverviewForTile(settledObservatoryTile("active"), deps);
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("protects its owner's nearby tiles from hostile Aether abilities"))).toBe(true);
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
     expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("43.2/day"))).toBe(true);
   });
@@ -918,7 +918,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 1 // effectively fully elapsed -> minimal price
         }
       },
-      () => "0:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
+      () => "0:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.rushBuyActionId).toBe("rush_buy");
@@ -936,7 +936,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 45_000
         }
       },
-      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
+      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.rushBuyLabel).toBeUndefined();
@@ -953,7 +953,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 45_000
         }
       },
-      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
+      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.title).toBe("Removing Relay Beacon");
@@ -977,7 +977,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 5 * 60_000
         }
       },
-      () => "5:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
+      () => "5:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }, "me"
     );
 
     expect(progress?.title).toBe("Removing Fort");

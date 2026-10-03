@@ -1,5 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { computeCoastalLandKeys, computeLandRegions } from "@border-empires/game-domain";
+import { computeCoastalLandKeys, computeLandRegions, hasWaterNeighbor, preferDryFootprintCandidates } from "@border-empires/game-domain";
+import type { Terrain } from "@border-empires/shared";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -45,9 +46,13 @@ export type LegacySpawnPlacementInput = {
   hasNearbySettled?: (x: number, y: number, radius: number) => boolean;
   hasNearbyTown?: (x: number, y: number, radius: number) => boolean;
   hasNearbyFood?: (x: number, y: number, radius: number) => boolean;
+  // Live terrain lookup for the AFC dry-footprint rule (no water on any of
+  // the spawn tile's 8 neighbours -- see hasWaterNeighbor). Hot-path callers
+  // pass their tile map's lookup; falls back to a map built from `tiles`.
+  terrainAt?: (x: number, y: number) => Terrain | undefined;
 };
 
-const RALLY_SPAWN_RADIUS = 24;
+export const RALLY_SPAWN_RADIUS = 24;
 
 // Keeps a fresh spawn from landing right next to a town it could walk into
 // and settle within the first few turns — a player should have to travel to
@@ -145,7 +150,15 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
       return (x, y, radius) => settledCoords.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
     })();
 
-  const canSpawnAt = (x: number, y: number, requirements: SpawnRequirements): boolean => {
+  const terrainAt =
+    input.terrainAt ??
+    ((): ((x: number, y: number) => Terrain | undefined) => {
+      const terrainByKey = new Map(tileList.map((tile) => [simulationTileKey(tile.x, tile.y), tile.terrain] as const));
+      return (x, y) => terrainByKey.get(simulationTileKey(x, y));
+    })();
+
+  const canSpawnAt = (x: number, y: number, requirements: SpawnRequirements, requireDryFootprint = true): boolean => {
+    if (requireDryFootprint && hasWaterNeighbor(terrainAt, x, y)) return false;
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
     if (requirements.minTownDistance > 0 && hasNearbyTown(x, y, requirements.minTownDistance - 1)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
@@ -154,15 +167,15 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   };
 
   if (input.rallyAnchor) {
-    const nearbyCandidates = spawnCandidates
+    const nearbyCandidates = preferDryFootprintCandidates(spawnCandidates
       .filter((tile) => chebyshevDistance(tile.x, tile.y, input.rallyAnchor!.x, input.rallyAnchor!.y) <= RALLY_SPAWN_RADIUS)
       .sort((left, right) => {
         const leftDistance = chebyshevDistance(left.x, left.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
         const rightDistance = chebyshevDistance(right.x, right.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
         return (leftDistance - rightDistance) || (left.y - right.y) || (left.x - right.x);
-      });
+      }), terrainAt);
     for (const requirements of RALLY_SPAWN_SEARCH_ORDER) {
-      const qualifyingCandidates = nearbyCandidates.filter((tile) => canSpawnAt(tile.x, tile.y, requirements));
+      const qualifyingCandidates = nearbyCandidates.filter((tile) => canSpawnAt(tile.x, tile.y, requirements, false));
       const rallySpawn = qualifyingCandidates[hashString(input.playerId) % Math.max(1, Math.min(qualifyingCandidates.length, 8))];
       if (rallySpawn) return { x: rallySpawn.x, y: rallySpawn.y };
     }
@@ -176,6 +189,14 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
       if (!candidate) continue;
       if (canSpawnAt(candidate.x, candidate.y, pass.requirements)) return { x: candidate.x, y: candidate.y };
     }
+  }
+  // Last resort: the loosest pass again without the dry-footprint rule, so a
+  // waterlogged map still yields a spawn rather than none.
+  const loosestPass = LEGACY_SPAWN_SEARCH_ORDER[LEGACY_SPAWN_SEARCH_ORDER.length - 1]!;
+  for (let attempt = 0; attempt < loosestPass.tries; attempt += 1) {
+    seed = nextSeed(seed + attempt);
+    const candidate = spawnCandidates[seed % spawnCandidates.length];
+    if (candidate && canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, false)) return { x: candidate.x, y: candidate.y };
   }
 
   return undefined;

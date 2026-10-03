@@ -24,13 +24,17 @@ primary_region = "arn"
   GATEWAY_DB_APPLY_SCHEMA = "1"
   GATEWAY_SQLITE_PATH = "/data/border-empires.db"
   GATEWAY_EMAIL_ALERTS_APP_URL = "https://staging.borderempires.com"
+  # Origin used for rally invite URLs (defaults to production when unset).
+  PLAY_ORIGIN = "https://staging.borderempires.com"
   # Raised from the code defaults (4 / 50) after the concurrent-join load
   # harness (docs/plans/2026-08-22-beta-lobby-synchronized-season-start.md)
   # showed a 100-tester synchronized season start hard-rejects ~46% of
   # arrivals with SERVER_BUSY at the defaults, even though the gateway/sim
   # event loop stayed healthy throughout -- the ceiling was purely queue
-  # capacity, not throughput. 150 covers the full beta cohort
-  # (SIMULATION_MAX_SEASON_PLAYERS=120) plus headroom. Matches prod.
+  # capacity, not throughput. 150 covers the full beta cohort (150 vs the
+  # 100 SIMULATION_MAX_SEASON_PLAYERS set below) plus headroom. Matches
+  # prod. The 120 figure this comment used to cite was never actually set
+  # here -- the code default (50) was in effect the whole time.
   GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "8"
   GATEWAY_MAX_LOGIN_QUEUE_SIZE = "150"
 
@@ -41,6 +45,15 @@ primary_region = "arn"
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
   SIMULATION_HOST = "127.0.0.1"
   SIMULATION_PORT = "50051"
+  # Hard cap on human players admitted per season (code default was 50).
+  SIMULATION_MAX_SEASON_PLAYERS = "100"
+  # Guest (Firebase anonymous account) allowance inside the cap above --
+  # never additive to it. Set equal to the cap, i.e. guests are effectively
+  # uncapped and only the overall cap limits them (user decision
+  # 2026-09-28). Lower it to bring back a separate guest limit; if
+  # SIMULATION_MAX_SEASON_PLAYERS changes, change this too.
+  # See docs/guest-play-plan.md.
+  SIMULATION_MAX_SEASON_GUESTS = "100"
   # 0.0.0.0 so `flyctl proxy` can reach /debug/* for live heap diagnostics.
   # Still private-only: http_service below forwards only port 8080 to the
   # internet; 50052 is reachable solely over Fly's 6PN / flyctl proxy.
@@ -84,7 +97,11 @@ primary_region = "arn"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "250"
   SIMULATION_AI_COLLECT_VISIBLE_COOLDOWN_MS = "60000"
-  SIMULATION_AI_PLAYER_COUNT = "5"
+  SIMULATION_AI_PLAYER_COUNT = "20"
+  # Half-size map (prod stays 640x320); client build must match -- see scripts/deploy-client-staging.mjs.
+  WORLD_WIDTH = "320"
+  WORLD_HEIGHT = "160"
+  WATCHTOWERS_ENABLED = "false"
   SIMULATION_AI_TICK_MS = "2000"
   SIMULATION_AI_MIN_COMMAND_INTERVAL_MS = "5000"
   # --expose-gc lets the sim's PerformanceObserver('gc') diagnostic (see
@@ -100,19 +117,16 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
-# Healthcheck that hits the gateway /healthz endpoint. The gateway and
-# simulation share a Node event loop, so if planner / snapshot work blocks
-# the loop for ~5s+, /healthz cannot respond and Fly counts this as a
-# failure. After 3 consecutive failures (~45s of unresponsive loop) Fly
-# restarts the machine, clearing heap fragmentation and GC pressure until
-# we have a proper structural fix. Tune the timeout/interval down once the
-# long-tail of AI tick duration is reliably <1s.
+# Check the gateway's real readiness, including its connection to the
+# simulation. /healthz always returns HTTP 200 even when readiness.ok is
+# false, so Fly could mark an unusable gateway healthy. The two services
+# have separate Node event loops; a blocked gateway loop also times out here.
 [[http_service.checks]]
   grace_period = "60s"
   interval = "15s"
   method = "GET"
   timeout = "5s"
-  path = "/healthz"
+  path = "/health"
 
 [mounts]
   source = "be_combined_data"

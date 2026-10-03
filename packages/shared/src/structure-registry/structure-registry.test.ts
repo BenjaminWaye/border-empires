@@ -72,31 +72,24 @@ test("covers all outpost variants", () => {
   }
 });
 
-test("WOODEN_FORT is present", () => {
+test("WOODEN_FORT (Palisade) is fort-ladder tier 0 stored in tile.fort", () => {
   const spec = STRUCTURE_REGISTRY["WOODEN_FORT"];
   expect(spec).toBeDefined();
-  expect(spec.kind).toBe("ECONOMIC");
-  expect(spec.tileField).toBe("economicStructure");
+  expect(spec.kind).toBe("FORT");
+  expect(spec.tileField).toBe("fort");
+  expect(spec.techIds).toEqual([]);
 });
 
 // ── Cost parity: forts (against FORT_TIER_LADDER) ──────────────────
 
 describe("fort cost parity against FORT_TIER_LADDER", () => {
   for (const [variant, tier] of Object.entries(FORT_TIER_LADDER)) {
-    // WOODEN_FORT is excluded: STRUCTURE_REGISTRY["WOODEN_FORT"] is the
-    // standalone base-build ECONOMIC spec (structure-registry-economic.ts,
-    // 30 manpower), not the FORT_TIER_LADDER.WOODEN_FORT entry (150
-    // manpower) — that ladder entry only describes the upgrade-target cost
-    // once you already have a Wooden Fort. Same key, two different specs;
-    // pre-existing in this not-yet-wired Phase 2 registry, not something
-    // this pass reconciles.
-    if (variant === "WOODEN_FORT") continue;
     test(`${variant}: cost matches tier ladder`, () => {
       const spec = STRUCTURE_REGISTRY[variant];
       expect(spec).toBeDefined();
       expect(spec.cost.gold).toBe(tier.gold);
       expect(spec.cost.manpower).toBe(tier.manpower);
-      expect(spec.cost.strategic).toEqual({ TITANIUM: tier.titanium });
+      expect(spec.cost.strategic).toEqual(tier.titanium > 0 ? { TITANIUM: tier.titanium } : undefined);
     });
   }
 });
@@ -182,18 +175,20 @@ describe("structureBuildDurationMs derives from the real (existingCount=0) manpo
   // were never meant to be keyed by these, same as before this change.
   const TIER_UPGRADE_ONLY_TYPES = new Set(["TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_TOWER", "DREAD_TOWER"]);
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-    if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type)) continue;
+    // RELAY_BEACON's first-tier beacon is the one exception: it pays manpower
+    // but builds instantly (D12), covered by its own test below.
+    if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type) || type === "RELAY_BEACON") continue;
     test(`${type}: matches manpowerCost x MANPOWER_COST_MS_PER_POINT`, () => {
-      // structureBuildManpowerCostScaled, not the flat structureBuildManpowerCost:
-      // RELAY_BEACON's first (existingCount=0) beacon costs a discounted flat
-      // rate (D12), which only the scaled function reflects -- the flat one
-      // still reports its post-first-tier base cost (see its comment in
-      // structure-costs.ts).
       expect(structureBuildDurationMs(type as any)).toBe(
         structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type as any, 0))
       );
     });
   }
+
+  test("RELAY_BEACON: the first (existingCount=0) beacon pays manpower but builds instantly (D12)", () => {
+    expect(structureBuildManpowerCostScaled("RELAY_BEACON", 0)).toBeGreaterThan(0);
+    expect(structureBuildDurationMs("RELAY_BEACON")).toBe(0);
+  });
 });
 
 // ── Tech ID parity: cross-check against live source ────────────────

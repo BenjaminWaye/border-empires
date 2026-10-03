@@ -23,6 +23,7 @@ import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
+import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
 
 // Replay any forensics persisted by a prior death before we arm the watchdog.
 replayDeathForensicsOnBoot();
@@ -189,6 +190,7 @@ const gateway = await createRealtimeGatewayApp({
   simDiagnostics: () => latestSimDiagnostics
 });
 
+setRuntimeSqliteBusyTimeout();
 const started = await gateway.start();
 console.log(`[merged] gateway listening on ${gatewayEnv.host}:${gatewayEnv.port}`);
 watchdog?.arm();

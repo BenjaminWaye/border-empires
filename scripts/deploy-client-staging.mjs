@@ -13,7 +13,7 @@ import {
 
 const rootDir = new URL("../", import.meta.url);
 const stagingAlias = process.env.STAGING_CLIENT_ALIAS ?? vercelClientProject.stagingAliasHost;
-const stagingGatewayWsUrl = process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-combined-staging.fly.dev/ws";
+const stagingGatewayWsUrl = process.env.STAGING_GATEWAY_WS_URL ?? "wss://api-staging.borderempires.com/ws";
 const productionAlias = process.env.PRODUCTION_CLIENT_ALIAS ?? vercelClientProject.productionAliasHost;
 
 const run = (command, args, options = {}) => {
@@ -65,6 +65,12 @@ ensureTrackedProjectLink(rootDir);
 if (!process.env.GIT_COMMIT_SHA) {
   process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
 }
+// Staging runs a half-size map (fly.combined.staging.toml WORLD_WIDTH/HEIGHT);
+// the client bundle must be built with the same dimensions.
+const stagingWorldWidth = process.env.WORLD_WIDTH ?? "320";
+const stagingWorldHeight = process.env.WORLD_HEIGHT ?? "160";
+process.env.WORLD_WIDTH = stagingWorldWidth;
+process.env.WORLD_HEIGHT = stagingWorldHeight;
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 run("pnpm", ["--filter", "@border-empires/client", "build"]);
 const deploymentUrl = normalizeDeploymentUrl(
@@ -85,7 +91,11 @@ const deploymentUrl = normalizeDeploymentUrl(
       // remote build — forward GIT_COMMIT_SHA explicitly or the debug card's
       // "Client build" falls through to a dev-timestamp placeholder.
       "--build-env",
-      `GIT_COMMIT_SHA=${process.env.GIT_COMMIT_SHA}`
+      `GIT_COMMIT_SHA=${process.env.GIT_COMMIT_SHA}`,
+      "--build-env",
+      `WORLD_WIDTH=${stagingWorldWidth}`,
+      "--build-env",
+      `WORLD_HEIGHT=${stagingWorldHeight}`
     ],
     { env: vercelClientEnv() }
   )

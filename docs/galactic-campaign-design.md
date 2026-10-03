@@ -2386,6 +2386,7 @@ and §27 for Convergence.
 | Convergence v0: Court falls, top Domain Weight takes the throne, Hall of Fame (newest 50), new era at full Court Strength | `galaxy-duke-engine/galaxy-duke-convergence.ts`, `galaxy-duke-service/galaxy-duke-court.ts`, `client-duke-hall-html.ts` | #2111 |
 | Senate Contest vote removed | `galaxy-senate-routes`, `client-senate-panel` | #2095 |
 | Storybook story of the panel and buttons | `packages/storybook/src/SpaceViewDukeButtons.stories.ts` | #2095 |
+| Sector numbering: player-facing "Sector NNN" is a gapless derived rank over Frontier-win archives (no persisted counter/migration); a Defense Campaign labels as "Nth Contestation of Sector NNN", derived the same way by grouping archives on `defenseCampaignTargetSeasonId` | `galaxy-sector-numbering/`, `client-galaxy-view/galaxy-sector-label.ts` | #2186 |
 
 Deviations from the full design, deliberately: Move Against the Court is a
 direct wager (no quorum); Sanction keeps its flat 15 Influence cost and is not in

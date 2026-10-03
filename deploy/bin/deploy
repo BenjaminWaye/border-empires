@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Installed at /opt/border-empires/bin/deploy (root-owned) by bootstrap-server.sh
+# and used as the SSH forced command for the CI key, so the CI key can do only:
+#
+#   <40-char git sha>   deploy that sha (pull image, fetch config, switch, health-gate)
+#   rollback            redeploy the previous image
+#   snapshot            stream a consistent VACUUM INTO copy of the DB to stdout
+#
+# Admins can also run it directly: `/opt/border-empires/bin/deploy <sha>`.
+set -euo pipefail
+
+# Path/URL overrides exist for local testing; SSH never forwards env, so the
+# CI key cannot change them.
+. "${HOST_CONF:=/etc/border-empires/host.conf}"   # BE_ENV, BE_HOSTNAME, GITHUB_REPO, IMAGE_REPO
+APP_DIR="${APP_DIR:-/opt/border-empires}"
+STATE_DIR="${STATE_DIR:-/srv/border-empires}"
+CONFIG_BASE_URL="${CONFIG_BASE_URL:-https://raw.githubusercontent.com/${GITHUB_REPO}}"
+HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"   # boot replay can be slow
+# After /health first says ok, the app still spends ~30s on startup work
+# (recovery, autopilot start, checkpoint compaction) during which it can miss
+# 5s health checks. Report "healthy" only after the container has been up this
+# long AND answered SETTLE_STREAK consecutive fast /health checks.
+SETTLE_MIN_UPTIME_SECONDS="${SETTLE_MIN_UPTIME_SECONDS:-120}"
+SETTLE_STREAK="${SETTLE_STREAK:-8}"
+SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-300}"
+ARG="${SSH_ORIGINAL_COMMAND:-${1:-}}"
+
+log() { echo "[deploy] $*" >&2; }
+cd "$APP_DIR"
+
+read_var() { [ -f .env ] && grep -E "^$1=" .env | head -1 | cut -d= -f2- || true; }
+
+write_env() { # image sha
+  cat > .env <<ENVEOF
+IMAGE=$1
+BUILD_SHA=$2
+BE_ENV=${BE_ENV}
+BE_HOSTNAME=${BE_HOSTNAME}
+ENVEOF
+}
+
+wait_healthy() {
+  local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS)) body
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    body="$(curl -fsS --max-time 5 http://127.0.0.1:8080/health 2>/dev/null || true)"
+    if printf '%s' "$body" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then return 0; fi
+    sleep 5
+  done
+  return 1
+}
+
+# Best effort: never fails a deploy that /health already called healthy; if the
+# app does not settle in time we warn and let the caller's own checks judge.
+wait_settled() {
+  local cid started up streak=0 deadline=$((SECONDS + SETTLE_TIMEOUT_SECONDS))
+  cid="$(docker compose ps -q app)"
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    started="$(docker inspect -f '{{.State.StartedAt}}' "$cid" 2>/dev/null || true)"
+    up=0
+    [ -n "$started" ] && up=$(( $(date +%s) - $(date -d "$started" +%s 2>/dev/null || date +%s) ))
+    if [ "$up" -ge "$SETTLE_MIN_UPTIME_SECONDS" ] && curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:8080/health 2>/dev/null; then
+      streak=$((streak + 1))
+    else
+      streak=0
+    fi
+    if [ "$streak" -ge "$SETTLE_STREAK" ]; then log "settled (up ${up}s, ${streak} fast checks)"; return 0; fi
+    sleep 2
+  done
+  log "WARNING: app answered /health but did not settle within ${SETTLE_TIMEOUT_SECONDS}s; continuing"
+  return 0
+}
+
+switch_to() { # image sha  -> 0 if healthy
+  write_env "$1" "$2"
+  docker compose up -d --remove-orphans >&2 && wait_healthy && wait_settled
+}
+
+fetch_config() { # sha
+  local sha="$1" tmp f
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/env" "$tmp/bin"
+  for f in compose.yml Caddyfile "env/${BE_ENV}.env" bin/backup; do
+    curl -fsSL --retry 3 -o "$tmp/$f" "${CONFIG_BASE_URL}/${sha}/deploy/${f}" \
+      || { log "could not fetch deploy/${f} at ${sha}"; rm -rf "$tmp"; return 1; }
+  done
+  install -m 644 "$tmp/compose.yml" compose.yml
+  install -m 644 "$tmp/Caddyfile" Caddyfile
+  install -d env
+  install -m 644 "$tmp/env/${BE_ENV}.env" "env/${BE_ENV}.env"
+  install -m 755 "$tmp/bin/backup" backup
+  rm -rf "$tmp"
+}
+
+prune_images() { # keep current + 2 newest others
+  docker images "$IMAGE_REPO" --format '{{.Tag}}' | tail -n +4 | while read -r tag; do
+    docker rmi "${IMAGE_REPO}:${tag}" >/dev/null 2>&1 || true
+  done
+}
+
+case "$ARG" in
+  snapshot)
+    # stdout is the DB file: every other message above/below goes to stderr.
+    out="/data/snapshots/transfer.db"
+    docker compose exec -T app sh -c "mkdir -p /data/snapshots && rm -f ${out}" >&2
+    docker compose exec -T app node -e '
+const { DatabaseSync } = require("node:sqlite");
+new DatabaseSync("/data/border-empires.db").exec("VACUUM INTO \x27/data/snapshots/transfer.db\x27");
+' >&2
+    docker compose exec -T app cat "$out"
+    docker compose exec -T app rm -f "$out" >&2
+    ;;
+
+  rollback)
+    prev="$(cat "${STATE_DIR}/previous-image" 2>/dev/null || true)"
+    [ -n "$prev" ] || { log "no previous image recorded"; exit 1; }
+    cur="$(read_var IMAGE)"
+    log "rolling back ${cur:-<none>} -> ${prev}"
+    echo "$cur" > "${STATE_DIR}/previous-image"
+    switch_to "$prev" "${prev##*:}" && log "healthy on ${prev}" || { log "ERROR: rollback target not healthy"; exit 1; }
+    ;;
+
+  *)
+    sha="$ARG"
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { log "usage: <40-char sha> | rollback | snapshot"; exit 2; }
+    image="${IMAGE_REPO}:${sha}"
+    prev="$(read_var IMAGE)"
+    log "deploying ${image} (was ${prev:-<none>})"
+    docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >&2
+    fetch_config "$sha"
+    [ -n "$prev" ] && echo "$prev" > "${STATE_DIR}/previous-image"
+    if switch_to "$image" "$sha"; then
+      log "healthy on ${image}"
+      prune_images
+      exit 0
+    fi
+    log "ERROR: ${image} not healthy within ${HEALTH_TIMEOUT_SECONDS}s"
+    docker compose logs --tail 80 app >&2 || true
+    if [ -n "$prev" ] && docker image inspect "$prev" >/dev/null 2>&1; then
+      log "auto-rolling back to ${prev}"
+      switch_to "$prev" "${prev##*:}" || log "ERROR: rollback target also unhealthy"
+    fi
+    exit 1
+    ;;
+esac

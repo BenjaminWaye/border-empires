@@ -101,3 +101,35 @@ describe("tileActionMenuHtml commit tab rendering", () => {
     expect(html).toContain("No muster flag here.");
   });
 });
+
+describe("tileActionMenuHtml building category squares", () => {
+  const building = (id: TileMenuView["buildings"][number]["id"], label: string): TileMenuView["buildings"][number] => ({ id, label });
+  const sevenBuildings = [
+    building("build_fortification", "Build Thunder Bastion"),
+    building("build_siege_camp", "Build Dread Tower"),
+    building("build_observatory", "Build Aether Tower"),
+    building("build_airport", "Build Sky Dock"),
+    building("build_radar_system", "Build Resonance Grid"),
+    building("build_waterworks", "Build Waterworks"),
+    building("build_relay_beacon", "Build Relay Beacon")
+  ];
+  const viewWith = (buildings: TileMenuView["buildings"]): TileMenuView => ({ ...baseView, tabs: ["buildings"], buildings });
+
+  it("omits the Monuments square entirely when no monument action is available", () => {
+    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false);
+    expect(html).not.toContain("cat-monument");
+    expect(html).toContain("repeat(4,");
+  });
+
+  it("shows the Monuments square once a monument action is available", () => {
+    const html = tileActionMenuHtml(viewWith([...sevenBuildings, building("build_world_engine_part_1", "Build The Long Barrel")]), "buildings", false);
+    expect(html).toContain("cat-monument");
+    expect(html).toContain("repeat(5,");
+  });
+
+  it("still shows other empty categories as disabled rather than hiding them", () => {
+    const html = tileActionMenuHtml(viewWith(sevenBuildings), "buildings", false);
+    expect(html).toContain("tile-building-category-square cat-resource is-empty");
+    expect(html).toContain("tile-building-category-square cat-town_support is-empty");
+  });
+});
