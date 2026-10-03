@@ -23,6 +23,14 @@ const stubSessionStorage = (): void => {
 const newPlayerState = () => {
   const state = createInitialState();
   state.me = "me";
+  state.authSessionReady = true;
+  state.profileSetupRequired = false;
+  state.changelog.open = false;
+  state.guide.open = false;
+  state.activityDashboard.open = false;
+  state.needsSeasonJoin = false;
+  state.joinSeasonOverlayOpen = false;
+  state.respawnOverlayOpen = false;
   state.gold = 1_000;
   state.manpower = 720;
   state.manpowerCap = 720;
@@ -221,5 +229,16 @@ describe("prompt DOM", () => {
     state.skippedAutoSettlementTileKeys = new Set(["13,10", "12,10", "9,8", "11,12"]);
     refreshAutoSettlePrompt();
     expect(visible()).toBe(false);
+  });
+
+  it("waits for What's New to close before showing, without treating the tiles as dismissed", () => {
+    const state = newPlayerState();
+    state.autoSettlementQueue = [...QUEUE];
+    state.changelog.open = true;
+    install(state, () => true);
+    expect(visible()).toBe(false);
+    state.changelog.open = false;
+    refreshAutoSettlePrompt();
+    expect(visible()).toBe(true);
   });
 });

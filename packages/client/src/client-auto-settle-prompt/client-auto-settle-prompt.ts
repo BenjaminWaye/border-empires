@@ -1,11 +1,14 @@
 // Compact, non-blocking join prompt: "settle the towns/farms already in your reach for you?"
 // Docked card with no backdrop so the map stays visible and usable behind it.
+// Held back (not dismissed) while the What's New / tutorial / other auto-opening
+// dialogs cover the map, then shown once the player can actually see it.
 // Shown once to a brand-new player (autoSettle.answered === false) as soon as
 // the server reports at least one settle candidate. Nothing auto-settles until
 // they answer -- see apps/simulation's SET_AUTO_SETTLE_PREFS handler. No map
 // overlay/highlighting, so there is no 2D-vs-3D renderer work here.
 import { DEVELOPMENT_PROCESS_LIMIT, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { isMapUnobstructed } from "../client-map-unobstructed/client-map-unobstructed.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import {
   buildAutoSettlePromptModel,
@@ -33,11 +36,27 @@ let ui: Partial<Record<AutoSettleCategory, SectionUi>> = {};
 // is obtrusive for anything new but never nags about the same candidates twice (session memory only).
 const dismissedTileKeys = new Set<string>();
 let escapeListenerInstalled = false;
+let gatePollTimer: ReturnType<typeof setInterval> | undefined;
+let lastGateOpen = false;
+
+// Other dialogs closing has no hook of its own, so re-check the gate on a slow timer and refresh only when it flips.
+const startGatePoll = (): void => {
+  if (gatePollTimer !== undefined) clearInterval(gatePollTimer);
+  lastGateOpen = false;
+  gatePollTimer = setInterval(() => {
+    if (!deps) return;
+    const open = isMapUnobstructed(deps.state);
+    if (open === lastGateOpen) return;
+    lastGateOpen = open;
+    refreshAutoSettlePrompt();
+  }, 500);
+};
 
 export const installAutoSettlePrompt = (next: PromptDeps): void => {
   deps = next;
   dismissedTileKeys.clear();
   ui = {};
+  startGatePoll();
   refreshAutoSettlePrompt();
 };
 
@@ -204,6 +223,10 @@ export const dismissCurrentAutoSettleCandidates = (): void => {
 /** Re-evaluates whether the prompt should be showing; cheap and idempotent (called on every queue/prefs update). */
 export const refreshAutoSettlePrompt = (): void => {
   if (!deps || typeof document === "undefined") return;
+  if (!isMapUnobstructed(deps.state)) {
+    hide();
+    return;
+  }
   // Forget dismissals for tiles that are no longer candidates so the set stays bounded by the server's queue.
   const live = new Set(deps.state.autoSettlementQueue.map((entry) => `${entry.x},${entry.y}`));
   for (const key of dismissedTileKeys) if (!live.has(key)) dismissedTileKeys.delete(key);
