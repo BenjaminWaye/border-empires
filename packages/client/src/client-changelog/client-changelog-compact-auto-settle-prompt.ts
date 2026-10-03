@@ -9,6 +9,7 @@ export const CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT: ClientChangelo
     changes: [
       "The prompt is now a small card at the bottom of the screen instead of a full-screen dialog, so the map stays visible and clickable behind it",
       "Each kind of tile is one short row with its count, cost and an \"auto-settle in future\" tick",
+      "The town row now shows the food upkeep of the towns you are about to settle",
       "Shorter wording throughout, including the not-enough-food warning"
     ]
   }
