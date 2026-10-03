@@ -1,9 +1,10 @@
-// Blocking join prompt: "settle the towns/farms already in your reach for you?"
+// Compact, non-blocking join prompt: "settle the towns/farms already in your reach for you?"
+// Docked card with no backdrop so the map stays visible and usable behind it.
 // Shown once to a brand-new player (autoSettle.answered === false) as soon as
 // the server reports at least one settle candidate. Nothing auto-settles until
 // they answer -- see apps/simulation's SET_AUTO_SETTLE_PREFS handler. No map
 // overlay/highlighting, so there is no 2D-vs-3D renderer work here.
-import { DEVELOPMENT_PROCESS_LIMIT, SETTLE_MANPOWER_COST, type AutoSettleCategory } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { loadedAutoSettleState } from "./client-auto-settle-prefs.js";
 import {
@@ -119,10 +120,12 @@ const sectionHtml = (section: AutoSettlePromptSection, sectionState: SectionUi):
   const noun = section.category === "towns" ? "town/dock" : section.category === "food" ? "food tile" : "resource tile";
   return `
     <section class="auto-settle-section" data-category="${section.category}">
-      <h3>${shown} ${noun}${shown === 1 ? "" : "s"} ${stepper}</h3>
-      <p class="auto-settle-yield">${yieldSummary(section, shown) || "&nbsp;"}</p>
-      <p class="auto-settle-cost">Cost ${settleManpowerCost(shown)} manpower</p>
-      <label class="auto-settle-auto"><input type="checkbox" data-auto="${section.category}" ${sectionState.auto ? "checked" : ""}> Auto-settle these for me in the future</label>
+      <div class="auto-settle-row">
+        <h3>${shown} ${noun}${shown === 1 ? "" : "s"} ${stepper}</h3>
+        <span class="auto-settle-cost">Cost ${settleManpowerCost(shown)} manpower</span>
+      </div>
+      <p class="auto-settle-yield">${yieldSummary(section, shown)}</p>
+      <label class="auto-settle-auto"><input type="checkbox" data-auto="${section.category}" ${sectionState.auto ? "checked" : ""}> Auto-settle these in future</label>
     </section>`;
 };
 
@@ -145,18 +148,18 @@ const render = (model: AutoSettlePromptModel): void => {
   el.dataset.renderKey = key;
   el.style.display = "grid";
   el.innerHTML = `
-    <div class="auto-settle-backdrop" id="auto-settle-backdrop"></div>
-    <div class="auto-settle-modal card" role="dialog" aria-modal="true" aria-labelledby="auto-settle-title">
+    <div class="auto-settle-modal card" role="dialog" aria-labelledby="auto-settle-title">
       <button type="button" class="guide-close-btn auto-settle-close" id="auto-settle-close" aria-label="Close">×</button>
-      <h2 id="auto-settle-title">Settle what's in reach?</h2>
-      <p class="auto-settle-lede">These tiles are already yours to settle. Settling costs manpower, so nothing happens until you choose.</p>
+      <h2 id="auto-settle-title">Settle nearby tiles?</h2>
+      <p class="auto-settle-lede">Nothing happens until you choose. Up to ${state.developmentProcessLimit ?? DEVELOPMENT_PROCESS_LIMIT} settle at once, about a minute each.</p>
       ${model.sections.map((section) => sectionHtml(section, counts[section.category]!)).join("")}
       ${warning ? `<p class="auto-settle-warning">${warning}</p>` : ""}
-      <p class="auto-settle-total">Total ${cost} manpower · you have ${Math.floor(state.manpower)} of ${Math.floor(state.manpowerCap)}${overBudget ? " (not enough)" : ""}</p>
-      <p class="auto-settle-note">Up to ${state.developmentProcessLimit ?? DEVELOPMENT_PROCESS_LIMIT} settle at once, about a minute each (${SETTLE_MANPOWER_COST} manpower per tile).</p>
-      <div class="auto-settle-actions">
-        <button type="button" class="panel-btn" id="auto-settle-go" ${overBudget || totalNow === 0 ? "disabled" : ""}>Settle</button>
-        <button type="button" class="panel-btn guide-secondary-btn" id="auto-settle-later">Not now</button>
+      <div class="auto-settle-footer">
+        <span class="auto-settle-total">Total ${cost} manpower (you have ${Math.floor(state.manpower)})${overBudget ? " – not enough" : ""}</span>
+        <span class="auto-settle-actions">
+          <button type="button" class="panel-btn guide-secondary-btn" id="auto-settle-later">Not now</button>
+          <button type="button" class="panel-btn" id="auto-settle-go" ${overBudget || totalNow === 0 ? "disabled" : ""}>Settle</button>
+        </span>
       </div>
     </div>`;
   el.querySelectorAll<HTMLButtonElement>("[data-step]").forEach((button) => {
@@ -178,7 +181,7 @@ const render = (model: AutoSettlePromptModel): void => {
     };
   });
   (el.querySelector("#auto-settle-go") as HTMLButtonElement | null)?.addEventListener("click", () => submit(model));
-  for (const id of ["#auto-settle-later", "#auto-settle-close", "#auto-settle-backdrop"]) {
+  for (const id of ["#auto-settle-later", "#auto-settle-close"]) {
     (el.querySelector(id) as HTMLElement | null)?.addEventListener("click", () => dismiss(model));
   }
   if (!escapeListenerInstalled) {

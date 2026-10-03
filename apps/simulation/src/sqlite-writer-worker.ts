@@ -43,11 +43,15 @@ if (!parentPort) throw new Error("sqlite-writer-worker must run inside worker_th
 const { dbPath } = workerData as { dbPath: string };
 
 const db = new DatabaseSync(dbPath);
+// busy_timeout must come first: the journal_mode switch is the first statement to
+// take a lock, and with SQLite's default 0ms timeout a concurrent opener of the
+// same file (gateway + simulation booting together) fails instantly with
+// "database is locked".
 db.exec(`
+  PRAGMA busy_timeout = 5000;
   PRAGMA journal_mode = WAL;
   PRAGMA synchronous = NORMAL;
   PRAGMA foreign_keys = ON;
-  PRAGMA busy_timeout = 5000;
 `);
 
 const stmtInsertEvent = db.prepare(

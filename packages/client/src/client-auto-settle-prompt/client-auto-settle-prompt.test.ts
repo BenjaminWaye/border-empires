@@ -91,6 +91,14 @@ describe("buildAutoSettlePromptModel", () => {
     expect(SETTLE_MANPOWER_COST).toBe(20); // the copy's "20 manpower per tile" is this constant
   });
 
+  it("shows the food upkeep of the towns being settled under the town yield, and none when no town is picked", () => {
+    const state = newPlayerState();
+    state.autoSettlementQueue = QUEUE;
+    const towns = buildAutoSettlePromptModel(state).sections.find((section) => section.category === "towns")!;
+    expect(yieldSummary(towns, 1)).toBe("+ Coin · + Manpower · Food upkeep 4 slots"); // TOWN tier demands 4
+    expect(yieldSummary(towns, 0)).toBe("");
+  });
+
   it("warns when a TOWN-tier town would be left short on food slots, and not when food covers it", () => {
     const state = newPlayerState();
     state.autoSettlementQueue = QUEUE;
@@ -139,11 +147,10 @@ describe("prompt DOM", () => {
     expect(visible()).toBe(false);
   });
 
-  it("closing (Not now, X, backdrop or Escape) dismisses without sending anything, and only NEW tiles bring it back", () => {
+  it("closing (Not now, X or Escape) dismisses without sending anything, and only NEW tiles bring it back", () => {
     for (const close of [
       () => (overlay().querySelector("#auto-settle-later") as HTMLElement).click(),
       () => (overlay().querySelector("#auto-settle-close") as HTMLElement).click(),
-      () => (overlay().querySelector("#auto-settle-backdrop") as HTMLElement).click(),
       () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
     ]) {
       document.body.innerHTML = "";

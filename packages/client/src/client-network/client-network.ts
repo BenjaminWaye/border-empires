@@ -1,4 +1,5 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
@@ -2606,29 +2607,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             });
           }
         }
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        clearLateFrontierAck(failedCurrentKey);
-        clearLateFrontierAck(failedTargetKey);
-        if (errorCode === "ATTACK_COOLDOWN" || errorCode === "DOCK_COOLDOWN") {
-          const cooldownBackoffMs =
-            typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
-              ? Math.max(0, msg.cooldownRemainingMs)
-              : COMBAT_LOCK_MS;
-          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + cooldownBackoffMs);
-          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + cooldownBackoffMs);
-        }
-        if (errorCode === "LOCKED") {
-          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
-          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
-        }
+        resetFrontierActionStateAfterError(state, { errorCode, cooldownRemainingMs: msg.cooldownRemainingMs, failedCurrentKey, failedTargetKey, clearLateFrontierAck });
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);

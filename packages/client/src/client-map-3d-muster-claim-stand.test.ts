@@ -24,6 +24,7 @@ const run = (outgoing: Record<string, unknown>, targetOwnership: string | undefi
     musterTransitByTile: new Map(),
     deferredAttackByTile: new Map(),
     outgoingMusterAttacksByTile: new Map([[keyFor(5, 5), outgoing]]),
+    incomingAttacksByTile: new Map(),
     activeBattles: new Map()
   } as unknown as ClientState;
   syncMusterTransitOverlay(state, () => "#fff", heightfield, overlay, 0, 0, keyFor);

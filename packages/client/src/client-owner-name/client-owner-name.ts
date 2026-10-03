@@ -1,4 +1,6 @@
+import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 
 const leaderboardNameForOwner = (state: Pick<ClientState, "leaderboard">, ownerId: string): string | undefined => {
   const leaderboardEntries = [
@@ -21,7 +23,7 @@ export const playerNameForOwnerFromState = (
 ): string | undefined => {
   if (!ownerId) return undefined;
   if (ownerId === state.me) return state.meName || "you";
-  if (ownerId === "barbarian") return "The Bleed";
+  if (isPlanetaryDefenseOwnerId(ownerId)) return PLANETARY_DEFENSE_DISPLAY_NAME;
   const knownName = state.playerNames.get(ownerId);
   if (knownName) return knownName;
   return leaderboardNameForOwner(state, ownerId);
@@ -39,6 +41,6 @@ export const playerDisplayNameForOwnerFromState = (
 ): string | undefined => {
   if (!ownerId) return undefined;
   if (ownerId === state.me) return state.meName || "you";
-  if (ownerId === "barbarian") return "The Bleed";
+  if (isPlanetaryDefenseOwnerId(ownerId)) return PLANETARY_DEFENSE_DISPLAY_NAME;
   return leaderboardNameForOwner(state, ownerId) ?? state.playerNames.get(ownerId);
 };

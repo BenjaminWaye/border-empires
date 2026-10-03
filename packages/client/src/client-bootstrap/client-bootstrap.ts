@@ -557,7 +557,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     constructionRemainingMsForTile: actionFlow.constructionRemainingMsForTile,
     formatCountdownClock: actionFlow.formatCountdownClock,
     drawStartingExpansionArrow,
-    drawBarbarianColossusOverlay: deps.drawBarbarianColossusOverlay,
+    drawPlanetaryDefenseOverlay: deps.drawPlanetaryDefenseOverlay,
     shouldDrawOwnershipBorder,
     borderColorForOwner,
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
