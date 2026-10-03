@@ -104,3 +104,16 @@ it("keeps settlement progress available while explaining the resolved map animat
   expect(menu.progress).toEqual(settlement);
   expect(menu.overviewLines).toContainEqual({ html: "Battle resolved" });
 });
+
+
+it.each(["Under attack", "Being captured", "Attack incoming"])("prioritizes a fresh %s over an old resolved animation", (title) => {
+  const resolved = { title: "Battle resolved", detail: "Old result", remainingLabel: "0:02", progress: 1, note: "Animation finishing" };
+  const incoming = { title, detail: "Fresh attack", remainingLabel: "0:03", progress: 0.1, note: "Incoming" };
+  const menu = tileMenuViewForTile({ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }, {
+    ...deps, captureProgressForTile: () => resolved, incomingAttackProgressForTile: () => incoming
+  });
+  expect(menu.progress).toEqual(incoming);
+  expect(menu.statusText).toBe(title);
+  expect(menu.overviewLines).toContainEqual({ html: title });
+  expect(menu.overviewLines).not.toContainEqual({ html: "Battle resolved" });
+});

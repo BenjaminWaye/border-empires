@@ -36,9 +36,28 @@ export const trackedBattleProgressView = (
   };
 };
 
+const battleTitles = ["Battle in progress", "Under attack", "Battle resolved", "Attack incoming", "Being captured"];
+
+const isObject = (value: unknown): value is { [key: string]: unknown } =>
+  typeof value === "object" && value !== null;
+
+/** Detect battle text already on screen even if map FX expired before the first tick. */
+export const hasRenderedBattleStatus = (signature: string): boolean => {
+  try {
+    const view: unknown = JSON.parse(signature);
+    if (!isObject(view)) return false;
+    if (typeof view.statusText === "string" && battleTitles.includes(view.statusText)) return true;
+    if (isObject(view.progress) && typeof view.progress.title === "string" && battleTitles.includes(view.progress.title)) return true;
+    return Array.isArray(view.overviewLines) && view.overviewLines.some((line: unknown) =>
+      isObject(line) && typeof line.html === "string" && battleTitles.includes(line.html));
+  } catch {
+    return false;
+  }
+};
+
 /** Keep battle information visible when the player opens the Overview tab. */
 export const battleOverviewLines = (progress: TileMenuProgressView | undefined): { html: string }[] => {
-  if (!progress || !["Battle in progress", "Under attack", "Battle resolved"].includes(progress.title)) return [];
+  if (!progress || !battleTitles.includes(progress.title)) return [];
   const escape = (value: string): string => value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -53,6 +72,6 @@ export const battleOverviewLines = (progress: TileMenuProgressView | undefined):
 
 
 export const battleMenuHeaderStatus = (progress: TileMenuProgressView | undefined): { text: string; tone: "neutral" | "warning" } | undefined => {
-  if (!progress || !["Battle in progress", "Under attack", "Battle resolved"].includes(progress.title)) return undefined;
+  if (!progress || !battleTitles.includes(progress.title)) return undefined;
   return { text: progress.title, tone: progress.title === "Battle resolved" ? "neutral" : "warning" };
 };

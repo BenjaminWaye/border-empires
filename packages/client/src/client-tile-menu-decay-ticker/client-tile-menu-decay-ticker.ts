@@ -1,3 +1,4 @@
+import { hasRenderedBattleStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuView } from "../client-types.js";
 
@@ -43,7 +44,7 @@ export const startTileMenuDecayTicker = (
       (state.activeBattles?.get(key)?.endAt ?? 0) > nowMs
     );
     // Repaint once after expiry, even if the map loop already pruned the FX.
-    const battleEnded = lastBattleTileKey === key;
+    const battleEnded = lastBattleTileKey === key || hasRenderedBattleStatus(state.tileActionMenu.renderSignature);
     lastBattleTileKey = hasBattle ? key : "";
     if (menuTile.frontierDecayAt === undefined && !hasBattle && !battleEnded) return;
     renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);

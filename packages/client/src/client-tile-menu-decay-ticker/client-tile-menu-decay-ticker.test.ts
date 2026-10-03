@@ -84,4 +84,14 @@ describe("battle menu repaint", () => {
     vi.advanceTimersByTime(3000);
     expect(render).toHaveBeenCalledTimes(2);
   });
+
+  it("clears an animation that expires before the first ticker callback", () => {
+    const state = makeState(baseTile);
+    state.tileActionMenu.renderSignature = JSON.stringify({ statusText: "Battle resolved" });
+    const render = vi.fn(() => { state.tileActionMenu.renderSignature = ""; });
+    startTileMenuDecayTicker(state, () => stubView, render);
+    vi.advanceTimersByTime(3000);
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
 });

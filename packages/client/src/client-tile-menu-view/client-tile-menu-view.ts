@@ -434,7 +434,7 @@ export const tileMenuViewForTile = (
     ? deps.combatBreakdownForTile?.(tile)
     : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
-  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture ? undefined : deps.incomingAttackProgressForTile?.(tile);
+  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture && capture.title !== "Battle resolved" ? undefined : deps.incomingAttackProgressForTile?.(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
@@ -481,14 +481,14 @@ export const tileMenuViewForTile = (
   const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
-  const reachState = deps.state; const headerStatus = (tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile)) ?? battleMenuHeaderStatus(capture ?? incomingAttack); return {
+  const reachState = deps.state; const headerStatus = (tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),
     tabs,
-    overviewLines: [...battleOverviewLines(capture ?? incomingAttack), ...deps.menuOverviewForTile(tile)],
+    overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
