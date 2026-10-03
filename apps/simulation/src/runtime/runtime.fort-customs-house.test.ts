@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 // Regression: Fort (and Wooden Fort) build was rejected with "tile already
 // has structure" on a dock that has an active Harbor Exchange (CUSTOMS_HOUSE)
@@ -34,7 +35,7 @@ describe("SimulationRuntime Fort + Harbor Exchange (CUSTOMS_HOUSE) coexistence",
         initialPlayers: new Map([["player-1", makePlayer("player-1", ["masonry"])]]),
         seedTiles: new Map(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             ...tiles,
             {
               x: 10,

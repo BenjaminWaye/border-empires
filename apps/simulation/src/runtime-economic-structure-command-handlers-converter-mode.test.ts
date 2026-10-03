@@ -20,6 +20,7 @@ import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime/runtime.js";
 import { buildPlayer, collectEvents } from "./runtime/runtime.test-helpers.js";
+import { afcModuleFixtureTile } from "./afc-test-fixture/afc-test-fixture.js";
 
 type RawPlayerRef = { manpower: number };
 
@@ -40,7 +41,7 @@ const buildRuntime = (extraTiles: Array<Record<string, unknown>> = [], points = 
       ["player-1", buildPlayer("player-1", { points, manpower: 10_000, techIds: new Set<string>(techIds), strategicResources: { FOOD: 100 } })]
     ]),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"), 
         {
           x: 16,
           y: 16,

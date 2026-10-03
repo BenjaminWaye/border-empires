@@ -89,7 +89,7 @@ describe("commissionModuleIfApplicable", () => {
 
   it("does not double-dock the same tech twice", () => {
     const tiles = new Map<string, DomainTileState>([
-      ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: ["crystal-lattices"] } })]
+      ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: ["crystal-lattices"], houseModules: ["crystal-lattices"] } })]
     ]);
     const { ctx, events } = buildContext(tiles, ["10,12"]);
 
