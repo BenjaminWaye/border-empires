@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { clearForestAroundAfcTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -98,13 +98,15 @@ export const createTilesFromInitialState = (
   mergeSeedTilesWithInitialState: boolean
 ): Map<string, DomainTileState> => withAfcForestClearings(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState));
 
-// AFC landing sites clear forest from their 3x3 footprint, which is never
-// persisted itself -- re-derived from the (permanent) tile.afc on every
+// AFC landing sites clear forest from their 3x3 footprint, and towns/docks
+// clear the forest on their own tile; neither is persisted itself --
+// re-derived from the (permanent) tile.afc / tile.town / tile.dockId on every
 // runtime build, starting from a clean slate so an in-process season
 // rollover can't inherit the previous world's clearings.
 const withAfcForestClearings = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
   resetForestClearings();
   clearForestAroundAfcTiles(tiles.values());
+  clearForestOnTownAndDockTiles(tiles.values());
   return tiles;
 };
 

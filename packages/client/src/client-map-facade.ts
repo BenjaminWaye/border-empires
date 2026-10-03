@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -100,6 +100,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     // connect runs only AFTER the initial tiles were merged) or a terrain
     // change, so re-derive the clearings from the AFC tiles already known.
     clearForestAroundAfcTiles(state.tiles.values());
+    clearForestOnTownAndDockTiles(state.tiles.values());
     terrainColorCache.clear();
     terrainColorCacheOrder.length = 0;
     state.dockRouteCache.clear();
