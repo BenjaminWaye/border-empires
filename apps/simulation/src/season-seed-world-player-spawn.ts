@@ -1,5 +1,5 @@
 import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
-import { isCoastalLandAt, landBiomeAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
+import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, landBiomeAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
 
 /**
  * Initial-roster player spawn placement, shared by the sync
@@ -81,12 +81,17 @@ export const createSeasonSeedPlayerSpawner = (
     if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
     return true;
   };
+  // Minimum spawn separation shrinks with a shrunken world (per-env
+  // WORLD_WIDTH/HEIGHT override) so the same roster still fits; 1 at default size.
+  const spawnDistanceScale = Math.min(1, CONFIGURED_WORLD_HEIGHT / DEFAULT_WORLD_HEIGHT);
+  const farSpawnDistance = Math.max(10, Math.round(50 * spawnDistanceScale));
+  const nearSpawnDistance = Math.max(8, Math.round(35 * spawnDistanceScale));
   const spawnSearchOrder = [
-    { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
-    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 35 } }
+    { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: farSpawnDistance } },
+    { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: farSpawnDistance } },
+    { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: farSpawnDistance } },
+    { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: farSpawnDistance } },
+    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: nearSpawnDistance } }
   ] as const;
   const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
     let spawn: { x: number; y: number } | undefined;

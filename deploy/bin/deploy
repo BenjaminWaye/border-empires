@@ -16,6 +16,13 @@ APP_DIR="${APP_DIR:-/opt/border-empires}"
 STATE_DIR="${STATE_DIR:-/srv/border-empires}"
 CONFIG_BASE_URL="${CONFIG_BASE_URL:-https://raw.githubusercontent.com/${GITHUB_REPO}}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"   # boot replay can be slow
+# After /health first says ok, the app still spends ~30s on startup work
+# (recovery, autopilot start, checkpoint compaction) during which it can miss
+# 5s health checks. Report "healthy" only after the container has been up this
+# long AND answered SETTLE_STREAK consecutive fast /health checks.
+SETTLE_MIN_UPTIME_SECONDS="${SETTLE_MIN_UPTIME_SECONDS:-120}"
+SETTLE_STREAK="${SETTLE_STREAK:-8}"
+SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-300}"
 ARG="${SSH_ORIGINAL_COMMAND:-${1:-}}"
 
 log() { echo "[deploy] $*" >&2; }
@@ -42,9 +49,30 @@ wait_healthy() {
   return 1
 }
 
+# Best effort: never fails a deploy that /health already called healthy; if the
+# app does not settle in time we warn and let the caller's own checks judge.
+wait_settled() {
+  local cid started up streak=0 deadline=$((SECONDS + SETTLE_TIMEOUT_SECONDS))
+  cid="$(docker compose ps -q app)"
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    started="$(docker inspect -f '{{.State.StartedAt}}' "$cid" 2>/dev/null || true)"
+    up=0
+    [ -n "$started" ] && up=$(( $(date +%s) - $(date -d "$started" +%s 2>/dev/null || date +%s) ))
+    if [ "$up" -ge "$SETTLE_MIN_UPTIME_SECONDS" ] && curl -fsS --max-time 2 -o /dev/null http://127.0.0.1:8080/health 2>/dev/null; then
+      streak=$((streak + 1))
+    else
+      streak=0
+    fi
+    if [ "$streak" -ge "$SETTLE_STREAK" ]; then log "settled (up ${up}s, ${streak} fast checks)"; return 0; fi
+    sleep 2
+  done
+  log "WARNING: app answered /health but did not settle within ${SETTLE_TIMEOUT_SECONDS}s; continuing"
+  return 0
+}
+
 switch_to() { # image sha  -> 0 if healthy
   write_env "$1" "$2"
-  docker compose up -d --remove-orphans >&2 && wait_healthy
+  docker compose up -d --remove-orphans >&2 && wait_healthy && wait_settled
 }
 
 fetch_config() { # sha

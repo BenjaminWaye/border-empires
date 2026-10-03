@@ -3,7 +3,7 @@
 Status: active proposal
 Owner: Benjamin (approves each phase; agents implement repo changes)
 Last verified: 2026-10-01
-Progress: Phase 2 repo changes implemented on `agent/hetzner-migration-plan` (see "Phase 2 implementation notes" at the end); Phases 0, 1, 3+ not started
+Progress (2026-10-02): Phases 0-4 and 6 done for both environments. Staging and production run on Hetzner; production was cut over manually the same day, a week ahead of the planned staging trial (owner decision). Fly apps are stopped, not destroyed. Remaining: first automatic `main` deploy through the Hetzner path (incl. the prod-shape gate), Phase 7 (decommission Fly after >=14 days stable). See "Phase 2 implementation notes" at the end.
 Replaces: the Fly sections of `docs/agents/deploys.md` and the Fly entries in
 `README.md` once production has cut over
 
