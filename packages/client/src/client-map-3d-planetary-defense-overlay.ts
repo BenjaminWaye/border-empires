@@ -9,6 +9,7 @@ import {
 import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
 import { patrolPoseAt, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import { createUnitMotionGate, type UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
 // Planetary Defense tile marker: a pair of dark-grey-armored soldiers
 // patrolling every barbarian-owned tile ("barbarian" is still the internal
@@ -35,6 +36,11 @@ import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.
 // the battle squad already showed the advance — and the patrol simply
 // appears there once the fight ends. Otherwise each soldier walks
 // (PistolWalk) between waypoints inside its tile and pauses (PistolIdle).
+//
+// On a slow device or with OS reduced motion (see client-map-3d-unit-motion-
+// gate.ts) the soldiers instead stand still at a fixed spot in their tile:
+// posed once when the slot is placed, then skipped every frame, and a
+// capture move just re-places them on the new tile with no jog.
 const MAX_RENDERED_TILES = 32;
 export const MOVE_DURATION_MS = 3500;
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -65,6 +71,9 @@ type Slot = {
   // stamped lazily on tick()'s own clock.
   moveFrom: Array<{ x: number; z: number }> | undefined;
   moveStartAt: number | undefined;
+  // Standing-still mode only: the soldiers are already posed at this slot's
+  // current spot, so the frame can skip them.
+  stillPosed: boolean;
 };
 
 export type PlanetaryDefenseOverlay = {
@@ -85,7 +94,7 @@ const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 const buildMaterial = (): MeshStandardMaterial =>
   new MeshStandardMaterial({ color: PLANETARY_DEFENSE_ARMOR_COLOR, vertexColors: true, roughness: 0.55, metalness: 0.5 });
 
-export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOverlay => {
+export const createPlanetaryDefenseOverlay = (scene: Scene, motionGate: UnitMotionGate = createUnitMotionGate()): PlanetaryDefenseOverlay => {
   let disposed = false;
   let pool: Slot[] = [];
   const byTileKey = new Map<TileKey, Slot>();
@@ -128,7 +137,8 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
     wx: 0,
     wy: 0,
     moveFrom: undefined,
-    moveStartAt: undefined
+    moveStartAt: undefined,
+    stillPosed: false
   });
 
   loadPopupMarineTemplate()
@@ -154,6 +164,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
 
   const hideSlot = (slot: Slot): void => {
     for (const soldier of slot.soldiers) soldier.root.visible = false;
+    slot.stillPosed = false;
   };
 
   const resetMove = (slot: Slot): void => {
@@ -168,6 +179,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
     slot.surfaceY = tile.surfaceY;
     slot.wx = tile.wx;
     slot.wy = tile.wy;
+    slot.stillPosed = false;
     byTileKey.set(tile.tileKey, slot);
   };
 
@@ -195,6 +207,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
       existing.surfaceY = pending.surfaceY;
       existing.wx = pending.wx;
       existing.wy = pending.wy;
+      existing.stillPosed = false;
       for (const from of existing.moveFrom ?? []) {
         from.x += deltaX;
         from.z += deltaZ;
@@ -253,7 +266,30 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
     soldier.mixer.update(0);
   };
 
+  const placeSoldier = (soldier: Soldier, slot: Slot, x: number, z: number, yaw: number, stance: Stance, poseAtMs: number): void => {
+    soldier.root.position.set(x, slot.surfaceY, z);
+    tmpQuat.setFromAxisAngle(UP_AXIS, yaw);
+    soldier.root.quaternion.copy(tmpQuat);
+    soldier.root.visible = true;
+    pose(soldier, stance, poseAtMs);
+    soldier.root.updateMatrixWorld(true);
+  };
+
+  // Standing-still mode: each soldier stands where the patrol would put it at
+  // t=0, idle pose, no jog. Posed once per placement, then left alone.
+  const standStill = (slot: Slot): void => {
+    resetMove(slot);
+    if (slot.stillPosed) return;
+    for (let i = 0; i < slot.soldiers.length; i += 1) {
+      const spot = patrolPoseAt(slot.wx, slot.wy, i, 0);
+      placeSoldier(slot.soldiers[i]!, slot, slot.worldX + spot.offsetX, slot.worldZ + spot.offsetZ, spot.yaw, "stand", 0);
+    }
+    slot.stillPosed = true;
+  };
+
   const tick = (nowMs: number, engagedTileKeys?: ReadonlySet<string>): void => {
+    motionGate.recordFrame(nowMs);
+    const animate = motionGate.shouldAnimate();
     for (const slot of byTileKey.values()) {
       if (engagedTileKeys?.has(slot.tileKey)) {
         // The battle squad represents this patrol right now; when it ends,
@@ -262,6 +298,11 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
         hideSlot(slot);
         continue;
       }
+      if (!animate) {
+        standStill(slot);
+        continue;
+      }
+      slot.stillPosed = false;
       if (slot.moveFrom && slot.moveStartAt === undefined) slot.moveStartAt = nowMs;
       const moveT =
         slot.moveFrom && slot.moveStartAt !== undefined ? Math.min(1, Math.max(0, (nowMs - slot.moveStartAt) / MOVE_DURATION_MS)) : 1;
@@ -284,12 +325,7 @@ export const createPlanetaryDefenseOverlay = (scene: Scene): PlanetaryDefenseOve
           if (dx !== 0 || dz !== 0) yaw = Math.atan2(dx, dz);
           stance = "run";
         }
-        soldier.root.position.set(x, slot.surfaceY, z);
-        tmpQuat.setFromAxisAngle(UP_AXIS, yaw);
-        soldier.root.quaternion.copy(tmpQuat);
-        soldier.root.visible = true;
-        pose(soldier, stance, nowMs);
-        soldier.root.updateMatrixWorld(true);
+        placeSoldier(soldier, slot, x, z, yaw, stance, nowMs);
       }
       if (moveT >= 1) resetMove(slot);
     }

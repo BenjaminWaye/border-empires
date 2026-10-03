@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPlanetaryDefenseOverlay } from "./client-map-3d-planetary-defense-overlay.js";
 import { PATROL_RADIUS, SOLDIERS_PER_TILE } from "./client-map-3d-planetary-defense-patrol.js";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "./client-planetary-defense-style.js";
+import type { UnitMotionGate } from "./client-map-3d-unit-motion-gate/client-map-3d-unit-motion-gate.js";
 
 vi.mock("./client-map-3d-popup-marine/popup-marine-asset.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./client-map-3d-popup-marine/popup-marine-asset.js")>();
@@ -143,5 +144,68 @@ describe("createPlanetaryDefenseOverlay", () => {
     overlay.tick(0);
     expect(visibleSoldiers(scene).length).toBeLessThan(200 * SOLDIERS_PER_TILE);
     overlay.dispose();
+  });
+
+  describe("standing still (slow device / reduced motion)", () => {
+    const gate = (animate: { value: boolean }): UnitMotionGate => ({ recordFrame: () => {}, shouldAnimate: () => animate.value });
+    const spots = (scene: Scene): string[] => visibleSoldiers(scene).map((s) => `${s.position.x.toFixed(4)},${s.position.z.toFixed(4)}`);
+
+    it("keeps the soldiers in one spot inside the tile over time", async () => {
+      const scene = new Scene();
+      const overlay = createPlanetaryDefenseOverlay(scene, gate({ value: false }));
+      await flush();
+      overlay.addInstance("10,10", 10.5, 10.5, 0, 10, 10);
+      overlay.commit();
+      overlay.tick(0);
+      const first = spots(scene);
+      expect(first).toHaveLength(SOLDIERS_PER_TILE);
+      for (let t = 500; t < 20_000; t += 500) {
+        overlay.tick(t);
+        expect(spots(scene)).toEqual(first);
+      }
+      for (const soldier of visibleSoldiers(scene)) {
+        expect(Math.hypot(soldier.position.x - 10.5, soldier.position.z - 10.5)).toBeLessThanOrEqual(PATROL_RADIUS + 1e-6);
+      }
+      overlay.dispose();
+    });
+
+    it("re-places the patrol on an adjacent captured tile without a jog", async () => {
+      const scene = new Scene();
+      const overlay = createPlanetaryDefenseOverlay(scene, gate({ value: false }));
+      await flush();
+      overlay.addInstance("10,10", 10.5, 10.5, 0, 10, 10);
+      overlay.commit();
+      overlay.tick(0);
+      overlay.clear();
+      overlay.addInstance("11,10", 11.5, 10.5, 0, 11, 10);
+      overlay.commit();
+      overlay.tick(100);
+      for (const soldier of visibleSoldiers(scene)) {
+        expect(Math.hypot(soldier.position.x - 11.5, soldier.position.z - 10.5)).toBeLessThanOrEqual(PATROL_RADIUS + 1e-6);
+      }
+      overlay.dispose();
+    });
+
+    it("comes back after a fight and resumes walking once motion is allowed again", async () => {
+      const scene = new Scene();
+      const animate = { value: false };
+      const overlay = createPlanetaryDefenseOverlay(scene, gate(animate));
+      await flush();
+      overlay.addInstance("10,10", 10.5, 10.5, 0, 10, 10);
+      overlay.commit();
+      overlay.tick(0, new Set(["10,10"]));
+      expect(visibleSoldiers(scene)).toHaveLength(0);
+      overlay.tick(100, new Set());
+      expect(visibleSoldiers(scene)).toHaveLength(SOLDIERS_PER_TILE);
+
+      animate.value = true;
+      const positions = new Set<string>();
+      for (let t = 1_000; t < 20_000; t += 500) {
+        overlay.tick(t);
+        positions.add(spots(scene)[0]!);
+      }
+      expect(positions.size).toBeGreaterThan(5);
+      overlay.dispose();
+    });
   });
 });

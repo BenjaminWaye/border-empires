@@ -9,7 +9,8 @@ export const CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE: ClientChangelogEntry[] 
     changes: [
       "Barbarians (\"The Bleed\") are renamed to Planetary Defense everywhere in the game",
       "The crystal monster on their tiles is replaced by soldiers in dark grey armor that patrol around their tiles",
-      "When Planetary Defense fights, its side of the battle is those same dark grey soldiers"
+      "When Planetary Defense fights, its side of the battle is those same dark grey soldiers",
+      "On slower devices, or with your system's Reduce Motion setting on, the soldiers stand still instead of patrolling"
     ]
   }
 ];
