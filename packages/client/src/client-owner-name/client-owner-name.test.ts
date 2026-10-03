@@ -51,3 +51,16 @@ describe("playerDisplayNameForOwnerFromState", () => {
     expect(playerDisplayNameForOwnerFromState(state, "player-2")).toBe("Custom Name");
   });
 });
+
+describe("Planetary Defense owner names", () => {
+  it("names the barbarian owner 'Planetary Defense' even if an older world still reports 'Barbarians'", () => {
+    const state = createInitialState();
+    state.playerNames.set("barbarian-1", "Barbarians");
+    state.leaderboard.overall = [
+      { id: "barbarian-1", name: "Barbarians", rank: 1, score: 1, tiles: 1, incomePerMinute: 0, techs: 0, manpowerCap: 0 }
+    ];
+    expect(playerNameForOwnerFromState(state, "barbarian-1")).toBe("Planetary Defense");
+    expect(playerDisplayNameForOwnerFromState(state, "barbarian-1")).toBe("Planetary Defense");
+    expect(playerDisplayNameForOwnerFromState(state, "barbarian")).toBe("Planetary Defense");
+  });
+});

@@ -759,11 +759,11 @@ export const drawTownOverlay = (
   drawTownMarker(ctx, px, py, size, false);
 };
 
-// Extracted to client-map-render-barbarian-colossus-overlay.ts to keep this
+// Extracted to client-map-render-planetary-defense-overlay.ts to keep this
 // already-oversized file from growing further (see AGENTS.md's file-size
 // discipline). Re-exported here so existing importers of client-map-render
 // keep working unchanged.
-export { drawBarbarianColossusOverlay } from "./client-map-render-barbarian-colossus-overlay.js";
+export { drawPlanetaryDefenseOverlay } from "./client-map-render-planetary-defense-overlay.js";
 
 // Extracted to client-map-render-incoming-attack-overlay.ts (same reason as
 // the colossus overlay above). Re-exported so existing importers keep working.

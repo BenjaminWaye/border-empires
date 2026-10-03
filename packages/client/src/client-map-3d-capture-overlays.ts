@@ -16,6 +16,7 @@ import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-
 import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-claim-plates.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { squadColorForOwner } from "./client-planetary-defense-style.js";
 
 // Short walk from the firing tile onto the claimed tile before the company
 // settles into its at-ease stance for the rest of the claim timer.
@@ -167,8 +168,8 @@ export function syncBattleOverlayFx(
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
       srcSurfaceY: standY(battle.originX, battle.originY),
       tgtSurfaceY: standY(battle.targetX, battle.targetY),
-      attackerColor: playerColorFor(battle.attackerOwnerId),
-      defenderColor: playerColorFor(battle.defenderOwnerId),
+      attackerColor: squadColorForOwner(battle.attackerOwnerId, playerColorFor),
+      defenderColor: squadColorForOwner(battle.defenderOwnerId, playerColorFor),
       attackerWon: battle.attackerWon,
       startAt: battle.startAt,
       clashAt: battle.clashAt,
@@ -214,8 +215,8 @@ export function syncBattleOverlayFx(
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
       srcSurfaceY: standY(srcX, srcY),
       tgtSurfaceY: standY(target.x, target.y),
-      attackerColor: playerColorFor(attackerOwnerId),
-      defenderColor: playerColorFor(defenderOwnerId),
+      attackerColor: squadColorForOwner(attackerOwnerId, playerColorFor),
+      defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
       ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})

@@ -118,7 +118,7 @@ describe("initialSocialNameForSeedPlayer", () => {
 
   it("still labels AI and barbarian seed players as before", () => {
     expect(initialSocialNameForSeedPlayer("ai-6", undefined)).toBe("AI 6");
-    expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Barbarians");
+    expect(initialSocialNameForSeedPlayer("barbarian-1", undefined)).toBe("Planetary Defense");
   });
 });
 
