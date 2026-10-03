@@ -84,6 +84,8 @@ export const buildCurrentSeasonSummary = ({
     startedAt: seasonState.startedAt,
     ...(typeof seasonState.endedAt === "number" ? { endedAt: seasonState.endedAt } : {}),
     worldSeed: seasonState.worldSeed,
+    ...(typeof seasonState.worldWidth === "number" ? { worldWidth: seasonState.worldWidth } : {}),
+    ...(typeof seasonState.worldHeight === "number" ? { worldHeight: seasonState.worldHeight } : {}),
     rulesetId: seasonState.rulesetId,
     ...(seasonState.winner ? { seasonWinner: seasonState.winner } : {}),
     ...(seasonState.galaxyTiers ? { seasonGalaxyTiers: seasonState.galaxyTiers } : {}),

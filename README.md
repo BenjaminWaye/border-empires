@@ -266,10 +266,10 @@ When shipping a user-facing client update, add a new entry to `packages/client/s
 
 Production (`play.borderempires.com`) and staging (`staging.borderempires.com`) both run the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined`.
 
-- Production Fly app: `border-empires-combined` (`fly.combined.toml`)
-- Staging Fly app: `border-empires-combined-staging` (`fly.combined.staging.toml`)
+- Production backend: Hetzner Cloud server behind `api.borderempires.com` (`deploy/`); Fly app `border-empires-combined` is stopped (rollback only)
+- Staging backend: Hetzner Cloud server behind `api-staging.borderempires.com`; Fly app `border-empires-combined-staging` is stopped (rollback only)
 - Client: Vercel project `border-empires-client`
-- Hetzner backend (opt-in, in migration from Fly): `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
+- Hetzner backend details: `deploy/`, plan in `docs/hetzner-migration-plan.md`, operations in `docs/agents/deploys.md`
 
 **Deploy to staging:**
 ```bash

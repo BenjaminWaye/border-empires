@@ -3,7 +3,7 @@ import type {
   SeasonWinnerSnapshot,
   SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import type { WorldStyle } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, type WorldStyle } from "@border-empires/shared";
 
 export const createSeasonId = (seasonSequence: number): string => `season-${seasonSequence}`;
 
@@ -46,6 +46,9 @@ export const createInitialSeasonState = ({
     worldSeed,
     ...(mapStyle ? { mapStyle } : {}),
     ...(typeof worldgenVersion === "number" ? { worldgenVersion } : {}),
+    // A new season is always generated at the process's configured size.
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT,
     status: isPending ? "pending" : "active",
     startedAt,
     ...(isPending ? { scheduledStartAt } : {}),
