@@ -60,6 +60,7 @@ export const parseTilePayload = (payloadJson: string): { x: number; y: number } 
 };
 
 export const parseStructureTilePayload = (payloadJson: string): { x: number; y: number } | null => parseTilePayload(payloadJson);
+export const parseBuildAfcPayload = parseTilePayload;
 
 export const parseConverterTogglePayload = (payloadJson: string): { x: number; y: number; enabled: boolean } | null => {
   try {
@@ -156,6 +157,14 @@ export const parseRetortRecastPayload = (payloadJson: string): { x: number; y: n
   } catch {
     return null;
   }
+};
+
+export const parseRedeployAfcModulePayload = (payloadJson: string): { x: number; y: number; techId: string } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.techId !== "string") return null;
+    return { x: parsed.x, y: parsed.y, techId: parsed.techId };
+  } catch { return null; }
 };
 
 export const parseRevealPayload = (payloadJson: string): { targetPlayerId: string } | null => {

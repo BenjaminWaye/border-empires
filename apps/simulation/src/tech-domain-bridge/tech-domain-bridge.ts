@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { techCatalogIdentityMetadata } from "./tech-catalog-identity-metadata.js";
 import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
@@ -453,9 +454,7 @@ export const buildTechUpdatePayload = (
       name: tech.name,
       description: tech.description,
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
-      ...(tech.rootId ? { rootId: tech.rootId } : {}),
-      ...(tech.branch ? { branch: tech.branch } : {}),
-      ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
+      ...techCatalogIdentityMetadata(tech),
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
       requirements: {

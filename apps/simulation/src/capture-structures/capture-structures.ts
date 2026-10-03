@@ -66,7 +66,14 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
 // under_construction/removing lifecycle exists for an AFC yet).
 const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["afc"] => {
   if (!tile?.afc) return undefined;
-  return { ...tile.afc, ownerId: nextOwnerId, activatedAt: now };
+  // A research-created House module becomes a captured copy when its AFC is
+  // taken. It stays installed, but the winner cannot redeploy it away.
+  return {
+    ...tile.afc,
+    ownerId: nextOwnerId,
+    activatedAt: now,
+    ...(tile.afc.houseModules ? { houseModules: [] } : {})
+  };
 };
 
 /**

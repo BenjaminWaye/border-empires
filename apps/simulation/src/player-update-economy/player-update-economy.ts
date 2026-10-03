@@ -244,6 +244,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   now: number = Date.now()
 ): PlayerUpdateEconomySnapshot => {
   const incomeMultiplier = player.mods?.income ?? 1;
+  let countedAfcBaseline = false;
   // Iterate the Set directly rather than spreading it — avoids a 250k-element
   // intermediate array allocation at scale. Same result, O(territory) either way
   // but no GC pressure from the spread.
@@ -360,9 +361,10 @@ export const buildPlayerUpdateEconomySnapshot = (
     // amplified by townGoldCapMult (mirrors the isSettlement branch above).
     // (The gold cap system this used to also feed was removed separately --
     // "No more gold cap" -- so this is just the income bucket now.)
-    if (tile.afc?.ownerId === player.id) {
+    if (tile.afc?.ownerId === player.id && !countedAfcBaseline) {
       const afcGoldPerMinute = SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Automated Fabrication Complex", afcGoldPerMinute, { count: 1 });
+      countedAfcBaseline = true;
     }
     if (tile.dockId) {
       const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;

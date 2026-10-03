@@ -142,13 +142,13 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     benefitFill.count = 0;
     if (!deps.state.buildingPlacement.active) return;
     const { x, y, structureType } = deps.state.buildingPlacement;
-    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") return;
+    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY" && structureType !== "AFC") return;
     const tile = deps.state.tiles.get(deps.keyFor(x, y));
     if (deps.tileVisibilityStateAt(x, y, tile) !== "visible") return;
     const valid = deps.isPlacementValidForTile(tile);
-    const radius = placementRadius(structureType);
+    const radius = structureType === "AFC" ? 0.5 : placementRadius(structureType);
 
-    syncBeneficiaryHighlights(deps, structureType, x, y, radius);
+    if (structureType !== "AFC") syncBeneficiaryHighlights(deps, structureType, x, y, radius);
 
     marker.material = valid ? validMaterial : invalidMaterial;
     fill.material = valid ? validFillMaterial : invalidFillMaterial;
