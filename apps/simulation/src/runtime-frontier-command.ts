@@ -6,13 +6,14 @@ import {
 import {
   FRONTIER_CLAIM_COST,
   MUSTER_ATTACK_COST,
+  MUSTER_MARCH_MAX_DISTANCE_TILES,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
   frontierClaimDurationMsAt,
   isOpaquePlayerId
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
-import { chebyshevDistanceSimple } from "./territory-automation/territory-automation.js";
+import { chebyshevDistanceToroidal } from "./territory-automation/territory-automation.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
@@ -250,6 +251,14 @@ export const handleFrontierCommandImpl = (
   // flag firing directly (adjacent to the target) still takes a moment,
   // matching the client's own Math.max(1, dist) floor.
   //
+  // Measured on the wrapping world and capped at the march limit: ADVANCE's
+  // range counts a dock crossing as one hop and MARCH is limited to
+  // MUSTER_MARCH_MAX_DISTANCE_TILES, so no legitimate auto-fire travels
+  // further. Uncapped (and non-wrapping), a flag reaching across a dock or
+  // the map seam was charged its full straight-line distance -- an AI flag
+  // ~120 tiles away locked both tiles for 4+ minutes while the defender saw
+  // nothing approaching and couldn't counterattack the locked origin.
+  //
   // The flag itself -- not whatever intermediate owned tile the BFS launches
   // from -- is always the travel-time origin: MARCH/ADVANCE stamp
   // musterSourceX/Y on every command they submit (ATTACK and, for MARCH,
@@ -261,7 +270,10 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    const transitTiles = Math.max(1, chebyshevDistanceSimple(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y));
+    const transitTiles = Math.min(
+      MUSTER_MARCH_MAX_DISTANCE_TILES,
+      Math.max(1, chebyshevDistanceToroidal(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y))
+    );
     transitMs = transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
