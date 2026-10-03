@@ -40,6 +40,8 @@ const createState = () =>
     pendingDomainUnlockId: "",
     tiles: new Map(),
     incomingAttacksByTile: new Map(),
+    musterTransitByTile: new Map(),
+    deferredAttackByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     revealedPredictedCombatByKey: new Map(),
     activeTruces: [],
