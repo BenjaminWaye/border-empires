@@ -21,18 +21,38 @@ export const handleRedeployAfcModuleCommand = (context: RuntimeStructureCommandC
     return;
   }
   const changed = [];
-  for (const tileKey of context.summaryForPlayer(actor.id).ownedAfcTileKeys) {
-    const tile = context.tiles.get(tileKey);
-    if (!tile?.afc || tile.ownerId !== actor.id || tileKey === targetKey || !tile.afc.modules?.includes(payload.techId)) continue;
-    const next = { ...tile, afc: { ...tile.afc, modules: tile.afc.modules.filter((techId) => techId !== payload.techId) } };
+  for (const [tileKey, tile] of context.tiles) {
+    if (!tile?.afc || tile.ownerId !== actor.id || tileKey === targetKey || !tile.afc.houseModules?.includes(payload.techId)) continue;
+    const next = {
+      ...tile,
+      afc: {
+        ...tile.afc,
+        modules: removeOneModule(tile.afc.modules ?? [], payload.techId),
+        houseModules: tile.afc.houseModules.filter((techId) => techId !== payload.techId)
+      }
+    };
     context.replaceTileState(tileKey, next, command.commandId);
     changed.push(next);
   }
-  if (!target.afc.modules?.includes(payload.techId)) {
-    const next = { ...target, afc: { ...target.afc, modules: [...(target.afc.modules ?? []), payload.techId] } };
+  if (!target.afc.houseModules?.includes(payload.techId)) {
+    const next = {
+      ...target,
+      afc: {
+        ...target.afc,
+        modules: [...(target.afc.modules ?? []), payload.techId],
+        houseModules: [...(target.afc.houseModules ?? []), payload.techId]
+      }
+    };
     context.replaceTileState(targetKey, next, command.commandId);
     changed.push(next);
   }
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: changed.map((tile) => context.tileDeltaFromState(tile)) });
-  context.emitPlayerStateUpdate(command);
+  if (changed.length > 0) {
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: changed.map((tile) => context.tileDeltaFromState(tile)) });
+    context.emitPlayerStateUpdate(command);
+  }
+};
+
+const removeOneModule = (modules: readonly string[], techId: string): string[] => {
+  const index = modules.indexOf(techId);
+  return index < 0 ? [...modules] : [...modules.slice(0, index), ...modules.slice(index + 1)];
 };

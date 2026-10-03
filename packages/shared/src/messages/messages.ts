@@ -240,6 +240,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("REDEPLOY_AFC_MODULE"), x: z.number().int(), y: z.number().int(), techId: z.string().min(1) }),
+  z.object({ type: z.literal("BUILD_AFC"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REMOVE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({

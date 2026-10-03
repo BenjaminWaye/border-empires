@@ -29,6 +29,8 @@ import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "
 import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-structure-command-handlers-reject.js";
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
 import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
+import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
+import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
@@ -49,7 +51,7 @@ export type RuntimeStructureCommandContext = {
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   ownedStructureCountForPlayer: (playerId: string, type: BuildableStructureType) => number;
-  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  summaryForPlayer?: (playerId: string) => PlayerRuntimeSummary;
   // Persistent-border reach owner at (x, y), independent of ownerId/ownershipState
   // (see reachBorderOwnerAt's doc comment in runtime-aether-bridge-reach.ts).
   // Used by the outpost-family OUT_OF_REACH gate below to tell "no one's
@@ -84,6 +86,7 @@ export type RuntimeStructureCommandContext = {
   hasNearbyQuartermastersOffice: (playerId: string, x: number, y: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  bumpTerrainEpoch: () => void;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
   // Timer completions (scheduleAfter) skip queueCommandForProcessing's flush, so
@@ -216,6 +219,8 @@ function hasFreeResourceSlots(
 }
 
 export function handleBuildStructureCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
+  if (command.type === "BUILD_AFC") return handleBuildAfcCommand(context, command);
+  if (command.type === "REDEPLOY_AFC_MODULE") return handleRedeployAfcModuleCommand(context, command);
   const actor = context.players.get(command.playerId);
   const payload = parseBuildStructurePayload(command.payloadJson);
   if (!actor || !payload) {
@@ -241,10 +246,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       return;
     }
     if (techEntryById.get(techId)?.manifestCategory === "AFC_MODULE") {
-      const accessible = [...context.summaryForPlayer(command.playerId).ownedAfcTileKeys].some((tileKey) => {
-        const tile = context.tiles.get(tileKey);
-        return tile?.ownerId === command.playerId && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes(techId);
-      });
+      const accessible = [...context.tiles.values()].some(
+        (tile) => tile.ownerId === command.playerId && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes(techId)
+      );
       if (!accessible) {
         rejectCommand(context, command, "BUILD_INVALID", `Requires an active AFC with ${techId} installed`);
         return;

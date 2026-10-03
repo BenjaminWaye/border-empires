@@ -60,6 +60,7 @@ export const parseTilePayload = (payloadJson: string): { x: number; y: number } 
 };
 
 export const parseStructureTilePayload = (payloadJson: string): { x: number; y: number } | null => parseTilePayload(payloadJson);
+export const parseBuildAfcPayload = parseTilePayload;
 
 export const parseConverterTogglePayload = (payloadJson: string): { x: number; y: number; enabled: boolean } | null => {
   try {

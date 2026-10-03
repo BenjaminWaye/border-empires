@@ -40,7 +40,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleCreateMountainCommand: (command: CommandEnvelope) => void;
   handleRemoveMountainCommand: (command: CommandEnvelope) => void;
   handleRetortRecastCommand: (command: CommandEnvelope) => void;
-  handleRedeployAfcModuleCommand: (command: CommandEnvelope) => void;
   handleAirportBombardCommand: (command: CommandEnvelope) => void;
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => void;
   handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
@@ -111,7 +110,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
-  if (command.type === "REDEPLOY_AFC_MODULE") return handlers.handleRedeployAfcModuleCommand(command);
+  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
   if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
@@ -183,6 +182,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REMOVE_MOUNTAIN" ||
   command.type === "RETORT_RECAST" ||
   command.type === "REDEPLOY_AFC_MODULE" ||
+  command.type === "BUILD_AFC" ||
   command.type === "AIRPORT_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
   command.type === "WORLD_ENGINE_STRIKE" ||

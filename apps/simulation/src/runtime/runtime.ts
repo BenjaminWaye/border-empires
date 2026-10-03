@@ -481,7 +481,6 @@ import {
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
-import { handleRedeployAfcModuleCommand as handleRedeployAfcModuleCommandImpl } from "../runtime-redeploy-afc-module-command-handler.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
@@ -1251,12 +1250,12 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       tileSettledAtByKey: this.tileSettledAtByKey,
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       onPlayerStateUpdateSkippedAi: (playerId) => this.onPlayerStateUpdateSkippedAi?.(playerId),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
@@ -1587,7 +1586,7 @@ export class SimulationRuntime {
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
+      isDockCrossingTarget: (from, x, y) => isDockCrossingTargetImpl(from, x, y, this.state.dockLinksByDockTileKey),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
@@ -4010,10 +4009,6 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
-    return isDockCrossingTargetImpl(from, toX, toY, this.state.dockLinksByDockTileKey);
-  }
-
   private isAetherBridgeCrossingTarget(
     playerId: string,
     fromX: number,
@@ -4083,7 +4078,6 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId, true), // forceFresh: hasFreeResourceSlots can't tolerate stale totals
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId, true),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),
@@ -4096,6 +4090,7 @@ export class SimulationRuntime {
       hasNearbyQuartermastersOffice: (playerId, x, y) => this.hasNearbyQuartermastersOfficeForPlayer(playerId, x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
       flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
@@ -4300,7 +4295,6 @@ export class SimulationRuntime {
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      handleRedeployAfcModuleCommand: (command) => handleRedeployAfcModuleCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),

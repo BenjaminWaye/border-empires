@@ -50,9 +50,9 @@ export const playerManpowerCapFromSummary = (
   cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   if (ancillaryFactoryCapacityBonusByTown) cap += [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0);
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
-  // flat SETTLEMENT-tier baseline per AFC, not terrain-scaled -- deliberately
+  // flat SETTLEMENT-tier baseline once per House, not terrain-scaled -- deliberately
   // NOT part of the ownedTownTierByTile loop above (an AFC is not a town).
-  cap += summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
+  cap += Math.min(summary.ownedAfcTileKeys.size, 1) * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
@@ -81,7 +81,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
   // AFC flat baseline (see playerManpowerCapFromSummary above): added
   // unconditionally, never weighted by manpowerRegenWeightForSettlementIndex.
-  const afcBonus = summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
+  const afcBonus = Math.min(summary.ownedAfcTileKeys.size, 1) * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
     STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
@@ -185,8 +185,8 @@ export const playerManpowerBreakdownFromSummary = (
         ]
       : capLinesWithGarrisonHall;
   if (summary.ownedAfcTileKeys.size > 0) {
-    capLinesWithRailDepotNetwork.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap });
-    regenLines.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute });
+    capLinesWithRailDepotNetwork.push({ label: "Automated Fabrication Complex", amount: TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap });
+    regenLines.push({ label: "Automated Fabrication Complex", amount: TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute });
   }
   // Starting Capital is always present (§4.3) — unlike the old floor-based
   // "Base minimum" fallback, it's listed unconditionally alongside any town

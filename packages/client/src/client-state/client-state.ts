@@ -534,7 +534,7 @@ export const createInitialState = () => ({
   },
   buildingPlacement: {
     active: false,
-    structureType: "" as "WATERWORKS" | "FOUNDRY" | "",
+    structureType: "" as "WATERWORKS" | "FOUNDRY" | "AFC" | "",
     x: 0,
     y: 0
   },
