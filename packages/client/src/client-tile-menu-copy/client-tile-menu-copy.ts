@@ -1,4 +1,4 @@
-import type { Terrain } from "@border-empires/shared";
+import type { Terrain, Tile } from "@border-empires/shared";
 
 export type TileMenuOverviewIntroInput = {
   terrain: Terrain;
@@ -7,6 +7,7 @@ export type TileMenuOverviewIntroInput = {
   resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
   hasTown?: boolean;
+  ownershipState?: Tile["ownershipState"];
 };
 
 export const tileMenuSubtitleText = (ownerLabel: string, regionLabel?: string): string =>
@@ -47,7 +48,19 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
         ]
       : [];
   }
+  if (input.ownerKind === "ally" || input.ownerKind === "enemy") {
+    if (input.ownershipState === "SETTLED") return ["Settled territory."];
+    if (input.ownershipState === "FRONTIER") return ["Frontier territory — not yet settled."];
+  }
   // Generic "what is frontier / settled land" copy lives in the header's
   // expandable ownership help (client-tile-menu-ownership-help), not here.
   return [];
+};
+
+
+export const foreignTileOwnershipLabel = (tile: Pick<Tile, "ownerId" | "ownershipState" | "terrain">, viewerId: string): string | undefined => {
+  if (!tile.ownerId || tile.ownerId === viewerId || tile.terrain !== "LAND") return undefined;
+  if (tile.ownershipState === "SETTLED") return "Settled territory";
+  if (tile.ownershipState === "FRONTIER") return "Frontier territory";
+  return undefined;
 };

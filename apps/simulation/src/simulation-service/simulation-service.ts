@@ -104,6 +104,7 @@ import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnosti
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveSeasonCaps } from "../season-caps/season-caps.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
+import { repairPlayerInfrastructure } from "./repair-player-infrastructure.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
 
@@ -1839,9 +1840,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     });
   };
   attachRuntimeEventHandlers();
-  if (shouldRepairZeroGrossIncomeSettlements) {
-    for (const id of runtime.repairZeroGrossIncomeSettlements(zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState)).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
-  }
+  repairPlayerInfrastructure(runtime, activePlayers, shouldRepairZeroGrossIncomeSettlements ? zeroGrossIncomeRepairCandidateIds(effectiveStartupRecovery.initialState) : undefined);
   await startAutopilots();
   const replaceRuntime = async ({
     nextRuntime,
@@ -1860,7 +1859,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     runtimeSeededTileCount = nextSeededTileCount;
     clearCachedSnapshots();
     attachRuntimeEventHandlers();
-    for (const id of runtime.repairZeroGrossIncomeSettlements([...nextPlayers.keys()]).aiPlayerIds) activePlayers.set(id, { id, isAi: true });
+    repairPlayerInfrastructure(runtime, activePlayers, [...nextPlayers.keys()]);
     await startAutopilots();
   };
   const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {

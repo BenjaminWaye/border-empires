@@ -3,6 +3,7 @@
 // that file doesn't grow further. captureAttackProgressView covers the
 // attacker's own outgoing attack (state.capture); incomingAttackProgressView
 // covers a tile the viewer owns that's currently under attack.
+import { trackedBattleProgressView } from "./client-tracked-battle-progress.js";
 import { EXPAND_MANPOWER_COST, rushBuyPriceGold } from "@border-empires/shared";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
@@ -14,7 +15,7 @@ export const captureAttackProgressView = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string
 ): TileMenuProgressView | undefined => {
-  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return undefined;
+  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock);
   const nowMs = Date.now();
   const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
   const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);

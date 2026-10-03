@@ -149,3 +149,45 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
     await service.close();
   });
 });
+
+
+describe("simulation startup — AFCs for AI empires that never log in", () => {
+  it("persists an AFC grant for an existing AI with a productive settlement", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+    const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
+    for (let x = 0; x < 40; x++) {
+      for (let y = 0; y < 40; y++) tiles.push({ x, y, terrain: "LAND" });
+    }
+    await snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: {
+          tiles: [...tiles, {
+            x: 15, y: 15, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED",
+            town: { name: "AI Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          }],
+          players: [{ id: "ai-1", isAi: true, points: 1000, manpower: 1000 }],
+          activeLocks: []
+        },
+        commands: [], eventsByCommandId: new Map()
+      }),
+      createdAt: 1000
+    });
+    const service = await createSimulationService({
+      seedProfile: "default", requireDurableStartupState: true,
+      commandStore: new InMemorySimulationCommandStore(), eventStore, snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      log: { info: () => undefined, error: () => undefined }
+    });
+    try {
+      const ownedAfcs = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === "ai-1" && tile.afcJson);
+      expect(ownedAfcs).toHaveLength(1);
+      expect(JSON.parse(ownedAfcs[0]!.afcJson!)).toMatchObject({ ownerId: "ai-1", status: "active" });
+      expect(service.runtime.exportState().tiles.find((tile) => tile.x === 15 && tile.y === 15)?.townName).toBe("AI Home");
+    } finally {
+      await service.close();
+    }
+    expect((await eventStore.loadAllEvents()).some((event) => event.commandId.startsWith("afc-migration:ai-1:"))).toBe(true);
+  });
+});
