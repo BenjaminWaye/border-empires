@@ -125,9 +125,10 @@ import {
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
-  tileActionIsCrystal as tileActionIsCrystalFromModule,
-  unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
+  tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
+import { handleGenericBuildAction } from "./client-generic-build-action.js";
+import { handleAfcTileAction } from "./client-afc-tile-action.js";
 import {
   areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
@@ -1405,13 +1406,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
+    if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
     if (actionId === "collect_yield") collectSelectedYield();
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
-    const genericStructureType = structureTypeForTileActionFromModule(actionId as TileActionDef["id"]);
-    if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
-    const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
-    if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
+    if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu })) return;
     if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
@@ -1551,7 +1550,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
     createBuildingPlacementFlow(state, {
-      keyFor, pushFeed, renderHud, sendDevelopmentBuild, applyOptimisticStructureBuild,
+      keyFor, pushFeed, renderHud, sendDevelopmentBuild, applyOptimisticStructureBuild, sendGameMessage,
       placementOverlayEl: deps.placementOverlayEl,
       placementLabelEl: deps.placementLabelEl
     });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defendingFortVariant, structureBuildDurationMs } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { requiredMusterForTarget } from "../runtime-combat-resolution.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 type SeedFort = { ownerId: string; status: "active"; variant: "WOODEN_FORT" | "FORT" };
 
@@ -16,7 +17,7 @@ const makeRuntime = (fort: SeedFort | undefined, techIds: string[], extra: Recor
       strategicResources: { FOOD: 0, TITANIUM: 500, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
     }]]),
     initialState: {
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"), 
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, ...(fort ? { fort } : {}), ...extra },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },

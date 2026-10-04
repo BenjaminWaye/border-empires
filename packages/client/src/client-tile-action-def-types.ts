@@ -72,6 +72,7 @@ export type TileActionDef = {
     | "build_weapons_workshop"
     | "build_titanium_weapons_factory"
     | "build_umbrite_weapons_factory"
+    | "build_afc"
     | "grow_settlement_to_town"
     | "grow_town_to_city"
     | "grow_city_to_great_city"
@@ -108,7 +109,8 @@ export type TileActionDef = {
     | "remove_mountain"
     | "cancel_waypoint"
     | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
-    | "expand_here";
+    | "expand_here"
+    | `redeploy_afc_module:${string}`;
   label: string;
   cost?: string;
   detail?: string | undefined;
@@ -117,4 +119,8 @@ export type TileActionDef = {
   disabledReason?: string;
   targetKey?: string;
   originKey?: string;
+  /** Floats to the top of the list and is highlighted (Settle Land on a tile that has something to gain). */
+  recommended?: boolean;
+  /** Settle Land on a frontier tile: the "auto-settle these from now on" checkbox rendered under the button. */
+  autoSettleOption?: import("./client-auto-settle-prompt/client-auto-settle-tile-option.js").AutoSettleOption | undefined;
 };

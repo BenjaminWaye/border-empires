@@ -17,6 +17,7 @@ import { createInitialState } from "../client-state/client-state.js";
 import { hasEstablishedTownAndFoodTile } from "./client-tile-action-settle-visibility.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
+import { loadedAutoSettleState } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -124,6 +125,37 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     const actions = menuActionsForSingleTile(state, frontierTile, baseDeps as never);
     expect(findAction(actions, "settle_land")).toBeUndefined();
     expect(findAction(actions, "settle_connected_frontier")).toBeUndefined();
+  });
+
+  it("shows settle_land with its gain/upkeep line and auto-settle checkbox on a resource tile even before the economy exists", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: false, resources: false });
+    const farm = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(1, 0), farm);
+
+    const actions = menuActionsForSingleTile(state, farm, baseDeps as never);
+    const settle = findAction(actions, "settle_land");
+    expect(settle?.detail).toContain("Gain: +1 food slot. Upkeep: none.");
+    expect(settle?.autoSettleOption).toMatchObject({ category: "food", checked: false });
+    expect(settle?.recommended).toBe(true);
+    expect(findAction(actions, "settle_connected_frontier")).toBeUndefined();
+  });
+
+  it("also recommends it on a natural wonder, but not on a plain tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 10_000;
+    state.manpower = 10_000;
+    state.tiles.set(keyFor(0, 0), settledTownTile);
+    state.tiles.set(keyFor(2, 0), { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile);
+    const wonder = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", naturalWonder: { type: "RAINBOW_RIDGE" } } as unknown as Tile;
+    const wonderSettle = findAction(menuActionsForSingleTile(state, wonder, baseDeps as never), "settle_land");
+    expect(wonderSettle?.recommended).toBe(true);
+    expect(wonderSettle?.autoSettleOption).toBeUndefined();
+    expect(findAction(menuActionsForSingleTile(state, frontierTile, baseDeps as never), "settle_land")?.recommended).toBeUndefined();
   });
 
   it("shows settle_land at the bottom of the actions list once the economy is established", () => {

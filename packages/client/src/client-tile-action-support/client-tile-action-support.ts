@@ -4,6 +4,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { hostileObservatoryProtectingTileAt } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
+import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
@@ -330,19 +331,12 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
 
 export const hideTechLockedTileAction = (
   action: TileActionDef,
-  state: Pick<ClientState, "techIds" | "localhostDevAetherWall">
-): boolean => {
-  if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
-  const requiredTech = requiredTechForTileAction(action.id);
-  if (requiredTech && !state.techIds.includes(requiredTech)) return true;
-  if (requiredTech) return false;
-  if (!action.disabled || !action.disabledReason) return false;
-  return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
-};
+  state: TileActionFilterState
+): boolean => hideTechLockedTileActionFromModule(action, state, requiredTechForTileAction);
 
 export const splitTileActionsIntoTabs = (
   actions: TileActionDef[],
-  state: Pick<ClientState, "techIds" | "localhostDevAetherWall">
+  state: TileActionFilterState
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;

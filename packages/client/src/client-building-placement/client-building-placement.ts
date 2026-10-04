@@ -1,6 +1,7 @@
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
+import { isValidAfcLandingTile } from "../client-afc-actions.js";
 
 export type BuildingPlacementFlowDeps = {
   keyFor: (x: number, y: number) => string;
@@ -14,12 +15,14 @@ export type BuildingPlacementFlowDeps = {
     opts: { x: number; y: number; label: string; optimisticKind: OptimisticStructureKind }
   ) => boolean;
   applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+  sendGameMessage: (payload: { type: "BUILD_AFC"; x: number; y: number }) => boolean;
 };
 
 export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPlacementFlowDeps) => {
   const isPlacementValidForTile = (tile: Tile | undefined): boolean => {
     if (!tile || !state.buildingPlacement.active) return false;
     const st = state.buildingPlacement.structureType;
+    if (st === "AFC") return isValidAfcLandingTile(state, tile);
     if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
@@ -38,6 +41,17 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
   const confirmBuildingPlacement = (): void => {
     if (!state.buildingPlacement.active) return;
     const { structureType, x, y } = state.buildingPlacement;
+    if (structureType === "AFC") {
+      const tile = state.tiles.get(deps.keyFor(x, y));
+      if (!isPlacementValidForTile(tile)) {
+        deps.pushFeed("AFCs need empty settled land you control.", "combat", "warn");
+        cancelBuildingPlacement();
+        return;
+      }
+      deps.sendGameMessage({ type: "BUILD_AFC", x, y });
+      cancelBuildingPlacement();
+      return;
+    }
     if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") {
       cancelBuildingPlacement();
       return;
@@ -61,7 +75,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       deps.placementOverlayEl.style.display = "none";
       return;
     }
-    const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Ore Refinery";
+    const name = state.buildingPlacement.structureType === "AFC" ? "Automated Fabrication Complex" : state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Ore Refinery";
     deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
   };

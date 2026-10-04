@@ -4,7 +4,7 @@ import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINU
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
-import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -2710,7 +2710,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 10,
               y: 10,
@@ -2749,7 +2749,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (1020, §4.3) before Fort's 300 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 300); // cap = capital + TOWN tier (1020, §4.3) before Fort's 300 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -2773,7 +2773,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -2819,7 +2819,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -2870,7 +2870,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "THUNDER_BASTION" as const } }
           ],
           activeLocks: []
@@ -2913,7 +2913,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
           ],
           activeLocks: []
@@ -2956,7 +2956,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
@@ -3077,7 +3077,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 12,
               y: 12,
@@ -3132,7 +3132,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 14,
               y: 14,
@@ -3164,7 +3164,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (870, §4.3) before outpost's 60 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap * 2 - 60); // SETTLED w/no town still = SETTLEMENT tier (+ the fixture AFC's SETTLEMENT-tier baseline) before outpost's 60 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 
@@ -3187,7 +3187,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3228,7 +3228,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3274,7 +3274,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "DREAD_TOWER" as const } }
           ],
           activeLocks: []
@@ -3317,7 +3317,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
           ],
           activeLocks: []
@@ -3360,7 +3360,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3417,7 +3417,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -8797,7 +8797,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 10,
               y: 10,

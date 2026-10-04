@@ -133,3 +133,22 @@ describe("tileActionMenuHtml building category squares", () => {
     expect(html).toContain("tile-building-category-square cat-town_support is-empty");
   });
 });
+
+describe("recommended actions", () => {
+  it("lists a recommended action first, highlights it, and puts its auto-settle checkbox right under its button", () => {
+    const view: TileMenuView = {
+      ...baseView,
+      tabs: ["actions"],
+      actions: [
+        { id: "build_relay_beacon", label: "Relay Beacon" },
+        { id: "settle_land", label: "Settle Land", recommended: true, autoSettleOption: { category: "food", checked: false, label: "Settle farms and fish automatically from now on" } }
+      ]
+    };
+    const html = tileActionMenuHtml(view, "actions", false);
+    expect(html.indexOf('data-action="settle_land"')).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
+    expect(html).toContain('class="tile-action-btn is-recommended"');
+    expect(html).toContain("★ Recommended");
+    expect(html.indexOf("data-tile-auto-settle")).toBeGreaterThan(html.indexOf('data-action="settle_land"'));
+    expect(html.indexOf("data-tile-auto-settle")).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
+  });
+});
