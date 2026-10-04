@@ -3,18 +3,20 @@
 // that file doesn't grow further. captureAttackProgressView covers the
 // attacker's own outgoing attack (state.capture); incomingAttackProgressView
 // covers a tile the viewer owns that's currently under attack.
+import { trackedBattleProgressView } from "./client-tracked-battle-progress.js";
 import { EXPAND_MANPOWER_COST, rushBuyPriceGold } from "@border-empires/shared";
 import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
 import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
+import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 
 export const captureAttackProgressView = (
   state: ClientState,
   tile: Tile,
   formatCountdownClock: (ms: number) => string
 ): TileMenuProgressView | undefined => {
-  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return undefined;
+  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock);
   const nowMs = Date.now();
   const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
   const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
@@ -56,6 +58,12 @@ export const captureAttackProgressView = (
   };
 };
 
+// No versus bar for the defender: the server doesn't reveal the attack's odds
+// to the defender before it resolves, and a placeholder 50/50 bar read as
+// real odds. What the card does state is what's knowable: whether the enemy
+// company is still marching here, and that FRONTIER ground has no defending
+// force (runtime-lock-resolution.ts's hasDefendingForce -- a guaranteed
+// capture with no roll, unless Aegis Lock repels it).
 export const incomingAttackProgressView = (
   state: ClientState,
   tile: Tile,
@@ -67,16 +75,28 @@ export const incomingAttackProgressView = (
   if (!incoming) return undefined;
   const nowMs = Date.now();
   const remainingMs = Math.max(0, incoming.resolvesAt - nowMs);
-  const startAt = incoming.transitEndsAt ?? incoming.resolvesAt - 3_000;
+  const startAt = incomingAttackCombatStartAt(incoming);
   const totalMs = Math.max(1, incoming.resolvesAt - startAt);
-  const defenderColor = resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor);
-  const attackerColor = incoming.attackerId ? resolveOwnerColor(incoming.attackerId, state.playerColors, fallbackOwnerColor) : "#8a8f98";
-  return {
-    title: "Under attack",
-    detail: `${incoming.attackerName} is attacking this tile. Odds aren't visible to the defender until it resolves.`,
-    remainingLabel: formatCountdownClock(remainingMs),
-    progress: Math.max(0, Math.min(1, (nowMs - startAt) / totalMs)),
-    note: "Combat resolves in a single roll when the timer ends.",
-    battle: { attackerColor, defenderColor, attackerShare: 0.5, attackerLabel: incoming.attackerName, defenderLabel: "You" }
-  };
+  const progress = Math.max(0, Math.min(1, (nowMs - startAt) / totalMs));
+  const name = incoming.attackerName;
+  const marching = incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowMs;
+  const undefended = tile.ownershipState === "FRONTIER";
+  const marchingDetail = marching
+    ? `${name}'s company is marching here and arrives in ${formatCountdownClock(incoming.transitEndsAt! - nowMs)}. `
+    : "";
+  return undefended
+    ? {
+        title: marching ? "Attack incoming" : "Being captured",
+        detail: `${marchingDetail}Frontier tiles have no defending force, so ${name} takes this tile when the timer ends.`,
+        remainingLabel: formatCountdownClock(remainingMs),
+        progress,
+        note: "Only Aegis Lock can repel an attack on frontier ground."
+      }
+    : {
+        title: marching ? "Attack incoming" : "Under attack",
+        detail: `${marchingDetail}${name} is attacking this tile. The defender can't see the odds until it resolves.`,
+        remainingLabel: formatCountdownClock(remainingMs),
+        progress,
+        note: "Combat resolves in a single roll when the timer ends."
+      };
 };

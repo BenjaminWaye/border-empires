@@ -1,3 +1,4 @@
+import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
 import {
   isFortDefending,
   requiredMusterForTarget,
@@ -16,7 +17,7 @@ import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml, type St
 import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
-import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
+import { foreignTileOwnershipLabel, tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
@@ -126,7 +127,8 @@ export const menuOverviewForTile = (
     productionLabel,
     resourceLabel: resourceLabelText,
     isDockEndpoint: Boolean(tile.dockId),
-    hasTown: Boolean(tile.town)
+    hasTown: Boolean(tile.town),
+    ownershipState: tile.ownershipState
   }).forEach(pushLine);
   if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
@@ -432,13 +434,14 @@ export const tileMenuViewForTile = (
     ? deps.combatBreakdownForTile?.(tile)
     : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
-  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture ? undefined : deps.incomingAttackProgressForTile?.(tile);
+  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture && capture.title !== "Battle resolved" ? undefined : deps.incomingAttackProgressForTile?.(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const primaryProgress = capture ?? incomingAttack ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  const battleResolution = capture?.title === "Battle resolved" ? capture : undefined;
+  const primaryProgress = (battleResolution ? undefined : capture) ?? incomingAttack ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction ?? battleResolution;
   // "then:" annotation only applies to whatever's actively running (usually
   // the capture card for an in-flight EXPAND) -- a queued settlement/build
   // has its own card already. Copies rather than mutates the builder's
@@ -458,7 +461,7 @@ export const tileMenuViewForTile = (
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   if (deps.musterCommit) tabs.push("commit");
   tabs.push("overview");
-  const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
+  const regionLabel = [foreignTileOwnershipLabel(tile, deps.state.me), tile.regionType ? deps.prettyToken(tile.regionType) : undefined].filter(Boolean).join(" · ") || undefined;
   const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
   const ownerLabel =
     (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA")
@@ -478,14 +481,14 @@ export const tileMenuViewForTile = (
   const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
-  const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
+  const reachState = deps.state; const headerStatus = (tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),
     tabs,
-    overviewLines: deps.menuOverviewForTile(tile),
+    overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,

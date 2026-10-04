@@ -40,7 +40,7 @@ export const DEFAULT_LIGHTING: LightingSettings = {
   shadowIntensity: 0.6,
   fillIntensity: 0.55,
   fillColor: "#ff8a5c",
-  envIntensity: 1,
+  envIntensity: 0.5,
   exposure: 1.1
 };
 

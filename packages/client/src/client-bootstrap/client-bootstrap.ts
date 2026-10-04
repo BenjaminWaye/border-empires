@@ -557,7 +557,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     constructionRemainingMsForTile: actionFlow.constructionRemainingMsForTile,
     formatCountdownClock: actionFlow.formatCountdownClock,
     drawStartingExpansionArrow,
-    drawBarbarianColossusOverlay: deps.drawBarbarianColossusOverlay,
+    drawPlanetaryDefenseOverlay: deps.drawPlanetaryDefenseOverlay,
     shouldDrawOwnershipBorder,
     borderColorForOwner,
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
@@ -632,5 +632,5 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   // Debug: force the season-end overlay visible from the browser console.
   // Usage: __debugSeasonEndOverlay()
-  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage, pushFeed });
+  installPostBootstrapHooks({ state, renderHud, sendGameMessage: actionFlow.sendGameMessage });
 };

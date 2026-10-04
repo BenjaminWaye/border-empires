@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
-import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
+import { buildPlayer, collectEvents, afcModuleFixtureTile } from "./runtime.test-helpers.js";
 
 describe("RUSH_BUY", () => {
   it("finishes a pending SETTLE instantly and charges the time-proportional gold price", async () => {
@@ -229,7 +229,7 @@ describe("RUSH_BUY", () => {
           ["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000, techIds: new Set(["masonry"]) })]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             // Fort draws 1 TITANIUM slot (§5, structure-slots.ts) — supply it.
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }

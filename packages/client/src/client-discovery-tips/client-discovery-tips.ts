@@ -47,8 +47,8 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   },
   BARBARIAN: {
     id: "BARBARIAN",
-    title: "The Bleed Discovered!",
-    body: "The Bleed raids your empire. Attack and clear its tiles to earn Coin and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
+    title: "Planetary Defense Discovered!",
+    body: "Planetary Defense is what is left of this planet's own defense force after it was prepared for the planetary games. Its soldiers patrol their tiles and raid your empire. Attack and clear its tiles to earn Coin and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
   },
   FOOD: {
     id: "FOOD",
@@ -78,7 +78,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
-    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or barbarian camps."
+    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or Planetary Defense outposts."
   },
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",

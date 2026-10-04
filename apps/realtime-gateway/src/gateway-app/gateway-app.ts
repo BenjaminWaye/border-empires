@@ -9,6 +9,7 @@ import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/br
 import { handleAllianceSocketMessage } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
+import { dispatchAfcOrRevealCommand } from "./gateway-afc-and-reveal-command.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
@@ -2684,10 +2685,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               message.type === "SET_CONVERTER_STRUCTURE_MODE" ? { x: message.x, y: message.y, mode: message.mode } : { x: message.x, y: message.y, enabled: message.enabled },
               true
             );
-          } else if (message.type === "REVEAL_EMPIRE") {
-            await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
-          } else if (message.type === "REVEAL_EMPIRE_STATS") {
-            await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
+          } else if (await dispatchAfcOrRevealCommand(message, dispatchDurableCommand)) {
           } else if (message.type === "AETHER_LANCE" || message.type === "AETHER_EMP") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {

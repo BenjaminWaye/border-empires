@@ -1,4 +1,4 @@
-import { anonymizedEmpireNameForId, isOpaquePlayerId } from "@border-empires/shared";
+import { anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 
 import type { FirebaseTokenVerifier } from "./firebase-token-verifier.js";
 
@@ -30,7 +30,7 @@ const fallbackDisplayNameForToken = (token: string): string => {
 // leaderboard or in the alliance search dropdown) is always resolvable by
 // social-state's resolveByName for alliance/truce requests.
 export const initialSocialNameForSeedPlayer = (playerId: string, seedName: string | undefined): string => {
-  if (playerId === "barbarian-1") return "Barbarians";
+  if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
   if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
   if (playerId === "player-1" && (seedName === undefined || seedName === playerId)) return "Nauticus";
   return seedName ?? playerId;

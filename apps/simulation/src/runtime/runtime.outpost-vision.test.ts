@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 // A Relay Beacon reveals a flat 5-tile ring around itself (RELAY_BEACON_VISION_BONUS,
 // config.ts); Survey Corps's outpostVisionRadiusBonus tech effect adds +1 on
@@ -67,7 +68,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
         initialPlayers: new Map([["player-1", makePlayer("player-1", ["leatherworking"], [])]]),
         seedTiles: new Map(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             ...tiles,
             {
               x: 10,

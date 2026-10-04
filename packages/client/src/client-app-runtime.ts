@@ -83,7 +83,7 @@ import {
   builtResourceOverlayForTile,
   dockOverlayVariants,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
-  drawBarbarianColossusOverlay as drawBarbarianColossusOverlayOnCanvas,
+  drawPlanetaryDefenseOverlay as drawPlanetaryDefenseOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
@@ -171,7 +171,7 @@ const {
   drawTerrainTile,
   drawForestOverlay,
   drawHillsOverlay,
-  drawBarbarianColossusOverlay,
+  drawPlanetaryDefenseOverlay,
   drawIncomingAttackOverlay,
   drawTownOverlay,
   drawTownMarker,
@@ -483,6 +483,6 @@ bootstrapClientApp({
   displayTownGoldPerMinute,
   tileHistoryLines,
   hideShardAlert,
-  drawBarbarianColossusOverlay,
+  drawPlanetaryDefenseOverlay,
   drawIncomingAttackOverlay
 });
