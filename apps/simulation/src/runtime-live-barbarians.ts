@@ -2,6 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationTileWireDelta, RuntimePlayer } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { CombatLockTileReader } from "./combat-lock-index.js";
 
 export type SeedLiveBarbariansResult = {
   requested: number;
@@ -21,7 +22,7 @@ export const seedLiveBarbarians = (input: {
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
   pendingSettlementsByTile: ReadonlyMap<string, unknown>;
-  locksByTile: ReadonlyMap<string, unknown>;
+  locksByTile: CombatLockTileReader;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId: string) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;

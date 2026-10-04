@@ -17,11 +17,12 @@ import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PendingSettlementRecord } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
+import { CombatLockIndex } from "./combat-lock-index.js";
 
 export type RuntimeRushBuyCommandContext = {
   players: Map<string, RuntimePlayer>;
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   tiles: Map<string, DomainTileState>;
   wonderCacheByPlayer: Map<string, Set<string>>;
   now: () => number;
@@ -106,7 +107,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     return;
   }
 
-  const expandLock = context.locksByTile.get(targetKey);
+  const expandLock = context.locksByTile.targetLockAt(targetKey);
   if (expandLock && expandLock.actionType === "EXPAND" && expandLock.playerId === command.playerId) {
     const totalMs = Math.max(1, frontierClaimDurationMsForCoords(expandLock.targetX, expandLock.targetY));
     const remainingMs = expandLock.resolvesAt - context.now();

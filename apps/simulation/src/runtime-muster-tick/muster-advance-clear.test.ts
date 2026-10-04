@@ -11,6 +11,7 @@ import { nearestHostileWithinSteps } from "./muster-advance-clear.js";
 import { maybeAdvanceFire } from "./muster-advance-fire.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { makePlayer } from "./muster-march-test-support.js";
+import { CombatLockIndex } from "../combat-lock-index.js";
 
 // The runtime's default world already owns tiles near (10,10), so scenarios
 // are written relative to BASE, in an empty part of the map.
@@ -336,7 +337,7 @@ describe("only an accepted command counts as engaging", () => {
       nowMs: 1_000,
       players: new Map([["player-1", { id: "player-1", isAi: false, allies: new Set<string>() }]]),
       tiles,
-      locksByTile: new Map(),
+      locksByTile: new CombatLockIndex(),
       advanceCooldowns: cooldowns,
       dockLinksByDockTileKey: new Map(),
       aetherBridgeNeighborKeysForPlayer: () => new Map(),

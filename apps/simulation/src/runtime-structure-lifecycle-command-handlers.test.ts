@@ -19,6 +19,7 @@ import {
   handleSetMusterCommand
 } from "./runtime-structure-lifecycle-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { CombatLockIndex } from "./combat-lock-index.js";
 
 const PLAYER_ID = "player-1";
 
@@ -71,7 +72,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     players,
     tiles,
     musterTilesByOwner: new Map(),
-    locksByTile: new Map(),
+    locksByTile: new CombatLockIndex(),
     locksByCommandId: new Map(),
     now: () => 0,
     emitEvent: (event) => {

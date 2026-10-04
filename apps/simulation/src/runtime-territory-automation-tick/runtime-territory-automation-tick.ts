@@ -13,6 +13,7 @@ import {
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import type { CombatLockTileReader } from "../combat-lock-index.js";
 
 type TrackSync = <T>(
   phase: string,
@@ -24,7 +25,7 @@ export type TickTerritoryAutomationInput = {
   nowMs: number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   activeFortAnchorsByOwner: ReadonlyMap<string, ReadonlyMap<string, number>>;
   playerCandidateIndex: PlayerCandidateIndex;
   playerManpowerCap: (player: RuntimePlayer) => number;

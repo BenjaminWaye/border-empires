@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { CombatLockIndex } from "./combat-lock-index.js";
 
 /**
  * Captured forts and economic structures auto-settle immediately (same
@@ -30,7 +31,7 @@ function createContext(tiles: Map<string, DomainTileState>, options: { canAutoSe
   const context: RuntimeLockResolutionContext = {
     players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
     tiles,
-    locksByTile: new Map(),
+    locksByTile: new CombatLockIndex(),
     locksByCommandId: new Map(),
     musterReservedByKey: new Map(),
     barbarianTileProgress: new Map(),
@@ -70,8 +71,7 @@ function createContext(tiles: Map<string, DomainTileState>, options: { canAutoSe
 }
 
 function lockTile(context: RuntimeLockResolutionContext, lock: LockRecord): void {
-  context.locksByTile.set(lock.originKey, lock);
-  context.locksByTile.set(lock.targetKey, lock);
+  context.locksByTile.addLock(lock);
   context.locksByCommandId.set(lock.commandId, lock);
 }
 

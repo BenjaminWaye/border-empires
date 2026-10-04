@@ -36,6 +36,7 @@ import {
   weaponsWorkshopAttackMultForPlayer,
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
+import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;
@@ -51,7 +52,7 @@ export type RuntimeCombatSupportContext = {
   // for an attacker's own origin (runtime-muster-source.ts), or it can credit
   // manpower that's already spoken for elsewhere.
   musterReservedByKey: ReadonlyMap<string, number>;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   barbarianTileProgress: Map<string, number>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -97,7 +98,7 @@ export type LockedCombatInput = Pick<
   "actionType" | "commandId" | "playerId" | "manpowerCost" | "originKey" | "originX" | "originY" | "targetX" | "targetY" | "targetKey"
 >;
 
-export const plannerGatingLockPlayerIds = (locksByTile: ReadonlyMap<string, LockRecord>): Set<string> => {
+export const plannerGatingLockPlayerIds = (locksByTile: CombatLockTileReader): Set<string> => {
   const lockPlayerIds = new Set<string>();
   for (const lock of locksByTile.values()) {
     if (lock.source === "automation") continue;
@@ -106,7 +107,7 @@ export const plannerGatingLockPlayerIds = (locksByTile: ReadonlyMap<string, Lock
   return lockPlayerIds;
 };
 
-export const activeFrontierLocksForPlayer = (locksByTile: ReadonlyMap<string, LockRecord>, playerId: string): LockRecord[] => {
+export const activeFrontierLocksForPlayer = (locksByTile: CombatLockTileReader, playerId: string): LockRecord[] => {
   const locks = new Map<string, LockRecord>();
   for (const lock of locksByTile.values()) {
     if (lock.playerId !== playerId) continue;
@@ -142,7 +143,7 @@ export const handleCancelCaptureCommand = (ctx: RuntimeCombatSupportContext, com
   }
 
   for (const lock of activeLocks) {
-    ctx.locksByTile.delete(lock.originKey); ctx.locksByTile.delete(lock.targetKey);
+    ctx.locksByTile.removeLock(lock);
     ctx.locksByCommandId.delete(lock.commandId);
     if (lock.actionType === "EXPAND") actor.manpower += lock.manpowerCost; // refunds the up-front EXPAND charge from runtime-frontier-command.ts
   }

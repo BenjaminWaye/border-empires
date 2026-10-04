@@ -2,6 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MAX_TILES } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
+import type { CombatLockTileReader } from "../combat-lock-index.js";
 
 /**
  * How many muster flags this player can have active at once (base +
@@ -50,9 +51,9 @@ export const ADVANCE_MAX_RANGE_TILES = MUSTER_ADVANCE_RANGE_STEPS;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
-/** Returns each active action funded by a flag once (locks are indexed twice). */
+/** Returns each active action funded by a flag once. */
 export const locksSourcedFromMusterTile = (
-  locksByTile: ReadonlyMap<string, LockRecord>,
+  locksByTile: CombatLockTileReader,
   musterTileKey: string
 ): LockRecord[] => {
   const locks = new Map<string, LockRecord>();

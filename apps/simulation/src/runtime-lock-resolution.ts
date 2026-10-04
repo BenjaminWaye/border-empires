@@ -16,11 +16,12 @@ import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automatio
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { CombatLockIndex } from "./combat-lock-index.js";
 
 export type RuntimeLockResolutionContext = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
   barbarianTileProgress: Map<string, number>;
@@ -123,14 +124,14 @@ export function refundExpandManpower(context: RuntimeLockResolutionContext, lock
 
 export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRecord): void {
   releaseMusterReservation(context, lock);
-  const originLock = context.locksByTile.get(lock.originKey);
-  const targetLock = context.locksByTile.get(lock.targetKey);
-  const originMatches = originLock?.commandId === lock.commandId;
-  const targetMatches = targetLock?.commandId === lock.commandId;
-  if (originMatches) context.locksByTile.delete(lock.originKey);
-  if (targetMatches) context.locksByTile.delete(lock.targetKey);
+  // Only the target slot says whether this lock is still live. The origin
+  // tile may have changed hands mid-fight (the defender attacked the tile
+  // the enemy launched from, or another fight launched from the same tile);
+  // neither stops the fight resolving.
+  const targetMatches = context.locksByTile.ownsTargetSlot(lock);
+  context.locksByTile.removeLock(lock);
   context.locksByCommandId.delete(lock.commandId);
-  if (!originMatches || !targetMatches) {
+  if (!targetMatches) {
     // Stale/superseded lock, never reaching the deduction below -- refund the
     // EXPAND manpower charged up front at lock creation (runtime-frontier-
     // command.ts) since this lock is being dropped, not resolved.
@@ -152,7 +153,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     previousOwnerId !== lock.playerId &&
     context.isTileShieldedByAegisLock(lock.playerId, lock.targetX, lock.targetY);
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
-  const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
+  // The defender takes the origin tile on a loss -- unless it is no longer the
+  // attacker's to lose (the defender, or someone else, captured it mid-fight).
+  const originLost =
+    Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
+    context.tiles.get(lock.originKey)?.ownerId === lock.playerId;
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense

@@ -3,6 +3,7 @@ import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction } fro
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import type { CombatLockTileReader } from "./combat-lock-index.js";
 
 export type RuntimePlayerDebugSnapshot = Array<{
   id: string;
@@ -43,7 +44,7 @@ export type RuntimePlayerDebugSnapshot = Array<{
 
 type PlayerDebugInput = {
   now: () => number;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   players: ReadonlyMap<string, DomainPlayer>;
   refreshManpowerOnly: (player: DomainPlayer) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;

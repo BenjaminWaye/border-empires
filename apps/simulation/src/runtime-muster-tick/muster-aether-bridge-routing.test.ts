@@ -3,6 +3,7 @@ import type { DomainTileState, FrontierCommandType } from "@border-empires/game-
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { tickMuster, type MusterTickInput } from "./runtime-muster-tick.js";
 import type { LockRecord } from "../runtime-types.js";
+import { CombatLockIndex } from "../combat-lock-index.js";
 
 /**
  * Regression coverage for the ADVANCE/MARCH BFS crossing an active aether
@@ -66,7 +67,7 @@ const buildInput = (
       captured.push({ type: actionType, command });
       return { ok: true } as any;
     },
-    locksByTile: new Map<string, LockRecord>(),
+    locksByTile: new CombatLockIndex(),
     advanceCooldowns: new Map(),
     dockLinksByDockTileKey: new Map(),
     aetherBridgeNeighborKeysForPlayer: () => bridgeLinks,

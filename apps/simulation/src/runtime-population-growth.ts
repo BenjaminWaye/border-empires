@@ -13,6 +13,7 @@ import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy
 import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network/economy-network.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { CombatLockTileReader } from "./combat-lock-index.js";
 
 export function granaryGrowthMultForTile(input: {
   tile: DomainTileState;
@@ -31,7 +32,7 @@ export function tickPopulationGrowth(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   townLastGrowthTickAtByKey: Map<string, number>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   invalidateTileStringifyCache: (tileKey: string) => void;

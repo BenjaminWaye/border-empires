@@ -1,6 +1,6 @@
 # Combat lock timing plan
 
-Status: proposed (2026-10-03). Follow-up to the incoming-attack fixes branch
+Status: B implemented (2026-10-04); A proposed (2026-10-03). Follow-up to the incoming-attack fixes branch
 (`agent/incoming-attack-fixes`). Two server changes, shipped as separate PRs
 in this order.
 
@@ -86,58 +86,66 @@ Accept → march → lock, matching manual attacks:
 
 ## Problem B: you can't counter-attack the tile you're being attacked from
 
-The defender's counter-attack on the attacker's origin is rejected `LOCKED`.
-The units have already left that tile, but it's locked because it's the
-attacker's stake.
+Status: **implemented** on `agent/origin-counter-attack` (2026-10-04), ahead of A.
 
-### Step 0: confirm a suspected existing bug
+The defender's counter-attack on the attacker's origin was rejected `LOCKED`.
+The units have already left that tile, but it was locked because it's the
+attacker's stake. The goal is **not** to save the tile under attack (the
+outcome is rolled at accept time and the attack was accepted first, so it
+resolves first). It is to let the defender start the answer immediately and
+run it in parallel with the enemy's lock, instead of waiting out ~30 s before
+they can hit back. During a long auto-fire march it also lets them hit the
+launch tile before the attack has even arrived.
 
-The validator explicitly allows a second attack from your own origin while
-the first is pending ("Attacking again from your own recently used origin
-tile is allowed"). `locksByTile.set(originKey, …)` then **overwrites** the
-first lock's origin entry. At resolution, `originMatches` is false for the
-first lock, so it suspectedly takes the stale branch: dropped, never
-resolved, its muster reservation released. **Unverified.** Write a sim
-test (two ATTACKs from one origin at two targets, check both resolve) before
-anything else. If confirmed, the storage change below fixes it too.
+### Step 0 (done): the suspected bug was real
 
-### Change
+Two ATTACKs from one origin to two targets: the second `locksByTile.set(originKey)`
+overwrote the first lock's origin slot, `resolveLock` saw `originMatches ===
+false` and dropped the first lock as stale -- no `COMBAT_RESOLVED`, reservation
+released. Confirmed by `runtime-lock-same-origin.test.ts`, which failed before
+the storage change.
 
-1. **Storage.** Split `locksByTile` into `targetLockByTile: Map<tileKey,
-   LockRecord>` (one fight per target, unchanged rule) and
-   `originLocksByTile: Map<tileKey, Set<commandId>>` (any number). Update the
-   ~18 `locksByTile` readers (`grep -rn locksByTile apps/simulation/src`)
-   to ask the question they actually mean: "is this tile being fought
-   over?" (target map) versus "is something launching from here?" (origin map).
-   Snapshot/hydration (`activeLocks`) is unchanged because it serializes
-   `locksByCommandId`.
+### Change (done)
+
+1. **Storage.** `CombatLockIndex` (`apps/simulation/src/combat-lock-index.ts`)
+   replaces the `Map<tileKey, LockRecord>`: a `targets` map (one fight per
+   target tile) and an `origins` map (`tileKey -> Set<LockRecord>`, any number).
+   `locksByTile` keeps its field name. `values()` yields each lock once,
+   `has()` still means "this tile is the target or an origin of any fight", so
+   the busy-tile readers (structure builds, auto-settle, muster pathing,
+   respawn, barbarians) behave as before. Only the readers that mean one role
+   specifically use `targetLockAt` / `originLocksAt`. Snapshot/hydration is
+   unchanged (it serializes `locksByCommandId`).
 2. **Validation.** `LOCKED` only when the target tile is the **target** of
-   another fight. Being some other fight's origin no longer blocks attacking
-   it.
-3. **Resolution when the origin changed hands mid-fight.** This is a design
-   decision for the user. Options:
-   - **Cancel:** the pending attack is dropped (reservation refunded) the
-     moment its origin is captured. Counter-attacking the launch tile becomes
-     a real defensive tactic.
-   - **Resolve anyway:** a win still captures the target; on a loss, the
-     "defender takes the origin" payout is skipped because the origin is
-     already gone.
-   Either way, `resolveLock` must stop treating "origin key no longer
-   points at me" as stale.
-4. **Client.** Remove the up-front "locked, try again in m:ss" refusal added
-   in `client-queue-target-selection.ts` (`incomingAttackLaunchedFrom`), since
-   that tile becomes attackable.
+   another fight, or the origin tile is itself under attack (or is another
+   player's launch tile, which only applies to allied dock-crossing origins).
+   Being some other fight's origin no longer blocks attacking it.
+3. **Resolution when the origin changed hands mid-fight: resolve anyway.**
+   `resolveLock` treats a lock as stale only when it no longer owns its
+   **target** slot. A win still captures the target. On a loss, the "defender
+   takes the origin" payout is skipped when the origin is no longer the
+   attacker's, so a launch tile captured by anyone mid-fight is never handed
+   back to the defender.
+   *Rejected: cancel the pending attack when its origin is captured.* The
+   counter-attack is accepted after the original, so it locks and resolves
+   after it; cancelling on capture would almost never save the tile, and
+   cancelling on start would let a cheap decoy attack stop any fight.
+4. **Client.** Removed the up-front "locked, try again in m:ss" refusal in
+   `client-queue-target-selection.ts` (`incomingAttackLaunchedFrom`).
 
-### Tests
+### Tests (done)
 
-- Defender attacks the attacker's origin while the attack is pending: accepted.
-- A second attack on a tile that is already a target is still `LOCKED`.
-- The chosen option from step 3, for both win and loss.
-- Two attacks from one origin both resolve (step 0 regression).
+- `runtime-lock-same-origin.test.ts`: two attacks from one origin both resolve.
+- `runtime-lock-origin-counter-attack.test.ts`: counter-attack on a launch
+  tile is accepted; a second attack on an already-targeted tile and a launch
+  from a tile under attack are still `LOCKED`; original attack still resolves
+  after its origin is captured (win); a captured origin is not handed to the
+  defender when the original attack loses.
+- `client-queue-target-selection.test.ts`: the launch tile is queued.
 
 ## Order and risk
 
-Ship B's step 0 test first (it's cheap and may reveal a live bug), then A,
-then B. A changes when locks exist, and B changes how they're stored.
-Landing them separately keeps each diff reviewable. Both touch per-tick
+B (with its step 0 test) was done first because it is what players hit most.
+A is still to do. A changes when locks exist and B changed how they're stored,
+so landing them separately keeps each diff reviewable. Both touch per-tick
 auto-fire, so run the prod-shape load gate before merge.

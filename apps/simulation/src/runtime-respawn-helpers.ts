@@ -10,6 +10,7 @@ import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-lan
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
+import type { CombatLockTileReader } from "./combat-lock-index.js";
 
 export type RuntimeRespawnContext = {
   now: () => number;
@@ -20,7 +21,7 @@ export type RuntimeRespawnContext = {
   pendingRespawnNoticeByPlayerId: Map<string, PendingRespawnNoticeContext>;
   lastRespawnNoticeByPlayerId: Map<string, PlayerRespawnNotice>;
   pendingSettlementsByTile: ReadonlyMap<string, unknown>;
-  locksByTile: ReadonlyMap<string, unknown>;
+  locksByTile: CombatLockTileReader;
   rememberedAutomationVictoryPathByPlayer: Map<string, unknown>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
