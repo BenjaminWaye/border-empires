@@ -28,6 +28,7 @@ import { createNeuralAssemblyCoreModuleOverlay } from "@client/client-map-3d-neu
 import { createBastionMasterDieModuleOverlay } from "@client/client-map-3d-bastion-master-die-module.js";
 import { createThunderplateInductionModuleOverlay } from "@client/client-map-3d-thunderplate-induction-module.js";
 import { createHiveMindModuleOverlay } from "@client/client-map-3d-hive-mind-module.js";
+import { createHiveMindIiModuleOverlay } from "@client/client-map-3d-hive-mind-ii-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -39,8 +40,8 @@ type Args = {
   // Stratospheric Dockyard, Resonance Grid, Matterwright Retort, Umbrite
   // Synthesis, Titanium Synthesis, Catalyst Fabricator, Ancillary Control Core,
   // Reserve Lattice, Neural Assembly Core, Bastion Master Die, Thunderplate
-  // Induction and Hive Mind alternate around the ring; the rest stay as empty
-  // bays).
+  // Induction, Hive Mind and Hive Mind II alternate around the ring; the rest
+  // stay as empty bays).
   modules: number;
 };
 
@@ -161,9 +162,10 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const bastionMasterDieModuleOverlay = createBastionMasterDieModuleOverlay(scene, 8);
   const thunderplateInductionModuleOverlay = createThunderplateInductionModuleOverlay(scene, 8);
   const hiveMindModuleOverlay = createHiveMindModuleOverlay(scene, 8);
+  const hiveMindIiModuleOverlay = createHiveMindIiModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the twenty production module families around the ring so a
+    // Alternate the twenty-one production module families around the ring so a
     // mixed loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
@@ -185,8 +187,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       neuralAssemblyCoreModuleOverlay,
       bastionMasterDieModuleOverlay,
       thunderplateInductionModuleOverlay,
-      hiveMindModuleOverlay
-    ][i % 20]!;
+      hiveMindModuleOverlay,
+      hiveMindIiModuleOverlay
+    ][i % 21]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -209,6 +212,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   bastionMasterDieModuleOverlay.commit();
   thunderplateInductionModuleOverlay.commit();
   hiveMindModuleOverlay.commit();
+  hiveMindIiModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -230,7 +234,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     neuralAssemblyCoreModuleOverlay,
     bastionMasterDieModuleOverlay,
     thunderplateInductionModuleOverlay,
-    hiveMindModuleOverlay
+    hiveMindModuleOverlay,
+    hiveMindIiModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -254,7 +259,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     neuralAssemblyCoreModuleOverlay.dispose,
     bastionMasterDieModuleOverlay.dispose,
     thunderplateInductionModuleOverlay.dispose,
-    hiveMindModuleOverlay.dispose
+    hiveMindModuleOverlay.dispose,
+    hiveMindIiModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -327,8 +333,9 @@ export const OnGrass: Story = {
 // Stratospheric Dockyard + Resonance Grid + Matterwright Retort + Umbrite
 // Synthesis + Titanium Synthesis + Catalyst Fabricator + Ancillary Control
 // Core + Reserve Lattice + Neural Assembly Core + Bastion Master Die +
-// Thunderplate Induction + Hive Mind) into the first N sockets and back out — the
-// procedural insertion/removal the identical Module_Sockets are built for.
+// Thunderplate Induction + Hive Mind + Hive Mind II) into the first N sockets
+// and back out — the procedural insertion/removal the identical Module_Sockets
+// are built for.
 export const ModularDocking: Story = {
   args: { cameraDistance: 9, modules: 4 },
   render: (args) => {
