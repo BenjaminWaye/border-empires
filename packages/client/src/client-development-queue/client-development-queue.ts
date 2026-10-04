@@ -2,7 +2,6 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
 import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
-import { refreshAutoSettlePrompt } from "../client-auto-settle-prompt/client-auto-settle-prompt.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -64,10 +63,7 @@ export const applyAutoSettlementQueueFromServer = (
   }
 ): number => {
   applyAutoSettlePrefsFromServer(state, deps.autoSettle);
-  if (!entries) {
-    refreshAutoSettlePrompt();
-    return 0;
-  }
+  if (!entries) return 0;
   state.skippedAutoSettlementTileKeys = restoreSkippedAutoSettlementTileKeysForPlayer(state.me);
   state.autoSettlementQueue = entries;
   pruneExpiredAutoSettlementQueueVisibleHolds(state);
@@ -104,7 +100,6 @@ export const applyAutoSettlementQueueFromServer = (
     added += 1;
   }
   if (added > 0) persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  refreshAutoSettlePrompt();
   return added;
 };
 

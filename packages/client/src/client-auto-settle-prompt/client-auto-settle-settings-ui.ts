@@ -1,8 +1,7 @@
-// "Auto-settle" settings-panel card: the same per-category opt-in the join
-// prompt sets (shared auto-settle-prefs.ts), editable any time. Bound through
+// "Auto-settle" settings-panel card: the same per-category opt-in the tile-menu
+// checkbox sets (shared auto-settle-prefs.ts), editable any time. Bound through
 // one document-level change listener so the HUD's re-rendered settings HTML
 // needs no per-render binding (client-hud.ts is over the per-file line cap).
-import { dismissCurrentAutoSettleCandidates } from "./client-auto-settle-prompt.js";
 import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires/shared";
 import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 
@@ -47,7 +46,6 @@ export const installAutoSettleSettingsBinding = (send: (payload: unknown) => boo
       const category = box.dataset.settingsAutoSettle as AutoSettleCategory | undefined;
       if (category && category in prefs) prefs[category] = box.checked;
     });
-    dismissCurrentAutoSettleCandidates(); // they just made their choice; only tiles that arrive later should prompt
     send({ type: "SET_AUTO_SETTLE_PREFS", ...prefs });
   });
 };
