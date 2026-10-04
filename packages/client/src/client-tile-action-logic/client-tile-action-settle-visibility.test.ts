@@ -152,7 +152,9 @@ describe("Settle Land / Settle Connected visibility gate", () => {
     state.tiles.set(keyFor(0, 0), settledTownTile);
     state.tiles.set(keyFor(2, 0), { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile);
     const wonder = { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", naturalWonder: { type: "RAINBOW_RIDGE" } } as unknown as Tile;
-    expect(findAction(menuActionsForSingleTile(state, wonder, baseDeps as never), "settle_land")?.recommended).toBe(true);
+    const wonderSettle = findAction(menuActionsForSingleTile(state, wonder, baseDeps as never), "settle_land");
+    expect(wonderSettle?.recommended).toBe(true);
+    expect(wonderSettle?.autoSettleOption).toBeUndefined();
     expect(findAction(menuActionsForSingleTile(state, frontierTile, baseDeps as never), "settle_land")?.recommended).toBeUndefined();
   });
 

@@ -41,9 +41,13 @@ export const settleOutcomeText = (state: Pick<ClientState, "resourceSlots">, til
   return `Gain: ${gains.join(", ")}. Upkeep: ${upkeep.length > 0 ? upkeep.join(", ") : "none"}.`;
 };
 
-/** Undefined until the server has told us the player's prefs: we can't show a checkbox state we don't know. */
+/**
+ * Undefined until the server has told us the player's prefs (we can't show a checkbox state we don't know),
+ * and for natural wonders: the shared category function has no wonder bucket, so one would silently fall into
+ * the "towns" setting and the label would be wrong. Wonders are rare and strategic, so settling is a manual click.
+ */
 export const autoSettleOptionForTile = (state: Pick<ClientState, "autoSettle">, tile: Tile): AutoSettleOption | undefined => {
-  if (state.autoSettle.status !== "loaded") return undefined;
+  if (state.autoSettle.status !== "loaded" || tile.naturalWonder) return undefined;
   const category = autoSettleCategoryForTile(tile);
   return { category, checked: state.autoSettle.prefs[category], label: OPTION_LABELS[category] };
 };

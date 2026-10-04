@@ -49,6 +49,12 @@ describe("auto-settle checkbox", () => {
     expect(autoSettleOptionForTile(state, tile({ dockId: "d" }))).toMatchObject({ category: "towns", checked: false });
   });
 
+  it("is not offered on a natural wonder (it would fall into the towns setting)", () => {
+    const state = createInitialState();
+    state.autoSettle = loadedAutoSettleState({ answered: true, towns: true, food: true, resources: true });
+    expect(autoSettleOptionForTile(state, tile({ naturalWonder: { type: "QUICKFORGE" } }))).toBeUndefined();
+  });
+
   it("toggling sends all three prefs with only that category changed", () => {
     const state = createInitialState();
     state.autoSettle = loadedAutoSettleState({ answered: false, towns: false, food: true, resources: false });
