@@ -11,6 +11,7 @@ import {
   buildMinimap,
   buildViewport,
   buildViewportFrontier,
+  compactViewport,
   type BeaconSite,
   type CameraPosition,
   type FrontierTarget,
@@ -33,7 +34,10 @@ export type TurnContext = {
   manpowerRegenPerMinute: number;
   ownedTileCount: number;
   camera: CameraPosition;
+  // Owned, rival and notable tiles only -- plain unowned land is omitted (see
+  // compactViewport); the count says how many.
   viewport: ViewportTile[];
+  viewportOmittedPlainTiles: number;
   minimap: MinimapCell[];
   frontier: FrontierTarget[];
   beaconSites: BeaconSite[];
@@ -75,6 +79,8 @@ export const summarizeTurn = (
     .slice(0, MAX_RECENT_EVENTS)
     .map(toRecentEvent);
 
+  const { tiles: viewport, omittedPlainTiles } = compactViewport(buildViewport(index, camera));
+
   return {
     playerId: status.playerId,
     playerName: status.playerName,
@@ -84,7 +90,8 @@ export const summarizeTurn = (
     manpowerRegenPerMinute: status.manpowerRegenPerMinute,
     ownedTileCount,
     camera,
-    viewport: buildViewport(index, camera),
+    viewport,
+    viewportOmittedPlainTiles: omittedPlainTiles,
     minimap: buildMinimap(index, camera),
     frontier: buildViewportFrontier(index, camera, status.playerId),
     // Anything the ledger says is in flight (or recently rejected) is withheld

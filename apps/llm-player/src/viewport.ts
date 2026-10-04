@@ -95,6 +95,12 @@ const NEIGHBOR_OFFSETS = [
   [0, -1]
 ] as const;
 
+// A tile of ours with at least one orthogonal neighbour that isn't ours (an
+// unknown neighbour counts as not ours): the only tiles an enemy can attack
+// from an adjacent tile, and the edge a reach beacon extends past.
+export const isOwnedEdgeTile = (index: TileIndex, x: number, y: number, playerId: string): boolean =>
+  NEIGHBOR_OFFSETS.some(([ndx, ndy]) => index.get(tileKey(x + ndx, y + ndy))?.ownerId !== playerId);
+
 // Built once per turn by the caller and threaded through every builder below
 // instead of each one re-scanning the full known-tile array -- for an empire
 // with thousands of known tiles this is the difference between one O(n)
@@ -239,8 +245,7 @@ export const buildBeaconSites = (index: TileIndex, camera: CameraPosition, playe
   const sites: BeaconSite[] = [];
   for (const { x, y } of ownedSettledSitesInViewport(index, camera, playerId)) {
     if (needsFreeFoodSlot && freeFoodSlots < 1) continue;
-    const isEdge = NEIGHBOR_OFFSETS.some(([ndx, ndy]) => index.get(tileKey(x + ndx, y + ndy))?.ownerId !== playerId);
-    if (isEdge) sites.push({ x, y });
+    if (isOwnedEdgeTile(index, x, y, playerId)) sites.push({ x, y });
   }
   return sites;
 };
@@ -282,4 +287,16 @@ export const buildMinimap = (index: TileIndex, camera: CameraPosition): MinimapC
       }
       return { cx, cy, ...(dominantOwnerId ? { ownerId: dominantOwnerId } : {}), tileCount };
     });
+};
+
+// Drops viewport tiles that carry no information the model can act on: unowned
+// land with no resource/town/dock/waystation. Claimable ones already appear,
+// with the same fields, in the separate frontier list, and the minimap covers
+// the overall shape -- so these are pure token cost (they were ~65% of a
+// turn's prompt). The count is kept so the model knows the window isn't empty.
+export const compactViewport = (tiles: ViewportTile[]): { tiles: ViewportTile[]; omittedPlainTiles: number } => {
+  const kept = tiles.filter(
+    (tile) => tile.ownerId !== undefined || tile.resource !== undefined || tile.townType !== undefined || tile.isWaystation === true
+  );
+  return { tiles: kept, omittedPlainTiles: tiles.length - kept.length };
 };

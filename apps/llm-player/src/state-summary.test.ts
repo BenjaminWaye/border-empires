@@ -103,3 +103,21 @@ describe("summarizeTurn domainChoices", () => {
     expect(summarize(ledger, tiles, 2, withTech).domainChoices).toEqual([]);
   });
 });
+
+describe("summarizeTurn compact viewport", () => {
+  const tiles: GameTile[] = [
+    { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" },
+    { x: 1, y: 0, ownerId: "rival", ownershipState: "SETTLED" },
+    { x: 2, y: 0, resource: "FARM" },
+    { x: 3, y: 0, townType: "MARKET" },
+    { x: 4, y: 0, terrain: "LAND" },
+    { x: 5, y: 0, terrain: "SEA" },
+    { x: 6, y: 0 }
+  ];
+
+  it("keeps owned, rival and notable tiles and drops plain unowned land, counting what it dropped", () => {
+    const context = summarize(new IntentLedger(), tiles);
+    expect(context.viewport.map((tile) => tile.x).sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+    expect(context.viewportOmittedPlainTiles).toBe(3);
+  });
+});

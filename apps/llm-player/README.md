@@ -19,7 +19,10 @@ Rather than seeing its whole empire (or the full known-tile array) at once,
 the bot gets what a human player effectively sees:
 - **A viewport** — a ~20x20 tile window centered on a camera position,
   computed client-side from tiles the gateway already sends (no protocol
-  changes needed). Only tiles inside the current viewport are valid
+  changes needed). To keep the prompt small it lists only tiles that are owned
+  by someone or carry a resource/town/waystation; plain unowned land is
+  omitted (counted in `viewportOmittedPlainTiles`; the claimable ones are in
+  `frontier`). Only tiles inside the current viewport are valid
   `expand`/`attack`/`settle` targets.
 - **A minimap** — a coarse grid over every area it's ever explored (dominant
   owner per cell, nearest-to-camera cells prioritized if capped), used to
@@ -41,7 +44,7 @@ the bot gets what a human player effectively sees:
   stockpile — checked via the wire's `resourceSlots`, the same numbers the
   server itself gates builds on. Starter set: `FARMSTEAD` (FARM tiles, no
   slot of its own), `MINE` (TITANIUM/GEMS tiles, needs a free FOOD slot), and
-  `WOODEN_FORT` (any settled tile, no tech needed, needs a free FOOD slot) —
+  `WOODEN_FORT` (a settled *border* tile -- next to land you don't own, since only those can be attacked -- no tech needed, needs a free FOOD slot) —
   deliberately narrow; see "Roadmap" below for why.
 - **`techChoices`** — reachable, currently-affordable tech, i.e. valid
   `choose_tech` targets. Computed client-side from a bundled copy of the tech
@@ -132,7 +135,7 @@ from for the full background.
   local fake gateway (`game-socket.test.ts`). Motivated by four review
   findings in a row where the server silently rejected a build/tech and the
   bot assumed success.
-- Basic defense (`build_structure`): `WOODEN_FORT` on any settled tile, no
+- Basic defense (`build_structure`): `WOODEN_FORT` on a settled border tile, no
   tech needed -- closes the gap where the system prompt told the bot to
   "defend" a threatened tile with no actual defensive tool to do it with
   (Phase 3, narrowed to the one starter-tier structure rather than the full
@@ -246,7 +249,26 @@ the same attack info via `recentEvents` (above) and can react.
 
 ## Cost
 
-With prompt caching on the static system prompt/tool definitions, each
-turn's decision is roughly a few hundred cached input tokens plus a small
-tool-call output on Haiku 4.5 ($1/$5 per MTok) — well under $0.01 per
-12-turn session. Twice a day is cents a month.
+Estimated, not yet measured against the live API (token counts below come from
+character counts of the real prompt/tool/state JSON at ~3-4 chars/token). On
+Haiku 4.5 ($1/$5 per MTok):
+
+- **Static prefix** (system prompt + tool definitions): ~4.4K tokens, cached
+  after the first turn (cache reads cost 0.1x). Haiku 4.5 only caches prefixes
+  of at least 4096 tokens and this is close to that line, so **don't trim the
+  system prompt or tool descriptions without checking the cache still engages**
+  -- the session log prints `NO cache hits` if it doesn't.
+- **Per-turn state**, never cached, is the main cost. It used to be ~18-31K
+  characters, 65% of it the 20x20 viewport; plain unowned tiles (reachable
+  ones are already in `frontier`) and interior-tile `WOODEN_FORT` offers are
+  now omitted, bringing it to ~4-14K characters (~1.5-4.5K tokens) depending
+  on empire size.
+- **Per turn:** roughly $0.003-$0.008; **per 12-turn session:** roughly
+  $0.04-$0.09; **twice a day:** roughly $0.08-$0.18/day (~$2.50-$5.50/month).
+  The high end assumes a large empire or a prefix that isn't caching.
+
+Every session ends with a `usage:` line (calls, uncached/cache-read/cache-write/
+output tokens, estimated cost) in the console log and the Discord digest, so the
+first real run gives you the actual number. The levers if it needs to go lower:
+fewer `TURNS_PER_SESSION`, fewer sessions a day, or trimming `recentEvents`/
+`techChoices` further.

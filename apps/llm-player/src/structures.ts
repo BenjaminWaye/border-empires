@@ -36,7 +36,7 @@ import {
   type ResourceType
 } from "@border-empires/shared";
 import { freeResourceSlotCount, type ResourceSlots } from "./game-types.js";
-import { ownedSettledSitesInViewport, type CameraPosition, type TileIndex } from "./viewport.js";
+import { isOwnedEdgeTile, ownedSettledSitesInViewport, type CameraPosition, type TileIndex } from "./viewport.js";
 
 export const BUILDABLE_STRUCTURE_TYPES = ["FARMSTEAD", "MINE", "WOODEN_FORT"] as const satisfies readonly EconomicStructureType[];
 export type BuildableStructureType = (typeof BUILDABLE_STRUCTURE_TYPES)[number];
@@ -64,7 +64,13 @@ export const buildStructureSites = (
     // resource-type matching for the ones that do is structureShowsOnTile's
     // job below, not a blanket precondition here.
     const resource = isResourceType(tile.resource) ? tile.resource : undefined;
+    const isEdge = isOwnedEdgeTile(index, x, y, playerId);
     for (const structureType of BUILDABLE_STRUCTURE_TYPES) {
+      // A fort only raises the cost of taking this tile, and an attacker has
+      // to be adjacent -- an interior tile can't be attacked, so offering one
+      // there is wasted manpower and (with a fort on every settled tile in
+      // view) a long list the model pays tokens to read every turn.
+      if (structureType === "WOODEN_FORT" && !isEdge) continue;
       const techId = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
       if (techId && !ownedTechIds.has(techId)) continue;
       // ownedSettledSitesInViewport already guarantees ownershipState is

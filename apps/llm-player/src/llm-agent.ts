@@ -8,6 +8,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { botActionFromToolUse, COMMAND_TOOLS, type ChosenAction } from "./command-tools.js";
 import type { TurnContext } from "./state-summary.js";
+import type { CallUsage } from "./usage.js";
 import { VIEWPORT_HALF_SIZE } from "./viewport.js";
 
 const MODEL = "claude-haiku-4-5";
@@ -18,11 +19,11 @@ const MODEL = "claude-haiku-4-5";
 // only), so this is a plain tool-use call.
 const SYSTEM_PROMPT = `You are playing Border Empires, a persistent tile-based territory-conquest strategy game, as an autonomous player controlling one empire.
 
-You don't see your whole empire at once -- like a human player, you see a "viewport": a ~${VIEWPORT_HALF_SIZE * 2}x${VIEWPORT_HALF_SIZE * 2} tile window centered on your camera position. You also get a coarse "minimap": a low-resolution grid of every area you've ever explored, showing roughly who controls each area (dominant ownerId per cell) -- like glancing at the minimap widget to get your bearings.
+You don't see your whole empire at once -- like a human player, you see a "viewport": a ~${VIEWPORT_HALF_SIZE * 2}x${VIEWPORT_HALF_SIZE * 2} tile window centered on your camera position. You also get a coarse "minimap": a low-resolution grid of every area you've ever explored, showing roughly who controls each area (dominant ownerId per cell) -- like glancing at the minimap widget to get your bearings. To keep things compact, "viewport" lists only tiles that are owned by someone or carry a resource/town/waystation -- plain unowned land is left out (its count is "viewportOmittedPlainTiles"); the ones you can actually claim are in "frontier".
 
 You also get "beaconSites": a list of settled tiles you own that sit on the edge of your empire (bordering land you don't own) and don't already have a structure on them -- these are the only valid locations for the build_relay_beacon tool.
 
-You also get "structureSites": a list of settled tiles you own that are eligible for a basic structure right now (tech already researched if the structure needs any, no structure on the tile yet, and there's actually room to build it) -- these are the only valid (x, y, structureType) combinations for the build_structure tool. Each entry includes its own "manpowerCost" since it varies by structureType. FARMSTEAD/MINE are economic (need a matching resource tile and tech); WOODEN_FORT is a starter defensive fort (any settled tile, no tech needed) that raises the manpower an attacker has to spend to take that tile.
+You also get "structureSites": a list of settled tiles you own that are eligible for a basic structure right now (tech already researched if the structure needs any, no structure on the tile yet, and there's actually room to build it) -- these are the only valid (x, y, structureType) combinations for the build_structure tool. Each entry includes its own "manpowerCost" since it varies by structureType. FARMSTEAD/MINE are economic (need a matching resource tile and tech); WOODEN_FORT is a starter defensive fort (a settled border tile -- one next to land you don't own, since only those can be attacked -- no tech needed) that raises the manpower an attacker has to spend to take that tile.
 
 You also get "techChoices": tech you could research right now (prerequisites already met) and can currently afford in gold -- the only valid tech ids for the choose_tech tool. Researching unlocks structures and other capabilities; it's instant (no build timer) but costs gold up front, and the cost rises with how much tech you've already researched.
 
@@ -68,7 +69,7 @@ Rules of thumb:
 - If a move's manpower cost would leave you too depleted to react to anything for a long time, wait instead -- manpower recovers slowly, so overcommitting is expensive in a way that's hard to undo.
 - Don't pan back and forth aimlessly -- use the minimap and recentEvents to make a purposeful choice about where to look.`;
 
-export type Decision = { action: ChosenAction };
+export type Decision = { action: ChosenAction; usage: CallUsage };
 
 export const decideNextAction = async (client: Anthropic, context: TurnContext): Promise<Decision> => {
   const response = await client.messages.create({
@@ -88,10 +89,10 @@ export const decideNextAction = async (client: Anthropic, context: TurnContext):
   for (const block of response.content) {
     if (block.type === "tool_use") {
       const action = botActionFromToolUse(block.name, block.input);
-      if (action) return { action };
+      if (action) return { action, usage: response.usage };
     }
   }
-  return { action: "wait" };
+  return { action: "wait", usage: response.usage };
 };
 
 const JOURNAL_SYSTEM_PROMPT = `You just finished a play session in Border Empires, a persistent territory-conquest strategy game, as an autonomous AI player.

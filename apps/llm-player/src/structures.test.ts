@@ -16,6 +16,7 @@ const stateWithTiles = (tiles: GameTile[]): GameInitState => ({
   eventLog: [],
   autoSettlementQueue: [],
   techIds: [],
+  domains: { domainIds: [], openChoiceIds: [], catalog: [], strategicResources: {} },
   resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } }
 });
 
@@ -122,5 +123,28 @@ describe("buildStructureSites", () => {
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, ["agriculture"], AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
+  });
+
+  describe("WOODEN_FORT placement", () => {
+    // 3x3 block of our own settled tiles: only the centre has no outside neighbour.
+    const block: GameTile[] = [];
+    for (let x = -1; x <= 1; x += 1)
+      for (let y = -1; y <= 1; y += 1) block.push({ x, y, ownerId: PLAYER, ownershipState: "SETTLED" });
+
+    it("is not offered on an interior tile, which no enemy can attack from an adjacent tile", () => {
+      const sites = buildStructureSites(buildTileIndex(stateWithTiles(block)), { x: 0, y: 0 }, PLAYER, [], AMPLE_RESOURCE_SLOTS);
+      expect(sites.some((site) => site.x === 0 && site.y === 0)).toBe(false);
+    });
+
+    it("is offered on every border tile of the block (8 of 9)", () => {
+      const sites = buildStructureSites(buildTileIndex(stateWithTiles(block)), { x: 0, y: 0 }, PLAYER, [], AMPLE_RESOURCE_SLOTS);
+      expect(sites.filter((site) => site.structureType === "WOODEN_FORT")).toHaveLength(8);
+    });
+
+    it("still offers an economic structure on an interior resource tile", () => {
+      const tiles = block.map((tile) => (tile.x === 0 && tile.y === 0 ? { ...tile, resource: "FARM" } : tile));
+      const sites = buildStructureSites(buildTileIndex(stateWithTiles(tiles)), { x: 0, y: 0 }, PLAYER, ["agriculture"], AMPLE_RESOURCE_SLOTS);
+      expect(sites.filter((site) => site.x === 0 && site.y === 0).map((site) => site.structureType)).toEqual(["FARMSTEAD"]);
+    });
   });
 });

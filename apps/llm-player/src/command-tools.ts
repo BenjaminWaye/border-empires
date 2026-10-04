@@ -81,7 +81,7 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
     name: "build_structure",
     description:
-      "Build a basic structure on a settled tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile (both require the matching tech already researched); WOODEN_FORT is a starter defensive fort on any settled tile, no tech needed -- it raises the manpower cost an attacker pays to take that tile. All three are only offered when there's actually room to build them right now. Its result shows up in \"recentOutcomes\" on later turns.",
+      "Build a basic structure on a settled tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile (both require the matching tech already researched); WOODEN_FORT is a starter defensive fort on a settled border tile (next to land you don't own), no tech needed -- it raises the manpower cost an attacker pays to take that tile. All three are only offered when there's actually room to build them right now. Its result shows up in \"recentOutcomes\" on later turns.",
     input_schema: {
       type: "object",
       properties: {

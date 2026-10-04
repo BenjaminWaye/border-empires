@@ -14,6 +14,7 @@ import { describeOutcome, IntentLedger, reconcileFromState } from "./intent-ledg
 import { createAnthropicClient, decideNextAction, writeSessionJournal } from "./llm-agent.js";
 import { sleep } from "./sleep.js";
 import { summarizeTurn } from "./state-summary.js";
+import { addUsage, describeUsage, emptyUsage } from "./usage.js";
 import { buildTileIndex, buildViewport, defaultCamera, type CameraPosition, type TileIndex } from "./viewport.js";
 
 // Gives the gateway a moment to push the TILE_DELTA_BATCH/PLAYER_UPDATE that
@@ -127,6 +128,7 @@ export const runSession = async (config: BotConfig): Promise<void> => {
   const pendingAutoSettleTileKeys = new Set<string>();
   const intents = new IntentLedger();
   let turnsPlayed = 0;
+  let usage = emptyUsage();
 
   try {
     for (let turn = 1; turn <= config.turnsPerSession; turn += 1) {
@@ -158,7 +160,8 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         domains: state.domains
       };
       const context = summarizeTurn(index, status, camera, state.eventLog, intents, turn);
-      const { action } = await decideNextAction(anthropic, context);
+      const { action, usage: callUsage } = await decideNextAction(anthropic, context);
+      usage = addUsage(usage, callUsage);
       // The decision call takes seconds -- pick up anything that resolved
       // meanwhile so the guard below judges against current ledger state.
       reportOutcomes(game, intents, turn, log);
@@ -250,6 +253,12 @@ export const runSession = async (config: BotConfig): Promise<void> => {
 
   const journal = await writeSessionJournal(anthropic, log);
   console.log(`\nSession journal:\n${journal}`);
+
+  // After the journal so it isn't fed to the journal prompt. Decision calls
+  // only; the journal call itself is a few hundred tokens.
+  const usageLine = `usage: ${describeUsage(usage)}`;
+  console.log(usageLine);
+  log.push(usageLine);
 
   if (config.discordWebhookUrl) {
     const message = [`**${config.botDisplayName} played a session** (${turnsPlayed}/${config.turnsPerSession} turns)`, "", ...log, "", `_${journal}_`].join("\n");
