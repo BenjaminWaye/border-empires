@@ -5,7 +5,7 @@ import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../../simulation/src/command-store/command-store.js";
-import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
+import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js"; import { afcModuleFixtureTile } from "../../../simulation/src/afc-test-fixture/afc-test-fixture.js";
 import {
   closeSocket,
   createStartupSnapshotStore,
@@ -1242,7 +1242,7 @@ describe("rewrite stack integration", () => {
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
       // §5: the UMBRITE tile backs the UMBRITE *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
-      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
+      tiles: [afcModuleFixtureTile("player-1"), { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
       activeLocks: [],
       players: [
         {
@@ -1331,7 +1331,7 @@ describe("rewrite stack integration", () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"),
         {
           x: 12,
           y: 12,

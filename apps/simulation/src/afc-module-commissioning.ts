@@ -1,14 +1,9 @@
 /**
  * Module commissioning, first slice (docs/manifest-full-plan.md §3-4,
  * §10 step 4): when a player researches an AFC_MODULE-category Manifest,
- * auto-dock it onto their home AFC's `modules` list. Purely presentational
- * bookkeeping for now -- no gameplay is gated on it (the tech's actual
- * building-unlock effect is unconditional, same as every other tech), and
- * there is no player-facing UI or delivery animation yet. Docking is a
- * best-effort side effect of CHOOSE_TECH: a player who owns zero AFCs at
- * that moment (e.g. their only AFC was just captured) simply gets no
- * docking record -- the tech is still researched and its effects still
- * apply.
+ * install its single House-owned copy onto their home AFC. The copy can later
+ * be redeployed. Research while owning no AFC retains the tech but has no
+ * copy location until a player gains an AFC.
  */
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -51,10 +46,16 @@ export const commissionModuleIfApplicable = (
   const tileKey = homeAfcTileKey(ctx, playerId);
   if (!tileKey) return;
   const tile = ctx.tiles.get(tileKey);
-  if (!tile?.afc || tile.afc.modules?.includes(techId)) return;
+  if (!tile?.afc || tile.afc.houseModules?.includes(techId)) return;
   const updatedTile: DomainTileState = {
     ...tile,
-    afc: { ...tile.afc, modules: [...(tile.afc.modules ?? []), techId] }
+    afc: {
+      ...tile.afc,
+      // Keep a separate array entry even when this AFC already holds a
+      // captured copy: the House copy is independently movable.
+      modules: [...(tile.afc.modules ?? []), techId],
+      houseModules: [...(tile.afc.houseModules ?? []), techId]
+    }
   };
   ctx.replaceTileState(tileKey, updatedTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(updatedTile)] });

@@ -74,7 +74,7 @@ describe("season worldgen", () => {
     expect(generated.initialState.players).toContainEqual(
       expect.objectContaining({
         id: "barbarian-1",
-        name: "Barbarians"
+        name: "Planetary Defense"
       })
     );
 

@@ -6,7 +6,7 @@ export const DISPLAY_NAME_MAX_LENGTH = 24;
 export const displayNameKey = (name: string): string =>
   name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
-const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set(["barbarians", "barbarian", "nauticus"]);
+const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set(["barbarians", "barbarian", "planetary defense", "nauticus"]);
 // "House Noname <n>" is the name guests are given (see guest-profile/), so a
 // real player cannot take one and pass as a guest.
 const RESERVED_NAME_PATTERNS: readonly RegExp[] = [/^ai \d+$/, /^house noname \d+$/];

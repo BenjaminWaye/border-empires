@@ -1,4 +1,6 @@
+import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 
 export const tileHistoryLines = (
   tile: Tile,
@@ -18,7 +20,7 @@ export const tileHistoryLines = (
   const shortOwnerHistoryLabel = (ownerId?: string | null): string => {
     if (!ownerId) return "Unknown";
     if (ownerId === deps.me) return "you";
-    if (ownerId === "barbarian") return "Barbarians";
+    if (isPlanetaryDefenseOwnerId(ownerId)) return PLANETARY_DEFENSE_DISPLAY_NAME;
     return deps.playerNameForOwner(ownerId) ?? `Empire ${ownerId.slice(0, 8)}`;
   };
   if (history.captureCount > 0) lines.push(`Captured ${history.captureCount} time${history.captureCount === 1 ? "" : "s"}`);

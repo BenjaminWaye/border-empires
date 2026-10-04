@@ -128,6 +128,9 @@ export type CurrentSeasonSummary = {
   startedAt: number;
   endedAt?: number;
   worldSeed: number;
+  /** See SimulationSeasonState.worldWidth/worldHeight; absent = unknown. */
+  worldWidth?: number;
+  worldHeight?: number;
   rulesetId: string;
   seasonWinner?: SeasonWinnerSnapshot;
   seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];

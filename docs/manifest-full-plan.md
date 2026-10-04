@@ -17,7 +17,7 @@ Status against §10 (implementation order):
 | 1 | Preserve tech IDs, rename-only | Done |
 | 2 | Gold → Coin (display text; internal field names unchanged) | Done |
 | 3 | Manifest metadata (`manifestCategory` per tech) | Done for category; delivery type / visual asset still open |
-| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; pre-AFC empire migration grant done (PR #2150); player-built additional AFCs **planned** (§4 "Building additional AFCs"); Module delivery events done client-side (tile-delta diff, no new wire type) |
+| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, House-module redeploy, and player-built additional AFC authority done; pre-AFC empire migration grant done (PR #2150). Landing-site picker/highlight parity remains (§4). Module delivery events use tile-delta diff, no new wire type. |
 | 5 | Rename/re-map buildings, remove Seed Granary | Done |
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
@@ -297,7 +297,7 @@ Economy, Manpower, and War modules are distinct AFC attachments.
 Aether modules visually dock as smaller cartridges around the Aether
 Resonance Core, avoiding nine separate giant factory overlays.
 
-### Building additional AFCs (decided 2026-09-29, not yet implemented)
+### Building additional AFCs (authority implemented 2026-10-02)
 
 Today no player can choose to build an AFC. They are only created by a
 fresh spawn, an elimination-respawn, or the pre-AFC migration grant
@@ -456,6 +456,32 @@ Extra AFCs are purely risk-spreading module hosts.
    curve, the landing pick, and that extra AFCs don't add Coin/Manpower
    baseline (including the drop from two baselines to one for anyone
    holding a captured AFC).
+
+#### Remaining execution: AFC landing picker and renderer parity
+
+The authoritative command and module deployment rules are now implemented.
+The remaining client enhancement is the landing-site picker: surface Build AFC
+on an AFC tile, enter a picker state, and highlight valid sites in both 2D and
+true-3D renderers. Until then, valid empty settled tiles expose Build AFC
+directly in the Buildings tab; simulation remains the authority for every
+placement rule and charge.
+
+1. **Build AFC picker.** Register
+   `BUILD_AFC`, validate/charge it only in the simulation, emit its normal
+   tile delta, and expose it from the owned-AFC action list in Infrastructure.
+   The picker must share the landing predicate with the server and render its
+   valid-site affordance in both 2D and true-3D. The existing `activatedAt`
+   join/drop timeline is the arrival effect; do not add a second drop system.
+2. **AFC Modules are deployable House assets, not cosmetic research badges.**
+   Research creates one House-owned module copy. An owned AFC exposes a
+   **Call down module** action that redeploys that copy to it, removing it
+   from the previous AFC; a House therefore has one copy of each researched
+   module at a time. Captured AFCs retain their installed modules and can
+   produce extra captured copies, but research never duplicates one. A
+   building whose unlock tech has `manifestCategory: AFC_MODULE` requires the
+   researched tech and that module installed on any active, owned, settled
+   AFC. Keep this check in the shared availability path used by client actions
+   and simulation validation, with regressions for move, capture, and loss.
 
 ## 5. Great Projects
 

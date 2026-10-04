@@ -1,10 +1,11 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
@@ -234,7 +235,7 @@ const playerNameOrFallback = (
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
 ): string => {
   if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "The Bleed";
+  if (isPlanetaryDefenseOwnerId(ownerId)) return PLANETARY_DEFENSE_DISPLAY_NAME;
   return deps.playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
 };
 
@@ -243,7 +244,7 @@ const territoryLabelForOwner = (
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
 ): string => {
   if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "Bleed territory";
+  if (isPlanetaryDefenseOwnerId(ownerId)) return `${PLANETARY_DEFENSE_DISPLAY_NAME} territory`;
   return playerNameOrFallback(ownerId, deps);
 };
 

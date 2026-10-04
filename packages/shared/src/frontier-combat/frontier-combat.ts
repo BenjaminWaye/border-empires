@@ -178,7 +178,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs settled tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
-  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs barbarians", modifiers.attackVsBarbariansMult);
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs Planetary Defense", modifiers.attackVsBarbariansMult);
   return { entries, mult };
 };
 

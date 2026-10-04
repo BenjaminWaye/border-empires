@@ -46,7 +46,10 @@ the GitHub API).
 Destructive endpoints (`/admin/season/start-next`, `/admin/barbarians/seed`)
 deliberately do **not** accept this path — they still require the static
 token below, so a leaked/misused GitHub token can only read diagnostics,
-never mutate game state.
+never mutate game state. To check what map an environment is on (configured
+size, the current season's generated size, AI count, rollover pending?), use
+the read-only `/admin/world`. The rollover procedure is in
+`docs/agents/deploys.md` ("Season rollover").
 
 ### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
 

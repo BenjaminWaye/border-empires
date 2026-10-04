@@ -1,4 +1,5 @@
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { PLANETARY_DEFENSE_DISPLAY_NAME } from "@border-empires/shared";
 
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
 
@@ -43,7 +44,7 @@ export const buildOwnershipChangeSample = (
   };
 };
 
-// §20: "[Town] was captured by [Player/Barbarians]." — barbarian ids follow
+// §20: "[Town] was captured by [Player/Planetary Defense]." — barbarian ids follow
 // the "barbarian-N" convention used consistently elsewhere (e.g.
 // world-status-snapshot.ts's displayNameForPlayer); an undefined nextOwnerId
 // means the tile went back to unowned/neutral, not captured by anyone.
@@ -52,7 +53,7 @@ export const displayNameForOwnershipChange = (
   players: ReadonlyMap<string, Pick<DomainPlayer, "name">>
 ): string => {
   if (!nextOwnerId) return "no one";
-  if (nextOwnerId.startsWith("barbarian-")) return "Barbarians";
+  if (nextOwnerId.startsWith("barbarian-")) return PLANETARY_DEFENSE_DISPLAY_NAME;
   return players.get(nextOwnerId)?.name ?? nextOwnerId;
 };
 

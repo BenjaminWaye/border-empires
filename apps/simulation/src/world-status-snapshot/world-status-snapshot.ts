@@ -1,7 +1,7 @@
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
-import { anonymizedEmpireNameForId, isOpaquePlayerId, type SeasonVictoryPathId } from "@border-empires/shared";
+import { anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME, type SeasonVictoryPathId } from "@border-empires/shared";
 import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP, type DomainTileState } from "@border-empires/game-domain";
 import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
@@ -25,8 +25,9 @@ const leaderboardScoreFor = (settledTileCount: number, incomePerMinute: number, 
   Math.round((settledTileCount + incomePerMinute * 3 * GOLD_RESCALE_DIVISOR + techCount * 8) * 10) / 10;
 
 const displayNameForPlayer = (playerId: string, fallbackName?: string): string => {
+  // Before the stored name: worlds seeded before the rename still store "Barbarians".
+  if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
   if (fallbackName && fallbackName !== playerId) return fallbackName;
-  if (playerId === "barbarian-1") return "Barbarians";
   if (playerId === "player-1") return "Nauticus";
   if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
   if (isOpaquePlayerId(playerId)) return anonymizedEmpireNameForId(playerId);

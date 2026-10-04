@@ -1,5 +1,5 @@
 import { STARTING_CAPITAL_MANPOWER_CAP, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { DEFAULT_AUTO_SETTLE_PREFS, type WorldStyle } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, PLANETARY_DEFENSE_DISPLAY_NAME, type WorldStyle } from "@border-empires/shared";
 
 import { createSeasonSeedWorldAsync } from "../season-seed-world-async.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
@@ -48,7 +48,7 @@ export const seasonalAiNameForId = (id: string): string | undefined => {
 };
 
 export const seasonalPlayerNameForId = (id: string): string => {
-  if (id === "barbarian-1") return "Barbarians";
+  if (id === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
   return seasonalAiNameForId(id) ?? id;
 };
 

@@ -1,6 +1,7 @@
 import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 /**
  * Parity tests for BUILD_STRUCTURE — outpost and observatory families.
@@ -19,7 +20,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
@@ -50,7 +51,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -119,7 +120,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 200, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -157,7 +158,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
         ],
@@ -188,7 +189,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
         ],
