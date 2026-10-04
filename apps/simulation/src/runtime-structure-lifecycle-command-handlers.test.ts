@@ -20,7 +20,7 @@ import {
   handleSetMusterCommand
 } from "./runtime-structure-lifecycle-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import type { LockRecord } from "./runtime-types.js";
 
 const PLAYER_ID = "player-1";

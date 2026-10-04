@@ -36,7 +36,7 @@ import {
   weaponsWorkshopAttackMultForPlayer,
   weaponsWorkshopDefenseMultForPlayer
 } from "./runtime-weapons-factory-mults.js";
-import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index.js";
+import { CombatLockIndex, type CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;

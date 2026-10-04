@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 const ATTACKER_ID = "player-1";
 const DEFENDER_ID = "player-2";

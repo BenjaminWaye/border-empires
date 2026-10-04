@@ -17,7 +17,7 @@ import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PendingSettlementRecord } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRushBuyCommandContext = {
   players: Map<string, RuntimePlayer>;

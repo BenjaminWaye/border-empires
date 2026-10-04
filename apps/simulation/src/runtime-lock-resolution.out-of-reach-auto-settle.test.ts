@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 /**
  * Out-of-reach auto-settle: a captured/claimed town or dock tries to settle

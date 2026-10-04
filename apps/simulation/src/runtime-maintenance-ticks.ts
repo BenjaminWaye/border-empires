@@ -3,8 +3,8 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
-import type { CombatLockTileReader } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 type TrackSync = <T>(
   phase: string,

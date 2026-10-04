@@ -10,7 +10,7 @@ import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-lan
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
-import type { CombatLockTileReader } from "./combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRespawnContext = {
   now: () => number;

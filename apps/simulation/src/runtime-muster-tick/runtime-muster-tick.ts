@@ -10,7 +10,7 @@ import { scanAdvanceCandidates } from "./muster-advance-scan.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 import { creditManpower } from "../runtime-manpower-ceiling.js";
-import type { CombatLockTileReader } from "../combat-lock-index.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 export type { Position } from "./muster-depot-speed.js";

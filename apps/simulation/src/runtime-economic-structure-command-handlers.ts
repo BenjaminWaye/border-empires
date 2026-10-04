@@ -13,7 +13,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
-import type { CombatLockTileReader } from "./combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 /** Shared dependencies for the uncapture/converter-toggle command handlers. */
 export type RuntimeEconomicStructureCommandContext = {

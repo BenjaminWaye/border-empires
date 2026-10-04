@@ -11,7 +11,7 @@ import { nearestHostileWithinSteps } from "./muster-advance-clear.js";
 import { maybeAdvanceFire } from "./muster-advance-fire.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { makePlayer } from "./muster-march-test-support.js";
-import { CombatLockIndex } from "../combat-lock-index.js";
+import { CombatLockIndex } from "../combat-lock-index/combat-lock-index.js";
 
 // The runtime's default world already owns tiles near (10,10), so scenarios
 // are written relative to BASE, in an empty part of the map.

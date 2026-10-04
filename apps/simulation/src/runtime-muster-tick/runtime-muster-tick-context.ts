@@ -5,7 +5,7 @@ import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement
 import { railDepotPositionsForPlayer } from "../runtime/runtime-rail-depot-positions.js";
 import type { ActiveAetherBridgeView, LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
-import type { CombatLockTileReader } from "../combat-lock-index.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type MusterTickContextDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;

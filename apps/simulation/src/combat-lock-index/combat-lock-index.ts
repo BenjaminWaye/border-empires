@@ -1,4 +1,4 @@
-import type { LockRecord } from "./runtime-types.js";
+import type { LockRecord } from "../runtime-types.js";
 
 /**
  * Read side of the combat-lock index, for callers that only ask "is this tile

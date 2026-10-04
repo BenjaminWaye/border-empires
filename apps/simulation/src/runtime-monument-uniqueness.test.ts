@@ -3,7 +3,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import { describe, expect, it } from "vitest";
 import { completeStructureBuild, handleBuildStructureCommand, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 function makePlayer(id: string, overrides: Partial<DomainPlayer> = {}): DomainPlayer {
   return {

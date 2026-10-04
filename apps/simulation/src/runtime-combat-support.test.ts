@@ -2,7 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { attackerOutpostMult, buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 function makePlayer(id: string, points: number): DomainPlayer {
   return { id, isAi: false, points, manpower: 0, techIds: new Set(), allies: new Set() };

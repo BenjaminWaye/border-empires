@@ -16,7 +16,7 @@ import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automatio
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeLockResolutionContext = {
   players: Map<string, DomainPlayer>;

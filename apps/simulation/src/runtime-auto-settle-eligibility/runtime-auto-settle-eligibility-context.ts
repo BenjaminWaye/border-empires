@@ -22,7 +22,7 @@ import {
   type GrownTownSupportRingByOwner,
   type SettleAttemptContext
 } from "./runtime-auto-settle-eligibility.js";
-import type { CombatLockTileReader } from "../combat-lock-index.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export interface AutoSettleEligibilityRuntimeDeps {
   readonly tiles: ReadonlyMap<string, DomainTileState>;

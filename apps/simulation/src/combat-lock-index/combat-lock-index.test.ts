@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CombatLockIndex } from "./combat-lock-index.js";
-import type { LockRecord } from "./runtime-types.js";
+import type { LockRecord } from "../runtime-types.js";
 
 const lock = (commandId: string, originKey: string, targetKey: string): LockRecord => ({
   commandId, playerId: "p", actionType: "ATTACK", manpowerCost: 0,

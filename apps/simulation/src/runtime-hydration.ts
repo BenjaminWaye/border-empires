@@ -8,7 +8,7 @@ import { attachDockSeaRoutes, type SeaRouteTerrainReader } from "./dock-network/
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 

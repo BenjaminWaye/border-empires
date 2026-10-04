@@ -22,7 +22,7 @@ import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtim
 import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 // Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
 // can never make an ATTACK resolve instantly or negatively.

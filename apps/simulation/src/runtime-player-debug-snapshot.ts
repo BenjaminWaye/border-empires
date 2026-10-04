@@ -3,7 +3,7 @@ import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction } fro
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
-import type { CombatLockTileReader } from "./combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimePlayerDebugSnapshot = Array<{
   id: string;

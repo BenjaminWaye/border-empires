@@ -30,7 +30,7 @@ import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js
 import { handleBuildAfcCommand } from "./runtime-build-afc-command-handler.js";
 import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-command-handler.js";
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
-import { CombatLockIndex } from "./combat-lock-index.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { hasFreeResourceSlots } from "./runtime-structure-slot-gate.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";

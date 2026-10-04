@@ -2,7 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { MUSTER_ADVANCE_RANGE_STEPS, MUSTER_MAX_TILES } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
-import type { CombatLockTileReader } from "../combat-lock-index.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 /**
  * How many muster flags this player can have active at once (base +
