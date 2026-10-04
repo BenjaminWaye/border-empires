@@ -12,6 +12,7 @@ import {
 
 import { TOWN_PALETTE, TOWN_SLOT_DEFS, type TownColorName, type TownPiece, type TownSlotKey, type TownTier } from "./client-map-3d-town-overlay/town-tier-shapes.js";
 import { TOWN_LAYOUTS } from "./client-map-3d-town-overlay/town-tier-capitals.js";
+import { createTownModelOverlay } from "./client-map-3d-town-glb/client-map-3d-town-glb.js";
 
 export { type TownTier } from "./client-map-3d-town-overlay/town-tier-shapes.js";
 
@@ -77,6 +78,9 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     return color;
   };
 
+  // TOWN tier uses the textured glb once it has loaded; every other tier (and
+  // TOWN before the load lands or if it fails) uses the procedural layouts.
+  const townModel = createTownModelOverlay(scene, maxTiles);
   const slots = new Map<TownSlotKey, Slot>();
   const geometries: Array<{ readonly dispose: () => void }> = [];
 
@@ -138,6 +142,10 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     surfaceY: number,
     tier: TownTier
   ): void => {
+    if (tier === "TOWN" && townModel.isReady()) {
+      townModel.addInstance(centerX, centerZ, surfaceY);
+      return;
+    }
     const layout = TOWN_LAYOUTS[tier];
     for (const piece of layout.pieces) {
       const slot = slots.get(piece.slot);
@@ -146,12 +154,14 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
   };
 
   const clear = (): void => {
+    townModel.clear();
     for (const slot of slots.values()) {
       slot.index = 0;
     }
   };
 
   const commit = (): void => {
+    townModel.commit();
     for (const slot of slots.values()) {
       const { mesh } = slot;
       mesh.count = slot.index;
@@ -172,6 +182,7 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
   };
 
   const dispose = (): void => {
+    townModel.dispose();
     scene.remove(group);
     for (const slot of slots.values()) slot.mesh.dispose();
     for (const geometry of geometries) geometry.dispose();

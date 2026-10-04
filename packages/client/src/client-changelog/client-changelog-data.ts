@@ -87,6 +87,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The server should now stay up much longer between restarts"
     ]
   },
+  {
+    createdAt: 1791140687838, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "New 3D model for towns",
+    why: "Towns now have a hand-detailed steampunk model instead of the simple box buildings, so they read better on the map.",
+    changes: [
+      "Town-tier settlements in the 3D map are drawn with a textured steampunk town: glass-domed tower, chimney and lit houses",
+      "Settlements, cities, great cities and metropolises keep their existing look; the 2D map is unchanged"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
