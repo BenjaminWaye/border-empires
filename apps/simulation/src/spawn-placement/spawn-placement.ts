@@ -3,6 +3,7 @@ import { computeCoastalLandKeys, computeLandRegions, hasWaterNeighbor, preferDry
 import type { Terrain } from "@border-empires/shared";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { BARBARIAN_SPAWN_AVOID_RADIUS } from "./barbarian-proximity.js";
 
 // computeCoastalLandKeys/computeLandRegions/computeFairSpawnSites live in
 // game-domain (server-worldgen-fair-spawn-sites.ts) so apps/worldgen-lab can
@@ -15,6 +16,13 @@ type SpawnRequirements = {
   needsFood: boolean;
   minSpawnDistance: number;
   minTownDistance: number;
+  // Best-effort preference for a site with no barbarian-owned tile nearby.
+  // Barbarian tiles are SETTLED, so the 50-tile passes already keep clear of
+  // them via minSpawnDistance; this only matters once that distance relaxes.
+  // Deliberately NOT set on the final 0-distance pass or the last-resort loop:
+  // a barbarian-heavy map must still yield a spawn (the landing wipe clears
+  // what's in reach).
+  avoidBarbarians?: boolean;
 };
 
 type SpawnSearchPass = {
@@ -50,6 +58,10 @@ export type LegacySpawnPlacementInput = {
   // the spawn tile's 8 neighbours -- see hasWaterNeighbor). Hot-path callers
   // pass their tile map's lookup; falls back to a map built from `tiles`.
   terrainAt?: (x: number, y: number) => Terrain | undefined;
+  // Best-effort "is a barbarian-owned tile within radius of (x,y)", consulted
+  // only by passes flagged SpawnRequirements.avoidBarbarians and only after
+  // every other check passed. Omitted = no barbarian preference.
+  hasNearbyBarbarian?: (x: number, y: number, radius: number) => boolean;
 };
 
 export const RALLY_SPAWN_RADIUS = 24;
@@ -82,8 +94,8 @@ const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidBarbarians: true } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0, avoidBarbarians: true } },
   { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 } }
 ];
 
@@ -163,6 +175,9 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     if (requirements.minTownDistance > 0 && hasNearbyTown(x, y, requirements.minTownDistance - 1)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
     if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
+    // Last on purpose: the scan is the priciest check, so it only runs for a
+    // candidate every other rule already accepted.
+    if (requirements.avoidBarbarians && input.hasNearbyBarbarian?.(x, y, BARBARIAN_SPAWN_AVOID_RADIUS)) return false;
     return true;
   };
 
