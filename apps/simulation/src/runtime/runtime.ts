@@ -498,6 +498,7 @@ import {
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
 import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
+import { handleCollectTileCommand as handleCollectTileCommandImpl } from "../runtime-collect-tile-command.js";
 import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
@@ -3557,40 +3558,17 @@ export class SimulationRuntime {
   }
 
   private handleCollectTileCommand(command: CommandEnvelope): void {
-    const actor = this.state.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    this.applyManpowerRegen(actor);
-    const target = this.state.tiles.get(simulationTileKey(payload.x, payload.y));
-    if (!target || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-      this.rejectCommand(command, "COLLECT_EMPTY", "tile is not a settled owned tile"); return;
-    }
-
-    const collected = this.collectTileYield(target, this.now(), command);
-    const gold = collected.gold;
-    const strategic = collected.strategic;
-    const touched = gold > 0 || Object.values(strategic).some((value) => Number(value) > 0);
-    if (!touched) { this.rejectCommand(command, "COLLECT_EMPTY", "yield is empty"); return; }
-    actor.points += gold;
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(target)]
-    });
-    this.emitEvent({
-      eventType: "COLLECT_RESULT",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      mode: "tile",
-      x: payload.x,
-      y: payload.y,
-      tiles: 1,
-      gold,
-      strategic
-    });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleCollectTileCommandImpl({
+      players: this.state.players,
+      tiles: this.state.tiles,
+      now: this.now,
+      rejectCommand: (cmd, code, message) => this.rejectCommand(cmd, code, message),
+      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
+      collectTileYield: (tile, now, cmd) => this.collectTileYield(tile, now, cmd),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd)
+    }, command);
   }
 
   private handleCollectVisibleCommand(command: CommandEnvelope): void {
