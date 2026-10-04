@@ -24,20 +24,28 @@ export const prepareAfcLandingFootprint = (
   ctx: AfcLandingFootprintContext,
   x: number,
   y: number,
-  commandId: string
+  commandId: string,
+  options: { crushNeighbourFeatures?: boolean } = {}
 ): DomainTileState[] => {
   clearForestAroundAfcTile(x, y);
   const flattened: DomainTileState[] = [];
+  let terrainChanged = false;
   for (let dy = -AFC_LANDING_FOOTPRINT_RADIUS; dy <= AFC_LANDING_FOOTPRINT_RADIUS; dy += 1) {
     for (let dx = -AFC_LANDING_FOOTPRINT_RADIUS; dx <= AFC_LANDING_FOOTPRINT_RADIUS; dx += 1) {
       const tileKey = simulationTileKey(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
       const tile = ctx.tiles.get(tileKey);
-      if (!tile || tile.terrain !== "MOUNTAIN") continue;
-      const updatedTile: DomainTileState = { ...tile, terrain: "LAND" };
+      if (!tile) continue;
+      // Spawn fallback only (no clear site existed): the landing crushes unowned towns and
+      // resources on its neighbouring tiles. The landing tile itself is rewritten by the caller.
+      const crush = options.crushNeighbourFeatures === true && (dx !== 0 || dy !== 0) && !tile.ownerId && (tile.town || tile.resource);
+      if (tile.terrain !== "MOUNTAIN" && !crush) continue;
+      const { town: _crushedTown, resource: _crushedResource, ...survivors } = tile;
+      const updatedTile: DomainTileState = { ...(crush ? survivors : tile), terrain: tile.terrain === "MOUNTAIN" ? "LAND" : tile.terrain };
+      if (updatedTile.terrain !== tile.terrain) terrainChanged = true;
       ctx.replaceTileState(tileKey, updatedTile, commandId);
       flattened.push(updatedTile);
     }
   }
-  if (flattened.length > 0) ctx.bumpTerrainEpoch();
+  if (terrainChanged) ctx.bumpTerrainEpoch();
   return flattened;
 };

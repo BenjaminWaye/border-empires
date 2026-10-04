@@ -2,7 +2,7 @@ import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empir
 import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
-import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
+import { afcLandingTile, chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
@@ -195,13 +195,13 @@ export const ensurePlayerHasSpawnTerritory = (
   // the gold aggregation as a special case -- see the plan doc for why it is
   // NOT folded into the town-list-driven math.
   const spawnedTile: DomainTileState = {
-    ...tile,
+    ...afcLandingTile(tile),
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
-  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId, { crushNeighbourFeatures: true });
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, spawnedTile);
@@ -281,13 +281,13 @@ export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string)
   const tile = ctx.tiles.get(tileKey);
   if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
   const afcTile: DomainTileState = {
-    ...tile,
+    ...afcLandingTile(tile),
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const commandId = `afc-migration:${playerId}:${ctx.now()}`;
-  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId, { crushNeighbourFeatures: true });
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, afcTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [afcTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });

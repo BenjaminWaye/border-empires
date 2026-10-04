@@ -73,4 +73,28 @@ describe("prepareAfcLandingFootprint", () => {
     // No mountain was flattened, so the terrain epoch is untouched.
     expect(epochBumps).toBe(0);
   });
+
+  it("crushes unowned neighbouring towns and resources only when asked, sparing owned tiles and the centre", () => {
+    setWorldSeed(1234, "continents", 1);
+    const build = (): Map<string, DomainTileState> => {
+      const tiles = new Map<string, DomainTileState>();
+      for (let y = 9; y <= 11; y += 1) for (let x = 9; x <= 11; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+      tiles.set(simulationTileKey(9, 9), { x: 9, y: 9, terrain: "LAND", resource: "FARM" });
+      tiles.set(simulationTileKey(10, 9), { x: 10, y: 9, terrain: "LAND", town: { type: "MARKET", populationTier: "SETTLEMENT" } });
+      tiles.set(simulationTileKey(11, 9), { x: 11, y: 9, terrain: "LAND", resource: "IRON", ownerId: "other" });
+      return tiles;
+    };
+    const run = (tiles: Map<string, DomainTileState>, options?: { crushNeighbourFeatures?: boolean }) =>
+      prepareAfcLandingFootprint({ tiles, replaceTileState: (key, tile) => tiles.set(key, tile), bumpTerrainEpoch: () => undefined }, 10, 10, "cmd", options);
+
+    const untouched = build();
+    expect(run(untouched)).toEqual([]);
+    expect(untouched.get(simulationTileKey(9, 9))?.resource).toBe("FARM");
+
+    const crushed = build();
+    expect(run(crushed, { crushNeighbourFeatures: true })).toHaveLength(2);
+    expect(crushed.get(simulationTileKey(9, 9))?.resource).toBeUndefined();
+    expect(crushed.get(simulationTileKey(10, 9))?.town).toBeUndefined();
+    expect(crushed.get(simulationTileKey(11, 9))?.resource).toBe("IRON");
+  });
 });
