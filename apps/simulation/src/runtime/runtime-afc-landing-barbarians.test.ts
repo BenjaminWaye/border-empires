@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "./runtime.js";
-import { buildPlayer } from "./runtime.test-helpers.js";
+import { buildPlayer, testRuntimePlayer } from "./runtime.test-helpers.js";
 
 // End-to-end regression for "I spawned and barbarians were all over my
 // territory, and my AFC had no reach on one side": the only open tile on a
@@ -57,5 +57,56 @@ describe("AFC landing among barbarians", () => {
     // The barbarians beyond the AFC's reach are untouched -- including the town.
     expect(byKey.get("14,10")?.ownerId).toBe("barbarian-1");
     expect(byKey.get("15,10")?.ownerId).toBe("barbarian-1");
+  });
+
+  // The elimination-respawn path (respawnIfEliminated) lands an AFC the same way a fresh spawn does and must
+  // clear barbarians too. Real flow: the player's only tile falls to a barbarian counter-capture, they are
+  // eliminated and respawn on the tile the barbarian just walked off, right beside the barbarian that took
+  // their old tile -- which the landing then releases.
+  it("clears barbarians in reach when an eliminated player respawns", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduledTasks.push({ delayMs, task });
+        },
+        initialPlayers: new Map([
+          ["player-1", testRuntimePlayer("player-1")],
+          ["barbarian-1", buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+      runtime.submitCommand({
+        commandId: "eliminated-respawn",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      expect(scheduledTasks).toHaveLength(1);
+      scheduledTasks[0]?.task();
+
+      const tiles = runtime.exportState().tiles;
+      const afc = tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
+      expect(afc).toBeDefined();
+      const nearbyBarbarians = tiles.filter(
+        (tile) => tile.ownerId === "barbarian-1" && Math.max(Math.abs(tile.x - afc!.x), Math.abs(tile.y - afc!.y)) <= 3
+      );
+      expect(nearbyBarbarians).toEqual([]);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });

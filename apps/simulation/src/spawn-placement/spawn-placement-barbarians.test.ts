@@ -23,11 +23,33 @@ describe("hasBarbarianWithin", () => {
   });
 });
 
-// Strict legacy passes keep 50 tiles clear of every SETTLED tile -- barbarian
-// land included -- so avoidance only matters once minSpawnDistance relaxes
-// (a crowded map). Simulate that by failing the 50/20 distance passes.
-describe("chooseLegacySpawnPlacement barbarian avoidance in relaxed passes", () => {
-  const relaxedOnly = (radius: number): boolean => radius >= 20;
+// Barbarian tiles are SETTLED, so they already count toward minSpawnDistance:
+// every pass with a distance >= BARBARIAN_SPAWN_AVOID_RADIUS keeps clear of
+// them with no extra hook. Pinned here with the real (unstubbed) distance check.
+describe("chooseLegacySpawnPlacement and barbarian land", () => {
+  const buildWorld = (): DomainTileState[] => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 40; y += 1) {
+      for (let x = 0; x < 40; x += 1) tiles.push(x < 20 ? barb(x, y) : { x, y, terrain: "LAND" });
+    }
+    return tiles;
+  };
+
+  it("keeps the 10-tile minimum distance from barbarian-held land when the wider passes cannot be met", () => {
+    const tiles = buildWorld(); // 50/20-tile clearance impossible on a 40-wide world; the 10-tile pass decides
+    for (let index = 0; index < 25; index += 1) {
+      const spawn = chooseLegacySpawnPlacement({ playerId: `player-${index}`, tiles });
+      expect(spawn).toBeDefined();
+      expect(spawn!.x).toBeGreaterThanOrEqual(30);
+    }
+  });
+});
+
+// Only a pass that drops the distance check entirely (the crowded-map
+// fallback) needs the barbarian hook. Simulate a crowded map by failing every
+// distance pass: hasNearbySettled is true for any radius > 0.
+describe("chooseLegacySpawnPlacement barbarian avoidance on the 0-distance fallback", () => {
+  const crowded = (_x: number, _y: number, radius: number): boolean => radius > 0;
 
   const buildWorld = (openFromX: number): DomainTileState[] => {
     const tiles: DomainTileState[] = [];
@@ -42,7 +64,7 @@ describe("chooseLegacySpawnPlacement barbarian avoidance in relaxed passes", () 
     return chooseLegacySpawnPlacement({
       playerId,
       tiles,
-      hasNearbySettled: (_x, _y, radius) => relaxedOnly(radius),
+      hasNearbySettled: crowded,
       ...(withAvoidance ? { hasNearbyBarbarian: (x: number, y: number, radius: number) => hasBarbarianWithin(byKey, x, y, radius) } : {})
     });
   };

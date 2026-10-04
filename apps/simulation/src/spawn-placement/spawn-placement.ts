@@ -17,11 +17,12 @@ type SpawnRequirements = {
   minSpawnDistance: number;
   minTownDistance: number;
   // Best-effort preference for a site with no barbarian-owned tile nearby.
-  // Barbarian tiles are SETTLED, so the 50-tile passes already keep clear of
-  // them via minSpawnDistance; this only matters once that distance relaxes.
-  // Deliberately NOT set on the final 0-distance pass or the last-resort loop:
-  // a barbarian-heavy map must still yield a spawn (the landing wipe clears
-  // what's in reach).
+  // Barbarian tiles are SETTLED, so every pass with minSpawnDistance >=
+  // BARBARIAN_SPAWN_AVOID_RADIUS already keeps clear of them; this only adds
+  // anything on a pass that drops the distance check entirely. It is set on the
+  // first 0-distance pass only: the unflagged 0-distance pass after it and the
+  // last-resort loop still accept any site, so a barbarian-heavy map always
+  // yields a spawn (the landing wipe clears whatever is in reach).
   avoidBarbarians?: boolean;
 };
 
@@ -94,8 +95,9 @@ const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
   { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidBarbarians: true } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0, avoidBarbarians: true } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0, avoidBarbarians: true } },
   { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 } }
 ];
 

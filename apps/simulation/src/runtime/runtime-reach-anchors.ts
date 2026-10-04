@@ -151,7 +151,7 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   }
   // Barbarians hold no anchors (see isBarbarianOwner): a capture hands the
   // barbarian no activation, so it never writes a border slot.
-  return anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
+  return anchors.length === 0 ? anchors : anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
 }
 
 // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
@@ -197,7 +197,7 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   }
   // Barbarians hold no anchors (see isBarbarianOwner): a barbarian-held
   // tile never had an anchor to lose.
-  return anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
+  return anchors.length === 0 ? anchors : anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
 }
 
 export function isPlayerTileInReach(playerId: string, x: number, y: number, reachBorder: ReadonlyMap<string, string>): boolean {

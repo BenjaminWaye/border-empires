@@ -31,7 +31,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "When your AFC lands, any barbarians inside its reach are cleared away so you start on open ground",
       "Barbarian-held towns, docks and outposts no longer claim reach, so they can't take reach tiles around your AFC",
-      "When the map is crowded, new spawns still prefer sites with no barbarians close by"
+      "On a very crowded map, new spawns still prefer a site with no barbarians within a few tiles"
     ]
   },
   {

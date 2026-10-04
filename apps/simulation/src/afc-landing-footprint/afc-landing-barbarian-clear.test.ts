@@ -48,15 +48,19 @@ describe("clearBarbariansAroundAfcLanding", () => {
     const tiles = buildWorld({
       "11,10": barb({ resource: "FARM", muster: { ownerId: "barbarian-1", amount: 4, mode: "HOLD", updatedAt: 1 } }),
       "13,13": barb({ town: { type: "FARMING", populationTier: "SETTLEMENT" } }), // far corner of the radius-3 square
-      "8,9": barb({ dockId: "dock-1" })
+      "8,9": barb({ dockId: "dock-1" }),
+      // A structure a barbarian captured is re-stamped to barbarian-1; it must not survive onto a tile the new
+      // player is about to auto-claim.
+      "12,12": barb({ resource: "FARM", economicStructure: { ownerId: "barbarian-1", type: "RELAY_BEACON", status: "active" } })
     });
     const { released, replaced, logs } = run(tiles);
-    expect(released.map((tile) => simulationTileKey(tile.x, tile.y)).sort()).toEqual(["11,10", "13,13", "8,9"]);
+    expect(released.map((tile) => simulationTileKey(tile.x, tile.y)).sort()).toEqual(["11,10", "12,12", "13,13", "8,9"]);
     expect(tiles.get("11,10")).toEqual({ x: 11, y: 10, terrain: "LAND", resource: "FARM" });
     expect(tiles.get("13,13")).toEqual({ x: 13, y: 13, terrain: "LAND", town: { type: "FARMING", populationTier: "SETTLEMENT" } });
     expect(tiles.get("8,9")).toEqual({ x: 8, y: 9, terrain: "LAND", dockId: "dock-1" });
+    expect(tiles.get("12,12")).toEqual({ x: 12, y: 12, terrain: "LAND", resource: "FARM" });
     expect(replaced.every((entry) => entry.commandId === "cmd-1")).toBe(true);
-    expect(logs).toEqual([{ type: "afc_landing_barbarians_cleared", commandId: "cmd-1", x: 10, y: 10, cleared: 3 }]);
+    expect(logs).toEqual([{ type: "afc_landing_barbarians_cleared", commandId: "cmd-1", x: 10, y: 10, cleared: 4 }]);
   });
 
   it("leaves barbarians outside the reach radius and other players' tiles alone", () => {
