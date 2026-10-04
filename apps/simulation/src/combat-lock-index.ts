@@ -37,10 +37,6 @@ export class CombatLockIndex implements CombatLockTileReader {
   private readonly targets = new Map<string, LockRecord>();
   private readonly origins = new Map<string, Set<LockRecord>>();
 
-  get size(): number {
-    return this.locksByCommandId.size;
-  }
-
   addLock(lock: LockRecord): void {
     const existing = this.locksByCommandId.get(lock.commandId);
     if (existing) this.removeLock(existing);

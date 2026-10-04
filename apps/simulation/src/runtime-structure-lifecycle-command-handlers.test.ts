@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { completeStructureBuild } from "./runtime-structure-command-handlers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import {
+  cancelActiveOutpostAttackLocks,
   completeStructureRemoval,
   handleCancelFortBuildCommand,
   handleCancelSiegeOutpostBuildCommand,
@@ -20,6 +21,7 @@ import {
 } from "./runtime-structure-lifecycle-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { CombatLockIndex } from "./combat-lock-index.js";
+import type { LockRecord } from "./runtime-types.js";
 
 const PLAYER_ID = "player-1";
 
@@ -410,5 +412,28 @@ describe("completion handlers flush reach updates", () => {
     completeStructureRemoval(context, simulationTileKey(5, 5), PLAYER_ID, "remove-cmd-1");
 
     expect(reachFlushCauses).toEqual(["reach-update:remove-cmd-1"]);
+  });
+});
+
+describe("cancelActiveOutpostAttackLocks", () => {
+  const lockFrom = (commandId: string, playerId: string, targetX: number): LockRecord => ({
+    commandId, playerId, actionType: "ATTACK", manpowerCost: 0,
+    originX: 5, originY: 5, targetX, targetY: 6,
+    originKey: simulationTileKey(5, 5), targetKey: simulationTileKey(targetX, 6),
+    resolvesAt: 30_000, source: "player"
+  });
+
+  it("cancels every one of the player's attacks launched from the origin and leaves other players' alone", () => {
+    const { context } = createContext(makePlayer(), makeTile());
+    const mine = [lockFrom("a", PLAYER_ID, 4), lockFrom("b", PLAYER_ID, 6)];
+    const theirs = lockFrom("c", "player-2", 5);
+    for (const lock of [...mine, theirs]) {
+      context.locksByTile.addLock(lock);
+      context.locksByCommandId.set(lock.commandId, lock);
+    }
+
+    expect(cancelActiveOutpostAttackLocks(context, PLAYER_ID, simulationTileKey(5, 5)).sort()).toEqual(["a", "b"]);
+    expect([...context.locksByTile.values()].map((lock) => lock.commandId)).toEqual(["c"]);
+    expect([...context.locksByCommandId.keys()]).toEqual(["c"]);
   });
 });

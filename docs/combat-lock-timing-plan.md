@@ -4,7 +4,7 @@ Status: B implemented (2026-10-04); A proposed (2026-10-03). Follow-up to the in
 (`agent/incoming-attack-fixes`). Two server changes, shipped as separate PRs
 in this order.
 
-## Background: what the combat lock does today
+## Background: what the combat lock did before B (storage described here is now `CombatLockIndex`)
 
 - An accepted ATTACK/EXPAND creates one `LockRecord`, stored under **both** its
   origin and target tile keys in `locksByTile`
