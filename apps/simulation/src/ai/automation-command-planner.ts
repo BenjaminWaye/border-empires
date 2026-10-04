@@ -288,13 +288,12 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
         buildScanUsedFocusFallback = true;
       }
     );
-    const beaconSettledCandidates = restrictToFocus(
-      strideSample(input.ownedTiles, RELAY_BEACON_SETTLED_SAMPLE_CAP).filter(
-        (tile) => tile.ownerId === input.playerId && tile.terrain === "LAND" && tile.ownershipState === "SETTLED"
-      ),
-      () => {
-        buildScanUsedFocusFallback = true;
-      }
+    const beaconSettledCandidates = strideSample(input.ownedTiles, RELAY_BEACON_SETTLED_SAMPLE_CAP).filter(
+      (tile) =>
+        tile.ownerId === input.playerId &&
+        tile.terrain === "LAND" &&
+        tile.ownershipState === "SETTLED" &&
+        (!focusFront || focusFront.has(`${tile.x},${tile.y}`))
     );
     relayBeaconBuild = chooseBestRelayBeaconBuild(
       structurePlayer,
