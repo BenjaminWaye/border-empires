@@ -24,6 +24,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791140199531, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "Safer spawns and full AFC reach",
+    why: "New players could spawn with barbarians on their doorstep, and a barbarian-held town nearby could cut away part of the AFC's reach.",
+    changes: [
+      "When your AFC lands, any barbarians inside its reach are cleared away so you start on open ground",
+      "Barbarian-held towns, docks and outposts no longer claim reach, so they can't take reach tiles around your AFC",
+      "On a very crowded map, new spawns still prefer a site with no barbarians within a few tiles"
+    ]
+  },
+  {
     createdAt: 1791005011469, // Date.now() frozen for this entry
     introducedIn: "2026.10.03.1",
     title: "AI infrastructure and clearer tile details",
