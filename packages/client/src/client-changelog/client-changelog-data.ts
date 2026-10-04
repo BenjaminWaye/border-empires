@@ -90,11 +90,11 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1791140687838, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
-    title: "New 3D model for towns",
-    why: "Towns now have a hand-detailed steampunk model instead of the simple box buildings, so they read better on the map.",
+    title: "New 3D models for towns and cities",
+    why: "Towns, cities, great cities and metropolises now have hand-detailed steampunk models instead of the simple box buildings, so each tier reads clearly on the map.",
     changes: [
-      "Town-tier settlements in the 3D map are drawn with a textured steampunk town: glass-domed tower, chimney and lit houses",
-      "Settlements, cities, great cities and metropolises keep their existing look; the 2D map is unchanged"
+      "Town, City, Great City and Metropolis tiles in the 3D map are drawn with textured steampunk models that grow taller and busier with each tier",
+      "Settlements keep their existing look; the 2D map is unchanged"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

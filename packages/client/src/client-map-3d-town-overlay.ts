@@ -78,8 +78,8 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     return color;
   };
 
-  // TOWN tier uses the textured glb once it has loaded; every other tier (and
-  // TOWN before the load lands or if it fails) uses the procedural layouts.
+  // Tiers with a textured glb (everything but SETTLEMENT) use it once it has
+  // loaded; otherwise (not loaded yet, failed, buffer full) the procedural layouts.
   const townModel = createTownModelOverlay(scene, maxTiles);
   const slots = new Map<TownSlotKey, Slot>();
   const geometries: Array<{ readonly dispose: () => void }> = [];
@@ -142,10 +142,7 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     surfaceY: number,
     tier: TownTier
   ): void => {
-    if (tier === "TOWN" && townModel.isReady()) {
-      townModel.addInstance(centerX, centerZ, surfaceY);
-      return;
-    }
+    if (townModel.addInstance(tier, centerX, centerZ, surfaceY)) return;
     const layout = TOWN_LAYOUTS[tier];
     for (const piece of layout.pieces) {
       const slot = slots.get(piece.slot);
