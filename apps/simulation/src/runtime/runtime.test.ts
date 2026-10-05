@@ -4963,7 +4963,7 @@ describe("simulation runtime", () => {
             }
           },
           {
-            x: 14,
+            x: 16,
             y: 18,
             terrain: "LAND"
           }
@@ -5004,7 +5004,7 @@ describe("simulation runtime", () => {
         townPopulationTier: "TOWN"
       })
     );
-    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 14 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 16 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
     expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
     expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
       expect.objectContaining({ ownerId: "player-1", status: "active" })
@@ -7523,7 +7523,7 @@ describe("simulation runtime — shard rain", () => {
                 ownershipState: "SETTLED",
                 town: { name: "Capital", type: "FARMING", populationTier: "CITY", population: 5_000 }
               },
-              { x: 21, y: 20, terrain: "LAND" }
+              { x: 22, y: 20, terrain: "LAND" }
             ],
             activeLocks: []
           }
@@ -7554,7 +7554,7 @@ describe("simulation runtime — shard rain", () => {
         const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
         expect(cityTown?.population).toBe(5_000);
 
-        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 21 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
         expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED" }));
         expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
           expect.objectContaining({ ownerId: "player-2", status: "active" })

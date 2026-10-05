@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { computeCoastalLandKeys, computeLandRegions, hasWaterNeighbor, preferDryFootprintCandidates } from "@border-empires/game-domain";
+import { computeAfcBlockerKeys, computeCoastalLandKeys, computeLandRegions, hasWaterNeighbor, isAfcSiteClear, preferDryFootprintCandidates } from "@border-empires/game-domain";
 import type { Terrain } from "@border-empires/shared";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
@@ -121,11 +121,17 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
   const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
+  // The spawn tile becomes an AFC, whose eight arms occupy the whole 3x3
+  // footprint. The center and every neighbour must therefore be clear of
+  // towns, docks, and resources on every search pass. There is no fallback:
+  // an invalid footprint must never be handed to a player.
+  const afcBlockerKeys = computeAfcBlockerKeys(tileList);
+  const blocksAfcSite = (x: number, y: number): boolean => afcBlockerKeys.has(simulationTileKey(x, y));
   const spawnCandidates = tileList.filter((tile) => {
     const tileKey = simulationTileKey(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
-    if (coastalLandKeys.size > 0 && !coastalLandKeys.has(tileKey)) return false;
-    return true;
+    if (!isAfcSiteClear(blocksAfcSite, tile.x, tile.y)) return false;
+    return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKey);
   });
   if (spawnCandidates.length === 0) return undefined;
 
