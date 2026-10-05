@@ -410,6 +410,10 @@ export const handleFrontierCommandImpl = (
         fromX: validation.origin.x,
         fromY: validation.origin.y,
         resolvesAt,
+        // The attacker's locked odds (the roll was already made above). Shared
+        // with the defender so the battle card can show both sides' chances;
+        // attackerWon is deliberately not included.
+        ...(combatResolution ? { winChance: combatResolution.result.winChance } : {}),
         ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
       })
     });

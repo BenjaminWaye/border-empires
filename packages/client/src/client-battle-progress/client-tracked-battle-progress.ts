@@ -1,26 +1,34 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
 import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
+import { battleOddsDetail, battleOddsView, liveBattleOdds, type LiveWinChance } from "./client-battle-odds.js";
 
 /** Mirror the battle sources used by both map renderers when no manual
  * capture is selected: muster attacks and the resolved combat animation. */
 export const trackedBattleProgressView = (
-  state: Pick<ClientState, "outgoingMusterAttacksByTile" | "activeBattles" | "playerNames" | "leaderboard" | "me" | "meName">,
+  state: Pick<ClientState, "outgoingMusterAttacksByTile" | "activeBattles" | "playerNames" | "playerColors" | "leaderboard" | "me" | "meName">,
   tile: Tile,
   formatCountdownClock: (ms: number) => string,
-  nowMs = Date.now()
+  nowMs = Date.now(),
+  liveWinChance?: LiveWinChance
 ): TileMenuProgressView | undefined => {
   if (tile.fogged) return undefined;
   const key = `${tile.x},${tile.y}`;
   const outgoing = state.outgoingMusterAttacksByTile?.get(key);
   if (outgoing && !outgoing.isExpand && outgoing.resolvesAt > nowMs) {
     const startAt = outgoing.transitEndsAt ?? outgoing.resolvesAt - 3_000;
+    // Prefer the odds the server locked in when it accepted the attack; the
+    // live preview is only a fallback (e.g. after a reconnect lost them).
+    const odds = tile.ownerId && typeof outgoing.winChance === "number"
+      ? battleOddsView(state, tile.ownerId, outgoing.winChance)
+      : liveBattleOdds(state, tile, liveWinChance);
     return {
       title: "Battle in progress",
-      detail: "Your muster forces are attacking this tile. The outcome resolves when the timer ends.",
+      detail: odds ? battleOddsDetail(odds) : "Your muster forces are attacking this tile. The outcome resolves when the timer ends.",
       remainingLabel: formatCountdownClock(outgoing.resolvesAt - nowMs),
       progress: Math.max(0, Math.min(1, (nowMs - startAt) / Math.max(1, outgoing.resolvesAt - startAt))),
-      note: "Combat resolves in a single roll when the timer ends."
+      note: "The fight was already rolled when the attack launched; the result shows when the timer ends.",
+      ...(odds ? { battle: odds } : {})
     };
   }
   const battle = state.activeBattles?.get(key);

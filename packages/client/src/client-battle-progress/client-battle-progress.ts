@@ -5,8 +5,7 @@
 // covers a tile the viewer owns that's currently under attack.
 import { trackedBattleProgressView } from "./client-tracked-battle-progress.js";
 import { EXPAND_MANPOWER_COST, rushBuyPriceGold } from "@border-empires/shared";
-import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
-import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
+import { battleOddsDetail, battleOddsView, defenderBattleOddsDetail, defenderBattleOddsView, liveBattleOdds, type LiveWinChance } from "./client-battle-odds.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
 import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/client-incoming-frontier-claim.js";
@@ -14,32 +13,30 @@ import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/c
 export const captureAttackProgressView = (
   state: ClientState,
   tile: Tile,
-  formatCountdownClock: (ms: number) => string
+  formatCountdownClock: (ms: number) => string,
+  liveWinChance?: LiveWinChance
 ): TileMenuProgressView | undefined => {
-  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock);
+  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock, Date.now(), liveWinChance);
   const nowMs = Date.now();
   const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
   const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
   const progress = Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs));
   if (state.capture.actionType === "ATTACK") {
+    // The dispatch-time snapshot is stable; when none was cached at dispatch
+    // (attack launched without opening the tile menu first) fall back to the
+    // live attack preview so the card still shows the chance of winning.
     const snapshot = state.capture.combatSnapshot;
     const battle = snapshot
-      ? {
-          attackerColor: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor),
-          defenderColor: resolveOwnerColor(snapshot.defenderOwnerId, state.playerColors, fallbackOwnerColor),
-          attackerShare: Math.max(0, Math.min(1, snapshot.winChance)),
-          attackerLabel: "You",
-          defenderLabel: playerDisplayNameForOwnerFromState(state, snapshot.defenderOwnerId) ?? "Defender"
-        }
-      : undefined;
+      ? battleOddsView(state, snapshot.defenderOwnerId, snapshot.winChance)
+      : liveBattleOdds(state, tile, liveWinChance);
     return {
       title: "Battle in progress",
       detail: battle
-        ? `Pre-battle odds: ${Math.round(battle.attackerShare * 100)}% you, ${Math.round((1 - battle.attackerShare) * 100)}% ${battle.defenderLabel}.`
+        ? battleOddsDetail(battle)
         : "Your forces are attacking this tile. The outcome resolves when the timer ends.",
       remainingLabel: formatCountdownClock(remainingMs),
       progress,
-      note: "Combat resolves in a single roll when the timer ends — this doesn't shift as it counts down.",
+      note: "The fight was already rolled when the attack launched; the result shows when the timer ends.",
       cancelLabel: "Cancel attack",
       cancelActionId: "cancel_capture" as const,
       ...(battle ? { battle } : {})
@@ -58,12 +55,11 @@ export const captureAttackProgressView = (
   };
 };
 
-// No versus bar for the defender: the server doesn't reveal the attack's odds
-// to the defender before it resolves, and a placeholder 50/50 bar read as
-// real odds. What the card does state is what's knowable: whether the enemy
-// company is still marching here, and that FRONTIER ground has no defending
-// force (runtime-lock-resolution.ts's hasDefendingForce -- a guaranteed
-// capture with no roll, unless Aegis Lock repels it).
+// The defender sees the same locked odds the attacker does (ATTACK_ALERT
+// carries the attacker's winChance -- the outcome itself is never sent). For
+// FRONTIER ground there is no defending force (runtime-lock-resolution.ts's
+// hasDefendingForce -- a guaranteed capture with no roll, unless Aegis Lock
+// repels it), so that card says so instead of showing odds.
 export const incomingAttackProgressView = (
   state: ClientState,
   tile: Tile,
@@ -81,6 +77,7 @@ export const incomingAttackProgressView = (
   const name = incoming.attackerName;
   const marching = incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowMs;
   const undefended = tile.ownershipState === "FRONTIER";
+  const odds = typeof incoming.winChance === "number" ? defenderBattleOddsView(state, incoming.attackerId, incoming.attackerName, incoming.winChance) : undefined;
   const marchingDetail = marching
     ? `${name}'s company is marching here and arrives in ${formatCountdownClock(incoming.transitEndsAt! - nowMs)}. `
     : "";
@@ -94,9 +91,10 @@ export const incomingAttackProgressView = (
       }
     : {
         title: marching ? "Attack incoming" : "Under attack",
-        detail: `${marchingDetail}${name} is attacking this tile. The defender can't see the odds until it resolves.`,
+        detail: odds ? `${marchingDetail}${defenderBattleOddsDetail(odds)}` : `${marchingDetail}${name} is attacking this tile.`,
         remainingLabel: formatCountdownClock(remainingMs),
         progress,
-        note: "Combat resolves in a single roll when the timer ends."
+        note: "The fight was already rolled when the attack launched; the result shows when the timer ends.",
+        ...(odds ? { battle: odds } : {})
       };
 };

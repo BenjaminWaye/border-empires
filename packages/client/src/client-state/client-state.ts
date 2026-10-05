@@ -220,7 +220,7 @@ export const createInitialState = () => ({
   serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<
     string,
-    { attackerName: string; resolvesAt: number; attackerId?: string; fromX?: number; fromY?: number; transitEndsAt?: number }
+    { attackerName: string; resolvesAt: number; attackerId?: string; fromX?: number; fromY?: number; transitEndsAt?: number; winChance?: number }
   >(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
@@ -289,7 +289,7 @@ export const createInitialState = () => ({
   ...createInitialBattleOverlayState(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
-  outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean }>(),
+  outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean; winChance?: number }>(),
   // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
   // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
   musterTransitByTile: new Map<string, MusterTransitEntry>(),

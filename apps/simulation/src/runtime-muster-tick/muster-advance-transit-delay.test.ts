@@ -237,6 +237,9 @@ describe("ADVANCE auto-fire mechanical travel-time delay", () => {
       expect(payload.transitEndsAt).toBe(1_000 + expectedTransitMs);
       expect(payload).not.toHaveProperty("musterOrigin");
       expect(payload).not.toHaveProperty("musterOriginX");
+      // The defender gets the attacker's locked odds, never the outcome.
+      expect(payload.winChance).toEqual(expect.any(Number));
+      expect(payload).not.toHaveProperty("attackerWon");
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

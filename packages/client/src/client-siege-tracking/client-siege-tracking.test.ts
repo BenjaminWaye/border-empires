@@ -4,6 +4,7 @@ import {
   EXPIRED_SIEGE_GRACE_MS,
   buildCaptureState,
   clearResolvedIncomingAttack,
+  combatSnapshotFromLockedResult,
   drawableIncomingAttack,
   handleMusterAdvanceCombatStart,
   isMusterAdvanceCommandId,
@@ -347,5 +348,37 @@ describe("resolveCombatResultPayload", () => {
     };
     const msg = { target: { x: 9, y: 4 }, manpowerDelta: -5 };
     expect(resolveCombatResultPayload(state, keyFor, msg, false)).toBe(msg);
+  });
+});
+
+describe("locked combat odds", () => {
+  const locked = { attackType: "ATTACK", winChance: 0.33, atkEff: 12, defEff: 24, defenderOwnerId: "enemy-1" };
+
+  // Regression: COMBAT_START rebuilt state.capture through buildCaptureState,
+  // which dropped the dispatch-time odds snapshot, so the card never had odds.
+  it("buildCaptureState keeps the combat snapshot", () => {
+    const combatSnapshot = { winChance: 0.5, attackerEffective: 1, defenderEffective: 1, defenderOwnerId: "enemy-1" };
+    const capture = buildCaptureState({ startAt: 0, resolvesAt: 1, target: { x: 1, y: 1 }, actionType: "ATTACK", combatSnapshot });
+    expect(capture.combatSnapshot).toBe(combatSnapshot);
+  });
+
+  it("reads the exact odds from the server's locked ATTACK result", () => {
+    expect(combatSnapshotFromLockedResult(locked, undefined)).toEqual({
+      winChance: 0.33, attackerEffective: 12, defenderEffective: 24, defenderOwnerId: "enemy-1"
+    });
+  });
+
+  it("keeps the existing snapshot when there is no usable locked result", () => {
+    const existing = { winChance: 0.5, attackerEffective: 1, defenderEffective: 1, defenderOwnerId: "enemy-1" };
+    expect(combatSnapshotFromLockedResult(undefined, existing)).toBe(existing);
+    expect(combatSnapshotFromLockedResult({ ...locked, attackType: "EXPAND" }, existing)).toBe(existing);
+  });
+
+  it("stores the locked odds on a muster attack", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    handleMusterAdvanceCombatStart(state, (x, y) => `${x},${y}`, {
+      commandId: "territory-auto:muster-advance:1", target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, resolvesAt: 9_000, result: locked
+    });
+    expect(state.outgoingMusterAttacksByTile.get("5,5")?.winChance).toBe(0.33);
   });
 });

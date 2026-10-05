@@ -152,3 +152,31 @@ describe("recommended actions", () => {
     expect(html.indexOf("data-tile-auto-settle")).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
   });
 });
+
+describe("tileActionMenuHtml battle progress card", () => {
+  const battleView = (): TileMenuView => ({
+    ...baseView,
+    tabs: ["overview", "progress"],
+    progress: {
+      title: "Under attack",
+      detail: "Chance of holding this tile: 30% you, 70% <img src=x onerror=alert(1)>.",
+      remainingLabel: "0:02",
+      progress: 0.5,
+      note: "note",
+      battle: { attackerColor: "#f00", defenderColor: "#0f0", attackerShare: 0.7, attackerLabel: "<b>Evil</b>", defenderLabel: "You" }
+    }
+  });
+
+  it("shows each side's percentage on the versus bar", () => {
+    const html = tileActionMenuHtml(battleView(), "progress", false);
+    expect(html).toContain("You 30%");
+    expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt; 70%");
+  });
+
+  it("escapes player names in the progress detail and bar labels", () => {
+    const html = tileActionMenuHtml(battleView(), "progress", false);
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<b>Evil</b>");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+});
