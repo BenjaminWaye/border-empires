@@ -19,8 +19,9 @@ and assembled on site by ancillaries (bodies run by one AI).
   Phase `k = floor(p * 4)`; the structure's pieces appear bottom-up, one height
   band per phase. A phase changes every 15–90+ minutes, so the world only needs
   to be re-laid-out when a boundary passes, not per frame.
-- **Parts stack.** Fabricated materials sit beside the site as crates. Crates
-  disappear in `PHASES × CRATES` equal steps (the ancillaries consume them).
+- **Parts stack.** Fabricated materials sit beside the site as crates. A full
+  stack is delivered at each phase start and one crate disappears per step as the
+  ancillaries consume it (steps are derived from the clock every frame).
 - **Scaffolding.** Corner posts + a bar at the current cut height mark the
   finished footprint while the structure is incomplete.
 - **Ancillary crew.** Reuses the settle overlay's small dark figures (extracted
@@ -30,10 +31,10 @@ and assembled on site by ancillaries (bodies run by one AI).
   past `completesAt` but still `under_construction` (stalled) they freeze with
   heads down.
 - **Removal** (`removing`) plays the same phases backwards.
-- **AFC supply pods** (phase boundary): when an on-screen site enters a new
-  phase, a pod arcs from the owner's nearest AFC to the site and lands next to
-  the crates. Cosmetic only — the server does not track which AFC "made" the
-  parts.
+- **Supply pods** (build phase change): when an on-screen site enters a new
+  phase, a pod of fabricated parts drops from orbit onto the parts stack.
+  Cosmetic only: the server does not track which AFC "made" the parts. Pods are
+  not shown for removal.
 
 ## Data change
 
@@ -87,7 +88,7 @@ crates, crew and pods (`client-map-3d-construction/`, wired in
 `client-resource-overlay-2d/` helper); Storybook stories
 (`3D Library/ConstructionSite`: Phases, Scrub, Canvas2D, Removal).
 
-Deviations from the plan above:
+Notes on what shipped (several design points above were settled during implementation):
 
 - **Crates and crew animate per frame** from the construction window instead of
   forcing a terrain rebuild per crate step; only the four phase boundaries

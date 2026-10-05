@@ -74,7 +74,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
   for (const mesh of meshes) {
     mesh.frustumCulled = false;
     mesh.count = 0;
-    mesh.castShadow = true;
+    // Deliberately no castShadow: crates, parts and figures are a few pixels tall at gameplay zoom, so their shadows would cost a shadow-pass draw for nothing.
   }
   scene.add(...meshes);
 
@@ -100,6 +100,8 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
   };
 
   const update = (nowMs: number): void => {
+    // The common case is no site on screen: skip the clock read and the buffer syncs.
+    if (entries.length === 0 && figureMesh.count === 0 && partMesh.count === 0 && crateMesh.count === 0) return;
     const epochMs = Date.now();
     let figures = 0;
     let parts = 0;

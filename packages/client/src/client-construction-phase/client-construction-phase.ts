@@ -85,6 +85,20 @@ type ConstructionRecord = {
   readonly estimatedDurationMs: number;
 };
 
+// The shared cost/tier tables only know the structure types this client build
+// knows. A newer server can send a type or variant it does not: that must
+// degrade to a generic site (default crew and duration), never throw, because
+// this runs every frame in 2D and on every 3D rebuild.
+const FALLBACK_MANPOWER = 0;
+const FALLBACK_DURATION_MS = 3_600_000;
+const safely = <T>(read: () => T, fallback: T): T => {
+  try {
+    return read();
+  } catch {
+    return fallback;
+  }
+};
+
 const inFlight = (status: string | undefined): status is "under_construction" | "removing" =>
   status === "under_construction" || status === "removing";
 
@@ -96,19 +110,19 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
   const allowed = (field: ConstructionSite["field"]): boolean => only === undefined || only === field;
   if (allowed("fort") && fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
     const variant = fort.variant ?? "FORT";
-    const manpower = FORT_TIER_LADDER[variant].manpower;
-    return { field: "fort", structureType: variant, ownerId: fort.ownerId, status: fort.status, completesAt: fort.completesAt, startedAt: fort.startedAt, manpower, estimatedDurationMs: structureBuildDurationMs("FORT") };
+    const manpower = safely(() => FORT_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER);
+    return { field: "fort", structureType: variant, ownerId: fort.ownerId, status: fort.status, completesAt: fort.completesAt, startedAt: fort.startedAt, manpower, estimatedDurationMs: safely(() => structureBuildDurationMs("FORT"), FALLBACK_DURATION_MS) };
   }
   if (allowed("observatory") && observatory && inFlight(observatory.status) && typeof observatory.completesAt === "number") {
-    return { field: "observatory", structureType: "OBSERVATORY", ownerId: observatory.ownerId, status: observatory.status, completesAt: observatory.completesAt, startedAt: observatory.startedAt, manpower: structureBuildManpowerCost("OBSERVATORY"), estimatedDurationMs: structureBuildDurationMs("OBSERVATORY") };
+    return { field: "observatory", structureType: "OBSERVATORY", ownerId: observatory.ownerId, status: observatory.status, completesAt: observatory.completesAt, startedAt: observatory.startedAt, manpower: safely(() => structureBuildManpowerCost("OBSERVATORY"), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs("OBSERVATORY"), FALLBACK_DURATION_MS) };
   }
   if (allowed("siegeOutpost") && siegeOutpost && inFlight(siegeOutpost.status) && typeof siegeOutpost.completesAt === "number") {
     const variant = siegeOutpost.variant ?? "SIEGE_OUTPOST";
-    return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: SIEGE_TIER_LADDER[variant].manpower, estimatedDurationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
+    return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: safely(() => SIEGE_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs("SIEGE_OUTPOST"), FALLBACK_DURATION_MS) };
   }
   if (allowed("economicStructure") && economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
     const type = economicStructure.type as EconomicStructureType;
-    return { field: "economicStructure", structureType: type, ownerId: economicStructure.ownerId, status: economicStructure.status, completesAt: economicStructure.completesAt, startedAt: economicStructure.startedAt, manpower: structureBuildManpowerCost(type), estimatedDurationMs: structureBuildDurationMs(type) };
+    return { field: "economicStructure", structureType: type, ownerId: economicStructure.ownerId, status: economicStructure.status, completesAt: economicStructure.completesAt, startedAt: economicStructure.startedAt, manpower: safely(() => structureBuildManpowerCost(type), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs(type), FALLBACK_DURATION_MS) };
   }
   return undefined;
 };

@@ -163,7 +163,13 @@ const twoD = (args: Args): HTMLElement => {
   root.append(canvas, slider, label);
   const ctx = canvas.getContext("2d")!;
   let raf = 0;
+  // Stop once the story has been shown and then detached; tolerate the window
+  // before Storybook has attached `root` (a plain "is it connected" check would
+  // stop the loop before it ever started).
+  let wasConnected = false;
   const draw = (now: number): void => {
+    if (root.isConnected) wasConnected = true;
+    else if (wasConnected) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const progress = Number(slider.value);
     const sizes = [24, 48, 96];
@@ -179,8 +185,6 @@ const twoD = (args: Args): HTMLElement => {
   };
   image.onload = () => { raf = requestAnimationFrame(draw); };
   image.src = sprite.toDataURL();
-  const observer = new MutationObserver(() => { if (!document.body.contains(root)) { cancelAnimationFrame(raf); observer.disconnect(); } });
-  observer.observe(document.body, { childList: true, subtree: true });
   return root;
 };
 

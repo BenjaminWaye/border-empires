@@ -266,8 +266,11 @@ export const createStructureOverlay = (
     if (site) {
       const height = structureHeights.get(heightKey(kind, resource)) ?? FALLBACK_STRUCTURE_HEIGHT;
       builder.setGate((height * site.visibleBands) / CONSTRUCTION_PHASES);
-      layout(sceneX, surfaceY, sceneZ, resource);
-      builder.setGate(undefined);
+      try {
+        layout(sceneX, surfaceY, sceneZ, resource);
+      } finally {
+        builder.setGate(undefined); // never leave the gate on for the next structure
+      }
       scaffold.place(sceneX, surfaceY, sceneZ, height, site.visibleBands, CONSTRUCTION_PHASES);
       crew.add(sceneX, sceneZ, surfaceY, site);
       const siteKey = `${site.x},${site.y}`;

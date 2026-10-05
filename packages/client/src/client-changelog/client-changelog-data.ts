@@ -73,7 +73,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Economic structures under construction now rise in four phases (foundation, frame, cladding, fit-out) with scaffolding around them, in both the 3D and 2D maps",
       "A stack of glowing parts sits beside each site and shrinks as the ancillary crew carries it over, and fresh parts drop in from orbit at the start of every phase",
       "The crew moves in lockstep and freezes when a build is overdue; removing a structure plays the phases in reverse",
-      "Forts, siege camps, Aether Towers and Relay Beacons still show fully built while under construction"
+      "In the 3D map, forts, siege camps, Aether Towers, Relay Beacons, Umbrite rigs and factories, and Caravanaries still show fully built while under construction"
     ]
   },
   {

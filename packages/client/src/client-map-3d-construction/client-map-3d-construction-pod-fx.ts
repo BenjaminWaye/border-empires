@@ -30,7 +30,10 @@ type PodEntry = {
   readonly streak: Mesh;
   readonly flash: Mesh;
   readonly ring: Mesh;
-  readonly materials: ReadonlyArray<MeshBasicMaterial | MeshStandardMaterial>;
+  readonly podMaterial: MeshStandardMaterial;
+  readonly streakMaterial: MeshBasicMaterial;
+  readonly flashMaterial: MeshBasicMaterial;
+  readonly ringMaterial: MeshBasicMaterial;
   readonly startedAt: number;
 };
 
@@ -57,7 +60,10 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
 
   const remove = (entry: PodEntry): void => {
     scene.remove(entry.group);
-    for (const material of entry.materials) material.dispose();
+    entry.podMaterial.dispose();
+    entry.streakMaterial.dispose();
+    entry.flashMaterial.dispose();
+    entry.ringMaterial.dispose();
   };
 
   const spawn: ConstructionPodFxLayer["spawn"] = (sceneX, sceneZ, surfaceY, nowMs) => {
@@ -76,7 +82,7 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
     ring.position.y = 0.012;
     group.add(pod, streak, flash, ring);
     scene.add(group);
-    entries.push({ group, pod, streak, flash, ring, materials: [podMaterial, streakMaterial, flashMaterial, ringMaterial], startedAt: nowMs });
+    entries.push({ group, pod, streak, flash, ring, podMaterial, streakMaterial, flashMaterial, ringMaterial, startedAt: nowMs });
   };
 
   const update = (nowMs: number): void => {
@@ -88,7 +94,6 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
         entries.splice(i, 1);
         continue;
       }
-      const [, streakMat, flashMat, ringMat] = entry.materials as [MeshStandardMaterial, MeshBasicMaterial, MeshBasicMaterial, MeshBasicMaterial];
       if (age < DESCEND_MS) {
         const t = age / DESCEND_MS;
         const y = POD_SIZE * 0.4 + (1 - t * t) * DROP_HEIGHT; // accelerates toward the stack
@@ -98,17 +103,17 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
         entry.streak.visible = true;
         entry.streak.scale.set(1, length, 1);
         entry.streak.position.y = y + length / 2 + POD_SIZE * 0.4;
-        streakMat.opacity = 0.9 - t * 0.4;
+        entry.streakMaterial.opacity = 0.9 - t * 0.4;
       } else {
         // Touchdown: the pod is spent (the restocked crates take over) in a
         // quick flash and an expanding ring.
         entry.pod.visible = false;
         entry.streak.visible = false;
         const since = age - DESCEND_MS;
-        flashMat.opacity = 0.85 * (1 - clamp01(since / FLASH_MS));
+        entry.flashMaterial.opacity = 0.85 * (1 - clamp01(since / FLASH_MS));
         const ringT = clamp01(since / RING_MS);
         entry.ring.scale.setScalar(1 + ringT * 4);
-        ringMat.opacity = 0.7 * (1 - ringT);
+        entry.ringMaterial.opacity = 0.7 * (1 - ringT);
       }
     }
   };

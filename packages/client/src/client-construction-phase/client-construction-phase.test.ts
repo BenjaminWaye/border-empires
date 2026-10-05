@@ -75,6 +75,29 @@ describe("constructionSiteForTile", () => {
   });
 });
 
+describe("constructionSiteForTile with types this client does not know", () => {
+  const unknown = (extra: Record<string, unknown>): Tile => ({ ...baseTile(), ...extra }) as Tile;
+
+  it("degrades to a generic site instead of throwing", () => {
+    const economic = unknown({ economicStructure: { ownerId: "me", type: "SOMETHING_NEW", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR } });
+    expect(() => constructionSiteForTile(economic, HOUR)).not.toThrow();
+    expect(constructionSiteForTile(economic, HOUR)).toMatchObject({ field: "economicStructure", phase: 0, crew: 2 });
+
+    const fort = unknown({ fort: { ownerId: "me", status: "under_construction", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
+    expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 2 });
+
+    const siege = unknown({ siegeOutpost: { ownerId: "me", status: "removing", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
+    expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeOutpost", direction: "remove" });
+  });
+
+  it("still produces a usable window when the record also lacks startedAt", () => {
+    const economic = unknown({ economicStructure: { ownerId: "me", type: "SOMETHING_NEW", status: "under_construction", completesAt: 10 * HOUR } });
+    const site = constructionSiteForTile(economic, 9.75 * HOUR)!;
+    expect(site.fraction).toBeCloseTo(0.75, 5); // the 1h fallback window ending at completesAt
+    expect(site.fraction).toBeLessThanOrEqual(1);
+  });
+});
+
 describe("constructionSiteForTile field filter", () => {
   it("ignores another slot's in-flight record when asked for one structure", () => {
     const tile = {
