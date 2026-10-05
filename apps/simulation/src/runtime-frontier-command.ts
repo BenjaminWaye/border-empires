@@ -85,6 +85,8 @@ export type RuntimeFrontierCommandContext = {
   // tell "rival's border" apart from "neutral ground". Used below to open a
   // narrow EXPAND carve-out onto ground already inside a rival's reach.
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
+  /** Releases the origin's frontier component if it is cut off from supply; true means the origin is gone. */
+  releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
 };
 
 export type FrontierCommandResult = { accepted: boolean; code?: string };
@@ -133,10 +135,13 @@ export const handleFrontierCommandImpl = (
     targetLockOwnerId: targetLock?.playerId,
     targetLockResolvesAt: targetLock?.resolvesAt
   });
+  // A cut-off frontier tile decays instantly (encirclement), so an action from
+  // one releases it and fails. Out-of-reach tiles that are still connected are
+  // unaffected and stay valid origins.
   if (
     (actionType === "ATTACK" || actionType === "EXPAND") &&
     from.ownershipState === "FRONTIER" &&
-    from.frontierDecayKind === "ENCIRCLEMENT"
+    ctx.releaseIfStrandedOrigin(simulationTileKey(from.x, from.y), actor.id, command.commandId)
   ) {
     ctx.rejectCommand(command, "ORIGIN_CUT_OFF", "origin tile is cut off from supply and cannot launch actions");
     return { accepted: false, code: "ORIGIN_CUT_OFF" };

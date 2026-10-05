@@ -499,6 +499,7 @@ import {
 } from "../runtime-combat-resolution.js";
 import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
 import { handleCollectTileCommand as handleCollectTileCommandImpl } from "../runtime-collect-tile-command.js";
+import { createStrandedFrontierCleanup, handleCheckStrandedRegionCommand as handleCheckStrandedRegionCommandImpl } from "../stranded-frontier/stranded-frontier-cleanup.js";
 import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
@@ -540,6 +541,7 @@ export class SimulationRuntime {
   private readonly events = new EventEmitter();
   private terrainEpoch = nextTerrainEpoch++;
   private readonly persistence: SimulationPersistence;
+  private readonly strandedFrontier = createStrandedFrontierCleanup(() => this.encirclementApplicationContext());
   private readonly now: () => number;
   private readonly state: RuntimeState;
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
@@ -1594,7 +1596,8 @@ export class SimulationRuntime {
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
-      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
+      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId)
     };
   }
 
@@ -2523,7 +2526,7 @@ export class SimulationRuntime {
       return;
     }
 
-    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE") {
+    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE" && command.type !== "CHECK_STRANDED_REGION") {
       const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
       const existingCommandId = this.replayCache.commandIdsByPlayerSeq.get(playerSeqKey);
       if (existingCommandId) {
@@ -2538,7 +2541,7 @@ export class SimulationRuntime {
 
       this.replayCache.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
     }
-    this.persistence.recordCommand(command);
+    if (command.type !== "CHECK_STRANDED_REGION") this.persistence.recordCommand(command); // ephemeral: never retained
     this.queueCommandForProcessing(command);
   }
 
@@ -4284,6 +4287,7 @@ export class SimulationRuntime {
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeOutpostBuildCommand: (command) => handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
+      handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),

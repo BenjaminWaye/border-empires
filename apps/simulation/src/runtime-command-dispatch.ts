@@ -4,6 +4,7 @@ import type { QueueLane } from "./command-lane/command-lane.js";
 
 export type RuntimeCommandDispatchHandlers = {
   emitUnsupported: (command: CommandEnvelope) => void;
+  handleCheckStrandedRegionCommand: (command: CommandEnvelope) => void;
   handleWatchMusterCommand: (command: CommandEnvelope) => void;
   handleUnwatchMusterCommand: (command: CommandEnvelope) => void;
   handleSettleCommand: (command: CommandEnvelope) => void;
@@ -81,6 +82,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
   if ((command.type as string) === "UPGRADE_MUSTER_CAP") return handlers.handleUpgradeMusterCapCommand(command);
   if ((command.type as string) === "WATCH_MUSTER") return handlers.handleWatchMusterCommand(command);
+  if (command.type === "CHECK_STRANDED_REGION") return handlers.handleCheckStrandedRegionCommand(command);
   if ((command.type as string) === "UNWATCH_MUSTER") return handlers.handleUnwatchMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
   if (command.type === "CANCEL_FORT_BUILD") return handlers.handleCancelFortBuildCommand(command);
@@ -153,6 +155,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "UPGRADE_MUSTER_CAP" ||
   (command.type as string) === "WATCH_MUSTER" ||
   (command.type as string) === "UNWATCH_MUSTER" ||
+  command.type === "CHECK_STRANDED_REGION" ||
   command.type === "CANCEL_CAPTURE" ||
   command.type === "CANCEL_FORT_BUILD" ||
   command.type === "CANCEL_STRUCTURE_BUILD" ||
