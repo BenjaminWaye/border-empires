@@ -68,6 +68,7 @@ describe("event-driven auto-settle eligibility (integration)", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 37, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "FARMING", populationTier: "TOWN" } },
           { x: 38, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, // EXPAND origin (out of the town's ring)
           { x: 39, y: 40, terrain: "LAND" } // EXPAND target -- lands INSIDE the town's radius-1 ring once claimed
@@ -194,13 +195,14 @@ describe("event-driven auto-settle eligibility (integration)", () => {
     const bootMs = performance.now() - start;
 
     const mutateStart = performance.now();
-    // A single unrelated command (COLLECT on the unrelated tile) must not
-    // rescan the 2,000-tile frontier -- replaceTileState's auto-settle hook
-    // is only ever called once, for the mutated tile itself.
-    runtime.submitCommand({
-      commandId: "collect-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
-      type: "COLLECT_TILE", payloadJson: JSON.stringify({ x: 0, y: 5 })
-    });
+    // A single unrelated tile mutation must not rescan the 2,000-tile
+    // frontier -- replaceTileState's auto-settle hook is only ever called
+    // once, for the mutated tile itself. (Driven directly: the COLLECT_TILE
+    // command this used to send was rejected on the neutral tile before any
+    // write, so it never reached the hook.)
+    (runtime as unknown as { replaceTileState: (key: string, tile: object, commandId: string) => void }).replaceTileState(
+      "0,5", { x: 0, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, "load-shape-mutation"
+    );
     const mutateMs = performance.now() - mutateStart;
 
     // Generous bound (this is a correctness-shape assertion, not a strict
