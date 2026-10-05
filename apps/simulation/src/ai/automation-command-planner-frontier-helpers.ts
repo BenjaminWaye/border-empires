@@ -36,6 +36,12 @@ export const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boole
 // costs a box scan in estimateNewReachCoverage — see the call site).
 export const RELAY_BEACON_FRONTIER_SAMPLE_CAP = 96;
 
+// Ordinary settled tiles are deliberately sampled separately from
+// buildCandidateTiles: that incremental index only retains resource, dock,
+// town, and hostile-border sites, while a plain settled edge tile can be the
+// best place to project reach with a relay beacon.
+export const RELAY_BEACON_SETTLED_SAMPLE_CAP = 96;
+
 export const dedupeTiles = <TTile extends AutomationPlannerTile>(
   tiles: Iterable<TTile>
 ): TTile[] => {
