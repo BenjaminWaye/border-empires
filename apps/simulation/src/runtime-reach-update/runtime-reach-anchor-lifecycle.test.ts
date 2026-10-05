@@ -54,7 +54,8 @@ describe("applyReachAnchorDeactivationEffects", () => {
       },
       now: () => NOW,
       gatherReachAnchors: () => [],
-      registerOutOfReachDecay
+      registerOutOfReachDecay,
+      syncReachVision: vi.fn()
     };
 
     const nextBorder = applyReachAnchorDeactivationEffects(deps, anchor, "test-deactivation");
@@ -102,7 +103,8 @@ describe("applyReachAnchorDeactivationEffects", () => {
       emitEvent: () => {},
       now: () => NOW,
       gatherReachAnchors: () => rivalAnchors,
-      registerOutOfReachDecay: vi.fn()
+      registerOutOfReachDecay: vi.fn(),
+      syncReachVision: vi.fn()
     };
 
     applyReachAnchorDeactivationEffects(deps, anchor, "test-deactivation");
