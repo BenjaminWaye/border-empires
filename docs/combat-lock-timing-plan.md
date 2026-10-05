@@ -130,7 +130,16 @@ the storage change.
    counter-attack is accepted after the original, so it locks and resolves
    after it; cancelling on capture would almost never save the tile, and
    cancelling on start would let a cheap decoy attack stop any fight.
-4. **Client.** Removed the up-front "locked, try again in m:ss" refusal in
+4. **Barbarians.** A barbarian ATTACK releases its origin tile to neutral when
+   the attack *starts* (`launchBarbarianAttack`, `runtime-barbarian-walk.ts`),
+   not when it resolves. Otherwise a player who captures the launch tile
+   mid-fight would still see the barbarian take their tile and survive. The
+   origin's multiply progress is carried on `LockRecord.barbarianLaunch`
+   (releasing the tile discards it); a multiply win puts the origin back unless
+   someone claimed it meanwhile; a loss still hands the (neutral) origin to the
+   defender. Barbarian EXPAND walks are unchanged. A barbarian already can't
+   launch from a tile that is itself under attack (same validator).
+5. **Client.** Removed the up-front "locked, try again in m:ss" refusal in
    `client-queue-target-selection.ts` (`incomingAttackLaunchedFrom`).
 
 ### Tests (done)
