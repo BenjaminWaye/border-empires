@@ -185,6 +185,13 @@ export class InMemorySimulationPersistence implements SimulationPersistence {
     return { commandsHeld: this.commands.length, eventsHeld: this.events.length, evictedTotal: this.evictedCount };
   }
 
+  constructor(private readonly maxEntries: number = DEFAULT_MAX_IN_MEMORY_PERSISTENCE_ENTRIES) {}
+
+  // Trim in batches (at 125% of the cap) so a push is not an O(cap) shift.
+  private trim<T>(list: T[]): void {
+    if (list.length >= this.maxEntries + Math.ceil(this.maxEntries / 4)) list.splice(0, list.length - this.maxEntries);
+  }
+
   recordCommand(command: CommandEnvelope): void {
     this.commands.push(command);
     this.trim(this.commands);
