@@ -22,7 +22,16 @@ export type ClientChangelogEntry = {
   changes: string[];
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
-export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791208703442, // Date.now() frozen for this entry
+    introducedIn: "2026.10.05.3",
+    title: "Border Empires icon now appears everywhere",
+    why: "Some browsers and search results used an old fallback icon instead of the Border Empires castle.",
+    changes: [
+      "The fallback browser icon now uses the Border Empires castle, matching the primary icon"
+    ]
+  },
   {
     createdAt: 1791195855000, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.1",
@@ -148,3 +157,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
 ];
+
+const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
+const oldestAllowedAt = latestCreatedAt - 6 * 24 * 60 * 60 * 1000;
+
+export const CLIENT_CHANGELOG_ENTRIES = ALL_CLIENT_CHANGELOG_ENTRIES.filter(
+  (entry) => entry.createdAt >= oldestAllowedAt
+);
