@@ -1,6 +1,7 @@
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "./index/index.js";
-import { computeAfcBlockerKeys, computeFairSpawnSites, hasWaterNeighbor, tileBlocksAfcSite } from "./server-worldgen-fair-spawn-sites.js";
+import { computeAfcBlockerKeys, computeFairSpawnSites, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite } from "./server-worldgen-fair-spawn-sites.js";
 
 describe("computeFairSpawnSites", () => {
   const buildLandGrid = (size: number): DomainTileState[] => {
@@ -140,6 +141,14 @@ describe("AFC clear-neighbourhood rule", () => {
     expect(tileBlocksAfcSite({ resource: "FARM" })).toBe(true);
     expect(tileBlocksAfcSite({})).toBe(false);
     expect(tileBlocksAfcSite(undefined)).toBe(false);
+  });
+
+  it("rejects a footprint that touches a feature across the world seam", () => {
+    const blockers = computeAfcBlockerKeys([
+      { x: 0, y: 10, terrain: "LAND" },
+      { x: WORLD_WIDTH - 1, y: 10, terrain: "LAND", dockId: "seam-dock" }
+    ]);
+    expect(isAfcSiteClear((x, y) => blockers.has(`${x},${y}`), 0, 10)).toBe(false);
   });
 
   it("never rosters a site that is, or touches, a town, dock or resource", () => {

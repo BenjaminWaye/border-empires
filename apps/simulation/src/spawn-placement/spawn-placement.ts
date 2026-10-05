@@ -121,42 +121,18 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
   const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
-  // The spawn tile becomes an AFC, so ideally neither it nor any of its 8
-  // neighbours is a town, dock or resource. That is required on every pass
-  // (including the fallbacks that relax distance and dry-footprint
-  // requirements) whenever any clear site exists. Only when none does (a tiny
-  // or fully crowded world) do we fall back to an unowned land tile whose 3x3
-  // footprint the AFC then clears (towns/resources on it are crushed, see
-  // prepareAfcLandingFootprint) rather than leaving the player unspawned.
+  // The spawn tile becomes an AFC, whose eight arms occupy the whole 3x3
+  // footprint. The center and every neighbour must therefore be clear of
+  // towns, docks, and resources on every search pass. There is no fallback:
+  // an invalid footprint must never be handed to a player.
   const afcBlockerKeys = computeAfcBlockerKeys(tileList);
   const blocksAfcSite = (x: number, y: number): boolean => afcBlockerKeys.has(simulationTileKey(x, y));
-  const candidatesWhere = (requireClearAfcSite: boolean): typeof tileList =>
-    tileList.filter((tile) => {
-      const tileKey = simulationTileKey(tile.x, tile.y);
-      if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
-      if (requireClearAfcSite && !isAfcSiteClear(blocksAfcSite, tile.x, tile.y)) return false;
-      if (coastalLandKeys.size > 0 && !coastalLandKeys.has(tileKey)) return false;
-      return true;
-    });
-  const clearSpawnCandidates = candidatesWhere(true);
-  // Fallback: the landing crushes unowned towns/resources on its 3x3 footprint, so only tiles
-  // whose footprint holds no dock (docks are linked in pairs) and no owned town/resource qualify.
-  const fallbackCandidates = (): typeof tileList => {
-    const tileByKey = new Map(tileList.map((tile) => [simulationTileKey(tile.x, tile.y), tile] as const));
-    const footprintCrushable = (cx: number, cy: number): boolean => {
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          const neighbour = tileByKey.get(simulationTileKey(cx + dx, cy + dy));
-          if (!neighbour) continue;
-          if (neighbour.dockId) return false;
-          if ((neighbour.town || neighbour.resource) && neighbour.ownerId) return false;
-        }
-      }
-      return true;
-    };
-    return candidatesWhere(false).filter((tile) => footprintCrushable(tile.x, tile.y));
-  };
-  const spawnCandidates = clearSpawnCandidates.length > 0 ? clearSpawnCandidates : fallbackCandidates();
+  const spawnCandidates = tileList.filter((tile) => {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
+    if (!isAfcSiteClear(blocksAfcSite, tile.x, tile.y)) return false;
+    return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKey);
+  });
   if (spawnCandidates.length === 0) return undefined;
 
   let landRegionByTileKeyCache: Map<string, number> | undefined;
@@ -247,10 +223,4 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   }
 
   return undefined;
-};
-
-/** The tile an AFC lands on: the landing tile's own resource (if any) is replaced by the AFC. */
-export const afcLandingTile = (tile: DomainTileState): DomainTileState => {
-  const { resource: _replacedResource, ...rest } = tile;
-  return rest;
 };

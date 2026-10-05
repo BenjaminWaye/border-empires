@@ -427,14 +427,8 @@ describe("chooseLegacySpawnPlacement AFC clear-neighbourhood rule", () => {
     }
   });
 
-  it("falls back to a crushable site rather than leaving the player unspawned when no clear site exists", () => {
+  it("refuses to spawn when every 3x3 footprint contains a town, dock, or resource", () => {
     const tiles = lattice(false);
-    const spawn = chooseLegacySpawnPlacement({ playerId: "afc-none", tiles });
-    expect(spawn).toBeDefined();
-    const byKey = new Map(tiles.map((tile) => [simulationTileKey(tile.x, tile.y), tile]));
-    expect(byKey.get(simulationTileKey(spawn!.x, spawn!.y))?.town).toBeUndefined();
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) expect(byKey.get(simulationTileKey(spawn!.x + dx, spawn!.y + dy))?.dockId).toBeUndefined();
-    }
+    expect(chooseLegacySpawnPlacement({ playerId: "afc-none", tiles })).toBeUndefined();
   });
 });
