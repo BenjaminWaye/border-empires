@@ -50,6 +50,7 @@ import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factor
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
+import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
@@ -1273,15 +1274,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
-      if (event.playerId === "__broadcast__" && event.eventType === "TILE_DELTA_BATCH") {
-        const broadcastPayload = preSerializeBroadcast({
-          type: "TILE_DELTA_BATCH",
-          commandId: event.commandId,
-          tiles: jsonSafeTileDeltaBatch(event.tileDeltas)
-        });
-        for (const socket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(socket, broadcastPayload);
-        return;
-      }
+      if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent })) return;
       if (event.playerId === "__broadcast__" && event.eventType === "PLAYER_MESSAGE" && event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
         worldEngineStrike.handleBroadcastEvent(
           event.payload,

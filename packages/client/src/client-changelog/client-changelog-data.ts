@@ -138,6 +138,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The versus bar labels each side with its percentage"
     ]
   },
+  {
+    createdAt: 1791228193000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.05.3",
+    title: "A new season no longer leaves the old one on screen",
+    why: "If the game was open when a new season started, it kept showing the last season's leaderboard, victory standings and map until you reloaded the page.",
+    changes: [
+      "When a new season starts, an open game reconnects on its own and loads the new season",
+      "The leaderboard, victory standings, map and camera from the old season are cleared"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
