@@ -140,4 +140,41 @@ describe("counter-attacking the tile an enemy attack launched from", () => {
     // Without the ownership guard in resolveLock the defender (player-2) would be handed the tile.
     expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("player-3");
   });
+
+  it("barbarian walk does not release a launch tile a player captured mid-fight", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 1_000 })],
+        ["player-2", buildPlayer("player-2", { manpower: 1_000 })],
+        ["barbarian-1", buildPlayer("barbarian-1", { manpower: 1_000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: muster("player-1") },
+          { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: [{ ...inFlightLock, commandId: "barb-in-flight", playerId: "barbarian-1" }]
+      }
+    });
+    const seen = collectEvents(runtime);
+    // The player takes the barbarian's launch tile while its attack is still pending.
+    runtime.submitCommand(attack("player-1", "take-barb-origin", 1, [9, 10], [10, 10]));
+    await Promise.resolve();
+    expect(rejectedCodes(seen)).toEqual([]);
+    vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+    expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("player-1");
+
+    vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+    expect(seen.some((event) => event.eventType === "COMBAT_RESOLVED" && event.commandId === "barb-in-flight")).toBe(true);
+    const tiles = runtime.exportState().tiles;
+    expect(tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("barbarian-1");
+    // The walk would normally neutralise the barbarian's origin; it must leave the player's tile alone.
+    expect(tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("player-1");
+  });
 });
