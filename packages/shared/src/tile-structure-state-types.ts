@@ -25,6 +25,7 @@ export type TileFortState = {
   // standing (and defending) until the new one completes.
   upgradingFrom?: FortVariant;
   completesAt?: number;
+  startedAt?: number;
   activatedAt?: number;
   disabledUntil?: number;
 };
@@ -34,6 +35,7 @@ export type TileSiegeOutpostState = {
   status: SiegeOutpostStatus;
   variant?: SiegeOutpostVariant;
   completesAt?: number;
+  startedAt?: number;
   activatedAt?: number;
 };
 
@@ -41,6 +43,7 @@ export type TileObservatoryState = {
   ownerId: PlayerId;
   status: ObservatoryStatus;
   completesAt?: number;
+  startedAt?: number;
   activatedAt?: number;
   cooldownUntil?: number;
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
@@ -67,6 +70,7 @@ export type TileEconomicStructureState = {
   type: EconomicStructureType;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  startedAt?: number;
   activatedAt?: number;
   disabledUntil?: number;
   inactiveReason?: "manual" | "upkeep";
