@@ -23,6 +23,7 @@ import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import { launchBarbarianAttack, type BarbarianLaunchContext } from "./runtime-barbarian-walk.js";
 
 // Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
 // can never make an ATTACK resolve instantly or negatively.
@@ -46,7 +47,7 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
 // tile's coordinates rather than needing to store it on LockRecord.
 export const frontierClaimDurationMsForCoords = frontierClaimDurationMsAt;
 
-export type RuntimeFrontierCommandContext = {
+export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
@@ -351,10 +352,15 @@ export const handleFrontierCommandImpl = (
     const prevShield = ctx.musterReservedByKey.get(combatResolution.shield.tileKey) ?? 0;
     ctx.musterReservedByKey.set(combatResolution.shield.tileKey, prevShield + combatResolution.shield.matched);
   }
-  const lock: LockRecord = {
+  const resolvedLock: LockRecord = {
     ...baseLock,
     ...(combatResolution ? { combatResolution } : {})
   };
+  // A barbarian leaves its origin tile as its attack starts, so a player who
+  // takes the launch tile mid-fight can't leave the barbarian alive on theirs.
+  const lock: LockRecord = actor.id === "barbarian-1" && actionType === "ATTACK"
+    ? { ...resolvedLock, barbarianLaunch: launchBarbarianAttack(ctx, resolvedLock) }
+    : resolvedLock;
   ctx.locksByTile.addLock(lock);
   ctx.locksByCommandId.set(lock.commandId, lock);
   ctx.commandTrace?.({

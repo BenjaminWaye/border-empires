@@ -53,7 +53,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "You can attack the tile an enemy attack launched from while their attack is still pending; only the tile being attacked is locked",
       "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
-      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender"
+      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender",
+      "Barbarians leave the tile they attack from the moment their attack starts, so it can't be captured to leave them alive on your tile"
     ]
   },
   {
