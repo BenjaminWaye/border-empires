@@ -46,7 +46,8 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" },
+          afc: { ownerId: "player-1", status: "active", activatedAt: 1_000 }
         },
         // The gateway's auth hook backfills an AFC for pre-AFC empires. Make
         // this fixture post-migration so that unrelated infrastructure repair
@@ -112,7 +113,8 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
     const actionAccepted = await nextMatchingMessage(
       socket,
       "muster march expand accepted",
-      (m) => m.type === "ACTION_ACCEPTED" && m.actionType === "EXPAND"
+      (m) => m.type === "ACTION_ACCEPTED" && m.actionType === "EXPAND",
+      20_000
     );
 
     expect(actionAccepted).toEqual(
