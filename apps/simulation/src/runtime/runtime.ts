@@ -16,7 +16,7 @@ import { createReachUpdateState, markReachForResend, type ReachUpdateState } fro
 import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
 import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js"; import { createReachChangedTilesDirtyState, type ReachChangedTilesDirtyState } from "../runtime-reach-update/runtime-reach-contested-tiles.js"; import { flushAllReachUpdates } from "../runtime-reach-update/runtime-reach-flush-all.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
-import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
+import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, syncReachVision, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
@@ -356,8 +356,8 @@ import {
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
 import { handleAetherEmpCommand as handleAetherEmpCommandImpl } from "../runtime-aether-emp-command-handler.js";
+import { handleAetherLanceCommand as handleAetherLanceCommandImpl } from "../runtime-aether-lance-command-handler.js";
 import {
-  handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
   handleCastAetherWallCommand as handleCastAetherWallCommandImpl,
   handleRevealEmpireCommand as handleRevealEmpireCommandImpl,
@@ -483,7 +483,6 @@ import {
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
 import {
-  activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
   applyEncirclementForExpand as applyEncirclementForExpandImpl,
   type RuntimeEncirclementApplicationContext
@@ -1252,6 +1251,7 @@ export class SimulationRuntime {
       tileSettledAtByKey: this.tileSettledAtByKey,
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -1581,7 +1581,7 @@ export class SimulationRuntime {
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       commandTrace: this.commandTrace, onMusterRemoteBlocked: this.onMusterRemoteBlocked,
-      onMusterRemoteAttack: this.onMusterRemoteAttack,
+      onMusterRemoteAttack: this.onMusterRemoteAttack, replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), barbarianTileProgress: this.barbarianTileProgress,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
@@ -2880,7 +2880,7 @@ export class SimulationRuntime {
     });
   }
 
-  private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery, now: () => this.now(), gatherReachAnchors: () => this.gatherReachAnchors(), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)) }; }
+  private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery, now: () => this.now(), gatherReachAnchors: () => this.gatherReachAnchors(), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)), syncReachVision: (oldBorder, newBorder, changedKeys) => syncReachVision(oldBorder, newBorder, changedKeys, { coverage: this.state.visibilityCoverage, viewersForOwner: (ownerId) => { const player = this.state.players.get(ownerId); return player ? [ownerId, ...player.allies] : [ownerId]; }, callbacks: this.visionTransitions.callbacks }) }; }
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { skipNeutralAutoClaim?: boolean }): void {
     const result = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options); this.reachBorder = result.border; if (result.autoClaimedTileKeys.length > 0) this.autoSettleEligibilityRuntime().evaluateFrontierKeysForOwner(anchor.ownerId, result.autoClaimedTileKeys);
   }
@@ -3263,7 +3263,7 @@ export class SimulationRuntime {
       {
         players: this.state.players,
         visibilityCoverage: this.state.visibilityCoverage,
-        visionTransitionCallbacks: this.visionTransitions.callbacks,
+        visionTransitionCallbacks: this.visionTransitions.callbacks, reachBorder: this.reachBorder,
         emitEvent: (event) => this.emitEvent(event),
         emitPlayerMessage: (cmd, payload) => this.emitPlayerMessage(cmd, payload)
       },
@@ -3668,6 +3668,7 @@ export class SimulationRuntime {
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now()),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
       closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
         this.closestAetherBridgeOrigin(playerId, targetX, targetY),
@@ -3693,6 +3694,7 @@ export class SimulationRuntime {
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
@@ -4133,10 +4135,6 @@ export class SimulationRuntime {
     options?: { bfsCap?: number; skipCutOff?: boolean }
   ): void {
     applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
-  }
-
-  private activeAetherBridgeNeighborKeysForPlayer(playerId: string): Map<string, string[]> {
-    return activeAetherBridgeNeighborKeysForPlayerImpl(this.encirclementApplicationContext(), playerId);
   }
 
   private relocateSettlementForPlayer(

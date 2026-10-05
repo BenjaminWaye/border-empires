@@ -36,6 +36,8 @@ export type RuntimeMapCommandContext = {
   stampObservatoryCooldown: (tileKey: string, durationMs: number, now: number, commandId: string, playerId: string) => void;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  // Re-checks a victim's frontier connectivity after AIRPORT_BOMBARD stripped some of their tiles.
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   bumpTerrainEpoch: () => void;
   isStructurePowered: (ownerId: string, tileKey: string, structureType: EconomicStructureType) => boolean;
@@ -130,6 +132,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
   const broadcastMusterClears: SimulationTileWireDelta[] = [];
+  const hitTileKeysByOwner = new Map<string, string[]>();
   const tileOutcomes: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> = [];
   let targetableTiles = 0;
   let hitTiles = 0;
@@ -151,6 +154,9 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       }
       hitTiles += 1;
       tileOutcomes.push({ dx, dy, outcome: "hit" });
+      const victimHits = hitTileKeysByOwner.get(tile.ownerId);
+      if (victimHits) victimHits.push(tileKey);
+      else hitTileKeysByOwner.set(tile.ownerId, [tileKey]);
       const hadMuster = Boolean(tile.muster);
       const updatedTile: DomainTileState = {
         ...tile,
@@ -193,6 +199,11 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       playerId: "__broadcast__",
       tileDeltas: broadcastMusterClears
     });
+  }
+  // Bombed-out tiles can strand each victim's other frontier tiles; the
+  // victim's own deltas above already went out, so any cut-off emits after.
+  for (const [victimId, hitKeys] of hitTileKeysByOwner) {
+    context.applyEncirclement(hitKeys, victimId, command.commandId, { bfsCap: 2000 });
   }
   context.emitPlayerMessage(command, {
     type: "PLAYER_UPDATE",

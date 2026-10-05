@@ -84,6 +84,8 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
   if (hadMuster) {
     context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${command.commandId}:bc`, playerId: "__broadcast__", tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: "", ownershipState: "", musterJson: "" }] });
   }
+  // A mountain can strand the previous owner's frontier tiles that hung off this tile.
+  if (target.ownerId) context.applyEncirclement([targetKey], target.ownerId, command.commandId, { bfsCap: 2000 });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 

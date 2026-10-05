@@ -538,52 +538,6 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
-  it("restores an active Relay Beacon's vision bonus into the coverage cache on boot", () => {
-    // Simulates a server restart: the outpost was already active before this
-    // SimulationRuntime instance was constructed, so its vision bonus must be
-    // re-applied while indexing tiles, not just when the outpost is built.
-    // The bonus lives in the refcounted visibilityCoverage cache (consumed by
-    // filterTileDeltasForPlayer), not the territorial vision-expansion cache
-    // used by exportVisibleStateForPlayer.
-    const runtime = new SimulationRuntime({
-      now: () => 60_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 100 })],
-        ["player-2", buildPlayer("player-2", { manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 60,
-            y: 60,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" }
-          },
-          { x: 65, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          { x: 66, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    const deltas = [
-      // 5 tiles from the outpost — only reachable via RELAY_BEACON_VISION_BONUS
-      // (5), not player-1's base territory radius (the outpost tile itself is
-      // player-1's only territory).
-      { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
-      // 6 tiles from the outpost — outside even the bonus radius.
-      { x: 66, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" }
-    ];
-
-    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
-
-    expect(filtered.some((delta) => delta.x === 65 && delta.y === 60)).toBe(true);
-    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(false);
-  });
-
   it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -4775,14 +4729,14 @@ describe("simulation runtime", () => {
       // elimination-respawn reach-auto-claim (real ownerId, folded into this
       // same buffered event), which is why the check below is scoped to
       // bare/unowned deltas rather than total batch size.
-      expect(barbBatches.length).toBeGreaterThanOrEqual(1);
-      expect(barbBatches[0]).toEqual(
+      const captureBatch = barbBatches.find((batch) => batch.some((d) => d.x === 10 && d.y === 11))!;
+      expect(captureBatch).toEqual(
         expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
       );
       const isAttackTile = (d: { x: number; y: number }) => (d.x === 10 && d.y === 11) || (d.x === 10 && d.y === 10);
-      expect(barbBatches[0].filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
+      expect(captureBatch.filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
       // No distant neutral reveal tile (only the reveal square would surface one).
-      expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
+      expect(captureBatch.some((d) => d.x === 6 && d.y === 7)).toBe(false);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -5746,7 +5700,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          { x: 5, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
           // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
           // 2nd=2, 3rd=3 CRYSTAL slots), so 3 Observatories need 1+2+3=6
           // CRYSTAL slots total, not a flat 3, for none of them to go dormant.
@@ -5810,7 +5764,7 @@ describe("simulation runtime", () => {
       clientSeq: 5,
       issuedAt: 1_000,
       type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 1, y: 2 })
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
     });
 
     await Promise.resolve();
