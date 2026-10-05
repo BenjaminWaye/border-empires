@@ -28,7 +28,24 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 - `WORLD_WIDTH` / `WORLD_HEIGHT` (default 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging sets 320x160 with watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
 - The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 320x160 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
-- On a shrunken world, worldgen keeps the default-size counts for resource clusters, the town target, waystations and coverage cells, and shrinks the spacing so they fit. A size change only shows up after a forced season rollover (`POST /admin/season/start-next?force=true`), because a restart reloads the persisted season.
+- On a shrunken world, worldgen keeps the default-size counts for resource clusters, the town target, waystations and coverage cells, and shrinks the spacing so they fit. Towns and farm tiles still come out lower (~195 vs ~360 towns at 320x160) because less land is available. A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
+- `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size).
+
+## Season rollover (new map, map size, AI count, worldgen)
+
+Worldgen code, `SIMULATION_MAP_STYLE`, `WORLD_WIDTH`/`WORLD_HEIGHT`, `WATCHTOWERS_ENABLED` and `SIMULATION_AI_PLAYER_COUNT` only take effect for a **new** season. A deploy or restart reloads the persisted season unchanged. Learned on 2026-10-02 (PR #2208, staging 320x160 / 20 AI):
+
+1. **Merge, then wait for the whole `Deploy staging` run**, not just CI. Check that the `Deploy client to Vercel staging alias` step ran. If the soak/verify step fails, the server is deployed but the client publish is **skipped**; for a world-size change that leaves the server and client on different sizes. Publish it with `pnpm deploy:client:staging`. Check the live client with `curl https://staging.borderempires.com/__build_sha.txt` (and, for size, the `WORLD_WIDTH` value in the `shared-game-*.js` chunk).
+2. **Check `/admin/world`**: `configured` shows the new values and `sizeStatus` is `rollover_pending`. Watch for older develop CI runs. `deploy-staging` runs serialize (they are not cancelled), so confirm the deployed SHA contains your merge.
+3. **Roll over promptly.** Between the client publish and the rollover, a size-changing client is talking to the old-size season.
+4. **Run the rollover as one command.** `start-next` only accepts the static `ADMIN_API_TOKEN` (not the GitHub-token or Google paths). On Hetzner it lives in `/etc/border-empires/secrets.env` (root ssh). An `export` in one `!` command did not carry into the next, so load the token and call the endpoint in a single line:
+
+   ```bash
+   ADMIN_API_TOKEN="$(ssh root@178.105.133.33 "grep '^ADMIN_API_TOKEN=' /etc/border-empires/secrets.env | cut -d= -f2-")"; echo "token length: ${#ADMIN_API_TOKEN}"; curl -X POST "https://api-staging.borderempires.com/admin/season/start-next?force=true" -H "Authorization: Bearer $ADMIN_API_TOKEN"
+   ```
+
+   `{"ok":false,"error":"unauthorized"}` with token length 0 means the token never loaded. Claude Code's auto-mode classifier blocks agents from reading this secret, so the human runs this step. It wipes the current season on that environment.
+5. **Verify:** `/admin/world` shows `sizeStatus: "match"`, the new `season.seasonId`, and the expected `aiPlayers`. `/admin/players` shows fresh AIs with 1 tile each.
 
 ## Production shape gate
 

@@ -4,6 +4,7 @@ import type { QueueLane } from "./command-lane/command-lane.js";
 
 export type RuntimeCommandDispatchHandlers = {
   emitUnsupported: (command: CommandEnvelope) => void;
+  handleCheckStrandedRegionCommand: (command: CommandEnvelope) => void;
   handleWatchMusterCommand: (command: CommandEnvelope) => void;
   handleUnwatchMusterCommand: (command: CommandEnvelope) => void;
   handleSettleCommand: (command: CommandEnvelope) => void;
@@ -19,7 +20,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelSettleCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
   handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
-  handleCollectTileCommand: (command: CommandEnvelope) => void;
   handleCollectVisibleCommand: (command: CommandEnvelope) => void;
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
@@ -81,6 +81,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
   if ((command.type as string) === "UPGRADE_MUSTER_CAP") return handlers.handleUpgradeMusterCapCommand(command);
   if ((command.type as string) === "WATCH_MUSTER") return handlers.handleWatchMusterCommand(command);
+  if (command.type === "CHECK_STRANDED_REGION") return handlers.handleCheckStrandedRegionCommand(command);
   if ((command.type as string) === "UNWATCH_MUSTER") return handlers.handleUnwatchMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
   if (command.type === "CANCEL_FORT_BUILD") return handlers.handleCancelFortBuildCommand(command);
@@ -89,7 +90,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_SETTLE") return handlers.handleCancelSettleCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
   if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
-  if (command.type === "COLLECT_TILE") return handlers.handleCollectTileCommand(command);
   if (command.type === "COLLECT_VISIBLE") return handlers.handleCollectVisibleCommand(command);
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
@@ -110,6 +110,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
+  if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
   if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
@@ -152,6 +153,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "UPGRADE_MUSTER_CAP" ||
   (command.type as string) === "WATCH_MUSTER" ||
   (command.type as string) === "UNWATCH_MUSTER" ||
+  command.type === "CHECK_STRANDED_REGION" ||
   command.type === "CANCEL_CAPTURE" ||
   command.type === "CANCEL_FORT_BUILD" ||
   command.type === "CANCEL_STRUCTURE_BUILD" ||
@@ -160,7 +162,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REMOVE_STRUCTURE" ||
   command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
-  command.type === "COLLECT_TILE" ||
   command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
@@ -180,6 +181,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CREATE_MOUNTAIN" ||
   command.type === "REMOVE_MOUNTAIN" ||
   command.type === "RETORT_RECAST" ||
+  command.type === "REDEPLOY_AFC_MODULE" ||
+  command.type === "BUILD_AFC" ||
   command.type === "AIRPORT_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
   command.type === "WORLD_ENGINE_STRIKE" ||

@@ -37,3 +37,18 @@ describe("menuOverviewForTile: 'Built:' structure overview line", () => {
     expect(lines.some((line) => line.html.includes("Built:"))).toBe(false);
   });
 });
+
+
+describe("foreign territory details", () => {
+  it.each([false, true])("identifies settled land for foreign ownership (ally=%s)", (ally) => {
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" };
+    expect(menuOverviewForTile(tile, { ...deps, isTileOwnedByAlly: () => ally }).map((line) => line.html)).toContain("Settled territory.");
+  });
+
+  it("identifies frontier land without assuming unknown ownership is settled", () => {
+    const tile: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" };
+    expect(menuOverviewForTile(tile, deps).map((line) => line.html)).toContain("Frontier territory — not yet settled.");
+    delete tile.ownershipState;
+    expect(menuOverviewForTile(tile, deps).map((line) => line.html)).not.toContain("Settled territory.");
+  });
+});

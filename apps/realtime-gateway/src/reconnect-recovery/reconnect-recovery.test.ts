@@ -31,7 +31,6 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "REMOVE_STRUCTURE":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
-    case "COLLECT_TILE":
     case "AETHER_LANCE":
     case "SIPHON_TILE":
     case "PURGE_SIPHON":

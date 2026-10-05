@@ -32,6 +32,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     stampObservatoryCooldown: () => {},
     spendStrategicResource: () => true,
     replaceTileState: (tileKey, next) => { tiles.set(tileKey, next); },
+    applyEncirclement: () => {},
     tileDeltaFromState: (t) => ({ x: t.x, y: t.y }),
     bumpTerrainEpoch: () => {},
     isStructurePowered: () => true,

@@ -256,6 +256,26 @@ describe("createTilesFromInitialState AFC forest clearings", () => {
     expect(isForestTileAt(forest.x, forest.y)).toBe(false);
   });
 
+  it("clears the forest under hydrated town and dock tiles", () => {
+    setWorldSeed(77, "continents", 1);
+    const town = findForestTile();
+    let dockX = town.x + 3;
+    while (!isForestTileAt(dockX, town.y)) dockX += 1;
+    createTilesFromInitialState(
+      {
+        tiles: [
+          { x: town.x, y: town.y, terrain: "LAND" as const, town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } },
+          { x: dockX, y: town.y, terrain: "LAND" as const, dockId: "dock-0" }
+        ],
+        activeLocks: []
+      },
+      new Map(),
+      false
+    );
+    expect(isForestTileAt(town.x, town.y)).toBe(false);
+    expect(isForestTileAt(dockX, town.y)).toBe(false);
+  });
+
   it("drops clearings left over from a previous build that no AFC justifies", () => {
     setWorldSeed(77, "continents", 1);
     const forest = findForestTile();

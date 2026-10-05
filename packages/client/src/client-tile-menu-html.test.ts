@@ -133,3 +133,50 @@ describe("tileActionMenuHtml building category squares", () => {
     expect(html).toContain("tile-building-category-square cat-town_support is-empty");
   });
 });
+
+describe("recommended actions", () => {
+  it("lists a recommended action first, highlights it, and puts its auto-settle checkbox right under its button", () => {
+    const view: TileMenuView = {
+      ...baseView,
+      tabs: ["actions"],
+      actions: [
+        { id: "build_relay_beacon", label: "Relay Beacon" },
+        { id: "settle_land", label: "Settle Land", recommended: true, autoSettleOption: { category: "food", checked: false, label: "Settle farms and fish automatically from now on" } }
+      ]
+    };
+    const html = tileActionMenuHtml(view, "actions", false);
+    expect(html.indexOf('data-action="settle_land"')).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
+    expect(html).toContain('class="tile-action-btn is-recommended"');
+    expect(html).toContain("★ Recommended");
+    expect(html.indexOf("data-tile-auto-settle")).toBeGreaterThan(html.indexOf('data-action="settle_land"'));
+    expect(html.indexOf("data-tile-auto-settle")).toBeLessThan(html.indexOf('data-action="build_relay_beacon"'));
+  });
+});
+
+describe("tileActionMenuHtml battle progress card", () => {
+  const battleView = (): TileMenuView => ({
+    ...baseView,
+    tabs: ["overview", "progress"],
+    progress: {
+      title: "Under attack",
+      detail: "Chance of holding this tile: 30% you, 70% <img src=x onerror=alert(1)>.",
+      remainingLabel: "0:02",
+      progress: 0.5,
+      note: "note",
+      battle: { attackerColor: "#f00", defenderColor: "#0f0", attackerShare: 0.7, attackerLabel: "<b>Evil</b>", defenderLabel: "You" }
+    }
+  });
+
+  it("shows each side's percentage on the versus bar", () => {
+    const html = tileActionMenuHtml(battleView(), "progress", false);
+    expect(html).toContain("You 30%");
+    expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt; 70%");
+  });
+
+  it("escapes player names in the progress detail and bar labels", () => {
+    const html = tileActionMenuHtml(battleView(), "progress", false);
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<b>Evil</b>");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+});

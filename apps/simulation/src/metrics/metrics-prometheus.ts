@@ -1,4 +1,5 @@
 import { formatMetricValue } from "./metrics-format.js";
+import { renderStrandedFrontierPrometheusLines } from "../stranded-frontier/stranded-frontier-metrics.js";
 import {
   AI_PLANNER_PHASES,
   AI_TICK_THROTTLE_REASONS,
@@ -90,6 +91,12 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_replay_history_evicted_total ${formatMetricValue(sample.simReplayHistoryEvictedTotal)}`,
     "# TYPE sim_replay_server_events_skipped_total counter",
     `sim_replay_server_events_skipped_total ${formatMetricValue(sample.simReplayServerEventsSkippedTotal)}`,
+    "# TYPE sim_inmemory_persistence_commands gauge",
+    `sim_inmemory_persistence_commands ${formatMetricValue(sample.simInMemoryPersistenceCommands)}`,
+    "# TYPE sim_inmemory_persistence_events gauge",
+    `sim_inmemory_persistence_events ${formatMetricValue(sample.simInMemoryPersistenceEvents)}`,
+    "# TYPE sim_inmemory_persistence_evicted_total counter",
+    `sim_inmemory_persistence_evicted_total ${formatMetricValue(sample.simInMemoryPersistenceEvictedTotal)}`,
     "# TYPE sim_login_export_paused_drain_total counter",
     `sim_login_export_paused_drain_total ${formatMetricValue(sample.simLoginExportPausedDrainTotal)}`,
     "# TYPE sim_ai_command_cap_skipped_total counter",
@@ -320,5 +327,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
 
+  lines.push(...renderStrandedFrontierPrometheusLines());
   return lines.join("\n");
 };

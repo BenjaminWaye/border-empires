@@ -32,3 +32,21 @@ export const clearForestAroundAfcTiles = (tiles: Iterable<{ x: number; y: number
   }
   return changed;
 };
+
+/**
+ * Towns and docks never stand in a forest: a tile carrying either has its
+ * trees cleared. Like the AFC footprint this is re-derived from permanent tile
+ * state (tile.town / tile.dockId) rather than persisted or sent over the wire.
+ * Returns true if the tile visibly changed.
+ */
+export const clearForestOnTownOrDockTile = (tile: { x: number; y: number; town?: unknown; dockId?: unknown }): boolean =>
+  tile.town || tile.dockId ? clearForestAt(tile.x, tile.y) : false;
+
+/** Applies clearForestOnTownOrDockTile for every tile. Returns true if any tile visibly changed. */
+export const clearForestOnTownAndDockTiles = (tiles: Iterable<{ x: number; y: number; town?: unknown; dockId?: unknown }>): boolean => {
+  let changed = false;
+  for (const tile of tiles) {
+    if (clearForestOnTownOrDockTile(tile)) changed = true;
+  }
+  return changed;
+};

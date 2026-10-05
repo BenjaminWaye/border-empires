@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { DEFAULT_AUTO_SETTLE_PREFS, structureBuildDurationMs } from "@border-empires/shared";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 /**
  * Parity tests for BUILD_STRUCTURE — verifies the unified handler produces
@@ -19,7 +20,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         ],
@@ -50,7 +51,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
@@ -83,7 +84,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
           strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
         }]]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active" as const, variant: "WOODEN_FORT" as const } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
@@ -164,7 +165,7 @@ describe("BUILD_STRUCTURE parity — rejection paths", () => {
         strategicResources: { FOOD: 0, TITANIUM: 100, CRYSTAL: 0, UMBRITE: 10, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -281,7 +282,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_SYNTHESIZER" as const, status: "active" as const } }
         ],
@@ -313,7 +314,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "UMBRITE_SYNTHESIZER" as const, status: "active" as const } },
           { x: 20, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
@@ -350,7 +351,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 },
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         ],
@@ -394,7 +395,7 @@ describe("BUILD_STRUCTURE parity — resource slots free on removal", () => {
           strategicResources: { FOOD: 0, TITANIUM: 200, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
         }]]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub A", type: "MARKET", populationTier: "CITY" } },
             { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub B", type: "MARKET", populationTier: "CITY" } },
             // Only 1 TITANIUM slot in the whole empire — exactly enough for one Fort.

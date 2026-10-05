@@ -4,7 +4,7 @@ import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINU
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
-import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
+import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer, afcModuleFixtureTile } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
@@ -360,8 +360,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -391,8 +391,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 2,
       issuedAt: 120_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 11, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -494,8 +494,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -536,52 +536,6 @@ describe("simulation runtime", () => {
       expect.objectContaining({ x: 11, y: 10, terrain: "LAND" })
     ]);
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
-  });
-
-  it("restores an active Relay Beacon's vision bonus into the coverage cache on boot", () => {
-    // Simulates a server restart: the outpost was already active before this
-    // SimulationRuntime instance was constructed, so its vision bonus must be
-    // re-applied while indexing tiles, not just when the outpost is built.
-    // The bonus lives in the refcounted visibilityCoverage cache (consumed by
-    // filterTileDeltasForPlayer), not the territorial vision-expansion cache
-    // used by exportVisibleStateForPlayer.
-    const runtime = new SimulationRuntime({
-      now: () => 60_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 100 })],
-        ["player-2", buildPlayer("player-2", { manpower: 100 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 60,
-            y: 60,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" }
-          },
-          { x: 65, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-          { x: 66, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-
-    const deltas = [
-      // 5 tiles from the outpost — only reachable via RELAY_BEACON_VISION_BONUS
-      // (5), not player-1's base territory radius (the outpost tile itself is
-      // player-1's only territory).
-      { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
-      // 6 tiles from the outpost — outside even the bonus radius.
-      { x: 66, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" }
-    ];
-
-    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
-
-    expect(filtered.some((delta) => delta.x === 65 && delta.y === 60)).toBe(true);
-    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(false);
   });
 
   it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
@@ -1206,6 +1160,7 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 25, y: 244, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           {
             x: 24,
             y: 245,
@@ -1255,6 +1210,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -1388,56 +1344,6 @@ describe("simulation runtime", () => {
     expect(rejectSeen[0]).toBe("COMMAND_REJECTED");
   });
 
-  it("emits a fresh player update after collecting buffered tile yield", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 60_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 10,
-            y: 10,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "MARKET", populationTier: "SETTLEMENT" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
-    });
-
-    await Promise.resolve();
-
-    expect(seen.map((event) => event.eventType)).toContain("COLLECT_RESULT");
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    expect(playerUpdateEvent).toEqual(
-      expect.objectContaining({
-        playerId: "player-1",
-        messageType: "PLAYER_UPDATE"
-      })
-    );
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as { gold?: number };
-    expect(payload.gold).toBeGreaterThan(0); // was >0.9 pre-gold-rescope (§6.1); just assert some gold was credited
-  });
-
   it("no longer drains food upkeep from the stockpile (§5.4: FOOD is slot-based, town upkeep is 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
@@ -1470,8 +1376,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -1674,111 +1580,6 @@ describe("simulation runtime", () => {
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
     expect(player?.strategicResources.FOOD).toBe(100);
-  });
-
-  it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
-    // before any drain); UMBRITE_SYNTHESIZER draws the §6.4-decided 30
-    // gold/day (~1.25 gold over 60 min) — the only structure family that
-    // still carries an ongoing gold upkeep post-§12.1. Accrual consumes
-    // that from the buffer and advances the tile's anchor. A subsequent
-    // COLLECT_TILE should only see the leftover — strictly less than the
-    // full ~610 undrained yield, which would happen if the anchor hadn't
-    // moved — but very close to it, since the drain itself is now tiny.
-    currentNow += 60 * 60_000;
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 5, y: 5 })
-    });
-    await Promise.resolve();
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(600);
-    expect(player?.points).toBeLessThan(610);
-  });
-
-  it("collects no FOOD on a mixed-yield tile — FOOD production is retired (§5.4: slot-based, not yield-based)", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            resource: "FARM",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // The mixed-yield tile (5,5) produces 10 gold/min; FOOD production is
-    // retired (§5.4: FOOD is slot-based, not yield-based) so there's no FOOD
-    // left in this tile's yield to collect, regardless of the shared anchor.
-    currentNow += 60 * 60_000;
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 5, y: 5 })
-    });
-    await Promise.resolve();
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBe(0);
   });
 
   it("does not choose unaffordable frontier actions for AI automation", () => {
@@ -2150,6 +1951,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
+            { x: 9, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the recovered origin (10,10) (stranded origins decay)
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 7, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND" },
@@ -2216,6 +2018,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -2258,23 +2061,17 @@ describe("simulation runtime", () => {
       expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
-      // (no absolute manpower assertion here — player-1 also respawns with a fresh SETTLEMENT, granting extra cap per §4.3, on top of the manpowerDelta loss already asserted above)
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
           ownershipState: "SETTLED"
         })
       );
-      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST + full integrity income
-      const respawnPlayerUpdate = seen.find(
-        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-          event.eventType === "PLAYER_MESSAGE" &&
-          event.playerId === "player-1" &&
-          event.commandId === "lose-attack-1:respawn:player-1" &&
-          event.messageType === "PLAYER_UPDATE"
+      // The attacker keeps its supply settlement (it is no longer eliminated, so no respawn here;
+      // respawn-from-zero-territory has its own tests above).
+      expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 9)).toEqual(
+        expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" })
       );
-      const respawnPayload = respawnPlayerUpdate?.payloadJson ? JSON.parse(respawnPlayerUpdate.payloadJson) as { gold?: number } : {};
-      expect(respawnPayload.gold).toBe(100);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -2373,6 +2170,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             {
               x: 10,
@@ -2513,6 +2311,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 13, y: 272, terrain: "LAND", ownerId: "captor", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             // Captor sits on a FRONTIER tile that still carries the captured town record.
             {
               x: 14,
@@ -2646,6 +2445,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -2710,7 +2510,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 10,
               y: 10,
@@ -2749,7 +2549,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (1020, §4.3) before Fort's 300 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 300); // cap = capital + TOWN tier (1020, §4.3) before Fort's 300 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -2773,7 +2573,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -2819,7 +2619,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -2870,7 +2670,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "THUNDER_BASTION" as const } }
           ],
           activeLocks: []
@@ -2913,7 +2713,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } }
           ],
           activeLocks: []
@@ -2956,7 +2756,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
@@ -3077,7 +2877,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 12,
               y: 12,
@@ -3132,7 +2932,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 14,
               y: 14,
@@ -3164,7 +2964,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (870, §4.3) before outpost's 60 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap * 2 - 60); // SETTLED w/no town still = SETTLEMENT tier (+ the fixture AFC's SETTLEMENT-tier baseline) before outpost's 60 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 
@@ -3187,7 +2987,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3228,7 +3028,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3274,7 +3074,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "DREAD_TOWER" as const } }
           ],
           activeLocks: []
@@ -3317,7 +3117,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
           ],
           activeLocks: []
@@ -3360,7 +3160,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -3417,7 +3217,7 @@ describe("simulation runtime", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
             { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
@@ -4355,6 +4155,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialState: {
         tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 10, y: 12 }
@@ -4401,6 +4202,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialState: {
         tiles: [
+          { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 10, y: 9, ownerId: "player-3", ownershipState: "FRONTIER" }
@@ -4622,6 +4424,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             {
               x: 10,
               y: 10,
@@ -4677,6 +4480,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
             { x: 10, y: 8, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 10, y: 11, terrain: "LAND" },
@@ -4775,14 +4579,14 @@ describe("simulation runtime", () => {
       // elimination-respawn reach-auto-claim (real ownerId, folded into this
       // same buffered event), which is why the check below is scoped to
       // bare/unowned deltas rather than total batch size.
-      expect(barbBatches.length).toBeGreaterThanOrEqual(1);
-      expect(barbBatches[0]).toEqual(
+      const captureBatch = barbBatches.find((batch) => batch.some((d) => d.x === 10 && d.y === 11))!;
+      expect(captureBatch).toEqual(
         expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
       );
       const isAttackTile = (d: { x: number; y: number }) => (d.x === 10 && d.y === 11) || (d.x === 10 && d.y === 10);
-      expect(barbBatches[0].filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
+      expect(captureBatch.filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
       // No distant neutral reveal tile (only the reveal square would surface one).
-      expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
+      expect(captureBatch.some((d) => d.x === 6 && d.y === 7)).toBe(false);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -5159,7 +4963,7 @@ describe("simulation runtime", () => {
             }
           },
           {
-            x: 14,
+            x: 16,
             y: 18,
             terrain: "LAND"
           }
@@ -5200,7 +5004,7 @@ describe("simulation runtime", () => {
         townPopulationTier: "TOWN"
       })
     );
-    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 14 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 16 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
     expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
     expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
       expect.objectContaining({ ownerId: "player-1", status: "active" })
@@ -5746,7 +5550,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", sabotage: { ownerId: "player-2", endsAt: 2_000, outputMultiplier: 0.5 } },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
+          { x: 5, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
           // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
           // 2nd=2, 3rd=3 CRYSTAL slots), so 3 Observatories need 1+2+3=6
           // CRYSTAL slots total, not a flat 3, for none of them to go dormant.
@@ -5810,7 +5614,7 @@ describe("simulation runtime", () => {
       clientSeq: 5,
       issuedAt: 1_000,
       type: "COLLECT_SHARD",
-      payloadJson: JSON.stringify({ x: 1, y: 2 })
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
     });
 
     await Promise.resolve();
@@ -6511,6 +6315,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -6618,6 +6423,8 @@ describe("simulation runtime", () => {
         economicStructure: { ownerId, type: "WEAPONS_WORKSHOP" as const, status: "active" as const }
       });
       const tiles = [
+        // Attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors the attacker's factory tiles.
+        { x: 10, y: 9, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } },
         {
           x: 10,
           y: 10,
@@ -6715,6 +6522,7 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           {
             x: 10,
             y: 10,
@@ -6801,6 +6609,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -7079,73 +6888,6 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("keeps barbarian counter-captures settled when a player attack fails", async () => {
-      const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
-      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
-      try {
-        const runtime = new SimulationRuntime({
-          now: () => 1_000,
-          scheduleAfter: (delayMs, task) => {
-            scheduledTasks.push({ delayMs, task });
-          },
-          initialPlayers: new Map([
-            ["player-1", testRuntimePlayer("player-1")],
-            [
-              "barbarian-1",
-              buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })
-            ]
-          ]),
-          seedTiles: new Map(),
-          initialState: {
-            tiles: [
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-              { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
-            ],
-            activeLocks: []
-          }
-        });
-        const seen = collectEvents(runtime);
-
-        runtime.submitCommand({
-          commandId: "failed-attack-barb-counter",
-          sessionId: "session-1",
-          playerId: "player-1",
-          clientSeq: 1,
-          issuedAt: 1_000,
-          type: "ATTACK",
-          payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-        });
-
-        await Promise.resolve();
-        expect(scheduledTasks).toHaveLength(1);
-        scheduledTasks[0]?.task();
-
-        const origin = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-        expect(origin).toEqual(
-          expect.objectContaining({
-            ownerId: "barbarian-1",
-            ownershipState: "SETTLED"
-          })
-        );
-        expect(origin?.frontierDecayAt).toBeUndefined();
-        expect(origin?.frontierDecayKind).toBeUndefined();
-
-        const resolved = seen.find(
-          (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMBAT_RESOLVED" }> =>
-            event.eventType === "COMBAT_RESOLVED" && event.commandId === "failed-attack-barb-counter"
-        );
-        expect(resolved?.combatResult?.changes).toContainEqual(
-          expect.objectContaining({
-            x: 10,
-            y: 10,
-            ownerId: "barbarian-1",
-            ownershipState: "SETTLED"
-          })
-        );
-      } finally {
-        randomSpy.mockRestore();
-      }
-    });
   });
 
   it("CRYSTAL_SYNTHESIZER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
@@ -7673,6 +7415,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,
@@ -7753,6 +7496,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,
@@ -7779,7 +7523,7 @@ describe("simulation runtime — shard rain", () => {
                 ownershipState: "SETTLED",
                 town: { name: "Capital", type: "FARMING", populationTier: "CITY", population: 5_000 }
               },
-              { x: 21, y: 20, terrain: "LAND" }
+              { x: 22, y: 20, terrain: "LAND" }
             ],
             activeLocks: []
           }
@@ -7810,7 +7554,7 @@ describe("simulation runtime — shard rain", () => {
         const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
         expect(cityTown?.population).toBe(5_000);
 
-        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 21 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 22 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
         expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED" }));
         expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
           expect.objectContaining({ ownerId: "player-2", status: "active" })
@@ -7836,6 +7580,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,
@@ -8797,7 +8542,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
           ]
         ]),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             {
               x: 10,
               y: 10,

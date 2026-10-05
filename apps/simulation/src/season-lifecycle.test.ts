@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   createInitialSeasonState,
   isSeasonActive,
@@ -20,6 +21,12 @@ describe("createInitialSeasonState pending", () => {
     });
     expect(state.status).toBe("pending");
     expect(state.scheduledStartAt).toBe(now + 60_000);
+  });
+
+  it("stamps the configured world size so ops can tell it apart from a later size change", () => {
+    const state = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000 });
+    expect(state.worldWidth).toBe(WORLD_WIDTH);
+    expect(state.worldHeight).toBe(WORLD_HEIGHT);
   });
 
   it("keeps today's behaviour (active) when scheduledStartAt is omitted", () => {

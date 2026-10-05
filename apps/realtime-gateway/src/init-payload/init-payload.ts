@@ -16,7 +16,7 @@ import {
   type ResourceType,
   type WorldStyle,
   WORLD_HEIGHT,
-  WORLD_WIDTH
+  WORLD_WIDTH, PLANETARY_DEFENSE_DISPLAY_NAME
 } from "@border-empires/shared";
 import { reconnectPassthroughFields, type LeaderboardMetricEntry, type LeaderboardOverallEntry, type ManpowerBreakdown, type PlayerSubscriptionSnapshot, type ReconnectPassthroughFields } from "@border-empires/sim-protocol";
 import {
@@ -264,7 +264,7 @@ export const hexColorForPlayerId = (playerId: string): string => {
 
 const displayNameForSeedPlayer = (playerId: string, fallbackName: string): string => {
   if (playerId === "player-1") return fallbackName;
-  if (playerId === "barbarian-1") return "Barbarians";
+  if (playerId === "barbarian-1") return PLANETARY_DEFENSE_DISPLAY_NAME;
   if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
   return playerId;
 };

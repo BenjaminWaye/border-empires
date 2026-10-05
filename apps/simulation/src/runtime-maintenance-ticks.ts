@@ -3,6 +3,8 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 type TrackSync = <T>(
   phase: string,
@@ -14,11 +16,13 @@ export async function tickTileShedding(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   tileSettledAtByKey: ReadonlyMap<string, number>;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId: string) => void;
+  /** Re-checks the player's frontier connectivity after the shed tile left their territory. */
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
@@ -124,6 +128,9 @@ export async function tickTileShedding(input: {
           tileDeltas: [{ x: shedState.x, y: shedState.y, ownerId: "", ownershipState: "", musterJson: "" }]
         });
       }
+      // Shedding a settled tile can strand frontier tiles that hung off it
+      // (offline players shed too -- this runs for every player at <=0 gold).
+      input.applyEncirclement([shedTileKey], player.id, commandId, { bfsCap: 2000 });
       // AI players have no WS subscribers (established precedent: PR #732
       // skips this same emit on lock resolution for the same reason), so the
       // resulting PLAYER_UPDATE — which forces an economy snapshot +
@@ -151,7 +158,7 @@ export async function tickTileShedding(input: {
 export function tickOrphanedLockSweep(input: {
   nowMs: number;
   orphanLockGraceMs: number;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   // EXPAND charges its manpower cost up front at lock creation (runtime-
   // frontier-command.ts), so an orphaned EXPAND lock swept here without ever
@@ -160,15 +167,12 @@ export function tickOrphanedLockSweep(input: {
 }): number {
   const cutoff = input.nowMs - input.orphanLockGraceMs;
   const droppedCommandIds = new Set<string>();
-  for (const [tileKey, lock] of input.locksByTile) {
-    if (lock.resolvesAt < cutoff) {
-      input.locksByTile.delete(tileKey);
-      if (!droppedCommandIds.has(lock.commandId)) {
-        input.locksByCommandId.delete(lock.commandId);
-        if (lock.actionType === "EXPAND") input.refundExpandManpower(lock.playerId, lock.manpowerCost);
-        droppedCommandIds.add(lock.commandId);
-      }
-    }
+  for (const lock of input.locksByTile.values()) {
+    if (lock.resolvesAt >= cutoff) continue;
+    input.locksByTile.removeLock(lock);
+    input.locksByCommandId.delete(lock.commandId);
+    if (lock.actionType === "EXPAND") input.refundExpandManpower(lock.playerId, lock.manpowerCost);
+    droppedCommandIds.add(lock.commandId);
   }
   return droppedCommandIds.size;
 }

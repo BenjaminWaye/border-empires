@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE, WORLD_WIDTH } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 // ADVANCE/MARCH auto-fire has no client-side pre-send gate to wait on the
@@ -140,6 +140,57 @@ describe("ADVANCE auto-fire mechanical travel-time delay", () => {
     }
   });
 
+  // Regression: transit was measured with non-wrapping Chebyshev distance, so
+  // a flag 3 tiles away across the map's x seam was charged ~WORLD_WIDTH
+  // tiles of travel -- a multi-minute lock with nothing visibly approaching.
+  it("measures transit across the map seam with wrapping distance", () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 1,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: WORLD_WIDTH - 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: WORLD_WIDTH - 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: WORLD_WIDTH - 3, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+
+      const accepted = seen.find(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+          event.eventType === "COMMAND_ACCEPTED" && event.actionType === "ATTACK"
+      );
+      expect(accepted).toBeDefined();
+      // Firing tile (WORLD_WIDTH-2, 0) is 3 tiles from the flag at (1, 0) across the seam.
+      const expectedTransitMs = 3 * MUSTER_TRANSIT_MS_PER_TILE;
+      expect(accepted?.transitEndsAt).toBe(1_000 + expectedTransitMs);
+      expect(accepted?.resolvesAt).toBe(1_000 + COMBAT_LOCK_MS + expectedTransitMs);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   // Defender-visibility regression: the defender's ATTACK_ALERT should carry
   // transitEndsAt so the client can hold the incoming-attack skirmish's
   // approach plateau open for the real travel window -- without ever
@@ -186,6 +237,9 @@ describe("ADVANCE auto-fire mechanical travel-time delay", () => {
       expect(payload.transitEndsAt).toBe(1_000 + expectedTransitMs);
       expect(payload).not.toHaveProperty("musterOrigin");
       expect(payload).not.toHaveProperty("musterOriginX");
+      // The defender gets the attacker's locked odds, never the outcome.
+      expect(payload.winChance).toEqual(expect.any(Number));
+      expect(payload).not.toHaveProperty("attackerWon");
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

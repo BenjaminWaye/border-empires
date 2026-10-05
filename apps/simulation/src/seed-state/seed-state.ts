@@ -102,7 +102,13 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
     [simulationTileKey(10, 11), { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }],
     [simulationTileKey(10, 12), { x: 10, y: 12, terrain: "LAND", resource: "TITANIUM" }],
     [simulationTileKey(9, 10), { x: 9, y: 10, terrain: "SEA", resource: "FISH" }],
-    [simulationTileKey(11, 10), { x: 11, y: 10, terrain: "MOUNTAIN" }]
+    [simulationTileKey(11, 10), { x: 11, y: 10, terrain: "MOUNTAIN" }],
+    // Keep a dry, feature-free AFC footprint available for the default
+    // integration-test world. New players cannot land on or next to the
+    // existing town, farm, or titanium node.
+    [simulationTileKey(9, 11), { x: 9, y: 11, terrain: "LAND" }],
+    [simulationTileKey(8, 11), { x: 8, y: 11, terrain: "LAND" }],
+    [simulationTileKey(8, 12), { x: 8, y: 12, terrain: "LAND" }]
   ]);
 
   return {

@@ -6,13 +6,14 @@ import {
 import {
   FRONTIER_CLAIM_COST,
   MUSTER_ATTACK_COST,
+  MUSTER_MARCH_MAX_DISTANCE_TILES,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
   frontierClaimDurationMsAt,
   isOpaquePlayerId
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
-import { chebyshevDistanceSimple } from "./territory-automation/territory-automation.js";
+import { chebyshevDistanceToroidal } from "./territory-automation/territory-automation.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
@@ -21,6 +22,8 @@ import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtim
 import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import { launchBarbarianAttack, type BarbarianLaunchContext } from "./runtime-barbarian-walk.js";
 
 // Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
 // can never make an ATTACK resolve instantly or negatively.
@@ -44,11 +47,11 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
 // tile's coordinates rather than needing to store it on LockRecord.
 export const frontierClaimDurationMsForCoords = frontierClaimDurationMsAt;
 
-export type RuntimeFrontierCommandContext = {
+export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -84,6 +87,8 @@ export type RuntimeFrontierCommandContext = {
   // tell "rival's border" apart from "neutral ground". Used below to open a
   // narrow EXPAND carve-out onto ground already inside a rival's reach.
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
+  /** Releases the origin's frontier component if it is cut off from supply; true means the origin is gone. */
+  releaseIfStrandedOrigin: (originKey: string, ownerId: string, commandId: string) => boolean;
 };
 
 export type FrontierCommandResult = { accepted: boolean; code?: string };
@@ -117,8 +122,15 @@ export const handleFrontierCommandImpl = (
         submittedFrom;
   const originIsAlliedDockCrossing = dockOrigin?.isAlliedDockCrossing === true && from === dockOrigin.tile;
 
-  const originLock = ctx.locksByTile.get(simulationTileKey(from.x, from.y));
-  const targetLock = ctx.locksByTile.get(simulationTileKey(to.x, to.y));
+  // Only a tile that is the TARGET of a fight is locked against new attacks
+  // (and can't launch any). Being the origin of someone else's fight -- the
+  // enemy marched out of it -- does not stop you attacking it back, so the
+  // defender can answer while the enemy's own attack is still pending. An
+  // ally's tile that is the origin of that ally's own fight still can't be
+  // reused as a dock-crossing origin.
+  const fromKey = simulationTileKey(from.x, from.y);
+  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
+  const targetLock = ctx.locksByTile.targetLockAt(simulationTileKey(to.x, to.y));
   ctx.commandTrace?.({
     phase: "frontier_validate",
     commandId: command.commandId,
@@ -132,10 +144,13 @@ export const handleFrontierCommandImpl = (
     targetLockOwnerId: targetLock?.playerId,
     targetLockResolvesAt: targetLock?.resolvesAt
   });
+  // A cut-off frontier tile decays instantly (encirclement), so an action from
+  // one releases it and fails. Out-of-reach tiles that are still connected are
+  // unaffected and stay valid origins.
   if (
     (actionType === "ATTACK" || actionType === "EXPAND") &&
     from.ownershipState === "FRONTIER" &&
-    from.frontierDecayKind === "ENCIRCLEMENT"
+    ctx.releaseIfStrandedOrigin(simulationTileKey(from.x, from.y), actor.id, command.commandId)
   ) {
     ctx.rejectCommand(command, "ORIGIN_CUT_OFF", "origin tile is cut off from supply and cannot launch actions");
     return { accepted: false, code: "ORIGIN_CUT_OFF" };
@@ -250,6 +265,14 @@ export const handleFrontierCommandImpl = (
   // flag firing directly (adjacent to the target) still takes a moment,
   // matching the client's own Math.max(1, dist) floor.
   //
+  // Measured on the wrapping world and capped at the march limit: ADVANCE's
+  // range counts a dock crossing as one hop and MARCH is limited to
+  // MUSTER_MARCH_MAX_DISTANCE_TILES, so no legitimate auto-fire travels
+  // further. Uncapped (and non-wrapping), a flag reaching across a dock or
+  // the map seam was charged its full straight-line distance -- an AI flag
+  // ~120 tiles away locked both tiles for 4+ minutes while the defender saw
+  // nothing approaching and couldn't counterattack the locked origin.
+  //
   // The flag itself -- not whatever intermediate owned tile the BFS launches
   // from -- is always the travel-time origin: MARCH/ADVANCE stamp
   // musterSourceX/Y on every command they submit (ATTACK and, for MARCH,
@@ -261,7 +284,10 @@ export const handleFrontierCommandImpl = (
   let transitMs = 0;
   if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
     musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
-    const transitTiles = Math.max(1, chebyshevDistanceSimple(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y));
+    const transitTiles = Math.min(
+      MUSTER_MARCH_MAX_DISTANCE_TILES,
+      Math.max(1, chebyshevDistanceToroidal(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y))
+    );
     transitMs = transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
@@ -331,12 +357,16 @@ export const handleFrontierCommandImpl = (
     const prevShield = ctx.musterReservedByKey.get(combatResolution.shield.tileKey) ?? 0;
     ctx.musterReservedByKey.set(combatResolution.shield.tileKey, prevShield + combatResolution.shield.matched);
   }
-  const lock: LockRecord = {
+  const resolvedLock: LockRecord = {
     ...baseLock,
     ...(combatResolution ? { combatResolution } : {})
   };
-  ctx.locksByTile.set(lock.originKey, lock);
-  ctx.locksByTile.set(lock.targetKey, lock);
+  // A barbarian leaves its origin tile as its attack starts, so a player who
+  // takes the launch tile mid-fight can't leave the barbarian alive on theirs.
+  const lock: LockRecord = actor.id === "barbarian-1" && actionType === "ATTACK"
+    ? { ...resolvedLock, barbarianLaunch: launchBarbarianAttack(ctx, resolvedLock) }
+    : resolvedLock;
+  ctx.locksByTile.addLock(lock);
   ctx.locksByCommandId.set(lock.commandId, lock);
   ctx.commandTrace?.({
     phase: "frontier_accept",
@@ -380,6 +410,10 @@ export const handleFrontierCommandImpl = (
         fromX: validation.origin.x,
         fromY: validation.origin.y,
         resolvesAt,
+        // The attacker's locked odds (the roll was already made above). Shared
+        // with the defender so the battle card can show both sides' chances;
+        // attackerWon is deliberately not included.
+        ...(combatResolution ? { winChance: combatResolution.result.winChance } : {}),
         ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
       })
     });

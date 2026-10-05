@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 type Seen = { eventType: string; commandId: string; playerId: string; code?: string };
 
@@ -147,7 +148,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
         strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 }
       }]]),
       initialState: {
-        tiles: [
+        tiles: [afcModuleFixtureTile("player-1"), 
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           // A resource tile so structureShowsOnTile's "resource" visibility

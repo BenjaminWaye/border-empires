@@ -142,8 +142,36 @@ export function applyEncirclement(
     }
   });
 
+  const tileDeltas = clearCutOffFrontierTiles(context, cutOff, commandId, nowMs);
+
+  for (const key of reconnected) {
+    const tile = context.tiles.get(key);
+    if (!tile) continue;
+    if (typeof tile.frontierDecayAt !== "number" || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
+    const updated: DomainTileState = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
+    context.replaceTileState(key, updated, commandId);
+    tileDeltas.push(context.tileDeltaFromState(updated));
+  }
+
+  if (tileDeltas.length > 0) {
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
+  }
+}
+
+/**
+ * Releases cut-off FRONTIER tiles to neutral and registers their auto-heal.
+ * Shared by encirclement and the stranded-frontier cleanup so every
+ * connectivity-loss path leaves a tile in the same neutral state. Returns the
+ * deltas; the caller emits them.
+ */
+export function clearCutOffFrontierTiles(
+  context: Pick<RuntimeEncirclementApplicationContext, "tiles" | "replaceTileState" | "registerFrontierAutoHeal" | "tileDeltaFromState">,
+  keys: Iterable<string>,
+  commandId: string,
+  nowMs: number
+): SimulationTileWireDelta[] {
   const tileDeltas: SimulationTileWireDelta[] = [];
-  for (const key of cutOff) {
+  for (const key of keys) {
     const tile = context.tiles.get(key);
     if (!tile || tile.ownershipState !== "FRONTIER") continue;
     // naturalWonder is deliberately NOT cleared: it's a fixed world-gen
@@ -171,17 +199,5 @@ export function applyEncirclement(
     context.registerFrontierAutoHeal(key, healAt);
     tileDeltas.push(context.tileDeltaFromState(cleared));
   }
-
-  for (const key of reconnected) {
-    const tile = context.tiles.get(key);
-    if (!tile) continue;
-    if (typeof tile.frontierDecayAt !== "number" || tile.frontierDecayKind !== "ENCIRCLEMENT") continue;
-    const updated: DomainTileState = { ...tile, frontierDecayAt: undefined, frontierDecayKind: undefined };
-    context.replaceTileState(key, updated, commandId);
-    tileDeltas.push(context.tileDeltaFromState(updated));
-  }
-
-  if (tileDeltas.length > 0) {
-    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas });
-  }
+  return tileDeltas;
 }

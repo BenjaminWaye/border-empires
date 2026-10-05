@@ -4,6 +4,8 @@ import { HEIGHTFIELD_HILLS_ELEVATION_BONUS, type Heightfield } from "./client-ma
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
+import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
+import { fallbackOwnerColor, resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 const TILE_CENTER_OFFSET = 0.5;
@@ -29,9 +31,12 @@ const advanceClaimSeenAt = new Map<string, number>();
 // tile shows the "becoming mine" sweep over ground that never visually goes
 // neutral first, unlike a real EXPAND target, which has no owner tint to
 // begin with. EXPAND targets are deliberately excluded: they're already
-// unowned, so there's no enemy tint to hide.
+// unowned, so there's no enemy tint to hide. Also covers an enemy's ATTACK on
+// this player's own FRONTIER tile (activeIncomingFrontierClaims): the
+// defender's own frontier fill hides the same way, so the tile visibly goes
+// neutral while the attacker's colour sweeps in.
 export function activeFrontierAttackClaimTargetKeys(
-  state: Pick<ClientState, "capture" | "outgoingMusterAttacksByTile" | "tiles">,
+  state: Pick<ClientState, "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me">,
   keyFor: (x: number, y: number) => string,
   nowEpochMs: number
 ): Set<string> {
@@ -57,6 +62,8 @@ export function activeFrontierAttackClaimTargetKeys(
     if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
     keys.add(key);
   }
+
+  for (const claim of activeIncomingFrontierClaims(state, nowEpochMs)) keys.add(claim.key);
 
   return keys;
 }
@@ -97,7 +104,8 @@ export function syncFrontierClaimPlates(
   isHillsAt: (x: number, y: number) => boolean
 ): void {
   const nowEpochMs = Date.now();
-  type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number };
+  const empireColor = state.playerColors.get(state.me) ?? "#7dd3fc";
+  type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number; color: string };
   const claims: ClaimEntry[] = [];
   const coveredTargetKeys = new Set<string>();
   const activeFrontierAttackKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
@@ -113,7 +121,7 @@ export function syncFrontierClaimPlates(
     (capture.actionType === "EXPAND" || activeFrontierAttackKeys.has(keyFor(capture.target.x, capture.target.y)))
   ) {
     const key = keyFor(capture.target.x, capture.target.y);
-    claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt });
+    claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt, color: empireColor });
     coveredTargetKeys.add(key);
   }
 
@@ -128,13 +136,19 @@ export function syncFrontierClaimPlates(
     liveClaimKeys.add(key);
     const startAt = outgoing.transitEndsAt ?? advanceClaimSeenAt.get(key) ?? nowEpochMs;
     if (!advanceClaimSeenAt.has(key)) advanceClaimSeenAt.set(key, startAt);
-    claims.push({ targetX: outgoing.targetX, targetY: outgoing.targetY, startAt, resolvesAt: outgoing.resolvesAt });
+    claims.push({ targetX: outgoing.targetX, targetY: outgoing.targetY, startAt, resolvesAt: outgoing.resolvesAt, color: empireColor });
+  }
+  // An enemy taking this player's own FRONTIER tile: same sweep, in the
+  // attacker's colour (the key set above already hid this player's tint).
+  for (const incoming of activeIncomingFrontierClaims(state, nowEpochMs)) {
+    if (coveredTargetKeys.has(incoming.key)) continue;
+    const color = incoming.attackerId ? resolveOwnerColor(incoming.attackerId, state.playerColors, fallbackOwnerColor) : "#8a8f98";
+    claims.push({ targetX: incoming.targetX, targetY: incoming.targetY, startAt: incoming.startAt, resolvesAt: incoming.resolvesAt, color });
   }
   for (const key of advanceClaimSeenAt.keys()) {
     if (!liveClaimKeys.has(key)) advanceClaimSeenAt.delete(key);
   }
 
-  const empireColor = state.playerColors.get(state.me) ?? "#7dd3fc";
   const TILE_WIDTH = 0.94;
   const HALF_TILE = TILE_WIDTH * 0.5;
   let i = 0;
@@ -143,7 +157,7 @@ export function syncFrontierClaimPlates(
     if (!plate) break;
     i += 1;
     const material = plate.material as MeshBasicMaterial;
-    material.color.set(empireColor);
+    material.color.set(claim.color);
     material.opacity = FRONTIER_OPACITY;
     const total = Math.max(1, claim.resolvesAt - claim.startAt);
     const elapsed = nowEpochMs - claim.startAt;

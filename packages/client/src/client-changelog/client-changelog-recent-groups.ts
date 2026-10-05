@@ -19,6 +19,12 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS } from "./client-changelog-af
 import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
 import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION } from "./client-changelog-afc-construction.js";
+import { CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE } from "./client-changelog-planetary-defense.js";
+import { CLIENT_CHANGELOG_ENTRIES_SETTLE_PROMPT_AFTER_WHATS_NEW } from "./client-changelog-settle-prompt-after-whats-new.js";
+import { CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT } from "./client-changelog-compact-auto-settle-prompt.js";
+import { CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS } from "./client-changelog-softer-metal-reflections.js";
+import { CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP } from "./client-changelog-stranded-frontier-cleanup.js";
 
 // Small per-feature entry files, gathered so client-changelog-data.ts stays under the 500-line cap.
 export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
@@ -41,5 +47,11 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_SECTOR_NUMBERING,
   ...CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES,
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING,
-  ...CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT
+    ...CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT,
+    ...CLIENT_CHANGELOG_ENTRIES_PLANETARY_DEFENSE,
+    ...CLIENT_CHANGELOG_ENTRIES_COMPACT_AUTO_SETTLE_PROMPT,
+    ...CLIENT_CHANGELOG_ENTRIES_SETTLE_PROMPT_AFTER_WHATS_NEW,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION,
+  ...CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS,
+  ...CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP
 ];

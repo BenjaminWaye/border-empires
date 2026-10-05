@@ -3,7 +3,6 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_DURATION_MS,
-  AETHER_LANCE_COOLDOWN_MS,
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_DURATION_MS, playerHasAbilityTech,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
@@ -13,7 +12,6 @@ import {
 import { isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
-import { attackAlertDisplayName } from "./runtime-frontier-command.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
@@ -28,7 +26,7 @@ import type { SiphonModeLifecycle } from "./siphon-mode/siphon-mode-lifecycle.js
 // Hidden Hand / Oracle State's observatoryCooldownMult scales every
 // observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
 // Aether Lance, Aether Bridge, Aether Wall) uniformly.
-const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
+export const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
   Math.round(baseCooldownMs * multiplicativeEffectForPlayer(actor, "observatoryCooldownMult"));
 
 type SurveySweepPingKind = "resource" | "town";
@@ -74,6 +72,8 @@ export type RuntimeAbilityCommandContext = {
   // it needs its own dormancy gate.
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  // Re-checks the owner's frontier connectivity after a tile of theirs was purged (AETHER_LANCE).
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   isCoastalLand: (x: number, y: number) => boolean;
   closestAetherBridgeOrigin: (playerId: string, targetX: number, targetY: number) => { x: number; y: number } | undefined;
   wallSegments: (originX: number, originY: number, direction: AetherWallDirection, length: 1 | 2 | 3) => AetherWallSegment[];
@@ -264,101 +264,6 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     center: { x: observatoryTile.x, y: observatoryTile.y },
     halfExtent: SURVEY_SWEEP_HALF_EXTENT,
     pings
-  });
-  context.emitPlayerMessage(command, {
-    type: "PLAYER_UPDATE",
-    points: actor.points,
-    strategicResources: actor.strategicResources
-  });
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
-  const actor = context.players.get(command.playerId);
-  const payload = parseTilePayload(command.payloadJson);
-  if (!actor || !payload) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
-    return;
-  }
-  const targetKey = simulationTileKey(payload.x, payload.y);
-  const target = context.tiles.get(targetKey);
-  if (!playerHasAbilityTech(actor.techIds, "aether_lance")) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "requires Aether Resonance Core");
-    return;
-  }
-  const targetIsPurgeableOwnership = target?.ownershipState === "SETTLED" || target?.ownershipState === "FRONTIER";
-  if (
-    !target ||
-    target.terrain !== "LAND" ||
-    !target.ownerId ||
-    target.ownerId === actor.id ||
-    isAlliedOrTruced(actor, target.ownerId) ||
-    !targetIsPurgeableOwnership
-  ) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "target hostile settled or frontier land");
-    return;
-  }
-  if (context.isTileShieldedByEnemyAegisDome(actor.id, target.x, target.y)) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aegis Dome");
-    return;
-  }
-  if (context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aether Tower");
-    return;
-  }
-  const lanceNow = context.now();
-  const lanceObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, lanceNow);
-  if (!lanceObservatoryKey) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "no ready observatory in range");
-    return;
-  }
-  context.stampObservatoryCooldown(
-    lanceObservatoryKey,
-    observatoryCooldownMsForActor(actor, AETHER_LANCE_COOLDOWN_MS),
-    lanceNow,
-    command.commandId,
-    command.playerId
-  );
-  const hadMuster = Boolean(target.muster);
-  const updatedTile: DomainTileState = {
-    ...target,
-    ownerId: undefined,
-    ownershipState: undefined,
-    frontierDecayAt: undefined,
-    frontierDecayKind: undefined,
-    // Purging ownership destroys any muster flag staged on the tile — the
-    // accumulated manpower is lost, not refunded.
-    muster: undefined
-  };
-  context.replaceTileState(targetKey, updatedTile, command.commandId);
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTile)]
-  });
-  if (hadMuster) {
-    context.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `${command.commandId}:bc`,
-      playerId: "__broadcast__",
-      tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
-    });
-  }
-  // target.ownerId was checked non-empty and hostile (not the caster, not
-  // allied/truced) above, so this always addresses a real defender.
-  context.emitEvent({
-    eventType: "PLAYER_MESSAGE",
-    commandId: command.commandId,
-    playerId: target.ownerId,
-    messageType: "AETHER_PURGE_ALERT",
-    payloadJson: JSON.stringify({
-      type: "AETHER_PURGE_ALERT",
-      attackerId: actor.id,
-      attackerName: attackAlertDisplayName(actor.id, actor.name),
-      x: target.x,
-      y: target.y
-    })
   });
   context.emitPlayerMessage(command, {
     type: "PLAYER_UPDATE",

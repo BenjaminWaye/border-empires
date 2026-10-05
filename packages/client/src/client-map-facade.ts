@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -16,7 +16,7 @@ import {
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
   drawAetherWallSegment as drawAetherWallSegmentOnCanvas,
-  drawBarbarianColossusOverlay as drawBarbarianColossusOverlayOnCanvas,
+  drawPlanetaryDefenseOverlay as drawPlanetaryDefenseOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
@@ -38,6 +38,7 @@ import { drawHillsOverlay as drawHillsOverlayOnCanvas } from "./client-map-rende
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import type { RoadDirections } from "./client-road-network/client-road-network.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { incomingFrontierClaimAt } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTileWithAfcLandingHold, terrainWithAfcLandingHold } from "./client-afc-join-drop/client-afc-join-drop-state.js";
 
@@ -100,6 +101,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     // connect runs only AFTER the initial tiles were merged) or a terrain
     // change, so re-derive the clearings from the AFC tiles already known.
     clearForestAroundAfcTiles(state.tiles.values());
+    clearForestOnTownAndDockTiles(state.tiles.values());
     terrainColorCache.clear();
     terrainColorCacheOrder.length = 0;
     state.dockRouteCache.clear();
@@ -283,10 +285,16 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     );
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
-  const drawBarbarianColossusOverlay = (px: number, py: number, size: number): void =>
-    drawBarbarianColossusOverlayOnCanvas(ctx, px, py, size);
-  const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
-    drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt);
+  const drawPlanetaryDefenseOverlay = (px: number, py: number, size: number, wx: number, wy: number): void =>
+    drawPlanetaryDefenseOverlayOnCanvas(ctx, px, py, size, wx, wy, performance.now());
+  const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {
+    const nowMs = Date.now();
+    const claim = incomingFrontierClaimAt(state, keyFor(wx, wy), nowMs);
+    const claimOverlay = claim
+      ? { color: claim.attackerId ? effectiveColor(claim.attackerId) : "#8a8f98", progress: (nowMs - claim.startAt) / Math.max(1, claim.resolvesAt - claim.startAt) }
+      : undefined;
+    drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt, claimOverlay);
+  };
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
     drawTownOverlayOnCanvas(ctx, tile, px, py, size, state.me, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
@@ -458,7 +466,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawTerrainTile,
     drawForestOverlay,
     drawHillsOverlay,
-    drawBarbarianColossusOverlay,
+    drawPlanetaryDefenseOverlay,
     drawIncomingAttackOverlay,
     drawTownOverlay,
     drawTownMarker,

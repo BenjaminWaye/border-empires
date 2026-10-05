@@ -1,4 +1,5 @@
 import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
@@ -22,7 +23,7 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
-import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
+import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -1590,7 +1591,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startAt, resolvesAt: resolvesAtForCapture, target,
         origin: msg.origin ?? existingCapture?.origin,
         actionType: lockedResult?.attackType ?? state.actionCurrent?.actionType ?? "ATTACK",
-        silent: Boolean(existingCapture?.silent), fromMusterAdvance: Boolean(existingCapture?.fromMusterAdvance)
+        silent: Boolean(existingCapture?.silent), fromMusterAdvance: Boolean(existingCapture?.fromMusterAdvance), combatSnapshot: combatSnapshotFromLockedResult(msg.result, existingCapture?.combatSnapshot)
       });
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
@@ -1640,7 +1641,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), {
           attackerName, resolvesAt,
           ...(attackerId !== undefined ? { attackerId } : {}), ...(fromX !== undefined ? { fromX } : {}),
-          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
+          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {}), ...(typeof msg.winChance === "number" ? { winChance: msg.winChance } : {})
         });
       }
       state.unreadAttackAlerts += 1;
@@ -2606,29 +2607,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             });
           }
         }
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        clearLateFrontierAck(failedCurrentKey);
-        clearLateFrontierAck(failedTargetKey);
-        if (errorCode === "ATTACK_COOLDOWN" || errorCode === "DOCK_COOLDOWN") {
-          const cooldownBackoffMs =
-            typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
-              ? Math.max(0, msg.cooldownRemainingMs)
-              : COMBAT_LOCK_MS;
-          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + cooldownBackoffMs);
-          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + cooldownBackoffMs);
-        }
-        if (errorCode === "LOCKED") {
-          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
-          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
-        }
+        resetFrontierActionStateAfterError(state, { errorCode, cooldownRemainingMs: msg.cooldownRemainingMs, failedCurrentKey, failedTargetKey, clearLateFrontierAck });
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);

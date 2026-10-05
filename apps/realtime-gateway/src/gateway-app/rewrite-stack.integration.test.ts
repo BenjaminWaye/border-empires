@@ -5,7 +5,7 @@ import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../../simulation/src/command-store/command-store.js";
-import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
+import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js"; import { afcModuleFixtureTile } from "../../../simulation/src/afc-test-fixture/afc-test-fixture.js";
 import {
   closeSocket,
   createStartupSnapshotStore,
@@ -19,7 +19,8 @@ import {
   openSocket,
   silentLog,
   waitUntil,
-  withTimeout
+  withTimeout,
+  captureTimersRunningDrains
 } from "./rewrite-stack-test-helpers.js";
 
 describe("rewrite stack integration", () => {
@@ -40,9 +41,7 @@ describe("rewrite stack integration", () => {
       log: silentLog,
       runtimeOptions: {
         now: () => 1_000,
-        scheduleAfter: (delayMs, task) => {
-          scheduledResolutions.push({ delayMs, task });
-        }
+        scheduleAfter: captureTimersRunningDrains(scheduledResolutions)
       }
     });
     cleanup.push(() => simulation.close());
@@ -65,7 +64,7 @@ describe("rewrite stack integration", () => {
     cleanup.push(() => closeSocket(firstSocket.socket));
     firstSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect((await nextNonBootstrapMessage(firstSocket, "first init")).type).toBe("INIT");
-    firstSocket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
+    // No SUBSCRIBE_CHUNKS: it now triggers a stranded-frontier check, and the default seed's player-2 target (10,11) is a lone, unsupplied FRONTIER tile that check would release.
 
     // Muster is unconditionally required to attack — stage it through the
     // real command path (like production), then advance muster accumulation
@@ -352,13 +351,11 @@ describe("rewrite stack integration", () => {
 
   it("delivers TILE_DELTA_BATCH to control-only players even when other players have bulk sockets", async () => {
     const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
-    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }, { id: "player-2", points: 5_000, manpower: 10_000 }] });
+    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }, { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }, { id: "player-2", points: 5_000, manpower: 10_000 }] });
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog, snapshotStore, requireDurableStartupState: true,
       runtimeOptions: {
         now: () => 1_000,
-        scheduleAfter: (delayMs, task) => {
-          scheduledResolutions.push({ delayMs, task });
-        }
+        scheduleAfter: captureTimersRunningDrains(scheduledResolutions)
       }
     });
     cleanup.push(() => simulation.close());
@@ -917,7 +914,7 @@ describe("rewrite stack integration", () => {
   it("supports settlement commands through the rewrite gateway", async () => {
     const scheduledSettles: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
-    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }] });
+    const snapshotStore = await createStartupSnapshotStore({ tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } }, { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }], activeLocks: [], players: [{ id: "player-1", points: 5_000, manpower: 10_000 }] });
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog, snapshotStore, requireDurableStartupState: true,
       runtimeOptions: {
         now: () => 1_000,
@@ -1242,7 +1239,7 @@ describe("rewrite stack integration", () => {
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
       // §5: the UMBRITE tile backs the UMBRITE *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
-      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
+      tiles: [afcModuleFixtureTile("player-1"), { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
       activeLocks: [],
       players: [
         {
@@ -1331,7 +1328,7 @@ describe("rewrite stack integration", () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      tiles: [
+      tiles: [afcModuleFixtureTile("player-1"),
         {
           x: 12,
           y: 12,

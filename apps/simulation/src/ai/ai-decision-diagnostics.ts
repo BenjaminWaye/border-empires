@@ -81,6 +81,10 @@ export type AiDecisionDiagnostic = {
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
 const MAX_DIAGNOSTICS_PER_PLAYER = 100;
+// The unfiltered admin view combines every AI's history into one gRPC JSON
+// response. Keep that diagnostic-only response bounded independently of the
+// per-player history so a larger AI roster cannot exceed gRPC's message cap.
+const MAX_ALL_PLAYER_DIAGNOSTICS = 200;
 
 // Bounded by the fixed AI player set for a season, not user input.
 const lastRejectionByPlayer = new Map<string, { commandType: string; code: string; message: string; at: number }>();
@@ -155,5 +159,7 @@ export const getAiDecisionDiagnostics = (playerId?: string): AiDecisionDiagnosti
   for (const diags of recentDiagnostics.values()) {
     all.push(...diags);
   }
-  return all.sort((a, b) => b.recordedAt - a.recordedAt);
+  return all
+    .sort((a, b) => b.recordedAt - a.recordedAt)
+    .slice(0, MAX_ALL_PLAYER_DIAGNOSTICS);
 };

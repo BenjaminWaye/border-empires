@@ -5,8 +5,8 @@ import type { OwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 // (bare land, no town) — the routine one-tile expansion the barbarian
 // planner does constantly (system-job-barbarian-planner.ts), as opposed to
 // fighting a settled town (which already gets its own capture-shock/smoke
-// treatment elsewhere and keeps the Voidcrystal Colossus's Attack
-// animation — see client-map-3d-barbarian-overlay.ts). Without this, a
+// treatment elsewhere, plus a full Planetary Defense battle squad — see
+// client-map-3d-planetary-defense-overlay.ts). Without this, a
 // frontier tile flipping to barbarian ownership was an instant, jarring
 // pop the moment the server applied the capture.
 //

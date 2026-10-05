@@ -105,9 +105,13 @@ describe("join / spawn does not spend manpower on a new human", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       ...(initialPlayers ? { initialPlayers } : {}),
-      // A 5x1 strip of farmland: whichever tile the spawn lands on, farms sit inside its 7x7 reach disk.
+      // Farms lie inside the opening AFC's 7x7 reach disk, but outside its
+      // 3x3 footprint: an AFC may not land on or beside a resource node.
       initialState: {
-        tiles: [10, 11, 12, 13, 14].map((x) => ({ x, y: 10, terrain: "LAND" as const, resource: "FARM" as const })),
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND" as const },
+          ...[13, 14, 15, 16, 17].map((x) => ({ x, y: 10, terrain: "LAND" as const, resource: "FARM" as const }))
+        ],
         activeLocks: []
       }
     });

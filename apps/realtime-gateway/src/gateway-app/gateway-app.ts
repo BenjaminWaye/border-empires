@@ -9,6 +9,7 @@ import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/br
 import { handleAllianceSocketMessage } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
+import { dispatchAfcOrRevealCommand } from "./gateway-afc-and-reveal-command.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
 import { createSlackAlerter, type SlackAlerter, type BugReportInput } from "../slack-alerts/slack-alerts.js";
@@ -58,6 +59,7 @@ import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.
 import { computeLiveSubscribeMessage, createFinalizeStageTracker, sendInitPayload } from "./login-progress-stages.js";
 import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
+import { createEphemeralSimCommands } from "../ephemeral-sim-commands/ephemeral-sim-commands.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
@@ -1035,6 +1037,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
     simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
     withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
+  });
+  const ephemeralSimCommands = createEphemeralSimCommands({
+    submitCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, `gateway ${command.type.toLowerCase()}`),
+    isSimulationConnected: () => simulationHealth.connected, now: () => Date.now(),
+    logWarn: (error, message) => app.log.warn({ err: error }, message),
+    onStrandedRegionCheck: (outcome) => gatewayMetrics.incrementStrandedRegionCheck(outcome)
   });
   const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
     seededAiPlayerIds,
@@ -2446,6 +2454,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (message.type === "SUBSCRIBE_CHUNKS") { ephemeralSimCommands.checkStrandedRegion(session, message); return; } // chunk sync itself is legacy; the camera chunk drives stranded-frontier cleanup
+
           if (ignoredLegacyMessageTypes.has(message.type)) {
             recordGatewayEvent("info", "gateway_ignored_legacy_message", { type: message.type });
             // The rewrite gateway currently pushes a full initial snapshot plus deltas,
@@ -2599,50 +2609,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {
-            // Best-effort subscription — failure must not produce GATEWAY_INTERNAL_ERROR.
-            // A timeout or gRPC error here just means the muster panel won't refresh
-            // live for this session; the client can re-open the menu to retry.
-            try {
-              // clientSeq stays 0 by design: the simulation exempts
-              // WATCH_MUSTER/UNWATCH_MUSTER from durable persistence (they are
-              // ephemeral view toggles), so the commands-table UNIQUE
-              // (player_id, client_seq) index never sees them.
-              await withTimeout(
-                simulationClient.submitCommand({
-                  commandId: `watch-muster:${session.sessionId}:${Date.now()}`,
-                  sessionId: session.sessionId,
-                  playerId: authedSession.playerId,
-                  clientSeq: 0,
-                  issuedAt: Date.now(),
-                  type: "WATCH_MUSTER",
-                  payloadJson: JSON.stringify({ x: message.x, y: message.y })
-                }),
-                simulationSubmitTimeoutMs,
-                "gateway watch muster"
-              );
-            } catch (error) {
-              app.log.warn({ err: error }, "gateway watch muster failed (best-effort)");
-            }
+            await ephemeralSimCommands.watchMuster(session, authedSession.playerId, message.x, message.y);
           } else if (message.type === "UNWATCH_MUSTER") {
-            // Best-effort unsubscribe — failure must not produce GATEWAY_INTERNAL_ERROR.
-            try {
-              // clientSeq 0 is fine here — see WATCH_MUSTER above.
-              await withTimeout(
-                simulationClient.submitCommand({
-                  commandId: `unwatch-muster:${session.sessionId}:${Date.now()}`,
-                  sessionId: session.sessionId,
-                  playerId: authedSession.playerId,
-                  clientSeq: 0,
-                  issuedAt: Date.now(),
-                  type: "UNWATCH_MUSTER",
-                  payloadJson: "{}"
-                }),
-                simulationSubmitTimeoutMs,
-                "gateway unwatch muster"
-              );
-            } catch (error) {
-              app.log.warn({ err: error }, "gateway unwatch muster failed (best-effort)");
-            }
+            await ephemeralSimCommands.unwatchMuster(session, authedSession.playerId);
           } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
             await dispatchDurableCommand("BUILD_ECONOMIC_STRUCTURE", {
               x: message.x,
@@ -2663,8 +2632,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("CANCEL_SIEGE_OUTPOST_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "COLLECT_VISIBLE") {
             await dispatchDurableCommand("COLLECT_VISIBLE", {});
-          } else if (message.type === "COLLECT_TILE") {
-            await dispatchDurableCommand("COLLECT_TILE", { x: message.x, y: message.y });
           } else if (message.type === "UNCAPTURE_TILE") {
             await dispatchDurableCommand("UNCAPTURE_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CHOOSE_TECH") {
@@ -2684,10 +2651,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               message.type === "SET_CONVERTER_STRUCTURE_MODE" ? { x: message.x, y: message.y, mode: message.mode } : { x: message.x, y: message.y, enabled: message.enabled },
               true
             );
-          } else if (message.type === "REVEAL_EMPIRE") {
-            await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
-          } else if (message.type === "REVEAL_EMPIRE_STATS") {
-            await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
+          } else if (await dispatchAfcOrRevealCommand(message, dispatchDurableCommand)) {
           } else if (message.type === "AETHER_LANCE" || message.type === "AETHER_EMP") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {

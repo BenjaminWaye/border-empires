@@ -113,6 +113,12 @@ export type SimulationSeasonState = {
    *  field existed — callers must treat that as version 1 (setWorldSeed's own
    *  default), never "latest". */
   worldgenVersion?: number;
+  /** World dimensions this season was generated at (WORLD_WIDTH/WORLD_HEIGHT
+   *  env, see @border-empires/shared world-size.ts). Lets ops tell a season
+   *  generated before a size change from one generated after it. Absent on
+   *  seasons created before this field existed -- unknown, not "current". */
+  worldWidth?: number;
+  worldHeight?: number;
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;

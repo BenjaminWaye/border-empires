@@ -1,3 +1,5 @@
+import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
+import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
   BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY,
@@ -21,8 +23,8 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
   return `
     <div class="tile-progress-battle">
       <div class="tile-progress-battle-labels">
-        <span style="color:${battle.attackerColor}">${battle.attackerLabel}</span>
-        <span style="color:${battle.defenderColor}">${battle.defenderLabel}</span>
+        <span style="color:${battle.attackerColor}">${escapeHtml(battle.attackerLabel)} ${attackerPct}%</span>
+        <span style="color:${battle.defenderColor}">${escapeHtml(battle.defenderLabel)} ${100 - attackerPct}%</span>
       </div>
       <div class="tile-progress-battle-bar">
         <div class="tile-progress-battle-attacker" style="width:${attackerPct}%;background:${battle.attackerColor}"></div>
@@ -148,7 +150,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "launch_attack") return "⚔";
   if (id === "reveal_empire") return "◈";
   if (id === "reveal_empire_stats") return "◌";
-  if (id === "collect_yield") return "⛃";
   if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
   if (id === "build_wooden_fort") return "🪵";
@@ -243,10 +244,12 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   return "Progress";
 };
 
-export const tileActionButtonHtml = (action: TileActionDef): string => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
+export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
+
+const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(action.id)}</span>
           <span class="tile-action-copy">
-            <span class="tile-action-label">${action.label}</span>
+            <span class="tile-action-label">${action.label}${action.recommended ? '<span class="tile-action-recommended-badge">★ Recommended</span>' : ""}</span>
             ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}
             ${action.disabled && action.disabledReason ? `<span class="tile-action-blocker">✗ ${action.disabledReason}</span>` : ""}
           </span>
@@ -257,6 +260,9 @@ export const tileActionButtonHtml = (action: TileActionDef): string => `<button 
 // developed settled tile, so it's the only tab grouped by category;
 // actions/crystal stay flat lists (short, and grouping would be noise).
 const BUILDING_GROUP_THRESHOLD = 6;
+
+// Recommended actions (e.g. Settle Land on a town or resource) lead the list; everything else keeps its order.
+const recommendedFirst = (actions: TileActionDef[]): TileActionDef[] => [...actions.filter((a) => a.recommended), ...actions.filter((a) => !a.recommended)];
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   const actionsForTab =
@@ -269,7 +275,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     const listHtml =
       activeTab === "buildings" && actionsForTab.length > BUILDING_GROUP_THRESHOLD
         ? groupedBuildingActionListHtml(actionsForTab)
-        : `<div class="tile-action-list">${actionsForTab.map(tileActionButtonHtml).join("")}</div>`;
+        : `<div class="tile-action-list">${recommendedFirst(actionsForTab).map(tileActionButtonHtml).join("")}</div>`;
     return `${listHtml}${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
   if (activeTab === "progress") {
@@ -286,7 +292,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       <div class="tile-progress-card${cardStateClass}">
         ${stateBadge}
         <div class="tile-progress-title">${view.progress.title}</div>
-        <div class="tile-progress-detail">${view.progress.detail}</div>
+        <div class="tile-progress-detail">${escapeHtml(view.progress.detail)}</div>
         <div class="tile-progress-meta">
           <span>Remaining</span>
           <strong>${view.progress.remainingLabel}</strong>

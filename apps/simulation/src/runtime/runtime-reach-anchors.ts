@@ -15,6 +15,15 @@ import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
  * here.
  */
 
+// Barbarian territory is environment, not a bordered empire: it contributes no
+// reach anchors (see runtime-reach-border-apply.ts's module doc and the
+// "they hold no reach anchors" note in runtime-frontier-command.ts). Without
+// this, a barbarian that captured a player's town/dock (barb tiles go SETTLED
+// the instant they win, and keep the structure) became a real TOWN/DOCK
+// anchor for `barbarian-1`, and a fresh spawn nearby lost every contested
+// reach tile to it -- the barbarian "defended" ground it should never own.
+const isBarbarianOwner = (ownerId: string | undefined): boolean => ownerId?.startsWith("barbarian-") === true;
+
 export interface GatherReachAnchorsDeps {
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -40,6 +49,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
   const { playerSummaries, tiles, activeRelayBeaconsByOwner, activeSiegeOutpostsByOwner, docks, tileSettledAtByKey, now } = deps;
   const anchors: ReachAnchor[] = [];
   for (const [playerId, summary] of playerSummaries) {
+    if (isBarbarianOwner(playerId)) continue;
     for (const tileKey of summary.ownedTownTierByTile.keys()) {
       const tile = tiles.get(tileKey);
       // ownershipState gate: a tile that was overtaken by the unsettle
@@ -63,6 +73,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
     }
   }
   for (const [ownerId, keys] of activeRelayBeaconsByOwner) {
+    if (isBarbarianOwner(ownerId)) continue;
     for (const tileKey of keys) {
       const tile = tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
@@ -70,6 +81,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
     }
   }
   for (const [ownerId, keys] of activeSiegeOutpostsByOwner) {
+    if (isBarbarianOwner(ownerId)) continue;
     for (const tileKey of keys) {
       const tile = tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
@@ -83,7 +95,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
     // settled (including via the out-of-reach auto-settle path in
     // runtime-lock-resolution.ts) before it projects reach, so a raw
     // capture can't instantly bootstrap territory nobody chose to hold.
-    if (!tile?.ownerId || tile.ownershipState !== "SETTLED") continue;
+    if (!tile?.ownerId || isBarbarianOwner(tile.ownerId) || tile.ownershipState !== "SETTLED") continue;
     anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: tileSettledAtByKey.get(dock.tileKey) ?? now, kind: "DOCK" });
   }
   return anchors;
@@ -137,7 +149,9 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   if (isActiveDock && isActiveDock !== wasActiveDock) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveDock, activatedAt: now, kind: "DOCK" });
   }
-  return anchors;
+  // Barbarians hold no anchors (see isBarbarianOwner): a capture hands the
+  // barbarian no activation, so it never writes a border slot.
+  return anchors.length === 0 ? anchors : anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
 }
 
 // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
@@ -181,7 +195,9 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   if (wasActiveDock && wasActiveDock !== isActiveDock) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveDock, activatedAt: now, kind: "DOCK" });
   }
-  return anchors;
+  // Barbarians hold no anchors (see isBarbarianOwner): a barbarian-held
+  // tile never had an anchor to lose.
+  return anchors.length === 0 ? anchors : anchors.filter((anchor) => !isBarbarianOwner(anchor.ownerId));
 }
 
 export function isPlayerTileInReach(playerId: string, x: number, y: number, reachBorder: ReadonlyMap<string, string>): boolean {

@@ -2,6 +2,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.10.03.1",
+    title: "AI empires can extend a full border again",
+    why: "An AI could sometimes stop growing after filling its current reach, even with the gold and manpower to build a Relay Beacon.",
+    changes: [
+      "AI empires now also consider ordinary settled edge tiles when choosing where to build Relay Beacons"
+    ]
+  },
+  {
     createdAt: 1790764192672, // frozen Date.now() value for this release
     introducedIn: "2026.09.30.5",
     title: "Guest \"Save your empire\" badge no longer jumps when pressed",

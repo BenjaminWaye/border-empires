@@ -41,6 +41,8 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CREATE_MOUNTAIN":
     case "REMOVE_MOUNTAIN":
     case "RETORT_RECAST":
+    case "BUILD_AFC":
+    case "REDEPLOY_AFC_MODULE":
     case "AIRPORT_BOMBARD":
     case "IMPERIAL_EXCHANGE_LEVY":
     case "AEGIS_LOCK":
@@ -49,7 +51,6 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "WORLD_ENGINE_STRIKE":
     case "TITANIUM_LEVY_MUSTER":
       return "human_interactive";
-    case "COLLECT_TILE":
     case "COLLECT_VISIBLE":
     case "COLLECT_SHARD":
     case "CHOOSE_TECH":

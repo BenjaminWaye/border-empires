@@ -41,14 +41,14 @@ describe("playerManpowerCapFromSummary / playerManpowerRegenPerMinuteFromSummary
     );
   });
 
-  it("scales linearly with multiple owned AFCs", () => {
+  it("counts the AFC baseline once per House, not per AFC", () => {
     const summary = createEmptyPlayerRuntimeSummary();
     summary.ownedAfcTileKeys.add("10,12");
     summary.ownedAfcTileKeys.add("20,30");
 
-    expect(playerManpowerCapFromSummary(summary)).toBe(STARTING_CAPITAL_MANPOWER_CAP + 2 * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap);
+    expect(playerManpowerCapFromSummary(summary)).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap);
     expect(playerManpowerRegenPerMinuteFromSummary(summary)).toBe(
-      STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + 2 * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute
+      STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute
     );
   });
 });

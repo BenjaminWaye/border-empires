@@ -51,7 +51,6 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "CANCEL_SIEGE_OUTPOST_BUILD":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
-    case "COLLECT_TILE":
     case "AETHER_LANCE":
     case "SIPHON_TILE":
     case "PURGE_SIPHON":

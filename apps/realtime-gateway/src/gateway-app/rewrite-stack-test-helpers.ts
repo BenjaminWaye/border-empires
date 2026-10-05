@@ -43,7 +43,7 @@ export type TestWebSocket = {
 
 export type BufferedSocket = {
   socket: TestWebSocket;
-  nextJsonMessage: (label: string) => Promise<Record<string, unknown>>;
+  nextJsonMessage: (label: string, timeoutMs?: number) => Promise<Record<string, unknown>>;
 };
 
 const WebSocketCtor = (globalThis as typeof globalThis & { WebSocket?: new (url: string) => TestWebSocket }).WebSocket;
@@ -88,7 +88,7 @@ export const openSocket = async (url: string): Promise<BufferedSocket> => {
     // large empire — it can now arrive at almost any point between AUTH and
     // INIT, so tests waiting for a specific reply must transparently skip it
     // rather than every caller re-implementing the same filter.
-    nextJsonMessage: async (label: string) => {
+    nextJsonMessage: async (label: string, timeoutMs?: number) => {
       for (;;) {
         const queued = queuedMessages.shift();
         const parsed = queued
@@ -98,7 +98,8 @@ export const openSocket = async (url: string): Promise<BufferedSocket> => {
                 `message ${label}`,
                 new Promise<string>((resolve) => {
                   pendingResolvers.push(resolve);
-                })
+                }),
+                timeoutMs
               )
             ) as Record<string, unknown>);
         if (parsed.type === "LOGIN_PHASE") continue;
@@ -122,10 +123,11 @@ export const closeSocket = async (socket: TestWebSocket): Promise<void> => {
 
 export const nextNonBootstrapMessage = async (
   socket: BufferedSocket,
-  label: string
+  label: string,
+  timeoutMs?: number
 ): Promise<Record<string, unknown>> => {
   for (;;) {
-    const message = await socket.nextJsonMessage(label);
+    const message = await socket.nextJsonMessage(label, timeoutMs);
     if (message.type === "PLAYER_UPDATE") {
       continue;
     }
@@ -174,10 +176,11 @@ export const nextTypedMessage = async (
 export const nextMatchingMessage = async (
   socket: BufferedSocket,
   label: string,
-  predicate: (message: Record<string, unknown>) => boolean
+  predicate: (message: Record<string, unknown>) => boolean,
+  timeoutMs?: number
 ): Promise<Record<string, unknown>> => {
   for (;;) {
-    const message = await nextNonBootstrapMessage(socket, label);
+    const message = await nextNonBootstrapMessage(socket, label, timeoutMs);
     if (predicate(message)) return message;
   }
 };
@@ -215,3 +218,21 @@ export const createStartupSnapshotStore = async (initialState: RecoveredSimulati
   });
   return snapshotStore;
 };
+
+/**
+ * A runtime `scheduleAfter` for tests that drive timers by hand: real timers
+ * (combat locks, settles, builds) are captured into `captured`, while delay-0
+ * tasks -- job-queue drains for background-scheduled commands such as the
+ * CHECK_STRANDED_REGION the gateway forwards from SUBSCRIBE_CHUNKS -- run on
+ * the next microtask, as they would in production, instead of being mistaken
+ * for a timer the test should fire.
+ */
+export const captureTimersRunningDrains =
+  (captured: Array<{ delayMs: number; task: () => void }>) =>
+  (delayMs: number, task: () => void): void => {
+    if (delayMs === 0) {
+      queueMicrotask(task);
+      return;
+    }
+    captured.push({ delayMs, task });
+  };

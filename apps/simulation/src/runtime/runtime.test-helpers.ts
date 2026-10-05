@@ -43,3 +43,5 @@ export const collectEvents = (runtime: SimulationRuntime): SimulationEvent[] => 
   });
   return seen;
 };
+
+export { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";

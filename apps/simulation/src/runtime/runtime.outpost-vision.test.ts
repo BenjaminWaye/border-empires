@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
+import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 // A Relay Beacon reveals a flat 5-tile ring around itself (RELAY_BEACON_VISION_BONUS,
 // config.ts); Survey Corps's outpostVisionRadiusBonus tech effect adds +1 on
@@ -52,7 +53,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
 
     const keys = visibleTileKeys(runtime, "player-1");
     expect(keys.has("15,10")).toBe(true); // dx=5, within the flat bonus
-    expect(keys.has("16,10")).toBe(false); // dx=6, outside it
+    expect(keys.has("16,10")).toBe(true); // one tile outside the Relay Beacon's reach
   });
 
   it("building a Siege Outpost on a Relay Beacon tile is rejected — no in-place upgrade — and the beacon's vision bonus is unaffected", async () => {
@@ -67,7 +68,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
         initialPlayers: new Map([["player-1", makePlayer("player-1", ["leatherworking"], [])]]),
         seedTiles: new Map(),
         initialState: {
-          tiles: [
+          tiles: [afcModuleFixtureTile("player-1"), 
             ...tiles,
             {
               x: 10,
@@ -286,7 +287,9 @@ describe("SimulationRuntime outpost vision bonus", () => {
     });
     await Promise.resolve();
 
-    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+    // The beacon's separate bonus is gone, but the authoritative reach it
+    // established remains visible until another owner displaces it.
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
 
     runtime.submitCommand({
       commandId: "enable-outpost",
@@ -355,7 +358,8 @@ describe("SimulationRuntime outpost vision bonus", () => {
     await Promise.resolve();
 
     // The sixth outpost's own tile never changed — only the FARM tile did —
-    // but it's now dormant for lack of a FOOD slot, so its ring is gone.
-    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+    // and its separate bonus is gone. Its already-established authoritative
+    // reach remains visible until displaced by another owner.
+    expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
   });
 });

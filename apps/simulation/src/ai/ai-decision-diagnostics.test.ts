@@ -46,6 +46,17 @@ describe("recordAiDecisionDiagnosticFromPlanner — neighborCandidateTotal / mis
   });
 });
 
+describe("getAiDecisionDiagnostics — all-player response cap", () => {
+  it("caps the unfiltered diagnostic response while retaining per-player history", () => {
+    for (let i = 0; i < 201; i += 1) {
+      recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: `ai-decision-diag-all-cap-${i}` }));
+    }
+
+    expect(getAiDecisionDiagnostics()).toHaveLength(200);
+    expect(getAiDecisionDiagnostics("ai-decision-diag-all-cap-0")).toHaveLength(1);
+  });
+});
+
 describe("recordAiDecisionDiagnosticFromPlanner — frontierOriginKeysSample", () => {
   // Answers "what tile is the AI stuck scanning" from /admin/debug/ai/decisions
   // directly, without a live gRPC/SQLite lookup against the running sim.

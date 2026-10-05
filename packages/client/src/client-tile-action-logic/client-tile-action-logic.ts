@@ -66,6 +66,17 @@ import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, owned
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
+import { afcModuleActionsForTile, buildAfcActionForTile } from "../client-afc-actions.js";
+import {
+  hasAetherBridgeCapability,
+  hasAetherWallCapability,
+  hasLocalDevAetherWallOverride,
+  hasRevealCapability,
+  hasSiphonCapability
+} from "./client-tile-action-capabilities.js";
+
+export { hasAetherBridgeCapability, hasAetherWallCapability, hasLocalDevAetherWallOverride, hasRevealCapability, hasSiphonCapability } from "./client-tile-action-capabilities.js";
+export { hasOwnedLandWithinClientRange } from "../client-owned-land-range.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -168,33 +179,10 @@ export type TileActionLogicDeps = {
   connectedOwnedFrontierKeysFor: (tile: Tile) => string[];
 };
 
-export const hasRevealCapability = (state: ClientState): boolean =>
-  state.techIds.includes("beacon-towers") || state.activeRevealTargets.length > 0;
-
-export const hasAetherBridgeCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "aether_bridge");
-
-export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => state.localhostDevAetherWall === true;
-
-export const hasAetherWallCapability = (state: ClientState): boolean =>
-  playerHasAbilityTech(state.techIds, "aether_wall") || hasLocalDevAetherWallOverride(state);
-export const hasSiphonCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "siphon");
 export const hasRetortRecastingCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "retort_recast");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
-export const hasOwnedLandWithinClientRange = (
-  state: ClientState,
-  x: number,
-  y: number,
-  range: number,
-  deps: Pick<TileActionLogicDeps, "chebyshevDistanceClient">
-): boolean => {
-  for (const tile of state.tiles.values()) {
-    if (tile.fogged || tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
-    if (deps.chebyshevDistanceClient(tile.x, tile.y, x, y) <= range) return true;
-  }
-  return false;
-};
 
 export const aetherWallDirectionLabel = (direction: ClientState["aetherWallTargeting"]["direction"]): string => {
   if (direction === "N") return "North";
@@ -511,6 +499,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
   // are the universal first gates per design.
   const crystalCoreActions = (): TileActionDef[] => {
     const out: TileActionDef[] = [];
+    out.push(...afcModuleActionsForTile(state, tile, tileActionAvailability));
     const now = Date.now();
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
     const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
@@ -655,6 +644,8 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    const buildAfcAction = buildAfcActionForTile(state, tile, tileActionAvailability);
+    if (buildAfcAction) out.push(buildAfcAction);
     const supportedTowns = deps.supportedOwnedTownsForTile(tile);
     const supportedTown = supportedTowns[0];
     const supportedDocks = deps.supportedOwnedDocksForTile(tile);

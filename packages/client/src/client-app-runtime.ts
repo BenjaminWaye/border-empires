@@ -83,7 +83,7 @@ import {
   builtResourceOverlayForTile,
   dockOverlayVariants,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
-  drawBarbarianColossusOverlay as drawBarbarianColossusOverlayOnCanvas,
+  drawPlanetaryDefenseOverlay as drawPlanetaryDefenseOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
@@ -171,7 +171,7 @@ const {
   drawTerrainTile,
   drawForestOverlay,
   drawHillsOverlay,
-  drawBarbarianColossusOverlay,
+  drawPlanetaryDefenseOverlay,
   drawIncomingAttackOverlay,
   drawTownOverlay,
   drawTownMarker,
@@ -209,8 +209,7 @@ const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, 
 const {
   hasCollectableYield,
   clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
-  applyOptimisticTileCollect
+  revertOptimisticTileCollectDelta
 } = createClientCollectSupport({
   state,
   tileVisibilityStateAt,
@@ -432,7 +431,6 @@ bootstrapClientApp({
   notifyInsufficientGoldForFrontierAction,
   clearPendingCollectTileDelta,
   revertOptimisticTileCollectDelta,
-  applyOptimisticTileCollect,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,
@@ -483,6 +481,6 @@ bootstrapClientApp({
   displayTownGoldPerMinute,
   tileHistoryLines,
   hideShardAlert,
-  drawBarbarianColossusOverlay,
+  drawPlanetaryDefenseOverlay,
   drawIncomingAttackOverlay
 });
