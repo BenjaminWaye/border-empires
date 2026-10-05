@@ -2,7 +2,7 @@
 
 Status: active proposal
 Owner: Benjamin Waye (gameplay decisions below); implementation by agent
-Last verified: 2026-10-04
+Last verified: 2026-10-05
 Replaces: none
 
 ## Problem
@@ -45,6 +45,18 @@ Evidence gathered so far:
    moves, but the gateway drops it as an ignored legacy message
    (`apps/realtime-gateway/src/gateway-app/gateway-app.ts`, `ignoredLegacyMessageTypes`).
 
+## Delivery status
+
+Phases 0-3 shipped together in PR #2228, with the owner's decisions below.
+Phase 4 is still conditional on Phase 3's counters. The rule itself is now
+documented in `docs/game-mechanics.md` ("Frontier supply (encirclement) vs
+out-of-reach decay"); archive this plan once Phase 4 is decided.
+
+Measured cost (perf gate `stranded-frontier-perf.test.ts`, loaded dev machine):
+worst-case region check (a whole 64x64 chunk of capped frontier) about 5 ms,
+worst-case origin slow path (capped at 512 tiles) about 2 ms. The common origin
+case is the 8-neighbour fast path.
+
 ## Proposed change
 
 ### Phase 0: close the leaking paths (in this PR)
@@ -58,9 +70,10 @@ Tile shedding, Aether Lance, airport bombardment and Create Mountain now call
 - New pure function in `apps/simulation/src/encirclement/`: given seed tiles and
   an owner, return the owner's frontier tiles in that component that cannot
   reach a SETTLED or frontier-dock tile (aether bridge links count).
-- Neighbor walk uses integer index math, not per-neighbor string keys, and an
+- Neighbor walk reads coordinates from the tile (no key re-parsing) and uses an
   index-based queue (the existing `isFrontierConnected` uses `queue.shift()`,
-  which is quadratic on large components).
+  which is quadratic on large components). Map lookups still build `"x,y"`
+  string keys, because the runtime tile map is keyed that way.
 - Hard cap on visited tiles. Hitting the cap **fails open** (releases nothing)
   and increments a counter, per the "counter on every guard" rule.
 - Unit tests plus a perf test modelled on the existing encirclement perf gate.
@@ -83,7 +96,8 @@ Tile shedding, Aether Lance, airport bombardment and Create Mountain now call
 
 - Gateway: handle `SUBSCRIBE_CHUNKS` instead of ignoring it, and forward the
   camera's centre chunk to the sim as a low-priority system command. No client
-  change is needed.
+  change is needed. The chunk is `CHUNK_SIZE` (64x64), larger than the 20x20
+  originally discussed, because the client only sends its camera chunk.
 - Simulation: for that region, check FRONTIER tiles of **every** owner (so an
   offline player's strands are cleaned when someone else looks at them), run the
   Phase 1 finder per owner, and release stranded components.
@@ -105,14 +119,16 @@ if the measured cost is material.
 - Out-of-reach decay (timer-based, deadline queue) is unchanged.
 - No periodic world sweep is reintroduced.
 
-## Decisions needed (owner)
+## Decisions (owner, 2026-10-05)
 
-1. Phase 2 is a gameplay change: players lose stranded tiles as launch points.
-   It restores the intended rule, but players will notice. Accept?
-2. Phase 3 scope: check every owner's tiles in the viewport (recommended) or
-   only the viewer's?
-3. Order: Phase 2 stops strands from growing, so the recommendation is
-   Phase 1 → Phase 2 → Phase 3, with Phase 4 decided on data.
+1. Encirclement and out-of-reach decay are different rules. A cut-off tile
+   decays instantly, so an action from one releases it and fails; that is the
+   existing rule applied at action time, not a new restriction. A tile that is
+   out of reach (decaying on a timer) but still connected must remain a valid
+   origin to expand from.
+2. Phase 3 checks every owner's tiles in the viewport, so a viewer never sees
+   an enemy's cut-off tiles linger.
+3. Deliver Phases 1-3 together.
 
 ## Acceptance criteria
 

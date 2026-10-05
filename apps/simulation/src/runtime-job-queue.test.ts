@@ -120,8 +120,8 @@ describe("runtime-job-queue", () => {
 
     it("attaches commandType and commandId only when provided", () => {
       const { ctx, state, jobsByLane } = createHarness();
-      enqueueJob(ctx, state, "ai", () => {}, "COLLECT_TILE", "background", "cmd-1");
-      expect(jobsByLane.ai[0]?.commandType).toBe("COLLECT_TILE");
+      enqueueJob(ctx, state, "ai", () => {}, "COLLECT_VISIBLE", "background", "cmd-1");
+      expect(jobsByLane.ai[0]?.commandType).toBe("COLLECT_VISIBLE");
       expect(jobsByLane.ai[0]?.commandId).toBe("cmd-1");
       expect(jobsByLane.ai[0]?.scheduling).toBe("background");
 
@@ -319,12 +319,12 @@ describe("runtime-job-queue", () => {
         return run;
       });
       const { ctx, state, jobsByLane } = createHarness({ wrapJobRun });
-      jobsByLane.system.push({ lane: "system", run: vi.fn(), enqueuedAt: 0, scheduling: "immediate", commandType: "COLLECT_TILE", commandId: "cmd-9" });
+      jobsByLane.system.push({ lane: "system", run: vi.fn(), enqueuedAt: 0, scheduling: "immediate", commandType: "COLLECT_VISIBLE", commandId: "cmd-9" });
 
       drainQueues(ctx, state);
 
       expect(wrapJobRun).toHaveBeenCalledTimes(1);
-      expect(calls[0]).toEqual({ lane: "system", commandType: "COLLECT_TILE", commandId: "cmd-9" });
+      expect(calls[0]).toEqual({ lane: "system", commandType: "COLLECT_VISIBLE", commandId: "cmd-9" });
     });
 
     it("runs the job directly when wrapJobRun is not provided", () => {

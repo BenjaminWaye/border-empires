@@ -360,8 +360,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -391,8 +391,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 2,
       issuedAt: 120_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 11, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -494,8 +494,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -1206,6 +1206,7 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 25, y: 244, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           {
             x: 24,
             y: 245,
@@ -1255,6 +1256,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -1388,56 +1390,6 @@ describe("simulation runtime", () => {
     expect(rejectSeen[0]).toBe("COMMAND_REJECTED");
   });
 
-  it("emits a fresh player update after collecting buffered tile yield", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 60_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 10,
-            y: 10,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "MARKET", populationTier: "SETTLEMENT" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 60_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
-    });
-
-    await Promise.resolve();
-
-    expect(seen.map((event) => event.eventType)).toContain("COLLECT_RESULT");
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    expect(playerUpdateEvent).toEqual(
-      expect.objectContaining({
-        playerId: "player-1",
-        messageType: "PLAYER_UPDATE"
-      })
-    );
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as { gold?: number };
-    expect(payload.gold).toBeGreaterThan(0); // was >0.9 pre-gold-rescope (§6.1); just assert some gold was credited
-  });
-
   it("no longer drains food upkeep from the stockpile (§5.4: FOOD is slot-based, town upkeep is 0)", async () => {
     let currentNow = 60_000;
     const runtime = new SimulationRuntime({
@@ -1470,8 +1422,8 @@ describe("simulation runtime", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
 
     await Promise.resolve();
@@ -1674,111 +1626,6 @@ describe("simulation runtime", () => {
     const exported = runtime.exportState();
     const player = exported.players.find((p) => p.id === "player-1");
     expect(player?.strategicResources.FOOD).toBe(100);
-  });
-
-  it("advances the per-tile anchor so a later collect only picks up leftover yield", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
-    // before any drain); UMBRITE_SYNTHESIZER draws the §6.4-decided 30
-    // gold/day (~1.25 gold over 60 min) — the only structure family that
-    // still carries an ongoing gold upkeep post-§12.1. Accrual consumes
-    // that from the buffer and advances the tile's anchor. A subsequent
-    // COLLECT_TILE should only see the leftover — strictly less than the
-    // full ~610 undrained yield, which would happen if the anchor hadn't
-    // moved — but very close to it, since the drain itself is now tiny.
-    currentNow += 60 * 60_000;
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 5, y: 5 })
-    });
-    await Promise.resolve();
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(600);
-    expect(player?.points).toBeLessThan(610);
-  });
-
-  it("collects no FOOD on a mixed-yield tile — FOOD production is retired (§5.4: slot-based, not yield-based)", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 0 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            resource: "FARM",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 10 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "GARRISON_HALL", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // The mixed-yield tile (5,5) produces 10 gold/min; FOOD production is
-    // retired (§5.4: FOOD is slot-based, not yield-based) so there's no FOOD
-    // left in this tile's yield to collect, regardless of the shared anchor.
-    currentNow += 60 * 60_000;
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 5, y: 5 })
-    });
-    await Promise.resolve();
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.strategicResources.FOOD).toBe(0);
   });
 
   it("does not choose unaffordable frontier actions for AI automation", () => {
@@ -2150,6 +1997,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
+            { x: 9, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the recovered origin (10,10) (stranded origins decay)
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 7, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND" },
@@ -2216,6 +2064,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -2258,23 +2107,17 @@ describe("simulation runtime", () => {
       expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
-      // (no absolute manpower assertion here — player-1 also respawns with a fresh SETTLEMENT, granting extra cap per §4.3, on top of the manpowerDelta loss already asserted above)
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
           ownershipState: "SETTLED"
         })
       );
-      expect(exported.players.find((entry) => entry.id === "player-1")?.points).toBe(100); // §24.2: 100 default - 1 FRONTIER_CLAIM_COST + full integrity income
-      const respawnPlayerUpdate = seen.find(
-        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-          event.eventType === "PLAYER_MESSAGE" &&
-          event.playerId === "player-1" &&
-          event.commandId === "lose-attack-1:respawn:player-1" &&
-          event.messageType === "PLAYER_UPDATE"
+      // The attacker keeps its supply settlement (it is no longer eliminated, so no respawn here;
+      // respawn-from-zero-territory has its own tests above).
+      expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 9)).toEqual(
+        expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" })
       );
-      const respawnPayload = respawnPlayerUpdate?.payloadJson ? JSON.parse(respawnPlayerUpdate.payloadJson) as { gold?: number } : {};
-      expect(respawnPayload.gold).toBe(100);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -2373,6 +2216,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             {
               x: 10,
@@ -2513,6 +2357,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 13, y: 272, terrain: "LAND", ownerId: "captor", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             // Captor sits on a FRONTIER tile that still carries the captured town record.
             {
               x: 14,
@@ -2646,6 +2491,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -4355,6 +4201,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialState: {
         tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 10, y: 12 }
@@ -4401,6 +4248,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       initialState: {
         tiles: [
+          { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 10, y: 9, ownerId: "player-3", ownershipState: "FRONTIER" }
@@ -4622,6 +4470,7 @@ describe("simulation runtime", () => {
         now: () => 1_000,
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             {
               x: 10,
               y: 10,
@@ -4677,6 +4526,7 @@ describe("simulation runtime", () => {
         ]),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
             { x: 10, y: 8, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 10, y: 11, terrain: "LAND" },
@@ -6511,6 +6361,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -6618,6 +6469,8 @@ describe("simulation runtime", () => {
         economicStructure: { ownerId, type: "WEAPONS_WORKSHOP" as const, status: "active" as const }
       });
       const tiles = [
+        // Attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors the attacker's factory tiles.
+        { x: 10, y: 9, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } },
         {
           x: 10,
           y: 10,
@@ -6715,6 +6568,7 @@ describe("simulation runtime", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           {
             x: 10,
             y: 10,
@@ -6801,6 +6655,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 10,
               y: 10,
@@ -7098,6 +6953,7 @@ describe("simulation runtime", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
             ],
@@ -7673,6 +7529,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,
@@ -7753,6 +7610,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,
@@ -7836,6 +7694,7 @@ describe("simulation runtime — shard rain", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
+              { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
               { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
               {
                 x: 10,

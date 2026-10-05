@@ -498,7 +498,6 @@ import {
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
 import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
-import { handleCollectTileCommand as handleCollectTileCommandImpl } from "../runtime-collect-tile-command.js";
 import { createStrandedFrontierCleanup, handleCheckStrandedRegionCommand as handleCheckStrandedRegionCommandImpl } from "../stranded-frontier/stranded-frontier-cleanup.js";
 import {
   handleRushBuyCommandImpl,
@@ -3560,20 +3559,6 @@ export class SimulationRuntime {
     return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
   }
 
-  private handleCollectTileCommand(command: CommandEnvelope): void {
-    handleCollectTileCommandImpl({
-      players: this.state.players,
-      tiles: this.state.tiles,
-      now: this.now,
-      rejectCommand: (cmd, code, message) => this.rejectCommand(cmd, code, message),
-      applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      collectTileYield: (tile, now, cmd) => this.collectTileYield(tile, now, cmd),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitPlayerStateUpdate: (cmd) => this.emitPlayerStateUpdate(cmd)
-    }, command);
-  }
-
   private handleCollectVisibleCommand(command: CommandEnvelope): void {
     const actor = this.state.players.get(command.playerId);
     if (!actor) { this.rejectCommand(command, "BAD_COMMAND", "unknown player"); return; }
@@ -3940,39 +3925,6 @@ export class SimulationRuntime {
     return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y));
   }
 
-  private collectTileYield(
-    tile: DomainTileState,
-    now: number,
-    command: Pick<CommandEnvelope, "commandId" | "playerId">,
-    context?: RuntimeTileYieldEconomyContext,
-    options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
-  ): {
-    gold: number;
-    strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-  } {
-    const creditStrategic = options.creditStrategic ?? true;
-    const persistAnchor = options.persistAnchor ?? true;
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const player = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
-    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, yieldViewEconomyContextImpl(player, resolvedContext, this.state.tiles, this.state.dockLinksByDockTileKey));
-    const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
-    const strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> = {};
-    for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
-      ["FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number]
-    >) {
-      if (amount > 0) {
-        strategic[resource] = amount;
-        if (creditStrategic && player) this.addStrategicResource(player, resource, amount);
-      }
-    }
-    if (persistAnchor && (gold > 0 || Object.keys(strategic).length > 0)) {
-      this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
-    }
-    return { gold, strategic };
-  }
-
   private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return strategicResourceAmountImpl(player, resource); }
 
   private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean { return spendStrategicResourceImpl(player, resource, amount); }
@@ -4286,7 +4238,6 @@ export class SimulationRuntime {
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeOutpostBuildCommand: (command) => handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command),
-      handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
