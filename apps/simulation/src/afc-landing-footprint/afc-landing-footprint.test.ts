@@ -73,4 +73,15 @@ describe("prepareAfcLandingFootprint", () => {
     // No mountain was flattened, so the terrain epoch is untouched.
     expect(epochBumps).toBe(0);
   });
+
+  it("does not alter content on non-mountain footprint tiles", () => {
+    setWorldSeed(1234, "continents", 1);
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(9, 9), { x: 9, y: 9, terrain: "LAND", resource: "FARM" }],
+      [simulationTileKey(10, 9), { x: 10, y: 9, terrain: "LAND", town: { type: "MARKET", populationTier: "SETTLEMENT" } }]
+    ]);
+    expect(prepareAfcLandingFootprint({ tiles, replaceTileState: (key, tile) => tiles.set(key, tile), bumpTerrainEpoch: () => undefined }, 10, 10, "cmd")).toEqual([]);
+    expect(tiles.get(simulationTileKey(9, 9))?.resource).toBe("FARM");
+    expect(tiles.get(simulationTileKey(10, 9))?.town).toBeDefined();
+  });
 });

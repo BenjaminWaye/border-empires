@@ -394,3 +394,41 @@ describe("chooseLegacySpawnPlacement AFC dry-footprint rule", () => {
     expect(chooseLegacySpawnPlacement({ playerId: "lonely", tiles })).toEqual({ x: 2, y: 2 });
   });
 });
+
+describe("chooseLegacySpawnPlacement AFC clear-neighbourhood rule", () => {
+  const lattice = (clearPocket: boolean): DomainTileState[] => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 31; y += 1) {
+      for (let x = 0; x < 31; x += 1) {
+        const tile: DomainTileState = { x, y, terrain: "LAND" };
+        const inPocket = clearPocket && x >= 10 && x <= 16 && y >= 10 && y <= 16;
+        if (x % 3 === 0 && y % 3 === 0 && !inPocket) {
+          const kind = (x / 3 + y / 3) % 3;
+          if (kind === 0) tile.town = { type: "MARKET", populationTier: "SETTLEMENT" };
+          else if (kind === 1) tile.dockId = `dock-${x}-${y}`;
+          else tile.resource = "IRON";
+        }
+        tiles.push(tile);
+      }
+    }
+    return tiles;
+  };
+
+  it("only spawns where the tile and all 8 neighbours are free of towns, docks and resources", () => {
+    const tiles = lattice(true);
+    const featureKeys = new Set(tiles.filter((tile) => tile.town || tile.dockId || tile.resource).map((tile) => simulationTileKey(tile.x, tile.y)));
+    expect(featureKeys.size).toBeGreaterThan(0);
+    for (const playerId of ["afc-a", "afc-b", "afc-c", "afc-d", "afc-e"]) {
+      const spawn = chooseLegacySpawnPlacement({ playerId, tiles });
+      expect(spawn).toBeDefined();
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) expect(featureKeys.has(simulationTileKey(spawn!.x + dx, spawn!.y + dy))).toBe(false);
+      }
+    }
+  });
+
+  it("refuses to spawn when every 3x3 footprint contains a town, dock, or resource", () => {
+    const tiles = lattice(false);
+    expect(chooseLegacySpawnPlacement({ playerId: "afc-none", tiles })).toBeUndefined();
+  });
+});

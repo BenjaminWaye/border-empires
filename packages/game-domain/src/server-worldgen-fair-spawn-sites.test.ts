@@ -1,6 +1,7 @@
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "./index/index.js";
-import { computeFairSpawnSites, hasWaterNeighbor } from "./server-worldgen-fair-spawn-sites.js";
+import { computeAfcBlockerKeys, computeFairSpawnSites, hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite } from "./server-worldgen-fair-spawn-sites.js";
 
 describe("computeFairSpawnSites", () => {
   const buildLandGrid = (size: number): DomainTileState[] => {
@@ -109,5 +110,61 @@ describe("AFC dry-footprint rule", () => {
     const sites = computeFairSpawnSites(tiles, 200);
     expect(sites.length).toBeGreaterThan(0);
     expect(sites.some((site) => site.x === 1)).toBe(false);
+  });
+});
+
+describe("AFC clear-neighbourhood rule", () => {
+  // 31x31 land with a town/dock/resource on a 3-tile lattice, so every tile has
+  // a feature on it or in its 8-neighbourhood -- except inside the carved-out
+  // pocket, where only the pocket's inner 3x3 is fully clear.
+  const buildFeatureLattice = (clearPocket = true): DomainTileState[] => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 31; y += 1) {
+      for (let x = 0; x < 31; x += 1) {
+        const tile: DomainTileState = { x, y, terrain: "LAND" };
+        const inPocket = clearPocket && x >= 10 && x <= 16 && y >= 10 && y <= 16;
+        if (x % 3 === 0 && y % 3 === 0 && !inPocket) {
+          const kind = (x / 3 + y / 3) % 3;
+          if (kind === 0) tile.town = { type: "MARKET", populationTier: "SETTLEMENT" };
+          else if (kind === 1) tile.dockId = `dock-${x}-${y}`;
+          else tile.resource = "IRON";
+        }
+        tiles.push(tile);
+      }
+    }
+    return tiles;
+  };
+
+  it("tileBlocksAfcSite flags towns, docks and resources only", () => {
+    expect(tileBlocksAfcSite({ town: { type: "MARKET", populationTier: "SETTLEMENT" } })).toBe(true);
+    expect(tileBlocksAfcSite({ dockId: "d" })).toBe(true);
+    expect(tileBlocksAfcSite({ resource: "FARM" })).toBe(true);
+    expect(tileBlocksAfcSite({})).toBe(false);
+    expect(tileBlocksAfcSite(undefined)).toBe(false);
+  });
+
+  it("rejects a footprint that touches a feature across the world seam", () => {
+    const blockers = computeAfcBlockerKeys([
+      { x: 0, y: 10, terrain: "LAND" },
+      { x: WORLD_WIDTH - 1, y: 10, terrain: "LAND", dockId: "seam-dock" }
+    ]);
+    expect(isAfcSiteClear((x, y) => blockers.has(`${x},${y}`), 0, 10)).toBe(false);
+  });
+
+  it("never rosters a site that is, or touches, a town, dock or resource", () => {
+    const tiles = buildFeatureLattice();
+    const blockers = computeAfcBlockerKeys(tiles);
+    expect(blockers.size).toBeGreaterThan(0);
+    const sites = computeFairSpawnSites(tiles, 200);
+    expect(sites.length).toBeGreaterThan(0);
+    for (const site of sites) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) expect(blockers.has(`${site.x + dx},${site.y + dy}`)).toBe(false);
+      }
+    }
+  });
+
+  it("returns no roster when every site touches a feature (no soft fallback)", () => {
+    expect(computeFairSpawnSites(buildFeatureLattice(false), 200)).toEqual([]);
   });
 });
