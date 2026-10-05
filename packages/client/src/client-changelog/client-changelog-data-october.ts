@@ -1,6 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1790884828288, // frozen Date.now() value for this release
     introducedIn: "2026.10.01.1",
@@ -9,49 +9,6 @@ export const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Your reach is now worked out once per change instead of every frame, so selecting tiles no longer drags down the frame rate in the 3D map",
       "The 2D map shares the same reach cache. Reach borders and the orange out-of-reach selection tint look and behave exactly as before"
-    ]
-  },
-  {
-    createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
-    introducedIn: "2026.09.29.1",
-    title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
-    why: "Only Aether Purge and Aether EMP were checked against enemy Aether Towers. Aether Bridge landings and Create/Remove Mountain went through even next to an enemy tower, and a tower also blocked abilities on land it didn't own.",
-    changes: [
-      "An Aether Tower now protects only its owner's own tiles within its radius -- never unclaimed land or another player's tiles -- and the tower description says so",
-      "Aether Bridge can't land on enemy land their Aether Tower protects; landing on unclaimed land is never blocked",
-      "Create/Remove Mountain are blocked on land protected by its owner's Aether Tower, like Aether Purge and EMP",
-      "Hidden enemy Aether Towers block these abilities too -- you'll see \"blocked by an Aether Tower\" when that happens"
-    ]
-  },
-  {
-    createdAt: 1790702571174,
-    introducedIn: "2026.09.28.1",
-    title: "Login now shows each step of building your map",
-    why: "After your world downloaded, the login screen sat on \"Building your map\" with a full progress bar while the map was built in one long freeze, so it looked stuck.",
-    changes: [
-      "After the download, the login screen now walks through each step of building your map (setting up graphics, shaping the land, placing towns, preparing shaders, drawing the map) with \"Step 2 of 5\" and about how long is left",
-      "The time estimate learns how fast your device builds each step, so it gets more accurate after your first login",
-      "Logging in with a large empire freezes the screen for less time: the minimap is drawn in small pieces after the map appears, and the Empire Integrity panel is no longer recalculated on every screen refresh"
-    ]
-  },
-  {
-    createdAt: 1790702571173, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
-    introducedIn: "2026.09.22.2",
-    title: "Seed Granary removed",
-    why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
-    changes: [
-      "Seed Granary can no longer be built or upgraded to",
-      "Any Seed Granary from before this update automatically reverts to a plain Granary (Incubation Engine) the next time the server restarts -- no action needed, and its town keeps producing population growth as a Granary"
-    ]
-  },
-  {
-    createdAt: 1790702571173, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.27.2",
-    title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
-    why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",
-    changes: [
-      "When a shield actually matches your attack, the shielding flag's tile is now revealed to you even if you had no vision of it, so you can see what fought back",
-      "In the 3D map, that flag's company now marches from the shield tile to the fight and disappears once the battle resolves -- the visible tell that a shield mattered"
     ]
   },
   {
@@ -340,3 +297,12 @@ export const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   }
 ];
+
+// The live changelog's newest entry is maintained in client-changelog-data.ts.
+// These October entries are retained here as source history, but entries older
+// than that live window must not enter the client bundle.
+const oldestAllowedAt = 1790707598992;
+
+export const RECENT_CLIENT_CHANGELOG_ENTRIES = OCTOBER_CHANGELOG_ENTRIES.filter(
+  (entry) => entry.createdAt >= oldestAllowedAt
+);

@@ -22,7 +22,7 @@ export type ClientChangelogEntry = {
   changes: string[];
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
-export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1791195855000, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.1",
@@ -138,3 +138,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
 ];
+
+const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
+const oldestAllowedAt = latestCreatedAt - 6 * 24 * 60 * 60 * 1000;
+
+export const CLIENT_CHANGELOG_ENTRIES = ALL_CLIENT_CHANGELOG_ENTRIES.filter(
+  (entry) => entry.createdAt >= oldestAllowedAt
+);
