@@ -1,4 +1,5 @@
 import { formatMetricValue } from "./metrics-format.js";
+import { renderStrandedFrontierPrometheusLines } from "../stranded-frontier/stranded-frontier-metrics.js";
 import {
   AI_PLANNER_PHASES,
   AI_TICK_THROTTLE_REASONS,
@@ -326,5 +327,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
 
+  lines.push(...renderStrandedFrontierPrometheusLines());
   return lines.join("\n");
 };

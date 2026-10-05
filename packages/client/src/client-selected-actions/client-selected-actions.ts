@@ -183,29 +183,6 @@ export const dismissOngoingCapture = (
   state.dismissedCaptureStartAt = state.capture?.startAt;
 };
 
-export const collectSelectedYield = (
-  state: Pick<ClientState, "selected" | "tiles" | "me">,
-  deps: SelectedActionDepsBase & {
-    keyFor: (x: number, y: number) => string;
-    renderHud: () => void;
-    applyOptimisticTileCollect: (tile: Tile) => boolean;
-    sendGameMessage: (payload: unknown) => boolean;
-  }
-): void => {
-  const selected = state.selected;
-  if (!selected) return;
-  const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
-  if (tile?.fogged) {
-    notifySelectedActionBlocked(deps, "Action blocked", "Selected tile is not currently visible.");
-    deps.renderHud();
-    return;
-  }
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") return;
-  deps.applyOptimisticTileCollect(tile);
-  deps.renderHud();
-  deps.sendGameMessage({ type: "COLLECT_TILE", x: selected.x, y: selected.y });
-};
-
 export const collectSelectedShard = (
   state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile" | "pendingShardCollect">,
   deps: {

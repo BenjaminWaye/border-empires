@@ -24,7 +24,9 @@ const SimulationCommandTypeSchema = z.union([
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
   z.literal("WATCH_MUSTER"),
-  z.literal("UNWATCH_MUSTER")
+  z.literal("UNWATCH_MUSTER"),
+  // Gateway-forwarded, never persisted: releases stranded frontier tiles in the chunk a player is viewing.
+  z.literal("CHECK_STRANDED_REGION")
 ]);
 
 export const CommandEnvelopeSchema = z.object({

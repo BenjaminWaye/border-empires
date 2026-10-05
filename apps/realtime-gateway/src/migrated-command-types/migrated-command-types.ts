@@ -29,7 +29,6 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CANCEL_SIEGE_OUTPOST_BUILD",
   "CANCEL_CAPTURE",
   "UNCAPTURE_TILE",
-  "COLLECT_TILE",
   "COLLECT_VISIBLE",
   "CHOOSE_TECH",
   "CHOOSE_DOMAIN",

@@ -29,6 +29,7 @@ describe("simulation runtime — no war industry defense vulnerability", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             {
               x: 10,
               y: 10,

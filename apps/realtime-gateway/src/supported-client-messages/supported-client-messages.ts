@@ -25,7 +25,6 @@ export const supportedClientMessageTypes = [
   "CANCEL_SIEGE_OUTPOST_BUILD",
   "CANCEL_CAPTURE",
   "UNCAPTURE_TILE",
-  "COLLECT_TILE",
   "COLLECT_VISIBLE",
   "SURVEY_SWEEP",
   "CHOOSE_TECH",

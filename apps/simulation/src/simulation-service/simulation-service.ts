@@ -1410,7 +1410,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // after a player's first collided with UNIQUE(player_id, client_seq) —
     // the gateway submits them with clientSeq 0 by design.
     const isEphemeralViewCommand =
-      (command.type as string) === "WATCH_MUSTER" || (command.type as string) === "UNWATCH_MUSTER";
+      (command.type as string) === "WATCH_MUSTER" || (command.type as string) === "UNWATCH_MUSTER" || command.type === "CHECK_STRANDED_REGION";
     if (isEphemeralViewCommand) {
       simulationMetrics.incrementSimEphemeralCommandPersistSkipped();
     } else {
