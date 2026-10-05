@@ -48,7 +48,18 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
           ownershipState: "SETTLED",
           town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
         },
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        // The gateway's auth hook backfills an AFC for pre-AFC empires. Make
+        // this fixture post-migration so that unrelated infrastructure repair
+        // cannot alter the MARCH corridor while the test awaits its transit
+        // action.
+        {
+          x: 10,
+          y: 11,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          afc: { ownerId: "player-1", status: "active", activatedAt: 1_000 }
+        },
         { x: 10, y: 12, terrain: "LAND", ownershipState: "FRONTIER" },
         { x: 10, y: 14, terrain: "LAND", ownershipState: "FRONTIER" }
       ],
