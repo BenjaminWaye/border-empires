@@ -5,7 +5,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { applyBarbarianWalkOrMultiply, type BarbarianWalkContext } from "../runtime-barbarian-walk.js";
 import type { LockRecord } from "../runtime-types.js";
-import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
+import { buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
 
 // A barbarian ATTACK leaves its origin tile when the attack starts. Otherwise a
 // player who defeats the launch tile mid-fight would still watch the barbarian
@@ -27,7 +27,7 @@ const buildRuntime = (target: "FRONTIER" | "SETTLED") =>
     now: () => 1_000,
     initialPlayers: new Map([
       ["player-1", buildPlayer("player-1", { manpower: 1_000 })],
-      ["player-2", buildPlayer("player-2", { manpower: 1_000 })],
+      ["player-2", testRuntimePlayer("player-2", { manpower: 1_000 })],
       ["barbarian-1", buildPlayer("barbarian-1", { manpower: 1_000 })]
     ]),
     seedTiles: new Map(),
@@ -36,7 +36,7 @@ const buildRuntime = (target: "FRONTIER" | "SETTLED") =>
         { x: 10, y: 10, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: target },
         // Keeps player-2 alive after losing the target.
-        { x: 12, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+        { x: 40, y: 40, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
         { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
       ],
@@ -65,9 +65,11 @@ describe("barbarian attack launch", () => {
     expect(rejectedCodes(seen)).toEqual(["ATTACK_TARGET_INVALID"]);
 
     vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-    expect(ownerAt(runtime, 10, 11)).toBe("barbarian-1");
-    // The barbarian walked: it holds the target, not the tile it left (which a defender may since have resettled).
-    expect(ownerAt(runtime, 10, 10)).not.toBe("barbarian-1");
+    // Judged from the tile deltas, not the end state: a displaced defender may be re-seated
+    // onto the freed tile afterwards, which says nothing about whether the barbarian left it.
+    const deltas = seen.flatMap((event) => (event.eventType === "TILE_DELTA_BATCH" ? event.tileDeltas : []));
+    expect(deltas.some((d) => d.x === 10 && d.y === 11 && d.ownerId === "barbarian-1")).toBe(true);
+    expect(deltas.filter((d) => d.x === 10 && d.y === 10).some((d) => d.ownerId === "barbarian-1")).toBe(false);
     expect(ownerAt(runtime, 10, 10)).not.toBe("player-1");
   });
 
