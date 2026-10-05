@@ -24,6 +24,49 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791142179429, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.2",
+    title: "Your reach now scouts the land it covers",
+    why: "Reach could extend across neutral ground without revealing it, so losing frontier tiles could leave you unable to see territory your towns, docks and outposts still allowed you to claim.",
+    changes: [
+      "Every tile inside your current reach now has one tile of vision",
+      "You can see one tile beyond the outer edge of that reach, even when no frontier tiles remain",
+      "Frontier tiles keep their existing scouting vision"
+    ]
+  },
+  {
+    createdAt: 1791140199531, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "Safer spawns and full AFC reach",
+    why: "New players could spawn with barbarians on their doorstep, and a barbarian-held town nearby could cut away part of the AFC's reach.",
+    changes: [
+      "When your AFC lands, any barbarians inside its reach are cleared away so you start on open ground",
+      "Barbarian-held towns, docks and outposts no longer claim reach, so they can't take reach tiles around your AFC",
+      "On a very crowded map, new spawns still prefer a site with no barbarians within a few tiles"
+    ]
+  },
+  {
+    createdAt: 1791140183000, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "Counter-attack the tile an attack launched from",
+    why: "Locking the tile an enemy attack came from left defenders unable to answer while their frontier was being taken, and two attacks from one tile could cancel each other.",
+    changes: [
+      "You can attack the tile an enemy attack launched from while their attack is still pending; only the tile being attacked is locked",
+      "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
+      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender",
+      "Barbarians leave the tile they attack from the moment their attack starts, so it can't be captured to leave them alive on your tile"
+    ]
+  },
+  {
+    createdAt: 1791142473309, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "More reliable new seasons",
+    why: "A crowded small world could reject a new season while placing its final AI starting settlements.",
+    changes: [
+      "New seasons now use remaining valid land for starting settlements after preferred spacing options are exhausted"
+    ]
+  },
+  {
     createdAt: 1791005011469, // Date.now() frozen for this entry
     introducedIn: "2026.10.03.1",
     title: "AI infrastructure and clearer tile details",
@@ -32,6 +75,26 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AI empires missing an AFC receive one when the server starts or a season begins; it appears in both the 3D and 2D maps",
       "Foreign tile details identify settled and frontier territory",
       "Tile details show muster battles and distinguish resolved combat animations from ongoing attacks"
+    ]
+  },
+  {
+    createdAt: 1791166249102, // frozen Date.now() value for this release
+    introducedIn: "2026.10.05.1",
+    title: "Fewer unexpected game server restarts",
+    why: "The game server slowly used more and more memory and ran out roughly every 18 hours, restarting for a minute or two and dropping everyone's connection.",
+    changes: [
+      "Fixed a memory leak in the simulation server that kept every past command and update in memory",
+      "The server should now stay up much longer between restarts"
+    ]
+  },
+  {
+    createdAt: 1791140687838, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "New 3D models for towns and cities",
+    why: "Towns, cities, great cities and metropolises now have hand-detailed steampunk models instead of the simple box buildings, so each tier reads clearly on the map.",
+    changes: [
+      "Town, City, Great City and Metropolis tiles in the 3D map are drawn with textured steampunk models that grow taller and busier with each tier",
+      "Settlements keep their existing look; the 2D map is unchanged"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

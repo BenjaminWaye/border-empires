@@ -1,5 +1,5 @@
 import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
-import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, landBiomeAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
+import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
 
 /**
  * Initial-roster player spawn placement, shared by the sync
@@ -13,6 +13,7 @@ export type SeasonSeedPlayerSpawnDeps = {
   WORLD_HEIGHT: number;
   worldSeed: number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
+  isSpawnableLand: (x: number, y: number) => boolean;
   wrapX: (value: number, size: number) => number;
   wrapY: (value: number, size: number) => number;
   key: (x: number, y: number) => TileKey;
@@ -37,7 +38,7 @@ export type SeasonSeedSpawnPosition = { playerId: string; x: number; y: number; 
 export const createSeasonSeedPlayerSpawner = (
   deps: SeasonSeedPlayerSpawnDeps
 ): { spawnPositions: SeasonSeedSpawnPosition[]; spawnPlayerAt: (playerId: string, isAi: boolean, playerIndex: number) => void } => {
-  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
+  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
   // A player's own settlement is planted directly on their spawn tile below,
@@ -74,7 +75,7 @@ export const createSeasonSeedPlayerSpawner = (
     spawnPositions.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
   const canSpawnAt = (x: number, y: number, requirements: { needsTown: boolean; needsFood: boolean; minSpawnDistance: number }): boolean => {
     const tk = key(x, y);
-    if (terrainAt(x, y) !== "LAND" || landBiomeAt(x, y) !== "GRASS") return false;
+    if (terrainAt(x, y) !== "LAND" || !isSpawnableLand(x, y)) return false;
     if (townsByTile.has(tk) || docksByTile.has(tk) || ownership.has(tk)) return false;
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
@@ -91,7 +92,13 @@ export const createSeasonSeedPlayerSpawner = (
     { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: farSpawnDistance } },
     { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: farSpawnDistance } },
     { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: farSpawnDistance } },
-    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: nearSpawnDistance } }
+    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: nearSpawnDistance } },
+    // The acceptance check guarantees plentiful fair sites, but it does not
+    // account for their spatial packing. A small staging world can therefore
+    // exhaust the final separation tier despite still having legal grass
+    // tiles. Preserve separation whenever possible, then guarantee a season
+    // can start by accepting the remaining unoccupied spawnable tile.
+    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0 } }
   ] as const;
   const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
     let spawn: { x: number; y: number } | undefined;

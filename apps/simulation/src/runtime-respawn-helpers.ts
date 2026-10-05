@@ -4,10 +4,13 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
+import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export type RuntimeRespawnContext = {
   now: () => number;
@@ -18,7 +21,7 @@ export type RuntimeRespawnContext = {
   pendingRespawnNoticeByPlayerId: Map<string, PendingRespawnNoticeContext>;
   lastRespawnNoticeByPlayerId: Map<string, PlayerRespawnNotice>;
   pendingSettlementsByTile: ReadonlyMap<string, unknown>;
-  locksByTile: ReadonlyMap<string, unknown>;
+  locksByTile: CombatLockTileReader;
   rememberedAutomationVictoryPathByPlayer: Map<string, unknown>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
@@ -176,6 +179,7 @@ export const ensurePlayerHasSpawnTerritory = (
       hasNearbyTown: ctx.hasNearbyTown,
       hasNearbyFood: ctx.hasNearbyFood,
       terrainAt: terrainLookup(ctx),
+      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius),
       ...(rallyAnchor ? { rallyAnchor } : {})
     });
   if (!spawn) return false;
@@ -195,10 +199,11 @@ export const ensurePlayerHasSpawnTerritory = (
   };
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
+  const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, spawnedTile);
   finalizeRespawnNotice(ctx, playerId, tileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
   if (rallyAnchor && onRallySpawnPlaced) {
     // Measured from where the player actually landed, so it also catches the fair-spawn-site claim (which picks
@@ -306,7 +311,8 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
       hasNearbySettled: ctx.hasNearbySettled,
       hasNearbyTown: ctx.hasNearbyTown,
       hasNearbyFood: ctx.hasNearbyFood,
-      terrainAt: terrainLookup(ctx)
+      terrainAt: terrainLookup(ctx),
+      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius)
     });
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
@@ -324,10 +330,11 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
+  const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
-  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
   ctx.runtimeLogInfo(
     {
@@ -368,7 +375,8 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
       hasNearbySettled: ctx.hasNearbySettled,
       hasNearbyTown: ctx.hasNearbyTown,
       hasNearbyFood: ctx.hasNearbyFood,
-      terrainAt: terrainLookup(ctx)
+      terrainAt: terrainLookup(ctx),
+      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius)
     });
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
@@ -386,6 +394,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
+  const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
   ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
@@ -393,7 +402,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     eventType: "TILE_DELTA_BATCH",
     commandId: respawnCommandId,
     playerId,
-    tileDeltas: [respawnedTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile))
+    tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile))
   });
   if (!actor.isAi) ctx.emitPlayerStateUpdate({ commandId: respawnCommandId, playerId });
 };
