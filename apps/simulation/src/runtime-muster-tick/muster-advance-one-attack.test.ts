@@ -56,7 +56,13 @@ const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTL
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 12, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
         { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 13, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets }
+        { x: 13, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
+        // This parallel-flight case needs the defender's targets inside its
+        // reach. Without a nearby anchor, reach-border maintenance reverts
+        // the remaining targets to neutral land before a freed slot can fire.
+        ...(options.anchorTown
+          ? [{ x: 13, y: 12, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const, town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } }]
+          : [])
       ],
       activeLocks: []
     }
@@ -90,12 +96,14 @@ describe("muster ADVANCE parallel attacks", () => {
 
       // Tick 2 while the first attack is still in flight: a second attack can
       // now launch from the next unlocked owned tile.
+      vi.advanceTimersByTime(100);
       runtime.tickMuster(1_100);
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(2);
       expect(rejectedAttackCount(seen)).toBe(0);
 
       // A third target can launch before either earlier attack resolves.
+      vi.advanceTimersByTime(100);
       runtime.tickMuster(1_200);
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(3);
@@ -107,14 +115,17 @@ describe("muster ADVANCE parallel attacks", () => {
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(3);
 
-      // Let the first attack resolve, freeing a concurrency slot. D20
+      // Let only the first attack resolve, freeing a concurrency slot. D20
       // (docs/replenishment-update-plan.md) removed the flag's own manpower
       // cap, so during this ~32s wait the flag also keeps accruing straight
       // from the player's pool (previously capped at ~15, it's now free to
       // grow toward the full 150) -- enough to fund the 4th, previously
       // untouched, target once that slot opens up.
-      vi.advanceTimersByTime(RESOLVE_MS + 100);
-      runtime.tickMuster(1_000 + RESOLVE_MS + 100);
+      // The earlier ticks need matching fake-clock movement; otherwise their
+      // separate in-flight attacks are all scheduled at the same fake time
+      // and resolve together, leaving no fourth target to launch against.
+      vi.advanceTimersByTime(RESOLVE_MS - 150);
+      runtime.tickMuster(1_000 + RESOLVE_MS + 50);
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(4);
     } finally {
