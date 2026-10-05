@@ -130,6 +130,30 @@ jobs:
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
+      # The verifier only checks ok/sha/age, and the gate legitimately skips
+      # accepted-latency checks when the probe has no valid targets. Surface what
+      # was actually exercised (job summary + ::warning::) and keep the JSON.
+      - name: Summarize prod-shape gate result
+        if: always()
+        run: |
+          f="docs/load-results/prod-shape-${DEPLOY_SHA}.json"
+          if [ -f "$f" ]; then
+            node scripts/summarize-prod-shape-gate.mjs "$f" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=prod-shape gate::no gate result file at $f"
+          fi
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Upload prod-shape gate result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-shape-gate-${{ github.event.workflow_run.head_sha }}
+          path: docs/load-results/prod-shape-${{ github.event.workflow_run.head_sha }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
       # --- Gate passed: safe to touch real production.
       # DEPLOY_SHA (not GITHUB_SHA) deliberately: GITHUB_SHA is a reserved
       # Actions context name, and for a workflow_run-triggered job the
