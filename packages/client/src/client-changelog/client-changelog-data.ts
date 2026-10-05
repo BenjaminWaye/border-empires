@@ -129,6 +129,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The versus bar labels each side with its percentage"
     ]
   },
+  {
+    createdAt: 1791227885000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.05.3",
+    title: "Territory colour shows on hills by the coast",
+    why: "On the 3D map, hills next to the sea often showed no ownership colour, because the colour layer was drawn underneath the hill.",
+    changes: [
+      "Owned, frontier and settling hills along the coast now show their empire colour like any other tile",
+      "The 2D map is unchanged"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
