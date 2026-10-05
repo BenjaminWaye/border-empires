@@ -401,6 +401,7 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
     for (const t of mintRecords) {
       const angle = nowMs * SPIN_SPEED + t.phase;
       for (const piece of t.pieces) {
+        if (piece.index < 0) continue; // gated out while the structure is still under construction
         tmpEuler.set(angle, piece.restRotY, piece.restRotZ, "XYZ");
         tmpQuat.setFromEuler(tmpEuler);
         position.set(t.x + piece.ox, t.y + piece.oy, t.z + piece.oz);
