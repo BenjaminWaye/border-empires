@@ -21,6 +21,8 @@ export async function tickTileShedding(input: {
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId: string) => void;
+  /** Re-checks the player's frontier connectivity after the shed tile left their territory. */
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
@@ -126,6 +128,9 @@ export async function tickTileShedding(input: {
           tileDeltas: [{ x: shedState.x, y: shedState.y, ownerId: "", ownershipState: "", musterJson: "" }]
         });
       }
+      // Shedding a settled tile can strand frontier tiles that hung off it
+      // (offline players shed too -- this runs for every player at <=0 gold).
+      input.applyEncirclement([shedTileKey], player.id, commandId, { bfsCap: 2000 });
       // AI players have no WS subscribers (established precedent: PR #732
       // skips this same emit on lock resolution for the same reason), so the
       // resulting PLAYER_UPDATE — which forces an economy snapshot +
