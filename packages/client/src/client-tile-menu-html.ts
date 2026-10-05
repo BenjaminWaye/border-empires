@@ -1,3 +1,4 @@
+import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
@@ -22,8 +23,8 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
   return `
     <div class="tile-progress-battle">
       <div class="tile-progress-battle-labels">
-        <span style="color:${battle.attackerColor}">${battle.attackerLabel} ${attackerPct}%</span>
-        <span style="color:${battle.defenderColor}">${battle.defenderLabel} ${100 - attackerPct}%</span>
+        <span style="color:${battle.attackerColor}">${escapeHtml(battle.attackerLabel)} ${attackerPct}%</span>
+        <span style="color:${battle.defenderColor}">${escapeHtml(battle.defenderLabel)} ${100 - attackerPct}%</span>
       </div>
       <div class="tile-progress-battle-bar">
         <div class="tile-progress-battle-attacker" style="width:${attackerPct}%;background:${battle.attackerColor}"></div>
@@ -292,7 +293,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       <div class="tile-progress-card${cardStateClass}">
         ${stateBadge}
         <div class="tile-progress-title">${view.progress.title}</div>
-        <div class="tile-progress-detail">${view.progress.detail}</div>
+        <div class="tile-progress-detail">${escapeHtml(view.progress.detail)}</div>
         <div class="tile-progress-meta">
           <span>Remaining</span>
           <strong>${view.progress.remainingLabel}</strong>

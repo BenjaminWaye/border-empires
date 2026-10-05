@@ -1,3 +1,5 @@
+// Text here is plain (player names unescaped); client-tile-menu-html.ts escapes
+// it when rendering the card.
 // Shared "chance of winning" pieces for the tile-menu battle card, used by both
 // the manual-attack card (client-battle-progress.ts) and the muster-attack card
 // (client-tracked-battle-progress.ts).

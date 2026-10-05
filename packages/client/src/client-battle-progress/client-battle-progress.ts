@@ -77,7 +77,7 @@ export const incomingAttackProgressView = (
   const name = incoming.attackerName;
   const marching = incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowMs;
   const undefended = tile.ownershipState === "FRONTIER";
-  const odds = typeof incoming.winChance === "number" ? defenderBattleOddsView(state, incoming.attackerId, name, incoming.winChance) : undefined;
+  const odds = typeof incoming.winChance === "number" ? defenderBattleOddsView(state, incoming.attackerId, incoming.attackerName, incoming.winChance) : undefined;
   const marchingDetail = marching
     ? `${name}'s company is marching here and arrives in ${formatCountdownClock(incoming.transitEndsAt! - nowMs)}. `
     : "";
