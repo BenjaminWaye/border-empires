@@ -10,6 +10,7 @@ import { scanAdvanceCandidates } from "./muster-advance-scan.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 import { creditManpower } from "../runtime-manpower-ceiling.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 export type { Position } from "./muster-depot-speed.js";
@@ -39,7 +40,7 @@ export type MusterTickInput = {
   // Active combat locks (keyed by origin/target tile) so ADVANCE can skip tiles
   // already committed to a fight and enforce one attack in flight per flag via
   // LockRecord.musterSourceKey.
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
   // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS

@@ -38,7 +38,7 @@ export interface VisibilityCoverageReader {
 export interface TileDeltaVisibilityFilterDeps {
   readonly players: ReadonlyMap<string, PlayerShape>;
   readonly tiles: ReadonlyMap<string, TileShape>;
-  readonly locksByTile: ReadonlyMap<string, TileLockShape>;
+  readonly locksByTile: { values(): Iterable<TileLockShape> };
   readonly docks: readonly DockRouteDefinition[];
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   readonly summaryForPlayer: (playerId: string) => PlayerSummaryShape;
