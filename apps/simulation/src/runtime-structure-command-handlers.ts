@@ -32,6 +32,7 @@ import { handleRedeployAfcModuleCommand } from "./runtime-redeploy-afc-module-co
 import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { hasFreeResourceSlots } from "./runtime-structure-slot-gate.js";
+import { scheduleStructureCompletion } from "./attack-development-hold/attack-development-hold.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
@@ -194,6 +195,11 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   let target = context.tiles.get(simulationTileKey(payload.x, payload.y));
   if (!target) {
     rejectCommand(context, command, "UNKNOWN_TILE", "tile not found");
+    return;
+  }
+  // Development on a tile is frozen while an attack on it is unresolved (attack-development-hold.ts).
+  if (context.locksByTile.targetLockAt(simulationTileKey(payload.x, payload.y))?.actionType === "ATTACK") {
+    rejectCommand(context, command, "BUILD_INVALID", "tile is under attack");
     return;
   }
   for (const techId of spec.techIds) {
@@ -447,7 +453,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (monumentBaseType && monumentBaseType !== structureType && monumentPartTypesForBaseType(monumentBaseType)[0] === structureType) {
     announceMonumentConstructionStarted(context, monumentBaseType, command.playerId, target.x, target.y);
   }
-  context.scheduleAfter(buildMs, () => context.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId));
+  scheduleStructureCompletion(context, { tileKey: targetKey, ownerId: command.playerId, field: spec.tileField, structureType, commandId: command.commandId, completesAt });
 }
 
 // completeStructureBuild lives in runtime-structure-build-completion.ts (500-

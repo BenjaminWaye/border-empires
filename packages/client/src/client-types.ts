@@ -110,12 +110,13 @@ export type Tile = {
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; pausedAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeOutpost?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
     variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
     completesAt?: number;
+    pausedAt?: number;
   };
   economicStructure?: {
     ownerId: string;
@@ -177,6 +178,7 @@ export type Tile = {
       | "UMBRITE_WEAPONS_FACTORY";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
+    pausedAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;

@@ -36,6 +36,17 @@ export class CombatLockIndex implements CombatLockTileReader {
   private readonly locksByCommandId = new Map<string, LockRecord>();
   private readonly targets = new Map<string, LockRecord>();
   private readonly origins = new Map<string, Set<LockRecord>>();
+  private attackTargetReleasedListener: ((lock: LockRecord) => void) | undefined;
+
+  /**
+   * Notified (after the index is consistent again) whenever an ATTACK lock
+   * stops contesting its target tile, however it left: resolved, cancelled or
+   * swept. Lets the runtime thaw development on the tile (attack-development-hold.ts)
+   * without every removal site having to remember to.
+   */
+  onAttackTargetReleased(listener: ((lock: LockRecord) => void) | undefined): void {
+    this.attackTargetReleasedListener = listener;
+  }
 
   addLock(lock: LockRecord): void {
     const existing = this.locksByCommandId.get(lock.commandId);
@@ -54,13 +65,16 @@ export class CombatLockIndex implements CombatLockTileReader {
 
   removeLock(lock: LockRecord): void {
     this.locksByCommandId.delete(lock.commandId);
-    if (this.ownsTargetSlot(lock)) this.targets.delete(lock.targetKey);
+    const releasedTarget = this.ownsTargetSlot(lock);
+    if (releasedTarget) this.targets.delete(lock.targetKey);
     const atOrigin = this.origins.get(lock.originKey);
-    if (!atOrigin) return;
-    for (const candidate of atOrigin) {
-      if (candidate.commandId === lock.commandId) atOrigin.delete(candidate);
+    if (atOrigin) {
+      for (const candidate of atOrigin) {
+        if (candidate.commandId === lock.commandId) atOrigin.delete(candidate);
+      }
+      if (atOrigin.size === 0) this.origins.delete(lock.originKey);
     }
-    if (atOrigin.size === 0) this.origins.delete(lock.originKey);
+    if (releasedTarget && lock.actionType === "ATTACK") this.attackTargetReleasedListener?.(lock);
   }
 
   targetLockAt(tileKey: string): LockRecord | undefined {

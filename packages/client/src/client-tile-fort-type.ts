@@ -8,5 +8,7 @@ export type ClientTileFort = {
   // Set while an upgrade is under_construction: the tier still standing.
   upgradingFrom?: FortVariant;
   completesAt?: number;
+  // Construction is on hold (tile under attack); remaining time is frozen at this instant.
+  pausedAt?: number;
   disabledUntil?: number;
 };

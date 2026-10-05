@@ -208,6 +208,7 @@ export type DomainTileState = {
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
         upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
         activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         previousStatus?: "active" | undefined;
@@ -218,6 +219,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["observatory"]>["status"];
         completesAt?: number | undefined;
+        pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
         activatedAt?: number | undefined;
         cooldownUntil?: number | undefined;
         previousStatus?: "active" | "inactive" | undefined;
@@ -231,6 +233,7 @@ export type DomainTileState = {
         status: NonNullable<Tile["siegeOutpost"]>["status"];
         variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
         completesAt?: number | undefined;
+        pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
         activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
       }
@@ -243,6 +246,7 @@ export type DomainTileState = {
         type: NonNullable<Tile["economicStructure"]>["type"];
         status: NonNullable<Tile["economicStructure"]>["status"];
         completesAt?: number | undefined;
+        pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack
         activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
         nextUpkeepAt?: number | undefined;

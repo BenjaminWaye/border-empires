@@ -64,6 +64,10 @@ export type RuntimeFrontierCommandContext = BarbarianLaunchContext & {
   onMusterRemoteAttack: (() => void) | undefined;
   onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   scheduleLockResolution: (lock: LockRecord) => void;
+  // Freezes the target tile's development (cancels a pending SETTLE, pauses
+  // an under_construction build) for the life of an accepted ATTACK lock; see
+  // attack-development-hold.ts.
+  holdDevelopmentForAttack: (lock: LockRecord) => void;
   adjacentTileStates: (x: number, y: number) => DomainTileState[];
   findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DockCrossingOrigin | undefined;
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
@@ -368,6 +372,7 @@ export const handleFrontierCommandImpl = (
     : resolvedLock;
   ctx.locksByTile.addLock(lock);
   ctx.locksByCommandId.set(lock.commandId, lock);
+  if (actionType === "ATTACK") ctx.holdDevelopmentForAttack(lock);
   ctx.commandTrace?.({
     phase: "frontier_accept",
     commandId: command.commandId,
