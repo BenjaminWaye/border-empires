@@ -47,7 +47,8 @@ Evidence gathered so far:
 
 ## Delivery status
 
-Phases 0-3 shipped together in PR #2228, with the owner's decisions below.
+Phase 0 shipped in PR #2228; phases 1-3 ship in the follow-up PR from the same
+branch, with the owner's decisions below.
 Phase 4 is still conditional on Phase 3's counters. The rule itself is now
 documented in `docs/game-mechanics.md` ("Frontier supply (encirclement) vs
 out-of-reach decay"); archive this plan once Phase 4 is decided.
@@ -59,7 +60,7 @@ case is the 8-neighbour fast path.
 
 ## Proposed change
 
-### Phase 0: close the leaking paths (in this PR)
+### Phase 0: close the leaking paths (shipped in PR #2228)
 
 Tile shedding, Aether Lance, airport bombardment and Create Mountain now call
 `applyEncirclement` for the tile's previous owner, with regression tests in
