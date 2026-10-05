@@ -34,6 +34,37 @@ export const hasWaterNeighbor = (terrainAt: (x: number, y: number) => Terrain | 
 };
 
 /**
+ * True if a tile is a town, dock or resource node. An AFC must not sit on or
+ * touch any of these: it is a self-contained opening anchor, so it must not
+ * squat on (or crowd) the features a player is meant to expand into and settle
+ * themselves.
+ */
+export const tileBlocksAfcSite = (tile: Pick<DomainTileState, "town" | "dockId" | "resource"> | undefined): boolean =>
+  Boolean(tile && (tile.town || tile.dockId || tile.resource));
+
+/**
+ * True when (x, y) and all 8 surrounding tiles are free of towns, docks and
+ * resources. `blocksAfcSite` answers that per coordinate so callers can back it
+ * with whatever lookup they already hold (a live tile map, or a precomputed
+ * blocker-key set for scan-heavy paths). Unlike the dry-footprint preference
+ * this is a hard rule with no fallback.
+ */
+export const isAfcSiteClear = (blocksAfcSite: (x: number, y: number) => boolean, x: number, y: number): boolean => {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (blocksAfcSite(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT))) return false;
+    }
+  }
+  return true;
+};
+
+export const computeAfcBlockerKeys = (tileList: readonly DomainTileState[]): Set<string> => {
+  const blockers = new Set<string>();
+  for (const tile of tileList) if (tileBlocksAfcSite(tile)) blockers.add(key(tile.x, tile.y));
+  return blockers;
+};
+
+/**
  * Narrows spawn candidates to those with a dry 3x3 footprint (see
  * hasWaterNeighbor), falling back to the full list only when none qualify so
  * a tiny or waterlogged map still places a spawn rather than none.
@@ -226,9 +257,12 @@ export const computeFairSpawnSites = (
 
   const terrainByKey = new Map<string, Terrain>();
   for (const tile of tileList) terrainByKey.set(key(tile.x, tile.y), tile.terrain);
+  const afcBlockerKeys = computeAfcBlockerKeys(tileList);
+  const blocksAfcSite = (x: number, y: number): boolean => afcBlockerKeys.has(key(x, y));
   const baseCandidates = preferDryFootprintCandidates(tileList.filter((tile) => {
     const tileKeyValue = key(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+    if (!isAfcSiteClear(blocksAfcSite, tile.x, tile.y)) return false;
     if (isTooCloseToTown(tile.x, tile.y)) return false;
     return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKeyValue);
   }), (x, y) => terrainByKey.get(key(x, y)));

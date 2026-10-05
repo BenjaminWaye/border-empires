@@ -36,6 +36,13 @@ export default defineConfig({
     // heavy file's teardown/GC always fully settles before the next file
     // starts -- trading overall suite wall-time for determinism, which is
     // the right trade for a required CI gate.
+    coverage: {
+      provider: "v8",
+      reportOnFailure: true,
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/*-perf.test.ts"],
+      reporter: ["text-summary", "json-summary", "html"]
+    },
     pool: "forks",
     poolOptions: {
       forks: {

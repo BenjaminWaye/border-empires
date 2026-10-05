@@ -28,16 +28,19 @@ export const prepareAfcLandingFootprint = (
 ): DomainTileState[] => {
   clearForestAroundAfcTile(x, y);
   const flattened: DomainTileState[] = [];
+  let terrainChanged = false;
   for (let dy = -AFC_LANDING_FOOTPRINT_RADIUS; dy <= AFC_LANDING_FOOTPRINT_RADIUS; dy += 1) {
     for (let dx = -AFC_LANDING_FOOTPRINT_RADIUS; dx <= AFC_LANDING_FOOTPRINT_RADIUS; dx += 1) {
       const tileKey = simulationTileKey(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
       const tile = ctx.tiles.get(tileKey);
-      if (!tile || tile.terrain !== "MOUNTAIN") continue;
+      if (!tile) continue;
+      if (tile.terrain !== "MOUNTAIN") continue;
       const updatedTile: DomainTileState = { ...tile, terrain: "LAND" };
+      if (updatedTile.terrain !== tile.terrain) terrainChanged = true;
       ctx.replaceTileState(tileKey, updatedTile, commandId);
       flattened.push(updatedTile);
     }
   }
-  if (flattened.length > 0) ctx.bumpTerrainEpoch();
+  if (terrainChanged) ctx.bumpTerrainEpoch();
   return flattened;
 };
