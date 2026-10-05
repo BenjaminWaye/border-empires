@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
+import type { CombatLockIndex, CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 import {
   releaseDevelopmentHold,
   scheduleStructureCompletion,
@@ -50,4 +50,22 @@ export const recoverInFlightStructureWork = (ctx: StructureRecoveryContext, tile
       });
     }
   }
+};
+
+/**
+ * Thaws development on a tile as soon as no ATTACK targets it any more (however
+ * the lock went away), then lets the tile owner's dev queue drain: entries on
+ * that tile were held back while it was under attack.
+ */
+export const installAttackReleaseHandler = (
+  locksByTile: CombatLockIndex,
+  holdContext: () => AttackDevelopmentHoldContext,
+  drainDevQueueFor: (ownerId: string) => void
+): void => {
+  locksByTile.onAttackTargetReleased((lock) => {
+    const ctx = holdContext();
+    releaseDevelopmentHold(ctx, lock.targetKey, lock.commandId);
+    const ownerId = ctx.tiles.get(lock.targetKey)?.ownerId;
+    if (ownerId) drainDevQueueFor(ownerId);
+  });
 };

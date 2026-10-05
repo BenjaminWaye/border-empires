@@ -37,7 +37,7 @@ const latestStructureDelta = (seen: SimulationEvent[]): { present: boolean; stru
 
 const defenderTown = { x: 10, y: 12, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const, town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const } };
 
-const command = (commandId: string, playerId: string, type: "ATTACK" | "SETTLE" | "BUILD_STRUCTURE", payload: object, clientSeq: number) => ({
+const command = (commandId: string, playerId: string, type: "ATTACK" | "SETTLE" | "BUILD_STRUCTURE" | "CANCEL_CAPTURE", payload: object, clientSeq: number) => ({
   commandId,
   sessionId: `session-${playerId}`,
   playerId,
@@ -166,7 +166,7 @@ describe("development hold while a tile is under attack", () => {
     await Promise.resolve();
 
     runtime.submitCommand({ ...command("rush-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11 }, 1), type: "RUSH_BUY" as never });
-    runtime.submitCommand(command("build-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "FORT" }, 2));
+    runtime.submitCommand(command("build-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "WOODEN_FORT" }, 2));
     await Promise.resolve();
 
     expect(seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "rush-1")).toMatchObject({ message: "construction is paused due to an ongoing attack" });
@@ -228,5 +228,90 @@ describe("development hold while a tile is under attack", () => {
     nowMs = START + 80_001;
     vi.advanceTimersByTime(60_000);
     expect(latestStructureDelta(seen).structure?.status).toBe("active");
+  });
+
+  it("keeps a build paused past its original deadline for as long as the attack is unresolved", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    let nowMs = START;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 1_000 })],
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 1_000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          ...attackerTiles,
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 10_000 } },
+          defenderTown
+        ],
+        activeLocks: []
+      }
+    });
+    const seen = collectEvents(runtime);
+    runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));
+    await Promise.resolve();
+
+    // The original deadline (10s) passes while the 30s fight is still in flight.
+    nowMs = START + 15_000;
+    vi.advanceTimersByTime(15_000);
+    expect(latestStructureDelta(seen).structure).toMatchObject({ status: "under_construction", pausedAt: START });
+  });
+
+  it("resumes a paused build when the attacker cancels the attack", async () => {
+    vi.useFakeTimers();
+    let nowMs = START;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 1_000 })],
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 1_000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          ...attackerTiles,
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          defenderTown
+        ],
+        activeLocks: []
+      }
+    });
+    const seen = collectEvents(runtime);
+    runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));
+    await Promise.resolve();
+    expect(latestStructureDelta(seen).structure?.pausedAt).toBe(START);
+
+    nowMs = START + 7_000;
+    runtime.submitCommand(command("cancel-1", "player-1", "CANCEL_CAPTURE", {}, 2));
+    await Promise.resolve();
+    expect(latestStructureDelta(seen).structure).toMatchObject({ status: "under_construction", completesAt: START + 607_000 });
+    expect(latestStructureDelta(seen).structure?.pausedAt).toBeUndefined();
+  });
+
+  it("does not reveal an attack on a tile the caller does not own through the BUILD rejection", async () => {
+    vi.useFakeTimers();
+    const runtime = new SimulationRuntime({
+      now: () => START,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { points: 10_000, manpower: 1_000 })],
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 1_000 })],
+        ["player-3", buildPlayer("player-3", { points: 10_000, manpower: 1_000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: { tiles: [...attackerTiles, { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, defenderTown], activeLocks: [] }
+    });
+    const seen = collectEvents(runtime);
+    runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));
+    await Promise.resolve();
+
+    // A bystander probing the attacked tile learns nothing about the fight.
+    runtime.submitCommand(command("probe-1", "player-3", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "WOODEN_FORT" }, 1));
+    await Promise.resolve();
+    const probe = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "probe-1");
+    expect(probe).toBeDefined();
+    expect(probe).toMatchObject({ message: "tile must be owned" });
   });
 });

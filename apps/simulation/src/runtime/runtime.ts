@@ -521,8 +521,8 @@ import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js
 import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
-import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
-import { recoverInFlightStructureWork } from "./runtime-structure-recovery.js";
+import { holdDevelopmentForAttack, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
+import { installAttackReleaseHandler, recoverInFlightStructureWork } from "./runtime-structure-recovery.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1175,7 +1175,7 @@ export class SimulationRuntime {
       options.initialState?.pendingSettlements ?? []
     );
     recoverInFlightStructureWork({ holdContext: this.attackDevelopmentHoldContext(), locksByTile: this.state.locksByTile, completeStructureRemoval: (tileKey, ownerId, commandId) => this.completeStructureRemoval(tileKey, ownerId, commandId) }, this.state.tiles);
-    this.state.locksByTile.onAttackTargetReleased((lock) => releaseDevelopmentHold(this.attackDevelopmentHoldContext(), lock.targetKey, lock.commandId));
+    installAttackReleaseHandler(this.state.locksByTile, () => this.attackDevelopmentHoldContext(), (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId));
     const recoveredCommandHistory = options.initialCommandHistory;
     hydrateCommandHistory({
       commandIdsByPlayerSeq: this.replayCache.commandIdsByPlayerSeq,
@@ -3505,7 +3505,7 @@ export class SimulationRuntime {
       now: () => this.now(),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
-      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, isTileUnderAttack: (tileKey) => this.state.locksByTile.targetLockAt(tileKey)?.actionType === "ATTACK",
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),

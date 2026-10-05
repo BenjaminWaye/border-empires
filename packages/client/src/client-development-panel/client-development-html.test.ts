@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { deriveDevelopmentPanelData, renderDevelopmentPanelHtml } from "./client-development-html.js";
 import type { Tile, TileTimedProgress } from "../client-types.js";
+
+afterEach(() => vi.useRealTimers());
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -43,6 +45,24 @@ describe("deriveDevelopmentPanelData", () => {
     expect(data.activeSlots).toHaveLength(2);
     expect(data.activeSlots.some((slot) => slot.label === "Fort")).toBe(true);
     expect(data.activeSlots.some((slot) => slot.label === "Aether Tower")).toBe(true);
+  });
+
+  it("freezes a paused build's remaining time at the pause and labels it as paused by the attack", () => {
+    const tiles = new Map<string, Tile>();
+    tiles.set(keyFor(1, 1), {
+      x: 1,
+      y: 1,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "under_construction", completesAt: 100_000, pausedAt: 40_000 }
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(90_000);
+    const data = deriveDevelopmentPanelData(tiles, "me", new Map(), [], 1, 3);
+
+    expect(data.activeSlots[0]).toMatchObject({ label: "Fort (paused: ongoing attack)", remainingMs: 60_000 });
   });
 
   it("excludes structures that belong to another player or are already active", () => {

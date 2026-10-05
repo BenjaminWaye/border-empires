@@ -197,11 +197,6 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "UNKNOWN_TILE", "tile not found");
     return;
   }
-  // Development on a tile is frozen while an attack on it is unresolved (attack-development-hold.ts).
-  if (context.locksByTile.targetLockAt(simulationTileKey(payload.x, payload.y))?.actionType === "ATTACK") {
-    rejectCommand(context, command, "BUILD_INVALID", "tile is under attack");
-    return;
-  }
   for (const techId of spec.techIds) {
     if (!actor.techIds.has(techId)) {
       rejectCommand(context, command, "BUILD_INVALID", `unlock ${structureLabel(structureType)} first`);
@@ -278,6 +273,13 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {
     rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
+    return;
+  }
+  // Development on a tile is frozen while an attack on it is unresolved (attack-development-hold.ts).
+  // After the ownership gate on purpose: before it, BUILD on any coordinate would reveal whether
+  // someone is attacking a tile the caller neither owns nor can see.
+  if (context.locksByTile.targetLockAt(simulationTileKey(payload.x, payload.y))?.actionType === "ATTACK") {
+    rejectCommand(context, command, "BUILD_INVALID", "tile is under attack");
     return;
   }
   // Outposts skip SETTLED above; a FRONTIER target must still be inside

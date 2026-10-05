@@ -321,4 +321,27 @@ describe("handleDevQueueEnqueueCommand -- SETTLE manpower reservation", () => {
     expect(dispatchedSettles).toHaveLength(1);
     expect(dispatchedBuilds).toHaveLength(0);
   });
+
+  it("leaves a queued entry on a tile under attack in the queue instead of dispatching (and losing) it", () => {
+    const { context, summary, dispatchedBuilds } = makeContext({ manpower: 1000 });
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(2, 2));
+    const dispatchedSettles: CommandEnvelope[] = [];
+    context.dispatchSettle = (command) => dispatchedSettles.push(command);
+    context.hasAvailableDevelopmentSlot = () => true;
+    context.isTileUnderAttack = (tileKey) => tileKey === "1,1";
+
+    tryDrainDevQueue(context, "p1");
+    // The attacked tile's entry (the head) is skipped; the next one drains.
+    expect(dispatchedSettles).toHaveLength(1);
+    expect(JSON.parse(dispatchedSettles[0]!.payloadJson)).toEqual({ x: 2, y: 2 });
+    expect(summary.devQueue.map((entry) => entry.tileKey)).toEqual(["1,1"]);
+    expect(dispatchedBuilds).toHaveLength(0);
+
+    // Once the attack is over the held entry drains normally.
+    context.isTileUnderAttack = () => false;
+    tryDrainDevQueue(context, "p1");
+    expect(dispatchedSettles).toHaveLength(2);
+    expect(summary.devQueue).toEqual([]);
+  });
 });

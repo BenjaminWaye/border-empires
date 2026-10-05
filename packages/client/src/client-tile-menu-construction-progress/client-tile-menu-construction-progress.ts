@@ -57,10 +57,10 @@ const PAUSED_NOTE = "Paused due to an ongoing attack on this tile. Construction 
 // frozen, so say so, and drop rush-buy (the server refuses it while paused).
 const withPausedModifier = (tile: Tile, progress: TileMenuProgressView | undefined): TileMenuProgressView | undefined => {
   if (!progress) return progress;
-  const structure = [tile.fort, tile.observatory, tile.siegeOutpost, tile.economicStructure].find(
+  const isPaused = [tile.fort, tile.observatory, tile.siegeOutpost, tile.economicStructure].some(
     (candidate) => candidate?.status === "under_construction" && candidate.pausedAt !== undefined
   );
-  if (!structure) return progress;
+  if (!isPaused) return progress;
   const { rushBuyLabel: _rushBuyLabel, rushBuyActionId: _rushBuyActionId, ...rest } = progress;
   return { ...rest, remainingLabel: `${progress.remainingLabel} · Paused: ongoing attack`, note: PAUSED_NOTE };
 };

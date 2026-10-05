@@ -82,7 +82,8 @@ export const holdDevelopmentForAttack = (
 ): void => {
   const tile = ctx.tiles.get(input.targetKey);
   if (!tile?.ownerId || tile.ownerId === input.attackerId) return;
-  ctx.cancelPendingSettlementForAttack(input.targetKey, input.attackerId, input.commandId);
+  // Not the attack's own commandId: that belongs to the attacker's command, and this update goes to the defender.
+  ctx.cancelPendingSettlementForAttack(input.targetKey, input.attackerId, `attack-hold:${input.commandId}`);
   const latest = ctx.tiles.get(input.targetKey) ?? tile;
   const now = ctx.now();
   let paused: DomainTileState = latest;
