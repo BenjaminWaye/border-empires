@@ -23,10 +23,23 @@ type RolloverState = Pick<
   | "camY"
   | "camSubX"
   | "camSubY"
+  | "actionQueue"
+  | "queuedTargetKeys"
+  | "waypoint"
+  | "selected"
+  | "tileActionMenu"
+  | "buildingPlacement"
+  | "crystalTargeting"
+  | "eventLog"
+  | "eventLogFeedSeenIds"
+  | "activityDashboard"
 >;
 
 // Drops everything the client holds about the previous season: map tiles,
-// leaderboard, victory standings, season-end screen and camera position. The
+// leaderboard, victory standings, season-end screen, camera position, queued
+// actions and waypoints, open tile menus, the cached activity timeline and the
+// event log. Player state that every INIT overwrites (gold, techs, social
+// lists, home tile) is not listed here. The
 // server then repopulates it (INIT, chunks, GLOBAL_STATUS_UPDATE). Without
 // this a tab that was open through a rollover keeps showing the old season's
 // leaderboard and tiles, because the new season sends nothing that overwrites
@@ -44,6 +57,24 @@ export const resetClientForNewSeason = (state: RolloverState): void => {
   state.seasonEndStarting = false;
   state.seasonStartVoteCount = 0;
   state.seasonStartVoted = false;
+  state.actionQueue = [];
+  state.queuedTargetKeys.clear();
+  state.waypoint = [];
+  state.selected = undefined;
+  state.tileActionMenu.visible = false;
+  state.tileActionMenu.currentTileKey = "";
+  state.tileActionMenu.bulkKeys = [];
+  state.buildingPlacement.active = false;
+  state.crystalTargeting.active = false;
+  state.eventLog = [];
+  state.eventLogFeedSeenIds = undefined; // so the new season's log seeds the Activity Feed again instead of being treated as already seen
+  // The dashboard refetches on open, so an undefined timeline never shows last season's cards in the meantime.
+  state.activityDashboard.timeline = undefined;
+  state.activityDashboard.worldPulse = undefined;
+  state.activityDashboard.loading = false;
+  state.activityDashboard.worldPulseLoading = false;
+  state.activityDashboard.error = undefined;
+  state.activityDashboard.worldPulseError = undefined;
   clearCameraLocation();
   clearStoredDiscoveredTiles();
   state.camX = 0;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import type { SimulationClientEvent } from "../sim-client/sim-client.js";
@@ -12,12 +12,14 @@ import { connect, createTestFirebaseTokens } from "./gateway-test-client.js";
 describe("season rollover", () => {
   const openApps: Array<{ close: () => Promise<void> }> = [];
   afterEach(async () => {
-    vi.restoreAllMocks();
+    delete process.env.GATEWAY_SEASON_ROLLOVER_SPREAD_MS;
+    delete process.env.GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS;
     while (openApps.length > 0) await openApps.pop()?.close();
   });
 
   it("closes every socket of every connected player so each client reconnects into the new season", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0); // no stagger
+    process.env.GATEWAY_SEASON_ROLLOVER_SPREAD_MS = "0"; // no stagger, no floor
+    process.env.GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS = "0";
     const { verifier, sign } = await createTestFirebaseTokens();
     let emitSimulationEvent: ((event: SimulationClientEvent) => void) | undefined;
     const app = await createRealtimeGatewayApp({

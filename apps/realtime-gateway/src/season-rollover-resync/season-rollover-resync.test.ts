@@ -1,12 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isSeasonRolloverEvent, scheduleSeasonRolloverResync } from "./season-rollover-resync.js";
+import { isSeasonRolloverEvent, scheduleSeasonRolloverResync, seasonRolloverSpreadMs } from "./season-rollover-resync.js";
 
 const fakeSocket = (readyState = 1) => ({ readyState, OPEN: 1, close: vi.fn() });
 
 describe("isSeasonRolloverEvent", () => {
   it("matches the simulation's rollover notice, which carries no player id", () => {
     expect(isSeasonRolloverEvent({ eventType: "PLAYER_MESSAGE", playerId: "", payload: { type: "SEASON_ROLLOVER", seasonId: "season-34" } })).toBe(true);
+  });
+
+  it("also accepts the broadcast address, so changing how the simulation addresses it cannot silently stop the resync", () => {
+    expect(isSeasonRolloverEvent({ eventType: "PLAYER_MESSAGE", playerId: "__broadcast__", payload: { type: "SEASON_ROLLOVER" } })).toBe(true);
   });
 
   it("ignores other player messages and per-player events", () => {
@@ -26,6 +30,7 @@ describe("scheduleSeasonRolloverResync", () => {
 
     const scheduled = scheduleSeasonRolloverResync([[first], [second]], {
       spreadMs: 1_000,
+      minDelayMs: 0,
       random: () => randoms.shift() ?? 0,
       setTimer: (task, delayMs) => {
         tasks.push(task);
@@ -69,5 +74,39 @@ describe("scheduleSeasonRolloverResync", () => {
     expect(scheduled).toBe(1);
     expect(closed.close).not.toHaveBeenCalled();
     expect(dropsEarly.close).not.toHaveBeenCalled();
+  });
+
+  it("never closes before the minimum delay, so the gateway's own post-rollover resets finish first", () => {
+    const delays: number[] = [];
+    scheduleSeasonRolloverResync([[fakeSocket()]], { spreadMs: 1_000, minDelayMs: 1_500, random: () => 0, setTimer: (_task, delayMs) => void delays.push(delayMs) });
+    expect(delays).toEqual([1_500]);
+  });
+
+  describe("spread window", () => {
+    afterEach(() => {
+      delete process.env.GATEWAY_SEASON_ROLLOVER_SPREAD_MS;
+      delete process.env.GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS;
+    });
+
+    it("grows with the number of connected players, within a floor and a cap", () => {
+      expect(seasonRolloverSpreadMs(3)).toBe(8_000);
+      expect(seasonRolloverSpreadMs(30)).toBe(30_000);
+      expect(seasonRolloverSpreadMs(10_000)).toBe(60_000);
+    });
+
+    it("uses the player-count window when nothing overrides it", () => {
+      const delays: number[] = [];
+      const groups = Array.from({ length: 30 }, () => [fakeSocket()]);
+      scheduleSeasonRolloverResync(groups, { minDelayMs: 0, random: () => 0.999, setTimer: (_task, delayMs) => void delays.push(delayMs) });
+      expect(Math.max(...delays)).toBe(29_970);
+    });
+
+    it("can be overridden from the environment, where 0 closes immediately", () => {
+      process.env.GATEWAY_SEASON_ROLLOVER_SPREAD_MS = "0";
+      process.env.GATEWAY_SEASON_ROLLOVER_MIN_DELAY_MS = "0";
+      const delays: number[] = [];
+      scheduleSeasonRolloverResync([[fakeSocket()]], { random: () => 0.9, setTimer: (_task, delayMs) => void delays.push(delayMs) });
+      expect(delays).toEqual([0]);
+    });
   });
 });

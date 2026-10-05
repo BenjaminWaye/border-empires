@@ -153,6 +153,24 @@ describe("client-multiplex-websocket", () => {
     expect(socket.readyState).toBe(socket.CLOSED);
   });
 
+  it("surfaces the server's season-rollover close code and reason, and mirrors them to the other channel", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [control, bulk] = FakeWebSocket.instances;
+    const bulkCloseSpy = vi.spyOn(bulk!, "close");
+    const closeSpy = vi.fn();
+    socket.addEventListener("close", closeSpy);
+
+    control?.open();
+    bulk?.open();
+    control?.dispatchEvent(new CloseEvent("close", { code: 4009, reason: "season_rollover", wasClean: true }));
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy.mock.calls[0]?.[0]).toMatchObject({ code: 4009, reason: "season_rollover" });
+    expect(bulkCloseSpy).toHaveBeenCalledWith(4009, "season_rollover");
+  });
+
   it("opens a fresh pair of sockets on reconnect() and dispatches a new synthetic open", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
 

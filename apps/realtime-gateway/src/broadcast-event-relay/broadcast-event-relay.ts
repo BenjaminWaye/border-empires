@@ -10,6 +10,7 @@ export type BroadcastEventRelayDeps<TSocket extends RelaySocket> = {
   sendToSocket: (socket: TSocket, payload: unknown) => void;
   preSerializeBroadcast: (payload: unknown) => unknown;
   recordGatewayEvent: (level: "info", event: string, payload: Record<string, unknown>) => void;
+  countSeasonRolloverResyncSockets: (count: number) => void;
 };
 
 // Simulation events that are for every connected player rather than one: the
@@ -31,6 +32,7 @@ export const relaySimulationBroadcastEvent = <TSocket extends RelaySocket>(
   }
   if (isSeasonRolloverEvent(event)) {
     const sockets = scheduleSeasonRolloverResync(deps.socketGroups());
+    deps.countSeasonRolloverResyncSockets(sockets);
     deps.recordGatewayEvent("info", "gateway_season_rollover_resync_scheduled", { commandId: event.commandId, sockets });
     return true;
   }

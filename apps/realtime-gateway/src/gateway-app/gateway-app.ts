@@ -1274,7 +1274,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
-      if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent })) return;
+      if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent, countSeasonRolloverResyncSockets: (count) => gatewayMetrics.incrementSeasonRolloverResyncSocketsTotal(count) })) return;
       if (event.playerId === "__broadcast__" && event.eventType === "PLAYER_MESSAGE" && event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
         worldEngineStrike.handleBroadcastEvent(
           event.payload,

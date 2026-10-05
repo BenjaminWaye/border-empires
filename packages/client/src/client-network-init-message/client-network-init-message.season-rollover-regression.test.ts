@@ -23,6 +23,15 @@ const staleSeasonState = (state: any): void => {
   state.seasonStats = { stale: true };
   state.seasonScoreHistory = [{ playerId: "ai-1" }];
   state.tiles.set("9,9", { x: 9, y: 9, terrain: "LAND", ownerId: "ai-1" });
+  state.actionQueue = [{ x: 9, y: 9 }];
+  state.queuedTargetKeys.add("9,9");
+  state.waypoint = [{ x: 9, y: 9 }];
+  state.tileActionMenu.visible = true;
+  state.tileActionMenu.currentTileKey = "9,9";
+  state.eventLog = [{ id: "old-1" }];
+  state.eventLogFeedSeenIds = new Set(["old-1"]);
+  state.activityDashboard.timeline = { cards: [{ id: "old-card" }] };
+  state.activityDashboard.worldPulse = { seasonLabel: "Season 33" };
   state.camX = 900;
   state.camY = -200;
 };
@@ -42,6 +51,14 @@ describe("INIT after a season rollover", () => {
     expect(state.seasonStats).toBeUndefined();
     expect(state.seasonScoreHistory).toEqual([]);
     expect(state.tiles.has("9,9")).toBe(false);
+    expect(state.actionQueue).toEqual([]);
+    expect(state.queuedTargetKeys.size).toBe(0);
+    expect(state.waypoint).toEqual([]);
+    expect(state.tileActionMenu.visible).toBe(false);
+    expect(state.eventLog).toEqual([]);
+    expect(state.eventLogFeedSeenIds?.has("old-1")).not.toBe(true); // the new INIT reseeds this set from the new season's log
+    expect(state.activityDashboard.timeline).toBeUndefined();
+    expect(state.activityDashboard.worldPulse).toBeUndefined();
     expect(state.bridgeDebugSeasonId).toBe("season-34");
     expect(state.camX).toBe(40);
     expect(state.camY).toBe(40);
@@ -60,6 +77,8 @@ describe("INIT after a season rollover", () => {
     expect(state.seasonVictory).toHaveLength(1);
     expect(state.seasonStats).toEqual({ stale: true });
     expect(state.tiles.has("9,9")).toBe(true);
+    expect(state.actionQueue).toHaveLength(1);
+    expect(state.activityDashboard.timeline).toBeDefined();
     expect(state.camX).toBe(900);
     expect(state.camY).toBe(-200);
   });
