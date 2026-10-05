@@ -16,7 +16,6 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   CHOOSE_DOMAIN: "Domain choices",
   CHOOSE_TECH: "Technology unlocks",
   COLLECT_SHARD: "Shard collection",
-  COLLECT_TILE: "Tile collection",
   COLLECT_VISIBLE: "Visible-yield collection",
   CREATE_MOUNTAIN: "Mountain creation",
   PURGE_SIPHON: "Siphon purge",

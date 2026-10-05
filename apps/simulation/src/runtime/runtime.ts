@@ -499,6 +499,7 @@ import {
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
 import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
+import { createStrandedFrontierCleanup, handleCheckStrandedRegionCommand as handleCheckStrandedRegionCommandImpl } from "../stranded-frontier/stranded-frontier-cleanup.js";
 import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
@@ -540,6 +541,7 @@ export class SimulationRuntime {
   private readonly events = new EventEmitter();
   private terrainEpoch = nextTerrainEpoch++;
   private readonly persistence: SimulationPersistence;
+  private readonly strandedFrontier = createStrandedFrontierCleanup(() => this.encirclementApplicationContext());
   private readonly now: () => number;
   private readonly state: RuntimeState;
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
@@ -1594,7 +1596,8 @@ export class SimulationRuntime {
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
-      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
+      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      releaseIfStrandedOrigin: (originKey, ownerId, commandId) => this.strandedFrontier.releaseIfStrandedOrigin(originKey, ownerId, commandId)
     };
   }
 
@@ -2523,7 +2526,7 @@ export class SimulationRuntime {
       return;
     }
 
-    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE") {
+    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE" && command.type !== "CHECK_STRANDED_REGION") {
       const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
       const existingCommandId = this.replayCache.commandIdsByPlayerSeq.get(playerSeqKey);
       if (existingCommandId) {
@@ -2538,7 +2541,7 @@ export class SimulationRuntime {
 
       this.replayCache.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
     }
-    this.persistence.recordCommand(command);
+    if (command.type !== "CHECK_STRANDED_REGION") this.persistence.recordCommand(command); // ephemeral: never retained
     this.queueCommandForProcessing(command);
   }
 
@@ -3551,43 +3554,6 @@ export class SimulationRuntime {
     return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
   }
 
-  private handleCollectTileCommand(command: CommandEnvelope): void {
-    const actor = this.state.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) { this.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
-    this.applyManpowerRegen(actor);
-    const target = this.state.tiles.get(simulationTileKey(payload.x, payload.y));
-    if (!target || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-      this.rejectCommand(command, "COLLECT_EMPTY", "tile is not a settled owned tile"); return;
-    }
-
-    const collected = this.collectTileYield(target, this.now(), command);
-    const gold = collected.gold;
-    const strategic = collected.strategic;
-    const touched = gold > 0 || Object.values(strategic).some((value) => Number(value) > 0);
-    if (!touched) { this.rejectCommand(command, "COLLECT_EMPTY", "yield is empty"); return; }
-    actor.points += gold;
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      tileDeltas: [this.tileDeltaFromState(target)]
-    });
-    this.emitEvent({
-      eventType: "COLLECT_RESULT",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      mode: "tile",
-      x: payload.x,
-      y: payload.y,
-      tiles: 1,
-      gold,
-      strategic
-    });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-  }
-
   private handleCollectVisibleCommand(command: CommandEnvelope): void {
     const actor = this.state.players.get(command.playerId);
     if (!actor) { this.rejectCommand(command, "BAD_COMMAND", "unknown player"); return; }
@@ -3954,39 +3920,6 @@ export class SimulationRuntime {
     return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y));
   }
 
-  private collectTileYield(
-    tile: DomainTileState,
-    now: number,
-    command: Pick<CommandEnvelope, "commandId" | "playerId">,
-    context?: RuntimeTileYieldEconomyContext,
-    options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
-  ): {
-    gold: number;
-    strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-  } {
-    const creditStrategic = options.creditStrategic ?? true;
-    const persistAnchor = options.persistAnchor ?? true;
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    const player = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
-    const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
-    const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, yieldViewEconomyContextImpl(player, resolvedContext, this.state.tiles, this.state.dockLinksByDockTileKey));
-    const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
-    const strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> = {};
-    for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
-      ["FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number]
-    >) {
-      if (amount > 0) {
-        strategic[resource] = amount;
-        if (creditStrategic && player) this.addStrategicResource(player, resource, amount);
-      }
-    }
-    if (persistAnchor && (gold > 0 || Object.keys(strategic).length > 0)) {
-      this.setTileYieldCollectedAt(command.commandId, command.playerId, tileKey, now);
-    }
-    return { gold, strategic };
-  }
-
   private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return strategicResourceAmountImpl(player, resource); }
 
   private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean { return spendStrategicResourceImpl(player, resource, amount); }
@@ -4300,7 +4233,7 @@ export class SimulationRuntime {
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeOutpostBuildCommand: (command) => handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command),
-      handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
+      handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
