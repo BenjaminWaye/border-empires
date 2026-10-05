@@ -22,6 +22,7 @@ import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtim
 import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 // Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
 // can never make an ATTACK resolve instantly or negatively.
@@ -49,7 +50,7 @@ export type RuntimeFrontierCommandContext = {
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   musterReservedByKey: Map<string, number>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -118,8 +119,15 @@ export const handleFrontierCommandImpl = (
         submittedFrom;
   const originIsAlliedDockCrossing = dockOrigin?.isAlliedDockCrossing === true && from === dockOrigin.tile;
 
-  const originLock = ctx.locksByTile.get(simulationTileKey(from.x, from.y));
-  const targetLock = ctx.locksByTile.get(simulationTileKey(to.x, to.y));
+  // Only a tile that is the TARGET of a fight is locked against new attacks
+  // (and can't launch any). Being the origin of someone else's fight -- the
+  // enemy marched out of it -- does not stop you attacking it back, so the
+  // defender can answer while the enemy's own attack is still pending. An
+  // ally's tile that is the origin of that ally's own fight still can't be
+  // reused as a dock-crossing origin.
+  const fromKey = simulationTileKey(from.x, from.y);
+  const originLock = ctx.locksByTile.targetLockAt(fromKey) ?? ctx.locksByTile.originLocksAt(fromKey).find((candidate) => candidate.playerId !== actor.id);
+  const targetLock = ctx.locksByTile.targetLockAt(simulationTileKey(to.x, to.y));
   ctx.commandTrace?.({
     phase: "frontier_validate",
     commandId: command.commandId,
@@ -347,8 +355,7 @@ export const handleFrontierCommandImpl = (
     ...baseLock,
     ...(combatResolution ? { combatResolution } : {})
   };
-  ctx.locksByTile.set(lock.originKey, lock);
-  ctx.locksByTile.set(lock.targetKey, lock);
+  ctx.locksByTile.addLock(lock);
   ctx.locksByCommandId.set(lock.commandId, lock);
   ctx.commandTrace?.({
     phase: "frontier_accept",
