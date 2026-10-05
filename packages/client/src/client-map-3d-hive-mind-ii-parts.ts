@@ -43,12 +43,24 @@ export const HMM2_POD_CROWN = HMM2_POD.y + (HMM2_POD.radius + 0.01) * HMM2_POD.s
 // module's tallest point.
 export const HMM2_CORE = { r: 0.03 };
 export const HMM2_TWIN = { y: 0.2, dz: 0.048 };
-// Gimbal: the shared brass cradle frame — a flat crescent under each core,
-// held in the same low half-ring so the two cores read as one commanded pair.
+// Gimbal: the brass cradle frame — a flat crescent under each core, so the two
+// cores read as one commanded pair. The frame is genuinely SHARED: a single
+// central brass spine also rises between the pair, so both orbs hang on one
+// brass mechanism rather than two independent cradles.
 export const HMM2_GIMBAL = { radius: 0.034, tube: 0.008, y: 0.163 };
 // Bridge: the thick dark-steel synchronization slab linking the twin cores
 // across the seam between them.
 export const HMM2_BRIDGE = { breadth: 0.02, thickness: 0.02, length: 0.096 };
+// Gimbal_Spine: the one shared member of the frame. It starts just under the
+// pod dome (the crown minus a short embed so its base sinks into the pod),
+// threads the 0.036-wide gap between the two cores (their inner faces at
+// z = ±0.018) and stops flush against the bridge underside. A 0.009 radius
+// clears the gap by a comfortable margin.
+export const HMM2_GIMBAL_SPINE = {
+  y0: HMM2_POD_CROWN - 0.006,
+  y1: HMM2_TWIN.y - HMM2_BRIDGE.thickness / 2,
+  radius: 0.009
+};
 // Pulse: the restrained cyan command pulse that slides along the bridge top —
 // the family's "both minds agree" heartbeat.
 export const HMM2_PULSE = { size: 0.006, length: 0.01, y: 0.213, travel: 0.009, speed: 0.0012 };
@@ -107,6 +119,7 @@ export type HiveMindIiGeometries = {
   readonly bridge: BufferGeometry;
   readonly pulse: BufferGeometry;
   readonly gimbal: BufferGeometry;
+  readonly gimbalSpine: BufferGeometry;
   readonly ring: BufferGeometry;
   readonly tooth: BufferGeometry;
   readonly relay: BufferGeometry;
@@ -159,6 +172,10 @@ export const createHiveMindIiParts = (): HiveMindIiParts => {
       bridge: new BoxGeometry(HMM2_BRIDGE.breadth, HMM2_BRIDGE.thickness, HMM2_BRIDGE.length),
       pulse: new BoxGeometry(HMM2_PULSE.size, HMM2_PULSE.size, HMM2_PULSE.length),
       gimbal,
+      // The shared central spine: a unit-length cylinder the placement code
+      // stretches to span the gap between the two cores (pod crown to bridge
+      // underside).
+      gimbalSpine: new CylinderGeometry(HMM2_GIMBAL_SPINE.radius, HMM2_GIMBAL_SPINE.radius, 1, 10),
       ring,
       tooth: new BoxGeometry(HMM2_TOOTH.size, HMM2_TOOTH.size, HMM2_TOOTH.size),
       relay: new IcosahedronGeometry(HMM2_RELAY.r, 0),

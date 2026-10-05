@@ -26,7 +26,10 @@
 //   │   │   standing side by side along Z, cradled in the brass gimbal frame
 //   │   ├── Twin_Cores★2    — two identical faceted dark-steel orbs, the
 //   │   │   module's tallest point (two coordinated minds)
-//   │   ├── Gimbal★2        — the shared flat brass crescent cradles under them
+//   │   ├── Gimbal★2        — the brass crescent cradles under them
+//   │   ├── Gimbal_Spine    — the ONE central brass spine rising through the
+//   │   │   gap between the pair into the bridge underside: both orbs hang on a
+//   │   │   single shared brass frame
 //   │   ├── Bridge          — the thick dark-steel synchronization slab linking
 //   │   │   the cores across the seam
 //   │   ├── Pulse           — the cyan command pulse sliding along the bridge
@@ -70,6 +73,7 @@ import {
   HMM2_CONDUIT,
   HMM2_CORE,
   HMM2_GIMBAL,
+  HMM2_GIMBAL_SPINE,
   HMM2_POD,
   HMM2_PULSE,
   HMM2_RELAY,
@@ -139,6 +143,7 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
   make("bridge", geo.bridge, mat.steel, 1);
   make("pulse", geo.pulse, mat.cyan, 1);
   make("gimbal", geo.gimbal, mat.brass, 2);
+  make("gimbalSpine", geo.gimbalSpine, mat.brass, 1);
   make("ring", geo.ring, mat.brass, 1);
   make("tooth", geo.tooth, mat.brass, HMM2_TOOTH_COUNT);
   make("relay", geo.relay, mat.iron, HMM2_RELAY_AZIMUTHS.length);
@@ -243,13 +248,19 @@ export const createHiveMindIiModuleOverlay = (scene: Scene, maxInstances: number
 
   // Command_Assembly: the two faceted dark-steel cores standing side by side
   // along the module's Z axis, each cradled in a flat brass crescent at its own
-  // z-plane, joined by the thick dark-steel synchronization bridge.
+  // z-plane, joined by the thick dark-steel synchronization bridge. One central
+  // brass spine threads the gap between the pair and runs from the pod crown up
+  // through the bridge underside — the shared member that makes the whole frame
+  // one mechanism.
   const addCommandAssembly = (wx: number, sy: number, wz: number): void => {
     addPiece("core", wx, sy, wz, 0, HMM2_TWIN.y, HMM2_TWIN.dz);
     addPiece("core", wx, sy, wz, 0, HMM2_TWIN.y, -HMM2_TWIN.dz);
     ringQuat.copy(qHoleUp);
     addComposed("gimbal", wx, sy, wz, 0, HMM2_GIMBAL.y, HMM2_TWIN.dz, ringQuat);
     addComposed("gimbal", wx, sy, wz, 0, HMM2_GIMBAL.y, -HMM2_TWIN.dz, ringQuat);
+    const spineY = (HMM2_GIMBAL_SPINE.y0 + HMM2_GIMBAL_SPINE.y1) / 2;
+    const spineLen = HMM2_GIMBAL_SPINE.y1 - HMM2_GIMBAL_SPINE.y0;
+    addPiece("gimbalSpine", wx, sy, wz, 0, spineY, 0, 1, 1, spineLen);
     addPiece("bridge", wx, sy, wz, 0, HMM2_TWIN.y, 0);
     // The signal ring itself is flat (a torus is rotationally symmetric about
     // its spin axis), so it is placed once and never re-emitted — only its

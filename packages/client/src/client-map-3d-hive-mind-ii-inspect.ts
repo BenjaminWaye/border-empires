@@ -14,7 +14,7 @@
 // let the envelope assertions pass on nothing.
 
 import { InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
-import { HMM2_CONDUIT, HMM2_CORE, HMM2_GIMBAL, HMM2_PULSE, HMM2_RELAY, HMM2_RING, HMM2_SIGNAL_LIGHT, HMM2_TOOTH, HMM2_BRIDGE } from "./client-map-3d-hive-mind-ii-parts.js";
+import { HMM2_CONDUIT, HMM2_CORE, HMM2_GIMBAL, HMM2_GIMBAL_SPINE, HMM2_PULSE, HMM2_RELAY, HMM2_RING, HMM2_SIGNAL_LIGHT, HMM2_TOOTH, HMM2_BRIDGE } from "./client-map-3d-hive-mind-ii-parts.js";
 
 export const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
@@ -48,6 +48,11 @@ export const relayMesh = (scene: Scene): InstancedMesh | undefined =>
 // The shared brass gimbal frame: the flat crescent cradles under the cores.
 export const gimbalMesh = (scene: Scene): InstancedMesh | undefined =>
   findByParams(scene, (geo) => geo.type === "TorusGeometry" && near(numberParam(geo, "radius"), HMM2_GIMBAL.radius) && near(numberParam(geo, "tube"), HMM2_GIMBAL.tube));
+
+// The one central brass spine of the shared frame, threading the gap between
+// the two cores from the pod crown to the bridge underside.
+export const gimbalSpineMesh = (scene: Scene): InstancedMesh | undefined =>
+  findByParams(scene, (geo) => geo.type === "CylinderGeometry" && near(numberParam(geo, "radiusTop"), HMM2_GIMBAL_SPINE.radius) && near(numberParam(geo, "height"), 1));
 
 // The broad flat brass signal ring.
 export const ringMesh = (scene: Scene): InstancedMesh | undefined =>

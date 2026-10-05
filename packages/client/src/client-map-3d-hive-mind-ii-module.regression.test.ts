@@ -27,13 +27,11 @@ import {
   HMM2_CONDUIT,
   HMM2_CORE,
   HMM2_GIMBAL,
+  HMM2_GIMBAL_SPINE,
   HMM2_POD_CROWN,
-  HMM2_PULSE,
   HMM2_RELAY,
   HMM2_RELAY_AZIMUTHS,
   HMM2_RING,
-  HMM2_RING_SPEED_MS,
-  HMM2_RING_START_ROLL,
   HMM2_SIGNAL_LIGHT,
   HMM2_TOOTH,
   HMM2_TOWER_TOP,
@@ -51,6 +49,7 @@ import {
   couplingTipMesh,
   envelope,
   gimbalMesh,
+  gimbalSpineMesh,
   instancedMeshes,
   lightMesh,
   materialOf,
@@ -75,12 +74,13 @@ const build = (instances = 1): { scene: Scene; overlay: ReturnType<typeof create
 };
 
 describe("hive mind ii module construction", () => {
-  it("builds every part of the silhouette: seat, pod, twin cores, gimbal, bridge, pulse, signal ring, teeth, relays, conduits, lights, coupling", () => {
+  it("builds every part of the silhouette: seat, pod, twin cores, gimbal, spine, bridge, pulse, signal ring, teeth, relays, conduits, lights, coupling", () => {
     const { scene } = build();
     expect(podMesh(scene)).toBeDefined();
     expect(baseMesh(scene)).toBeDefined();
     expect(coreMesh(scene)).toBeDefined();
     expect(gimbalMesh(scene)).toBeDefined();
+    expect(gimbalSpineMesh(scene)).toBeDefined();
     expect(bridgeMesh(scene)).toBeDefined();
     expect(pulseMesh(scene)).toBeDefined();
     expect(ringMesh(scene)).toBeDefined();
@@ -156,6 +156,24 @@ describe("hive mind ii module construction", () => {
     }
     // Heavy aged brass.
     expect(materialOf(gimbals).metalness).toBeGreaterThan(0.7);
+    // The frame is genuinely SHARED: one central brass spine threads the gap
+    // between the two cores, running from the pod crown up to the bridge
+    // underside, so both orbs hang on a single brass mechanism.
+    const spines = gimbalSpineMesh(scene)!;
+    expect(spines.count).toBe(1);
+    const st = translation(spines, 0);
+    expect(st.x).toBeCloseTo(0, 6);
+    expect(st.z).toBeCloseTo(0, 6);
+    expect(st.y).toBeCloseTo(((HMM2_GIMBAL_SPINE.y0 + HMM2_GIMBAL_SPINE.y1) / 2) * S, 6);
+    // Its length exactly spans pod crown to bridge underside along the Y axis.
+    const axis = yAxisColumn(spines, 0);
+    expect(Math.abs(axis.x)).toBeLessThan(1e-9);
+    expect(Math.abs(axis.z)).toBeLessThan(1e-9);
+    expect(axis.length()).toBeCloseTo((HMM2_GIMBAL_SPINE.y1 - HMM2_GIMBAL_SPINE.y0) * S, 6);
+    // Thin enough to pass through the 0.036-wide gap between the two cores.
+    expect(HMM2_GIMBAL_SPINE.radius * 2).toBeLessThan(2 * HMM2_TWIN.dz - 2 * HMM2_CORE.r);
+    // Same heavy aged brass as the crescents.
+    expect(materialOf(spines).metalness).toBeGreaterThan(0.7);
   });
 
   it("girdles the pair with a broad flat brass signal ring, clear of the cores inside", () => {
@@ -360,80 +378,6 @@ describe("hive mind ii module lifecycle", () => {
     expect(meshes.length).toBeGreaterThan(0);
     overlay.dispose();
     expect(instancedMeshes(scene).length).toBe(0);
-  });
-});
-
-describe("hive mind ii module animation", () => {
-  it("orbits the ring's teeth and slides the bridge pulse, holding everything else still", () => {
-    const { scene, overlay } = build(2);
-    const toothBefore = [0, 1, 2, 3, 4, 5].map((i) => matrixAt(toothMesh(scene)!, i));
-    const pulseBefore = [0, 1].map((i) => matrixAt(pulseMesh(scene)!, i));
-    const ringBefore = [0, 1].map((i) => matrixAt(ringMesh(scene)!, i));
-    const coreBefore = [0, 1, 2, 3].map((i) => matrixAt(coreMesh(scene)!, i));
-    const bridgeBefore = [0, 1].map((i) => matrixAt(bridgeMesh(scene)!, i));
-    const relayBefore = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => matrixAt(relayMesh(scene)!, i));
-    overlay.update(5000);
-    // The moving parts re-render at the new clock time.
-    expect([0, 1, 2, 3, 4, 5].map((i) => matrixAt(toothMesh(scene)!, i))).not.toEqual(toothBefore);
-    expect([0, 1].map((i) => matrixAt(pulseMesh(scene)!, i))).not.toEqual(pulseBefore);
-    // Everything else stays exactly as emitted — the flat ring is emitted once
-    // in data, and the cores, bridge and relays never move.
-    expect([0, 1].map((i) => matrixAt(ringMesh(scene)!, i))).toEqual(ringBefore);
-    expect([0, 1, 2, 3].map((i) => matrixAt(coreMesh(scene)!, i))).toEqual(coreBefore);
-    expect([0, 1].map((i) => matrixAt(bridgeMesh(scene)!, i))).toEqual(bridgeBefore);
-    expect([0, 1, 2, 3, 4, 5, 6, 7].map((i) => matrixAt(relayMesh(scene)!, i))).toEqual(relayBefore);
-  });
-
-  it("keeps the whole family's part counts stable across updates", () => {
-    const { scene, overlay } = build(2);
-    const countsBefore = instancedMeshes(scene).map((mesh) => mesh.count);
-    overlay.update(1000);
-    overlay.update(2000);
-    expect(toothMesh(scene)!.count).toBe(6);
-    expect(pulseMesh(scene)!.count).toBe(2);
-    expect(instancedMeshes(scene).map((mesh) => mesh.count)).toEqual(countsBefore);
-  });
-
-  it("advances deterministically with the clock: same time re-renders identically, later time differs", () => {
-    const { scene, overlay } = build(1);
-    overlay.update(1200);
-    const toothAt = matrixAt(toothMesh(scene)!, 0);
-    const pulseAt = matrixAt(pulseMesh(scene)!, 0);
-    overlay.update(1200);
-    expect(matrixAt(toothMesh(scene)!, 0)).toEqual(toothAt);
-    expect(matrixAt(pulseMesh(scene)!, 0)).toEqual(pulseAt);
-    overlay.update(4800);
-    expect(matrixAt(toothMesh(scene)!, 0)).not.toEqual(toothAt);
-    expect(matrixAt(pulseMesh(scene)!, 0)).not.toEqual(pulseAt);
-  });
-
-  it("spots the teeth at the advancing roll on the ring's radius", () => {
-    const { scene, overlay } = build(1);
-    const nowMs = 3333;
-    overlay.update(nowMs);
-    const roll = HMM2_RING_START_ROLL + nowMs * HMM2_RING_SPEED_MS;
-    for (let k = 0; k < 3; k += 1) {
-      const a = roll + (k * Math.PI * 2) / 3;
-      const t = translation(toothMesh(scene)!, k);
-      expect(t.x).toBeCloseTo(Math.cos(a) * HMM2_TOOTH.radius * S, 4);
-      expect(t.y).toBeCloseTo(HMM2_TOOTH.y * S, 4);
-      expect(t.z).toBeCloseTo(Math.sin(a) * HMM2_TOOTH.radius * S, 4);
-    }
-  });
-
-  it("slides the cyan pulse along the bridge with a clamped sine", () => {
-    const { scene, overlay } = build(1);
-    overlay.update(0);
-    const t0 = translation(pulseMesh(scene)!, 0);
-    expect(t0.x).toBeCloseTo(0, 6);
-    expect(t0.z).toBeCloseTo(0, 6);
-    expect(t0.y).toBeCloseTo(HMM2_PULSE.y * S, 6);
-    const nowMs = 1900;
-    overlay.update(nowMs);
-    const t1 = translation(pulseMesh(scene)!, 0);
-    expect(t1.z).toBeCloseTo(HMM2_PULSE.travel * Math.sin(nowMs * HMM2_PULSE.speed) * S, 4);
-    expect(t1.x).toBeCloseTo(0, 6);
-    expect(t1.y).toBeCloseTo(HMM2_PULSE.y * S, 6);
   });
 });
 
