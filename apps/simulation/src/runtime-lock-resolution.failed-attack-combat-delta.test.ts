@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 const ATTACKER_ID = "player-1";
 const DEFENDER_ID = "player-2";
@@ -33,7 +34,7 @@ describe("resolveLock failed-attack combat-only delta", () => {
     const context: RuntimeLockResolutionContext = {
       players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
       tiles,
-      locksByTile: new Map(),
+      locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
       musterReservedByKey: new Map(),
       barbarianTileProgress: new Map(),
@@ -109,8 +110,7 @@ describe("resolveLock failed-attack combat-only delta", () => {
         targetRecentlyPillaged: false
       }
     };
-    context.locksByTile.set(lock.originKey, lock);
-    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByTile.addLock(lock);
     context.locksByCommandId.set(lock.commandId, lock);
 
     resolveLock(context, lock);

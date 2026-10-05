@@ -5,7 +5,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type AfcLandingBarbarianClearContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, unknown>;
+  locksByTile: Pick<ReadonlyMap<string, unknown>, "has">;
   pendingSettlementsByTile: ReadonlyMap<string, unknown>;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;

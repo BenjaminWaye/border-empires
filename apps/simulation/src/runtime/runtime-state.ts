@@ -2,6 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { LockRecord, RuntimePlayer } from "../runtime-types.js";
 import type { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
+import { CombatLockIndex } from "../combat-lock-index/combat-lock-index.js";
 
 /**
  * Stage 7 of the SimulationRuntime god-class breakup: a plain data holder for
@@ -21,7 +22,7 @@ export class RuntimeState {
   readonly docks: DockRouteDefinition[];
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   readonly dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
-  readonly locksByTile: Map<string, LockRecord>;
+  readonly locksByTile: CombatLockIndex;
   readonly visibilityCoverage: VisibilityCoverageTracker;
 
   constructor(init: {
@@ -30,7 +31,7 @@ export class RuntimeState {
     docks: DockRouteDefinition[];
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
     dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
-    locksByTile: Map<string, LockRecord>;
+    locksByTile: CombatLockIndex;
     visibilityCoverage: VisibilityCoverageTracker;
   }) {
     this.players = init.players;
