@@ -46,6 +46,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791140183000, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "Counter-attack the tile an attack launched from",
+    why: "Locking the tile an enemy attack came from left defenders unable to answer while their frontier was being taken, and two attacks from one tile could cancel each other.",
+    changes: [
+      "You can attack the tile an enemy attack launched from while their attack is still pending; only the tile being attacked is locked",
+      "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
+      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender"
+    ]
+  },
+  {
     createdAt: 1791005011469, // Date.now() frozen for this entry
     introducedIn: "2026.10.03.1",
     title: "AI infrastructure and clearer tile details",

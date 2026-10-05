@@ -147,12 +147,12 @@ export function economicOrObservatoryCancelRefund(
 
 export function cancelActiveOutpostAttackLocks(context: RuntimeStructureCommandContext, playerId: string, originKey: string): string[] {
   const cancelled: string[] = [];
-  const lock = context.locksByTile.get(originKey);
-  if (!lock || lock.playerId !== playerId || lock.actionType !== "ATTACK") return cancelled;
-  context.locksByTile.delete(lock.originKey);
-  context.locksByTile.delete(lock.targetKey);
-  context.locksByCommandId.delete(lock.commandId);
-  cancelled.push(lock.commandId);
+  for (const lock of context.locksByTile.originLocksAt(originKey)) {
+    if (lock.playerId !== playerId || lock.actionType !== "ATTACK") continue;
+    context.locksByTile.removeLock(lock);
+    context.locksByCommandId.delete(lock.commandId);
+    cancelled.push(lock.commandId);
+  }
   return cancelled;
 }
 

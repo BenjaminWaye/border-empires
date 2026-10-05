@@ -8,6 +8,7 @@ import { attachDockSeaRoutes, type SeaRouteTerrainReader } from "./dock-network/
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 import { lockSourceFromCommandId } from "./runtime-types.js";
 import type { LockedCombatResolution, LockRecord, RuntimePlayer } from "./runtime-types.js";
 
@@ -208,8 +209,8 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
   }
 };
 
-export const createLocksFromInitialState = (initialState?: RecoveredSimulationState): Map<string, LockRecord> => {
-  const locksByTile = new Map<string, LockRecord>();
+export const createLocksFromInitialState = (initialState?: RecoveredSimulationState): CombatLockIndex => {
+  const locksByTile = new CombatLockIndex();
   if (!initialState) return locksByTile;
 
   for (const lock of initialState.activeLocks) {
@@ -233,8 +234,7 @@ export const createLocksFromInitialState = (initialState?: RecoveredSimulationSt
       source,
       ...(combatResolution ? { combatResolution } : {})
     };
-    locksByTile.set(hydratedLock.originKey, hydratedLock);
-    locksByTile.set(hydratedLock.targetKey, hydratedLock);
+    locksByTile.addLock(hydratedLock);
   }
 
   return locksByTile;
