@@ -11,8 +11,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// The launch tile is a town: without a reach anchor it reads as cut off from supply (ORIGIN_CUT_OFF).
 const attackerTiles = [
-  { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, muster: { ownerId: "player-1", amount: 999, mode: "HOLD" as const, updatedAt: 0 } }
+  { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const }, muster: { ownerId: "player-1", amount: 999, mode: "HOLD" as const, updatedAt: 0 } }
 ];
 
 type SeenStructure = { status: string; completesAt?: number; pausedAt?: number };
@@ -33,6 +34,8 @@ const latestStructureDelta = (seen: SimulationEvent[]): { present: boolean; stru
   }
   return latest;
 };
+
+const defenderTown = { x: 10, y: 12, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const, town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const } };
 
 const command = (commandId: string, playerId: string, type: "ATTACK" | "SETTLE" | "BUILD_STRUCTURE", payload: object, clientSeq: number) => ({
   commandId,
@@ -59,18 +62,15 @@ describe("development hold while a tile is under attack", () => {
         tiles: [
           ...attackerTiles,
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          { x: 10, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } }
+          defenderTown
         ],
-        activeLocks: []
+        activeLocks: [],
+        // Seeded rather than started with SETTLE: the attacker's adjacent town now contests the defender's reach.
+        pendingSettlements: [{ ownerId: "player-2", tileKey: "10,11", startedAt: START, resolvesAt: START + 600_000, goldCost: 25, commandId: "settle-1" }]
       }
     });
     const defenderBefore = runtime.exportState().players.find((p) => p.id === "player-2");
-
-    runtime.submitCommand(command("settle-1", "player-2", "SETTLE", { x: 10, y: 11 }, 1));
-    await Promise.resolve();
     expect(runtime.exportState().pendingSettlements).toHaveLength(1);
-    const defenderMidSettle = runtime.exportState().players.find((p) => p.id === "player-2");
-    expect(defenderMidSettle?.manpower).toBeLessThan(defenderBefore?.manpower ?? 0);
 
     runtime.submitCommand(command("attack-1", "player-1", "ATTACK", { fromX: 10, fromY: 10, toX: 10, toY: 11 }, 1));
     await Promise.resolve();
@@ -78,7 +78,8 @@ describe("development hold while a tile is under attack", () => {
     const afterAttack = runtime.exportState();
     expect(afterAttack.activeLocks.some((lock) => lock.commandId === "attack-1")).toBe(true);
     expect(afterAttack.pendingSettlements).toHaveLength(0);
-    expect(afterAttack.players.find((p) => p.id === "player-2")?.manpower).toBe(defenderBefore?.manpower);
+    // goldCost (25) is refunded on cancel.
+    expect(afterAttack.players.find((p) => p.id === "player-2")?.points).toBe((defenderBefore?.points ?? 0) + 25);
 
     const seen = collectEvents(runtime);
     runtime.submitCommand(command("settle-2", "player-2", "SETTLE", { x: 10, y: 11 }, 2));
@@ -109,7 +110,8 @@ describe("development hold while a tile is under attack", () => {
             ownerId: "player-2",
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: originalCompletesAt }
-          }
+          },
+          defenderTown
         ],
         activeLocks: []
       }
@@ -153,7 +155,8 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } }
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          defenderTown
         ],
         activeLocks: []
       }
@@ -185,7 +188,8 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } }
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          defenderTown
         ],
         activeLocks: []
       }
