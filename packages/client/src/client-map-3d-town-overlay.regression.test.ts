@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { InstancedMesh, Scene } from "three";
-import { createTownOverlay } from "./client-map-3d-town-overlay.js";
+// Never resolves: these tests cover the procedural layouts, not the glb.
+vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => ({
+  GLTFLoader: class {
+    load(): void {}
+  }
+}));
+
+const { createTownOverlay } = await import("./client-map-3d-town-overlay.js");
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] => {
   const meshes: InstancedMesh[] = [];
