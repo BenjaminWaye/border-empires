@@ -24,6 +24,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791142179429, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.2",
+    title: "Your reach now scouts the land it covers",
+    why: "Reach could extend across neutral ground without revealing it, so losing frontier tiles could leave you unable to see territory your towns, docks and outposts still allowed you to claim.",
+    changes: [
+      "Every tile inside your current reach now has one tile of vision",
+      "You can see one tile beyond the outer edge of that reach, even when no frontier tiles remain",
+      "Frontier tiles keep their existing scouting vision"
+    ]
+  },
+  {
     createdAt: 1791140199531, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
     title: "Safer spawns and full AFC reach",
