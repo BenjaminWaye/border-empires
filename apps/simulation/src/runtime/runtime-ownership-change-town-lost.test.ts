@@ -84,6 +84,7 @@ describe("onOwnershipChange townLost signal", () => {
         onOwnershipChange: (sample) => samples.push(sample),
         initialState: {
           tiles: [
+            { x: 20, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
               x: 20,
               y: 20,

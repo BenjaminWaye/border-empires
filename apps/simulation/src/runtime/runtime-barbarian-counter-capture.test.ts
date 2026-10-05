@@ -27,6 +27,7 @@ describe("barbarian counter-captures", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
             { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
             // A second, distant tile keeps player-1 from being eliminated when the barbarian takes (10,10):

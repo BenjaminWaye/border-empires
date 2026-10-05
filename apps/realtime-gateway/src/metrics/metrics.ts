@@ -1,3 +1,5 @@
+import { STRANDED_REGION_CHECK_OUTCOMES, type StrandedRegionCheckOutcome } from "../ephemeral-sim-commands/ephemeral-sim-commands.js";
+
 const quantile = (values: number[], q: number): number => {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -76,6 +78,7 @@ export type GatewayMetricsSnapshot = {
   reachReplayEvictionsTotal: number;
   gatewaySqliteRetryTotal: number;
   colorCollisionRejectedTotal: number;
+  strandedRegionCheckTotal: Record<StrandedRegionCheckOutcome, number>;
   guestDiplomacyBlockedTotal: number;
   displayNameCollisionRejectedTotal: number;
   guestProfileProvisionedTotal: number;
@@ -127,6 +130,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let reachReplayEvictionsTotal = 0;
   let gatewaySqliteRetryTotal = 0;
   let colorCollisionRejectedTotal = 0;
+  const strandedRegionCheckTotal = Object.fromEntries(STRANDED_REGION_CHECK_OUTCOMES.map((outcome) => [outcome, 0])) as Record<StrandedRegionCheckOutcome, number>;
   let guestDiplomacyBlockedTotal = 0;
   let displayNameCollisionRejectedTotal = 0;
   let guestProfileProvisionedTotal = 0;
@@ -201,6 +205,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     reachReplayEvictionsTotal,
     gatewaySqliteRetryTotal,
     colorCollisionRejectedTotal,
+    strandedRegionCheckTotal: { ...strandedRegionCheckTotal },
     guestDiplomacyBlockedTotal,
     displayNameCollisionRejectedTotal,
     guestProfileProvisionedTotal,
@@ -293,6 +298,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementColorCollisionRejectedTotal(count = 1): void {
       colorCollisionRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementStrandedRegionCheck(outcome: StrandedRegionCheckOutcome): void {
+      strandedRegionCheckTotal[outcome] += 1;
     },
     incrementGuestDiplomacyBlockedTotal(): void {
       guestDiplomacyBlockedTotal += 1;
@@ -432,6 +440,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
         "# TYPE gateway_color_collision_rejected_total counter",
         `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`,
+        "# TYPE gateway_stranded_region_checks_total counter",
+        ...STRANDED_REGION_CHECK_OUTCOMES.map((outcome) => `gateway_stranded_region_checks_total{outcome=\"${outcome}\"} ${formatMetricValue(sample.strandedRegionCheckTotal[outcome])}`),
         "# TYPE gateway_guest_diplomacy_blocked_total counter",
         `gateway_guest_diplomacy_blocked_total ${formatMetricValue(sample.guestDiplomacyBlockedTotal)}`,
         "# TYPE gateway_display_name_collision_rejected_total counter",

@@ -28,10 +28,10 @@ describe("toPendingGatewayCommands", () => {
 
   it("omits payload for a command whose stored JSON has no move coordinates", () => {
     const result = toPendingGatewayCommands([
-      { commandId: "a", sessionId: "s", playerId: "p", clientSeq: 1, type: "COLLECT_TILE", payloadJson: "{\"x\":1,\"y\":2}", queuedAt: 100, status: "ACCEPTED", acceptedAt: 150 }
+      { commandId: "a", sessionId: "s", playerId: "p", clientSeq: 1, type: "COLLECT_VISIBLE", payloadJson: "{}", queuedAt: 100, status: "ACCEPTED", acceptedAt: 150 }
     ]);
 
-    expect(result).toEqual([{ commandId: "a", clientSeq: 1, type: "COLLECT_TILE", status: "ACCEPTED", queuedAt: 100, acceptedAt: 150 }]);
+    expect(result).toEqual([{ commandId: "a", clientSeq: 1, type: "COLLECT_VISIBLE", status: "ACCEPTED", queuedAt: 100, acceptedAt: 150 }]);
     expect(result[0]).not.toHaveProperty("payload");
   });
 });

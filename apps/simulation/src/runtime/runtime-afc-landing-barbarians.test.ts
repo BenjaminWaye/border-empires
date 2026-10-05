@@ -79,7 +79,9 @@ describe("AFC landing among barbarians", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            // SETTLED, not FRONTIER: a lone frontier origin is stranded and decays before combat, but this
+            // must stay player-1's only tile so losing it eliminates them.
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []

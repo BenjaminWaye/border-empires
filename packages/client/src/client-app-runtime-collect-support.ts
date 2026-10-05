@@ -1,5 +1,4 @@
 import {
-  applyOptimisticTileCollect as applyOptimisticTileCollectFromModule,
   clearPendingCollectTileDelta as clearPendingCollectTileDeltaFromModule,
   hasCollectableYield as hasCollectableYieldFromModule,
   revertOptimisticTileCollectDelta as revertOptimisticTileCollectDeltaFromModule
@@ -17,12 +16,10 @@ export const createClientCollectSupport = (deps: {
   const hasCollectableYield = (tile: Tile | undefined): boolean => hasCollectableYieldFromModule(tile);
   const clearPendingCollectTileDelta = (tileKey?: string): void => clearPendingCollectTileDeltaFromModule(state, tileKey);
   const revertOptimisticTileCollectDelta = (tileKey: string): void => revertOptimisticTileCollectDeltaFromModule(state, tileKey);
-  const applyOptimisticTileCollect = (tile: Tile): boolean => applyOptimisticTileCollectFromModule({ state, keyFor }, tile);
 
   return {
     hasCollectableYield,
     clearPendingCollectTileDelta,
-    revertOptimisticTileCollectDelta,
-    applyOptimisticTileCollect
+    revertOptimisticTileCollectDelta
   };
 };
