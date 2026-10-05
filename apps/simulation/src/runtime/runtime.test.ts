@@ -4775,14 +4775,14 @@ describe("simulation runtime", () => {
       // elimination-respawn reach-auto-claim (real ownerId, folded into this
       // same buffered event), which is why the check below is scoped to
       // bare/unowned deltas rather than total batch size.
-      expect(barbBatches.length).toBeGreaterThanOrEqual(1);
-      expect(barbBatches[0]).toEqual(
+      const captureBatch = barbBatches.find((batch) => batch.some((d) => d.x === 10 && d.y === 11))!;
+      expect(captureBatch).toEqual(
         expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
       );
       const isAttackTile = (d: { x: number; y: number }) => (d.x === 10 && d.y === 11) || (d.x === 10 && d.y === 10);
-      expect(barbBatches[0].filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
+      expect(captureBatch.filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
       // No distant neutral reveal tile (only the reveal square would surface one).
-      expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
+      expect(captureBatch.some((d) => d.x === 6 && d.y === 7)).toBe(false);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

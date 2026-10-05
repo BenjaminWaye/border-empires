@@ -155,9 +155,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
   // The defender takes the origin tile on a loss -- unless it is no longer the
   // attacker's to lose (the defender, or someone else, captured it mid-fight).
+  // A barbarian released its origin when the attack started, so there the tile
+  // is still the attacker's to lose as long as nobody has claimed it since.
+  const originOwnerId = context.tiles.get(lock.originKey)?.ownerId;
   const originLost =
     Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY)) &&
-    context.tiles.get(lock.originKey)?.ownerId === lock.playerId;
+    (originOwnerId === lock.playerId || (lock.barbarianLaunch !== undefined && originOwnerId === undefined));
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense
