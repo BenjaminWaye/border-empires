@@ -77,6 +77,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Tile details show muster battles and distinguish resolved combat animations from ongoing attacks"
     ]
   },
+  {
+    createdAt: 1791166249102, // frozen Date.now() value for this release
+    introducedIn: "2026.10.05.1",
+    title: "Fewer unexpected game server restarts",
+    why: "The game server slowly used more and more memory and ran out roughly every 18 hours, restarting for a minute or two and dropping everyone's connection.",
+    changes: [
+      "Fixed a memory leak in the simulation server that kept every past command and update in memory",
+      "The server should now stay up much longer between restarts"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
