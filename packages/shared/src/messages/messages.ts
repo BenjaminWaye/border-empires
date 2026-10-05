@@ -73,7 +73,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // -- see player-profile-store.ts's musterUnlockedSeasonId. Per-season:
     // meeting an enemy in an earlier season does not carry the unlock into a
     // new one, since a new season is a fresh map with no enemies met yet.
-    musterUnlockedSeasonId: z.string().optional()
+    musterUnlockedSeasonId: z.string().optional(),
+    // Season id (CurrentSeasonSummary.seasonId) whose first login already got
+    // the quiet pass -- the Activity dashboard (What's New / Yours) is not
+    // auto-opened on a season's first login. See player-profile-store.ts's
+    // dashboardQuietedSeasonId.
+    dashboardQuietedSeasonId: z.string().optional()
   }),
   // Server-persisted per-category opt-out for gameplay email alerts (see
   // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's

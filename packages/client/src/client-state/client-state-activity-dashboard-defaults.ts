@@ -21,6 +21,8 @@ export const createInitialActivityDashboardState = () => ({
     worldPulseLoading: false,
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
+    // INIT.player.dashboardQuietedSeasonId: the season whose first login already got the quiet pass (no dashboard auto-open). "" until a first login is recorded.
+    quietedSeasonId: "",
     acknowledgedFor: 0,
     autoOpenedThisSession: false,
     // Scroll offset per tab, kept so rebuilds/tab switches do not snap to the top; cleared on close.

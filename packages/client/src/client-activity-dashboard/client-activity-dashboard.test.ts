@@ -15,6 +15,7 @@ const makeState = () => ({
     worldPulseLoading: false,
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
+    quietedSeasonId: "season-1",
     acknowledgedFor: 0,
     autoOpenedThisSession: false,
     scrollTopByView: {} as Partial<Record<"YOURS" | "WORLD_PULSE" | "UPDATES", number>>,

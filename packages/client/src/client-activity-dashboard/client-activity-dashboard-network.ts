@@ -1,7 +1,7 @@
 import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
 import { isNewPlayerStillOnboarding, shouldShowClientChangelog, type GuideCompletionState } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { isFirstLoginOfSeason } from "./client-activity-dashboard-season-first-login.js";
+import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
 
 type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired" | "bridgeDebugSeasonId" | "authEmail"> &
   GuideCompletionState;
@@ -46,22 +46,30 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
   // fires again on every INIT -- autoOpenedThisSession only resets on a
   // fresh page load.
   const hasUnseenPersonalActivity = newestCardAt(timeline) > state.activitySeen.lastActivitySeenAt;
+  // A season's first login never auto-opens the dashboard (What's New or Yours):
+  // a fresh season has nothing to brief and the login is already crowded. The
+  // season is recorded on the server (SET_HINT_STATE) so later logins -- on any
+  // device -- open it normally; the Updates tab and unread badge still carry the
+  // notes. An unknown season id never quiets.
+  const seasonId = state.bridgeDebugSeasonId;
+  const firstLoginOfSeason = Boolean(seasonId) && state.activityDashboard.quietedSeasonId !== seasonId;
+  if (firstLoginOfSeason) {
+    state.activityDashboard.quietedSeasonId = seasonId;
+    sendHintStateUpdate({ dashboardQuietedSeasonId: seasonId });
+  }
   // New players are still on the tutorial; never stack the dashboard on top.
-  if (isNewPlayerStillOnboarding(state)) {
+  if (isNewPlayerStillOnboarding(state) || firstLoginOfSeason) {
     deps.renderHud();
     return;
   }
-  // Evaluated every time (it records the season), before the branches below.
-  const firstLoginOfSeason = isFirstLoginOfSeason(state.bridgeDebugSeasonId, state.authEmail);
   if (!state.activityDashboard.autoOpenedThisSession && hasUnseenPersonalActivity) {
     state.activityDashboard.autoOpenedThisSession = true;
     state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
-  } else if (!firstLoginOfSeason && !state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
+  } else if (!state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
     // Release notes are second to a genuine personal briefing. They share the
-    // dashboard, so no competing changelog modal can cover the timeline. Not on
-    // the first login of a season, which is already crowded (see the helper).
+    // dashboard, so no competing changelog modal can cover the timeline.
     state.activityDashboard.updatesAutoOpenedThisSession = true;
     state.activityDashboard.activeView = "UPDATES";
     state.activityDashboard.open = true;

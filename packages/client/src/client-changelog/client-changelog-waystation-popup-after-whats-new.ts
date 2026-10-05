@@ -8,7 +8,7 @@ export const CLIENT_CHANGELOG_ENTRIES_WAYSTATION_POPUP_AFTER_WHATS_NEW: ClientCh
     why: "What's New reopened on every login even with nothing new, and a captured-waystation popup could appear on top of it.",
     changes: [
       "What's New no longer reopens on every login; it opens only when there are release notes you haven't seen",
-      "It also stays closed on your first login of a new season, so you aren't greeted by a pile of dialogs; the Updates tab still has the notes",
+      "The Activity dashboard (What's New and your briefing) stays closed on your first login of a new season, so you aren't greeted by a pile of dialogs; it is remembered on your account, and the Updates tab still has the notes",
       "The waystation captured popup now waits until What's New (or the tutorial) is closed, then appears"
     ]
   }

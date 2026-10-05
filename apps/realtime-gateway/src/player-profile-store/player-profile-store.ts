@@ -28,6 +28,13 @@ export type StoredPlayerProfile = {
   // nameChangedSeasonId/colorChangedSeasonId's per-season scoping pattern.
   // Undefined until the player's first-ever enemy contact.
   musterUnlockedSeasonId?: string;
+  // Season id whose first login already got the quiet pass: the Activity
+  // dashboard (What's New / Yours) is not auto-opened on a season's first
+  // login (a fresh season has nothing to brief and the login is already
+  // crowded), and this records that the pass was used so later logins in the
+  // same season open it normally. Per-season, like musterUnlockedSeasonId;
+  // server-side so it survives a browser data clear / different device.
+  dashboardQuietedSeasonId?: string;
   // Per-category opt-out for gameplay email alerts (email-alerts.ts). Every
   // category defaults to on (undefined/missing == enabled) so existing
   // players see no behavior change until they visit the Email Notifications
@@ -64,6 +71,7 @@ export type HintStatePatch = {
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
   musterUnlockedSeasonId?: string;
+  dashboardQuietedSeasonId?: string;
 };
 
 export type GatewayPlayerProfileStore = {
@@ -199,6 +207,9 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(patch.musterUnlockedSeasonId
         ? { musterUnlockedSeasonId: patch.musterUnlockedSeasonId }
         : existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      ...(patch.dashboardQuietedSeasonId
+        ? { dashboardQuietedSeasonId: patch.dashboardQuietedSeasonId }
+        : existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       updatedAt: Date.now()
@@ -222,6 +233,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.hintsMuted === "boolean" ? { hintsMuted: existing.hintsMuted } : {}),
       ...(typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      ...(existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       emailNotificationPrefs: mergedPrefs,
@@ -247,6 +259,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.hintsMuted === "boolean" ? { hintsMuted: existing.hintsMuted } : {}),
       ...(typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      ...(existing?.dashboardQuietedSeasonId ? { dashboardQuietedSeasonId: existing.dashboardQuietedSeasonId } : {}),
       ...(existing?.emailNotificationPrefs ? { emailNotificationPrefs: existing.emailNotificationPrefs } : {}),
       ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
       ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
