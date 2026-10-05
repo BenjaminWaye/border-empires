@@ -154,16 +154,32 @@ export type SimulationPersistence = {
   };
 };
 
+// Keeps only the most recent entries. SimulationRuntime defaults to this class
+// and nothing in production reads snapshot() (only tests do), so an unbounded
+// log leaked every command/event ever emitted -- on 2026-10-04 heap snapshots
+// showed ~166 MB of the growth was retained PLAYER_UPDATE payloadJson strings,
+// OOM-killing the sim worker roughly every 18h on staging and prod.
+export const DEFAULT_MAX_IN_MEMORY_PERSISTENCE_ENTRIES = 2_000;
+
 export class InMemorySimulationPersistence implements SimulationPersistence {
   private readonly commands: CommandEnvelope[] = [];
   private readonly events: SimulationEvent[] = [];
 
+  constructor(private readonly maxEntries: number = DEFAULT_MAX_IN_MEMORY_PERSISTENCE_ENTRIES) {}
+
+  // Trim in batches (at 125% of the cap) so a push is not an O(cap) shift.
+  private trim<T>(list: T[]): void {
+    if (list.length >= this.maxEntries + Math.ceil(this.maxEntries / 4)) list.splice(0, list.length - this.maxEntries);
+  }
+
   recordCommand(command: CommandEnvelope): void {
     this.commands.push(command);
+    this.trim(this.commands);
   }
 
   recordEvent(event: SimulationEvent): void {
     this.events.push(event);
+    this.trim(this.events);
   }
 
   snapshot(): { commands: CommandEnvelope[]; events: SimulationEvent[] } {
