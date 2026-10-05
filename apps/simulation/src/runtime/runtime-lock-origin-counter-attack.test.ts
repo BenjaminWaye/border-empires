@@ -141,7 +141,7 @@ describe("counter-attacking the tile an enemy attack launched from", () => {
     expect(runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10)?.ownerId).toBe("player-3");
   });
 
-  it("barbarian walk does not release a launch tile a player captured mid-fight", async () => {
+  it("a recovered barbarian lock (no launch record) does not release a launch tile a player captured mid-fight", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
     const runtime = new SimulationRuntime({
