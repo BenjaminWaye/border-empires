@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   acknowledgeActivitySeen,
   applyActivitySeenAcknowledgedMessage,
@@ -6,6 +7,11 @@ import {
   handleActivityDashboardMessage,
   requestPersonalActivity
 } from "./client-activity-dashboard-network.js";
+
+// Every test except the first-login ones below models a later login in season-1.
+beforeEach(() => {
+  window.localStorage.setItem("be-whats-new-last-login-season:a@example.com", "season-1");
+});
 
 const makeState = () => ({
   activityDashboard: {
@@ -27,7 +33,9 @@ const makeState = () => ({
   changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },
   guide: { completed: true },
   authSessionReady: true,
-  profileSetupRequired: false
+  profileSetupRequired: false,
+  bridgeDebugSeasonId: "season-1",
+  authEmail: "a@example.com"
 });
 
 const timelineWith = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -58,6 +66,46 @@ describe("requestPersonalActivity", () => {
     const sendGameMessage = vi.fn(() => true);
     requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
     expect(sendGameMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("What's New on the first login of a season", () => {
+  const unseenReleaseNotesState = () => {
+    const state = makeState();
+    state.changelog.seenAt = 0; // returning player with release notes they have not read
+    return state;
+  };
+  const deps = () => ({ sendGameMessage: vi.fn(), renderHud: vi.fn() });
+
+  it("does not auto-open on the first login of a season, but does on the next login in that season", () => {
+    window.localStorage.clear();
+    const first = unseenReleaseNotesState();
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, first, deps());
+    expect(first.activityDashboard.open).toBe(false);
+    expect(first.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
+
+    const second = unseenReleaseNotesState(); // next page load, same season
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, second, deps());
+    expect(second.activityDashboard.open).toBe(true);
+    expect(second.activityDashboard.activeView).toBe("UPDATES");
+  });
+
+  it("is quiet again on the first login of the following season", () => {
+    window.localStorage.clear();
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, unseenReleaseNotesState(), deps());
+    const nextSeason = unseenReleaseNotesState();
+    nextSeason.bridgeDebugSeasonId = "season-2";
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, nextSeason, deps());
+    expect(nextSeason.activityDashboard.open).toBe(false);
+  });
+
+  it("still opens the personal briefing on a season's first login", () => {
+    window.localStorage.clear();
+    const state = unseenReleaseNotesState();
+    state.activitySeen.lastActivitySeenAt = 500;
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [{ kind: "COMBAT", occurredAt: 900 }] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
+    expect(state.activityDashboard.activeView).toBe("YOURS");
   });
 });
 

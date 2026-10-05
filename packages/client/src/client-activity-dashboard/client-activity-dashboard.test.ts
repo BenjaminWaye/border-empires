@@ -29,6 +29,7 @@ const makeState = () => ({
   me: "player-1",
   manpowerCap: 1000,
   bridgeDebugSeasonId: "season-1",
+  authEmail: "a@example.com",
   changelog: { open: false, seenAt: 0, scrollTop: 0 },
   guide: { completed: true },
   authSessionReady: true,

@@ -1,8 +1,9 @@
 import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
 import { isNewPlayerStillOnboarding, shouldShowClientChangelog, type GuideCompletionState } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { isFirstLoginOfSeason } from "./client-activity-dashboard-season-first-login.js";
 
-type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired"> &
+type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired" | "bridgeDebugSeasonId" | "authEmail"> &
   GuideCompletionState;
 
 type NetworkDeps = {
@@ -50,14 +51,17 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
     deps.renderHud();
     return;
   }
+  // Evaluated every time (it records the season), before the branches below.
+  const firstLoginOfSeason = isFirstLoginOfSeason(state.bridgeDebugSeasonId, state.authEmail);
   if (!state.activityDashboard.autoOpenedThisSession && hasUnseenPersonalActivity) {
     state.activityDashboard.autoOpenedThisSession = true;
     state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
     requestWorldPulse(state, deps);
-  } else if (!state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
+  } else if (!firstLoginOfSeason && !state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
     // Release notes are second to a genuine personal briefing. They share the
-    // dashboard, so no competing changelog modal can cover the timeline.
+    // dashboard, so no competing changelog modal can cover the timeline. Not on
+    // the first login of a season, which is already crowded (see the helper).
     state.activityDashboard.updatesAutoOpenedThisSession = true;
     state.activityDashboard.activeView = "UPDATES";
     state.activityDashboard.open = true;
