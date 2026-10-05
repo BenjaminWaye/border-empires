@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import type { CaptureCombatSnapshot } from "../client-types.js";
 
 type SiegeState = Pick<ClientState, "incomingAttacksByTile">;
 type IncomingAttack = NonNullable<ReturnType<ClientState["incomingAttacksByTile"]["get"]>>;
@@ -161,9 +162,12 @@ export const handleMusterAdvanceCombatStart = (
   const resolvesAt = msg.resolvesAt;
   const transitEndsAt = msg.transitEndsAt;
   const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
+  const lockedWinChance = (msg.result as { winChance?: unknown } | undefined)?.winChance;
   if (target && origin && typeof resolvesAt === "number") {
     state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
       originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt,
+      // The server rolls the fight when it accepts the attack; this is the exact odds it used.
+      ...(typeof lockedWinChance === "number" ? { winChance: lockedWinChance } : {}),
       ...(typeof transitEndsAt === "number" && musterOrigin
         ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
         : {})
@@ -247,6 +251,7 @@ export const buildCaptureState = (input: {
   actionType?: unknown;
   silent?: boolean;
   fromMusterAdvance?: boolean;
+  combatSnapshot?: CaptureCombatSnapshot | undefined;
 }): NonNullable<ClientState["capture"]> => {
   const origin = input.origin as { x: number; y: number } | undefined;
   const actionType = input.actionType === "EXPAND" || input.actionType === "ATTACK" ? input.actionType : undefined;
@@ -257,6 +262,25 @@ export const buildCaptureState = (input: {
     ...(origin && typeof origin.x === "number" && typeof origin.y === "number" ? { origin: { x: origin.x, y: origin.y } } : {}),
     ...(actionType ? { actionType } : {}),
     ...(input.silent ? { silent: true } : {}),
-    ...(input.fromMusterAdvance ? { fromMusterAdvance: true } as const : {})
+    ...(input.fromMusterAdvance ? { fromMusterAdvance: true } as const : {}),
+    ...(input.combatSnapshot ? { combatSnapshot: input.combatSnapshot } : {})
+  };
+};
+
+/** Exact odds for the attacker's own battle card, read from the server's locked
+ * combat result in COMBAT_START. The server rolls the fight when it accepts the
+ * attack, so this beats the dispatch-time preview snapshot; falls back to
+ * `existing` when the message carries no usable result. */
+export const combatSnapshotFromLockedResult = (
+  result: unknown,
+  existing: CaptureCombatSnapshot | undefined
+): CaptureCombatSnapshot | undefined => {
+  const locked = result as { attackType?: unknown; winChance?: unknown; atkEff?: unknown; defEff?: unknown; defenderOwnerId?: unknown } | undefined;
+  if (!locked || locked.attackType !== "ATTACK" || typeof locked.winChance !== "number" || typeof locked.defenderOwnerId !== "string") return existing;
+  return {
+    winChance: locked.winChance,
+    attackerEffective: typeof locked.atkEff === "number" ? locked.atkEff : existing?.attackerEffective ?? 0,
+    defenderEffective: typeof locked.defEff === "number" ? locked.defEff : existing?.defenderEffective ?? 0,
+    defenderOwnerId: locked.defenderOwnerId
   };
 };

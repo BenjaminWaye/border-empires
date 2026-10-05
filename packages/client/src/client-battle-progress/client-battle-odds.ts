@@ -24,8 +24,27 @@ export const battleOddsView = (
   defenderLabel: playerDisplayNameForOwnerFromState(state, defenderOwnerId) ?? "Defender"
 });
 
+/** The same locked odds seen from the defender's side: the bar still runs
+ * attacker -> defender, but "You" is the defender. `attackerWinChance` is the
+ * attacker's chance, as the server sent it. */
+export const defenderBattleOddsView = (
+  state: BattleOddsState,
+  attackerId: string | undefined,
+  attackerName: string,
+  attackerWinChance: number
+): NonNullable<TileMenuProgressView["battle"]> => ({
+  attackerColor: resolveOwnerColor(attackerId ?? attackerName, state.playerColors, fallbackOwnerColor),
+  defenderColor: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor),
+  attackerShare: Math.max(0, Math.min(1, attackerWinChance)),
+  attackerLabel: attackerName,
+  defenderLabel: "You"
+});
+
 export const battleOddsDetail = (battle: NonNullable<TileMenuProgressView["battle"]>): string =>
   `Chance of winning: ${Math.round(battle.attackerShare * 100)}% you, ${Math.round((1 - battle.attackerShare) * 100)}% ${battle.defenderLabel}.`;
+
+export const defenderBattleOddsDetail = (battle: NonNullable<TileMenuProgressView["battle"]>): string =>
+  `Chance of holding this tile: ${Math.round((1 - battle.attackerShare) * 100)}% you, ${Math.round(battle.attackerShare * 100)}% ${battle.attackerLabel}.`;
 
 /** Odds for the tile's current defender from the live preview, when there is
  * both a defender and a cached preview. */

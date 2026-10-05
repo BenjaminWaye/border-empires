@@ -98,13 +98,23 @@ describe("incomingAttackProgressView", () => {
 
   // Regression: the defender used to get a placeholder 50/50 versus bar,
   // which read as real odds.
+  it("shows the defender their own chance of holding, from the locked odds in the alert", () => {
+    const state = baseState();
+    state.incomingAttacksByTile.set("5,5", { attackerName: "Enemy One", attackerId: "enemy-1", resolvesAt: Date.now() + 2000, winChance: 0.7 });
+    const view = incomingAttackProgressView(state, tile({ ownerId: "me-1", ownershipState: "SETTLED" }), (x, y) => `${x},${y}`, () => "0:02");
+    expect(view?.detail).toBe("Chance of holding this tile: 30% you, 70% Enemy One.");
+    expect(view?.battle).toEqual({
+      attackerColor: "#ff0000", defenderColor: "#00ff00", attackerShare: 0.7, attackerLabel: "Enemy One", defenderLabel: "You"
+    });
+  });
+
   it("shows no versus bar for the defender of a settled tile", () => {
     const state = baseState();
     state.incomingAttacksByTile.set("5,5", { attackerName: "Enemy One", resolvesAt: Date.now() + 2000, attackerId: "enemy-1" });
     const view = incomingAttackProgressView(state, tile({ ownerId: "me-1" }), keyFor, () => "0:02");
     expect(view?.title).toBe("Under attack");
     expect(view?.battle).toBeUndefined();
-    expect(view?.note).toBe("Combat resolves in a single roll when the timer ends.");
+    expect(view?.note).toContain("already rolled");
   });
 
   it("explains a FRONTIER tile is a guaranteed capture with no roll", () => {
@@ -149,6 +159,13 @@ describe("battle details from map tracking", () => {
     expect(view?.title).toBe("Battle in progress");
     expect(view?.detail).toBe("Chance of winning: 25% you, 75% Enemy One.");
     expect(view?.battle?.attackerShare).toBe(0.25);
+  });
+
+  it("prefers the server-locked odds on a muster attack over the live preview", () => {
+    const state = baseState();
+    state.outgoingMusterAttacksByTile.set("5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 2000, winChance: 0.4 });
+    const view = captureAttackProgressView(state, tile({ ownerId: "enemy-1" }), () => "0:02", () => 0.9);
+    expect(view?.battle?.attackerShare).toBe(0.4);
   });
 
   it("does not mislabel a muster expansion as a battle", () => {

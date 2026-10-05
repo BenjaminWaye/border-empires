@@ -101,9 +101,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1791195878000, // frozen Date.now() value for this release
     introducedIn: "2026.10.05.2",
     title: "Battle progress shows your chance of winning",
-    why: "The battle card only showed odds when you had opened the target's menu before attacking, and never for muster attacks, so you often couldn't tell how likely a battle was to go your way.",
+    why: "The battle card rarely showed odds: not for muster attacks, often not for manual ones, and never for the defender, so you couldn't tell how likely a battle was to go your way.",
     changes: [
-      "The battle progress card now shows your chance of winning as a percentage, for manual and muster attacks alike",
+      "The battle progress card shows the exact chance of winning, for manual and muster attacks alike",
+      "Defenders now see their own chance of holding the tile when an attack is incoming",
       "The versus bar labels each side with its percentage"
     ]
   },

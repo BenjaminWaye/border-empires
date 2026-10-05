@@ -23,7 +23,7 @@ import {
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
-import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
+import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -1591,7 +1591,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startAt, resolvesAt: resolvesAtForCapture, target,
         origin: msg.origin ?? existingCapture?.origin,
         actionType: lockedResult?.attackType ?? state.actionCurrent?.actionType ?? "ATTACK",
-        silent: Boolean(existingCapture?.silent), fromMusterAdvance: Boolean(existingCapture?.fromMusterAdvance)
+        silent: Boolean(existingCapture?.silent), fromMusterAdvance: Boolean(existingCapture?.fromMusterAdvance), combatSnapshot: combatSnapshotFromLockedResult(msg.result, existingCapture?.combatSnapshot)
       });
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
@@ -1641,7 +1641,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.incomingAttacksByTile.set(keyFor(x, y), {
           attackerName, resolvesAt,
           ...(attackerId !== undefined ? { attackerId } : {}), ...(fromX !== undefined ? { fromX } : {}),
-          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
+          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {}), ...(typeof msg.winChance === "number" ? { winChance: msg.winChance } : {})
         });
       }
       state.unreadAttackAlerts += 1;
