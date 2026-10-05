@@ -2,6 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { attackerOutpostMult, buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 function makePlayer(id: string, points: number): DomainPlayer {
   return { id, isAi: false, points, manpower: 0, techIds: new Set(), allies: new Set() };
@@ -57,7 +58,7 @@ describe("attackerOutpostMult", () => {
       tiles,
       musterTilesByOwner: new Map(),
       musterReservedByKey: new Map(),
-      locksByTile: new Map(),
+      locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
       summaryForPlayer: () => ({ territoryTileKeys: new Set([OUTPOST_KEY]) }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
@@ -103,7 +104,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
       tiles,
       musterTilesByOwner: new Map(),
       musterReservedByKey: new Map(),
-      locksByTile: new Map(),
+      locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
       summaryForPlayer: () => ({ settledTileCount: 1 }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
@@ -168,7 +169,7 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
       tiles,
       musterTilesByOwner: new Map(),
       musterReservedByKey: new Map(),
-      locksByTile: new Map(),
+      locksByTile: new CombatLockIndex(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
       summaryForPlayer: () =>

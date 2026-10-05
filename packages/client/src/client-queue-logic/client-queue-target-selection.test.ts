@@ -14,11 +14,10 @@ const baseState = (): ClientState =>
     ])
   }) as unknown as ClientState;
 
-// Regression: counter-attacking the tile an enemy attack was launched from
-// was queued (mustering a flag for it) and then rejected server-side with a
-// bare "tile locked in combat".
+// The tile an enemy attack launched from is not locked server-side (only the
+// attacked tile is), so counter-attacking it must be queued like any other.
 describe("attacking an enemy attack's origin tile", () => {
-  it("is not queued", () => {
+  it("is queued", () => {
     let enqueued = 0;
     const result = queueSpecificTargets(baseState(), ["156,12"], {
       parseKey: (key) => ({ x: Number(key.split(",")[0]), y: Number(key.split(",")[1]) }),
@@ -28,13 +27,13 @@ describe("attacking an enemy attack's origin tile", () => {
       enqueueTarget: () => { enqueued += 1; return true; },
       buildFrontierQueue: () => ({ queued: 0, skipped: 0, queuedKeys: [] })
     });
-    expect(result.queued).toBe(0);
-    expect(enqueued).toBe(0);
+    expect(result.queued).toBe(1);
+    expect(enqueued).toBe(1);
   });
 
-  it("explains who locked it and for how long", () => {
-    const reason = attackQueueFailureReason(baseState(), enemyOrigin, { ownerSpawnShieldActive: () => false, pickOriginForTarget: () => enemyOrigin });
-    expect(reason).toContain("Edvin is attacking you from this tile");
-    expect(reason).toMatch(/Try again in 0:4[12]/);
+  it("does not report the launch tile as locked when the attack can't be queued", () => {
+    const reason = attackQueueFailureReason(baseState(), enemyOrigin, { ownerSpawnShieldActive: () => false, pickOriginForTarget: () => undefined });
+    expect(reason).not.toContain("locks it in combat");
+    expect(reason).toBe("Target must border your territory or a linked dock.");
   });
 });
