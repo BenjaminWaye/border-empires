@@ -215,3 +215,21 @@ export const createStartupSnapshotStore = async (initialState: RecoveredSimulati
   });
   return snapshotStore;
 };
+
+/**
+ * A runtime `scheduleAfter` for tests that drive timers by hand: real timers
+ * (combat locks, settles, builds) are captured into `captured`, while delay-0
+ * tasks -- job-queue drains for background-scheduled commands such as the
+ * CHECK_STRANDED_REGION the gateway forwards from SUBSCRIBE_CHUNKS -- run on
+ * the next microtask, as they would in production, instead of being mistaken
+ * for a timer the test should fire.
+ */
+export const captureTimersRunningDrains =
+  (captured: Array<{ delayMs: number; task: () => void }>) =>
+  (delayMs: number, task: () => void): void => {
+    if (delayMs === 0) {
+      queueMicrotask(task);
+      return;
+    }
+    captured.push({ delayMs, task });
+  };

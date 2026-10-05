@@ -67,9 +67,7 @@ describe("§14.2 dormant structures wire field", () => {
             fort: { ownerId: "player-1", status: "active", activatedAt: 100 }
           },
           // No TITANIUM supply tile: the Fort's own 1 TITANIUM slot demand is unmet.
-          // A separate town tile with an explicit goldPerMinute so
-          // COLLECT_TILE (elsewhere on the empire) always has real yield to
-          // collect and therefore always reaches emitPlayerStateUpdate.
+          // A separate town tile so the empire has ordinary income alongside the fort.
           {
             x: 2,
             y: 2,
@@ -89,8 +87,8 @@ describe("§14.2 dormant structures wire field", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "COLLECT_TILE",
-      payloadJson: JSON.stringify({ x: 2, y: 2 })
+      type: "COLLECT_VISIBLE",
+      payloadJson: "{}"
     });
     await Promise.resolve();
     const playerUpdateEvent = seen.find(

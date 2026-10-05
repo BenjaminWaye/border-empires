@@ -78,7 +78,6 @@ import {
   triggerBuildForStructureType as triggerBuildForStructureTypeFromModule,
   type BuildDispatchDeps
 } from "./client-structure-build-trigger/client-structure-build-trigger.js";
-import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 import {
@@ -86,7 +85,6 @@ import {
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
   cancelOngoingCapture as cancelOngoingCaptureFromModule,
   collectSelectedShard as collectSelectedShardFromModule,
-  collectSelectedYield as collectSelectedYieldFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
@@ -273,7 +271,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "SETTLE",
     "CANCEL_CAPTURE",
     "UNCAPTURE_TILE",
-    "COLLECT_TILE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
     "SET_CONVERTER_STRUCTURE_ENABLED",
@@ -777,15 +774,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
-  const collectSelectedYield = (): void =>
-    collectSelectedYieldFromModule(state, {
-      keyFor,
-      pushFeed,
-      showCaptureAlert,
-      renderHud,
-      applyOptimisticTileCollect: deps.applyOptimisticTileCollect,
-      sendGameMessage
-    });
   const collectSelectedShard = (): void =>
     collectSelectedShardFromModule(state, { keyFor, renderHud, sendGameMessage });
 
@@ -1392,22 +1380,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    if (actionId === "collect_yield" && fromBulk) {
-      // Bulk box-selection can cover up to 2500 tiles (client-drag-selection.ts) -- fire
-      // these as one synchronous burst of COLLECT_TILE messages and the gateway's
-      // per-player rate limiter will just reject most of them. Pace it client-side instead.
-      const ownedTiles = targets.map((k) => state.tiles.get(k)).filter((t): t is Tile => t !== undefined && t.ownerId === state.me);
-      dispatchPaced(ownedTiles, (t) => sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y }));
-      pushFeed(`Collecting from ${ownedTiles.length} selected tiles.`, "info", "info");
-      hideTileActionMenu();
-      return;
-    }
     if (!selected) {
       hideTileActionMenu();
       return;
     }
     if (handleAfcTileAction({ actionId, selected, sendGameMessage, hideMenu: hideTileActionMenu, armAfcLanding: () => { state.buildingPlacement = { active: true, structureType: "AFC", x: selected.x, y: selected.y }; renderPlacementOverlay(); renderHud(); } })) return;
-    if (actionId === "collect_yield") collectSelectedYield();
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu })) return;
@@ -1803,7 +1780,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     buildSiegeOutpostOnSelected,
     uncaptureSelected,
     cancelOngoingCapture,
-    collectSelectedYield,
     collectSelectedShard,
     hideTileActionMenu,
     tileActionIsCrystal,

@@ -19,7 +19,8 @@ import {
   openSocket,
   silentLog,
   waitUntil,
-  withTimeout
+  withTimeout,
+  captureTimersRunningDrains
 } from "./rewrite-stack-test-helpers.js";
 
 describe("rewrite stack integration", () => {
@@ -40,9 +41,7 @@ describe("rewrite stack integration", () => {
       log: silentLog,
       runtimeOptions: {
         now: () => 1_000,
-        scheduleAfter: (delayMs, task) => {
-          scheduledResolutions.push({ delayMs, task });
-        }
+        scheduleAfter: captureTimersRunningDrains(scheduledResolutions)
       }
     });
     cleanup.push(() => simulation.close());
@@ -65,7 +64,7 @@ describe("rewrite stack integration", () => {
     cleanup.push(() => closeSocket(firstSocket.socket));
     firstSocket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
     expect((await nextNonBootstrapMessage(firstSocket, "first init")).type).toBe("INIT");
-    firstSocket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
+    // No SUBSCRIBE_CHUNKS: it now triggers a stranded-frontier check, and the default seed's player-2 target (10,11) is a lone, unsupplied FRONTIER tile that check would release.
 
     // Muster is unconditionally required to attack — stage it through the
     // real command path (like production), then advance muster accumulation
@@ -356,9 +355,7 @@ describe("rewrite stack integration", () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog, snapshotStore, requireDurableStartupState: true,
       runtimeOptions: {
         now: () => 1_000,
-        scheduleAfter: (delayMs, task) => {
-          scheduledResolutions.push({ delayMs, task });
-        }
+        scheduleAfter: captureTimersRunningDrains(scheduledResolutions)
       }
     });
     cleanup.push(() => simulation.close());

@@ -209,8 +209,7 @@ const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, 
 const {
   hasCollectableYield,
   clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
-  applyOptimisticTileCollect
+  revertOptimisticTileCollectDelta
 } = createClientCollectSupport({
   state,
   tileVisibilityStateAt,
@@ -432,7 +431,6 @@ bootstrapClientApp({
   notifyInsufficientGoldForFrontierAction,
   clearPendingCollectTileDelta,
   revertOptimisticTileCollectDelta,
-  applyOptimisticTileCollect,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,

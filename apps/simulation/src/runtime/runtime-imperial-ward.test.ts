@@ -118,6 +118,7 @@ describe("Imperial Ward (galaxy meta-layer Phase 1 endorsement bonus)", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
           {
             x: 10,
             y: 10,
@@ -173,6 +174,7 @@ describe("Imperial Ward (galaxy meta-layer Phase 1 endorsement bonus)", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // attacker settlement: supply-connects the attack origin (stranded origins decay) and anchors its own reach
             {
             x: 10,
             y: 10,

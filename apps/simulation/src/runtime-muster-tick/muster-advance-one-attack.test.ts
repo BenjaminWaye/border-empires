@@ -27,7 +27,7 @@ const makePlayer = (id: string) => ({
 // One ADVANCE flag at (10,10) with two additional owned tiles, each with its
 // own adjacent enemy. This gives the parallel-flight regression three targets
 // to launch before the first combat timer resolves.
-const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTLED") =>
+const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTLED", options: { anchorTown?: boolean } = {}) =>
   new SimulationRuntime({
     now: () => 1_000,
     initialPlayers: new Map([
@@ -44,6 +44,12 @@ const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTL
           ownershipState: "SETTLED",
           muster: { ownerId: "player-1", amount: musterAmount, mode: "ADVANCE", updatedAt: 1_000 }
         },
+        // Opt-in town: anchors player-1's reach so its settled row is never
+        // contested back to FRONTIER mid-test (stranded origins decay). Off by
+        // default because the town's manpower regen changes flag affordability.
+        ...(options.anchorTown
+          ? [{ x: 10, y: 9, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } }]
+          : []),
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 11, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
@@ -73,7 +79,7 @@ describe("muster ADVANCE parallel attacks", () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      const runtime = buildTwoFrontRuntime(60, "FRONTIER");
+      const runtime = buildTwoFrontRuntime(60, "FRONTIER", { anchorTown: true });
       const seen: SimulationEvent[] = [];
       runtime.onEvent((event) => seen.push(event));
 

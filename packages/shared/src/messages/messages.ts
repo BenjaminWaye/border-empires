@@ -268,7 +268,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CANCEL_SIEGE_OUTPOST_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_CAPTURE" ) }),
   z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("COLLECT_TILE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("COLLECT_VISIBLE") }),
   z.object({ type: z.literal("WATCH_MUSTER"), x: z.number().int(), y: z.number().int() }),
