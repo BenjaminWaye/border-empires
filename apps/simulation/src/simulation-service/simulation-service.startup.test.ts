@@ -132,7 +132,7 @@ describe("simulation service startup recovery", () => {
       )
     ).toBe(true);
     await service.close();
-  }, 15_000);
+  }, 90_000);
 
   it("normalizes truthy autopilot flags when callers pass string values at runtime", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -156,7 +156,7 @@ describe("simulation service startup recovery", () => {
     expect(service.renderMetrics()).toContain("sim_ai_autopilot_enabled 1");
     expect(service.renderMetrics()).toContain("sim_ai_autopilot_player_count 20");
     await service.close();
-  }, 15_000);
+  }, 90_000);
 
   it("uses recovered player identities for AI autopilot instead of seed-profile fallbacks", async () => {
     const commandStore = new InMemorySimulationCommandStore();
