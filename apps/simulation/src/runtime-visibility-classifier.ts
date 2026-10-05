@@ -4,6 +4,7 @@ import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { collectLinkedDockRevealKeysForOwners } from "./dock-network/dock-network.js";
 import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 export interface VisibilityCoverageReader {
   forEachVisibleKey(viewerId: string, cb: (key: string) => void): void;
@@ -29,7 +30,7 @@ export const classifyVisibilityForPlayer = (input: {
   playerId: string;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   docks: readonly DockRouteDefinition[];
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
