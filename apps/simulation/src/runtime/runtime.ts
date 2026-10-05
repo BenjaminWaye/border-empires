@@ -355,8 +355,8 @@ import {
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
 import { handleAetherEmpCommand as handleAetherEmpCommandImpl } from "../runtime-aether-emp-command-handler.js";
+import { handleAetherLanceCommand as handleAetherLanceCommandImpl } from "../runtime-aether-lance-command-handler.js";
 import {
-  handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
   handleCastAetherWallCommand as handleCastAetherWallCommandImpl,
   handleRevealEmpireCommand as handleRevealEmpireCommandImpl,
@@ -482,7 +482,6 @@ import {
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
 import {
-  activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
   applyEncirclementForExpand as applyEncirclementForExpandImpl,
   type RuntimeEncirclementApplicationContext
@@ -1251,6 +1250,7 @@ export class SimulationRuntime {
       tileSettledAtByKey: this.tileSettledAtByKey,
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
@@ -3673,6 +3673,7 @@ export class SimulationRuntime {
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now()),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
       closestAetherBridgeOrigin: (playerId, targetX, targetY) =>
         this.closestAetherBridgeOrigin(playerId, targetX, targetY),
@@ -3698,6 +3699,7 @@ export class SimulationRuntime {
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
@@ -4138,10 +4140,6 @@ export class SimulationRuntime {
     options?: { bfsCap?: number; skipCutOff?: boolean }
   ): void {
     applyEncirclementImpl(this.encirclementApplicationContext(), changedKeys, playerId, commandId, options);
-  }
-
-  private activeAetherBridgeNeighborKeysForPlayer(playerId: string): Map<string, string[]> {
-    return activeAetherBridgeNeighborKeysForPlayerImpl(this.encirclementApplicationContext(), playerId);
   }
 
   private relocateSettlementForPlayer(
