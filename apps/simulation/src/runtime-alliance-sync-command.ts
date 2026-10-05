@@ -2,11 +2,13 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainPlayer } from "@border-empires/game-domain";
 import { parseAllianceSyncPayload } from "./runtime-command-parsers.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
+import { syncReachVisionAlliance } from "./reach-border-vision.js";
 
 export type RuntimeAllianceSyncCommandContext = {
   players: Map<string, DomainPlayer>;
   visibilityCoverage: VisibilityCoverageTracker;
   visionTransitionCallbacks: VisibilityTransitionCallbacks;
+  reachBorder: ReadonlyMap<string, string>;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
 };
@@ -36,6 +38,7 @@ export function handleSyncAllianceCommand(context: RuntimeAllianceSyncCommandCon
   }
   if (wasAllied !== payload.allied) {
     context.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, context.visionTransitionCallbacks);
+    syncReachVisionAlliance(context.reachBorder, actor.id, target.id, payload.allied, context.visibilityCoverage, context.visionTransitionCallbacks);
     // syncAllianceChange only records vision transitions; it doesn't mutate
     // any tile itself. Those transitions are only ever drained by
     // simulation-service.ts's TILE_DELTA_BATCH handler, so without an event

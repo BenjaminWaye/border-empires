@@ -45,8 +45,9 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     // Two tiles away is visible only around the town (+1 ring), not the plain tile.
     expect(keys.has("10,12")).toBe(true);
     expect(keys.has("20,12")).toBe(false);
-    // Three tiles away is outside even the town reveal.
-    expect(keys.has("10,13")).toBe(false);
+    // The town's authoritative reach is itself visible, together with one
+    // tile beyond its outer edge.
+    expect(keys.has("10,13")).toBe(true);
   });
 
   it("a SETTLEMENT tile also grants the +1 reveal", () => {
@@ -66,7 +67,7 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     const keys = visibleTileKeys(runtime, "player-1");
     expect(keys.has("10,11")).toBe(true); // base radius
     expect(keys.has("10,12")).toBe(true); // +1 ring applies to settlements too
-    expect(keys.has("10,13")).toBe(false); // outside even the +1 ring
+    expect(keys.has("10,13")).toBe(true); // within the settlement's reach vision
   });
 
   it("an ally's SETTLED town reveal is visible to the player", () => {
@@ -119,7 +120,7 @@ describe("SimulationRuntime town +1 vision reveal", () => {
 
     // The SETTLEMENT's +1 ring is already visible on the streaming path at boot.
     expect(inAreaKeys().has("10,12")).toBe(true);
-    expect(inAreaKeys().has("10,13")).toBe(false);
+    expect(inAreaKeys().has("10,13")).toBe(true);
 
     runtime.submitCommand({
       commandId: "upgrade-town", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
@@ -127,9 +128,9 @@ describe("SimulationRuntime town +1 vision reveal", () => {
     });
     await Promise.resolve();
 
-    // The ring is unaffected by the tier upgrade — still exactly one ring out.
+    // The reach-derived vision is unaffected by the tier upgrade too.
     expect(inAreaKeys().has("10,12")).toBe(true);
-    expect(inAreaKeys().has("10,13")).toBe(false);
+    expect(inAreaKeys().has("10,13")).toBe(true);
   });
 
   it("forming/breaking an alliance shares/withdraws the ally's town +1 ring on the streaming path", async () => {

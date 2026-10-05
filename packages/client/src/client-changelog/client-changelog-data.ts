@@ -24,6 +24,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791142179429, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.2",
+    title: "Your reach now scouts the land it covers",
+    why: "Reach could extend across neutral ground without revealing it, so losing frontier tiles could leave you unable to see territory your towns, docks and outposts still allowed you to claim.",
+    changes: [
+      "Every tile inside your current reach now has one tile of vision",
+      "You can see one tile beyond the outer edge of that reach, even when no frontier tiles remain",
+      "Frontier tiles keep their existing scouting vision"
+    ]
+  },
+  {
     createdAt: 1791140199531, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
     title: "Safer spawns and full AFC reach",
@@ -44,6 +55,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
       "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender",
       "Barbarians leave the tile they attack from the moment their attack starts, so it can't be captured to leave them alive on your tile"
+    ]
+  },
+  {
+    createdAt: 1791142473309, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "More reliable new seasons",
+    why: "A crowded small world could reject a new season while placing its final AI starting settlements.",
+    changes: [
+      "New seasons now use remaining valid land for starting settlements after preferred spacing options are exhausted"
     ]
   },
   {
