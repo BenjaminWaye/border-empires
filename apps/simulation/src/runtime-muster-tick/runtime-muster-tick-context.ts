@@ -5,6 +5,7 @@ import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement
 import { railDepotPositionsForPlayer } from "../runtime/runtime-rail-depot-positions.js";
 import type { ActiveAetherBridgeView, LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
+import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type MusterTickContextDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -12,7 +13,7 @@ export type MusterTickContextDeps = {
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   railDepotTilesByOwner: ReadonlyMap<string, Set<string>>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   advanceCooldowns: MusterAdvanceCooldowns;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];

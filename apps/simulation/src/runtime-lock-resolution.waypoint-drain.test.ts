@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 // Regression coverage for the server-side waypoint/expand-queue auto-drain
 // hook: resolveLock must call tryDrainWaypointQueue for the acting player
@@ -28,7 +29,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
   const context: RuntimeLockResolutionContext = {
     players: new Map([[PLAYER_ID, makePlayer(PLAYER_ID)], [OTHER_ID, makePlayer(OTHER_ID)]]),
     tiles,
-    locksByTile: new Map(),
+    locksByTile: new CombatLockIndex(),
     locksByCommandId: new Map(),
     musterReservedByKey: new Map(),
     barbarianTileProgress: new Map(),
@@ -93,8 +94,7 @@ describe("resolveLock waypoint-queue drain hook", () => {
     ]);
     const { context, drainedForPlayerIds } = createContext(tiles);
     const lock = makeExpandLock();
-    context.locksByTile.set(lock.originKey, lock);
-    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByTile.addLock(lock);
     context.locksByCommandId.set(lock.commandId, lock);
 
     resolveLock(context, lock);

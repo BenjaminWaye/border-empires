@@ -3,6 +3,8 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
+import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
+import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
 type TrackSync = <T>(
   phase: string,
@@ -14,7 +16,7 @@ export async function tickTileShedding(input: {
   nowMs: number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
-  locksByTile: ReadonlyMap<string, LockRecord>;
+  locksByTile: CombatLockTileReader;
   tileSettledAtByKey: ReadonlyMap<string, number>;
   applyEconomyAccrual: (player: RuntimePlayer, nowMs: number) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -151,7 +153,7 @@ export async function tickTileShedding(input: {
 export function tickOrphanedLockSweep(input: {
   nowMs: number;
   orphanLockGraceMs: number;
-  locksByTile: Map<string, LockRecord>;
+  locksByTile: CombatLockIndex;
   locksByCommandId: Map<string, LockRecord>;
   // EXPAND charges its manpower cost up front at lock creation (runtime-
   // frontier-command.ts), so an orphaned EXPAND lock swept here without ever
@@ -160,15 +162,12 @@ export function tickOrphanedLockSweep(input: {
 }): number {
   const cutoff = input.nowMs - input.orphanLockGraceMs;
   const droppedCommandIds = new Set<string>();
-  for (const [tileKey, lock] of input.locksByTile) {
-    if (lock.resolvesAt < cutoff) {
-      input.locksByTile.delete(tileKey);
-      if (!droppedCommandIds.has(lock.commandId)) {
-        input.locksByCommandId.delete(lock.commandId);
-        if (lock.actionType === "EXPAND") input.refundExpandManpower(lock.playerId, lock.manpowerCost);
-        droppedCommandIds.add(lock.commandId);
-      }
-    }
+  for (const lock of input.locksByTile.values()) {
+    if (lock.resolvesAt >= cutoff) continue;
+    input.locksByTile.removeLock(lock);
+    input.locksByCommandId.delete(lock.commandId);
+    if (lock.actionType === "EXPAND") input.refundExpandManpower(lock.playerId, lock.manpowerCost);
+    droppedCommandIds.add(lock.commandId);
   }
   return droppedCommandIds.size;
 }
