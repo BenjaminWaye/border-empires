@@ -373,7 +373,7 @@ export const createSeasonSeedWorld = (
   }
 
   const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
-    WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key,
+    WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand: (x, y) => landBiomeAt(x, y) === "GRASS", wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing

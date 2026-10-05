@@ -1,10 +1,11 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { isInReach, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
+import { isInReach, tileKeysInReach, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachAnchorActivationResult, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
 import type { ReachUpdateState } from "./runtime-reach-update.js";
 import { cancelOutOfReachDecayInAnchorDisk, stampOutOfReachDecayInAnchorDisk } from "./runtime-reach-out-of-reach.js";
+export { syncReachVision } from "../reach-border-vision.js";
 
 /**
  * The full effect of an anchor activation/deactivation: border mutation plus
@@ -25,6 +26,7 @@ export type ReachAnchorLifecycleDeps = {
   now: () => number;
   gatherReachAnchors: () => ReachAnchor[];
   registerOutOfReachDecay: (tileKey: string, deadlineAt: number) => void;
+  syncReachVision: (oldBorder: ReadonlyMap<string, string>, newBorder: ReadonlyMap<string, string>, changedKeys: Iterable<string>) => void;
 };
 
 export const applyReachAnchorActivationEffects = (
@@ -34,6 +36,7 @@ export const applyReachAnchorActivationEffects = (
   options?: { skipNeutralAutoClaim?: boolean }
 ): ReachAnchorActivationResult => {
   const result = applyReachAnchorActivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId, options);
+  deps.syncReachVision(deps.reachBorder, result.border, tileKeysInReach(anchor, deps.isLandTile));
   // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.
   cancelOutOfReachDecayInAnchorDisk(deps, anchor, causeCommandId);
   return result;
@@ -45,6 +48,7 @@ export const applyReachAnchorDeactivationEffects = (
   causeCommandId: string
 ): Map<string, string> => {
   const nextBorder = applyReachAnchorDeactivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId);
+  deps.syncReachVision(deps.reachBorder, nextBorder, tileKeysInReach(anchor, deps.isLandTile));
   // Reach just retreated over this anchor's disk (Relay Beacon/outpost/town/dock lost): anything left in genuine no-man's-land there needs a decay deadline it never got at claim time. O(radius²), not a sweep.
   // isPlayerTileInReach MUST read nextBorder, not deps.reachBorder (the pre-deactivation border) -- deps has no border-derived closure of its own precisely so this can't be gotten wrong by accident.
   stampOutOfReachDecayInAnchorDisk({ ...deps, isPlayerTileInReach: (playerId, x, y) => isInReach(playerId, x, y, nextBorder) }, anchor, causeCommandId);

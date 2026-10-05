@@ -55,6 +55,9 @@ export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
 // Beacon's permanent +5 radius, so a beacon remains meaningfully better for
 // real reconnaissance.
 export const FRONTIER_STANDING_VISION_RADIUS = 1;
+// Reach is independently scouted, even when no frontier tiles remain inside
+// it. Every authoritative reach cell provides this fixed local footprint.
+export const REACH_VISION_RADIUS = 1;
 // A vision source standing on a forest tile only sees this far, regardless
 // of the player's effective vision radius (tech/observatory bonuses). The
 // forest itself and its immediate neighbors remain visible; nothing farther
