@@ -58,6 +58,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791142473309, // Date.now() frozen for this entry
+    introducedIn: "2026.10.04.1",
+    title: "More reliable new seasons",
+    why: "A crowded small world could reject a new season while placing its final AI starting settlements.",
+    changes: [
+      "New seasons now use remaining valid land for starting settlements after preferred spacing options are exhausted"
+    ]
+  },
+  {
     createdAt: 1791005011469, // Date.now() frozen for this entry
     introducedIn: "2026.10.03.1",
     title: "AI infrastructure and clearer tile details",
