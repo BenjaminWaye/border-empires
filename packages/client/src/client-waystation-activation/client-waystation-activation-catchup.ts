@@ -1,6 +1,7 @@
 import { storageGet, storageSet } from "../client-state/client-state.js";
 import { buildWaystationActivationInfo } from "./client-waystation-activation-detect.js";
 import { showWaystationActivationOverlay, type WaystationActivationInfo } from "./client-waystation-activation.js";
+import { showWaystationActivationOverlayWhenClear, type WaystationPopupGateState } from "./client-waystation-activation-gate.js";
 import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
 // Waystation activation normally pops a hero overlay via the live
@@ -164,15 +165,17 @@ export type WaystationEventLogClientState = CatchupState & {
  * of two, and so each call site only needs one short line.
  */
 export const eventLogDepsFromClientState = (
-  state: WaystationEventLogClientState,
+  state: WaystationEventLogClientState & WaystationPopupGateState,
   requestViewRefresh: (radius: number, force: boolean) => void,
   renderHud: () => void
 ): {
   techCatalog: ReadonlyArray<{ id: string; name: string }>;
   onJumpToLocation: (x: number, y: number) => void;
   onViewTech: (techId: string) => void;
+  showOverlay: (info: WaystationActivationInfo) => void;
 } => ({
   techCatalog: state.techCatalog,
+  showOverlay: (info) => showWaystationActivationOverlayWhenClear(info, state),
   onJumpToLocation: (x, y) => {
     state.camX = x;
     state.camY = y;
