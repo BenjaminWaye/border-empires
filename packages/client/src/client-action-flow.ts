@@ -1006,7 +1006,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
   };
 
-  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => captureAttackProgressView(state, tile, formatCountdownClock);
+  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => captureAttackProgressView(state, tile, formatCountdownClock, (t) => attackPreviewBreakdownForTarget(t)?.winChance);
   const incomingAttackProgressForTile = (tile: Tile): TileMenuProgressView | undefined => incomingAttackProgressView(state, tile, keyFor, formatCountdownClock);
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {

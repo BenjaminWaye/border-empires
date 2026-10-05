@@ -5,8 +5,7 @@
 // covers a tile the viewer owns that's currently under attack.
 import { trackedBattleProgressView } from "./client-tracked-battle-progress.js";
 import { EXPAND_MANPOWER_COST, rushBuyPriceGold } from "@border-empires/shared";
-import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/client-owner-colors.js";
-import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
+import { battleOddsDetail, battleOddsView, liveBattleOdds, type LiveWinChance } from "./client-battle-odds.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
 import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/client-incoming-frontier-claim.js";
@@ -14,28 +13,26 @@ import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/c
 export const captureAttackProgressView = (
   state: ClientState,
   tile: Tile,
-  formatCountdownClock: (ms: number) => string
+  formatCountdownClock: (ms: number) => string,
+  liveWinChance?: LiveWinChance
 ): TileMenuProgressView | undefined => {
-  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock);
+  if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) return trackedBattleProgressView(state, tile, formatCountdownClock, Date.now(), liveWinChance);
   const nowMs = Date.now();
   const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
   const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
   const progress = Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs));
   if (state.capture.actionType === "ATTACK") {
+    // The dispatch-time snapshot is stable; when none was cached at dispatch
+    // (attack launched without opening the tile menu first) fall back to the
+    // live attack preview so the card still shows the chance of winning.
     const snapshot = state.capture.combatSnapshot;
     const battle = snapshot
-      ? {
-          attackerColor: resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor),
-          defenderColor: resolveOwnerColor(snapshot.defenderOwnerId, state.playerColors, fallbackOwnerColor),
-          attackerShare: Math.max(0, Math.min(1, snapshot.winChance)),
-          attackerLabel: "You",
-          defenderLabel: playerDisplayNameForOwnerFromState(state, snapshot.defenderOwnerId) ?? "Defender"
-        }
-      : undefined;
+      ? battleOddsView(state, snapshot.defenderOwnerId, snapshot.winChance)
+      : liveBattleOdds(state, tile, liveWinChance);
     return {
       title: "Battle in progress",
       detail: battle
-        ? `Pre-battle odds: ${Math.round(battle.attackerShare * 100)}% you, ${Math.round((1 - battle.attackerShare) * 100)}% ${battle.defenderLabel}.`
+        ? battleOddsDetail(battle)
         : "Your forces are attacking this tile. The outcome resolves when the timer ends.",
       remainingLabel: formatCountdownClock(remainingMs),
       progress,

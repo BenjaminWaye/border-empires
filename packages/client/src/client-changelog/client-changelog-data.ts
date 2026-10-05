@@ -97,6 +97,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settlements keep their existing look; the 2D map is unchanged"
     ]
   },
+  {
+    createdAt: 1791195878000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.05.2",
+    title: "Battle progress shows your chance of winning",
+    why: "The battle card only showed odds when you had opened the target's menu before attacking, and never for muster attacks, so you often couldn't tell how likely a battle was to go your way.",
+    changes: [
+      "The battle progress card now shows your chance of winning as a percentage, for manual and muster attacks alike",
+      "The versus bar labels each side with its percentage"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,

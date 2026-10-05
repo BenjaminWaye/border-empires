@@ -22,8 +22,8 @@ const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>):
   return `
     <div class="tile-progress-battle">
       <div class="tile-progress-battle-labels">
-        <span style="color:${battle.attackerColor}">${battle.attackerLabel}</span>
-        <span style="color:${battle.defenderColor}">${battle.defenderLabel}</span>
+        <span style="color:${battle.attackerColor}">${battle.attackerLabel} ${attackerPct}%</span>
+        <span style="color:${battle.defenderColor}">${battle.defenderLabel} ${100 - attackerPct}%</span>
       </div>
       <div class="tile-progress-battle-bar">
         <div class="tile-progress-battle-attacker" style="width:${attackerPct}%;background:${battle.attackerColor}"></div>

@@ -55,6 +55,24 @@ describe("captureAttackProgressView", () => {
     expect(view?.battle).toBeUndefined();
   });
 
+  it("falls back to the live attack preview when no snapshot was captured at dispatch", () => {
+    const state = baseState();
+    state.capture = { startAt: Date.now() - 1000, resolvesAt: Date.now() + 2000, target: { x: 5, y: 5 }, actionType: "ATTACK" };
+    const view = captureAttackProgressView(state, tile({ ownerId: "enemy-1" }), () => "0:02", () => 0.62);
+    expect(view?.battle?.attackerShare).toBe(0.62);
+    expect(view?.detail).toBe("Chance of winning: 62% you, 38% Enemy One.");
+  });
+
+  it("prefers the dispatch-time snapshot over the live preview", () => {
+    const state = baseState();
+    state.capture = {
+      startAt: Date.now() - 1000, resolvesAt: Date.now() + 2000, target: { x: 5, y: 5 }, actionType: "ATTACK",
+      combatSnapshot: { winChance: 0.7, attackerEffective: 100, defenderEffective: 40, defenderOwnerId: "enemy-1" }
+    };
+    const view = captureAttackProgressView(state, tile({ ownerId: "enemy-1" }), () => "0:02", () => 0.1);
+    expect(view?.battle?.attackerShare).toBe(0.7);
+  });
+
   it("still shows the plain expansion card for a non-attack capture", () => {
     const state = baseState();
     state.capture = { startAt: Date.now() - 1000, resolvesAt: Date.now() + 2000, target: { x: 5, y: 5 }, actionType: "EXPAND" };
@@ -122,6 +140,15 @@ describe("battle details from map tracking", () => {
     expect(view?.title).toBe("Battle in progress");
     expect(view?.detail).toContain("muster");
     expect(view?.cancelActionId).toBeUndefined();
+  });
+
+  it("shows the chance of winning for a muster attack when a preview is available", () => {
+    const state = baseState();
+    state.outgoingMusterAttacksByTile.set("5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 2000 });
+    const view = captureAttackProgressView(state, tile({ ownerId: "enemy-1" }), () => "0:02", () => 0.25);
+    expect(view?.title).toBe("Battle in progress");
+    expect(view?.detail).toBe("Chance of winning: 25% you, 75% Enemy One.");
+    expect(view?.battle?.attackerShare).toBe(0.25);
   });
 
   it("does not mislabel a muster expansion as a battle", () => {
