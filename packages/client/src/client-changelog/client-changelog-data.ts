@@ -24,6 +24,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791195855000, // Date.now() frozen for this entry
+    introducedIn: "2026.10.05.1",
+    title: "Muster flags attack launch tiles",
+    why: "Advance and March flags treated any tile an attack had launched from as locked, so on a busy front they reported no target even with enemies all around.",
+    changes: [
+      "Advance and March muster flags can now fire on the tile an enemy attack launched from",
+      "A flag can launch from a tile that already launched another of your attacks; a tile that is itself under attack is still skipped"
+    ]
+  },
+  {
     createdAt: 1791142179429, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.2",
     title: "Your reach now scouts the land it covers",

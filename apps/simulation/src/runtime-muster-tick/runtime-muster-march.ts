@@ -282,8 +282,8 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         // Never "fight" an ally or truced player -- see the matching filter in
         // muster-advance-fire.ts.
         !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
-        !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey)
+        !input.locksByTile.targetLockAt(currentKey) &&
+        !input.locksByTile.targetLockAt(nKey)
       ) {
         if (availableMuster >= input.requiredMusterForTarget(neighbor)) {
           const score = scoreCandidate(currentKey, neighbor);
@@ -308,8 +308,8 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         // to walk. Do not reintroduce the gate without also gating EXPAND in
         // validateFrontierCommand.
         !neighbor.ownerId &&
-        !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey)
+        !input.locksByTile.targetLockAt(currentKey) &&
+        !input.locksByTile.targetLockAt(nKey)
       ) {
         const score = scoreCandidate(currentKey, neighbor);
         // Same progress guard as the attack branch above — never expand onto
