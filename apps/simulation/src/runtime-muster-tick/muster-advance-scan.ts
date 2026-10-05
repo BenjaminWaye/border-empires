@@ -94,8 +94,11 @@ export const scanAdvanceCandidates = (
         // only be rejected, and as the nearest candidate it would be re-picked
         // every tick in front of real enemies.
         !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
-        !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey)
+        // Only a tile already under attack is off-limits, as a launch tile or a
+        // target. Being the origin of some other fight (ours or the enemy's) is
+        // not a lock -- see CombatLockIndex and validateFrontierCommand.
+        !input.locksByTile.targetLockAt(currentKey) &&
+        !input.locksByTile.targetLockAt(nKey)
       ) {
         const candidate: AdvanceCandidate = {
           from: current,
