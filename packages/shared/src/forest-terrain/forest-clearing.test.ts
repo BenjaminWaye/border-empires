@@ -3,7 +3,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { forestClearingEpoch, isForestClearedAt, resetForestClearings, setWorldSeed, wasForestBeforeClearingAt } from "../worldgen/worldgen.js";
 import { isHillsRegionAt } from "../worldgen/worldgen-hills.js";
 import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
-import { clearForestAroundAfcTile, clearForestAroundAfcTiles } from "./forest-clearing.js";
+import { clearForestAroundAfcTile, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles } from "./forest-clearing.js";
 import { isForestTileAt, isTropicalForestLatitudeAt, isTropicalForestTileAt } from "./forest-terrain.js";
 
 const findForestTile = (): { x: number; y: number } => {
@@ -81,5 +81,35 @@ describe("AFC forest clearing vs tropical forest", () => {
     expect(isTropicalForestTileAt(target!.x, target!.y)).toBe(false);
     expect(wasForestBeforeClearingAt(target!.x, target!.y)).toBe(true);
     expect(isTropicalForestLatitudeAt(target!.y)).toBe(true);
+  });
+});
+
+describe("town and dock forest clearing", () => {
+  afterEach(() => resetForestClearings());
+
+  it("clears the forest under a town or a dock, and only on that tile", () => {
+    setWorldSeed(77, "continents", 1);
+    const town = findForestTile();
+    const dock = (() => {
+      for (let y = town.y + 3; y < WORLD_HEIGHT - 20; y += 1) {
+        for (let x = 0; x < WORLD_WIDTH; x += 1) if (isForestTileAt(x, y)) return { x, y };
+      }
+      throw new Error("no second forest tile");
+    })();
+    const neighbour = { x: town.x + 1, y: town.y };
+    const neighbourWasForest = isForestTileAt(neighbour.x, neighbour.y);
+    const epochBefore = forestClearingEpoch();
+    expect(clearForestOnTownAndDockTiles([{ ...town, town: { type: "MARKET" } }, { ...dock, dockId: "dock-0" }])).toBe(true);
+    expect(isForestTileAt(town.x, town.y)).toBe(false);
+    expect(isForestTileAt(dock.x, dock.y)).toBe(false);
+    expect(isForestTileAt(neighbour.x, neighbour.y)).toBe(neighbourWasForest);
+    expect(forestClearingEpoch()).toBeGreaterThan(epochBefore);
+  });
+
+  it("leaves forest alone on tiles that are neither a town nor a dock", () => {
+    setWorldSeed(77, "continents", 1);
+    const forest = findForestTile();
+    expect(clearForestOnTownAndDockTiles([{ ...forest }])).toBe(false);
+    expect(isForestTileAt(forest.x, forest.y)).toBe(true);
   });
 });
