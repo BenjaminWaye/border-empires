@@ -574,14 +574,15 @@ describe("simulation runtime", () => {
       // (5), not player-1's base territory radius (the outpost tile itself is
       // player-1's only territory).
       { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
-      // 6 tiles from the outpost — outside even the bonus radius.
+      // 6 tiles from the outpost — outside the Relay Beacon's bonus but one
+      // tile past its authoritative reach.
       { x: 66, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" }
     ];
 
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
 
     expect(filtered.some((delta) => delta.x === 65 && delta.y === 60)).toBe(true);
-    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(false);
+    expect(filtered.some((delta) => delta.x === 66 && delta.y === 60)).toBe(true);
   });
 
   it("returns vision around owned tiles when the player has no live row in this.players (fog admin)", () => {
