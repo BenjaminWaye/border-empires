@@ -88,29 +88,33 @@ type ConstructionRecord = {
 const inFlight = (status: string | undefined): status is "under_construction" | "removing" =>
   status === "under_construction" || status === "removing";
 
-const recordForTile = (tile: Tile): ConstructionRecord | undefined => {
+// `only` restricts the lookup to one structure slot: a tile can carry several
+// (e.g. a fort being built beside an active economic structure), and a renderer
+// drawing one structure must not pick up another's in-flight record.
+const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {
   const { fort, observatory, siegeOutpost, economicStructure } = tile;
-  if (fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
+  const allowed = (field: ConstructionSite["field"]): boolean => only === undefined || only === field;
+  if (allowed("fort") && fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
     const variant = fort.variant ?? "FORT";
     const manpower = FORT_TIER_LADDER[variant].manpower;
     return { field: "fort", structureType: variant, ownerId: fort.ownerId, status: fort.status, completesAt: fort.completesAt, startedAt: fort.startedAt, manpower, estimatedDurationMs: structureBuildDurationMs("FORT") };
   }
-  if (observatory && inFlight(observatory.status) && typeof observatory.completesAt === "number") {
+  if (allowed("observatory") && observatory && inFlight(observatory.status) && typeof observatory.completesAt === "number") {
     return { field: "observatory", structureType: "OBSERVATORY", ownerId: observatory.ownerId, status: observatory.status, completesAt: observatory.completesAt, startedAt: observatory.startedAt, manpower: structureBuildManpowerCost("OBSERVATORY"), estimatedDurationMs: structureBuildDurationMs("OBSERVATORY") };
   }
-  if (siegeOutpost && inFlight(siegeOutpost.status) && typeof siegeOutpost.completesAt === "number") {
+  if (allowed("siegeOutpost") && siegeOutpost && inFlight(siegeOutpost.status) && typeof siegeOutpost.completesAt === "number") {
     const variant = siegeOutpost.variant ?? "SIEGE_OUTPOST";
     return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: SIEGE_TIER_LADDER[variant].manpower, estimatedDurationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   }
-  if (economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
+  if (allowed("economicStructure") && economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
     const type = economicStructure.type as EconomicStructureType;
     return { field: "economicStructure", structureType: type, ownerId: economicStructure.ownerId, status: economicStructure.status, completesAt: economicStructure.completesAt, startedAt: economicStructure.startedAt, manpower: structureBuildManpowerCost(type), estimatedDurationMs: structureBuildDurationMs(type) };
   }
   return undefined;
 };
 
-export const constructionSiteForTile = (tile: Tile, nowMs: number): ConstructionSite | undefined => {
-  const record = recordForTile(tile);
+export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: ConstructionSite["field"]): ConstructionSite | undefined => {
+  const record = recordForTile(tile, only);
   if (!record) return undefined;
   const startedAt = record.startedAt ?? record.completesAt - record.estimatedDurationMs;
   const durationMs = Math.max(1, record.completesAt - startedAt);

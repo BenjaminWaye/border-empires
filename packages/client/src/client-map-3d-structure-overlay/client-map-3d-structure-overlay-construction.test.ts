@@ -116,4 +116,65 @@ describe("structure overlay under construction", () => {
     }).not.toThrow();
     overlay.dispose();
   });
+
+  describe("delivery pods", () => {
+    const pods = (scene: Scene): number => scene.children.filter((c) => c.type === "Group").length;
+    const rebuild = (overlay: ReturnType<typeof createStructureOverlay>, site?: ConstructionSite): void => {
+      overlay.clear();
+      overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, site);
+      overlay.commit();
+    };
+    const setup = () => {
+      const scene = new Scene();
+      return { scene, overlay: createStructureOverlay(scene, 4, createContactShadowOverlay(scene, 4)) };
+    };
+
+    it("does not fire for a site seen for the first time, however far along it is", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(3));
+      expect(pods(scene)).toBe(0);
+      overlay.dispose();
+    });
+
+    it("fires one pod when an already-seen site enters a new phase, but not within the same phase", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay, siteAt(1));
+      expect(pods(scene)).toBe(0);
+      rebuild(overlay, siteAt(2));
+      expect(pods(scene)).toBe(1);
+      rebuild(overlay, siteAt(2));
+      expect(pods(scene)).toBe(1);
+      overlay.dispose();
+    });
+
+    it("stays quiet for removal and for stalled sites", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1, { direction: "remove" }));
+      rebuild(overlay, siteAt(2, { direction: "remove" }));
+      expect(pods(scene)).toBe(0);
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay, siteAt(2, { stalled: true }));
+      expect(pods(scene)).toBe(0);
+      overlay.dispose();
+    });
+
+    it("does not fire when a site scrolls out of view for a rebuild and returns in a later phase", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay); // site not laid out this rebuild
+      rebuild(overlay, siteAt(3));
+      expect(pods(scene)).toBe(0);
+      overlay.dispose();
+    });
+
+    it("keeps an in-flight pod alive across the rebuild that follows it", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay, siteAt(2));
+      rebuild(overlay, siteAt(2));
+      expect(pods(scene)).toBe(1);
+      overlay.dispose();
+    });
+  });
 });

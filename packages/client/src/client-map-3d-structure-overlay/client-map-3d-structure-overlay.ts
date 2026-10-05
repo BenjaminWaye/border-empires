@@ -56,7 +56,8 @@ import {
   type PopulationBureauPartStructureKind
 } from "../client-map-3d-structure-population-bureau-part.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "../client-map-3d-construction/client-map-3d-construction-crew.js";
+import { CONSTRUCTION_STACK_CENTER, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "../client-map-3d-construction/client-map-3d-construction-crew.js";
+import { createConstructionPodFxLayer } from "../client-map-3d-construction/client-map-3d-construction-pod-fx.js";
 import { registerConstructionScaffold } from "../client-map-3d-construction/client-map-3d-construction-scaffold.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
@@ -237,6 +238,13 @@ export const createStructureOverlay = (
   // leave family-local animation records behind, so they are cleared after.
   const scaffold = registerConstructionScaffold(builder, MAX_CONSTRUCTION_SITES);
   const crew = createConstructionCrewLayer(scene);
+  const pods = createConstructionPodFxLayer(scene);
+  // Build phase each in-flight site had at the previous / current rebuild, to
+  // spot a genuine phase change (a site scrolling into view, or a reconnect,
+  // has no previous entry and so never fires a pod). Both hold only the sites
+  // laid out in a single rebuild, so they are bounded by the visible window.
+  let phasesLastRebuild = new Map<string, number>();
+  let phasesThisRebuild = new Map<string, number>();
   const structureHeights = new Map<string, number>();
   for (const [kind, layout] of Object.entries(layouts) as Array<[StructureKind, UniformLayoutFn]>) {
     const hints: StructureResourceHint[] = kind === "MINE" ? [undefined, "TITANIUM", "GEMS"] : [undefined];
@@ -262,6 +270,13 @@ export const createStructureOverlay = (
       builder.setGate(undefined);
       scaffold.place(sceneX, surfaceY, sceneZ, height, site.visibleBands, CONSTRUCTION_PHASES);
       crew.add(sceneX, sceneZ, surfaceY, site);
+      const siteKey = `${site.x},${site.y}`;
+      phasesThisRebuild.set(siteKey, site.phase);
+      const previousPhase = phasesLastRebuild.get(siteKey);
+      // A new phase brings a fresh delivery of fabricated parts (build only).
+      if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase) {
+        pods.spawn(sceneX + CONSTRUCTION_STACK_CENTER.x, sceneZ + CONSTRUCTION_STACK_CENTER.z, surfaceY, performance.now());
+      }
       if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
     } else {
       layout(sceneX, surfaceY, sceneZ, resource);
@@ -280,6 +295,10 @@ export const createStructureOverlay = (
     economic.clear();
     clearBuilder();
     crew.clear();
+    // Pods already in flight are deliberately NOT cleared: a rebuild happens at
+    // the very phase boundary that spawns one.
+    phasesLastRebuild = phasesThisRebuild;
+    phasesThisRebuild = new Map();
     earliestPhaseAtMs = Infinity;
   };
 
@@ -291,9 +310,11 @@ export const createStructureOverlay = (
     update: (nowMs: number): void => {
       economic.update(nowMs);
       crew.update(nowMs);
+      pods.update(nowMs);
     },
     dispose: (): void => {
       crew.dispose();
+      pods.dispose();
       disposeBuilder();
     }
   };

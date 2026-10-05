@@ -25,6 +25,8 @@ const MAX_CREW_PER_SITE = 6;
 // scaffold footprint; the crew works on a ring around the structure.
 const STACK_X = -0.4;
 const STACK_Z = -0.4;
+// Where a delivery pod lands: the middle of the parts stack.
+export const CONSTRUCTION_STACK_CENTER = { x: STACK_X + 0.045, z: STACK_Z + 0.045 } as const;
 // Outside the scaffold (half-width 0.3) so the crew is visible rather than lost inside the building.
 const WORK_RING_RADIUS = 0.38;
 const CREW_SPREAD = 0.035;

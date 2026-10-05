@@ -75,6 +75,28 @@ describe("constructionSiteForTile", () => {
   });
 });
 
+describe("constructionSiteForTile field filter", () => {
+  it("ignores another slot's in-flight record when asked for one structure", () => {
+    const tile = {
+      ...baseTile(),
+      fort: { ownerId: "me", status: "under_construction", variant: "FORT", startedAt: 0, completesAt: HOUR },
+      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" }
+    } as Tile;
+    expect(constructionSiteForTile(tile, 0)).toMatchObject({ field: "fort" });
+    expect(constructionSiteForTile(tile, 0, "economicStructure")).toBeUndefined();
+    expect(constructionSiteForTile(tile, 0, "fort")).toMatchObject({ field: "fort" });
+  });
+
+  it("finds the economic structure's own record even when a fort is also in flight", () => {
+    const tile = {
+      ...baseTile(),
+      fort: { ownerId: "me", status: "under_construction", variant: "FORT", startedAt: 0, completesAt: HOUR },
+      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR }
+    } as Tile;
+    expect(constructionSiteForTile(tile, 0, "economicStructure")).toMatchObject({ field: "economicStructure", structureType: "MINTWORKS" });
+  });
+});
+
 describe("constructionCratesAt", () => {
   it("consumes one crate per step within a phase and restocks at the next phase (build)", () => {
     // 16h window => one step per hour, four steps per phase.

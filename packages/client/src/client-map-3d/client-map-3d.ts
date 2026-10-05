@@ -1149,7 +1149,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (structureType === "CARAVANARY") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForTile(tile, Date.now()));
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForTile(tile, Date.now(), "economicStructure"));
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).

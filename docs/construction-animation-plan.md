@@ -1,8 +1,8 @@
 # Construction animation — implementation plan
 
-Status: active proposal (owner: gameplay/client; replaces nothing — delivering it
-adds a short "Construction animation" section to `docs/game-mechanics.md` and
-this file is then archived).
+Status: implemented for economic structures (see "Implementation status");
+archive this file once the follow-ups below are either done or dropped. The
+canonical rules now live in `docs/game-mechanics.md` §5.
 
 ## Goal
 
@@ -76,3 +76,36 @@ estimate. Structures cross the wire as opaque JSON, so no protocol change.
   paid for by extraction in the same branch.
 - Crew update runs every frame: capped to a fixed number of visible sites and
   figures, hidden when zoomed far out.
+
+## Implementation status
+
+Built: `startedAt` on the wire; the phase model
+(`client-construction-phase/`); 3D builder gate + measured heights, scaffolding,
+crates, crew and pods (`client-map-3d-construction/`, wired in
+`client-map-3d-structure-overlay.ts`); the 2D renderer
+(`client-construction-2d/`, called through the shared
+`client-resource-overlay-2d/` helper); Storybook stories
+(`3D Library/ConstructionSite`: Phases, Scrub, Canvas2D, Removal).
+
+Deviations from the plan above:
+
+- **Crates and crew animate per frame** from the construction window instead of
+  forcing a terrain rebuild per crate step; only the four phase boundaries
+  trigger a rebuild (`constructionBoundaryPassed`).
+- **Pods drop from orbit onto the parts stack** (consistent with the existing
+  orbital module-delivery effect) rather than arcing from the owner's nearest
+  AFC; they fire on build phase changes seen between rebuilds, never on first
+  sight or reconnect, and not for removal.
+- **No dedicated "finish" beat** and no stall pose beyond the crew freezing and
+  stooping; the structure simply switches to its normal active rendering.
+
+Not covered (still render fully built while under construction in 3D; the 2D
+renderer draws them as before): Observatory/Aether Tower, forts, siege camps,
+Umbrite rig/factory, Caravanary and Relay Beacons, i.e. every structure with a
+dedicated 3D branch. Each needs its own gate and a stack/crew placement that
+fits its footprint.
+
+Known approximations: gating treats pieces as whole boxes (a tall piece appears
+at once when its base reaches the cut); 2D clips the sprite's full bounds
+bottom-up rather than the structure's own silhouette; in-flight pods keep their
+scene position if a rebuild re-anchors the scene mid-flight (under 1 s).
