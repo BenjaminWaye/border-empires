@@ -145,6 +145,9 @@ export type RuntimePlayer = DomainPlayer & {
   manpowerCapSnapshot?: number;
 };
 
+/** Retained-log gauge sample; see InMemorySimulationPersistence.stats(). */
+export type PersistenceLogStats = { commandsHeld: number; eventsHeld: number; evictedTotal: number };
+
 export type SimulationPersistence = {
   recordCommand: (command: CommandEnvelope) => void;
   recordEvent: (event: SimulationEvent) => void;
@@ -152,6 +155,8 @@ export type SimulationPersistence = {
     commands: CommandEnvelope[];
     events: SimulationEvent[];
   };
+  /** Optional: implementations that retain a growable log expose its size for gauges. */
+  stats?: () => PersistenceLogStats;
 };
 
 // Keeps only the most recent entries. SimulationRuntime defaults to this class
@@ -164,12 +169,20 @@ export const DEFAULT_MAX_IN_MEMORY_PERSISTENCE_ENTRIES = 2_000;
 export class InMemorySimulationPersistence implements SimulationPersistence {
   private readonly commands: CommandEnvelope[] = [];
   private readonly events: SimulationEvent[] = [];
+  private evictedCount = 0;
 
   constructor(private readonly maxEntries: number = DEFAULT_MAX_IN_MEMORY_PERSISTENCE_ENTRIES) {}
 
   // Trim in batches (at 125% of the cap) so a push is not an O(cap) shift.
   private trim<T>(list: T[]): void {
-    if (list.length >= this.maxEntries + Math.ceil(this.maxEntries / 4)) list.splice(0, list.length - this.maxEntries);
+    if (list.length < this.maxEntries + Math.ceil(this.maxEntries / 4)) return;
+    this.evictedCount += list.length - this.maxEntries;
+    list.splice(0, list.length - this.maxEntries);
+  }
+
+  // Held sizes sit between maxEntries and 125% of it (batched trim); evictedTotal is monotonic.
+  stats(): PersistenceLogStats {
+    return { commandsHeld: this.commands.length, eventsHeld: this.events.length, evictedTotal: this.evictedCount };
   }
 
   recordCommand(command: CommandEnvelope): void {

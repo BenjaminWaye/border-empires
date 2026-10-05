@@ -14,6 +14,8 @@ import { createAiFocusMetrics } from "./metrics-ai-focus.js";
 import { createAuthRecoveryMetrics } from "./metrics-auth-recovery.js";
 import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
 import { createActivityLogMetrics } from "./metrics-activity-logs.js";
+import { createPersistenceLogMetrics } from "./metrics-persistence-log.js";
+import { createReplayCacheMetrics } from "./metrics-replay-cache.js";
 import { createRuntimeCounters } from "./metrics-runtime-counters.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
@@ -130,9 +132,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simWriterQueueDepth = 0;
   let simWriterQueueBackpressureWaitTotal = 0;
   let simPlayerStateUpdateSkippedAiTotal = 0;
-  let simReplayRecordedCommandHistory = 0;
-  let simReplayHistoryEvictedTotal = 0;
-  let simReplayServerEventsSkippedTotal = 0;
+  const replayCacheMetrics = createReplayCacheMetrics();
+  const persistenceLogMetrics = createPersistenceLogMetrics();
   let simLoginExportPausedDrainTotal = 0;
   const runtimeCounters = createRuntimeCounters();
   const simCheckpointExportMs: number[] = [];
@@ -185,9 +186,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simWriterQueueDepth,
     simWriterQueueBackpressureWaitTotal,
     simPlayerStateUpdateSkippedAiTotal,
-    simReplayRecordedCommandHistory,
-    simReplayHistoryEvictedTotal,
-    simReplayServerEventsSkippedTotal,
+    ...replayCacheMetrics.snapshot(),
+    ...persistenceLogMetrics.snapshot(),
     simLoginExportPausedDrainTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
@@ -339,15 +339,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimPlayerStateUpdateSkippedAi(): void {
       simPlayerStateUpdateSkippedAiTotal += 1;
     },
-    setReplayCacheStats(stats: {
-      recordedCommandHistorySize: number;
-      recordedHistoryEvicted: number;
-      serverEventsSkipped: number;
-    }): void {
-      simReplayRecordedCommandHistory = clampMetric(stats.recordedCommandHistorySize);
-      simReplayHistoryEvictedTotal = clampMetric(stats.recordedHistoryEvicted);
-      simReplayServerEventsSkippedTotal = clampMetric(stats.serverEventsSkipped);
-    },
+    setReplayCacheStats: replayCacheMetrics.set,
+    setSimPersistenceLogStats: persistenceLogMetrics.set,
     incrementSimLoginExportPausedDrain(): void {
       simLoginExportPausedDrainTotal += 1;
     },

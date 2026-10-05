@@ -182,6 +182,12 @@ export type SimulationMetricsSnapshot = {
   simReplayHistoryEvictedTotal: number;
   /** Server-generated events excluded from replay tracking (counter). */
   simReplayServerEventsSkippedTotal: number;
+  /** Commands held by the in-memory persistence log (gauge); bounded at ~125% of its cap (PR #2230). */
+  simInMemoryPersistenceCommands: number;
+  /** Events held by the in-memory persistence log (gauge); bounded at ~125% of its cap (PR #2230). */
+  simInMemoryPersistenceEvents: number;
+  /** Entries evicted from the in-memory persistence log (counter); 0 under load means the bound never engages. */
+  simInMemoryPersistenceEvictedTotal: number;
   simLoginExportPausedDrainTotal: number;
   simAiCommandCapSkippedTotal: number;
   simAiExpandDisabledTotal: number;
