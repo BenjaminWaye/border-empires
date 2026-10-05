@@ -1,4 +1,4 @@
-import { clearForestAroundAfcTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
+import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
 import type { Tile } from "../client-types.js";
 
@@ -161,6 +161,8 @@ export const applyCommonTileFields = (
   // An AFC clears forest from its 3x3 landing footprint (forest-clearing.ts
   // in @border-empires/shared); derived here rather than sent on the wire.
   if (merged.afc) clearForestAroundAfcTile(merged.x, merged.y);
+  // Towns and docks never stand in a forest -- same derive-don't-send rule.
+  clearForestOnTownOrDockTile(merged);
   if ("yield" in normalizedUpdate) {
     if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
     else delete merged.yield;
