@@ -5,6 +5,7 @@ import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
+import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -275,8 +276,12 @@ export const renderCaptureProgress = (
   }
 };
 
+// Held (not dropped) while What's New / the tutorial / lobby is open or about
+// to open, so it appears once the player is back on the map.
+const shardAlertGate = createPopupBlockedCheck();
+
 export const renderShardAlert = (
-  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile">,
+  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile"> & PopupGateState,
   deps: {
     shardAlertOverlayEl: HTMLElement;
     shardAlertTitleEl: HTMLElement;
@@ -297,6 +302,10 @@ export const renderShardAlert = (
     deps.shardAlertOverlayEl.style.display = "none";
     deps.shardAlertTitleEl.textContent = "";
     deps.shardAlertDetailEl.textContent = "";
+    return;
+  }
+  if (shardAlertGate.isBlocked(state, nowMs)) {
+    deps.shardAlertOverlayEl.style.display = "none";
     return;
   }
   deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
