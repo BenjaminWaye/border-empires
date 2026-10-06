@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, applyOddsScale } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
@@ -86,11 +86,11 @@ describe("ATTACK commitManpower (D6 commitment choice)", () => {
 
   it("raises win chance above the 1x baseline when committing more than the floor (FORT floor = 300)", async () => {
     const baseline = await combatResultFor(undefined); // defaults to the floor, 1x commitment
-    const boosted = await combatResultFor(600); // 2x commitment -> 4x odds multiplier
+    const boosted = await combatResultFor(600); // 2x commitment -> 2x odds-ratio scale
 
     expect(baseline?.combatResult?.winChance).toBeDefined();
     expect(boosted?.combatResult?.winChance).toBeDefined();
-    expect(boosted!.combatResult!.winChance).toBeCloseTo(Math.min(1, baseline!.combatResult!.winChance * 4), 6);
+    expect(boosted!.combatResult!.winChance).toBeCloseTo(applyOddsScale(baseline!.combatResult!.winChance, 2), 6);
   });
 
   it("falls back to the floor (unchanged behavior) when no commitment is requested", async () => {

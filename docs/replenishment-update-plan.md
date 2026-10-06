@@ -51,7 +51,7 @@ Status: active proposal
 | ~~D3~~ | ~~Chunks stack for 24h~~. **Dropped with D2.** |
 | D4 | **Remove the gold cap.** |
 | D5 | **Nothing resolves at a shared global tick.** Combat stays continuous and tile by tile. |
-| D6 | **Commit rule:** committed MP is always lost; `odds = (commit / base)² × base_odds`; no cap on commitment. |
+| D6 | **Commit rule:** committed MP is always lost; the odds ratio is scaled by `commit / base` (superseding the original `(commit / base)²`); no cap on commitment. |
 | D7 | **Shield flags:** a Defend-mode flag matches the attacker's commitment in its area. Chosen after simulating four designs. |
 | D8 | **Attack gesture:** drag an arrow (desktop right-drag, mobile long-press + drag), then one confirm sheet. |
 | D9 | **Build time follows manpower cost:** **100 MP = 1 hour** for structures. Growth over the season comes from the existing cost scaling, so there's no separate time table. |
@@ -279,7 +279,7 @@ on the flag's own tile menu, not "Launch Attack" — see note below).**
   now sets a SETTLED-target attack's manpower loss to `lock.manpowerCost`
   directly, win or lose, instead of drawing from `rollSettledAttackManpowerLoss`'s
   range (removed).
-- Win chance: `odds = (commit / base)² × base_odds` in `frontier-combat.ts`, on top
+- Win chance: odds ratio `p/(1-p)` scaled by `commit / base` (`applyOddsScale`; Extra 1.5×, Double 2×, never reaches 100%) in `frontier-combat.ts`, on top
   of today's modifiers (exposure, siege, weapons factories, tech). ✅
   `commitOddsMultiplier(commit, base)` in `frontier-combat.ts`, applied to
   `rollFrontierCombat`'s `winChance` (new optional `commitMultiplier` param,
