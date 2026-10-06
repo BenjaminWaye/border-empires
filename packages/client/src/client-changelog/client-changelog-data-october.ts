@@ -295,6 +295,16 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attacking the tile an enemy is attacking you from now tells you up front how long it stays locked, instead of mustering and then failing",
       "A rejected muster attack no longer leaves its flag stuck and over-filling (70/60 climbing to 120) before it can fire again"
     ]
+  },
+  {
+    createdAt: 1791318269732, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.1",
+    title: "Losing your last Fabrication Complex",
+    why: "When an enemy captured your last AFC you got no replacement until you reloaded the game, and it could land on open ground away from your empire.",
+    changes: [
+      "A replacement AFC now lands the moment your last one is captured, with no reload needed",
+      "It lands on one of your own empty tiles near the middle of your territory, or on open land touching your border if none are free"
+    ]
   }
 ];
 

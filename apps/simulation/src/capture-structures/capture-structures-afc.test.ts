@@ -145,4 +145,54 @@ describe("capture structure survival — AFC", () => {
       vi.useRealTimers();
     }
   });
+
+  // Regression: losing the last AFC while still holding ground used to leave
+  // the player AFC-less until their next reconnect.
+  it("lands a replacement AFC on the loser's own tile in the same combat resolution", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 } },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", afc: { ownerId: "player-2", status: "active", activatedAt: 0 } },
+            { x: 14, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "capture-last-afc-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+
+      const tiles = runtime.exportState().tiles;
+      expect(tiles.find((tile) => tile.x === 10 && tile.y === 11)?.ownerId).toBe("player-1");
+      const replacement = tiles.filter((tile) => tile.ownerId === "player-2" && tile.afcJson);
+      // The only empty owned tile -- not the town tile, not neutral land.
+      expect(replacement.map((tile) => `${tile.x},${tile.y}`)).toEqual(["15,14"]);
+      expect(JSON.parse(replacement[0]!.afcJson!)).toEqual(expect.objectContaining({ ownerId: "player-2", status: "active" }));
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

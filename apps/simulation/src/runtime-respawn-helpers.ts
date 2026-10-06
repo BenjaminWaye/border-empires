@@ -8,6 +8,7 @@ import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
 import { backfillMissingHouseModules } from "./afc-module-commissioning.js";
+import { chooseReplacementAfcSite } from "./afc-owned-site/afc-owned-site.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
@@ -219,95 +220,70 @@ export const ensurePlayerHasSpawnTerritory = (
   return true;
 };
 
-// Migration for empires settled before Automated Fabrication Complexes
-// existed (docs/manifest-afc-settlement-migration-plan.md): only a genuinely
-// fresh spawn or a full elimination-respawn ever creates tile.afc (the three
-// call sites above), so an already-settled empire from before that shipped
-// never gets one on its own. This runs from the same per-connection hook as
-// ensurePlayerHasSpawnTerritory (spawnAndAnnounce -> preparePlayerHandler),
-// so a legacy player simply picks one up transparently on their next
-// reconnect -- no bulk world-scan migration job, no separate "already
-// migrated" flag to maintain (the ownedAfcTileKeys guard below makes every
-// call after the first a fast no-op by construction). Unlike a genuine
-// respawn, this grants no manpower/Coin floor and no respawn notice -- the
-// player already has a running empire; this only backfills infrastructure.
-// Also calls down House module copies the player researched but has on no
-// AFC (see backfillMissingHouseModules). Returns true when either changed.
+// Replacement AFC for a player who still holds territory but owns no AFC:
+// either their last one was just captured (respawnIfEliminated runs this in
+// the same combat resolution, see ensureReplacementAfcAfterLoss below) or the
+// empire was settled before AFCs existed (docs/manifest-afc-settlement-migration-plan.md),
+// which the per-connection hook (preparePlayerHandler) still catches. The
+// ownedAfcTileKeys guard makes every call after the first a fast no-op.
+// Unlike a genuine respawn this grants no manpower/Coin floor and no respawn
+// notice -- the player already has a running empire. Also calls down House
+// module copies the player researched but has on no AFC (see
+// backfillMissingHouseModules). Returns true when either changed.
 export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
-  const granted = grantMigrationAfcIfMissing(ctx, playerId);
-  const techIds = ctx.players.get(playerId)?.techIds;
-  const delivery = { ...ctx, ownedAfcTileKeys: (id: string) => ctx.summaryForPlayer(id).ownedAfcTileKeys };
-  const backfilled = techIds ? backfillMissingHouseModules(ctx, delivery, playerId, techIds, `afc-module-backfill:${playerId}:${ctx.now()}`) : false;
-  return granted || backfilled;
+  const granted = grantReplacementAfcIfMissing(ctx, playerId, `afc-migration:${playerId}:${ctx.now()}`);
+  return backfillHouseModules(ctx, playerId) || granted;
 };
 
-const grantMigrationAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
+/** Hot-path variant for combat resolution: an O(1) AFC-count check, and the
+ * module backfill only runs when a replacement actually landed. */
+export const ensureReplacementAfcAfterLoss = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
+  if (ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return false;
+  if (!grantReplacementAfcIfMissing(ctx, playerId, `${commandId}:afc-replacement:${playerId}`)) return false;
+  backfillHouseModules(ctx, playerId);
+  return true;
+};
+
+const backfillHouseModules = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
+  const techIds = ctx.players.get(playerId)?.techIds;
+  const delivery = { ...ctx, ownedAfcTileKeys: (id: string) => ctx.summaryForPlayer(id).ownedAfcTileKeys };
+  return techIds ? backfillMissingHouseModules(ctx, delivery, playerId, techIds, `afc-module-backfill:${playerId}:${ctx.now()}`) : false;
+};
+
+const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
   const player = ctx.players.get(playerId);
   if (!player) return false;
   const summary = ctx.summaryForPlayer(playerId);
-  if (summary.territoryTileKeys.size === 0) return false; // ensurePlayerHasSpawnTerritory's path, not this one
+  if (summary.territoryTileKeys.size === 0) return false; // full elimination: respawnIfEliminated's path, not this one
   if (summary.ownedAfcTileKeys.size > 0) return false; // already has one
   // Same world-sanity guard as ensurePlayerHasSpawnTerritory: a genuine
   // zero here is only trustworthy once the world has actually loaded.
   if (ctx.tiles.size === 0) return false;
-  // Anchor on any SETTLED tile the player owns, not specifically a town --
-  // player-runtime-summary.ts tracks "SETTLED" and "has a town" as
-  // independent conditions, so requiring a town would strand a player whose
-  // only settled tile is e.g. a mine. Smallest tile key breaks ties
-  // deterministically among multiple settled tiles.
-  let anchor: { x: number; y: number } | undefined;
-  let anchorKey = "";
-  for (const tile of ctx.tiles.values()) {
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    if (!anchor || tileKey < anchorKey) {
-      anchor = { x: tile.x, y: tile.y };
-      anchorKey = tileKey;
-    }
-  }
-  if (!anchor) return false; // no firmly-held (SETTLED) tile yet -- retry on a later connect
-  // Also exclude ownerless FRONTIER tiles -- chooseLegacySpawnPlacement's
-  // candidate filter only checks terrain/ownerId/town/dockId, so an
-  // unowned-but-revealed FRONTIER tile (the very next tile any nearby empire
-  // would organically expand into, via MARCH/EXPAND) would otherwise be
-  // fair game. This migration is meant to purely backfill infrastructure,
-  // never to race a live expansion for the same land.
-  const frontierTileKeys = new Set<string>();
-  for (const tile of ctx.tiles.values()) {
-    if (!tile.ownerId && tile.ownershipState === "FRONTIER") frontierTileKeys.add(simulationTileKey(tile.x, tile.y));
-  }
-  const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys(), ...frontierTileKeys]);
-  const spawn = chooseLegacySpawnPlacement({
+  const site = chooseReplacementAfcSite({
     playerId,
-    tiles: ctx.tiles.values(),
-    blockedTileKeys,
-    coastalLandKeys: ctx.coastalLandKeys(),
-    hasNearbySettled: ctx.hasNearbySettled,
-    hasNearbyTown: ctx.hasNearbyTown,
-    hasNearbyFood: ctx.hasNearbyFood,
-    terrainAt: terrainLookup(ctx),
-    rallyAnchor: anchor
+    tiles: ctx.tiles,
+    isBlocked: (tileKey) => ctx.pendingSettlementsByTile.has(tileKey) || ctx.locksByTile.has(tileKey)
   });
-  if (!spawn) return false;
-  const tileKey = simulationTileKey(spawn.x, spawn.y);
-  const tile = ctx.tiles.get(tileKey);
-  if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
+  if (!site) {
+    ctx.runtimeLogInfo({ type: "afc_replacement_no_site", playerId, commandId }, "no valid landing site for a replacement AFC");
+    return false;
+  }
+  const { frontierDecayAt: _decayAt, frontierDecayKind: _decayKind, ...siteTile } = site.tile;
+  const tileKey = simulationTileKey(siteTile.x, siteTile.y);
+  // An AFC always sits on SETTLED ground (homeAfcTileKey and the build rule
+  // both require it), so a FRONTIER or neutral site is settled on landing.
   const afcTile: DomainTileState = {
-    ...tile,
+    ...siteTile,
     ownerId: playerId,
     ownershipState: "SETTLED",
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
-  const commandId = `afc-migration:${playerId}:${ctx.now()}`;
-  const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
-  ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
+  const flattenedTiles = prepareAfcLandingFootprint(ctx, siteTile.x, siteTile.y, commandId);
+  if (site.placement === "adjacent_neutral") ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, afcTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [afcTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
-  ctx.runtimeLogInfo(
-    { type: "afc_migration_granted", playerId, commandId, tileKey, anchorTileKey: anchorKey },
-    "granted migration AFC for reconnecting pre-AFC empire"
-  );
+  ctx.runtimeLogInfo({ type: "afc_replacement_granted", playerId, commandId, tileKey, placement: site.placement }, "granted replacement AFC");
   return true;
 };
 
@@ -368,7 +344,12 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
 export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
   const actor = ctx.players.get(playerId);
   if (!actor) return;
-  if (ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
+  // Still holding ground: not eliminated, but the loss that triggered this
+  // call may have taken their last AFC -- replace it now, not on reconnect.
+  if (ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) {
+    ensureReplacementAfcAfterLoss(ctx, playerId, commandId);
+    return;
+  }
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) {
     preparePlayerRespawnNotice(ctx, playerId, "eliminated", commandId, { wasOnline: true });
   }

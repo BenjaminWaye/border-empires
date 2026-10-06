@@ -1,7 +1,7 @@
-// Coverage for the AFC settlement-migration grant
-// (docs/manifest-afc-settlement-migration-plan.md): an empire settled
-// before Automated Fabrication Complexes existed gets one placed on free
-// land near its existing settlement the next time it connects.
+// Coverage for the replacement-AFC grant: a player who holds territory but
+// owns no AFC (last one captured, or an empire settled before AFCs existed,
+// docs/manifest-afc-settlement-migration-plan.md) gets one on their own land,
+// falling back to neutral land touching their territory.
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "./runtime/runtime.js";
@@ -18,9 +18,8 @@ const makePlayer = (id: string) => ({
   allies: new Set<string>()
 });
 
-// A generous grid of plain, unowned LAND around the anchor -- large enough
-// that chooseLegacySpawnPlacement's RALLY_SPAWN_RADIUS (24) always has
-// somewhere to land, whatever pass in RALLY_SPAWN_SEARCH_ORDER succeeds.
+// A generous grid of plain, unowned LAND around the anchor, so the neutral
+// fallback always has somewhere to land when the test forces it.
 const emptyLandGrid = (excludeKeys: ReadonlySet<string> = new Set()): DomainTileState[] => {
   const tiles: DomainTileState[] = [];
   for (let x = 0; x < 40; x += 1) {
@@ -34,7 +33,7 @@ const emptyLandGrid = (excludeKeys: ReadonlySet<string> = new Set()): DomainTile
 };
 
 describe("ensurePlayerHasAfc — AFC settlement migration", () => {
-  it("grants a nearby AFC to a player with a settled tile and no AFC", () => {
+  it("lands the AFC on the player's own empty settled tile", () => {
     const anchor = { x: 15, y: 15 };
     const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
     const runtime = new SimulationRuntime({
@@ -47,11 +46,44 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(granted).toBe(true);
 
     const afcTiles = runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTiles).toHaveLength(1);
-    const afcTile = afcTiles[0]!;
-    expect(afcTile.x === anchor.x && afcTile.y === anchor.y).toBe(false); // a NEW tile, not the settlement itself
-    expect(Math.max(Math.abs(afcTile.x - anchor.x), Math.abs(afcTile.y - anchor.y))).toBeLessThanOrEqual(24);
-    expect(JSON.parse(afcTile.afcJson!)).toEqual(expect.objectContaining({ ownerId: "player-1", status: "active", activatedAt: 1_000 }));
+    expect(afcTiles.map((tile) => `${tile.x},${tile.y}`)).toEqual(["15,15"]);
+    expect(JSON.parse(afcTiles[0]!.afcJson!)).toEqual(expect.objectContaining({ ownerId: "player-1", status: "active", activatedAt: 1_000 }));
+  });
+
+  it("picks the empty owned tile nearest the territory's centre, FRONTIER included, and settles it", () => {
+    const owned: DomainTileState[] = [
+      { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 99_999, frontierDecayKind: "OUT_OF_REACH" },
+      { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+    ];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      initialState: { tiles: [...owned, ...emptyLandGrid(new Set(owned.map((tile) => `${tile.x},${tile.y}`)))], activeLocks: [] }
+    });
+
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
+    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
+    expect(afcTile).toEqual(expect.objectContaining({ x: 11, y: 10, ownershipState: "SETTLED" }));
+    expect(afcTile?.frontierDecayAt).toBeUndefined();
+  });
+
+  it("skips owned tiles holding a town or structure and falls back to neutral land touching the territory", () => {
+    const owned: DomainTileState[] = [
+      { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } },
+      { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT" } }
+    ];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      initialState: { tiles: [...owned, ...emptyLandGrid(new Set(owned.map((tile) => `${tile.x},${tile.y}`)))], activeLocks: [] }
+    });
+
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
+    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson)!;
+    expect(owned.some((tile) => tile.x === afcTile.x && tile.y === afcTile.y)).toBe(false);
+    const touchesTerritory = owned.some((tile) => Math.max(Math.abs(tile.x - afcTile.x), Math.abs(tile.y - afcTile.y)) === 1);
+    expect(touchesTerritory).toBe(true);
   });
 
   it("is a no-op for a player who already has an AFC", () => {
@@ -119,11 +151,11 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(afcTiles).toHaveLength(0);
   });
 
-  it("does not land on another player's tile", () => {
+  it("never takes another player's tile, even when that leaves no valid site", () => {
     const anchor = { x: 15, y: 15 };
-    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
-    // player-2 owns every tile within a tight ring around the anchor --
-    // the migration grant must still land somewhere, but never on these.
+    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } };
+    // player-2 owns every tile around player-1's only (town) tile, so there is
+    // no empty owned tile and no neutral tile touching the territory.
     const player2Ring: DomainTileState[] = [];
     for (let x = anchor.x - 2; x <= anchor.x + 2; x += 1) {
       for (let y = anchor.y - 2; y <= anchor.y + 2; y += 1) {
@@ -141,24 +173,21 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
       initialState: { tiles: [settledTile, ...player2Ring, ...emptyLandGrid(excluded)], activeLocks: [] }
     });
 
-    const granted = runtime.ensurePlayerHasAfc("player-1");
-    expect(granted).toBe(true);
-    const afcTile = runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson);
-    expect(afcTile).toBeDefined();
-    const withinPlayer2Ring = Math.abs(afcTile!.x - anchor.x) <= 2 && Math.abs(afcTile!.y - anchor.y) <= 2 && !(afcTile!.x === anchor.x && afcTile!.y === anchor.y);
-    expect(withinPlayer2Ring).toBe(false);
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false);
+    const tiles = runtime.exportState().tiles;
+    expect(tiles.some((tile) => tile.afcJson)).toBe(false);
+    expect(tiles.filter((tile) => tile.ownerId === "player-2")).toHaveLength(player2Ring.length);
   });
 
-  // Regression test: the very first placement candidate chooseLegacySpawnPlacement
-  // tries is often the nearest ownerless FRONTIER tile (terrain LAND, no owner) --
-  // exactly the tile a nearby MARCH/EXPAND would organically claim next. Without
-  // excluding those, this migration grant would race a live expansion for the
-  // same land (caught by apps/realtime-gateway's
+  // Regression test: the nearest neutral fallback candidate is often an
+  // ownerless FRONTIER tile (terrain LAND, no owner) -- exactly the tile a
+  // nearby MARCH/EXPAND would organically claim next. Without excluding
+  // those, the grant would race a live expansion for the same land (caught by apps/realtime-gateway's
   // rewrite-stack-muster-march-expand-transit.integration.test.ts, whose tiny
   // fixture world has only one nearby free tile, which is FRONTIER).
   it("never lands on an ownerless FRONTIER tile", () => {
     const anchor = { x: 15, y: 15 };
-    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
+    const settledTile: DomainTileState = { x: anchor.x, y: anchor.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } };
     const nearestFrontierTile: DomainTileState = { x: anchor.x, y: anchor.y + 1, terrain: "LAND", ownershipState: "FRONTIER" };
     const excluded = new Set([`${anchor.x},${anchor.y}`, `${nearestFrontierTile.x},${nearestFrontierTile.y}`]);
     const runtime = new SimulationRuntime({

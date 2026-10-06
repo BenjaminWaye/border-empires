@@ -2,13 +2,11 @@ import { afcBuildCost } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
+import { isEmptyAfcSite } from "./afc-owned-site/afc-owned-site.js";
 import { parseBuildAfcPayload } from "./runtime-command-parsers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { rejectCommand } from "./runtime-structure-command-handlers-reject.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-
-const isEmptyAfcSite = (tile: DomainTileState): boolean =>
-  !tile.town && !tile.dockId && !tile.afc && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure;
 
 export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, command: CommandEnvelope): void => {
   const actor = context.players.get(command.playerId);
