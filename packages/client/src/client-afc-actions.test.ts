@@ -41,6 +41,14 @@ describe("afcModuleActionsForTile", () => {
     ]);
   });
 
+  it("disables Call down onto an AFC that already holds 8 modules", () => {
+    const eight = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const actions = afcModuleActionsForTile(stateWith(["crystal-lattices"]), afcTile({ modules: eight }), availability, 1_000);
+    expect(actions).toEqual([
+      { id: "redeploy_afc_module:crystal-lattices", label: "Call down Aether Resonance Core", disabled: true, disabledReason: "AFC full (8/8): build another AFC" }
+    ]);
+  });
+
   it("offers nothing on someone else's AFC", () => {
     const tile = { ...afcTile({}), ownerId: "enemy", afc: { ownerId: "enemy", status: "active" } } as Tile;
     expect(afcModuleActionsForTile(stateWith(["masonry"]), tile, availability)).toEqual([]);

@@ -1,6 +1,8 @@
 import type { Tile, TileOverviewLine } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
+import { AFC_MODULE_SLOTS } from "@border-empires/shared";
+import { afcIsFull, afcSlotsUsed } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 
 // The 4 player-facing Manifest branches AFC-Module techs can belong to
 // (docs/manifest-full-plan.md §4: "Economy, Manpower, and War modules are
@@ -28,6 +30,8 @@ export const afcModuleOverviewLines = (tile: Tile, techCatalog: readonly TechInf
   const afc = tile.afc;
   if (!afc) return [];
   const lines: TileOverviewLine[] = [{ html: "AFC Modules", kind: "section" }];
+  lines.push({ html: `Slots: ${afcSlotsUsed(afc)}/${AFC_MODULE_SLOTS}` });
+  if (afcIsFull(afc)) lines.push({ html: "Full: build another AFC to install more modules." });
   if (afc.status === "inactive") {
     lines.push({ html: `<span class="tile-overview-dormant">⚠ Dormant — modules inactive until this AFC is reclaimed.</span>` });
   }

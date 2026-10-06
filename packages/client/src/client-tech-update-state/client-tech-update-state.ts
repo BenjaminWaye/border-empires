@@ -1,4 +1,5 @@
 import { focusAfcForResearchedModule } from "../client-afc-locate/client-afc-locate.js";
+import { afcModuleWaitingMessage, isAfcModuleWaitingForSlot } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -83,13 +84,15 @@ export const applyTechUpdateToState = (
     pendingTechId && state.techIds.includes(pendingTechId) ? pendingTechId : state.techIds[state.techIds.length - 1];
   const completedTech = state.techCatalog.find((tech) => tech.id === completedTechId);
   pushFeed(`Research completed: ${completedTech?.name ?? completedTechId ?? "unknown"}.`, "tech", "success");
+  const moduleWaiting = completedTech?.manifestCategory === "AFC_MODULE" && completedTechId !== undefined && isAfcModuleWaitingForSlot(state, completedTechId);
+  if (moduleWaiting) pushFeed(afcModuleWaitingMessage(completedTech.name), "tech", "warn");
 
   state.techDetailOpen = false;
   state.structureInfoKey = "";
   state.crystalAbilityInfoKey = "";
   // An AFC module docks the moment it is researched: show the map at that AFC
   // so its delivery animation is seen, instead of switching to the tech panel.
-  const focusedAfc = completedTech?.manifestCategory === "AFC_MODULE" && completedTechId && focusAfcForResearchedModule(state, completedTechId);
+  const focusedAfc = completedTech?.manifestCategory === "AFC_MODULE" && !moduleWaiting && completedTechId && focusAfcForResearchedModule(state, completedTechId);
   state.activePanel = focusedAfc ? null : "tech";
   state.mobilePanel = focusedAfc ? "core" : "tech";
 

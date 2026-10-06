@@ -1,4 +1,5 @@
-import { AFC_MODULE_CALL_DOWN_MS, afcBuildCost } from "@border-empires/shared";
+import { AFC_MODULE_CALL_DOWN_MS, AFC_MODULE_SLOTS, afcBuildCost } from "@border-empires/shared";
+import { afcIsFull } from "./client-afc-slot-notices/client-afc-slot-notices.js";
 import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
@@ -15,6 +16,7 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
     const incoming = afc.incomingModules?.find((entry) => entry.techId === tech.id);
     const id = `redeploy_afc_module:${tech.id}` as const;
     if (incoming) return [{ id, label: `${tech.name} incoming`, ...availability(false, `Lands in ${formatCooldownShort(incoming.arrivesAt - nowMs)}`) }];
+    if (afcIsFull(afc)) return [{ id, label: `Call down ${tech.name}`, ...availability(false, `AFC full (${AFC_MODULE_SLOTS}/${AFC_MODULE_SLOTS}): build another AFC`) }];
     return [{ id, label: `Call down ${tech.name}`, ...availability(true, "", `Lands here in ${formatCooldownShort(AFC_MODULE_CALL_DOWN_MS)} • leaves its current AFC now`) }];
   });
 };
