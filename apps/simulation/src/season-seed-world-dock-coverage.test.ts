@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH, WORLD_HEIGHT, isSeaTerrain, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
+import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
 
 const noopPlayer = (id: string, isAi: boolean) => ({
   id,
@@ -53,7 +54,11 @@ const countUncoveredSeaAdjacentComponents = (tiles: Map<string, import("@border-
 
 describe("real-pipeline dock coverage", () => {
   it("gives every sea-adjacent land component a dock across many seeds, both styles", () => {
-    const seeds = Array.from({ length: 12 }, (_, i) => 1000 + i * 37);
+    const shard = parseTestShard(process.env.WORLDGEN_COVERAGE_SHARD);
+    const seeds = valuesForTestShard(
+      Array.from({ length: 12 }, (_, i) => 1000 + i * 37),
+      shard
+    );
     const results: string[] = [];
     let anyUncovered = 0;
     for (const style of ["continents", "islands"] as WorldStyle[]) {
@@ -65,7 +70,8 @@ describe("real-pipeline dock coverage", () => {
       }
     }
     // eslint-disable-next-line no-console
-    console.log(results.join("\n"));
+    console.log(`shard=${shard.index}/${shard.total}\n${results.join("\n")}`);
+    expect(seeds).not.toHaveLength(0);
     expect(anyUncovered).toBe(0);
   }, 120_000);
 });
