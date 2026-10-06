@@ -10,26 +10,33 @@ on:
       - develop
       - main
 
+# A new push to the same PR supersedes its previous validation. Cancelling the
+# obsolete run frees runners for the commit a reviewer can actually merge.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  ci:
-    name: Lint, test, build
+  static:
+    name: Static checks
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           # node:sqlite (used by apps/simulation) requires Node 22.5+.
           node-version: "22"
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -60,14 +67,133 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
+      - name: Test repository scripts
+        run: pnpm test:scripts
 
-      # Isolated pass for multi-minute, CPU-bound world-generation stress
-      # tests (excluded from the main `pnpm test` run above) — running them
-      # concurrently with the rest of the suite starves whatever test file
-      # the scheduler runs alongside them on this runner's limited CPU,
-      # tripping that unrelated test's timeout (see vitest.config.ts /
-      # vitest.slow.config.ts for the full story and confirmed CI runs).
-      - name: Test (slow world-gen suite)
+  test-other-packages:
+    name: Test other packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Simulation and client tests run in dedicated shards below. The other
+      # packages retain pnpm's existing concurrent execution behavior.
+      - name: Build workspace packages
+        run: pnpm build
+
+      - name: Test other packages
+        run: pnpm -r --filter '!@border-empires/simulation' --filter '!@border-empires/client' test
+
+  test-client:
+    name: Test client (${{ matrix.shard }}/6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @border-empires/client... build
+      - run: pnpm --filter @border-empires/client test -- --shard ${{ matrix.shard }}/6
+
+  test-simulation:
+    name: Test simulation (${{ matrix.shard }}/8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @border-empires/simulation... build
+      - run: pnpm --filter @border-empires/simulation test -- --shard ${{ matrix.shard }}/8
+
+  test-slow-worldgen:
+    name: Test slow worldgen (${{ matrix.shard }}/5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @border-empires/simulation... build
+      - name: Test slow worldgen shard
+        env:
+          WORLDGEN_COVERAGE_SHARD: ${{ matrix.shard }}/5
         run: pnpm --filter @border-empires/simulation test:slow
+
+  # Preserve the historical required-check name while making the workflow's
+  # success contingent on every independently sharded validation job.
+  ci:
+    name: Lint, test, build
+    if: ${{ always() }}
+    needs:
+      - static
+      - test-other-packages
+      - test-client
+      - test-simulation
+      - test-slow-worldgen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job to pass
+        env:
+          NEEDS_RESULT: ${{ toJson(needs) }}
+        run: |
+          if printf '%s' "$NEEDS_RESULT" | jq -e 'to_entries | all(.value.result == "success")' >/dev/null; then
+            exit 0
+          fi
+          printf '%s\n' "$NEEDS_RESULT"
+          exit 1
