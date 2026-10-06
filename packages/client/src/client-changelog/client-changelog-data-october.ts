@@ -305,7 +305,8 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If your last AFC is captured, build a new one yourself, free: tap any empty tile in your territory and choose Build AFC",
       "Lost modules come back one per minute, Economy modules first",
       "Each AFC holds 8 modules. When all your AFCs are full, a newly researched module waits until you build another AFC",
-      "Capturing an enemy AFC also plunders 33% of their Coin"
+      "Capturing an enemy AFC also plunders 33% of their Coin",
+      "Fixed: AFCs disappeared after a server restart and a new one appeared somewhere else"
     ]
   }
 ];

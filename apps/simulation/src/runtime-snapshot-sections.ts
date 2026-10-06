@@ -48,6 +48,9 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
   ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
+  // AFCs were missing here, so they were never saved: every restart dropped
+  // them all and the startup repairs re-placed them elsewhere.
+  ...(tile.afc ? { afc: tile.afc } : {}),
   ...(tile.muster ? { muster: tile.muster } : {})
 });
 
