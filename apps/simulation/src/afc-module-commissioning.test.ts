@@ -111,7 +111,7 @@ describe("backfillMissingHouseModules", () => {
     scheduleAfter: (_delayMs, task) => { timers.push(task); }
   });
 
-  it("calls down researched modules that were never docked, landing after the call-down delay", () => {
+  it("calls down researched modules that were never docked, one per call-down interval, by branch order", () => {
     const tiles = new Map<string, DomainTileState>([["10,12", afcTile()]]);
     const { ctx } = buildContext(tiles, ["10,12"]);
     const timers: Array<() => void> = [];
@@ -121,13 +121,17 @@ describe("backfillMissingHouseModules", () => {
 
     expect(changed).toBe(true);
     expect(tiles.get("10,12")?.afc?.houseModules).toBeUndefined();
+    // masonry (war) ranks ahead of crystal-lattices (aether); each lands one interval after the last.
     expect(tiles.get("10,12")?.afc?.incomingModules).toEqual([
-      { techId: "crystal-lattices", arrivesAt: 5_000 + AFC_MODULE_CALL_DOWN_MS },
-      { techId: "masonry", arrivesAt: 5_000 + AFC_MODULE_CALL_DOWN_MS }
+      { techId: "masonry", arrivesAt: 5_000 + AFC_MODULE_CALL_DOWN_MS },
+      { techId: "crystal-lattices", arrivesAt: 5_000 + 2 * AFC_MODULE_CALL_DOWN_MS }
     ]);
     now.value += AFC_MODULE_CALL_DOWN_MS;
-    timers.forEach((task) => task());
-    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["crystal-lattices", "masonry"]);
+    timers.splice(0).forEach((task) => task());
+    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["masonry"]);
+    now.value += AFC_MODULE_CALL_DOWN_MS;
+    timers.splice(0).forEach((task) => task());
+    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["masonry", "crystal-lattices"]);
     expect(tiles.get("10,12")?.afc?.incomingModules).toBeUndefined();
   });
 

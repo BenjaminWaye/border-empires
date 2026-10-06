@@ -4,7 +4,8 @@ import { parseRedeployAfcModulePayload } from "./runtime-command-parsers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { rejectCommand } from "./runtime-structure-command-handlers-reject.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { callDownAfcModules, type AfcModuleDeliveryContext } from "./afc-module-delivery/afc-module-delivery.js";
+import { AFC_MODULE_SLOTS } from "@border-empires/shared";
+import { afcHasFreeSlot, callDownAfcModules, type AfcModuleDeliveryContext } from "./afc-module-delivery/afc-module-delivery.js";
 
 /** Calls the single researched House copy of an AFC module down to an owned
  * AFC; it lands after AFC_MODULE_CALL_DOWN_MS (afc-module-delivery.ts).
@@ -20,6 +21,11 @@ export const handleRedeployAfcModuleCommand = (context: RuntimeStructureCommandC
   const target = context.tiles.get(targetKey);
   if (!target?.afc || target.ownerId !== actor.id || target.ownershipState !== "SETTLED" || target.afc.status !== "active") {
     rejectCommand(context, command, "BUILD_INVALID", "target must be an active AFC you control");
+    return;
+  }
+  const alreadyThere = target.afc.houseModules?.includes(payload.techId) || target.afc.incomingModules?.some((entry) => entry.techId === payload.techId);
+  if (!alreadyThere && !afcHasFreeSlot(target.afc)) {
+    rejectCommand(context, command, "AFC_FULL", `this AFC is full (${AFC_MODULE_SLOTS} modules): build another AFC for more`);
     return;
   }
   callDownAfcModules(afcModuleDeliveryContextFor(context), actor.id, targetKey, [payload.techId], command.commandId);

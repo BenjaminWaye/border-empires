@@ -7,8 +7,9 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
-import { backfillMissingHouseModules } from "./afc-module-commissioning.js";
+import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
 import { chooseReplacementAfcSite } from "./afc-owned-site/afc-owned-site.js";
+import { BARBARIAN_PLAYER_ID } from "./ai/system-job-barbarian-planner.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
@@ -244,15 +245,20 @@ export const ensureReplacementAfcAfterLoss = (ctx: RuntimeRespawnContext, player
   return true;
 };
 
+// Also moves House copies off an AFC still holding more than AFC_MODULE_SLOTS
+// from before the cap existed (rebalanceOverfullAfcs).
 const backfillHouseModules = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
   const techIds = ctx.players.get(playerId)?.techIds;
   const delivery = { ...ctx, ownedAfcTileKeys: (id: string) => ctx.summaryForPlayer(id).ownedAfcTileKeys };
-  return techIds ? backfillMissingHouseModules(ctx, delivery, playerId, techIds, `afc-module-backfill:${playerId}:${ctx.now()}`) : false;
+  const commandId = `afc-module-backfill:${playerId}:${ctx.now()}`;
+  const rebalanced = rebalanceOverfullAfcs(ctx, delivery, playerId, commandId);
+  const backfilled = techIds ? backfillMissingHouseModules(ctx, delivery, playerId, techIds, commandId) : false;
+  return rebalanced || backfilled;
 };
 
 const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
   const player = ctx.players.get(playerId);
-  if (!player) return false;
+  if (!player || playerId === BARBARIAN_PLAYER_ID) return false; // barbarians never hold an AFC
   const summary = ctx.summaryForPlayer(playerId);
   if (summary.territoryTileKeys.size === 0) return false; // full elimination: respawnIfEliminated's path, not this one
   if (summary.ownedAfcTileKeys.size > 0) return false; // already has one

@@ -171,6 +171,8 @@ describe("capture structure survival — AFC", () => {
         }
       });
 
+      const pillaged: number[] = [];
+      runtime.onEvent((event) => { if (event.eventType === "COMBAT_RESOLVED" && event.commandId === "capture-last-afc-1") pillaged.push(event.pillagedGold ?? 0); });
       runtime.submitCommand({
         commandId: "capture-last-afc-1",
         sessionId: "session-1",
@@ -189,6 +191,9 @@ describe("capture structure survival — AFC", () => {
       const replacement = tiles.filter((tile) => tile.ownerId === "player-2" && tile.afcJson);
       // The only empty owned tile -- not the town tile, not neutral land.
       expect(replacement.map((tile) => `${tile.x},${tile.y}`)).toEqual(["15,14"]);
+      // AFC capture plunder: 33% of the defender's remaining 10,000 Coin on top of the normal pillage.
+      expect(pillaged).toHaveLength(1);
+      expect(pillaged[0]!).toBeGreaterThanOrEqual(3_000);
       expect(JSON.parse(replacement[0]!.afcJson!)).toEqual(expect.objectContaining({ ownerId: "player-2", status: "active" }));
     } finally {
       randomSpy.mockRestore();

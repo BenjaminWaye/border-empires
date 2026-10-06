@@ -3,6 +3,8 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { isEmptyAfcSite } from "./afc-owned-site/afc-owned-site.js";
+import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
+import { afcModuleDeliveryContextFor } from "./runtime-redeploy-afc-module-command-handler.js";
 import { parseBuildAfcPayload } from "./runtime-command-parsers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { rejectCommand } from "./runtime-structure-command-handlers-reject.js";
@@ -26,4 +28,8 @@ export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, c
   context.replaceTileState(tileKey, afcTile, command.commandId);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: [afcTile, ...footprint].map((entry) => context.tileDeltaFromState(entry)) });
   context.emitPlayerStateUpdate(command);
+  // A new AFC opens 8 slots: call down any module copies that were waiting for one.
+  const delivery = afcModuleDeliveryContextFor(context);
+  rebalanceOverfullAfcs(context, delivery, actor.id, command.commandId);
+  backfillMissingHouseModules(context, delivery, actor.id, actor.techIds, command.commandId);
 };
