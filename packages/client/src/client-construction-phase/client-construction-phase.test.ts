@@ -98,6 +98,20 @@ describe("constructionSiteForTile with types this client does not know", () => {
   });
 });
 
+describe("constructionSiteForTile instant placements", () => {
+  it("shows no construction for a zero-length window (first Relay Beacons)", () => {
+    const beacon = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", startedAt: 5_000, completesAt: 5_000 } } as Tile;
+    expect(constructionSiteForTile(beacon, 5_000)).toBeUndefined();
+    expect(constructionSiteForTile(beacon, 9_000)).toBeUndefined();
+  });
+
+  it("still shows a normal beacon build and an overdue (stalled) one", () => {
+    const sixth = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", startedAt: 0, completesAt: 2 * HOUR } } as Tile;
+    expect(constructionSiteForTile(sixth, HOUR)).toMatchObject({ phase: 2, stalled: false });
+    expect(constructionSiteForTile(sixth, 3 * HOUR)).toMatchObject({ stalled: true });
+  });
+});
+
 describe("constructionSiteForTile field filter", () => {
   it("ignores another slot's in-flight record when asked for one structure", () => {
     const tile = {

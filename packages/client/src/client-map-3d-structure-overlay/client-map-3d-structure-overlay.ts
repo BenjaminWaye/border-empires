@@ -56,9 +56,7 @@ import {
   type PopulationBureauPartStructureKind
 } from "../client-map-3d-structure-population-bureau-part.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { CONSTRUCTION_STACK_CENTER, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "../client-map-3d-construction/client-map-3d-construction-crew.js";
-import { createConstructionPodFxLayer } from "../client-map-3d-construction/client-map-3d-construction-pod-fx.js";
-import { registerConstructionScaffold } from "../client-map-3d-construction/client-map-3d-construction-scaffold.js";
+import { createConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
 // late-game, civic, infrastructure, industrial) each own their
@@ -236,22 +234,13 @@ export const createStructureOverlay = (
   // Construction pipeline. Each kind's finished height is measured once, up
   // front, by dry-running its layout (nothing is placed); the dry runs may
   // leave family-local animation records behind, so they are cleared after.
-  const scaffold = registerConstructionScaffold(builder, MAX_CONSTRUCTION_SITES);
-  const crew = createConstructionCrewLayer(scene);
-  const pods = createConstructionPodFxLayer(scene);
-  // Build phase each in-flight site had at the previous / current rebuild, to
-  // spot a genuine phase change (a site scrolling into view, or a reconnect,
-  // has no previous entry and so never fires a pod). Both hold only the sites
-  // laid out in a single rebuild, so they are bounded by the visible window.
-  let phasesLastRebuild = new Map<string, number>();
-  let phasesThisRebuild = new Map<string, number>();
+  const presentation = createConstructionPresentation(scene, buildingEnvironmentTexture);
   const structureHeights = new Map<string, number>();
   for (const [kind, layout] of Object.entries(layouts) as Array<[StructureKind, UniformLayoutFn]>) {
     const hints: StructureResourceHint[] = kind === "MINE" ? [undefined, "TITANIUM", "GEMS"] : [undefined];
     for (const hint of hints) structureHeights.set(heightKey(kind, hint), builder.measure(() => layout(0, 0, 0, hint)));
   }
   economic.clear();
-  let earliestPhaseAtMs = Infinity;
 
   const addInstance = (
     sceneX: number,
@@ -271,16 +260,7 @@ export const createStructureOverlay = (
       } finally {
         builder.setGate(undefined); // never leave the gate on for the next structure
       }
-      scaffold.place(sceneX, surfaceY, sceneZ, height, site.visibleBands, CONSTRUCTION_PHASES);
-      crew.add(sceneX, sceneZ, surfaceY, site);
-      const siteKey = `${site.x},${site.y}`;
-      phasesThisRebuild.set(siteKey, site.phase);
-      const previousPhase = phasesLastRebuild.get(siteKey);
-      // A new phase brings a fresh delivery of fabricated parts (build only).
-      if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase) {
-        pods.spawn(sceneX + CONSTRUCTION_STACK_CENTER.x, sceneZ + CONSTRUCTION_STACK_CENTER.z, surfaceY, performance.now());
-      }
-      if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
+      presentation.addSite(sceneX, sceneZ, surfaceY, site, height);
     } else {
       layout(sceneX, surfaceY, sceneZ, resource);
     }
@@ -297,27 +277,23 @@ export const createStructureOverlay = (
   const clear = (): void => {
     economic.clear();
     clearBuilder();
-    crew.clear();
-    // Pods already in flight are deliberately NOT cleared: a rebuild happens at
-    // the very phase boundary that spawns one.
-    phasesLastRebuild = phasesThisRebuild;
-    phasesThisRebuild = new Map();
-    earliestPhaseAtMs = Infinity;
+    presentation.clear();
   };
 
   return {
     clear,
     addInstance,
-    constructionBoundaryPassed: (): boolean => Date.now() >= earliestPhaseAtMs,
-    commit: commitBuilder,
+    constructionBoundaryPassed: presentation.boundaryPassed,
+    commit: (): void => {
+      commitBuilder();
+      presentation.commit();
+    },
     update: (nowMs: number): void => {
       economic.update(nowMs);
-      crew.update(nowMs);
-      pods.update(nowMs);
+      presentation.update(nowMs);
     },
     dispose: (): void => {
-      crew.dispose();
-      pods.dispose();
+      presentation.dispose();
       disposeBuilder();
     }
   };

@@ -135,7 +135,11 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
   const record = recordForTile(tile, only);
   if (!record) return undefined;
   const startedAt = record.startedAt ?? record.completesAt - record.estimatedDurationMs;
-  const durationMs = Math.max(1, record.completesAt - startedAt);
+  // A zero-length window is an instant placement (the first Relay Beacons come
+  // down "with the landing party", completesAt === startedAt): nothing to show.
+  if (record.completesAt <= startedAt) return undefined;
+  const durationMs = record.completesAt - startedAt;
+  // A build paused (e.g. under attack) is frozen at the moment it paused.
   const pausedAt = record.status === "under_construction" ? tile[record.field]?.pausedAt : undefined;
   const rawFraction = ((pausedAt ?? nowMs) - startedAt) / durationMs;
   const fraction = Math.max(0, Math.min(1, rawFraction));

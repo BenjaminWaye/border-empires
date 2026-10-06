@@ -17,6 +17,7 @@ import {
   Vector3
 } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { geometryHalfExtents, verticalHalfExtent, type HalfExtents } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type StructurePieceGeometry =
   | BoxGeometry
@@ -29,7 +30,7 @@ export type StructurePieceGeometry =
 
 // halfExtent: half the geometry's bounding box, so construction gating/measuring
 // can find a piece's vertical extent (docs/construction-animation-plan.md).
-type Slot = { mesh: InstancedMesh; count: number; cap: number; halfX: number; halfY: number; halfZ: number };
+type Slot = { mesh: InstancedMesh; count: number; cap: number; extents: HalfExtents };
 
 // Builder API used by per-family files to register their meshes and
 // place instances. Families never touch the underlying slots/scene
@@ -134,16 +135,7 @@ export const createStructurePieceBuilder = (
     // here worth carving out.
     applyBuildingEnvMap(mat, envMap);
     scene.add(mesh);
-    geo.computeBoundingBox();
-    const box = geo.boundingBox;
-    slots.set(key, {
-      mesh,
-      count: 0,
-      cap,
-      halfX: box ? (box.max.x - box.min.x) / 2 : 0,
-      halfY: box ? (box.max.y - box.min.y) / 2 : 0,
-      halfZ: box ? (box.max.z - box.min.z) / 2 : 0
-    });
+    slots.set(key, { mesh, count: 0, cap, extents: geometryHalfExtents(geo) });
     ownedGeos.add(geo);
     ownedMaterials.add(mat);
   };
@@ -185,10 +177,7 @@ export const createStructurePieceBuilder = (
       matrix.compose(position, tmpQuat, scale);
     }
     if (measuring || gateY !== undefined) {
-      // Vertical half-extent of the (rotated, scaled) box: row 1 of the
-      // composed matrix already carries rotation and scale.
-      const e = matrix.elements;
-      const half = Math.abs(e[1]!) * slot.halfX + Math.abs(e[5]!) * slot.halfY + Math.abs(e[9]!) * slot.halfZ;
+      const half = verticalHalfExtent(matrix.elements, slot.extents);
       if (measuring) {
         measuredTop = Math.max(measuredTop, oy + half);
         return -1;

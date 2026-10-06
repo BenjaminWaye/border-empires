@@ -110,3 +110,44 @@ Known approximations: gating treats pieces as whole boxes (a tall piece appears
 at once when its base reaches the cut); 2D clips the sprite's full bounds
 bottom-up rather than the structure's own silhouette; in-flight pods keep their
 scene position if a rebuild re-anchors the scene mid-flight (under 1 s).
+
+## Follow-up 1: Relay Beacon (3D + 2D)
+
+Why first: beacons are placed constantly during expansion, and (from the sixth
+on) take hours, but they were the most visible structure still showing fully
+built. They have their own 3D overlay (`client-map-3d-relay-beacon-overlay.ts`,
+its own piece placer and an animated mirror array) and are routed through
+`client-map-3d-fortification-instances.ts`, so the shared builder gate does not
+reach them.
+
+Findings that shape the work:
+
+- The first 5 beacons are placed instantly (`relayBeaconBuildDurationMs` = 0, so
+  `completesAt === startedAt`). The model must treat a zero-length window as "no
+  construction", or every instant beacon would flash a frozen crew.
+- `rebuildStartAt` in `client-map-3d.ts` is `performance.now()`, not wall clock;
+  the site lookup must use `Date.now()`.
+- The beacon is a slender lattice tower (about 1.7 tall). Whole-piece gating
+  would show the full-height legs and column in phase 1, so tall pieces (legs,
+  column, pipes, spindle) are truncated to the current cut instead and grow.
+- The mirror array animates by slot index (`i * perBeacon + slotIndex`); gated
+  pieces must still occupy their slots (zero scale) or indices desync.
+- The overlay file is 497 lines: extract before adding.
+
+Steps:
+
+1. Model: zero-length windows return no site.
+2. Extract, no behaviour change: shared vertical-extent helper (builder and
+   beacon), a `ConstructionPresentation` bundle (scaffold + crates/crew + pods +
+   phase-diff + boundary tracking) out of the structure overlay, and the beacon
+   materials/geometries/slots into an assets module.
+3. Beacon: height-band gating with truncation, presentation per beacon overlay,
+   array slots kept aligned, rebuild trigger on phase boundaries.
+4. 2D: `drawFortificationOverlay2D` draws a beacon site through
+   `drawConstructionStructure2D` (forts and siege camps stay as before until
+   follow-up 2).
+5. Tests, Storybook story, changelog, docs, CI, PR.
+
+Follow-up 2 (next): forts (note: a fort *upgrade* keeps the old fort standing
+and defending, so it must not be hidden by phasing) and siege camps. Then
+Aether Tower, Umbrite rig/factory and Caravanary.
