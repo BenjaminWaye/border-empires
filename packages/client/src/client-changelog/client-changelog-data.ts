@@ -138,6 +138,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The versus bar labels each side with its percentage"
     ]
   },
+  {
+    createdAt: 1791280725000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.1",
+    title: "Missing Fabrication Complex modules restored, plus an AFC button",
+    why: "Modules you researched before you had a Fabrication Complex -- or that were lost when an AFC holding them was captured -- never docked, so your AFC could show only one module despite lots of research. There was also no quick way to find your AFC.",
+    changes: [
+      "Every researched module that isn't docked on one of your AFCs is now installed on your home AFC the next time you connect",
+      "New AFC button next to Center jumps to your home Fabrication Complex and opens its module overview"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,

@@ -7,6 +7,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
+import { backfillMissingHouseModules } from "./afc-module-commissioning.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
@@ -229,7 +230,18 @@ export const ensurePlayerHasSpawnTerritory = (
 // call after the first a fast no-op by construction). Unlike a genuine
 // respawn, this grants no manpower/Coin floor and no respawn notice -- the
 // player already has a running empire; this only backfills infrastructure.
+// Also backfills House module copies the player researched but never had
+// docked (see backfillMissingHouseModules). Returns true when either changed.
 export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
+  const granted = grantMigrationAfcIfMissing(ctx, playerId);
+  const techIds = ctx.players.get(playerId)?.techIds;
+  const commandId = `afc-module-backfill:${playerId}:${ctx.now()}`;
+  const backfilled = techIds ? backfillMissingHouseModules(ctx, playerId, techIds, commandId) : false;
+  if (backfilled) ctx.emitPlayerStateUpdate({ commandId, playerId });
+  return granted || backfilled;
+};
+
+const grantMigrationAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
   const player = ctx.players.get(playerId);
   if (!player) return false;
   const summary = ctx.summaryForPlayer(playerId);

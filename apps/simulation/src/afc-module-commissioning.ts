@@ -3,7 +3,8 @@
  * §10 step 4): when a player researches an AFC_MODULE-category Manifest,
  * install its single House-owned copy onto their home AFC. The copy can later
  * be redeployed. Research while owning no AFC retains the tech but has no
- * copy location until a player gains an AFC.
+ * copy location until a player gains an AFC; backfillMissingHouseModules
+ * installs those (and any copy lost when its AFC was captured) later.
  */
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
@@ -59,4 +60,37 @@ export const commissionModuleIfApplicable = (
   };
   ctx.replaceTileState(tileKey, updatedTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(updatedTile)] });
+};
+
+/** Installs a House copy for every researched AFC_MODULE tech that no owned
+ * AFC currently holds. Covers techs researched before the player had an AFC
+ * (or before commissioning shipped) and House copies lost when the AFC
+ * holding them was captured. Returns true when anything was installed. */
+export const backfillMissingHouseModules = (
+  ctx: AfcModuleCommissioningContext,
+  playerId: string,
+  techIds: Iterable<string>,
+  commandId: string
+): boolean => {
+  const tileKey = homeAfcTileKey(ctx, playerId);
+  if (!tileKey) return false;
+  const held = new Set<string>();
+  for (const ownedKey of ctx.summaryForPlayer(playerId).ownedAfcTileKeys) {
+    const owned = ctx.tiles.get(ownedKey);
+    if (owned?.afc && owned.ownerId === playerId) for (const techId of owned.afc.houseModules ?? []) held.add(techId);
+  }
+  const missing = [...techIds].filter((techId) => !held.has(techId) && techEntryById.get(techId)?.manifestCategory === "AFC_MODULE").sort();
+  const tile = ctx.tiles.get(tileKey);
+  if (missing.length === 0 || !tile?.afc) return false;
+  const updatedTile: DomainTileState = {
+    ...tile,
+    afc: {
+      ...tile.afc,
+      modules: [...(tile.afc.modules ?? []), ...missing],
+      houseModules: [...(tile.afc.houseModules ?? []), ...missing]
+    }
+  };
+  ctx.replaceTileState(tileKey, updatedTile, commandId);
+  ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(updatedTile)] });
+  return true;
 };

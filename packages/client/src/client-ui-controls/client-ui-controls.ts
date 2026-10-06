@@ -1,9 +1,15 @@
+import type { createClientActionFlow } from "../client-action-flow.js";
+import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel, setActivePanel } from "../client-panel-nav/client-panel-nav.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
+type UiActionFlow = Pick<
+  ReturnType<typeof createClientActionFlow>,
+  "sendAllianceRequest" | "chooseTech" | "chooseDomain" | "cancelOngoingCapture" | "confirmBuildingPlacement" | "cancelBuildingPlacement" | "openSingleTileActionMenu"
+>;
 
 type UiControlsDeps = {
   state: ClientState;
@@ -36,15 +42,10 @@ type UiControlsDeps = {
   authEmailLinkBtn: ClientDom["authEmailLinkBtn"];
   authProfileNameEl: ClientDom["authProfileNameEl"];
   authProfileSaveBtn: ClientDom["authProfileSaveBtn"];
-  sendAllianceRequest: (target: string) => void;
-  chooseTech: (techIdRaw?: string) => void;
-  chooseDomain: (domainIdRaw?: string) => void;
+  actionFlow: UiActionFlow;
   renderHud: () => void;
   centerOnOwnedTile: () => void;
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
-  cancelOngoingCapture: () => void;
-  confirmBuildingPlacement: () => void;
-  cancelBuildingPlacement: () => void;
   hideShardAlert: () => void;
   renderShardAlert: () => void;
   acknowledgeVictoryHoldAlert: () => void;
@@ -87,14 +88,10 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     authEmailLinkBtn,
     authProfileNameEl,
     authProfileSaveBtn,
-    sendAllianceRequest,
-    chooseTech,
+    actionFlow,
     renderHud,
     centerOnOwnedTile,
     requestViewRefresh,
-    cancelOngoingCapture,
-    confirmBuildingPlacement,
-    cancelBuildingPlacement,
     hideShardAlert,
     renderShardAlert,
     acknowledgeVictoryHoldAlert,
@@ -104,6 +101,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     setActivePanel,
     syncAuthPanelState
   } = deps;
+  const { sendAllianceRequest, chooseTech, cancelOngoingCapture, confirmBuildingPlacement, cancelBuildingPlacement } = actionFlow;
 
   allianceSendBtn.onclick = () => {
     sendAllianceRequest(allianceTargetEl.value);
@@ -135,6 +133,15 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     centerOnOwnedTile();
     requestViewRefresh(2, true);
   };
+  hud.querySelectorAll<HTMLButtonElement>("[data-locate-afc]").forEach((btn) => {
+    btn.onclick = () => {
+      const openTileMenu = (tile: Parameters<UiActionFlow["openSingleTileActionMenu"]>[0], x: number, y: number): void =>
+        actionFlow.openSingleTileActionMenu(tile, x, y, { requestAttackPreview: false, openTab: "overview" });
+      if (!locateHomeAfc(state, openTileMenu, { x: window.innerWidth / 2, y: window.innerHeight / 2 })) centerOnOwnedTile();
+      requestViewRefresh(2, true);
+      renderHud();
+    };
+  });
   captureCancelBtn.onclick = () => cancelOngoingCapture();
   captureDismissBtn.onclick = () => {
     dismissOngoingCapture(state);

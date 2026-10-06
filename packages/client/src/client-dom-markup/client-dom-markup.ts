@@ -20,6 +20,10 @@ export const hudMarkup = `
         <span class="utility-btn-icon" aria-hidden="true">◎</span>
         <span class="utility-btn-copy"><strong>Center</strong><small>Jump to your banner</small></span>
       </button>
+      <button id="locate-afc-desktop" class="panel-btn utility-btn" type="button" data-locate-afc>
+        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
+        <span class="utility-btn-copy"><strong>AFC</strong><small>Open your fabrication complex</small></span>
+      </button>
     </div>
   </div>
 
@@ -242,6 +246,10 @@ export const hudMarkup = `
       <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
         <span class="utility-btn-icon" aria-hidden="true">◎</span>
         <span class="utility-btn-copy"><strong>Center</strong><small>Own tile</small></span>
+      </button>
+      <button id="locate-afc" class="panel-btn utility-btn utility-btn-mobile" type="button" data-locate-afc>
+        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
+        <span class="utility-btn-copy"><strong>AFC</strong><small>Modules</small></span>
       </button>
     </div>
   </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { commissionModuleIfApplicable, type AfcModuleCommissioningContext } from "./afc-module-commissioning.js";
+import { backfillMissingHouseModules, commissionModuleIfApplicable, type AfcModuleCommissioningContext } from "./afc-module-commissioning.js";
 import { createEmptyPlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 // Module commissioning, first slice (docs/manifest-full-plan.md §3-4):
@@ -97,5 +97,44 @@ describe("commissionModuleIfApplicable", () => {
 
     expect(tiles.get("10,12")?.afc?.modules).toEqual(["crystal-lattices"]);
     expect(events).toHaveLength(0);
+  });
+});
+
+describe("backfillMissingHouseModules", () => {
+  it("installs researched modules that were never docked (researched before the AFC existed)", () => {
+    const tiles = new Map<string, DomainTileState>([["10,12", afcTile()]]);
+    const { ctx, events } = buildContext(tiles, ["10,12"]);
+
+    const changed = backfillMissingHouseModules(ctx, "player-1", ["masonry", "agriculture", "crystal-lattices"], "cmd-1");
+
+    expect(changed).toBe(true);
+    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["crystal-lattices", "masonry"]);
+    expect(tiles.get("10,12")?.afc?.modules).toEqual(["crystal-lattices", "masonry"]);
+    expect(events).toHaveLength(1);
+  });
+
+  it("skips modules already held as a House copy on any owned AFC", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["10,12", afcTile()],
+      ["20,30", afcTile({ x: 20, y: 30, afc: { ownerId: "player-1", status: "active", activatedAt: 5000, modules: ["masonry"], houseModules: ["masonry"] } })]
+    ]);
+    const { ctx } = buildContext(tiles, ["10,12", "20,30"]);
+
+    backfillMissingHouseModules(ctx, "player-1", ["masonry", "crystal-lattices"], "cmd-1");
+
+    expect(tiles.get("10,12")?.afc?.houseModules).toEqual(["crystal-lattices"]);
+    expect(tiles.get("20,30")?.afc?.houseModules).toEqual(["masonry"]);
+  });
+
+  it("is a no-op once everything is docked, and when the player owns no AFC", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: ["masonry"], houseModules: ["masonry"] } })]
+    ]);
+    const { ctx, events } = buildContext(tiles, ["10,12"]);
+    expect(backfillMissingHouseModules(ctx, "player-1", ["masonry"], "cmd-1")).toBe(false);
+    expect(events).toHaveLength(0);
+
+    const empty = buildContext(new Map(), []);
+    expect(backfillMissingHouseModules(empty.ctx, "player-1", ["masonry"], "cmd-1")).toBe(false);
   });
 });

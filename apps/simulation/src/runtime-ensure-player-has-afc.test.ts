@@ -76,6 +76,30 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(afcTiles).toHaveLength(1); // still just the original
   });
 
+  it("docks researched AFC modules missing from an existing AFC on reconnect", () => {
+    const afcTile: DomainTileState = {
+      x: 15,
+      y: 15,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      afc: { ownerId: "player-1", status: "active", activatedAt: 0, modules: ["masonry"], houseModules: ["masonry"] }
+    };
+    const player = makePlayer("player-1");
+    player.techIds = new Set(["masonry", "crystal-lattices", "agriculture"]);
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player]]),
+      initialState: { tiles: [afcTile, ...emptyLandGrid(new Set(["15,15"]))], activeLocks: [] }
+    });
+
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
+    const afcTiles = runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-1" && tile.afcJson);
+    expect(afcTiles).toHaveLength(1);
+    expect(JSON.parse(afcTiles[0]!.afcJson!).houseModules).toEqual(["masonry", "crystal-lattices"]);
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false); // idempotent
+  });
+
   it("is a no-op for a player with zero territory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
