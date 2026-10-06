@@ -16,9 +16,10 @@ export const hudMarkup = `
     <div id="selected"></div>
     <div id="hover"></div>
     <div class="row">
+      <!-- Former "Center" button, kept under its id for layout/onboarding; now jumps to the home AFC. -->
       <button id="center-me-desktop" class="panel-btn utility-btn" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">◎</span>
-        <span class="utility-btn-copy"><strong>Center</strong><small>Jump to your banner</small></span>
+        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
+        <span class="utility-btn-copy"><strong>AFC</strong><small>Open your fabrication complex</small></span>
       </button>
     </div>
   </div>
@@ -240,8 +241,8 @@ export const hudMarkup = `
     <div id="mobile-core-help" class="card mobile-context-card"></div>
     <div class="row mobile-utility-row">
       <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">◎</span>
-        <span class="utility-btn-copy"><strong>Center</strong><small>Own tile</small></span>
+        <span class="utility-btn-icon" aria-hidden="true">⬢</span>
+        <span class="utility-btn-copy"><strong>AFC</strong><small>Modules</small></span>
       </button>
     </div>
   </div>

@@ -75,6 +75,7 @@ const palisadeFortFromLegacy = (
   status: legacy.status === "inactive" ? "active" : legacy.status,
   ...(legacy.status === "removing" ? { previousStatus: "active" as const } : {}),
   ...(legacy.completesAt !== undefined ? { completesAt: legacy.completesAt } : {}),
+  ...(legacy.startedAt !== undefined ? { startedAt: legacy.startedAt } : {}),
   ...(legacy.activatedAt !== undefined ? { activatedAt: legacy.activatedAt } : {}),
   ...(legacy.disabledUntil !== undefined ? { disabledUntil: legacy.disabledUntil } : {})
 });

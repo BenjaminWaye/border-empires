@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
+import { buildInitDomainCatalog, buildInitTechCatalog, type InitDomainCatalogEntry, type InitTechCatalogEntry } from "./init-payload-catalogs.js";
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
-  techGoldCostForResearchedCount,
   anonymizedEmpireNameForId,
   isChosenTrickleResource,
   isOpaquePlayerId,
@@ -94,38 +94,9 @@ type GatewayInitPayload = {
   } & ReconnectPassthroughFields;
   config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle; worldgenVersion?: number } };
   techChoices: string[];
-  techCatalog: Array<{
-    id: string;
-    tier: number;
-    name: string;
-    description: string;
-    researchTimeSeconds?: number;
-    rootId?: string;
-    prereqIds?: string[];
-    effects?: Record<string, unknown>;
-    mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-    requirements: {
-      gold: number;
-      resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-      canResearch: boolean;
-    };
-    grantsPowerup?: { id: string; charges: number };
-  }>;
+  techCatalog: InitTechCatalogEntry[];
   domainChoices: string[];
-  domainCatalog: Array<{
-    id: string;
-    tier: number;
-    name: string;
-    description: string;
-    requiresTechId: string;
-    effects?: Record<string, unknown>;
-    mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-    requirements: {
-      gold: number;
-      resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-      canResearch: boolean;
-    };
-  }>;
+  domainCatalog: InitDomainCatalogEntry[];
   leaderboard: {
     overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number }>;
     selfOverall?: { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
@@ -333,24 +304,6 @@ const settledCountsFromSnapshot = (snapshot: { tiles: ReadonlyArray<Record<strin
   }
   return counts;
 };
-
-const toResources = (
-  cost?: Partial<Record<"gold" | "food" | "titanium" | "crystal" | "umbrite" | "shard", number>>
-): Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> => ({
-  ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
-  ...(typeof cost?.titanium === "number" && cost.titanium > 0 ? { TITANIUM: cost.titanium } : {}),
-  ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
-  ...(typeof cost?.umbrite === "number" && cost.umbrite > 0 ? { UMBRITE: cost.umbrite } : {}),
-  ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
-});
-
-const hasResources = (
-  required: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>,
-  available: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>
-): boolean =>
-  (Object.entries(required) as Array<[keyof typeof available, number]>).every(
-    ([resource, amount]) => (available[resource] ?? 0) >= (amount ?? 0)
-  );
 
 const reachableTechChoices = (ownedTechIds: string[]): string[] =>
   techTree.techs
@@ -928,52 +881,9 @@ export const buildGatewayInitPayload = (
       }
     },
     techChoices,
-    techCatalog: techTree.techs.map((tech) => {
-      const resources = toResources(tech.cost);
-      const goldCost = techGoldCostForResearchedCount(techIds.length);
-      return {
-        id: tech.id,
-        tier: tech.tier,
-        name: tech.name,
-        description: tech.description,
-        ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
-        ...(tech.rootId ? { rootId: tech.rootId } : {}),
-        ...(tech.branch ? { branch: tech.branch } : {}),
-        ...(tech.prereqIds ? { prereqIds: tech.prereqIds } : {}),
-        ...(tech.effects ? { effects: tech.effects } : {}),
-        mods: tech.mods ?? {},
-        requirements: {
-          gold: goldCost,
-          resources,
-          canResearch:
-            techChoices.includes(tech.id) &&
-            availableGold >= goldCost &&
-            hasResources(resources, availableStrategic)
-        },
-        ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
-      };
-    }),
+    techCatalog: buildInitTechCatalog(techTree.techs, { researchedCount: techIds.length, techChoices, availableGold, availableStrategic }),
     domainChoices,
-    domainCatalog: domainTree.domains.map((domain) => {
-      const resources = toResources(domain.cost);
-      return {
-        id: domain.id,
-        tier: domain.tier,
-        name: domain.name,
-        description: domain.description,
-        requiresTechId: domain.requiresTechId,
-        ...(domain.effects ? { effects: domain.effects } : {}),
-        mods: domain.mods ?? {},
-        requirements: {
-          gold: domain.cost?.gold ?? 0,
-          resources,
-          canResearch:
-            reachableDomainChoiceSet.has(domain.id) &&
-            availableGold >= (domain.cost?.gold ?? 0) &&
-            hasResources(resources, availableStrategic)
-        }
-      };
-    }),
+    domainCatalog: buildInitDomainCatalog(domainTree.domains, { reachableDomainChoiceSet, availableGold, availableStrategic }),
     leaderboard: {
       overall,
       ...(selfOverall ? { selfOverall } : {}),

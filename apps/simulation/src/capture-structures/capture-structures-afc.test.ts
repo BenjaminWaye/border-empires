@@ -45,7 +45,8 @@ describe("capture structure survival — AFC", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              afc: { ownerId: "player-2", status: "active", activatedAt: 0 }
+              // A module still in transit is lost with the AFC (absent from the expected afcJson below).
+              afc: { ownerId: "player-2", status: "active", activatedAt: 0, incomingModules: [{ techId: "masonry", arrivesAt: 999_999 }] }
             }
           ],
           activeLocks: []

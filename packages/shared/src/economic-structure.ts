@@ -9,6 +9,7 @@ export interface EconomicStructure {
   ownerId: PlayerId;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  startedAt?: number;
   disabledUntil?: number;
   inactiveReason?: "manual" | "upkeep";
   previousStatus?: "active" | "inactive";

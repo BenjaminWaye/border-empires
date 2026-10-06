@@ -4,7 +4,9 @@ import { computeWarMusicSignals } from "./client-war-music-signal/client-war-mus
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
-import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js"; import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
+import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
@@ -364,28 +366,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
 
       if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
-        const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
-        const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
-        if (overlay?.complete && overlay.naturalWidth) {
-          if (!isTrue3DRendererActive()) {
-            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
-          }
-          deps.drawResourceCornerMarker(overlayTile, px, py, size);
-        } else {
-          if (!isTrue3DRendererActive()) {
-            const rc = deps.resourceColor(overlayTile.resource);
-            if (!rc) return;
-            const marker = Math.max(3, Math.floor(size * 0.22));
-            const mx = px + Math.floor((size - marker) / 2);
-            const my = py + Math.floor((size - marker) / 2);
-            deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
-            deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-            deps.ctx.fillStyle = rc;
-            deps.ctx.fillRect(mx, my, marker, marker);
-          }
-          deps.drawResourceCornerMarker(overlayTile, px, py, size);
-        }
+        if (!drawResourceOverlay2D(deps, overlayTile, px, py, size, nowMs)) return;
       }
 
       const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
@@ -934,28 +915,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
-          const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
-          const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
-          if (overlay?.complete && overlay.naturalWidth) {
-            if (!isTrue3DRendererActive()) {
-              const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
-              deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
-            }
-            deps.drawResourceCornerMarker(overlayTile, px, py, size);
-          } else {
-            if (!isTrue3DRendererActive()) {
-              const rc = deps.resourceColor(overlayTile.resource);
-              if (!rc) continue;
-              const marker = Math.max(3, Math.floor(size * 0.22));
-              const mx = px + Math.floor((size - marker) / 2);
-              const my = py + Math.floor((size - marker) / 2);
-              deps.ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
-              deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-              deps.ctx.fillStyle = rc;
-              deps.ctx.fillRect(mx, my, marker, marker);
-            }
-            deps.drawResourceCornerMarker(overlayTile, px, py, size);
-          }
+          if (!drawResourceOverlay2D(deps, overlayTile, px, py, size, nowMs)) continue;
         }
 
         const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());

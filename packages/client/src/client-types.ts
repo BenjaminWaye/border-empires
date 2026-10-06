@@ -110,12 +110,13 @@ export type Tile = {
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: ClientTileFort;
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; startedAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeOutpost?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
     variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
     completesAt?: number;
+    startedAt?: number;
   };
   economicStructure?: {
     ownerId: string;
@@ -177,6 +178,7 @@ export type Tile = {
       | "UMBRITE_WEAPONS_FACTORY";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
+    startedAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
     converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
@@ -263,7 +265,7 @@ export type Tile = {
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; modules?: string[]; houseModules?: string[] };
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; modules?: string[]; houseModules?: string[]; incomingModules?: Array<{ techId: string; arrivesAt: number }> };
 };
 
 export type SeasonVictoryObjectiveView = {
