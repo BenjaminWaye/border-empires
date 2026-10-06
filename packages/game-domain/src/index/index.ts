@@ -40,6 +40,7 @@ import {
   type WaystationTileState
 } from "@border-empires/shared";
 import type { DomainAfcState } from "../domain-afc-state.js";
+import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeOutpostState } from "../domain-tile-structure-states.js";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
   if (!isFortDefending(tile.fort)) return 1;
@@ -201,62 +202,12 @@ export type DomainTileState = {
           >
         >)
     | undefined;
-  fort?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["fort"]>["status"];
-        variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
-        upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
-        completesAt?: number | undefined;
-        startedAt?: number | undefined;
-        activatedAt?: number | undefined;
-        disabledUntil?: number | undefined;
-        previousStatus?: "active" | undefined;
-      }
-    | undefined;
-  observatory?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["observatory"]>["status"];
-        completesAt?: number | undefined;
-        startedAt?: number | undefined;
-        activatedAt?: number | undefined;
-        cooldownUntil?: number | undefined;
-        previousStatus?: "active" | "inactive" | undefined;
-        // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
-        siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
-      }
-    | undefined;
-  siegeOutpost?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["siegeOutpost"]>["status"];
-        variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
-        completesAt?: number | undefined;
-        startedAt?: number | undefined;
-        activatedAt?: number | undefined;
-        previousStatus?: "active" | undefined;
-      }
-    | undefined;
+  fort?: DomainFortState | undefined;
+  observatory?: DomainObservatoryState | undefined;
+  siegeOutpost?: DomainSiegeOutpostState | undefined;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   afc?: DomainAfcState | undefined;
-  economicStructure?:
-    | {
-        ownerId: string;
-        type: NonNullable<Tile["economicStructure"]>["type"];
-        status: NonNullable<Tile["economicStructure"]>["status"];
-        completesAt?: number | undefined;
-        startedAt?: number | undefined;
-        activatedAt?: number | undefined;
-        disabledUntil?: number | undefined;
-        nextUpkeepAt?: number | undefined;
-        inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
-        previousStatus?: "active" | "inactive" | undefined;
-        bombardCooldownUntil?: number | undefined;
-        converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
-        modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
-      }
-    | undefined;
+  economicStructure?: DomainEconomicStructureState | undefined;
   sabotage?:
     | {
         ownerId: string;

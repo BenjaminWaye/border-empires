@@ -18,6 +18,7 @@ import { rushBuyLabel, type QuickforgeRushBuyContext } from "../client-tile-menu
 import { economicStructureBuildMs, economicStructureName } from "../client-map-display.js";
 import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
+import { constructionClockMs } from "../client-construction-remaining-ms/client-construction-remaining-ms.js";
 
 // D9 covers build time only -- removal keeps the flat pre-replenishment
 // per-type duration (see runtime-structure-lifecycle-command-handlers.ts,
@@ -57,10 +58,30 @@ const ownConstructionProgressForTile = (
   tile: Tile,
   formatCountdownClock: (ms: number) => string,
   quickforge: QuickforgeRushBuyContext
+): TileMenuProgressView | undefined => withPausedModifier(tile, activeConstructionProgressForTile(tile, formatCountdownClock, quickforge));
+
+const PAUSED_NOTE = "Paused due to an ongoing attack on this tile. Construction resumes when the battle resolves.";
+
+// A build the server paused because its tile is under attack: the countdown is
+// frozen, so say so, and drop rush-buy (the server refuses it while paused).
+const withPausedModifier = (tile: Tile, progress: TileMenuProgressView | undefined): TileMenuProgressView | undefined => {
+  if (!progress) return progress;
+  const isPaused = [tile.fort, tile.observatory, tile.siegeOutpost, tile.economicStructure].some(
+    (candidate) => candidate?.status === "under_construction" && candidate.pausedAt !== undefined
+  );
+  if (!isPaused) return progress;
+  const { rushBuyLabel: _rushBuyLabel, rushBuyActionId: _rushBuyActionId, ...rest } = progress;
+  return { ...rest, remainingLabel: `${progress.remainingLabel} · Paused: ongoing attack`, note: PAUSED_NOTE };
+};
+
+const activeConstructionProgressForTile = (
+  tile: Tile,
+  formatCountdownClock: (ms: number) => string,
+  quickforge: QuickforgeRushBuyContext
 ): TileMenuProgressView | undefined => {
   const nowMs = Date.now();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
-    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
+    const remaining = Math.max(0, tile.fort.completesAt - constructionClockMs(tile.fort));
     const standing = tile.fort.upgradingFrom;
     return {
       title: standing ? `Upgrading to ${FORT_VARIANT_LABELS[tile.fort.variant ?? "FORT"]}` : "Fortification under construction",
@@ -90,7 +111,7 @@ const ownConstructionProgressForTile = (
     };
   }
   if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
+    const remaining = Math.max(0, tile.observatory.completesAt - constructionClockMs(tile.observatory));
     return {
       title: "Aether Tower under construction",
       detail: "This tile will extend vision and aether tower protection when construction completes.",
@@ -114,7 +135,7 @@ const ownConstructionProgressForTile = (
     };
   }
   if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
+    const remaining = Math.max(0, tile.siegeOutpost.completesAt - constructionClockMs(tile.siegeOutpost));
     return {
       title: "Siege camp under construction",
       detail: "This tile will gain an offensive staging structure when construction completes.",
@@ -138,7 +159,7 @@ const ownConstructionProgressForTile = (
     };
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
-    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    const remaining = Math.max(0, tile.economicStructure.completesAt - constructionClockMs(tile.economicStructure));
     const buildMs = economicStructureBuildMs(tile.economicStructure.type);
     return {
       title: `${economicStructureName(tile.economicStructure.type)} under construction`,

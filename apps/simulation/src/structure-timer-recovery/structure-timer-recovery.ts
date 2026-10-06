@@ -1,5 +1,11 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { scheduleAfcModuleDelivery, type AfcModuleDeliveryContext } from "../afc-module-delivery/afc-module-delivery.js";
+import {
+  scheduleStructureCompletion,
+  structureTypeForField,
+  tileHasPausedConstruction,
+  type DevelopmentStructureField
+} from "../attack-development-hold/attack-development-hold.js";
 
 export type StructureTimerRecoveryDeps = {
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -7,10 +13,14 @@ export type StructureTimerRecoveryDeps = {
   scheduleAfter: (delayMs: number, task: () => void) => void;
   completeStructureBuild: (tileKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (tileKey: string, ownerId: string, commandId: string) => void;
+  /** True while an unresolved ATTACK targets the tile. */
+  isTileUnderAttack: (tileKey: string) => boolean;
+  /** Resumes a build an attack had paused (attack-development-hold.ts). */
+  releaseDevelopmentHold: (tileKey: string, commandId: string) => void;
   afcModuleDelivery: () => AfcModuleDeliveryContext;
 };
 
-type TimedStructure = { ownerId: string; status: string; completesAt?: number | undefined };
+const STRUCTURE_FIELDS: readonly DevelopmentStructureField[] = ["fort", "observatory", "siegeOutpost", "economicStructure"];
 
 /**
  * In-flight structure work (under_construction / removing) and AFC module
@@ -19,24 +29,34 @@ type TimedStructure = { ownerId: string; status: string; completesAt?: number | 
  * restarted structures stay stuck at 0:00 forever and permanently occupy
  * development slots, and in-transit modules never dock. Extracted from the
  * SimulationRuntime constructor.
+ *
+ * A build paused by an attack has no live timer by design; it resumes when the
+ * lock on its tile goes away. A lock lost across the restart would leave it
+ * paused forever, so a paused build whose tile has no attack lock is released
+ * here, deferred a tick because releasing emits events and this runs inside the
+ * runtime constructor.
  */
 export const rescheduleRecoveredStructureTimers = (deps: StructureTimerRecoveryDeps): void => {
   for (const [tileKey, tile] of deps.tiles) {
     const ownerId = tile.ownerId;
     if (!ownerId) continue;
     const recoveredCommandId = `recovered-build:${tileKey}`;
-    const recover = (structure: TimedStructure | undefined, structureType: string): void => {
-      if (structure?.ownerId !== ownerId || structure.completesAt == null) return;
+    for (const field of STRUCTURE_FIELDS) {
+      const structure = tile[field];
+      if (structure?.ownerId !== ownerId || structure.completesAt == null) continue;
       if (structure.status === "under_construction") {
-        deps.scheduleAfter(Math.max(0, structure.completesAt - deps.now()), () => deps.completeStructureBuild(tileKey, ownerId, structureType, recoveredCommandId));
+        if (structure.pausedAt !== undefined) continue;
+        // Guarded timer: a later pause/resume moves the deadline and arms its own timer.
+        scheduleStructureCompletion(deps, { tileKey, ownerId, field, structureType: structureTypeForField(tile, field), commandId: recoveredCommandId, completesAt: structure.completesAt });
       } else if (structure.status === "removing") {
         deps.scheduleAfter(Math.max(0, structure.completesAt - deps.now()), () => deps.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
       }
-    };
-    recover(tile.fort, "FORT");
-    recover(tile.observatory, "OBSERVATORY");
-    recover(tile.siegeOutpost, "SIEGE_OUTPOST");
-    recover(tile.economicStructure, tile.economicStructure?.type ?? "");
+    }
+    if (tileHasPausedConstruction(tile)) {
+      deps.scheduleAfter(0, () => {
+        if (!deps.isTileUnderAttack(tileKey)) deps.releaseDevelopmentHold(tileKey, recoveredCommandId);
+      });
+    }
     const incoming = tile.afc?.ownerId === ownerId ? tile.afc.incomingModules ?? [] : [];
     for (const arrivesAt of new Set(incoming.map((entry) => entry.arrivesAt))) {
       scheduleAfcModuleDelivery(deps.afcModuleDelivery(), tileKey, ownerId, arrivesAt, `recovered-afc-module:${tileKey}`);

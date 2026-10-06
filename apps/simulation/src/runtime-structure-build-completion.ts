@@ -96,6 +96,8 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   if (!latest || latest.ownerId !== ownerId) return;
   const structure = latest[spec.tileField];
   if (!structure || structure.ownerId !== ownerId || structure.status !== "under_construction") return;
+  // Held by an unresolved attack on the tile (attack-development-hold.ts); resuming re-arms completion.
+  if (structure.pausedAt !== undefined) return;
   if (spec.tileField === "economicStructure" && latest.economicStructure?.type !== structureType) return;
 
   // §16: two players' assemblies can both be "under_construction" at once (the reject gate only sees an already-ACTIVE one) — the completion race's loser must not also go active.
