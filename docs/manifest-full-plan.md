@@ -476,7 +476,11 @@ placement rule and charge.
    Research creates one House-owned module copy. An owned AFC exposes a
    **Call down module** action that redeploys that copy to it, removing it
    from the previous AFC; a House therefore has one copy of each researched
-   module at a time. Captured AFCs retain their installed modules and can
+   module at a time. A call-down pulls the copy off its old AFC at once and
+   docks it after `AFC_MODULE_CALL_DOWN_MS` (1 minute, `afc.incomingModules`;
+   `apps/simulation/src/afc-module-delivery/`); a capture loses modules still
+   in transit. On connect, researched modules held on no owned AFC are called
+   down to the home AFC the same way. Captured AFCs retain their installed modules and can
    produce extra captured copies, but research never duplicates one. A
    building whose unlock tech has `manifestCategory: AFC_MODULE` requires the
    researched tech and that module installed on any active, owned, settled
