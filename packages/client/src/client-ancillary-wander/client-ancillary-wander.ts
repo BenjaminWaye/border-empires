@@ -7,8 +7,8 @@
 // bits. The old 2D seed XORed small products of small tile coordinates, which
 // left every settler dot of a tile within ~0.01 of [0,1] -- they all stacked
 // in the tile's top-left pixel and barely moved.
-export const SETTLE_MOVE_MS = 1700;
-export const SETTLE_PAUSE_MS = 1000;
+const SETTLE_MOVE_MS = 1700;
+const SETTLE_PAUSE_MS = 1000;
 const SETTLE_CYCLE_MS = SETTLE_MOVE_MS + SETTLE_PAUSE_MS;
 
 export const wanderHash01 = (wx: number, wy: number, i: number, salt: number): number => {
