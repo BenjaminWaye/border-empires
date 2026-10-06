@@ -65,6 +65,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791196311458, // Date.now() frozen for this entry
+    introducedIn: "2026.10.05.2",
+    title: "Watch structures get built",
+    why: "Structures take hours to build, but a tile under construction looked the same as a finished one, so there was nothing to tell a slow build from a stuck one.",
+    changes: [
+      "Economic structures under construction now rise in four phases (foundation, frame, cladding, fit-out) with scaffolding around them, in both the 3D and 2D maps",
+      "A stack of glowing parts sits beside each site and shrinks as the ancillary crew carries it over, and fresh parts drop in from orbit at the start of every phase",
+      "The crew moves in lockstep and freezes when a build is overdue; removing a structure plays the phases in reverse",
+      "In the 3D map, forts, siege camps, Aether Towers, Relay Beacons, Umbrite rigs and factories, and Caravanaries still show fully built while under construction"
+    ]
+  },
+  {
     createdAt: 1791140199531, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
     title: "Safer spawns and full AFC reach",

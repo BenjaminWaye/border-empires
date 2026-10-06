@@ -13,7 +13,7 @@ const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, no
   // still standing and is captured like any active fort.
   if (tile.fort.status === "under_construction") return standingFortAfterLostUpgrade(tile.fort, nextOwnerId, now);
   if (tile.fort.status === "removing") {
-    const { completesAt: _ignoredCompletesAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
+    const { completesAt: _ignoredCompletesAt, startedAt: _ignoredStartedAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
     return { ...fort, ownerId: nextOwnerId, status: "active", activatedAt: now };
   }
   return { ...tile.fort, ownerId: nextOwnerId, activatedAt: now };
@@ -22,7 +22,7 @@ const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, no
 const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["observatory"] => {
   if (!tile?.observatory || tile.observatory.status === "under_construction") return undefined;
   if (tile.observatory.status === "removing") {
-    const { completesAt: _ignoredCompletesAt, previousStatus, ...observatory } = tile.observatory;
+    const { completesAt: _ignoredCompletesAt, startedAt: _ignoredStartedAt, previousStatus, ...observatory } = tile.observatory;
     return { ...observatory, ownerId: nextOwnerId, status: previousStatus ?? "active", activatedAt: now };
   }
   return { ...tile.observatory, ownerId: nextOwnerId, activatedAt: now };
@@ -41,7 +41,7 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
   // instantly extend the attacker's reach on the spot.
   if (tile.economicStructure.type === "RELAY_BEACON") return undefined;
   if (tile.economicStructure.status === "removing") {
-    const { completesAt: _ignoredCompletesAt, previousStatus, ...economicStructure } = tile.economicStructure;
+    const { completesAt: _ignoredCompletesAt, startedAt: _ignoredStartedAt, previousStatus, ...economicStructure } = tile.economicStructure;
     return {
       ...economicStructure,
       ownerId: nextOwnerId,

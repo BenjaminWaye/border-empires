@@ -27,7 +27,9 @@ export type StructurePieceGeometry =
   | SphereGeometry
   | TorusGeometry;
 
-type Slot = { mesh: InstancedMesh; count: number; cap: number };
+// halfExtent: half the geometry's bounding box, so construction gating/measuring
+// can find a piece's vertical extent (docs/construction-animation-plan.md).
+type Slot = { mesh: InstancedMesh; count: number; cap: number; halfX: number; halfY: number; halfZ: number };
 
 // Builder API used by per-family files to register their meshes and
 // place instances. Families never touch the underlying slots/scene
@@ -65,6 +67,14 @@ export type StructurePieceBuilder = {
   // mesh.setMatrixAt/instanceMatrix directly instead of paying a Map lookup
   // (via setMatrixAt/uploadSlot) on every animated piece, every frame.
   readonly getMesh: (key: string) => InstancedMesh | undefined;
+  // Construction support. While a gate is set, addPiece skips (returns -1 for)
+  // any piece whose lowest point sits above `cutY` (offset above the surface),
+  // so a structure under construction shows only the bands built so far.
+  readonly setGate: (cutY: number | undefined) => void;
+  // Dry-runs `run` without placing anything and returns the highest point
+  // (offset above the surface) any piece would reach. Callers must undo any
+  // family-local side effects of the layout they ran (e.g. animation records).
+  readonly measure: (run: () => void) => number;
 };
 
 export type StructurePieceBuilderInternals = {
@@ -124,11 +134,23 @@ export const createStructurePieceBuilder = (
     // here worth carving out.
     applyBuildingEnvMap(mat, envMap);
     scene.add(mesh);
-    slots.set(key, { mesh, count: 0, cap });
+    geo.computeBoundingBox();
+    const box = geo.boundingBox;
+    slots.set(key, {
+      mesh,
+      count: 0,
+      cap,
+      halfX: box ? (box.max.x - box.min.x) / 2 : 0,
+      halfY: box ? (box.max.y - box.min.y) / 2 : 0,
+      halfZ: box ? (box.max.z - box.min.z) / 2 : 0
+    });
     ownedGeos.add(geo);
     ownedMaterials.add(mat);
   };
 
+  let gateY: number | undefined;
+  let measuring = false;
+  let measuredTop = 0;
   const matrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
@@ -152,7 +174,7 @@ export const createStructurePieceBuilder = (
     rotZ = 0
   ): number => {
     const slot = slots.get(key);
-    if (!slot || slot.count >= slot.cap) return -1;
+    if (!slot || (!measuring && slot.count >= slot.cap)) return -1;
     position.set(sceneX + ox, surfaceY + oy, sceneZ + oz);
     scale.set(sx, sy, sz);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
@@ -161,6 +183,17 @@ export const createStructurePieceBuilder = (
       tmpEuler.set(rotX, rotY, rotZ, "XYZ");
       tmpQuat.setFromEuler(tmpEuler);
       matrix.compose(position, tmpQuat, scale);
+    }
+    if (measuring || gateY !== undefined) {
+      // Vertical half-extent of the (rotated, scaled) box: row 1 of the
+      // composed matrix already carries rotation and scale.
+      const e = matrix.elements;
+      const half = Math.abs(e[1]!) * slot.halfX + Math.abs(e[5]!) * slot.halfY + Math.abs(e[9]!) * slot.halfZ;
+      if (measuring) {
+        measuredTop = Math.max(measuredTop, oy + half);
+        return -1;
+      }
+      if (oy - half > (gateY as number)) return -1;
     }
     const index = slot.count;
     slot.mesh.setMatrixAt(index, matrix);
@@ -184,6 +217,21 @@ export const createStructurePieceBuilder = (
 
   const getMesh = (key: string): InstancedMesh | undefined => slots.get(key)?.mesh;
 
+  const setGate = (cutY: number | undefined): void => {
+    gateY = cutY;
+  };
+
+  const measure = (run: () => void): number => {
+    measuring = true;
+    measuredTop = 0;
+    try {
+      run();
+    } finally {
+      measuring = false;
+    }
+    return measuredTop;
+  };
+
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
   };
@@ -202,7 +250,7 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure },
     clear,
     commit,
     dispose
