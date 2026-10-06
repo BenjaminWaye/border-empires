@@ -11,7 +11,7 @@
 import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
 import { createRelayBeaconAssets, GEARS_PER_BEACON, MIRRORS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
-import { createConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
+import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
 import { verticalHalfExtent } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type RelayBeaconOverlay = {
@@ -110,7 +110,7 @@ export const createRelayBeaconOverlay = (
   const yAxis = new Vector3(0, 1, 0);
   const zAxis = new Vector3(0, 0, 1);
 
-  const presentation = createConstructionPresentation(scene, buildingEnvironmentTexture);
+  const presentation = createLazyConstructionPresentation(scene, buildingEnvironmentTexture);
   // Construction state while one beacon is being laid out. `cutY` is the height of the
   // built part (undefined = fully built); `measuring` dry-runs the layout to find the finished height.
   let cutY: number | undefined;

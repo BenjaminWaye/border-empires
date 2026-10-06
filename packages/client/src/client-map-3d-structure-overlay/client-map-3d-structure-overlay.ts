@@ -56,7 +56,7 @@ import {
   type PopulationBureauPartStructureKind
 } from "../client-map-3d-structure-population-bureau-part.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { createConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
+import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
 // late-game, civic, infrastructure, industrial) each own their
@@ -234,7 +234,7 @@ export const createStructureOverlay = (
   // Construction pipeline. Each kind's finished height is measured once, up
   // front, by dry-running its layout (nothing is placed); the dry runs may
   // leave family-local animation records behind, so they are cleared after.
-  const presentation = createConstructionPresentation(scene, buildingEnvironmentTexture);
+  const presentation = createLazyConstructionPresentation(scene, buildingEnvironmentTexture);
   const structureHeights = new Map<string, number>();
   for (const [kind, layout] of Object.entries(layouts) as Array<[StructureKind, UniformLayoutFn]>) {
     const hints: StructureResourceHint[] = kind === "MINE" ? [undefined, "TITANIUM", "GEMS"] : [undefined];

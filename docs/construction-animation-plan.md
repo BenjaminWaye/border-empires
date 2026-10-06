@@ -170,3 +170,63 @@ Implemented: Relay Beacon construction in 3D and 2D, as planned above. Notes:
   construction renderer; forts and siege camps stay flat until follow-up 2.
 - A beacon stacked under a fort shares the economic-structure record, so it
   phases independently of the fort on the same tile.
+
+## Follow-up 2: Forts (3D + 2D)
+
+Scope: the four fort tiers (Palisade/`WOODEN_FORT`, `FORT`, `TITANIUM_BASTION`,
+`THUNDER_BASTION`), drawn by `client-map-3d-fort-overlay.ts`. Siege camps
+(`SIEGE_OUTPOST`, `SIEGE_TOWER`, `DREAD_TOWER`) share that overlay but are built
+by `client-map-3d-siege-machine-overlay.ts` (494 lines, animated head), so they
+stay a separate follow-up.
+
+Findings that shape the work:
+
+- A fort is four walls plus four corner towers, each a plain translation of a
+  box. So a fort under construction does not need piece gating: the walls and
+  towers simply **rise**, scaled in Y to `visibleBands / 4` of their height.
+- **Upgrades are not construction of a fort.** While an upgrade is
+  `under_construction`, `upgradingFrom` names the tier still standing and
+  defending (`defendingFortVariant`); the renderers already draw that standing
+  tier. Hiding it behind phasing would misrepresent a defended tile. So an
+  upgrade keeps the standing fort at full height and only adds the ambient work
+  (scaffold, crates, crew, pods); only a fresh build or a removal is phased.
+- The parts stack's default corner (back-left, -0.4/-0.4) is exactly where a
+  corner tower stands. Sites get a layout (stack position, crew work radius), and
+  forts use one that fits inside the walls.
+- 2D: `drawFortificationOverlay2D` already serves forts. A fresh build/removal
+  uses `drawConstructionStructure2D`; an upgrade draws the standing sprite and
+  then only the ambient crates and crew.
+
+Steps:
+
+1. Per-site layout through the crew layer and presentation (defaults unchanged).
+2. Fort overlay: height scaling, a presentation, upgrade handling.
+3. Router: pass the fort's site (and whether it is an upgrade); extend the
+   rebuild trigger to the fort overlay.
+4. 2D: split the ambient crates/crew out of `drawConstructionStructure2D`; use it
+   for forts, including the upgrade case.
+5. Tests, Storybook story, changelog (extend the beacon entry; same PR), docs.
+
+### Follow-up 2 status
+
+Implemented: forts in 3D and 2D, as planned above. Notes:
+
+- Fresh builds and removals scale the walls and corner towers in Y from their base
+  (`visibleBands / 4`); no piece gating is needed because every piece is a plain box.
+- An upgrade (`upgradingFrom` set) keeps the standing tier at full height in both
+  renderers; only scaffold, crates, crew and pods are added. 2D uses the new
+  `drawConstructionAmbient2D` (split out of `drawConstructionStructure2D`).
+- Forts pass a `ConstructionLayout` that keeps the parts stack and crew inside the
+  walls and clear of the corner towers; the default layout would have put the stack
+  inside a tower.
+- The construction pipeline is now created lazily
+  (`createLazyConstructionPresentation`) in all three overlays, so a player with no
+  site on screen allocates none of the scaffold/crew/pod meshes.
+- Each overlay still owns its own presentation (structure, beacon, fort). A single
+  shared one would need a single owner for clear/commit/update across overlays; not
+  worth it yet.
+
+Still not covered: siege camps (`SIEGE_OUTPOST`, `SIEGE_TOWER`, `DREAD_TOWER`; the
+siege-machine overlay is 494 lines and animated), Aether Tower, Umbrite rig/factory
+and Caravanary. They render fully built while under construction in 3D, and siege
+camps keep the flat translucent look in 2D.

@@ -4,6 +4,7 @@ import {
   constructionCratesAt,
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
+import { DEFAULT_CONSTRUCTION_LAYOUT, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
 import { crewCycleState, crewSeed01 } from "../client-construction-phase/client-construction-crew-cycle.js";
 import {
   createAncillaryFigureAssets,
@@ -21,14 +22,7 @@ import {
 export const MAX_CONSTRUCTION_SITES = 96;
 const MAX_CREW_PER_SITE = 6;
 
-// Tile-local layout: the parts stack sits in the back-left corner, outside the
-// scaffold footprint; the crew works on a ring around the structure.
-const STACK_X = -0.4;
-const STACK_Z = -0.4;
-// Where a delivery pod lands: the middle of the parts stack.
-export const CONSTRUCTION_STACK_CENTER = { x: STACK_X + 0.045, z: STACK_Z + 0.045 } as const;
-// Outside the scaffold (half-width 0.3) so the crew is visible rather than lost inside the building.
-const WORK_RING_RADIUS = 0.38;
+// Tile-local layout (stack position, work ring) comes per site; see client-map-3d-construction-layout.ts.
 const CREW_SPREAD = 0.035;
 const CRATE_SIZE = { x: 0.075, y: 0.05, z: 0.075 };
 const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
@@ -49,11 +43,12 @@ type SiteEntry = {
   readonly sceneZ: number;
   readonly surfaceY: number;
   readonly site: ConstructionSite;
+  readonly layout: ConstructionLayout;
 };
 
 export type ConstructionCrewLayer = {
   readonly clear: () => void;
-  readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite) => void;
+  readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, layout?: ConstructionLayout) => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
@@ -88,9 +83,9 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     entries.length = 0;
   };
 
-  const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site) => {
+  const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     if (entries.length >= MAX_CONSTRUCTION_SITES) return;
-    entries.push({ sceneX, sceneZ, surfaceY, site });
+    entries.push({ sceneX, sceneZ, surfaceY, site, layout });
   };
 
   const upload = (mesh: InstancedMesh): void => {
@@ -106,13 +101,13 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     let figures = 0;
     let parts = 0;
     let crates = 0;
-    for (const { sceneX, sceneZ, surfaceY, site } of entries) {
+    for (const { sceneX, sceneZ, surfaceY, site, layout } of entries) {
       const seed = crewSeed01(site.x, site.y);
       const crew = Math.min(site.crew, MAX_CREW_PER_SITE);
       const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
       for (let c = 0; c < crateCount; c += 1) {
         const slot = CRATE_SLOTS[c]!;
-        position.set(sceneX + STACK_X + slot[0], surfaceY + slot[1], sceneZ + STACK_Z + slot[2]);
+        position.set(sceneX + layout.stackX + slot[0], surfaceY + slot[1], sceneZ + layout.stackZ + slot[2]);
         matrix.compose(position, identity, scale.set(1, 1, 1));
         crateMesh.setMatrixAt(crates, matrix);
         crates += 1;
@@ -122,10 +117,10 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
 
       for (let i = 0; i < crew; i += 1) {
         const angle = seed * Math.PI * 2 + (i / crew) * Math.PI * 2;
-        const stackX = STACK_X + CRATE_SIZE.x + ((i % 3) - 1) * CREW_SPREAD;
-        const stackZ = STACK_Z + CRATE_SIZE.z + Math.floor(i / 3) * CREW_SPREAD;
-        const workX = Math.cos(angle) * WORK_RING_RADIUS;
-        const workZ = Math.sin(angle) * WORK_RING_RADIUS;
+        const stackX = layout.stackX + CRATE_SIZE.x + ((i % 3) - 1) * CREW_SPREAD;
+        const stackZ = layout.stackZ + CRATE_SIZE.z + Math.floor(i / 3) * CREW_SPREAD;
+        const workX = Math.cos(angle) * layout.workRadius;
+        const workZ = Math.sin(angle) * layout.workRadius;
         const lx = stackX + (workX - stackX) * along;
         const lz = stackZ + (workZ - stackZ) * along;
         const stoop = site.stalled ? STALLED_STOOP : 1;

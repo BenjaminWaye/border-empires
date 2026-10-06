@@ -1478,7 +1478,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       ctActiveNow !== lastRebuild.crystalTargetingActive ||
       frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot ||
-      structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed();
+      structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed();
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);

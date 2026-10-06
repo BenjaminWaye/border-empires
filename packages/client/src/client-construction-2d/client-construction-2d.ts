@@ -57,8 +57,21 @@ export const drawConstructionStructure2D = (
     }
   }
 
-  // Parts stack (back-left corner) and the crew walking between it and the
-  // structure. Skipped at tiny zoom where they would be sub-pixel noise.
+  drawConstructionAmbient2D(ctx, px, py, size, site, nowMs);
+};
+
+// The parts stack (back-left corner) and the crew walking between it and the
+// structure, drawn on top of whatever sprite the caller drew. Used on its own for a
+// fort upgrade, where the standing tier must stay fully drawn (it is still defending).
+// Skipped at tiny zoom, where they would be sub-pixel noise.
+export const drawConstructionAmbient2D = (
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  site: ConstructionSite,
+  nowMs: number
+): void => {
   if (size < 12) return;
   const crate = Math.max(2, size * 0.09);
   const stackX = px + size * 0.08;

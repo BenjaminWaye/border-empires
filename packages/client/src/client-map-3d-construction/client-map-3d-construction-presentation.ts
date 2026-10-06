@@ -1,7 +1,8 @@
 import { Scene, type Texture } from "three";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
-import { CONSTRUCTION_STACK_CENTER, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
+import { createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "./client-map-3d-construction-crew.js";
+import { DEFAULT_CONSTRUCTION_LAYOUT, stackCenterFor, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
 import { createConstructionPodFxLayer } from "./client-map-3d-construction-pod-fx.js";
 import { registerConstructionScaffold } from "./client-map-3d-construction-scaffold.js";
 
@@ -15,7 +16,8 @@ import { registerConstructionScaffold } from "./client-map-3d-construction-scaff
 export type ConstructionPresentation = {
   // Call once per site laid out in a rebuild. `structureHeight` is the finished
   // structure's height above the surface (scene units).
-  readonly addSite: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, structureHeight: number) => void;
+  // `layout` places the parts stack and crew ring; the default suits a structure that fills the tile centre.
+  readonly addSite: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, structureHeight: number, layout?: ConstructionLayout) => void;
   readonly clear: () => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
@@ -39,16 +41,17 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
   let phasesThisRebuild = new Map<string, number>();
   let earliestPhaseAtMs = Infinity;
 
-  const addSite: ConstructionPresentation["addSite"] = (sceneX, sceneZ, surfaceY, site, structureHeight) => {
+  const addSite: ConstructionPresentation["addSite"] = (sceneX, sceneZ, surfaceY, site, structureHeight, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     scaffold.place(sceneX, surfaceY, sceneZ, structureHeight, site.visibleBands, CONSTRUCTION_PHASES);
-    crew.add(sceneX, sceneZ, surfaceY, site);
+    crew.add(sceneX, sceneZ, surfaceY, site, layout);
     if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
     const siteKey = `${site.x},${site.y}`;
     phasesThisRebuild.set(siteKey, site.phase);
     const previousPhase = phasesLastRebuild.get(siteKey);
     // A new phase brings a fresh delivery of fabricated parts (build only).
     if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase) {
-      pods.spawn(sceneX + CONSTRUCTION_STACK_CENTER.x, sceneZ + CONSTRUCTION_STACK_CENTER.z, surfaceY, performance.now());
+      const stack = stackCenterFor(layout);
+      pods.spawn(sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now());
     }
   };
 
@@ -74,5 +77,20 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
       pods.dispose();
       scaffoldBuilder.dispose();
     }
+  };
+};
+
+// Same interface, but the scaffold/crew/pod meshes are only allocated when the first
+// site is added, so an overlay that never shows a construction site (most players,
+// most of the time) pays nothing for the pipeline. Every method is safe before then.
+export const createLazyConstructionPresentation = (scene: Scene, envMap?: Texture): ConstructionPresentation => {
+  let inner: ConstructionPresentation | undefined;
+  return {
+    addSite: (...args) => (inner ??= createConstructionPresentation(scene, envMap)).addSite(...args),
+    clear: (): void => inner?.clear(),
+    commit: (): void => inner?.commit(),
+    update: (nowMs: number): void => inner?.update(nowMs),
+    boundaryPassed: (): boolean => inner?.boundaryPassed() ?? false,
+    dispose: (): void => inner?.dispose()
   };
 };

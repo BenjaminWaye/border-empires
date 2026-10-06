@@ -9,6 +9,9 @@ import {
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
+import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
+import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
+import type { ConstructionLayout } from "./client-map-3d-construction/client-map-3d-construction-layout.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
@@ -41,6 +44,14 @@ const TITANIUM_TOWER_COLOR = "#b0bdc9";
 const THUNDER_WALL_COLOR = "#4e5864";
 const THUNDER_TOWER_COLOR = "#5e6874";
 
+// Inside the walls (inner face at 0.38) and clear of the corner towers (0.30 to 0.46),
+// unlike the default layout whose back-left stack would sit inside a tower.
+const FORT_CONSTRUCTION_LAYOUT: ConstructionLayout = { stackX: -0.17, stackZ: -0.33, workRadius: 0.34 };
+
+// A fort being built or removed (docs/construction-animation-plan.md, follow-up 2).
+// `keepStanding` is an upgrade in progress: the previous tier is still up and
+// defending, so it is drawn at full height with only the ambient work around it.
+export type FortConstruction = { readonly site: ConstructionSite; readonly keepStanding: boolean };
 export type FortOverlay = {
   readonly clear: () => void;
   readonly addInstance: (
@@ -55,8 +66,12 @@ export type FortOverlay = {
     wy?: number,
     /** SIEGE_OUTPOST only: yaw (radians) aiming the machine at its nearest
      *  known rival tile. See siegeBatteryFacingRadiansForTile. */
-    facingRad?: number
+    facingRad?: number,
+    /** Fort tiers only: set while the fort is being built, upgraded or removed. */
+    construction?: FortConstruction
   ) => void;
+  /** True once a phase boundary passed that changes what a construction site laid out in the last rebuild shows. */
+  readonly constructionBoundaryPassed: () => boolean;
   readonly commit: () => void;
   /** Per-frame hook for animated pieces (the siege machine's rotating aether head). */
   readonly tick: (nowMs: number) => void;
@@ -105,6 +120,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     applyBuildingEnvMap(mat, buildingEnvironmentTexture);
   }
   const siegeMachine = createSiegeMachineOverlay(scene, maxTiles, buildingEnvironmentTexture);
+  const presentation = createLazyConstructionPresentation(scene, buildingEnvironmentTexture);
 
   const buildKindMeshes = (wallMat: MeshStandardMaterial, towerMat: MeshStandardMaterial) => {
     const wallN = new InstancedMesh(wallAlongXGeometry, wallMat, maxTiles);
@@ -149,6 +165,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     titaniumCounters.wallN = 0; titaniumCounters.wallS = 0; titaniumCounters.wallE = 0; titaniumCounters.wallW = 0; titaniumCounters.towers = 0;
     thunderCounters.wallN = 0; thunderCounters.wallS = 0; thunderCounters.wallE = 0; thunderCounters.wallW = 0; thunderCounters.towers = 0;
     siegeMachine.clear();
+    presentation.clear();
   };
 
   const addFortPieces = (
@@ -157,7 +174,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     worldX: number,
     worldZ: number,
     surfaceY: number,
-    skipDir: DirectionKey | undefined
+    skipDir: DirectionKey | undefined,
+    heightFraction = 1
   ): void => {
     const directions: DirectionKey[] = ["N", "E", "S", "W"];
     for (const dir of directions) {
@@ -166,7 +184,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
       const mesh = dir === "N" ? meshes.wallN : dir === "S" ? meshes.wallS : dir === "E" ? meshes.wallE : meshes.wallW;
       const counterKey = dir === "N" ? "wallN" : dir === "S" ? "wallS" : dir === "E" ? "wallE" : "wallW";
       if (counters[counterKey] >= maxTiles) continue;
-      matrix.makeTranslation(worldX + off.dx, surfaceY + WALL_Y, worldZ + off.dz);
+      // Under construction the wall rises: scaled from its base, not floating at full height.
+      matrix.makeScale(1, heightFraction, 1).setPosition(worldX + off.dx, surfaceY + WALL_Y * heightFraction, worldZ + off.dz);
       mesh.setMatrixAt(counters[counterKey], matrix);
       counters[counterKey] += 1;
     }
@@ -179,7 +198,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     ];
     for (const corner of cornerOffsets) {
       if (counters.towers >= maxTiles * 4) break;
-      matrix.makeTranslation(worldX + corner.dx, surfaceY + TOWER_Y, worldZ + corner.dz);
+      matrix.makeScale(1, heightFraction, 1).setPosition(worldX + corner.dx, surfaceY + TOWER_Y * heightFraction, worldZ + corner.dz);
       meshes.towers.setMatrixAt(counters.towers, matrix);
       counters.towers += 1;
     }
@@ -193,16 +212,21 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     opening: FortificationOpening,
     wx?: number,
     wy?: number,
-    facingRad?: number
+    facingRad?: number,
+    construction?: FortConstruction
   ): void => {
+    const skipDir = openingToDirection(opening);
+    const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
+    const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "WOODEN_FORT";
+    if (construction && isFortTier) presentation.addSite(worldX, worldZ, surfaceY, construction.site, TOWER_HEIGHT, FORT_CONSTRUCTION_LAYOUT);
     if (kind === "FORT") {
-      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+      addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
     } else if (kind === "TITANIUM_BASTION") {
-      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
     } else if (kind === "THUNDER_BASTION") {
-      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
     } else if (kind === "WOODEN_FORT") {
-      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+      addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
     } else if (kind === "SIEGE_OUTPOST") {
       siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
     }
@@ -237,6 +261,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     commitKind(titanium, titaniumCounters);
     commitKind(thunder, thunderCounters);
     siegeMachine.commit();
+    presentation.commit();
   };
 
   const dispose = (): void => {
@@ -247,6 +272,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
       thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers
     );
     siegeMachine.dispose();
+    presentation.dispose();
     wallAlongXGeometry.dispose();
     wallAlongZGeometry.dispose();
     towerGeometry.dispose();
@@ -260,5 +286,10 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
     thunderTowerMaterial.dispose();
   };
 
-  return { clear, addInstance, commit, tick: siegeMachine.tick, dispose };
+  const tick = (nowMs: number): void => {
+    siegeMachine.tick(nowMs);
+    presentation.update(nowMs);
+  };
+
+  return { clear, addInstance, constructionBoundaryPassed: presentation.boundaryPassed, commit, tick, dispose };
 };

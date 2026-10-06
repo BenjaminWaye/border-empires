@@ -61,11 +61,53 @@ describe("drawFortificationOverlay2D relay beacon construction", () => {
     expect(raw.drawImage).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves forts under construction as they were (flat) until their own follow-up", () => {
+  it("leaves siege camps under construction flat until their own follow-up", () => {
     const { ctx, raw } = fakeCtx();
-    const tile = { x: 1, y: 1, terrain: "LAND", fort: { ownerId: "me", status: "under_construction", variant: "FORT", startedAt: Date.now() - HOUR, completesAt: Date.now() + HOUR } } as unknown as Tile;
-    drawFortificationOverlay2D(ctx, tile, "FORT", image, 0, 0, 40, deps, 0);
+    const tile = { x: 1, y: 1, terrain: "LAND", siegeOutpost: { ownerId: "me", status: "under_construction", variant: "SIEGE_OUTPOST", startedAt: Date.now() - HOUR, completesAt: Date.now() + HOUR } } as unknown as Tile;
+    drawFortificationOverlay2D(ctx, tile, "SIEGE_OUTPOST", image, 0, 0, 40, deps, 0);
     expect(raw.clip).not.toHaveBeenCalled();
     expect(raw.drawImage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("drawFortificationOverlay2D fort construction", () => {
+  const fort = (extra: Record<string, unknown>): Tile =>
+    ({ x: 1, y: 1, terrain: "LAND", fort: { ownerId: "me", variant: "FORT", ...extra } }) as unknown as Tile;
+  const window = () => ({ startedAt: Date.now() - HOUR, completesAt: Date.now() + 7 * HOUR });
+
+  it("draws a fort being built through the phased renderer", () => {
+    const { ctx, raw } = fakeCtx();
+    drawFortificationOverlay2D(ctx, fort({ status: "under_construction", ...window() }), "FORT", image, 0, 0, 40, deps, 0);
+    expect(raw.clip).toHaveBeenCalledTimes(1);
+    expect(raw.fillRect).toHaveBeenCalled(); // crates + crew
+  });
+
+  it("draws a fort being removed through the phased renderer", () => {
+    const { ctx, raw } = fakeCtx();
+    drawFortificationOverlay2D(ctx, fort({ status: "removing", ...window() }), "FORT", image, 0, 0, 40, deps, 0);
+    expect(raw.clip).toHaveBeenCalledTimes(1);
+  });
+
+  it("covers every fort tier", () => {
+    for (const kind of ["WOODEN_FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
+      const { ctx, raw } = fakeCtx();
+      drawFortificationOverlay2D(ctx, fort({ status: "under_construction", variant: kind, ...window() }), kind, image, 0, 0, 40, deps, 0);
+      expect(raw.clip).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("keeps an upgrading fort fully drawn (it is still defending) and only adds the crates and crew", () => {
+    const { ctx, raw } = fakeCtx();
+    drawFortificationOverlay2D(ctx, fort({ status: "under_construction", upgradingFrom: "WOODEN_FORT", ...window() }), "WOODEN_FORT", image, 0, 0, 40, deps, 0);
+    expect(raw.clip).not.toHaveBeenCalled(); // no phase clipping of the standing fort
+    expect(raw.drawImage).toHaveBeenCalledTimes(1); // the standing sprite, once
+    expect(raw.fillRect).toHaveBeenCalled(); // crates + crew on top
+  });
+
+  it("does not animate an active fort", () => {
+    const { ctx, raw } = fakeCtx();
+    drawFortificationOverlay2D(ctx, fort({ status: "active" }), "FORT", image, 0, 0, 40, deps, 0);
+    expect(raw.clip).not.toHaveBeenCalled();
+    expect(raw.fillRect).not.toHaveBeenCalled();
   });
 });

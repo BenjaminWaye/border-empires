@@ -3,7 +3,7 @@ import {
   drawCenteredOverlayRotatedWithAlpha,
   drawCenteredOverlayWithAlpha
 } from "../client-map-render/client-map-render-centered-overlay.js";
-import { drawConstructionStructure2D } from "../client-construction-2d/client-construction-2d.js";
+import { drawConstructionAmbient2D, drawConstructionStructure2D } from "../client-construction-2d/client-construction-2d.js";
 import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
 import {
   fortificationOpeningForTile,
@@ -15,6 +15,11 @@ import {
   type FortificationOverlayDeps,
   type FortificationOverlayKind
 } from "./client-fortification-overlays.js";
+
+// Which structure record a fortification overlay kind is built from; undefined for
+// kinds that have no construction rendering yet (siege camps).
+const constructionFieldFor = (kind: FortificationOverlayKind): "fort" | "economicStructure" | undefined =>
+  kind === "RELAY_BEACON" ? "economicStructure" : kind === "SIEGE_OUTPOST" ? undefined : "fort";
 
 // Split out of client-runtime-loop.ts (already over the repo's 500-line
 // file-growth cap): the 2D-canvas draw for a fortification overlay tile.
@@ -34,15 +39,17 @@ export const drawFortificationOverlay2D = (
   nowMs: number = performance.now()
 ): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  // A Relay Beacon being built or removed is drawn in phases with a parts stack
-  // and crew (docs/construction-animation-plan.md); forts and siege camps keep the
-  // flat translucent look until their own follow-up.
-  if (kind === "RELAY_BEACON") {
-    const site = constructionSiteForTile(tile, Date.now(), "economicStructure");
-    if (site) {
-      drawConstructionStructure2D(ctx, overlay, px, py, size, 1, site, nowMs);
-      return;
-    }
+  // A Relay Beacon or a fort being built or removed is drawn in phases with a parts stack
+  // and crew (docs/construction-animation-plan.md); siege camps keep the flat translucent
+  // look until their own follow-up.
+  const field = constructionFieldFor(kind);
+  const site = field ? constructionSiteForTile(tile, Date.now(), field) : undefined;
+  // A fort *upgrade* keeps the previous tier standing and defending, so it stays fully
+  // drawn below; only the ambient crates and crew are added on top.
+  const upgradeInProgress = field === "fort" && Boolean(tile.fort?.upgradingFrom);
+  if (site && !upgradeInProgress) {
+    drawConstructionStructure2D(ctx, overlay, px, py, size, 1, site, nowMs);
+    return;
   }
   const alpha = fortificationOverlayAlphaForTile(tile, kind);
   if (kind === "SIEGE_OUTPOST") {
@@ -54,6 +61,7 @@ export const drawFortificationOverlay2D = (
     return;
   }
   drawCenteredOverlayWithAlpha(ctx, overlay, px, py, size, 1, alpha);
+  if (site) drawConstructionAmbient2D(ctx, px, py, size, site, nowMs);
 };
 
 // The tile's fortification overlay plus, when a Relay Beacon shares the tile

@@ -65,7 +65,11 @@ export const addFortificationInstancesForTile = (
   const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
   const opening = fortificationOpeningForTile(tile, fortDeps);
   const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, nowMs) : undefined;
-  overlays.fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad);
+  // A fort being built or removed rises in phases. A fort *upgrade* keeps the standing tier at full
+  // height (it is still defending), so it only gets the ambient work around it.
+  const fortSite = tile.fort ? constructionSiteForTile(tile, Date.now(), "fort") : undefined;
+  const fortConstruction = fortSite ? { site: fortSite, keepStanding: Boolean(tile.fort?.upgradingFrom) } : undefined;
+  overlays.fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad, fortConstruction);
   // LARGE: fort walls run WALL_LENGTH = 0.86 tiles (client-map-3d-fort-overlay.ts) — same reasoning as towns.
   overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
   // A beacon stacked under the fort gets its own mesh: the walls ring the tile

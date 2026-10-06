@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { drawConstructionStructure2D } from "./client-construction-2d.js";
+import { drawConstructionAmbient2D, drawConstructionStructure2D } from "./client-construction-2d.js";
 
 // A recording stand-in for CanvasRenderingContext2D: only the calls the
 // construction renderer makes.
@@ -89,5 +89,21 @@ describe("drawConstructionStructure2D", () => {
       return raw.fillRect.mock.calls.map((c) => [...(c as unknown as number[])]);
     };
     expect(at(0)).not.toEqual(at(1_000));
+  });
+});
+
+describe("drawConstructionAmbient2D", () => {
+  it("draws only the crates and crew, never the sprite or a clip", () => {
+    const { ctx, raw } = fakeCtx();
+    drawConstructionAmbient2D(ctx, 0, 0, 40, site({ crew: 3 }), 0);
+    expect(raw.fillRect).toHaveBeenCalled();
+    expect(raw.drawImage).not.toHaveBeenCalled();
+    expect(raw.clip).not.toHaveBeenCalled();
+  });
+
+  it("is skipped at tiny zoom", () => {
+    const { ctx, raw } = fakeCtx();
+    drawConstructionAmbient2D(ctx, 0, 0, 8, site(), 0);
+    expect(raw.fillRect).not.toHaveBeenCalled();
   });
 });
