@@ -2,7 +2,7 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
   {
-    createdAt: Date.now(),
+    createdAt: 1791144005000, // frozen at the commit that added this entry (a live Date.now() makes What's New reopen on every load)
     introducedIn: "2026.10.03.1",
     title: "AI empires can extend a full border again",
     why: "An AI could sometimes stop growing after filling its current reach, even with the gold and manpower to build a Relay Beacon.",
