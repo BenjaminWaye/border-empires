@@ -125,15 +125,9 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     techPickEl.value = mobileTechPickEl.value;
     renderHud();
   };
-  centerMeBtn.onclick = () => {
-    centerOnOwnedTile();
-    requestViewRefresh(2, true);
-  };
-  centerMeDesktopBtn.onclick = () => {
-    centerOnOwnedTile();
-    requestViewRefresh(2, true);
-  };
-  hud.querySelectorAll<HTMLButtonElement>("[data-locate-afc]").forEach((btn) => {
+  // The AFC button (ids kept from the old Center button) jumps to the home AFC
+  // and opens its overview, falling back to centering on the empire.
+  [centerMeBtn, centerMeDesktopBtn].forEach((btn) => {
     btn.onclick = () => {
       const openTileMenu = (tile: Parameters<UiActionFlow["openSingleTileActionMenu"]>[0], x: number, y: number): void =>
         actionFlow.openSingleTileActionMenu(tile, x, y, { requestAttackPreview: false, openTab: "overview" });

@@ -145,7 +145,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Modules you researched before you had a Fabrication Complex -- or that were lost when an AFC holding them was captured -- never docked, so your AFC could show only one module despite lots of research. There was also no quick way to find your AFC.",
     changes: [
       "Every researched module that isn't docked on one of your AFCs is now installed on your home AFC the next time you connect",
-      "New AFC button next to Center jumps to your home Fabrication Complex and opens its module overview"
+      "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
