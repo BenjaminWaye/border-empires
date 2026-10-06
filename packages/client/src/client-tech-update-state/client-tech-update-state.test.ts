@@ -67,6 +67,37 @@ describe("applyTechUpdateToState", () => {
     expect(pushFeed).toHaveBeenCalledWith("Research completed: Coinage.", "tech", "success");
   });
 
+  it("jumps the camera to the receiving AFC instead of the tech panel when an AFC module is researched", () => {
+    const afcTile = { x: 40, y: 22, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active", modules: ["masonry"], houseModules: ["masonry"] } };
+    const state = {
+      me: "me",
+      tiles: new Map([["40,22", afcTile]]),
+      camX: 0,
+      camY: 0,
+      camSubX: 0.3,
+      camSubY: 0.3,
+      selected: undefined,
+      pendingTechUnlockId: "masonry",
+      techUiSelectedId: "masonry",
+      techDetailOpen: false,
+      activePanel: "tech",
+      mobilePanel: "tech",
+      techChoices: [],
+      techIds: [],
+      techCatalog: [],
+      techAffordableByTechId: new Map(),
+      techAffordablePulseUntilByTechId: new Map()
+    } as any;
+
+    applyTechUpdateToState(
+      state,
+      { status: "completed", techIds: ["masonry"], nextChoices: [], techCatalog: [{ ...tech("masonry", 0), manifestCategory: "AFC_MODULE" }] },
+      vi.fn()
+    );
+
+    expect(state).toMatchObject({ camX: 40, camY: 22, camSubX: 0, camSubY: 0, selected: { x: 40, y: 22 }, activePanel: null, mobilePanel: "core" });
+  });
+
   it("clamps incoming tech catalog tiers to the 7-tier tree", () => {
     const state = {
       pendingTechUnlockId: "",

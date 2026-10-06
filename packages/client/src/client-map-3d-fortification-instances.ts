@@ -2,6 +2,7 @@
 // fort/Palisade/siege battery, Relay Beacon), extracted from client-map-3d.ts's
 // terrain rebuild loop. The 2D counterpart is drawTileFortificationOverlays2D.
 import type { Tile } from "./client-types.js";
+import { constructionSiteForRebuild } from "./client-construction-afc-offset/client-construction-afc-offset.js";
 import type { FortOverlay } from "./client-map-3d-fort-overlay.js";
 import type { RelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 import type { SiegeTowerOverlay } from "./client-map-3d-siege-tower-overlay.js";
@@ -27,6 +28,7 @@ export type FortificationInstanceOverlays = {
 export type FortificationInstanceDeps = {
   state: {
     tiles: Map<string, Tile>;
+    tilesRevision: number;
     siegeAimOverrides: Map<string, { targetX: number; targetY: number; expiresAt: number }>;
   };
   keyFor: (x: number, y: number) => string;
@@ -46,6 +48,10 @@ export const addFortificationInstancesForTile = (
   const { x, z, surfaceY, wx, wy } = site;
   const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
   const beaconInactive = tile.economicStructure?.status === "inactive";
+  // A beacon being built or removed is laid out in phases. `nowMs` is the rebuild's
+  // performance.now(), used only to pace the owner's AFC index rescans (the construction
+  // window itself is in epoch ms, which the site lookup reads from the wall clock).
+  const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForRebuild(deps.state, tile, "economicStructure", nowMs) : undefined;
   if (siegeTowerVariant) {
     overlays.siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
@@ -53,7 +59,7 @@ export const addFortificationInstancesForTile = (
   }
   const fortKind = fortificationOverlayKindForTile(tile);
   if (fortKind === "RELAY_BEACON") {
-    overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive);
+    overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
     return;
   }
@@ -61,10 +67,14 @@ export const addFortificationInstancesForTile = (
   const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
   const opening = fortificationOpeningForTile(tile, fortDeps);
   const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, nowMs) : undefined;
-  overlays.fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad);
+  // A fort being built or removed rises in phases. A fort *upgrade* keeps the standing tier at full
+  // height (it is still defending), so it only gets the ambient work around it.
+  const fortSite = tile.fort ? constructionSiteForRebuild(deps.state, tile, "fort", nowMs) : undefined;
+  const fortConstruction = fortSite ? { site: fortSite, keepStanding: Boolean(tile.fort?.upgradingFrom) } : undefined;
+  overlays.fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad, fortConstruction);
   // LARGE: fort walls run WALL_LENGTH = 0.86 tiles (client-map-3d-fort-overlay.ts) — same reasoning as towns.
   overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
   // A beacon stacked under the fort gets its own mesh: the walls ring the tile
   // edge and the beacon stands in the middle, so the fort no longer hides it.
-  if (stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive);
+  if (stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
 };

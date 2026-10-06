@@ -5,6 +5,12 @@
 // activatedAt: when the structure went active, set on build completion and
 // refreshed on capture -- ranks which structure loses power first on a
 // resource-slot shortfall (§5.4: newest built-or-captured goes dormant first).
+//
+// pausedAt: set while an under_construction structure is on hold because its
+// tile is the target of an unresolved ATTACK. completesAt is left as-is (the
+// frozen deadline); on release the deadline slides forward by the time spent
+// paused and pausedAt is cleared. Readers compute remaining time against
+// pausedAt instead of the wall clock while it is set.
 import type { ConverterMode } from "./economic-structure.js";
 import type {
   AfcStatus,
@@ -25,6 +31,8 @@ export type TileFortState = {
   // standing (and defending) until the new one completes.
   upgradingFrom?: FortVariant;
   completesAt?: number;
+  startedAt?: number;
+  pausedAt?: number;
   activatedAt?: number;
   disabledUntil?: number;
 };
@@ -34,6 +42,8 @@ export type TileSiegeOutpostState = {
   status: SiegeOutpostStatus;
   variant?: SiegeOutpostVariant;
   completesAt?: number;
+  startedAt?: number;
+  pausedAt?: number;
   activatedAt?: number;
 };
 
@@ -41,6 +51,8 @@ export type TileObservatoryState = {
   ownerId: PlayerId;
   status: ObservatoryStatus;
   completesAt?: number;
+  startedAt?: number;
+  pausedAt?: number;
   activatedAt?: number;
   cooldownUntil?: number;
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
@@ -57,6 +69,9 @@ export type TileAfcState = {
   // The researched, House-owned copy of each module. A player may redeploy
   // this one between their AFCs; captured copies deliberately stay put.
   houseModules?: string[];
+  // House modules called down to this AFC and still in transit; each moves
+  // into modules/houseModules once arrivesAt passes (AFC_MODULE_CALL_DOWN_MS).
+  incomingModules?: Array<{ techId: string; arrivesAt: number }>;
 };
 
 export type TileEconomicStructureState = {
@@ -64,6 +79,8 @@ export type TileEconomicStructureState = {
   type: EconomicStructureType;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  startedAt?: number;
+  pausedAt?: number;
   activatedAt?: number;
   disabledUntil?: number;
   inactiveReason?: "manual" | "upkeep";

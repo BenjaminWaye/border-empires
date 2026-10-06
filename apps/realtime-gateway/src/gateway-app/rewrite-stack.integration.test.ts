@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
@@ -87,8 +87,14 @@ describe("rewrite stack integration", () => {
     );
     const musterCommandId = (musterQueued as { commandId: string }).commandId;
     await waitUntil(async () => (await gatewayCommandStore.get(musterCommandId))?.status !== "QUEUED");
-    simulation.runtime.tickMuster(7_000);
+    // Enough muster for an attack on an AFC tile: the startup AI repair lands
+    // player-2's AFC on its own tile (10,11), the target here.
+    for (let step = 1; step <= 10; step += 1) simulation.runtime.tickMuster(step * 7_000);
 
+    // The target (10,11) is player-2's AFC now (the startup AI repair lands it
+    // on its only tile), which defends harder. The roll happens at acceptance:
+    // pin it to a win, since this test is about reconnect recovery, not odds.
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     firstSocket.socket.send(
       JSON.stringify({
         type: "ATTACK",
@@ -154,7 +160,11 @@ describe("rewrite stack integration", () => {
       })
     );
 
-    scheduledResolutions[0]?.task();
+    try {
+      scheduledResolutions[0]?.task();
+    } finally {
+      randomSpy.mockRestore();
+    }
 
     // COMBAT_RESULT and TILE_DELTA_BATCH are separate events with no guaranteed arrival order — fetch each by type.
     const combatResult = await nextTypedMessage(secondSocket, "combat result", "COMBAT_RESULT");
@@ -774,7 +784,9 @@ describe("rewrite stack integration", () => {
     );
     await nextNonBootstrapMessage(fogAdminSocket, "muster queued");
     await nextNonBootstrapMessage(fogAdminSocket, "muster resolved");
-    simulation.runtime.tickMuster(7_000);
+    // Enough muster for an attack on an AFC tile: the startup AI repair lands
+    // player-2's AFC on its own tile (10,11), the target here.
+    for (let step = 1; step <= 10; step += 1) simulation.runtime.tickMuster(step * 7_000);
 
     fogAdminSocket.socket.send(
       JSON.stringify({

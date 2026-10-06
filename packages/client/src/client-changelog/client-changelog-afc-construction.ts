@@ -2,7 +2,7 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION: ClientChangelogEntry[] = [
   {
-    createdAt: Date.now(),
+    createdAt: 1791005381000, // frozen at the commit that added this entry (a live Date.now() makes What's New reopen on every load)
     introducedIn: "2026.10.02.2",
     title: "Build and redeploy Automated Fabrication Complexes",
     why: "AFC modules were fixed to their first location, leaving no way to spread a House's manufacturing capability across a larger empire.",

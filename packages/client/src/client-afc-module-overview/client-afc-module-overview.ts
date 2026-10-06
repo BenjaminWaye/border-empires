@@ -1,5 +1,8 @@
 import type { Tile, TileOverviewLine } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
+import { formatCooldownShort } from "../client-app-runtime-utils.js";
+import { AFC_MODULE_SLOTS } from "@border-empires/shared";
+import { afcIsFull, afcSlotsUsed } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 
 // The 4 player-facing Manifest branches AFC-Module techs can belong to
 // (docs/manifest-full-plan.md §4: "Economy, Manpower, and War modules are
@@ -23,19 +26,26 @@ const MODULE_FAMILY_ORDER: ReadonlyArray<{ branch: string; label: string }> = [
  * renderers, this panel has no physical-socket cap to respect.
  * Empty for tiles without an AFC.
  */
-export const afcModuleOverviewLines = (tile: Tile, techCatalog: readonly TechInfo[]): TileOverviewLine[] => {
+export const afcModuleOverviewLines = (tile: Tile, techCatalog: readonly TechInfo[], nowMs: number = Date.now()): TileOverviewLine[] => {
   const afc = tile.afc;
   if (!afc) return [];
   const lines: TileOverviewLine[] = [{ html: "AFC Modules", kind: "section" }];
+  lines.push({ html: `Slots: ${afcSlotsUsed(afc)}/${AFC_MODULE_SLOTS}` });
+  if (afcIsFull(afc)) lines.push({ html: "Full: build another AFC to install more modules." });
   if (afc.status === "inactive") {
     lines.push({ html: `<span class="tile-overview-dormant">⚠ Dormant — modules inactive until this AFC is reclaimed.</span>` });
   }
+  const techById = new Map(techCatalog.map((tech) => [tech.id, tech]));
+  const incomingLines = (afc.incomingModules ?? []).flatMap((entry): TileOverviewLine[] => {
+    const tech = techById.get(entry.techId);
+    return tech ? [{ html: `${tech.name} — lands in ${formatCooldownShort(entry.arrivesAt - nowMs)}`, nested: true }] : [];
+  });
+  if (incomingLines.length > 0) lines.push({ html: "Incoming", kind: "group" }, ...incomingLines);
   const moduleTechIds = afc.modules ?? [];
   if (moduleTechIds.length === 0) {
-    lines.push({ html: "No modules commissioned yet." });
+    if (incomingLines.length === 0) lines.push({ html: "No modules commissioned yet." });
     return lines;
   }
-  const techById = new Map(techCatalog.map((tech) => [tech.id, tech]));
   const namesByBranch = new Map<string, string[]>();
   const unrecognized: string[] = [];
   for (const techId of moduleTechIds) {

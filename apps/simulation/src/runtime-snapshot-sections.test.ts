@@ -106,3 +106,18 @@ describe("waypointQueue/devQueue restart persistence", () => {
     expect(bootedSummary.devQueue).toEqual([{ tileKey: "7,8", x: 7, y: 8, kind: "SETTLE", queuedAt: 43 }]);
   });
 });
+
+describe("snapshot tiles keep AFCs", () => {
+  // Regression: mapTile dropped `afc`, so AFCs were never persisted and every
+  // restart wiped them (staging 2026-10-06: an AFC vanished from 209,106 and
+  // the startup repair dropped a new one across the map).
+  it("survives export and restore with its modules", () => {
+    const afc: NonNullable<DomainTileState["afc"]> = { ownerId: "player-1", status: "active", activatedAt: 1_000, modules: ["masonry"], houseModules: ["masonry"] };
+    const afcTile = { x: 209, y: 106, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc } as DomainTileState;
+    expect(mapTile(afcTile).afc).toEqual(afc);
+
+    const sections = buildRuntimeSnapshotSections(baseInput({ tiles: new Map([["209,106", afcTile]]) }));
+    const restored = applySimulationEventsToRecoveredState(sections.initialState, []);
+    expect(restored.tiles.find((entry) => entry.x === 209 && entry.y === 106)?.afc).toEqual(afc);
+  });
+});

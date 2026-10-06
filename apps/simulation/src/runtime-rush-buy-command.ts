@@ -130,6 +130,10 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     return;
   }
   const { tileField, structureType, completesAt } = inProgress;
+  if (target[tileField]?.pausedAt !== undefined) {
+    context.rejectCommand(command, "RUSH_BUY_INVALID", "construction is paused due to an ongoing attack");
+    return;
+  }
   const refund =
     tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
     tileField === "siegeOutpost" ? siegeOutpostCancelRefund(target.siegeOutpost?.variant) :

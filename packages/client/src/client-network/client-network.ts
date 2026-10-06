@@ -1,11 +1,11 @@
-import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, SEASON_ROLLOVER_CLOSE_REASON, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
 import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
-import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
+import { resetClientForNewSeason } from "../client-season-rollover/client-season-rollover.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -25,7 +25,7 @@ import { clearFrontierStatusAlert } from "../client-frontier-status/client-front
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -938,7 +938,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
     handleSocketTornDown(
       currentActionKey,
-      "Connection lost. Retrying...",
+      event.reason === SEASON_ROLLOVER_CLOSE_REASON ? "A new season has started. Loading it..." : "Connection lost. Retrying...",
       `The realtime connection to ${wsUrl} closed before sign-in finished. Reload the game to reconnect.`
     );
   });
@@ -2709,22 +2709,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
-      state.tiles.clear(); // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
+      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else state.tiles.clear(); // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();
         buildMiniMapBase();
-      }
-      if (msg.type === "SEASON_ROLLOVER") {
-        state.seasonWinner = undefined;
-        state.seasonVictory = [];
-        state.seasonStats = undefined; state.seasonScoreHistory = [];
-        resetVictoryHoldAlertForNewSeason(state);
-        state.seasonEndDismissed = false;
-        state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
-        clearCameraLocation();
-        state.camX = 0; state.camY = 0;
-        state.camSubX = 0; state.camSubY = 0;
       }
       state.pendingShardCollect = undefined;
       state.mapLoadStartedAt = Date.now();

@@ -1,4 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { requiredMusterForFort } from "@border-empires/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { attackerOutpostMult, buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -242,5 +243,29 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
     expect(recorded.targetWasSettled).toBe(true);
     expect(recorded.pillagedGold).toBe(0);
     expect(recorded.defenderGoldLoss).toBe(0);
+  });
+
+  it("applies the effort-level odds scale to a barbarian defender exactly like a player defender", () => {
+    const winChanceFor = (ownerId: string, manpowerCost: number): number => {
+      const context = makeSettledContext(vi.fn());
+      context.tiles.set(TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId, ownershipState: "SETTLED" });
+      context.players.set(ownerId, { id: ownerId, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() });
+      const resolution = buildLockedCombatResolution(context, {
+        actionType: "ATTACK",
+        commandId: "barb-effort",
+        playerId: ATTACKER_ID,
+        manpowerCost,
+        originKey: ORIGIN_KEY,
+        originX: 5,
+        originY: 5,
+        targetX: 6,
+        targetY: 5,
+        targetKey: TARGET_KEY
+      });
+      return resolution!.result.winChance;
+    };
+    const floor = requiredMusterForFort(undefined);
+    expect(winChanceFor("barbarian-1", floor * 2)).toBeCloseTo(winChanceFor(DEFENDER_ID, floor * 2), 10);
+    expect(winChanceFor("barbarian-1", floor)).toBeLessThan(winChanceFor("barbarian-1", floor * 2));
   });
 });

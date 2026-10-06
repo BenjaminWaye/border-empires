@@ -11,7 +11,6 @@
 // through a small context).
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
-  BARBARIAN_RAID_COST,
   FRONTIER_ATTACK_MUSTER_COST,
   defendingFortVariant,
   requiredMusterForFort
@@ -22,14 +21,11 @@ import type { SimulationTileWireDelta } from "./runtime-types.js";
 /**
  * Manpower an attacker must have mustered to strike this target: a flat
  * per-fort-tier floor (structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE max —
- * you can never lose more than you brought), lowered for barbarian raids
- * and FRONTIER targets (forts only defend once SETTLED).
+ * you can never lose more than you brought), lowered for FRONTIER targets (forts only defend once SETTLED).
  *
  * Pure function of the target tile - no runtime dependencies.
  */
 export function requiredMusterForTarget(target: DomainTileState): number {
-  // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
-  if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
   if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
   return requiredMusterForFort(defendingFortVariant(target.fort));
 }

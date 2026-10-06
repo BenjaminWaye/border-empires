@@ -56,4 +56,20 @@ describe("afcModuleOverviewLines", () => {
     const lines = afcModuleOverviewLines(baseTile({ ownerId: "p1", status: "active", modules: ["some-unbuilt-module-tech"] }), CATALOG);
     expect(lines.filter((l) => l.kind === "group")).toEqual([]);
   });
+
+  it("lists modules still in transit under Incoming with their time to land", () => {
+    const lines = afcModuleOverviewLines(
+      baseTile({ ownerId: "p1", status: "active", incomingModules: [{ techId: "masonry", arrivesAt: 46_000 }] }),
+      CATALOG,
+      1_000
+    );
+    expect(lines.map((l) => l.html)).toEqual(["AFC Modules", "Slots: 1/8", "Incoming", "Titanium Forge Module — lands in 45s"]);
+  });
+
+  it("shows the slot count and tells the player to build another AFC when full", () => {
+    const modules = ["masonry", "masonry", "masonry", "masonry", "masonry", "masonry", "masonry", "masonry"];
+    const html = afcModuleOverviewLines(baseTile({ ownerId: "p1", status: "active", modules }), CATALOG, 1_000).map((l) => l.html);
+    expect(html).toContain("Slots: 8/8");
+    expect(html).toContain("Full: build another AFC to install more modules.");
+  });
 });

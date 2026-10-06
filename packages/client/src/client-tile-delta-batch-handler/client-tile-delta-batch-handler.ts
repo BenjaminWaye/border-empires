@@ -6,7 +6,7 @@ import { hideArrowGestureConfirmSheet } from "../client-arrow-gesture-confirm-sh
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
-import { showWaystationActivationOverlay } from "../client-waystation-activation/client-waystation-activation.js";
+import { showWaystationActivationOverlayWhenClear } from "../client-waystation-activation/client-waystation-activation-gate.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
@@ -14,6 +14,7 @@ import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/cl
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
+import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -62,11 +63,13 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
+  const myAfcKeysBefore = new Set<string>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
       previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
+      if (existing?.afc?.ownerId === state.me && existing.ownerId === state.me) myAfcKeysBefore.add(updateKey);
       previousTileByKey.set(
         updateKey,
         existing
@@ -165,6 +168,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
       }
     }
+    const lostAnAfc = [...myAfcKeysBefore].some((key) => state.tiles.get(key)?.afc?.ownerId !== state.me || state.tiles.get(key)?.ownerId !== state.me);
+    if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
     recordAfcModuleDeliveries(
       state,
       detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),
@@ -210,7 +215,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         deps.renderHud();
       }
     }, {
-      showOverlay: showWaystationActivationOverlay,
+      showOverlay: (info) => showWaystationActivationOverlayWhenClear(info, state),
       markSeen: (x, y) => markWaystationActivationSeen(state, x, y),
       isSeen: (x, y) => hasWaystationActivationBeenShown(state, x, y)
     });

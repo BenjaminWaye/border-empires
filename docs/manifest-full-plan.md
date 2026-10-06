@@ -283,12 +283,13 @@ exist to spread risk, not to impose an arbitrary loadout cap.
 > **Superseded by "Building additional AFCs" below (decided 2026-09-29):**
 > no Settlement-proximity rule. The player picks any valid owned tile.
 
-Module commission selects an AFC destination. There is no artificial
-module-capacity system.
+> **Superseded (2026-10-06): each AFC holds 8 modules** (`AFC_MODULE_SLOTS`,
+> docked plus in transit). See "AFC loss, replacement and module slots" below.
 
-If an AFC is captured, its modules become dormant or inaccessible to the
-original owner; they remain visible and strategically valuable. Do not
-erase a whole branch or cancel existing buildings.
+If an AFC is captured, its modules transfer, still working, to the captor
+(House copies become captured copies the captor cannot redeploy). The
+original owner loses them. Do not erase a whole branch or cancel existing
+buildings.
 
 Reassignment after recapture should not charge Coin again.
 
@@ -297,14 +298,42 @@ Economy, Manpower, and War modules are distinct AFC attachments.
 Aether modules visually dock as smaller cartridges around the Aether
 Resonance Core, avoiding nine separate giant factory overlays.
 
+### AFC loss, replacement and module slots (implemented 2026-10-06)
+
+- **Slots:** 8 per AFC, counting docked modules and copies in transit
+  (`AFC_MODULE_SLOTS`, `packages/shared/src/afc-module-call-down.ts`). A
+  researched module docks on the oldest AFC with a free slot. If every AFC
+  is full the tech is kept but its copy waits, and the client tells the
+  player to build another AFC. Building one calls waiting copies down.
+  Redeploying onto a full AFC is rejected (`AFC_FULL`). AFCs over 8 from
+  before the cap move their newest House copies to the player's other AFCs
+  with room (on connect and after building an AFC); what fits nowhere stays.
+  Captured copies count toward the captor's slots.
+- **Losing the last AFC while holding land:** the captured AFC transfers to
+  the captor and nothing spawns automatically for a human, so AFCs don't pile
+  up on the map. The player rebuilds it themselves for free: BUILD_AFC costs
+  nothing while they own zero AFCs and may land on any empty owned land tile,
+  FRONTIER included (settled on landing). The zero-income repair
+  (`ensureGrossIncomeSettlementForPlayer`) no longer drops an AFC on neutral
+  land for an AFC-less player. AI players never issue BUILD_AFC, so an AI
+  gets its replacement placed automatically 10 minutes after the loss
+  (`AI_AFC_REPLACEMENT_DELAY_MS`), on its empty owned tile nearest its
+  territory's centroid, else empty neutral land touching it
+  (`apps/simulation/src/afc-owned-site/`). The timer is not persisted: after a
+  restart, the startup AI repair places it straight away.
+- **Re-delivery:** missing House copies land one per 60s call-down, Economy
+  first, then Manpower, War, Aether.
+- **Capture plunder:** taking another player's AFC also plunders 33% of the
+  Coin the defender has left after the normal pillage
+  (`apps/simulation/src/afc-capture-plunder/`).
+
 ### Building additional AFCs (authority implemented 2026-10-02)
 
 Today no player can choose to build an AFC. They are only created by a
 fresh spawn, an elimination-respawn, or the pre-AFC migration grant
 (`apps/simulation/src/runtime-respawn-helpers.ts`), or acquired by
-capturing an enemy's. `afc.modules` has no slot cap: the only "8" in the
-system is the 3D socket ring's art limit. So "my AFC is full" is not a
-real state, and this feature is purely the "spread risk" rule above.
+capturing an enemy's. Since 2026-10-06 each AFC holds 8 modules, so
+building another AFC is also how a player gets more module slots.
 
 #### Player flow
 
@@ -476,7 +505,11 @@ placement rule and charge.
    Research creates one House-owned module copy. An owned AFC exposes a
    **Call down module** action that redeploys that copy to it, removing it
    from the previous AFC; a House therefore has one copy of each researched
-   module at a time. Captured AFCs retain their installed modules and can
+   module at a time. A call-down pulls the copy off its old AFC at once and
+   docks it after `AFC_MODULE_CALL_DOWN_MS` (1 minute, `afc.incomingModules`;
+   `apps/simulation/src/afc-module-delivery/`); a capture loses modules still
+   in transit. On connect, researched modules held on no owned AFC are called
+   down to the home AFC the same way. Captured AFCs retain their installed modules and can
    produce extra captured copies, but research never duplicates one. A
    building whose unlock tech has `manifestCategory: AFC_MODULE` requires the
    researched tech and that module installed on any active, owned, settled

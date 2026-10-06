@@ -25,7 +25,6 @@ export * from "../victory-pressure-utils.js";
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
-  BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
   defendingFortVariant,
   EXPAND_MANPOWER_COST,
@@ -40,6 +39,7 @@ import {
   type WaystationTileState
 } from "@border-empires/shared";
 import type { DomainAfcState } from "../domain-afc-state.js";
+import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeOutpostState } from "../domain-tile-structure-states.js";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
   if (!isFortDefending(tile.fort)) return 1;
@@ -201,58 +201,12 @@ export type DomainTileState = {
           >
         >)
     | undefined;
-  fort?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["fort"]>["status"];
-        variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
-        upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
-        completesAt?: number | undefined;
-        activatedAt?: number | undefined;
-        disabledUntil?: number | undefined;
-        previousStatus?: "active" | undefined;
-      }
-    | undefined;
-  observatory?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["observatory"]>["status"];
-        completesAt?: number | undefined;
-        activatedAt?: number | undefined;
-        cooldownUntil?: number | undefined;
-        previousStatus?: "active" | "inactive" | undefined;
-        // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
-        siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
-      }
-    | undefined;
-  siegeOutpost?:
-    | {
-        ownerId: string;
-        status: NonNullable<Tile["siegeOutpost"]>["status"];
-        variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
-        completesAt?: number | undefined;
-        activatedAt?: number | undefined;
-        previousStatus?: "active" | undefined;
-      }
-    | undefined;
+  fort?: DomainFortState | undefined;
+  observatory?: DomainObservatoryState | undefined;
+  siegeOutpost?: DomainSiegeOutpostState | undefined;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   afc?: DomainAfcState | undefined;
-  economicStructure?:
-    | {
-        ownerId: string;
-        type: NonNullable<Tile["economicStructure"]>["type"];
-        status: NonNullable<Tile["economicStructure"]>["status"];
-        completesAt?: number | undefined;
-        activatedAt?: number | undefined;
-        disabledUntil?: number | undefined;
-        nextUpkeepAt?: number | undefined;
-        inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"] | undefined;
-        previousStatus?: "active" | "inactive" | undefined;
-        bombardCooldownUntil?: number | undefined;
-        converterMode?: NonNullable<Tile["economicStructure"]>["converterMode"];
-        modeLockedUntil?: NonNullable<Tile["economicStructure"]>["modeLockedUntil"];
-      }
-    | undefined;
+  economicStructure?: DomainEconomicStructureState | undefined;
   sabotage?:
     | {
         ownerId: string;
@@ -314,7 +268,7 @@ export type ValidateFrontierCommandInput = {
    * what the attack already requires to launch) and otherwise uncapped here;
    * the real ceiling is whatever `originMuster` the flag/tile actually holds,
    * enforced by the existing INSUFFICIENT_MUSTER check below. Ignored for
-   * barbarian raids/attacks, which don't use the muster ladder at all.
+   * barbarian-origin attacks, which are cooldown-gated instead.
    */
   commitManpower?: number | undefined;
   /**
@@ -352,8 +306,7 @@ const manpowerRequirements = (
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   if (actionType === "EXPAND") {
     // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2):
-    // claiming a frontier tile is the cheapest manpower-gated action, deliberately
-    // matching BARBARIAN_RAID_COST.
+    // claiming a frontier tile is the cheapest manpower-gated action.
     return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
   }
   return {
@@ -368,24 +321,22 @@ export const validateFrontierCommand = (
   const legacy = manpowerRequirements(input.actionType, input.to);
   const musterAttack = input.actionType === "ATTACK";
   const requiredMuster = input.requiredMuster ?? MUSTER_ATTACK_COST;
-  const isBarbRaid = musterAttack && input.to.ownerId === "barbarian-1";
   const isBarbarianAttack = musterAttack && input.actor.id === "barbarian-1";
   // Under the muster system an attack is paid from the origin tile's muster
   // reservoir (a single, legible number), not from the global pool times the
-  // legacy fort multiplier. Barbarian raids skip muster wind-up and are funded
-  // from the player pool at BARBARIAN_RAID_COST. Barbarian-origin attacks are
-  // limited by per-tile cooldown instead of manpower.
-  // docs/replenishment-update-plan.md D6: a manual attack against a real
-  // (non-barbarian, non-raid) target may commit more than the floor for
+  // legacy fort multiplier -- including attacks on Planetary Defense tiles,
+  // which are ordinary attacks (there are no raids). Barbarian-origin attacks
+  // are limited by per-tile cooldown instead of manpower.
+  // docs/replenishment-update-plan.md D6: a manual attack may commit more than the floor for
   // better odds. Clamped up to at least requiredMuster so a bogus/low
   // client-supplied value can never under-pay what the attack requires to
   // launch at all; the upper bound is enforced below by the ordinary
   // INSUFFICIENT_MUSTER check against whatever muster is actually available.
   const requestedCommit =
-    musterAttack && !isBarbarianAttack && !isBarbRaid && typeof input.commitManpower === "number" && Number.isFinite(input.commitManpower)
+    musterAttack && !isBarbarianAttack && typeof input.commitManpower === "number" && Number.isFinite(input.commitManpower)
       ? Math.max(requiredMuster, input.commitManpower)
       : undefined;
-  const effectiveCost = isBarbarianAttack ? 0 : isBarbRaid ? BARBARIAN_RAID_COST : requestedCommit ?? requiredMuster;
+  const effectiveCost = isBarbarianAttack ? 0 : requestedCommit ?? requiredMuster;
   const manpowerMin = musterAttack ? effectiveCost : legacy.manpowerMin;
   const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
@@ -436,19 +387,7 @@ export const validateFrontierCommand = (
       message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
   }
-  if (isBarbRaid) {
-    // Advance-mode barbarian raids draw from the muster flag's pool.
-    // Manual raids without a flag use the player's global pool.
-    if (musterAttack && (input.originMuster ?? 0) >= requiredMuster) {
-      // Flag has enough mustered manpower — proceed.
-    } else if (input.actor.manpower < BARBARIAN_RAID_COST) {
-      return {
-        ok: false,
-        code: "INSUFFICIENT_MANPOWER",
-        message: `need ${BARBARIAN_RAID_COST} manpower for Planetary Defense raid`
-      };
-    }
-  } else if (musterAttack && !isBarbarianAttack) {
+  if (musterAttack && !isBarbarianAttack) {
     // Checked against effectiveCost (the floor, or the player's higher
     // requested commitment) rather than the bare floor -- a commitment the
     // flag can't actually fund must fail the same way an unaffordable

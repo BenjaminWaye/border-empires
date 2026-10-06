@@ -232,6 +232,7 @@ describe("handleCancelStructureBuildCommand refunds", () => {
         type: "MINTWORKS",
         status: "removing",
         previousStatus: "active",
+        startedAt: 2_000,
         completesAt: 5_000
       }
     });
@@ -244,6 +245,9 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     const restored = tiles.get(simulationTileKey(5, 5))?.economicStructure;
     expect(restored?.status).toBe("active");
     expect(restored?.previousStatus).toBeUndefined();
+    // The removal's construction window must not outlive the cancelled removal.
+    expect(restored?.startedAt).toBeUndefined();
+    expect(restored?.completesAt).toBeUndefined();
   });
 
   it("leaves a stale scheduleAfter build-completion callback as a safe no-op after cancel", () => {

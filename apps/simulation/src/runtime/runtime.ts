@@ -141,7 +141,8 @@ import {
   incrementalAdd,
   incrementalRemove,
   plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
-  resetFromIterable,
+  mirrorCandidateKeysIntoCache,
+  resetCandidateKeysFromSummary,
   type PlannerPlayerTileKeysContext,
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
@@ -521,6 +522,9 @@ import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js
 import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
+import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
+import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
+import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1172,48 +1176,17 @@ export class SimulationRuntime {
       },
       options.initialState?.pendingSettlements ?? []
     );
-    // In-flight structure work (under_construction / removing) survives in tile
-    // state across restarts, but the setTimeout closure that completes it dies
-    // with the previous process. Without this, restarted structures stay stuck
-    // at 0:00 forever and permanently occupy development slots.
-    for (const [tileKey, tile] of this.state.tiles) {
-      const ownerId = tile.ownerId;
-      if (!ownerId) continue;
-      const recoveredCommandId = `recovered-build:${tileKey}`;
-      const scheduleStructureFinish = (completesAt: number | undefined, finish: () => void): void => {
-        if (completesAt == null) return;
-        this.scheduleAfter(Math.max(0, completesAt - this.now()), finish);
-      };
-      if (tile.fort?.ownerId === ownerId) {
-        if (tile.fort.status === "under_construction") {
-          scheduleStructureFinish(tile.fort.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "FORT", recoveredCommandId));
-        } else if (tile.fort.status === "removing") {
-          scheduleStructureFinish(tile.fort.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.observatory?.ownerId === ownerId) {
-        if (tile.observatory.status === "under_construction") {
-          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "OBSERVATORY", recoveredCommandId));
-        } else if (tile.observatory.status === "removing") {
-          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.siegeOutpost?.ownerId === ownerId) {
-        if (tile.siegeOutpost.status === "under_construction") {
-          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "SIEGE_OUTPOST", recoveredCommandId));
-        } else if (tile.siegeOutpost.status === "removing") {
-          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.economicStructure?.ownerId === ownerId) {
-        if (tile.economicStructure.status === "under_construction") {
-          const structureType = tile.economicStructure.type;
-          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeStructureBuild(tileKey, ownerId, structureType, recoveredCommandId));
-        } else if (tile.economicStructure.status === "removing") {
-          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-    }
+    rescheduleRecoveredStructureTimers({
+      tiles: this.state.tiles,
+      now: this.now,
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+      completeStructureBuild: (tileKey, ownerId, structureType, commandId) => this.completeStructureBuild(tileKey, ownerId, structureType, commandId),
+      completeStructureRemoval: (tileKey, ownerId, commandId) => this.completeStructureRemoval(tileKey, ownerId, commandId),
+      isTileUnderAttack: (tileKey) => this.state.locksByTile.targetLockAt(tileKey)?.actionType === "ATTACK",
+      releaseDevelopmentHold: (tileKey, commandId) => releaseDevelopmentHold(this.attackDevelopmentHoldContext(), tileKey, commandId),
+      afcModuleDelivery: () => ({ ...this.respawnContext(), ownedAfcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys })
+    });
+    installAttackReleaseHandler(this.state.locksByTile, () => this.attackDevelopmentHoldContext(), (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId));
     const recoveredCommandHistory = options.initialCommandHistory;
     hydrateCommandHistory({
       commandIdsByPlayerSeq: this.replayCache.commandIdsByPlayerSeq,
@@ -1537,6 +1510,7 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
@@ -1571,6 +1545,20 @@ export class SimulationRuntime {
     };
   }
 
+  private attackDevelopmentHoldContext(): AttackDevelopmentHoldContext {
+    return {
+      now: this.now, scheduleAfter: this.scheduleAfter, tiles: this.state.tiles,
+      completeStructureBuild: (tileKey, ownerId, structureType, commandId) => this.completeStructureBuild(tileKey, ownerId, structureType, commandId),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      cancelPendingSettlementForAttack: (tileKey, attackerId, commandId) => {
+        const cancelled = this.cancelPendingSettlementIfOwnerChanged(tileKey, attackerId, commandId);
+        if (cancelled) tryDrainDevQueueImpl(this.devQueueCommandContext(), cancelled.ownerId); // slot freed
+        return Boolean(cancelled);
+      }
+    };
+  }
+
   private frontierCommandContext(): RuntimeFrontierCommandContext {
     return {
       now: this.now,
@@ -1587,6 +1575,7 @@ export class SimulationRuntime {
       onMusterRemoteAttack: this.onMusterRemoteAttack, replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), barbarianTileProgress: this.barbarianTileProgress,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
+      holdDevelopmentForAttack: (lock) => holdDevelopmentForAttack(this.attackDevelopmentHoldContext(), { targetKey: lock.targetKey, attackerId: lock.playerId, commandId: lock.commandId }),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
       findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
@@ -2218,16 +2207,8 @@ export class SimulationRuntime {
       summary: this.summaryForPlayer(playerId),
       markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id),
       onCandidateRebuildComplete: (id, summary) => {
-        // After a full rebuild of hot/strategic/buildCandidate, reset the
-        // incremental cache entry for those three sub-fields from the now-correct
-        // summary Sets.  territory, frontier, and pendingSettlement are not
-        // touched by rebuildPlannerCandidateIndexes so they stay valid.
         const entry = this.plannerPlayerTileKeyCacheByPlayer.get(id);
-        if (entry) {
-          resetFromIterable(entry.hotFrontier, summary.hotFrontierTileKeys);
-          resetFromIterable(entry.strategicFrontier, summary.strategicFrontierTileKeys);
-          resetFromIterable(entry.buildCandidate, summary.buildCandidateTileKeys);
-        }
+        if (entry) resetCandidateKeysFromSummary(entry, summary);
       }
     });
   }
@@ -2246,30 +2227,8 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId),
       onCandidateKeysUpdated: (playerId, affectedKeys, summary) => {
-        // Mirror the hot/strategic/build candidate updates into the incremental
-        // cache.  affectedKeys is a bounded neighborhood (≤25 tiles at r=2),
-        // so this is O(1) in practice regardless of empire size.
         const entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-        if (!entry) return;
-        for (const candidateKey of affectedKeys) {
-          // Re-check the summary Sets (which are already updated at this point)
-          // to determine whether each affected key should be in the cached arrays.
-          if (summary.hotFrontierTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.hotFrontier, candidateKey);
-          } else {
-            incrementalRemove(entry.hotFrontier, candidateKey);
-          }
-          if (summary.strategicFrontierTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.strategicFrontier, candidateKey);
-          } else {
-            incrementalRemove(entry.strategicFrontier, candidateKey);
-          }
-          if (summary.buildCandidateTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.buildCandidate, candidateKey);
-          } else {
-            incrementalRemove(entry.buildCandidate, candidateKey);
-          }
-        }
+        if (entry) mirrorCandidateKeysIntoCache(entry, affectedKeys, summary);
       }
     });
   }
@@ -3475,6 +3434,7 @@ export class SimulationRuntime {
     const target = this.state.tiles.get(targetKey);
     if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
     if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return; }
+    if (this.state.locksByTile.targetLockAt(targetKey)?.actionType === "ATTACK") { this.rejectCommand(command, "SETTLE_INVALID", "tile is under attack"); return; } // attack-development-hold.ts
     // Encirclement guard: a cut-off tile cannot be settled. Settling a
     // disconnected tile would let a player convert an encircled pocket into
     // permanent territory, defeating the encirclement mechanic. Natural
@@ -3527,7 +3487,7 @@ export class SimulationRuntime {
       now: () => this.now(),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
-      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, isTileUnderAttack: (tileKey) => this.state.locksByTile.targetLockAt(tileKey)?.actionType === "ATTACK",
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
@@ -4178,8 +4138,7 @@ export class SimulationRuntime {
   /**
    * Manpower an attacker must have mustered to strike this target. Phase 5
    * baseline: flat attack cost, raised to a flat per-fort-tier floor,
-   * lowered for barbarian raids (Phase 8) and FRONTIER targets (forts only
-   * defend once SETTLED).
+   * lowered for FRONTIER targets (forts only defend once SETTLED).
    */
   private requiredMusterForTarget(target: DomainTileState): number {
     return requiredMusterForTargetImpl(target);

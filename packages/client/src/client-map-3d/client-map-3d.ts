@@ -71,7 +71,8 @@ import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createFarmlandOverlay } from "../client-map-3d-farmland/client-map-3d-farmland.js"; import { createFishingOverlay, fishingWaterDirection } from "../client-map-3d-fishing/client-map-3d-fishing.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
-import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createStructureOverlay, mineResourceHintFor, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
 import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
 import {
   createContactShadowOverlay,
@@ -1148,11 +1149,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (structureType === "CARAVANARY") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            const mineResourceHint =
-              structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS")
-                ? tileResource
-                : undefined;
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHint);
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildStartAt));
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).
@@ -1480,7 +1477,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       ctActiveNow !== lastRebuild.crystalTargetingActive ||
-      frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot;
+      frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot ||
+      structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed();
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);

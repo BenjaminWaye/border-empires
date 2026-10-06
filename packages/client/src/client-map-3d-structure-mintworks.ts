@@ -214,6 +214,13 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
     return builder.addPiece(key, sx2, sy2, sz2, ox * SCALE, oy * SCALE, oz * SCALE, sx3 * SCALE, sy3 * SCALE, sz3 * SCALE, rotY, rotX, rotZ);
   };
 
+  // A flywheel piece the spin animates. One cut short mid-construction keeps its growing pose
+  // instead (index -1: update() leaves it alone), or the spin would redraw it at full height.
+  const addSpinning = (...args: Parameters<typeof add>): number => {
+    const index = add(...args);
+    return builder.lastPieceWasCut() ? -1 : index;
+  };
+
   // ─── Flywheel animation ──────────────────────────────────────────────
   // The brass flywheel assembly (flywheel + two spokes + hub + rim) spins
   // slowly about its axle (world X). Each of the five pieces is the rest
@@ -317,11 +324,11 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
     // heavier brass rim so it reads as a flywheel rather than a coin. The
     // disc (rotZ) lies in the YZ plane, so spokes and rim share that plane.
     // Indices are captured so update() can spin the whole assembly.
-    const flywheelIndex = add("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
-    const spokeAIndex = add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
-    const spokeBIndex = add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
-    const hubIndex = add("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
-    const rimIndex = add("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
+    const flywheelIndex = addSpinning("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
+    const spokeAIndex = addSpinning("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
+    const spokeBIndex = addSpinning("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
+    const hubIndex = addSpinning("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
+    const rimIndex = addSpinning("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
     mintRecords.push({
       x: sx,
       y: sy,
@@ -401,6 +408,7 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
     for (const t of mintRecords) {
       const angle = nowMs * SPIN_SPEED + t.phase;
       for (const piece of t.pieces) {
+        if (piece.index < 0) continue; // gated out while the structure is still under construction
         tmpEuler.set(angle, piece.restRotY, piece.restRotZ, "XYZ");
         tmpQuat.setFromEuler(tmpEuler);
         position.set(t.x + piece.ox, t.y + piece.oy, t.z + piece.oz);

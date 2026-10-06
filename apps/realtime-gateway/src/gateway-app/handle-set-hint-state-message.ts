@@ -1,6 +1,6 @@
 // Persists a player's in-game hint/tutorial state (per-tip dismissals, the
 // global "show hints" mute, onboarding-checklist completion, and the
-// per-season muster unlock) on the gateway's player-profile row instead of
+// per-season muster unlock, and the season whose first login already got the quiet dashboard pass) on the gateway's player-profile row instead of
 // client-side localStorage, so it survives a browser data clear and follows
 // the player across devices.
 export type StoredHintState = {
@@ -8,6 +8,7 @@ export type StoredHintState = {
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
   musterUnlockedSeasonId?: string;
+  dashboardQuietedSeasonId?: string;
 };
 
 export type SetHintStateMessageDeps = {
@@ -16,6 +17,7 @@ export type SetHintStateMessageDeps = {
   hintsMuted: unknown;
   onboardingChecklistCompleted: unknown;
   musterUnlockedSeasonId: unknown;
+  dashboardQuietedSeasonId?: unknown;
   profileStore: {
     setHintState: (playerId: string, patch: StoredHintState) => Promise<StoredHintState>;
   };
@@ -28,18 +30,20 @@ export const hintStateInitFields = (profile: StoredHintState | undefined): Requi
   dismissedHints: profile?.dismissedHints ?? [],
   hintsMuted: profile?.hintsMuted ?? false,
   onboardingChecklistCompleted: profile?.onboardingChecklistCompleted ?? false,
-  musterUnlockedSeasonId: profile?.musterUnlockedSeasonId ?? ""
+  musterUnlockedSeasonId: profile?.musterUnlockedSeasonId ?? "",
+  dashboardQuietedSeasonId: profile?.dashboardQuietedSeasonId ?? ""
 });
 
 export const handleSetHintStateMessage = async (deps: SetHintStateMessageDeps): Promise<void> => {
-  const { playerId, dismissedHints, hintsMuted, onboardingChecklistCompleted, musterUnlockedSeasonId, profileStore, invalidateProfileCache, sendJson } = deps;
+  const { playerId, dismissedHints, hintsMuted, onboardingChecklistCompleted, musterUnlockedSeasonId, dashboardQuietedSeasonId, profileStore, invalidateProfileCache, sendJson } = deps;
   const patch = {
     ...(Array.isArray(dismissedHints) && dismissedHints.every((id) => typeof id === "string")
       ? { dismissedHints: dismissedHints as string[] }
       : {}),
     ...(typeof hintsMuted === "boolean" ? { hintsMuted } : {}),
     ...(typeof onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted } : {}),
-    ...(typeof musterUnlockedSeasonId === "string" && musterUnlockedSeasonId ? { musterUnlockedSeasonId } : {})
+    ...(typeof musterUnlockedSeasonId === "string" && musterUnlockedSeasonId ? { musterUnlockedSeasonId } : {}),
+    ...(typeof dashboardQuietedSeasonId === "string" && dashboardQuietedSeasonId ? { dashboardQuietedSeasonId } : {})
   };
   const updated = await profileStore.setHintState(playerId, patch);
   invalidateProfileCache(playerId);

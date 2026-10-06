@@ -12,6 +12,7 @@ export type PlayerSubscriptions<TSocket extends SocketLike, TSnapshot> = {
   removeSocket: (playerId: string, socket: TSocket) => Promise<void>;
   socketsForPlayer: (playerId: string) => ReadonlySet<TSocket>;
   allSockets: () => ReadonlySet<TSocket>;
+  socketGroups: () => ReadonlySet<TSocket>[];
   snapshotForPlayer: (playerId: string) => TSnapshot | undefined;
   seedSnapshot: (playerId: string, snapshot: TSnapshot) => void;
   ensureSubscribed: (playerId: string) => Promise<TSnapshot>;
@@ -104,6 +105,9 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
         for (const socket of playerSockets) sockets.add(socket);
       }
       return sockets;
+    },
+    socketGroups() {
+      return [...socketsByPlayer.values()];
     },
     snapshotForPlayer(playerId) {
       return snapshotByPlayer.get(playerId);

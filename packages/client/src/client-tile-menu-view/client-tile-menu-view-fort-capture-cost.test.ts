@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BARBARIAN_RAID_COST, requiredMusterForFort } from "@border-empires/shared";
+import { requiredMusterForFort } from "@border-empires/shared";
 import { menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "../client-types.js";
 
@@ -8,9 +8,8 @@ import type { Tile } from "../client-types.js";
 // the old Garrison fill line when the fort-garrison mechanic was removed. It
 // must report the same number the client's own attack gate enforces
 // (findClosestMuster -> requiredMusterForTarget in client-muster-attack-gate.ts),
-// not the fort tier's flat cost alone -- barbarian-held tiles are raided for
-// BARBARIAN_RAID_COST regardless of what sits on them, so keying the text off
-// the fort variant would overstate the cost by ~30x on a barbarian fort.
+// not the fort tier's flat cost alone. Barbarian-held tiles use the same
+// ladder as player-held ones (there are no raids).
 const baseDeps = {
   state: { me: "me" },
   prettyToken: (value: string) => value,
@@ -46,7 +45,7 @@ describe("menuOverviewForTile — fort capture cost line", () => {
     expect(line).toContain(`Capturing requires ${requiredMusterForFort("FORT")} mustered manpower.`);
   });
 
-  it("reports the cheap barbarian raid cost on a barbarian-held fort, not the fort tier cost", () => {
+  it("reports the normal fort-tier cost on a barbarian-held fort, same as a player-held one", () => {
     const line = captureLine({
       x: 5,
       y: 5,
@@ -55,8 +54,7 @@ describe("menuOverviewForTile — fort capture cost line", () => {
       ownershipState: "SETTLED",
       fort: { ownerId: "barbarian-1", status: "active", variant: "FORT" }
     });
-    expect(line).toContain(`Capturing requires ${BARBARIAN_RAID_COST} mustered manpower.`);
-    expect(line).not.toContain(`${requiredMusterForFort("FORT")}`);
+    expect(line).toContain(`Capturing requires ${requiredMusterForFort("FORT")} mustered manpower.`);
   });
 
   it("omits the line entirely while the fort is still under construction", () => {

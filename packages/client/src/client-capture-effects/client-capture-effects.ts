@@ -5,6 +5,7 @@ import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
+import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -275,8 +276,12 @@ export const renderCaptureProgress = (
   }
 };
 
+// Held (not dropped) while What's New / the tutorial / lobby is open or about
+// to open, so it appears once the player is back on the map.
+const shardAlertGate = createPopupBlockedCheck();
+
 export const renderShardAlert = (
-  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile">,
+  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile"> & PopupGateState,
   deps: {
     shardAlertOverlayEl: HTMLElement;
     shardAlertTitleEl: HTMLElement;
@@ -297,6 +302,10 @@ export const renderShardAlert = (
     deps.shardAlertOverlayEl.style.display = "none";
     deps.shardAlertTitleEl.textContent = "";
     deps.shardAlertDetailEl.textContent = "";
+    return;
+  }
+  if (shardAlertGate.isBlocked(state, nowMs)) {
+    deps.shardAlertOverlayEl.style.display = "none";
     return;
   }
   deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
@@ -378,32 +387,6 @@ export const drawStartingExpansionArrow = (
 
 export const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
-export const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
-  ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
-
-export const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
-  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 13 : 83 + step * 17);
-
-export const settlePixelWanderPoint = (
-  nowMs: number,
-  wx: number,
-  wy: number,
-  i: number
-): { x: number; y: number } => {
-  const moveDurationMs = 1700;
-  const pauseDurationMs = 1000;
-  const cycleDurationMs = moveDurationMs + pauseDurationMs;
-  const offsetMs = settlePixelSeed(wx, wy, i, 11) * cycleDurationMs;
-  const localTime = nowMs + offsetMs;
-  const segment = Math.floor(localTime / cycleDurationMs);
-  const segmentTime = localTime - segment * cycleDurationMs;
-  const fromX = settlePixelWaypoint(wx, wy, i, segment, "x");
-  const fromY = settlePixelWaypoint(wx, wy, i, segment, "y");
-  const toX = settlePixelWaypoint(wx, wy, i, segment + 1, "x");
-  const toY = settlePixelWaypoint(wx, wy, i, segment + 1, "y");
-  const t = segmentTime >= moveDurationMs ? 1 : segmentTime / moveDurationMs;
-  return {
-    x: fromX + (toX - fromX) * t,
-    y: fromY + (toY - fromY) * t
-  };
-};
+// 2D settle dots share the 3D wander path (see client-ancillary-wander.ts); the
+// loader snaps the result to whole pixels.
+export { wanderPoint as settlePixelWanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";

@@ -19,7 +19,8 @@ describe("client-map-3d first-render crash breadcrumb wiring", () => {
     const maybeRebuildAt = source.indexOf("const maybeRebuild = (nowMs: number)");
     expect(maybeRebuildAt).toBeGreaterThan(-1);
 
-    const block = source.slice(maybeRebuildAt, maybeRebuildAt + 2200);
+    // Wide enough for the rebuild-trigger conditions above the breadcrumb calls; only the relative ordering below matters.
+    const block = source.slice(maybeRebuildAt, maybeRebuildAt + 2600);
     expect(block).toContain("isFirstRebuild = lastRebuild.at === 0");
 
     const startedAt = block.indexOf("markRendererFirstRenderStarted()");

@@ -63,6 +63,9 @@ describe("counter-attacking the tile an enemy attack launched from", () => {
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: muster("player-1") },
           // Keeps player-1 alive after losing the launch tile, so elimination/respawn doesn't muddy the result.
           { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // player-1's AFC, far from the fight: without one, losing the launch tile would land a
+          // replacement AFC (a reach anchor) right next to it mid-fight.
+          { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active", activatedAt: 0 } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: target },
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", muster: muster("player-2") },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-3", ownershipState: "SETTLED", muster: muster("player-3") }

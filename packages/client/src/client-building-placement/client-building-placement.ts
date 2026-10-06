@@ -1,7 +1,7 @@
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
-import { isValidAfcLandingTile } from "../client-afc-actions.js";
+import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
 
 export type BuildingPlacementFlowDeps = {
   keyFor: (x: number, y: number) => string;
@@ -19,10 +19,17 @@ export type BuildingPlacementFlowDeps = {
 };
 
 export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPlacementFlowDeps) => {
+  // Whether this AFC placement is a free rebuild (no AFC owned), computed once
+  // per placement session: both map renderers ask about every visible tile.
+  let afcFreeRebuild: boolean | undefined;
   const isPlacementValidForTile = (tile: Tile | undefined): boolean => {
+    if (!state.buildingPlacement.active) afcFreeRebuild = undefined;
     if (!tile || !state.buildingPlacement.active) return false;
     const st = state.buildingPlacement.structureType;
-    if (st === "AFC") return isValidAfcLandingTile(state, tile);
+    if (st === "AFC") {
+      afcFreeRebuild ??= ownedAfcCount(state) === 0;
+      return isValidAfcLandingTile(state, tile, afcFreeRebuild);
+    }
     if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
@@ -32,6 +39,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
   };
 
   const cancelBuildingPlacement = (): void => {
+    afcFreeRebuild = undefined;
     state.buildingPlacement.active = false;
     state.buildingPlacement.structureType = "";
     removePlacementOverlay();
@@ -44,7 +52,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     if (structureType === "AFC") {
       const tile = state.tiles.get(deps.keyFor(x, y));
       if (!isPlacementValidForTile(tile)) {
-        deps.pushFeed("AFCs need empty settled land you control.", "combat", "warn");
+        deps.pushFeed(afcFreeRebuild ? "Your new AFC needs empty land you control." : "AFCs need empty settled land you control.", "combat", "warn");
         cancelBuildingPlacement();
         return;
       }

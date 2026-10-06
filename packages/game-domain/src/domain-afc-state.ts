@@ -6,4 +6,5 @@ export type DomainAfcState = {
   activatedAt?: number | undefined;
   modules?: string[] | undefined;
   houseModules?: string[] | undefined;
+  incomingModules?: Array<{ techId: string; arrivesAt: number }> | undefined;
 };

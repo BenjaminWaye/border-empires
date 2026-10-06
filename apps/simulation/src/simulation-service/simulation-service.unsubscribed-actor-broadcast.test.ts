@@ -206,7 +206,10 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
       type: "SET_MUSTER",
       payload_json: JSON.stringify({ x: ownedOrigin.x, y: ownedOrigin.y, mode: "HOLD" })
     });
-    service.runtime.tickMuster(service.runtime.now() + 7_000);
+    // Enough ticks to cover an attack on an AFC tile: the startup AFC repair
+    // lands the seeded AI's AFC on its own frontline tile, which is the only
+    // enemy-adjacent target in the default seed.
+    for (let step = 1; step <= 10; step += 1) service.runtime.tickMuster(service.runtime.now() + step * 7_000);
 
     const commandId = "actor-expand-self-visible";
     // ATTACK can take a while to resolve (COMBAT_LOCK_MS) — give the
@@ -317,7 +320,10 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
       type: "SET_MUSTER",
       payload_json: JSON.stringify({ x: attackOrigin.x, y: attackOrigin.y, mode: "HOLD" })
     });
-    service.runtime.tickMuster(service.runtime.now() + 7_000);
+    // Enough ticks to cover an attack on an AFC tile: the startup AFC repair
+    // lands the seeded AI's AFC on its own frontline tile, which is the only
+    // enemy-adjacent target in the default seed.
+    for (let step = 1; step <= 10; step += 1) service.runtime.tickMuster(service.runtime.now() + step * 7_000);
 
     const commandId = "unsubscribed-attacker-attack-alert";
     const attackAlert = waitForStreamEvent(

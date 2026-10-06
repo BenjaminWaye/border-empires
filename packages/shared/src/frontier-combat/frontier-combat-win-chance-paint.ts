@@ -1,5 +1,6 @@
 import {
   buildFrontierCombatPreview,
+  applyOddsScale,
   commitOddsMultiplier,
   shieldDefenseMultiplier,
   type FrontierCombatModifiers,
@@ -17,7 +18,7 @@ import { chebyshevWithWrap } from "../reach/reach-geometry.js";
 //
 // Reuses buildFrontierCombatPreview (full modifier stack: infra, siege,
 // fort, tech) for the base win chance, then applies commitOddsMultiplier
-// (docs D6: odds = (commit/base)^2 * base_odds) exactly the way
+// (odds ratio scaled by commit/base; see applyOddsScale) exactly the way
 // runtime-combat-support.ts's server-side resolveAttackCombat does, so this
 // paint never drifts from the real resolve-time math.
 
@@ -102,7 +103,7 @@ export const winChanceForTile = (
   // resolveAttackCombat's own math (frontier-combat.ts's shieldDefenseMultiplier
   // doc comment) -- never multiplied in.
   const shieldMult = shieldDefenseMultiplier(attacker.knownShieldAmount ?? 0, base);
-  const winChance = Math.max(0, Math.min(1, (preview.winChance * oddsMult) / shieldMult));
+  const winChance = Math.max(0, Math.min(1, applyOddsScale(preview.winChance, oddsMult / shieldMult)));
   return { winChance, color: winChanceColor(winChance) };
 };
 
