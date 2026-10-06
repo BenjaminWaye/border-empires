@@ -2,7 +2,7 @@
 // (already over the repo's 500-line file cap) to keep that file from
 // growing further. Handles requesting, caching, and reading back the
 // server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
-import { commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, requiredMusterForFort } from "@border-empires/shared";
+import { applyOddsScale, commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, requiredMusterForFort } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
@@ -288,10 +288,10 @@ export const commitPreviewWinChanceForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
-  if (to.ownershipState !== "SETTLED") return preview.winChance;
+  if (to.ownershipState !== "SETTLED" || to.ownerId === "barbarian-1") return preview.winChance;
   const base = requiredMusterForFort(defendingFortVariant(to.fort));
   const multiplier = commitOddsMultiplier(commitManpower, base);
-  return Math.max(0, Math.min(1, preview.winChance * multiplier));
+  return Math.max(0, Math.min(1, applyOddsScale(preview.winChance, multiplier)));
 };
 
 // The full base/infrastructure/battle breakdown for the "verify the math"

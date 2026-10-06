@@ -255,24 +255,33 @@ export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign
   __combatModule: FRONTIER_COMBAT_MODULE
 });
 
-// docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds.
-// `base` is the attack-muster ladder cost for the target (requiredMusterForFort
-// via structure-costs.ts) -- committing exactly the floor (1x) reproduces
-// today's base_odds unchanged; committing more raises win chance, uncapped
-// (D6 "no cap"), clamped only at the natural [0, 1] probability bound. Applied
-// on top of buildFrontierCombatPreview's winChance (today's full modifier
-// stack: exposure, siege, weapons factories, tech), not as a replacement for it.
+// Effort level: committing `commit` manpower against a target whose muster
+// floor is `base` scales the attacker's ODDS RATIO (p / (1 - p)) by
+// commit / base -- Normal (1x floor) leaves base odds unchanged, Extra (1.5x)
+// scales odds 1.5x, Double (2x) 2x. Scaling odds rather than raw probability
+// keeps win chance strictly below 100% and makes the boost matter most in
+// contested fights, while hopeless fights stay hopeless. Applied on top of
+// buildFrontierCombatPreview's winChance (today's full modifier stack:
+// exposure, siege, weapons factories, tech) via applyOddsScale.
 export const commitOddsMultiplier = (commit: number, base: number): number =>
-  base > 0 ? (commit / base) ** 2 : 1;
+  base > 0 ? Math.max(0, commit) / base : 1;
+
+/** Scales a win probability's odds ratio by `scale` (>= 0); 0 -> 0, 1 -> unchanged, p === 1 stays 1. */
+export const applyOddsScale = (winChance: number, scale: number): number => {
+  if (winChance <= 0 || scale <= 0) return 0;
+  if (winChance >= 1) return 1;
+  const odds = (winChance / (1 - winChance)) * scale;
+  return odds / (1 + odds);
+};
 
 // docs/muster-fronts-proposal.md §4: a shield flag matches the attacker's
 // commitment (up to what it holds), applying `1 + shield_commit / base` as a
 // defense factor -- the mirror of commitOddsMultiplier's attack-side boost.
 // Divided into the attacker's effective winChance (see resolveAttackCombat in
-// runtime-combat-support.ts), never multiplied into it. The attack boost grows
-// as (commit/base)^2 and the shield's as 1 + shield/base, so a full match
-// (shield == commit) halves the boost when commit == base and cuts it further
-// as the commitment grows (commit 3x base: 9x -> 2.25x) -- "attacking straight
+// runtime-combat-support.ts), never multiplied into it. Both scale the odds
+// ratio: the attack boost is commit/base and the shield's is 1 + shield/base,
+// so a full match (shield == commit) leaves a net odds scale of
+// (commit/base) / (1 + commit/base) -- always below 1 -- "attacking straight
 // into a full shield is poor value" per the proposal's simulation notes.
 export const shieldDefenseMultiplier = (shieldCommit: number, base: number): number =>
   base > 0 ? 1 + shieldCommit / base : 1;
@@ -285,7 +294,7 @@ const rollFrontierCombatImpl = (
   commitMultiplier = 1
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const preview = buildFrontierCombatPreview(target, modifiers);
-  const winChance = Math.max(0, Math.min(1, preview.winChance * commitMultiplier));
+  const winChance = Math.max(0, Math.min(1, applyOddsScale(preview.winChance, commitMultiplier)));
   return {
     ...preview,
     winChance,

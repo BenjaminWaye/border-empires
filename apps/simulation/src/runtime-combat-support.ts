@@ -291,8 +291,8 @@ const resolveAttackCombat = (
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
-  // docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds
-  // for a SETTLED target -- `base` is the same attack-muster ladder cost
+  // docs/replenishment-update-plan.md D6, revised: the odds ratio is scaled by
+  // commit / base (applyOddsScale) for a SETTLED target -- `base` is the same attack-muster ladder cost
   // (structure-costs.ts requiredMusterForFort) the attack was required to
   // meet to launch at all, so committing exactly the floor (today's only
   // option until the commitment-choice UI ships) reproduces today's base_odds
@@ -301,7 +301,11 @@ const resolveAttackCombat = (
   // keep a flat cost") are excluded too: validateFrontierCommand gives them
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
-  const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
+  // Raids on barbarian (Planetary Defense) tiles are excluded as well:
+  // validateFrontierCommand fixes their cost at BARBARIAN_RAID_COST and ignores
+  // any commit amount, so cost / floor (~0.17) would turn them into a large odds penalty.
+  const isCommitEligible =
+    previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1" && defenderOwnerId !== "barbarian-1";
   const base = requiredMusterForFort(targetHasActiveFort ? defendingFortVariant(previousTarget?.fort) : undefined);
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within

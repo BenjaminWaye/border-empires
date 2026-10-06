@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -252,7 +252,7 @@ export const renderTileActionMenu = (
         const value = Number(commitSlider.value);
         if (valueEl) valueEl.textContent = String(value);
         if (oddsEl && baseOddsPercent != null && floor > 0) {
-          const pct = Math.max(0, Math.min(100, Math.round(baseOddsPercent * commitOddsMultiplier(value, floor))));
+          const pct = Math.max(0, Math.min(100, Math.round(applyOddsScale(baseOddsPercent / 100, commitOddsMultiplier(value, floor)) * 100)));
           oddsEl.textContent = `${pct}% win chance`;
         }
       };
