@@ -63,6 +63,13 @@ describe("afcModuleOverviewLines", () => {
       CATALOG,
       1_000
     );
-    expect(lines.map((l) => l.html)).toEqual(["AFC Modules", "Incoming", "Titanium Forge Module — lands in 45s"]);
+    expect(lines.map((l) => l.html)).toEqual(["AFC Modules", "Slots: 1/8", "Incoming", "Titanium Forge Module — lands in 45s"]);
+  });
+
+  it("shows the slot count and tells the player to build another AFC when full", () => {
+    const modules = ["masonry", "masonry", "masonry", "masonry", "masonry", "masonry", "masonry", "masonry"];
+    const html = afcModuleOverviewLines(baseTile({ ownerId: "p1", status: "active", modules }), CATALOG, 1_000).map((l) => l.html);
+    expect(html).toContain("Slots: 8/8");
+    expect(html).toContain("Full: build another AFC to install more modules.");
   });
 });

@@ -15,7 +15,10 @@ import { InMemorySeasonSummaryStore } from "../season-summary-store.js";
 // never reached the autopilot's identity map, so the AI record stayed
 // permanently frozen until a manual fix.
 describe("simulation service startup recovery — zero-gross-income repair", () => {
-  it("persists startup zero-gross settlement repair events after handlers attach", async () => {
+  // A stranded human with zero income and no AFC used to get an AFC dropped on
+  // neutral land here. They now rebuild it themselves for free, so the repair
+  // stands down. (Persisting startup AFC grants for AI is covered below.)
+  it("does not drop an AFC on neutral land for a stranded AFC-less human at startup", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
@@ -68,24 +71,13 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
         townPopulationTier: "TOWN"
       })
     );
-    // The repair-spawned tile is an Automated Fabrication Complex (Phase 6,
-    // docs/manifest-tree-mapping-plan.md), not a SETTLEMENT-tier town.
-    expect(
-      tiles.some(
-        (tile) =>
-          tile.ownerId === "stranded-player" &&
-          Boolean(tile.afcJson) &&
-          !(tile.x === 99 && tile.y === 99)
-      )
-    ).toBe(true);
+    expect(tiles.some((tile) => tile.ownerId === "stranded-player" && Boolean(tile.afcJson))).toBe(false);
 
     await service.close();
     const persistedRepairEvents = (await eventStore.loadAllEvents()).filter((event) =>
       event.commandId.startsWith("startup-gross-income-settlement:stranded-player")
     );
-    expect(persistedRepairEvents.map((event) => event.eventType)).toEqual(
-      expect.arrayContaining(["TILE_YIELD_ANCHOR_UPDATED", "TILE_DELTA_BATCH"])
-    );
+    expect(persistedRepairEvents).toEqual([]);
     // seedProfile: "season-20ai" bootstraps a full 20-AI world inline during
     // createSimulationService — real, variable-cost work (unlike the
     // "default" profile the sibling test below uses). This deterministic

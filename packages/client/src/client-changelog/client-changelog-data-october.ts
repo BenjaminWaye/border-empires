@@ -295,6 +295,19 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attacking the tile an enemy is attacking you from now tells you up front how long it stays locked, instead of mustering and then failing",
       "A rejected muster attack no longer leaves its flag stuck and over-filling (70/60 climbing to 120) before it can fire again"
     ]
+  },
+  {
+    createdAt: 1791318269732, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.1",
+    title: "Fabrication Complexes: 8 modules each, and losing one now costs more",
+    why: "Losing your last AFC dropped a new one onto open ground for free, so captured AFCs piled up across the map, and every lost module came straight back at once.",
+    changes: [
+      "If your last AFC is captured, build a new one yourself, free: tap any empty tile in your territory and choose Build AFC",
+      "Lost modules come back one per minute, Economy modules first",
+      "Each AFC holds 8 modules. When all your AFCs are full, a newly researched module waits until you build another AFC",
+      "Capturing an enemy AFC also plunders 33% of their Coin",
+      "Fixed: AFCs disappeared after a server restart and a new one appeared somewhere else"
+    ]
   }
 ];
 

@@ -3,6 +3,7 @@ import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/si
 import {
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
+import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
@@ -153,6 +154,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     previousOwnerId !== lock.playerId &&
     context.isTileShieldedByAegisLock(lock.playerId, lock.targetX, lock.targetY);
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
+  const afcPlunder = afcCapturePlunderGold({
+    attackerWon, attackerId: lock.playerId, previousTarget, defenderPoints: defender?.points,
+    regularDefenderGoldLoss: targetWasSettled && combatResolution ? combatResolution.defenderGoldLoss : 0
+  });
+  const reportedResult = withAfcCapturePlunder(combatResult, afcPlunder);
   // The defender takes the origin tile on a loss -- unless it is no longer the
   // attacker's to lose (the defender, or someone else, captured it mid-fight).
   // A barbarian released its origin when the attack started, so there the tile
@@ -209,9 +215,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     targetY: lock.targetY,
     attackerWon,
     ...(typeof combatResult?.manpowerDelta === "number" && combatResult.manpowerDelta < -0.01 ? { manpowerDelta: combatResult.manpowerDelta } : {}),
-    ...(typeof combatResult?.pillagedGold === "number" && combatResult.pillagedGold > 0.01 ? { pillagedGold: combatResult.pillagedGold } : {}),
+    ...(typeof reportedResult?.pillagedGold === "number" && reportedResult.pillagedGold > 0.01 ? { pillagedGold: reportedResult.pillagedGold } : {}),
     ...(combatResult?.pillagedStrategic && Object.keys(combatResult.pillagedStrategic).length > 0 ? { pillagedStrategic: combatResult.pillagedStrategic } : {}),
-    ...(combatResult ? { combatResult } : {})
+    ...(reportedResult ? { combatResult: reportedResult } : {})
   });
 
   if (attacker && typeof combatResult?.manpowerDelta === "number") {
@@ -236,6 +242,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       defenderGoldLoss: combatResolution.defenderGoldLoss
     });
   }
+  if (afcPlunder > 0 && attacker && defender) context.applySettledCapturePlunder({ attacker, defender, gold: afcPlunder, defenderGoldLoss: afcPlunder });
   if (attackerWon && attacker && defender && previousTarget?.resource && !combatResolution?.targetRecentlyPillaged && previousOwnerId && previousOwnerId !== lock.playerId) {
     applyResourceTileSteal(context, attacker, defender, previousTarget.resource, previousTarget.economicStructure?.type);
   }

@@ -358,6 +358,10 @@ export function ensureGrossIncomeSettlementForPlayer(
   if (!player || player.id.startsWith("barbarian-")) return false;
   const summary = ctx.summaryForPlayer(playerId);
   if (summary.territoryTileKeys.size === 0) return false;
+  // No AFC (its flat Coin baseline is what usually lapses here): a human
+  // rebuilds it for free, an AI gets one placed after a delay
+  // (runtime-respawn-helpers.ts). Don't drop a fresh AFC on neutral land.
+  if (summary.ownedAfcTileKeys.size === 0) return false;
   if (hasActiveSettlementTownForPlayer(ctx, playerId)) return false;
   if (incomePerMinuteForPlayer(ctx, playerId) > 0) return false;
   return ctx.respawnPlayerOnUnownedLand(playerId, commandId);

@@ -14,6 +14,7 @@ import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/cl
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
+import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -62,11 +63,13 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   const previousAfcModulesByKey = new Map<string, ReadonlySet<string> | undefined>();
+  const myAfcKeysBefore = new Set<string>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
       previousAfcModulesByKey.set(updateKey, snapshotAfcModules(existing));
+      if (existing?.afc?.ownerId === state.me && existing.ownerId === state.me) myAfcKeysBefore.add(updateKey);
       previousTileByKey.set(
         updateKey,
         existing
@@ -165,6 +168,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
       }
     }
+    const lostAnAfc = [...myAfcKeysBefore].some((key) => state.tiles.get(key)?.afc?.ownerId !== state.me || state.tiles.get(key)?.ownerId !== state.me);
+    if (lostAnAfc) notifyIfLastAfcLost(state, deps.pushFeed);
     recordAfcModuleDeliveries(
       state,
       detectAfcModuleDeliveries({ tileUpdates, previousAfcModulesByKey, tiles: state.tiles, me: state.me, keyFor, nowMs: performance.now() }),
