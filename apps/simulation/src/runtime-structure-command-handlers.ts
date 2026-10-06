@@ -412,7 +412,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       : spec.kind === "ECONOMIC"
         ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
         : structureDurationMs;
-  const completesAt = context.now() + buildMs;
+  const startedAt = context.now();
+  const completesAt = startedAt + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
   const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "RELAY_BEACON";
   let resolvedVariant: string | undefined;
@@ -439,6 +440,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
             ...(standingFort.disabledUntil !== undefined ? { disabledUntil: standingFort.disabledUntil } : {})
           }
         : {}),
+      startedAt,
       completesAt
     }
   } as DomainTileState;

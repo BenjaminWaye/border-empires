@@ -76,6 +76,8 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
   1. Resource on tile (FARM → FARMSTEAD, etc.)
   2. Player need (low food coverage → Granary; weak economy → income structures)
   3. Adjacency (Foundry's 10-tile output multiplier radius; town support reach)
+- **Build time** is manpower cost × 36 s (`structureBuildDurationMs`, `structure-costs.ts`), so builds last from about an hour to many hours. In-flight records carry `startedAt` and `completesAt` (stamped by the build/removal handlers, stripped on completion, capture and cancel); the client derives progress from that window.
+- **Construction is shown in phases** (presentation only, no gameplay effect): economic structures under construction or removal render in 4 height bands with scaffolding, a parts stack and a synchronized ancillary crew, in both the 3D and 2D maps. Model: `packages/client/src/client-construction-phase/`; design and coverage in `docs/construction-animation-plan.md`.
 - References: `packages/game-domain/src/server-game-constants/server-game-constants.ts:20-58`, `packages/shared/src/types.ts:279-286`, `packages/shared/src/structure-costs/structure-costs.ts:18-96`, `apps/simulation/src/ai/structure-command-planner.ts:129-250`.
 
 ## 6. Tech and research

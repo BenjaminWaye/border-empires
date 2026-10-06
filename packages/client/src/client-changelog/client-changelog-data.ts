@@ -65,6 +65,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791196311458, // Date.now() frozen for this entry
+    introducedIn: "2026.10.05.2",
+    title: "Watch structures get built",
+    why: "Structures take hours to build, but a tile under construction looked the same as a finished one, so there was nothing to tell a slow build from a stuck one.",
+    changes: [
+      "Economic structures under construction now rise in four phases (foundation, frame, cladding, fit-out) with scaffolding around them, in both the 3D and 2D maps",
+      "A stack of glowing parts sits beside each site and shrinks as the ancillary crew carries it over, and fresh parts drop in from orbit at the start of every phase",
+      "The crew moves in lockstep and freezes when a build is overdue; removing a structure plays the phases in reverse",
+      "In the 3D map, forts, siege camps, Aether Towers, Relay Beacons, Umbrite rigs and factories, and Caravanaries still show fully built while under construction"
+    ]
+  },
+  {
     createdAt: 1791140199531, // Date.now() frozen for this entry
     introducedIn: "2026.10.04.1",
     title: "Safer spawns and full AFC reach",
@@ -139,8 +151,32 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791196969000, // frozen Date.now() value for this release
+    createdAt: 1791277545524, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.1",
+    title: "Extra and Double effort now actually boost muster attacks",
+    why: "Choosing Extra or Double effort for a muster flag was lost on the way to the server, so the flag attacked at Normal effort and the battle card showed Normal odds.",
+    changes: [
+      "A muster flag's chosen effort level is now saved and used for the attacks it launches",
+      "The battle card's chance of winning reflects the effort you committed"
+    ]
+  },
+  {
+    createdAt: 1791280725000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.2",
+    title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
+    why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
+    changes: [
+      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
+      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
+      "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
+      "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
+      "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
+      "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
+    ]
+  },
+  {
+    createdAt: 1791196969000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.3",
     title: "Attacks now pause settling and building",
     why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
     changes: [

@@ -6,7 +6,7 @@ import { hideArrowGestureConfirmSheet } from "../client-arrow-gesture-confirm-sh
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
-import { showWaystationActivationOverlay } from "../client-waystation-activation/client-waystation-activation.js";
+import { showWaystationActivationOverlayWhenClear } from "../client-waystation-activation/client-waystation-activation-gate.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
@@ -210,7 +210,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         deps.renderHud();
       }
     }, {
-      showOverlay: showWaystationActivationOverlay,
+      showOverlay: (info) => showWaystationActivationOverlayWhenClear(info, state),
       markSeen: (x, y) => markWaystationActivationSeen(state, x, y),
       isSeen: (x, y) => hasWaystationActivationBeenShown(state, x, y)
     });

@@ -135,4 +135,17 @@ describe("attack development hold: edge cases", () => {
     timers[0]!.run();
     expect(completed).toHaveLength(1);
   });
+
+  it("slides startedAt with the deadline so build progress resumes where it froze", () => {
+    const clock = { now: 40_000 };
+    // 100s build, started at 0: 40% done when the attack lands.
+    const { ctx, tiles } = makeContext({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", startedAt: 0, completesAt: 100_000 } }, clock);
+    holdDevelopmentForAttack(ctx, { targetKey: TILE, attackerId: "attacker", commandId: "atk" });
+    clock.now = 70_000; // 30s paused
+    releaseDevelopmentHold(ctx, TILE, "atk");
+    const resumed = tiles.get(TILE)?.economicStructure;
+    expect(resumed).toMatchObject({ startedAt: 30_000, completesAt: 130_000 });
+    // Progress right after resuming is still 40%, not the 54% an unshifted startedAt would read.
+    expect((clock.now - (resumed?.startedAt ?? 0)) / ((resumed?.completesAt ?? 1) - (resumed?.startedAt ?? 0))).toBeCloseTo(0.4, 6);
+  });
 });

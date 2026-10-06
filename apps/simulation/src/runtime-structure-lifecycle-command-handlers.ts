@@ -337,7 +337,7 @@ function cancelStructureActionTile(
       ...target,
       fort: target.fort.status === "under_construction"
         ? standingFortAfterLostUpgrade(target.fort)
-        : { ...target.fort, status: target.fort.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined }
+        : { ...target.fort, status: target.fort.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
   if (target.observatory?.ownerId === playerId && (target.observatory.status === "under_construction" || target.observatory.status === "removing")) {
@@ -348,7 +348,7 @@ function cancelStructureActionTile(
       ...target,
       observatory: target.observatory.status === "under_construction"
         ? undefined
-        : { ...target.observatory, status: target.observatory.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined }
+        : { ...target.observatory, status: target.observatory.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
   if (target.siegeOutpost?.ownerId === playerId && (target.siegeOutpost.status === "under_construction" || target.siegeOutpost.status === "removing")) {
@@ -359,7 +359,7 @@ function cancelStructureActionTile(
       ...target,
       siegeOutpost: target.siegeOutpost.status === "under_construction"
         ? undefined
-        : { ...target.siegeOutpost, status: target.siegeOutpost.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined }
+        : { ...target.siegeOutpost, status: target.siegeOutpost.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
   if (target.economicStructure?.ownerId === playerId && (target.economicStructure.status === "under_construction" || target.economicStructure.status === "removing")) {
@@ -374,7 +374,7 @@ function cancelStructureActionTile(
       ...target,
       economicStructure: target.economicStructure.status === "under_construction"
         ? undefined
-        : { ...target.economicStructure, status: target.economicStructure.previousStatus ?? "inactive", previousStatus: undefined, completesAt: undefined }
+        : { ...target.economicStructure, status: target.economicStructure.previousStatus ?? "inactive", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
   return undefined;
@@ -428,17 +428,17 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     // would pay, not on what's actually being torn down, and can be 0 for a
     // free Relay Beacon -- an instant removal was never the intent).
     removeDurationMs = FORT_BUILD_MS;
-    updatedTile = { ...target, fort: { ...fort, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
+    updatedTile = { ...target, fort: { ...fort, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else if (observatory) {
     removeDurationMs = OBSERVATORY_BUILD_MS;
-    updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
+    updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else if (siegeOutpost) {
     removeDurationMs = SIEGE_OUTPOST_BUILD_MS;
-    updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
+    updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
     removeDurationMs = structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
-    updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
+    updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", startedAt: now, completesAt: now + removeDurationMs } };
   }
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });

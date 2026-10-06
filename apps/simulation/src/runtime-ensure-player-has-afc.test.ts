@@ -76,6 +76,36 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(afcTiles).toHaveLength(1); // still just the original
   });
 
+  it("calls down researched AFC modules missing from an existing AFC on reconnect", () => {
+    const afcTile: DomainTileState = {
+      x: 15,
+      y: 15,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      afc: { ownerId: "player-1", status: "active", activatedAt: 0, modules: ["masonry"], houseModules: ["masonry"] }
+    };
+    const player = makePlayer("player-1");
+    player.techIds = new Set(["masonry", "crystal-lattices", "agriculture"]);
+    let now = 1_000;
+    const timers: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      scheduleAfter: (delayMs, task) => { if (delayMs > 0) timers.push(task); else task(); },
+      initialPlayers: new Map([["player-1", player]]),
+      initialState: { tiles: [afcTile, ...emptyLandGrid(new Set(["15,15"]))], activeLocks: [] }
+    });
+    const afcState = () => JSON.parse(runtime.exportState().tiles.find((tile) => tile.ownerId === "player-1" && tile.afcJson)!.afcJson!);
+
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(true);
+    expect(afcState().incomingModules).toEqual([{ techId: "crystal-lattices", arrivesAt: 61_000 }]);
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false); // already on its way
+    now = 61_000;
+    timers.splice(0).forEach((task) => task());
+    expect(afcState().houseModules).toEqual(["masonry", "crystal-lattices"]);
+    expect(afcState().incomingModules).toBeUndefined();
+  });
+
   it("is a no-op for a player with zero territory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

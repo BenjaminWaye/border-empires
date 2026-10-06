@@ -109,6 +109,35 @@ export function resetFromIterable(entry: TileKeyArrayEntry, source: Iterable<str
   }
 }
 
+/** The summary sets the candidate-index mirroring below reads. */
+type CandidateKeySets = Pick<PlannerTileKeysSummarySnapshot, "hotFrontierTileKeys" | "strategicFrontierTileKeys" | "buildCandidateTileKeys">;
+
+/**
+ * After a full rebuild of hot/strategic/buildCandidate, reset the cache entry for
+ * those three sub-fields from the now-correct summary Sets. territory, frontier and
+ * pendingSettlement are not touched by rebuildPlannerCandidateIndexes so they stay valid.
+ */
+export function resetCandidateKeysFromSummary(entry: PlannerTileKeysCacheEntry, summary: CandidateKeySets): void {
+  resetFromIterable(entry.hotFrontier, summary.hotFrontierTileKeys);
+  resetFromIterable(entry.strategicFrontier, summary.strategicFrontierTileKeys);
+  resetFromIterable(entry.buildCandidate, summary.buildCandidateTileKeys);
+}
+
+/**
+ * Mirror a targeted hot/strategic/build candidate update into the cache entry.
+ * `affectedKeys` is a bounded neighborhood (<=25 tiles at r=2), so this is O(1) in
+ * practice regardless of empire size. The summary Sets are already updated at this
+ * point, so each affected key is re-checked against them to decide membership.
+ */
+export function mirrorCandidateKeysIntoCache(entry: PlannerTileKeysCacheEntry, affectedKeys: Iterable<string>, summary: CandidateKeySets): void {
+  for (const candidateKey of affectedKeys) {
+    const sync = (target: TileKeyArrayEntry, present: boolean): void => (present ? incrementalAdd(target, candidateKey) : incrementalRemove(target, candidateKey));
+    sync(entry.hotFrontier, summary.hotFrontierTileKeys.has(candidateKey));
+    sync(entry.strategicFrontier, summary.strategicFrontierTileKeys.has(candidateKey));
+    sync(entry.buildCandidate, summary.buildCandidateTileKeys.has(candidateKey));
+  }
+}
+
 /** Summary shape subset that `initCacheFromSummary` reads. */
 export type PlannerTileKeysSummarySnapshot = {
   readonly territoryTileKeys: ReadonlySet<string>;

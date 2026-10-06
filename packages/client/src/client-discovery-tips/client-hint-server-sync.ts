@@ -12,7 +12,7 @@ import { hydrateDiscoveryTipsFromServer } from "./client-discovery-tips-storage.
 import { hydrateOnboardingChecklistFromServer } from "../client-onboarding-checklist/client-onboarding-checklist-storage.js";
 import { hydrateMusterUnlockFromServer } from "../client-muster-unlock/client-muster-unlock-storage.js";
 
-type HintStatePatch = { dismissedHints?: string[]; hintsMuted?: boolean; onboardingChecklistCompleted?: boolean; musterUnlockedSeasonId?: string };
+type HintStatePatch = { dismissedHints?: string[]; hintsMuted?: boolean; onboardingChecklistCompleted?: boolean; musterUnlockedSeasonId?: string; dashboardQuietedSeasonId?: string };
 
 let sendHintStateMessage: ((patch: HintStatePatch) => void) | undefined;
 

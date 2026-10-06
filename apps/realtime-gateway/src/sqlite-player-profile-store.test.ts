@@ -107,6 +107,25 @@ describe("SqliteGatewayPlayerProfileStore", () => {
     await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlockedSeasonId: "season-2" }));
   });
 
+  it("persists dashboardQuietedSeasonId per season and keeps it across unrelated hint patches", async () => {
+    const store = await createStore();
+    await store.setProfile("player-1", "Nauticus", "#123456");
+    await expect(store.get("player-1")).resolves.not.toHaveProperty("dashboardQuietedSeasonId");
+
+    await store.setHintState("player-1", { dashboardQuietedSeasonId: "season-1" });
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ dashboardQuietedSeasonId: "season-1", name: "Nauticus" })
+    );
+
+    await store.setHintState("player-1", { hintsMuted: true }); // omitted field must COALESCE to the stored value
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ dashboardQuietedSeasonId: "season-1", hintsMuted: true })
+    );
+
+    await store.setHintState("player-1", { dashboardQuietedSeasonId: "season-2" }); // a new season's first login
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ dashboardQuietedSeasonId: "season-2" }));
+  });
+
   it("setActivitySeen is monotonic within the same season", async () => {
     const store = await createStore();
     await store.setActivitySeen("player-1", 1_000, "season-1");

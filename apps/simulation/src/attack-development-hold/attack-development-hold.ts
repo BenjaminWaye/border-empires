@@ -38,7 +38,7 @@ export const tileHasPausedConstruction = (tile: DomainTileState | undefined): bo
 export type StructureCompletionTimerContext = {
   now: () => number;
   scheduleAfter: (delayMs: number, task: () => void) => void;
-  tiles: Map<string, DomainTileState>;
+  tiles: ReadonlyMap<string, DomainTileState>;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
 };
 
@@ -111,8 +111,12 @@ export const releaseDevelopmentHold = (ctx: AttackDevelopmentHoldContext, tileKe
     const structure = tile[field];
     if (structure?.status !== "under_construction" || structure.pausedAt === undefined) continue;
     const { pausedAt, ...rest } = structure;
-    const completesAt = (structure.completesAt ?? now) + Math.max(0, now - pausedAt);
-    resumed = { ...resumed, [field]: { ...rest, completesAt } } as DomainTileState;
+    const pausedFor = Math.max(0, now - pausedAt);
+    const completesAt = (structure.completesAt ?? now) + pausedFor;
+    // startedAt slides with the deadline so build progress (the construction animation and
+    // progress bar read (now - startedAt) / (completesAt - startedAt)) resumes where it froze.
+    const startedAt = typeof structure.startedAt === "number" ? { startedAt: structure.startedAt + pausedFor } : {};
+    resumed = { ...resumed, [field]: { ...rest, ...startedAt, completesAt } } as DomainTileState;
     timers.push({ field, completesAt });
   }
   emitTileUpdate(ctx, tileKey, resumed, tile.ownerId, `attack-resume:${commandId}`);

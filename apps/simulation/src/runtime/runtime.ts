@@ -141,7 +141,8 @@ import {
   incrementalAdd,
   incrementalRemove,
   plannerPlayerTileKeys as plannerPlayerTileKeysImpl,
-  resetFromIterable,
+  mirrorCandidateKeysIntoCache,
+  resetCandidateKeysFromSummary,
   type PlannerPlayerTileKeysContext,
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
@@ -521,8 +522,9 @@ import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js
 import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
-import { holdDevelopmentForAttack, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
-import { installAttackReleaseHandler, recoverInFlightStructureWork } from "./runtime-structure-recovery.js";
+import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
+import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
+import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1174,7 +1176,16 @@ export class SimulationRuntime {
       },
       options.initialState?.pendingSettlements ?? []
     );
-    recoverInFlightStructureWork({ holdContext: this.attackDevelopmentHoldContext(), locksByTile: this.state.locksByTile, completeStructureRemoval: (tileKey, ownerId, commandId) => this.completeStructureRemoval(tileKey, ownerId, commandId) }, this.state.tiles);
+    rescheduleRecoveredStructureTimers({
+      tiles: this.state.tiles,
+      now: this.now,
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+      completeStructureBuild: (tileKey, ownerId, structureType, commandId) => this.completeStructureBuild(tileKey, ownerId, structureType, commandId),
+      completeStructureRemoval: (tileKey, ownerId, commandId) => this.completeStructureRemoval(tileKey, ownerId, commandId),
+      isTileUnderAttack: (tileKey) => this.state.locksByTile.targetLockAt(tileKey)?.actionType === "ATTACK",
+      releaseDevelopmentHold: (tileKey, commandId) => releaseDevelopmentHold(this.attackDevelopmentHoldContext(), tileKey, commandId),
+      afcModuleDelivery: () => ({ ...this.respawnContext(), ownedAfcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys })
+    });
     installAttackReleaseHandler(this.state.locksByTile, () => this.attackDevelopmentHoldContext(), (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId));
     const recoveredCommandHistory = options.initialCommandHistory;
     hydrateCommandHistory({
@@ -1499,6 +1510,7 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
@@ -2195,16 +2207,8 @@ export class SimulationRuntime {
       summary: this.summaryForPlayer(playerId),
       markPlannerPlayerTileCollectionDirty: (id) => this.markPlannerPlayerTileCollectionDirty(id),
       onCandidateRebuildComplete: (id, summary) => {
-        // After a full rebuild of hot/strategic/buildCandidate, reset the
-        // incremental cache entry for those three sub-fields from the now-correct
-        // summary Sets.  territory, frontier, and pendingSettlement are not
-        // touched by rebuildPlannerCandidateIndexes so they stay valid.
         const entry = this.plannerPlayerTileKeyCacheByPlayer.get(id);
-        if (entry) {
-          resetFromIterable(entry.hotFrontier, summary.hotFrontierTileKeys);
-          resetFromIterable(entry.strategicFrontier, summary.strategicFrontierTileKeys);
-          resetFromIterable(entry.buildCandidate, summary.buildCandidateTileKeys);
-        }
+        if (entry) resetCandidateKeysFromSummary(entry, summary);
       }
     });
   }
@@ -2223,30 +2227,8 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       markPlannerPlayerTileCollectionDirty: (playerId) => this.markPlannerPlayerTileCollectionDirty(playerId),
       onCandidateKeysUpdated: (playerId, affectedKeys, summary) => {
-        // Mirror the hot/strategic/build candidate updates into the incremental
-        // cache.  affectedKeys is a bounded neighborhood (≤25 tiles at r=2),
-        // so this is O(1) in practice regardless of empire size.
         const entry = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
-        if (!entry) return;
-        for (const candidateKey of affectedKeys) {
-          // Re-check the summary Sets (which are already updated at this point)
-          // to determine whether each affected key should be in the cached arrays.
-          if (summary.hotFrontierTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.hotFrontier, candidateKey);
-          } else {
-            incrementalRemove(entry.hotFrontier, candidateKey);
-          }
-          if (summary.strategicFrontierTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.strategicFrontier, candidateKey);
-          } else {
-            incrementalRemove(entry.strategicFrontier, candidateKey);
-          }
-          if (summary.buildCandidateTileKeys.has(candidateKey)) {
-            incrementalAdd(entry.buildCandidate, candidateKey);
-          } else {
-            incrementalRemove(entry.buildCandidate, candidateKey);
-          }
-        }
+        if (entry) mirrorCandidateKeysIntoCache(entry, affectedKeys, summary);
       }
     });
   }
