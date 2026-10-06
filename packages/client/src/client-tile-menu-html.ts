@@ -1,4 +1,5 @@
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
+import { afcModuleBaysHtml } from "./client-afc-module-bays/client-afc-module-bays-html.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
@@ -241,6 +242,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "buildings") return "Buildings";
   if (tab === "crystal") return "Crystal";
   if (tab === "commit") return "Attack";
+  if (tab === "modules") return "Modules";
   return "Progress";
 };
 
@@ -321,6 +323,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
+  if (activeTab === "modules") return afcModuleBaysHtml(view.afcModules);
   if (activeTab === "commit") {
     const commit = view.commit;
     if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;

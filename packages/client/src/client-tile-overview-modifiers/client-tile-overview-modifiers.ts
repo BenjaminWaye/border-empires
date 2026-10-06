@@ -327,6 +327,6 @@ export const tileFeatureLeadLines = (
     const shards = `${n} shard${n === 1 ? "" : "s"}`;
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
-  lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
+  lines.push(...afcModuleOverviewLines(tile));
   return lines;
 };

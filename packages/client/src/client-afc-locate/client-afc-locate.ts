@@ -19,7 +19,7 @@ export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile 
 };
 
 /** Jumps the camera to the home AFC, selects it and opens its tile menu on
- * the overview tab (which lists the docked modules). Returns false when no
+ * the tab the caller picks (the AFC button uses Modules). Returns false when no
  * owned AFC is loaded so the caller can fall back to centering on the empire. */
 export const locateHomeAfc = (
   state: AfcLocateState,

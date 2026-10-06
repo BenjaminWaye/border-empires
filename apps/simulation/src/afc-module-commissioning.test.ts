@@ -89,6 +89,23 @@ describe("commissionModuleIfApplicable", () => {
     expect(tiles.get("10,12")?.afc?.modules).toBeUndefined();
   });
 
+  it("docks on the next AFC with a free bay when the home AFC's 8 bays are full, and nowhere when all are full", () => {
+    const full = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const tiles = new Map<string, DomainTileState>([
+      ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: full } })],
+      ["20,30", afcTile({ x: 20, y: 30, afc: { ownerId: "player-1", status: "active", activatedAt: 5000 } })]
+    ]);
+    const { ctx } = buildContext(tiles, ["10,12", "20,30"]);
+
+    commissionModuleIfApplicable(ctx, "player-1", "crystal-lattices", "cmd-1");
+    expect(tiles.get("20,30")?.afc?.houseModules).toEqual(["crystal-lattices"]);
+
+    tiles.set("20,30", afcTile({ x: 20, y: 30, afc: { ownerId: "player-1", status: "active", activatedAt: 5000, modules: full } }));
+    commissionModuleIfApplicable(ctx, "player-1", "masonry", "cmd-2");
+    expect(tiles.get("10,12")?.afc?.modules).toEqual(full);
+    expect(tiles.get("20,30")?.afc?.modules).toEqual(full);
+  });
+
   it("does not double-dock the same tech twice", () => {
     const tiles = new Map<string, DomainTileState>([
       ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: ["crystal-lattices"], houseModules: ["crystal-lattices"] } })]
@@ -151,6 +168,20 @@ describe("backfillMissingHouseModules", () => {
     const { ctx, events } = buildContext(tiles, ["10,12"]);
     expect(backfillMissingHouseModules(ctx, deliveryFor(ctx, [], { value: 0 }), "player-1", ["masonry"], "cmd-1")).toBe(false);
     expect(events).toHaveLength(0);
+  });
+
+  it("spreads missing modules over AFCs with free bays and sheds House copies beyond 8", () => {
+    const nine = ["masonry", "leatherworking", "crystal-lattices", "workshops", "fortified-walls", "siegecraft", "muster-discipline", "alchemy", "steelworking"];
+    const tiles = new Map<string, DomainTileState>([
+      ["10,12", afcTile({ afc: { ownerId: "player-1", status: "active", activatedAt: 1000, modules: nine, houseModules: nine } })],
+      ["20,30", afcTile({ x: 20, y: 30, afc: { ownerId: "player-1", status: "active", activatedAt: 5000, modules: ["x"] } })]
+    ]);
+    const { ctx } = buildContext(tiles, ["10,12", "20,30"]);
+
+    backfillMissingHouseModules(ctx, deliveryFor(ctx, [], { value: 0 }), "player-1", [...nine, "radar"], "cmd-1");
+
+    expect(tiles.get("10,12")?.afc?.modules).toEqual(nine.slice(0, 8));
+    expect(tiles.get("20,30")?.afc?.incomingModules?.map((entry) => entry.techId)).toEqual(["radar", "steelworking"]);
   });
 
   it("is a no-op once everything is held, and when the player owns no AFC", () => {

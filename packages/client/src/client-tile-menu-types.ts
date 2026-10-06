@@ -5,8 +5,9 @@
 import type { FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { MusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import type { TileActionDef } from "./client-types.js";
+import type { AfcModuleBaysView } from "./client-afc-module-bays/client-afc-module-bays-model.js";
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit";
+export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit" | "modules";
 
 export type TileMenuProgressView = {
   title: string;
@@ -94,4 +95,5 @@ export type TileMenuView = {
   progress?: TileMenuProgressView;
   combatBreakdown?: TileCombatBreakdown | undefined;
   commit?: MusterCommitView | undefined;
+  afcModules?: AfcModuleBaysView | undefined;
 };

@@ -44,6 +44,7 @@ import {
   Texture,
   Vector3
 } from "three";
+import { afcBayAngleRadians } from "./client-afc-module-bays/client-afc-module-bays-model.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export const AFC_SOCKET_COUNT = 8;
@@ -332,7 +333,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
   const addAfc = (wx: number, sy: number, wz: number): void => {
     addCentralPrinter(wx, sy, wz);
     for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
-      const ang = (k * Math.PI) / 4;
+      const ang = afcBayAngleRadians(k);
       addModuleSocket(wx, sy, wz, ang);
       addSocketCable(wx, sy, wz, ang);
     }
@@ -412,7 +413,7 @@ export const createFabricationComplexOverlay = (scene: Scene, maxTiles: number, 
     const rec = records[instanceIndex]!;
     const out: AfcModuleSocketAttachment[] = [];
     for (let k = 0; k < AFC_SOCKET_COUNT; k += 1) {
-      const a = (k * Math.PI) / 4;
+      const a = afcBayAngleRadians(k); // shared with the Modules tab diagram
       out.push({
         socketIndex: k,
         x: rec.x + Math.cos(a) * AFC_SOCKET_RING_RADIUS,

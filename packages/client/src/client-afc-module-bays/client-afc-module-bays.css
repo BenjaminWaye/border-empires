@@ -1,0 +1,254 @@
+/*
+ * AFC "Modules" tile-menu tab (client-afc-module-bays-html.ts): a top-down
+ * diagram of the Fabrication Complex with its 8 module bays. Imported after
+ * client-steampunk-theme-style.css so the --sp-* tokens resolve.
+ * Family colours: Economy brass, Manpower verdigris, War ember, Aether violet.
+ */
+
+.afc-bays {
+  --afc-family-economy: var(--sp-brass-300);
+  --afc-family-manpower: var(--sp-verdigris-300);
+  --afc-family-war: var(--sp-ember-400);
+  --afc-family-aether: #b79cf2;
+  --afc-family-other: var(--sp-parchment-300);
+  display: grid;
+  gap: 10px;
+  color: var(--sp-parchment-100);
+}
+
+.afc-bays-summary {
+  font-family: var(--sp-font-display);
+  color: var(--sp-brass-100);
+  font-size: 13px;
+}
+
+.afc-bays-diagram {
+  position: relative;
+  width: min(100%, 260px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+
+.afc-bays-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.afc-bays-ring {
+  fill: none;
+  stroke: var(--sp-brass-700);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+
+.afc-bays-arm {
+  stroke: var(--sp-gunmetal-700);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.afc-bays-hub {
+  fill: var(--sp-iron-850);
+  stroke: var(--sp-brass-500);
+  stroke-width: 1.4;
+}
+
+.afc-bays-hub-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--sp-font-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--sp-brass-300);
+  pointer-events: none;
+}
+
+.afc-bay {
+  --afc-bay-color: var(--afc-family-other);
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 19%;
+  aspect-ratio: 1;
+  min-width: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--afc-bay-color);
+  background: var(--sp-iron-900);
+  color: var(--afc-bay-color);
+  font-family: var(--sp-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.afc-bay:hover,
+.afc-bay:focus-visible {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.afc-bay.is-selected {
+  box-shadow: 0 0 0 3px rgba(255, 233, 180, 0.35), 0 0 14px var(--afc-bay-color);
+}
+
+.afc-bay.is-empty {
+  --afc-bay-color: var(--sp-parchment-muted);
+  border-style: dashed;
+  background: rgba(20, 16, 12, 0.6);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.afc-bay.is-docked {
+  background: color-mix(in srgb, var(--afc-bay-color) 22%, var(--sp-iron-900));
+}
+
+.afc-bay.is-captured {
+  border-style: double;
+  border-width: 4px;
+}
+
+.afc-bay.is-incoming {
+  border-style: dashed;
+  animation: afc-bay-incoming 1.4s ease-in-out infinite;
+}
+
+@keyframes afc-bay-incoming {
+  50% {
+    box-shadow: 0 0 12px var(--afc-bay-color);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .afc-bay.is-incoming {
+    animation: none;
+  }
+}
+
+.afc-bays.is-dormant .afc-bay:not(.is-empty) {
+  filter: grayscale(0.8);
+  opacity: 0.6;
+}
+
+.is-family-economy { --afc-bay-color: var(--afc-family-economy); }
+.is-family-manpower { --afc-bay-color: var(--afc-family-manpower); }
+.is-family-war { --afc-bay-color: var(--afc-family-war); }
+.is-family-aether { --afc-bay-color: var(--afc-family-aether); }
+
+.afc-bays-hint,
+.afc-bay-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sp-parchment-muted);
+  text-align: center;
+}
+
+.afc-bay-detail {
+  border: 1px solid var(--sp-brass-700);
+  border-left: 3px solid var(--afc-bay-color, var(--sp-brass-500));
+  border-radius: 6px;
+  background: rgba(30, 22, 15, 0.7);
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.afc-bay-detail-title {
+  font-family: var(--sp-font-display);
+  color: var(--sp-brass-100);
+  font-size: 14px;
+}
+
+.afc-bay-detail-meta {
+  font-size: 12px;
+  color: var(--sp-parchment-300);
+}
+
+.afc-bay-family {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--afc-bay-color, var(--sp-brass-500));
+  color: var(--afc-bay-color, var(--sp-brass-300));
+  font-size: 11px;
+}
+
+.afc-bay-detail-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--sp-parchment-100);
+}
+
+.afc-calldown-list {
+  display: grid;
+  gap: 6px;
+}
+
+.afc-calldown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--afc-bay-color);
+  background: rgba(14, 11, 8, 0.55);
+}
+
+.afc-calldown-text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.afc-calldown-text strong {
+  font-size: 13px;
+  color: var(--sp-parchment-100);
+}
+
+.afc-calldown-text small {
+  font-size: 11px;
+  color: var(--sp-parchment-muted);
+}
+
+.afc-calldown-btn {
+  display: grid;
+  gap: 1px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sp-verdigris-500);
+  background: rgba(40, 70, 58, 0.55);
+  color: var(--sp-verdigris-300);
+  font-family: var(--sp-font-display);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.afc-calldown-btn small {
+  font-size: 10px;
+  color: var(--sp-parchment-muted);
+}
+
+.afc-calldown-btn:hover {
+  border-color: var(--sp-verdigris-300);
+}
+
+.afc-bays-overflow {
+  display: grid;
+  gap: 6px;
+}
+
+/* display:grid above would otherwise override the hidden attribute the bay
+ * binder toggles (client-afc-module-bays-bind.ts). */
+.afc-bays [hidden] {
+  display: none;
+}

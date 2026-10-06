@@ -68,6 +68,16 @@ describe("callDownAfcModules", () => {
     expect(timers).toHaveLength(0);
   });
 
+  it("never fills more than the 8 bays, counting incoming modules", () => {
+    const tiles = new Map<string, DomainTileState>([
+      ["5,5", afcTile(5, 5, { modules: ["a", "b", "c", "d", "e", "f"], incomingModules: [{ techId: "g", arrivesAt: 1 }] })]
+    ]);
+    const { ctx } = harness(tiles);
+
+    expect(callDownAfcModules(ctx, "player-1", "5,5", ["masonry", "workshops"], "cmd-1")).toEqual(["masonry"]);
+    expect(callDownAfcModules(ctx, "player-1", "5,5", ["workshops"], "cmd-2")).toEqual([]);
+  });
+
   it("redirects a module that is still in transit to another AFC", () => {
     const tiles = new Map<string, DomainTileState>([
       ["1,1", afcTile(1, 1, { incomingModules: [{ techId: "masonry", arrivesAt: 50_000 }] })],

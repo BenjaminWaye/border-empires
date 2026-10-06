@@ -37,7 +37,7 @@ const deps = {
 };
 
 describe("menuOverviewForTile: AFC module overview", () => {
-  it("lists docked modules grouped by their Manifest branch", () => {
+  it("summarises bay use and points at the Modules tab (the per-module detail lives there)", () => {
     const tile = {
       x: 1,
       y: 1,
@@ -48,8 +48,7 @@ describe("menuOverviewForTile: AFC module overview", () => {
     } as Tile;
     const html = menuOverviewForTile(tile, deps).map((l) => l.html);
     expect(html).toContain("AFC Modules");
-    expect(html).toContain("Titanium Forge Module");
-    expect(html).toContain("Umbrite Synthesis Module");
+    expect(html).toContain("2/8 bays in use — see the Modules tab.");
   });
 
   it("shows a dormant banner for a captured (inactive) AFC", () => {

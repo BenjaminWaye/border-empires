@@ -13,8 +13,9 @@ export const handleAfcTileAction = (input: {
 }): boolean => {
   if (input.actionId.startsWith("redeploy_afc_module:")) {
     const techId = input.actionId.slice("redeploy_afc_module:".length);
+    // Sent from the Modules tab; the menu stays open so the bay can be seen
+    // switch to "incoming" when the tile delta lands.
     if (techId) input.sendGameMessage({ type: "REDEPLOY_AFC_MODULE", x: input.selected.x, y: input.selected.y, techId });
-    input.hideMenu();
     return true;
   }
   if (input.actionId !== "build_afc") return false;

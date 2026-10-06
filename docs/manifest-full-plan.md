@@ -283,8 +283,9 @@ exist to spread risk, not to impose an arbitrary loadout cap.
 > **Superseded by "Building additional AFCs" below (decided 2026-09-29):**
 > no Settlement-proximity rule. The player picks any valid owned tile.
 
-Module commission selects an AFC destination. There is no artificial
-module-capacity system.
+Module commission selects an AFC destination. Each AFC has 8 module bays
+(superseded 2026-10-06 by docs/manifest-afc-module-bays-plan.md, which
+replaced the original "no artificial module-capacity system" rule).
 
 If an AFC is captured, its modules become dormant or inaccessible to the
 original owner; they remain visible and strategically valuable. Do not

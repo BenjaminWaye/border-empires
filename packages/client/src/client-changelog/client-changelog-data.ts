@@ -154,12 +154,25 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
     why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
     changes: [
-      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
-      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
+      "Call a researched module down to one of your AFCs from that AFC's Modules tab",
+      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows on its bay in the Modules tab",
       "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
       "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
       "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
       "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
+    ]
+  },
+  {
+    createdAt: 1791302400000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.3",
+    title: "AFC Modules tab: 8 bays per Fabrication Complex",
+    why: "There was no clear way to see which modules an AFC held, what they did, or where to call one down, and an AFC could hold any number of modules even though only 8 fit on its arms.",
+    changes: [
+      "New Modules tab on every AFC: a diagram of its 8 bays, coloured by Economy, Manpower, War and Aether",
+      "Tap a module to see its name, family and what it unlocks; tap an empty bay to call a module down into it",
+      "Each AFC holds at most 8 modules -- build more AFCs to field more; research docks on the next AFC with a free bay",
+      "Modules that fit nowhere stay undocked (their unlocks are inactive) until you free a bay or build another AFC",
+      "The AFC button now opens the Modules tab, and the Overview shows a short bay summary"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

@@ -1,3 +1,4 @@
+import { AFC_MODULE_BAY_COUNT, afcModuleBaysFree } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { parseRedeployAfcModulePayload } from "./runtime-command-parsers.js";
@@ -20,6 +21,11 @@ export const handleRedeployAfcModuleCommand = (context: RuntimeStructureCommandC
   const target = context.tiles.get(targetKey);
   if (!target?.afc || target.ownerId !== actor.id || target.ownershipState !== "SETTLED" || target.afc.status !== "active") {
     rejectCommand(context, command, "BUILD_INVALID", "target must be an active AFC you control");
+    return;
+  }
+  const alreadyThere = target.afc.houseModules?.includes(payload.techId) || target.afc.incomingModules?.some((entry) => entry.techId === payload.techId);
+  if (!alreadyThere && afcModuleBaysFree(target.afc) === 0) {
+    rejectCommand(context, command, "BUILD_INVALID", `All ${AFC_MODULE_BAY_COUNT} module bays on this AFC are full`);
     return;
   }
   callDownAfcModules(afcModuleDeliveryContextFor(context), actor.id, targetKey, [payload.techId], command.commandId);

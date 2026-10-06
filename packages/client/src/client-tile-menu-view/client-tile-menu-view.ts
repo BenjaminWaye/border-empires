@@ -1,4 +1,6 @@
 import { battleOverviewLines, battleMenuHeaderStatus } from "../client-battle-progress/client-tracked-battle-progress.js";
+import { tileMenuOwnerLabel } from "./client-tile-menu-owner-label.js";
+import { afcModuleBaysView, type AfcModuleBaysState, type AfcModuleBaysView } from "../client-afc-module-bays/client-afc-module-bays-model.js";
 import {
   isFortDefending,
   requiredMusterForTarget,
@@ -415,7 +417,8 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
+    afcModules?: AfcModuleBaysView | undefined;
+    state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState> & Partial<Pick<AfcModuleBaysState, "techIds" | "techCatalog">>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -460,21 +463,12 @@ export const tileMenuViewForTile = (
   if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   if (deps.musterCommit) tabs.push("commit");
+  const { techIds, techCatalog, tiles } = deps.state;
+  const afcModules = deps.afcModules ?? (tile.afc && techIds && techCatalog && tiles ? afcModuleBaysView({ me: deps.state.me, techIds, techCatalog, tiles }, tile) : undefined);
+  if (afcModules) tabs.push("modules");
   tabs.push("overview");
   const regionLabel = [foreignTileOwnershipLabel(tile, deps.state.me), tile.regionType ? deps.prettyToken(tile.regionType) : undefined].filter(Boolean).join(" · ") || undefined;
-  const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
-  const ownerLabel =
-    (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA")
-      ? actions.length > 0
-        ? "Crossing route"
-        : "Open sea"
-      : !tile.ownerId
-        ? "Unclaimed"
-        : tile.ownerId === deps.state.me
-          ? tile.ownershipState === "FRONTIER"
-            ? "Your frontier"
-            : "Your settled land"
-          : (foreignOwnerLabel ?? "Unknown empire");
+  const ownerLabel = tileMenuOwnerLabel(tile, deps.state.me, actions.length > 0, deps.playerNameForOwner);
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
@@ -493,6 +487,7 @@ export const tileMenuViewForTile = (
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
-    ...(combatBreakdown ? { combatBreakdown } : {}), ...(deps.musterCommit ? { commit: deps.musterCommit } : {})
+    ...(combatBreakdown ? { combatBreakdown } : {}), ...(deps.musterCommit ? { commit: deps.musterCommit } : {}),
+    ...(afcModules ? { afcModules } : {})
   };
 };

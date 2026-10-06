@@ -1,11 +1,13 @@
 /**
  * Module commissioning, first slice (docs/manifest-full-plan.md §3-4,
  * §10 step 4): when a player researches an AFC_MODULE-category Manifest,
- * install its single House-owned copy onto their home AFC. The copy can later
+ * install its single House-owned copy onto their home AFC (or the next AFC
+ * with a free bay; docs/manifest-afc-module-bays-plan.md). The copy can later
  * be redeployed. Research while owning no AFC retains the tech but has no
  * copy location until a player gains an AFC; backfillMissingHouseModules
  * calls those (and any copy lost when its AFC was captured) down later.
  */
+import { AFC_MODULE_BAY_COUNT, afcModuleBaysFree, afcModuleBaysUsed } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -21,23 +23,21 @@ export type AfcModuleCommissioningContext = {
   emitEvent: (event: SimulationEvent) => void;
 };
 
-// The player's home AFC: their owned, settled AFC with the earliest
-// activatedAt (tile key breaks ties, for determinism). Mirrors the
-// "first/oldest anchor wins" convention used elsewhere in this codebase
-// (e.g. firstThreeTownKeysForPlayer) rather than introducing a new rule.
-const homeAfcTileKey = (ctx: AfcModuleCommissioningContext, playerId: string): string | undefined => {
-  let best: { tileKey: string; activatedAt: number } | undefined;
-  for (const tileKey of ctx.summaryForPlayer(playerId).ownedAfcTileKeys) {
-    const tile = ctx.tiles.get(tileKey);
-    if (!tile?.afc || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-    const activatedAt = tile.afc.activatedAt ?? 0;
-    if (!best || activatedAt < best.activatedAt || (activatedAt === best.activatedAt && tileKey < best.tileKey)) {
-      best = { tileKey, activatedAt };
-    }
-  }
-  return best?.tileKey;
-};
+// The player's owned, settled AFCs, home first: earliest activatedAt, tile
+// key breaking ties (for determinism). Mirrors the "first/oldest anchor wins"
+// convention used elsewhere in this codebase (e.g. firstThreeTownKeysForPlayer).
+const ownedAfcTileKeysOldestFirst = (ctx: AfcModuleCommissioningContext, playerId: string): string[] =>
+  [...ctx.summaryForPlayer(playerId).ownedAfcTileKeys]
+    .flatMap((tileKey) => {
+      const tile = ctx.tiles.get(tileKey);
+      return tile?.afc && tile.ownerId === playerId && tile.ownershipState === "SETTLED" ? [{ tileKey, activatedAt: tile.afc.activatedAt ?? 0 }] : [];
+    })
+    .sort((a, b) => a.activatedAt - b.activatedAt || (a.tileKey < b.tileKey ? -1 : a.tileKey > b.tileKey ? 1 : 0))
+    .map((entry) => entry.tileKey);
 
+/** Docks a newly researched module on the home AFC, or the next-oldest owned
+ * AFC with a free bay (AFC_MODULE_BAY_COUNT). With every bay full it stays
+ * undocked until the player frees a bay or adds an AFC and calls it down. */
 export const commissionModuleIfApplicable = (
   ctx: AfcModuleCommissioningContext,
   playerId: string,
@@ -45,10 +45,14 @@ export const commissionModuleIfApplicable = (
   commandId: string
 ): void => {
   if (techEntryById.get(techId)?.manifestCategory !== "AFC_MODULE") return;
-  const tileKey = homeAfcTileKey(ctx, playerId);
-  if (!tileKey) return;
-  const tile = ctx.tiles.get(tileKey);
-  if (!tile?.afc || tile.afc.houseModules?.includes(techId)) return;
+  const tileKeys = ownedAfcTileKeysOldestFirst(ctx, playerId);
+  if (tileKeys.some((key) => ctx.tiles.get(key)?.afc?.houseModules?.includes(techId))) return;
+  const tileKey = tileKeys.find((key) => {
+    const afc = ctx.tiles.get(key)?.afc;
+    return afc && afcModuleBaysFree(afc) > 0;
+  });
+  const tile = tileKey ? ctx.tiles.get(tileKey) : undefined;
+  if (!tileKey || !tile?.afc) return;
   const updatedTile: DomainTileState = {
     ...tile,
     afc: {
@@ -63,11 +67,37 @@ export const commissionModuleIfApplicable = (
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(updatedTile)] });
 };
 
+/** Saves from before the 8-bay cap can hold more: shed House copies (newest
+ * first) off any over-full AFC so they can be redistributed. Captured copies
+ * are never shed. Returns the shed tech ids. */
+const shedHouseModulesOverCap = (ctx: AfcModuleCommissioningContext, playerId: string, tileKeys: readonly string[], commandId: string): string[] => {
+  const shed: string[] = [];
+  for (const tileKey of tileKeys) {
+    const tile = ctx.tiles.get(tileKey);
+    if (!tile?.afc) continue;
+    let modules = [...(tile.afc.modules ?? [])];
+    const houseModules = [...(tile.afc.houseModules ?? [])];
+    while (afcModuleBaysUsed({ modules, incomingModules: tile.afc.incomingModules }) > AFC_MODULE_BAY_COUNT && houseModules.length > 0) {
+      const techId = houseModules.pop()!;
+      const index = modules.lastIndexOf(techId);
+      if (index >= 0) modules = [...modules.slice(0, index), ...modules.slice(index + 1)];
+      shed.push(techId);
+    }
+    if (houseModules.length === (tile.afc.houseModules?.length ?? 0)) continue;
+    const next: DomainTileState = { ...tile, afc: { ...tile.afc, modules, houseModules } };
+    ctx.replaceTileState(tileKey, next, commandId);
+    ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(next)] });
+  }
+  return shed;
+};
+
 /** Calls down a House copy for every researched AFC_MODULE tech that no
- * owned AFC has docked (in any form) or is receiving. Covers techs researched before the player
- * had an AFC (or before commissioning shipped) and House copies lost when the
- * AFC holding them was captured. The copies land on the home AFC after the
- * normal call-down delay. Returns true when anything was sent. */
+ * owned AFC has docked (in any form) or is receiving, into free bays, oldest
+ * AFC first. Covers techs researched before the player had an AFC (or before
+ * commissioning shipped), House copies lost when the AFC holding them was
+ * captured, and copies shed from AFCs over the 8-bay cap. The copies land
+ * after the normal call-down delay; any that fit nowhere stay undocked.
+ * Returns true when anything changed. */
 export const backfillMissingHouseModules = (
   ctx: AfcModuleCommissioningContext,
   delivery: AfcModuleDeliveryContext,
@@ -75,8 +105,9 @@ export const backfillMissingHouseModules = (
   techIds: Iterable<string>,
   commandId: string
 ): boolean => {
-  const tileKey = homeAfcTileKey(ctx, playerId);
-  if (!tileKey) return false;
+  const tileKeys = ownedAfcTileKeysOldestFirst(ctx, playerId);
+  if (tileKeys.length === 0) return false;
+  const shed = shedHouseModulesOverCap(ctx, playerId, tileKeys, commandId);
   const held = new Set<string>();
   for (const ownedKey of ctx.summaryForPlayer(playerId).ownedAfcTileKeys) {
     const owned = ctx.tiles.get(ownedKey);
@@ -87,6 +118,13 @@ export const backfillMissingHouseModules = (
     for (const techId of owned.afc.houseModules ?? []) held.add(techId);
     for (const entry of owned.afc.incomingModules ?? []) held.add(entry.techId);
   }
-  const missing = [...techIds].filter((techId) => !held.has(techId) && techEntryById.get(techId)?.manifestCategory === "AFC_MODULE").sort();
-  return missing.length > 0 && callDownAfcModules(delivery, playerId, tileKey, missing, commandId).length > 0;
+  let missing = [...techIds].filter((techId) => !held.has(techId) && techEntryById.get(techId)?.manifestCategory === "AFC_MODULE").sort();
+  let sent = false;
+  for (const tileKey of tileKeys) {
+    if (missing.length === 0) break;
+    const sentHere = callDownAfcModules(delivery, playerId, tileKey, missing, commandId);
+    if (sentHere.length > 0) sent = true;
+    missing = missing.filter((techId) => !sentHere.includes(techId));
+  }
+  return sent || shed.length > 0;
 };

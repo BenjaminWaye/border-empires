@@ -66,7 +66,7 @@ import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, owned
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
-import { afcModuleActionsForTile, buildAfcActionForTile } from "../client-afc-actions.js";
+import { buildAfcActionForTile } from "../client-afc-actions.js";
 import {
   hasAetherBridgeCapability,
   hasAetherWallCapability,
@@ -499,7 +499,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
   // are the universal first gates per design.
   const crystalCoreActions = (): TileActionDef[] => {
     const out: TileActionDef[] = [];
-    out.push(...afcModuleActionsForTile(state, tile, tileActionAvailability));
     const now = Date.now();
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
     const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));

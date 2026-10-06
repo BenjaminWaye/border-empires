@@ -1,4 +1,5 @@
 import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
+import { bindAfcModuleBays } from "../client-afc-module-bays/client-afc-module-bays-bind.js";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -147,6 +148,7 @@ export const renderTileActionMenu = (
         deps.renderHud();
       };
     });
+    bindAfcModuleBays(deps.tileActionMenuEl, state.tileActionMenu.currentTileKey);
     const tabButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
     tabButtons.forEach((btn) => {
       btn.onclick = () => {

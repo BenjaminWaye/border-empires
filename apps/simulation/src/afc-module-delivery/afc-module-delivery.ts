@@ -4,7 +4,7 @@
  * into modules/houseModules. The copy leaves its previous AFC immediately, so
  * nothing it unlocks is usable while it is in the air.
  */
-import { AFC_MODULE_CALL_DOWN_MS } from "@border-empires/shared";
+import { AFC_MODULE_CALL_DOWN_MS, afcModuleBaysFree } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
@@ -74,7 +74,8 @@ export const scheduleAfcModuleDelivery = (ctx: AfcModuleDeliveryContext, tileKey
  * Sends the House copies of techIds to the AFC at targetKey: each copy is
  * pulled off whichever other owned AFC holds it (docked or still incoming)
  * and arrives at the target after AFC_MODULE_CALL_DOWN_MS. Techs already
- * docked or incoming at the target are skipped. Returns the tech ids sent.
+ * docked or incoming at the target are skipped, and no more are sent than the
+ * target has free bays. Returns the tech ids sent.
  */
 export const callDownAfcModules = (
   ctx: AfcModuleDeliveryContext,
@@ -86,7 +87,8 @@ export const callDownAfcModules = (
   const target = ctx.tiles.get(targetKey);
   if (!isOwnedAfc(target, playerId)) return [];
   const alreadyAtTarget = new Set([...(target.afc.houseModules ?? []), ...(target.afc.incomingModules ?? []).map((entry) => entry.techId)]);
-  const sending = [...new Set(techIds)].filter((techId) => !alreadyAtTarget.has(techId));
+  // Only as many as the target has free bays (AFC_MODULE_BAY_COUNT).
+  const sending = [...new Set(techIds)].filter((techId) => !alreadyAtTarget.has(techId)).slice(0, afcModuleBaysFree(target.afc));
   if (sending.length === 0) return [];
   const changed: DomainTileState[] = [];
   for (const tileKey of ctx.ownedAfcTileKeys(playerId)) {

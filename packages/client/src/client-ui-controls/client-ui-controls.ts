@@ -126,11 +126,11 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderHud();
   };
   // The AFC button (ids kept from the old Center button) jumps to the home AFC
-  // and opens its overview, falling back to centering on the empire.
+  // and opens its Modules tab, falling back to centering on the empire.
   [centerMeBtn, centerMeDesktopBtn].forEach((btn) => {
     btn.onclick = () => {
       const openTileMenu = (tile: Parameters<UiActionFlow["openSingleTileActionMenu"]>[0], x: number, y: number): void =>
-        actionFlow.openSingleTileActionMenu(tile, x, y, { requestAttackPreview: false, openTab: "overview" });
+        actionFlow.openSingleTileActionMenu(tile, x, y, { requestAttackPreview: false, openTab: "modules" });
       if (!locateHomeAfc(state, openTileMenu, { x: window.innerWidth / 2, y: window.innerHeight / 2 })) centerOnOwnedTile();
       requestViewRefresh(2, true);
       renderHud();
