@@ -25,6 +25,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791315189192, // Date.now() frozen for this entry
+    introducedIn: "2026.10.06.1",
+    title: "AI stops building redundant coastal relays",
+    why: "Existing relay coverage hid known water from the AI’s ocean filter, so it mistook offshore fog for new land.",
+    changes: ["AI relay placement now recognizes ocean inside existing reach while preserving exploration toward unseen land"]
+  },
+  {
     createdAt: 1791208703442, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.3",
     title: "Border Empires icon now appears everywhere",
