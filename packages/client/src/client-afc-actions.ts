@@ -1,16 +1,22 @@
-import { afcBuildCost } from "@border-empires/shared";
+import { AFC_MODULE_CALL_DOWN_MS, afcBuildCost } from "@border-empires/shared";
+import { formatCooldownShort } from "./client-app-runtime-utils.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 type Availability = (enabled: boolean, reason: string, detail?: string) => Pick<TileActionDef, "disabled" | "disabledReason" | "detail">;
 
-export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef[] => {
-  if (tile.afc?.ownerId !== state.me || tile.afc.status !== "active") return [];
-  return state.techCatalog.flatMap((tech) =>
-    tech.manifestCategory === "AFC_MODULE" && state.techIds.includes(tech.id) && !tile.afc?.houseModules?.includes(tech.id)
-      ? [{ id: `redeploy_afc_module:${tech.id}`, label: `Call down ${tech.name}`, ...availability(true, "", "Redeploy your House module to this AFC") }]
-      : []
-  );
+/** One "Call down" row per researched module not docked here; a module already
+ * in transit to this AFC shows as a disabled row with its remaining time. */
+export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availability: Availability, nowMs: number = Date.now()): TileActionDef[] => {
+  const afc = tile.afc;
+  if (afc?.ownerId !== state.me || afc.status !== "active") return [];
+  return state.techCatalog.flatMap((tech): TileActionDef[] => {
+    if (tech.manifestCategory !== "AFC_MODULE" || !state.techIds.includes(tech.id) || afc.houseModules?.includes(tech.id)) return [];
+    const incoming = afc.incomingModules?.find((entry) => entry.techId === tech.id);
+    const id = `redeploy_afc_module:${tech.id}` as const;
+    if (incoming) return [{ id, label: `${tech.name} incoming`, ...availability(false, `Lands in ${formatCooldownShort(incoming.arrivesAt - nowMs)}`) }];
+    return [{ id, label: `Call down ${tech.name}`, ...availability(true, "", `Lands here in ${formatCooldownShort(AFC_MODULE_CALL_DOWN_MS)} • leaves its current AFC now`) }];
+  });
 };
 
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {

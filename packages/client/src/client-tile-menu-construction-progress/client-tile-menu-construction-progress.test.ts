@@ -36,3 +36,28 @@ describe("constructionProgressForTile ownership", () => {
     expect(constructionProgressForTile(tile, () => "1:00", quickforge, "me")?.cancelLabel).toBeUndefined();
   });
 });
+
+describe("constructionProgressForTile uses the server-stamped window", () => {
+  const HOUR = 3_600_000;
+  const fortAt = (extra: Record<string, unknown>): Tile => ({
+    x: 1,
+    y: 1,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    fort: { ownerId: "me", status: "under_construction", variant: "FORT", completesAt: Date.now() + 3 * HOUR, ...extra }
+  });
+
+  it("measures a multi-hour fort against startedAt..completesAt, not the flat 10-minute constant", () => {
+    // 1h elapsed of a 4h window => 25%. The flat FORT_BUILD_MS estimate would already read 100%.
+    const tile = fortAt({ startedAt: Date.now() - HOUR });
+    const progress = constructionProgressForTile(tile, () => "3:00:00", quickforge, "me")?.progress;
+    expect(progress).toBeGreaterThan(0.24);
+    expect(progress).toBeLessThan(0.26);
+  });
+
+  it("keeps the per-type estimate for records that predate startedAt", () => {
+    const progress = constructionProgressForTile(fortAt({}), () => "3:00:00", quickforge, "me")?.progress;
+    expect(progress).toBe(0); // remaining (3h) exceeds the flat estimate, so the old formula clamps to 0
+  });
+});

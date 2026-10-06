@@ -88,7 +88,7 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscri
 import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
-import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js";
+import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js"; import { setMusterCommandPayload } from "../set-muster-command-payload/set-muster-command-payload.js";
 import { createRequestTracer } from "../request-tracer.js";
 import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
@@ -2598,7 +2598,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           } else if (message.type === "BUILD_SIEGE_OUTPOST") {
             await dispatchDurableCommand("BUILD_SIEGE_OUTPOST", { x: message.x, y: message.y });
           } else if (message.type === "SET_MUSTER") {
-            await dispatchDurableCommand("SET_MUSTER", { x: message.x, y: message.y, mode: message.mode, ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}), ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}) });
+            await dispatchDurableCommand("SET_MUSTER", setMusterCommandPayload(message));
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {

@@ -107,7 +107,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     }
   }
 
-  const { completesAt: _, upgradingFrom: _replacedTier, ...activeStructure } = structure as typeof structure & { upgradingFrom?: unknown };
+  const { completesAt: _, startedAt: _startedAt, upgradingFrom: _replacedTier, ...activeStructure } = structure as typeof structure & { upgradingFrom?: unknown };
 
   const completedTile = {
     ...latest,

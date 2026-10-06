@@ -3,13 +3,15 @@
  * §10 step 4): when a player researches an AFC_MODULE-category Manifest,
  * install its single House-owned copy onto their home AFC. The copy can later
  * be redeployed. Research while owning no AFC retains the tech but has no
- * copy location until a player gains an AFC.
+ * copy location until a player gains an AFC; backfillMissingHouseModules
+ * calls those (and any copy lost when its AFC was captured) down later.
  */
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
+import { callDownAfcModules, type AfcModuleDeliveryContext } from "./afc-module-delivery/afc-module-delivery.js";
 
 export type AfcModuleCommissioningContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
@@ -59,4 +61,32 @@ export const commissionModuleIfApplicable = (
   };
   ctx.replaceTileState(tileKey, updatedTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [ctx.tileDeltaFromState(updatedTile)] });
+};
+
+/** Calls down a House copy for every researched AFC_MODULE tech that no
+ * owned AFC has docked (in any form) or is receiving. Covers techs researched before the player
+ * had an AFC (or before commissioning shipped) and House copies lost when the
+ * AFC holding them was captured. The copies land on the home AFC after the
+ * normal call-down delay. Returns true when anything was sent. */
+export const backfillMissingHouseModules = (
+  ctx: AfcModuleCommissioningContext,
+  delivery: AfcModuleDeliveryContext,
+  playerId: string,
+  techIds: Iterable<string>,
+  commandId: string
+): boolean => {
+  const tileKey = homeAfcTileKey(ctx, playerId);
+  if (!tileKey) return false;
+  const held = new Set<string>();
+  for (const ownedKey of ctx.summaryForPlayer(playerId).ownedAfcTileKeys) {
+    const owned = ctx.tiles.get(ownedKey);
+    if (!owned?.afc || owned.ownerId !== playerId) continue;
+    // Any docked copy counts, including captured/legacy ones without
+    // provenance: the module already works there, so sending another is a duplicate.
+    for (const techId of owned.afc.modules ?? []) held.add(techId);
+    for (const techId of owned.afc.houseModules ?? []) held.add(techId);
+    for (const entry of owned.afc.incomingModules ?? []) held.add(entry.techId);
+  }
+  const missing = [...techIds].filter((techId) => !held.has(techId) && techEntryById.get(techId)?.manifestCategory === "AFC_MODULE").sort();
+  return missing.length > 0 && callDownAfcModules(delivery, playerId, tileKey, missing, commandId).length > 0;
 };

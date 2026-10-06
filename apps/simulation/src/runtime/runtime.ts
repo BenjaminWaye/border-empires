@@ -521,6 +521,7 @@ import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js
 import { buildRelocatedSettlementTile } from "../runtime-relocated-settlement-tile.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
+import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1172,48 +1173,14 @@ export class SimulationRuntime {
       },
       options.initialState?.pendingSettlements ?? []
     );
-    // In-flight structure work (under_construction / removing) survives in tile
-    // state across restarts, but the setTimeout closure that completes it dies
-    // with the previous process. Without this, restarted structures stay stuck
-    // at 0:00 forever and permanently occupy development slots.
-    for (const [tileKey, tile] of this.state.tiles) {
-      const ownerId = tile.ownerId;
-      if (!ownerId) continue;
-      const recoveredCommandId = `recovered-build:${tileKey}`;
-      const scheduleStructureFinish = (completesAt: number | undefined, finish: () => void): void => {
-        if (completesAt == null) return;
-        this.scheduleAfter(Math.max(0, completesAt - this.now()), finish);
-      };
-      if (tile.fort?.ownerId === ownerId) {
-        if (tile.fort.status === "under_construction") {
-          scheduleStructureFinish(tile.fort.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "FORT", recoveredCommandId));
-        } else if (tile.fort.status === "removing") {
-          scheduleStructureFinish(tile.fort.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.observatory?.ownerId === ownerId) {
-        if (tile.observatory.status === "under_construction") {
-          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "OBSERVATORY", recoveredCommandId));
-        } else if (tile.observatory.status === "removing") {
-          scheduleStructureFinish(tile.observatory.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.siegeOutpost?.ownerId === ownerId) {
-        if (tile.siegeOutpost.status === "under_construction") {
-          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeStructureBuild(tileKey, ownerId, "SIEGE_OUTPOST", recoveredCommandId));
-        } else if (tile.siegeOutpost.status === "removing") {
-          scheduleStructureFinish(tile.siegeOutpost.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-      if (tile.economicStructure?.ownerId === ownerId) {
-        if (tile.economicStructure.status === "under_construction") {
-          const structureType = tile.economicStructure.type;
-          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeStructureBuild(tileKey, ownerId, structureType, recoveredCommandId));
-        } else if (tile.economicStructure.status === "removing") {
-          scheduleStructureFinish(tile.economicStructure.completesAt, () => this.completeStructureRemoval(tileKey, ownerId, recoveredCommandId));
-        }
-      }
-    }
+    rescheduleRecoveredStructureTimers({
+      tiles: this.state.tiles,
+      now: this.now,
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+      completeStructureBuild: (tileKey, ownerId, structureType, commandId) => this.completeStructureBuild(tileKey, ownerId, structureType, commandId),
+      completeStructureRemoval: (tileKey, ownerId, commandId) => this.completeStructureRemoval(tileKey, ownerId, commandId),
+      afcModuleDelivery: () => ({ ...this.respawnContext(), ownedAfcTileKeys: (playerId) => this.summaryForPlayer(playerId).ownedAfcTileKeys })
+    });
     const recoveredCommandHistory = options.initialCommandHistory;
     hydrateCommandHistory({
       commandIdsByPlayerSeq: this.replayCache.commandIdsByPlayerSeq,
@@ -1537,6 +1504,7 @@ export class SimulationRuntime {
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,

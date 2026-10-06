@@ -1,3 +1,4 @@
+import { focusAfcForResearchedModule } from "../client-afc-locate/client-afc-locate.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -86,8 +87,11 @@ export const applyTechUpdateToState = (
   state.techDetailOpen = false;
   state.structureInfoKey = "";
   state.crystalAbilityInfoKey = "";
-  state.activePanel = "tech";
-  state.mobilePanel = "tech";
+  // An AFC module docks the moment it is researched: show the map at that AFC
+  // so its delivery animation is seen, instead of switching to the tech panel.
+  const focusedAfc = completedTech?.manifestCategory === "AFC_MODULE" && completedTechId && focusAfcForResearchedModule(state, completedTechId);
+  state.activePanel = focusedAfc ? null : "tech";
+  state.mobilePanel = focusedAfc ? "core" : "tech";
 
   const preferredSelection =
     (previousSelectedTechId && state.techChoices.includes(previousSelectedTechId) && previousSelectedTechId) ||

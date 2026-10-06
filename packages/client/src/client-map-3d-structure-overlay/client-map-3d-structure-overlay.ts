@@ -55,6 +55,10 @@ import {
   registerPopulationBureauPartStructures,
   type PopulationBureauPartStructureKind
 } from "../client-map-3d-structure-population-bureau-part.js";
+import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
+import { CONSTRUCTION_STACK_CENTER, createConstructionCrewLayer, MAX_CONSTRUCTION_SITES } from "../client-map-3d-construction/client-map-3d-construction-crew.js";
+import { createConstructionPodFxLayer } from "../client-map-3d-construction/client-map-3d-construction-pod-fx.js";
+import { registerConstructionScaffold } from "../client-map-3d-construction/client-map-3d-construction-scaffold.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
 // late-game, civic, infrastructure, industrial) each own their
@@ -63,9 +67,10 @@ import {
 // by kind, and exposes the StructureOverlay surface to the
 // orchestrator in client-map-3d.ts.
 //
-// Status states (active / under_construction / inactive / removing) are
-// not yet differentiated in 3D; for now every state renders fully — we
-// can iterate later by adding per-instance alpha or pulse on smoke.
+// Status: under_construction / removing structures are drawn through the
+// construction pipeline (docs/construction-animation-plan.md) -- pieces gated
+// by build phase, scaffolding, a parts stack and an ancillary crew. Other
+// statuses (active / inactive) render fully.
 //
 // OBSERVATORY is wired via `tile.observatory` (not `economicStructure`)
 // — the orchestrator side calls addInstance with kind="OBSERVATORY"
@@ -124,8 +129,13 @@ export type StructureOverlay = {
     sceneZ: number,
     surfaceY: number,
     kind: StructureKind,
-    resource?: StructureResourceHint
+    resource?: StructureResourceHint,
+    // Set while the structure is being built or removed.
+    site?: ConstructionSite
   ) => void;
+  // True once a phase boundary passed that changes what addInstance would lay
+  // out for a construction site added in the last rebuild.
+  readonly constructionBoundaryPassed: () => boolean;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -137,6 +147,13 @@ type UniformLayoutFn = (
   sceneZ: number,
   resource: StructureResourceHint
 ) => void;
+
+export const mineResourceHintFor = (structureType: string, tileResource: string | undefined): StructureResourceHint =>
+  structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS") ? tileResource : undefined;
+
+const heightKey = (kind: StructureKind, hint: StructureResourceHint): string => (hint ? `${kind}:${hint}` : kind);
+// Used only if a kind somehow has no measured height (every layout is measured at creation).
+const FALLBACK_STRUCTURE_HEIGHT = 0.5;
 
 // `contactShadows` is a shared overlay owned by the caller (client-map-3d.ts)
 // and passed in rather than created here, so structures, towns, watchtowers,
@@ -216,16 +233,57 @@ export const createStructureOverlay = (
   layouts.ASSEMBLY_WORKS = railDepotLayout;
   layouts.RAIL_DEPOT = assemblyWorksLayout;
 
+  // Construction pipeline. Each kind's finished height is measured once, up
+  // front, by dry-running its layout (nothing is placed); the dry runs may
+  // leave family-local animation records behind, so they are cleared after.
+  const scaffold = registerConstructionScaffold(builder, MAX_CONSTRUCTION_SITES);
+  const crew = createConstructionCrewLayer(scene);
+  const pods = createConstructionPodFxLayer(scene);
+  // Build phase each in-flight site had at the previous / current rebuild, to
+  // spot a genuine phase change (a site scrolling into view, or a reconnect,
+  // has no previous entry and so never fires a pod). Both hold only the sites
+  // laid out in a single rebuild, so they are bounded by the visible window.
+  let phasesLastRebuild = new Map<string, number>();
+  let phasesThisRebuild = new Map<string, number>();
+  const structureHeights = new Map<string, number>();
+  for (const [kind, layout] of Object.entries(layouts) as Array<[StructureKind, UniformLayoutFn]>) {
+    const hints: StructureResourceHint[] = kind === "MINE" ? [undefined, "TITANIUM", "GEMS"] : [undefined];
+    for (const hint of hints) structureHeights.set(heightKey(kind, hint), builder.measure(() => layout(0, 0, 0, hint)));
+  }
+  economic.clear();
+  let earliestPhaseAtMs = Infinity;
+
   const addInstance = (
     sceneX: number,
     sceneZ: number,
     surfaceY: number,
     kind: StructureKind,
-    resource: StructureResourceHint = undefined
+    resource: StructureResourceHint = undefined,
+    site: ConstructionSite | undefined = undefined
   ): void => {
     const layout = layouts[kind];
     if (!layout) return;
-    layout(sceneX, surfaceY, sceneZ, resource);
+    if (site) {
+      const height = structureHeights.get(heightKey(kind, resource)) ?? FALLBACK_STRUCTURE_HEIGHT;
+      builder.setGate((height * site.visibleBands) / CONSTRUCTION_PHASES);
+      try {
+        layout(sceneX, surfaceY, sceneZ, resource);
+      } finally {
+        builder.setGate(undefined); // never leave the gate on for the next structure
+      }
+      scaffold.place(sceneX, surfaceY, sceneZ, height, site.visibleBands, CONSTRUCTION_PHASES);
+      crew.add(sceneX, sceneZ, surfaceY, site);
+      const siteKey = `${site.x},${site.y}`;
+      phasesThisRebuild.set(siteKey, site.phase);
+      const previousPhase = phasesLastRebuild.get(siteKey);
+      // A new phase brings a fresh delivery of fabricated parts (build only).
+      if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase) {
+        pods.spawn(sceneX + CONSTRUCTION_STACK_CENTER.x, sceneZ + CONSTRUCTION_STACK_CENTER.z, surfaceY, performance.now());
+      }
+      if (site.nextPhaseAtMs !== undefined) earliestPhaseAtMs = Math.min(earliestPhaseAtMs, site.nextPhaseAtMs);
+    } else {
+      layout(sceneX, surfaceY, sceneZ, resource);
+    }
     // Only shadow kinds that actually placed geometry, so an unhandled kind
     // can't leave a blob sitting on bare ground.
     contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
@@ -239,13 +297,28 @@ export const createStructureOverlay = (
   const clear = (): void => {
     economic.clear();
     clearBuilder();
+    crew.clear();
+    // Pods already in flight are deliberately NOT cleared: a rebuild happens at
+    // the very phase boundary that spawns one.
+    phasesLastRebuild = phasesThisRebuild;
+    phasesThisRebuild = new Map();
+    earliestPhaseAtMs = Infinity;
   };
 
   return {
     clear,
     addInstance,
+    constructionBoundaryPassed: (): boolean => Date.now() >= earliestPhaseAtMs,
     commit: commitBuilder,
-    update: (nowMs: number): void => economic.update(nowMs),
-    dispose: disposeBuilder
+    update: (nowMs: number): void => {
+      economic.update(nowMs);
+      crew.update(nowMs);
+      pods.update(nowMs);
+    },
+    dispose: (): void => {
+      crew.dispose();
+      pods.dispose();
+      disposeBuilder();
+    }
   };
 };
