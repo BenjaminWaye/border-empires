@@ -4,8 +4,6 @@ import { BoxGeometry, MeshStandardMaterial } from "three";
 // settle overlay (settlers wandering a tile) and the construction crew layer
 // (docs/construction-animation-plan.md), so both read as the same "people".
 
-export { wanderHash01, wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
-
 // Pinprick figures. Floor at ~0.022 width: anything smaller is sub-pixel
 // at typical zoom and the whole swarm rasterises into one pixel — looks
 // like a single static settler. Height stays taller than width so they

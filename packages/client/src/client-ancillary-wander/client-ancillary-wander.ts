@@ -1,25 +1,17 @@
-// The ancillaries' pause-and-walk wander: each figure picks a random spot in the unit
-// square, walks there, pauses, and repeats. Shared by the 3D settle overlay, the 3D
-// construction crew and the 2D construction crew, so all of them move the same way.
-// Deliberately free of any `three` import so the 2D renderer can use it too.
-
-// Local wander helper. Replaces the shared `settlePixelWanderPoint` for
-// the 3D path because the shared seed (in client-capture-effects.ts)
-// XORs small wx/wy/salt products that dominate the high bits — the `i`
-// term only flips low bits, so different settlers cluster within ~0.003
-// of [0,1] and visually stack on a single pixel. The 2D loader hides
-// this because each pixel-dot already snaps to integer coordinates;
-// for 3D we need genuine spread per `i`. Using xmur3-style mixing.
+// Wander helper shared by the 2D settle loader and the 3D ancillary figures
+// (settle overlay, construction crew). Three-free on purpose so the 2D canvas
+// path can import it without pulling in the 3D renderer.
+//
+// The hash is Murmur3-style: each input is folded through a prime multiply
+// before combining, so a 1-bit change in any input propagates through all 32
+// bits. The old 2D seed XORed small products of small tile coordinates, which
+// left every settler dot of a tile within ~0.01 of [0,1] -- they all stacked
+// in the tile's top-left pixel and barely moved.
 const SETTLE_MOVE_MS = 1700;
 const SETTLE_PAUSE_MS = 1000;
 const SETTLE_CYCLE_MS = SETTLE_MOVE_MS + SETTLE_PAUSE_MS;
 
 export const wanderHash01 = (wx: number, wy: number, i: number, salt: number): number => {
-  // Murmur3-style mixing. Each input is folded through a prime multiply
-  // before combining, so a 1-bit change in any input propagates through
-  // all 32 bits of the result. Prior implementation used small XORs of
-  // small products, which left the i-term in the low bits only and
-  // produced visually stacked dots.
   let h = Math.imul(wx | 0, 374761393);
   h = Math.imul(h + ((wy | 0) ^ 0x5bd1e995), -1640531535);
   h = Math.imul(h + (i | 0), -549389765);

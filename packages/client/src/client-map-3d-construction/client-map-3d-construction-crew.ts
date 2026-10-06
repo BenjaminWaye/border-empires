@@ -6,11 +6,8 @@ import {
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
 import { DEFAULT_CONSTRUCTION_LAYOUT, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
-import {
-  createAncillaryFigureAssets,
-  PERSON_Y,
-  wanderPoint
-} from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
+import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
+import { createAncillaryFigureAssets, PERSON_Y } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
 
 // Per-frame ambient life at a construction site (docs/construction-animation-plan.md):
 // the parts stack the AFC delivered (crates that shrink as parts are used), and the
