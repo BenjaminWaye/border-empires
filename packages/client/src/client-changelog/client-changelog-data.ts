@@ -138,6 +138,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The versus bar labels each side with its percentage"
     ]
   },
+  {
+    createdAt: 1791277545524, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.1",
+    title: "Extra and Double effort now actually boost muster attacks",
+    why: "Choosing Extra or Double effort for a muster flag was lost on the way to the server, so the flag attacked at Normal effort and the battle card showed Normal odds.",
+    changes: [
+      "A muster flag's chosen effort level is now saved and used for the attacks it launches",
+      "The battle card's chance of winning reflects the effort you committed"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
