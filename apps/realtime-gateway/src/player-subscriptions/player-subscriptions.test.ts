@@ -200,6 +200,23 @@ describe("createPlayerSubscriptions", () => {
     expect([...subscriptions.allSockets()]).toEqual([firstSocket, secondSocket]);
   });
 
+  it("groups sockets by player, so every socket of one player can be handled together", async () => {
+    const subscriptions = createPlayerSubscriptions<{ readyState: number; id: string }, { playerId: string; tiles: [] }>({
+      subscribePlayer: async (playerId) => ({ playerId, tiles: [] }),
+      unsubscribePlayer: async () => undefined,
+      subscriptionNamespace: "gateway-a"
+    });
+    const control = { readyState: 1, id: "control" };
+    const bulk = { readyState: 1, id: "bulk" };
+    const other = { readyState: 1, id: "other" };
+
+    await subscriptions.addSocket("player-1", control);
+    await subscriptions.addSocket("player-1", bulk);
+    await subscriptions.addSocket("player-2", other);
+
+    expect(subscriptions.socketGroups().map((group) => [...group])).toEqual([[control, bulk], [other]]);
+  });
+
   it("updates a cached snapshot in place for later reads", async () => {
     const subscriptions = createPlayerSubscriptions<
       { readyState: number },

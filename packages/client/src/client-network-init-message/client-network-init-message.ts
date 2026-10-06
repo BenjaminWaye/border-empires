@@ -26,8 +26,8 @@ import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
-import { clearCameraLocation } from "../client-view-refresh.js";
-import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
+import { applySeasonChangeOnInit } from "../client-season-rollover/client-season-rollover.js";
+import { readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
@@ -127,30 +127,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.me === incomingPlayerId &&
     state.tiles.size > 0 &&
     state.discoveredTiles.size > 0;
-  // If the season changed since the camera was last saved, discard the
-  // persisted camera location so the INIT handler centers on the home tile
-  // instead of restoring stale coordinates from a previous season.
-  //
-  // bridgeDebugSeasonId is in-memory-only and always "" on a fresh page
-  // load (it's only populated once an INIT has been processed this browser
-  // session), so it can only detect a season change for an in-session
-  // reconnect. To also catch a season that rolled over while the tab was
-  // closed, fall back to cameraRestoredSeasonId — the season tag saved
-  // alongside the camera position itself (see client-camera-storage.ts) —
-  // whenever bridgeDebugSeasonId hasn't been established yet. If neither is
-  // known (nothing saved, or a pre-migration save with no season tag),
-  // there's nothing safe to compare against, so leave the camera alone.
-  const knownCameraSeasonId = state.bridgeDebugSeasonId !== "" ? state.bridgeDebugSeasonId : state.cameraRestoredSeasonId;
-  if (
-    Boolean(incomingSeason?.seasonId) &&
-    knownCameraSeasonId !== undefined &&
-    knownCameraSeasonId !== "" &&
-    knownCameraSeasonId !== incomingSeason?.seasonId
-  ) {
-    clearCameraLocation();
-    state.cameraRestoredFromStorage = false;
-    clearStoredDiscoveredTiles();
-  }
+  const seasonRolledOverInSession = applySeasonChangeOnInit(state, incomingSeason?.seasonId);
   // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
   state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
@@ -346,7 +323,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // so this was silently discarding the restore before the player ever saw it.
     // Also never snap on a reconnect's INIT (isFirstInitThisSession false) — the
     // camera already reflects wherever the player was before the drop.
-    if (isFirstInitThisSession && !state.cameraRestoredFromStorage) {
+    if ((isFirstInitThisSession || seasonRolledOverInSession) && !state.cameraRestoredFromStorage) {
       state.camX = homeTile.x; state.camY = homeTile.y;
       state.camSubX = 0; state.camSubY = 0;
     }

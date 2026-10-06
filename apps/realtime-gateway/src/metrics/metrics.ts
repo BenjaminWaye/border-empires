@@ -82,6 +82,7 @@ export type GatewayMetricsSnapshot = {
   guestDiplomacyBlockedTotal: number;
   displayNameCollisionRejectedTotal: number;
   guestProfileProvisionedTotal: number;
+  seasonRolloverResyncSocketsTotal: number;
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
@@ -134,6 +135,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let guestDiplomacyBlockedTotal = 0;
   let displayNameCollisionRejectedTotal = 0;
   let guestProfileProvisionedTotal = 0;
+  let seasonRolloverResyncSocketsTotal = 0;
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
@@ -209,6 +211,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     guestDiplomacyBlockedTotal,
     displayNameCollisionRejectedTotal,
     guestProfileProvisionedTotal,
+    seasonRolloverResyncSocketsTotal,
     loginQueuedTotal,
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
@@ -310,6 +313,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementGuestProfileProvisionedTotal(): void {
       guestProfileProvisionedTotal += 1;
+    },
+    incrementSeasonRolloverResyncSocketsTotal(count: number): void {
+      seasonRolloverResyncSocketsTotal += Math.max(0, Math.floor(count));
     },
     incrementLoginQueuedTotal(count = 1): void {
       loginQueuedTotal += Math.max(0, Math.floor(count));
@@ -448,6 +454,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_display_name_collision_rejected_total ${formatMetricValue(sample.displayNameCollisionRejectedTotal)}`,
         "# TYPE gateway_guest_profile_provisioned_total counter",
         `gateway_guest_profile_provisioned_total ${formatMetricValue(sample.guestProfileProvisionedTotal)}`,
+        "# TYPE gateway_season_rollover_resync_sockets_total counter",
+        `gateway_season_rollover_resync_sockets_total ${formatMetricValue(sample.seasonRolloverResyncSocketsTotal)}`,
         "# TYPE gateway_login_queued_total counter",
         `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
         "# TYPE gateway_login_queue_rejected_total counter",
