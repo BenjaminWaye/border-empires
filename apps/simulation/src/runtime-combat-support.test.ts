@@ -243,4 +243,30 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
     expect(recorded.pillagedGold).toBe(0);
     expect(recorded.defenderGoldLoss).toBe(0);
   });
+
+  it("rolls barbarian raids at base odds regardless of manpowerCost (no effort-level penalty)", () => {
+    const winChanceFor = (ownerId: string, manpowerCost: number): number => {
+      const context = makeSettledContext(vi.fn());
+      context.tiles.set(TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId, ownershipState: "SETTLED" });
+      context.players.set(ownerId, { id: ownerId, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() });
+      const resolution = buildLockedCombatResolution(context, {
+        actionType: "ATTACK",
+        commandId: "raid",
+        playerId: ATTACKER_ID,
+        manpowerCost,
+        originKey: ORIGIN_KEY,
+        originX: 5,
+        originY: 5,
+        targetX: 6,
+        targetY: 5,
+        targetKey: TARGET_KEY
+      });
+      return resolution!.result.winChance;
+    };
+    // Raid cost is fixed at 10, far under the settled-tile floor; the commit
+    // multiplier (10/floor)^2 used to crush odds to ~3% of base.
+    expect(winChanceFor("barbarian-1", 10)).toBe(winChanceFor("barbarian-1", 500));
+    // Control: a normal defender still gets the commit multiplier.
+    expect(winChanceFor(DEFENDER_ID, 10)).toBeLessThan(winChanceFor(DEFENDER_ID, 500));
+  });
 });

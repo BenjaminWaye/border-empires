@@ -49,7 +49,7 @@ Status: active proposal
 - **Committed MP is always lost**, win or lose. The random 40–60 loss range
   becomes a fixed cost equal to what was committed.
 - **Commitment is counted in multiples of the target's base cost:**
-  `odds = (commit / base)² × base_odds`, so 2× base gives the same boost on any
+  the odds ratio `p/(1-p)` is scaled by `commit / base` (superseding the original `(commit / base)²`), so 2× base gives the same boost on any
   target.
 - **Base costs are the existing attack-muster ladder:** settled **60**,
   Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960

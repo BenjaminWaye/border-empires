@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, applyOddsScale } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { SimulationRuntime } from "./runtime.js";
@@ -154,8 +154,9 @@ describe("shield flags (workstream E)", () => {
     expect(shielded?.combatResult?.winChance).toBeDefined();
     expect(baseline!.combatResult!.winChance).toBeLessThan(1);
     // A full match (shield holds far more than 90) applies 1 + 90/60 = 2.5x
-    // defense boost, dividing straight into the attack-side multiplier.
-    expect(shielded!.combatResult!.winChance).toBeCloseTo(baseline!.combatResult!.winChance / 2.5, 6);
+    // defense boost, dividing straight into the attack-side odds scale, so the
+    // baseline's odds ratio shrinks by 2.5x.
+    expect(shielded!.combatResult!.winChance).toBeCloseTo(applyOddsScale(baseline!.combatResult!.winChance, 1 / 2.5), 6);
   });
 
   it("a HOLD-mode flag beyond radius 3 does not shield", async () => {
