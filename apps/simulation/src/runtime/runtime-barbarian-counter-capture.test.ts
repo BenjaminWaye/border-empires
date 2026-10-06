@@ -28,7 +28,7 @@ describe("barbarian counter-captures", () => {
         initialState: {
           tiles: [
             { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, // supply-connects the attack origin (stranded origins decay)
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", muster: { ownerId: "player-1", amount: 100, mode: "HOLD", updatedAt: 0 } }, // funded flag: attacks on barbarians need muster like any attack
             { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" },
             // A second, distant tile keeps player-1 from being eliminated when the barbarian takes (10,10):
             // an elimination respawn right beside the barbarian would (by design) clear it, which is not

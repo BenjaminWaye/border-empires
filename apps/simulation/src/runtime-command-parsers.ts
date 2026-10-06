@@ -10,7 +10,7 @@ export interface FrontierPayload {
   musterSourceY?: number;
   // docs/replenishment-update-plan.md D6: the player's chosen commitment for
   // a manual ATTACK, above the required floor. Ignored for EXPAND and for
-  // barbarian raids/attacks (see validateFrontierCommand).
+  // barbarian-origin attacks (see validateFrontierCommand).
   commitManpower?: number;
 }
 

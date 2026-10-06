@@ -301,11 +301,7 @@ const resolveAttackCombat = (
   // keep a flat cost") are excluded too: validateFrontierCommand gives them
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
-  // Raids on barbarian (Planetary Defense) tiles are excluded as well:
-  // validateFrontierCommand fixes their cost at BARBARIAN_RAID_COST and ignores
-  // any commit amount, so cost / floor (~0.17) would turn them into a large odds penalty.
-  const isCommitEligible =
-    previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1" && defenderOwnerId !== "barbarian-1";
+  const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
   const base = requiredMusterForFort(targetHasActiveFort ? defendingFortVariant(previousTarget?.fort) : undefined);
   const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
   // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within

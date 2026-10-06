@@ -288,7 +288,7 @@ export const commitPreviewWinChanceForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
-  if (to.ownershipState !== "SETTLED" || to.ownerId === "barbarian-1") return preview.winChance;
+  if (to.ownershipState !== "SETTLED") return preview.winChance;
   const base = requiredMusterForFort(defendingFortVariant(to.fort));
   const multiplier = commitOddsMultiplier(commitManpower, base);
   return Math.max(0, Math.min(1, applyOddsScale(preview.winChance, multiplier)));
