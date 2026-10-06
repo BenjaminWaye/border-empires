@@ -1,4 +1,5 @@
 import { OUT_OF_REACH_DECAY_MS } from "@border-empires/shared";
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
@@ -10,9 +11,14 @@ const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
 const ENCIRCLEMENT_DECAY_MS = 60_000;
 
 export type TileMenuHeaderStatus = {
+  /** Rendered as HTML by the tile menu: escape anything player-controlled. */
   text: string;
   tone: "warning" | "neutral";
+  /** Plain-text explainer; when present the status expands in place to show it. */
+  helpText?: string;
 };
+
+const INSIDE_REACH_HELP_TEXT = "Can't settle inside another empire's reach.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
@@ -69,10 +75,23 @@ export const outOfReachDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
   encirclementRemainingMsForTile(tile, nowMs) !== undefined;
 
+/**
+ * "Inside <Name> Reach" when the covering empire(s) are known (one or two);
+ * otherwise -- unknown owner (fogged anchors) or a crowd -- the generic
+ * "Inside Enemy Reach".
+ */
+const insideReachText = (ownerNames: readonly string[]): string =>
+  ownerNames.length === 0 || ownerNames.length > 2
+    ? "Inside Enemy Reach"
+    : `Inside ${ownerNames.map(escapeHtml).join(" and ")} Reach`;
+
 export const tileMenuHeaderStatusForTile = (
   tile: Tile,
   nowMs = Date.now(),
-  isOwnedTileInReach?: (tile: Tile) => boolean
+  isOwnedTileInReach?: (tile: Tile) => boolean,
+  // Lazy: only called when the "Inside ... Reach" line is actually shown, so
+  // the (cached-tile scan) owner lookup costs nothing on every other status.
+  reachOwnerNames?: () => readonly string[]
 ): TileMenuHeaderStatus | undefined => {
   // Fogged takes precedence over everything below: those other statuses
   // (encirclement/out-of-reach decay countdowns, capture recovery) are all
@@ -124,10 +143,7 @@ export const tileMenuHeaderStatusForTile = (
   // contested-zone exemption) -- that's an actively contested tile sitting
   // inside an enemy's reach, not empty no-man's-land, so say so.
   if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
-    return {
-      text: "Inside Enemy Reach",
-      tone: "warning"
-    };
+    return { text: insideReachText(reachOwnerNames?.() ?? []), tone: "warning", helpText: INSIDE_REACH_HELP_TEXT };
   }
 
   return undefined;

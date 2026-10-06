@@ -240,6 +240,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
     ]
   },
+  {
+    createdAt: 1791324311000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.07.1",
+    title: "Tile menu names whose reach you are inside",
+    why: "A contested frontier tile just said \"Inside Enemy Reach\", which made you guess which empire was pressing on it.",
+    changes: [
+      "The tile menu now says \"Inside <empire> Reach\" with the empire's name, or both names when two reaches overlap",
+      "Tap the line to see why: you can't settle inside another empire's reach",
+      "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
