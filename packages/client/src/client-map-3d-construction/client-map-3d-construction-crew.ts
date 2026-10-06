@@ -1,35 +1,26 @@
 import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
 import {
   CONSTRUCTION_CRATES_PER_PHASE,
+  CREW_MAX,
   constructionCratesAt,
+  constructionCrewClockMs,
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
-import { crewCycleState, crewSeed01 } from "../client-construction-phase/client-construction-crew-cycle.js";
-import {
-  createAncillaryFigureAssets,
-  PERSON_H
-} from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
+import { DEFAULT_CONSTRUCTION_LAYOUT, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
+import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
+import { createAncillaryFigureAssets, PERSON_Y } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
 
 // Per-frame ambient life at a construction site (docs/construction-animation-plan.md):
-// the parts stack the AFC delivered (crates that shrink as parts are used), and
-// the ancillary crew that carries parts from the stack to the structure.
+// the parts stack the AFC delivered (crates that shrink as parts are used), and the
+// ancillary crew working the site. The crew is the SAME black pinprick figures with the
+// SAME random pause-and-walk wander as the settle overlay (client-map-3d-settle-overlay.ts),
+// so a construction site reads as the same "people at work" players already know.
 //
-// Everything is a pure function of (site, clock): nothing is stored per site
-// besides the entry itself, which the overlay re-adds on every rebuild. All
-// figures at a site share ONE timing -- same step, same pause -- so they move
-// in eerie lockstep: they are bodies of a single AI, not individual workers.
+// Everything is a pure function of (site, clock): nothing is stored per site besides the
+// entry itself, which the overlay re-adds on every rebuild.
 export const MAX_CONSTRUCTION_SITES = 96;
-const MAX_CREW_PER_SITE = 6;
 
-// Tile-local layout: the parts stack sits in the back-left corner, outside the
-// scaffold footprint; the crew works on a ring around the structure.
-const STACK_X = -0.4;
-const STACK_Z = -0.4;
-// Where a delivery pod lands: the middle of the parts stack.
-export const CONSTRUCTION_STACK_CENTER = { x: STACK_X + 0.045, z: STACK_Z + 0.045 } as const;
-// Outside the scaffold (half-width 0.3) so the crew is visible rather than lost inside the building.
-const WORK_RING_RADIUS = 0.38;
-const CREW_SPREAD = 0.035;
+// The parts stack position and the crew's wander area come per site; see client-map-3d-construction-layout.ts.
 const CRATE_SIZE = { x: 0.075, y: 0.05, z: 0.075 };
 const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
   [0, CRATE_SIZE.y / 2, 0],
@@ -37,44 +28,36 @@ const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
   [0, CRATE_SIZE.y / 2, CRATE_SIZE.z + 0.01],
   [(CRATE_SIZE.x + 0.01) / 2, CRATE_SIZE.y * 1.5, (CRATE_SIZE.z + 0.01) / 2]
 ];
-const PART_SIZE = 0.03;
-const STALLED_STOOP = 0.7;
-// The settle overlay's pinprick size is right for a swarm on a tile but too
-// small for a crew that is the main thing happening at a construction site.
-const CREW_SCALE = 2.4;
-const FIGURE_HEIGHT = PERSON_H * CREW_SCALE;
-
 type SiteEntry = {
   readonly sceneX: number;
   readonly sceneZ: number;
   readonly surfaceY: number;
   readonly site: ConstructionSite;
+  readonly layout: ConstructionLayout;
 };
 
 export type ConstructionCrewLayer = {
   readonly clear: () => void;
-  readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite) => void;
-  readonly update: (nowMs: number) => void;
+  readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, layout?: ConstructionLayout) => void;
+  // `epochMs` is the wall clock (the construction window's clock), so a stalled build can freeze the crew in place.
+  readonly update: (epochMs: number) => void;
   readonly dispose: () => void;
 };
 
 export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer => {
   const { geometry: figureGeometry, material: figureMaterial } = createAncillaryFigureAssets();
-  const partGeometry = new BoxGeometry(PART_SIZE, PART_SIZE, PART_SIZE);
-  const partMaterial = new MeshStandardMaterial({ color: "#8a929c", roughness: 0.5, metalness: 0.6, flatShading: true });
   const crateGeometry = new BoxGeometry(CRATE_SIZE.x, CRATE_SIZE.y, CRATE_SIZE.z);
   // Cyan glow: freshly fabricated stock straight from the AFC (the same power-on
   // cyan its drop effect uses).
   const crateMaterial = new MeshStandardMaterial({ color: "#46505c", emissive: "#4fd8ff", emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.5, flatShading: true });
 
-  const figureMesh = new InstancedMesh(figureGeometry, figureMaterial, MAX_CONSTRUCTION_SITES * MAX_CREW_PER_SITE);
-  const partMesh = new InstancedMesh(partGeometry, partMaterial, MAX_CONSTRUCTION_SITES * MAX_CREW_PER_SITE);
+  const figureMesh = new InstancedMesh(figureGeometry, figureMaterial, MAX_CONSTRUCTION_SITES * CREW_MAX);
   const crateMesh = new InstancedMesh(crateGeometry, crateMaterial, MAX_CONSTRUCTION_SITES * CONSTRUCTION_CRATES_PER_PHASE);
-  const meshes = [figureMesh, partMesh, crateMesh];
+  const meshes = [figureMesh, crateMesh];
   for (const mesh of meshes) {
     mesh.frustumCulled = false;
     mesh.count = 0;
-    // Deliberately no castShadow: crates, parts and figures are a few pixels tall at gameplay zoom, so their shadows would cost a shadow-pass draw for nothing.
+    // Deliberately no castShadow: crates and figures are a few pixels tall at gameplay zoom, so their shadows would cost a shadow-pass draw for nothing.
   }
   scene.add(...meshes);
 
@@ -88,9 +71,9 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     entries.length = 0;
   };
 
-  const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site) => {
+  const add: ConstructionCrewLayer["add"] = (sceneX, sceneZ, surfaceY, site, layout = DEFAULT_CONSTRUCTION_LAYOUT) => {
     if (entries.length >= MAX_CONSTRUCTION_SITES) return;
-    entries.push({ sceneX, sceneZ, surfaceY, site });
+    entries.push({ sceneX, sceneZ, surfaceY, site, layout });
   };
 
   const upload = (mesh: InstancedMesh): void => {
@@ -99,51 +82,33 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     mesh.instanceMatrix.needsUpdate = true;
   };
 
-  const update = (nowMs: number): void => {
-    // The common case is no site on screen: skip the clock read and the buffer syncs.
-    if (entries.length === 0 && figureMesh.count === 0 && partMesh.count === 0 && crateMesh.count === 0) return;
-    const epochMs = Date.now();
+  const update = (epochMs: number): void => {
+    // The common case is no site on screen: skip the buffer syncs.
+    if (entries.length === 0 && figureMesh.count === 0 && crateMesh.count === 0) return;
     let figures = 0;
-    let parts = 0;
     let crates = 0;
-    for (const { sceneX, sceneZ, surfaceY, site } of entries) {
-      const seed = crewSeed01(site.x, site.y);
-      const crew = Math.min(site.crew, MAX_CREW_PER_SITE);
+    for (const { sceneX, sceneZ, surfaceY, site, layout } of entries) {
+      const crew = Math.min(site.crew, CREW_MAX);
       const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
       for (let c = 0; c < crateCount; c += 1) {
         const slot = CRATE_SLOTS[c]!;
-        position.set(sceneX + STACK_X + slot[0], surfaceY + slot[1], sceneZ + STACK_Z + slot[2]);
+        position.set(sceneX + layout.stackX + slot[0], surfaceY + slot[1], sceneZ + layout.stackZ + slot[2]);
         matrix.compose(position, identity, scale.set(1, 1, 1));
         crateMesh.setMatrixAt(crates, matrix);
         crates += 1;
       }
 
-      const { along, carrying } = crewCycleState(nowMs, seed, site.direction, site.stalled);
-
+      // They wander like settlers; a stalled build freezes them where they stand.
+      const wanderTime = constructionCrewClockMs(site, epochMs);
       for (let i = 0; i < crew; i += 1) {
-        const angle = seed * Math.PI * 2 + (i / crew) * Math.PI * 2;
-        const stackX = STACK_X + CRATE_SIZE.x + ((i % 3) - 1) * CREW_SPREAD;
-        const stackZ = STACK_Z + CRATE_SIZE.z + Math.floor(i / 3) * CREW_SPREAD;
-        const workX = Math.cos(angle) * WORK_RING_RADIUS;
-        const workZ = Math.sin(angle) * WORK_RING_RADIUS;
-        const lx = stackX + (workX - stackX) * along;
-        const lz = stackZ + (workZ - stackZ) * along;
-        const stoop = site.stalled ? STALLED_STOOP : 1;
-        const height = FIGURE_HEIGHT * stoop;
-        position.set(sceneX + lx, surfaceY + height / 2 + 0.005, sceneZ + lz);
-        matrix.compose(position, identity, scale.set(CREW_SCALE, CREW_SCALE * stoop, CREW_SCALE));
+        const point = wanderPoint(wanderTime, site.x, site.y, i);
+        position.set(sceneX + (point.x - 0.5) * layout.crewSpan, surfaceY + PERSON_Y, sceneZ + (point.y - 0.5) * layout.crewSpan);
+        matrix.compose(position, identity, scale.set(1, 1, 1));
         figureMesh.setMatrixAt(figures, matrix);
         figures += 1;
-        if (carrying) {
-          position.set(sceneX + lx, surfaceY + FIGURE_HEIGHT + PART_SIZE * 0.6, sceneZ + lz);
-          matrix.compose(position, identity, scale.set(1, 1, 1));
-          partMesh.setMatrixAt(parts, matrix);
-          parts += 1;
-        }
       }
     }
     figureMesh.count = figures;
-    partMesh.count = parts;
     crateMesh.count = crates;
     for (const mesh of meshes) upload(mesh);
   };
@@ -152,10 +117,8 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     scene.remove(...meshes);
     for (const mesh of meshes) mesh.dispose();
     figureGeometry.dispose();
-    partGeometry.dispose();
     crateGeometry.dispose();
     figureMaterial.dispose();
-    partMaterial.dispose();
     crateMaterial.dispose();
   };
 

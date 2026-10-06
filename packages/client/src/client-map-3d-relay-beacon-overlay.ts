@@ -8,26 +8,27 @@
 // against the squat Siege Battery. Call commit() after adding instances, then
 // update(nowMs) every frame to spin the mirror array.
 
-import {
-  BoxGeometry,
-  BufferGeometry,
-  CylinderGeometry,
-  Euler,
-  InstancedMesh,
-  Matrix4,
-  MeshStandardMaterial,
-  Quaternion,
-  Scene,
-  SphereGeometry,
-  Texture,
-  TorusGeometry,
-  Vector3
-} from "three";
-import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
+import { createRelayBeaconAssets, GEARS_PER_BEACON, MIRRORS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
+import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
+import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
+import { verticalHalfExtent } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type RelayBeaconOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled?: boolean) => void;
+  // `site` is set while the beacon is being built or removed
+  // (docs/construction-animation-plan.md): it is laid out band by band.
+  readonly addInstance: (
+    sceneX: number,
+    sceneZ: number,
+    surfaceY: number,
+    worldTileX: number,
+    worldTileY: number,
+    disabled?: boolean,
+    site?: ConstructionSite
+  ) => void;
+  // True once a phase boundary passed that changes what a construction site laid out in the last rebuild would show.
+  readonly constructionBoundaryPassed: () => boolean;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -37,8 +38,10 @@ const PI_2 = Math.PI / 2;
 const ARRAY_SPEED = 0.0006;
 const HUB_Y = 1.58;
 const MIRROR_RADIUS = 0.115;
-const MIRRORS_PER_BEACON = 6;
-const GEARS_PER_BEACON = 2;
+// Tall, upward pieces that grow with the build instead of appearing whole: a
+// full-height leg or column in phase 1 would make the tower look finished.
+const GROWING_PIECES: ReadonlySet<string> = new Set(["leg", "column", "pipe", "spindle"]);
+const MIN_GROWING_SLOPE = 0.2;
 
 // The mirror-array pieces (plates + drive gears) are the only animated parts.
 // Each piece stores its offset from the hub centre (lx,ly,lz), the yaw it has
@@ -83,6 +86,8 @@ type RelayBeaconInstance = {
   readonly z: number;
   readonly phase: number;
   readonly disabled: boolean;
+  // False while the heliograph array is not built yet; its slots are held as zero-scale placeholders, so update() must not animate them.
+  readonly arrayVisible: boolean;
 };
 
 export const createRelayBeaconOverlay = (
@@ -92,141 +97,7 @@ export const createRelayBeaconOverlay = (
 ): RelayBeaconOverlay => {
   const C = maxTiles;
 
-  // ─── Materials (shared by piece type) ───────────────────────────────
-  const ironMaterial = new MeshStandardMaterial({
-    color: "#2c2e34",
-    roughness: 0.55,
-    metalness: 0.55,
-    flatShading: true
-  });
-  const steelMaterial = new MeshStandardMaterial({
-    color: "#1a1b20",
-    roughness: 0.62,
-    metalness: 0.5,
-    flatShading: true
-  });
-  const brassMaterial = new MeshStandardMaterial({
-    color: "#8a6b3c",
-    roughness: 0.42,
-    metalness: 0.85,
-    flatShading: true
-  });
-  const brassBrightMaterial = new MeshStandardMaterial({
-    color: "#a5864d",
-    roughness: 0.3,
-    metalness: 0.92,
-    flatShading: true
-  });
-  const mechMaterial = new MeshStandardMaterial({
-    color: "#4a443c",
-    roughness: 0.72,
-    metalness: 0.3,
-    flatShading: true
-  });
-  const glassMaterial = new MeshStandardMaterial({
-    color: "#22303a",
-    roughness: 0.12,
-    metalness: 0.55,
-    flatShading: true
-  });
-  const lampGlowMaterial = new MeshStandardMaterial({
-    color: "#4a2a10",
-    roughness: 0.4,
-    metalness: 0.15,
-    flatShading: true,
-    emissive: "#ff9d3d",
-    emissiveIntensity: 1.4
-  });
-  for (const mat of [
-    ironMaterial,
-    steelMaterial,
-    brassMaterial,
-    brassBrightMaterial,
-    mechMaterial,
-    glassMaterial,
-    lampGlowMaterial
-  ]) {
-    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
-  }
-
-  // ─── Geometries (shared) ────────────────────────────────────────────
-  const anchorGeo = new BoxGeometry(0.13, 0.035, 0.13);
-  const baseBoxGeo = new BoxGeometry(0.34, 0.1, 0.26);
-  const baseVentGeo = new BoxGeometry(0.08, 0.045, 0.015);
-  const legGeo = new BoxGeometry(0.03, 1, 0.03);
-  const braceGeo = new BoxGeometry(0.02, 1, 0.02);
-  const columnGeo = new CylinderGeometry(0.03, 0.055, 1, 8);
-  const columnBandGeo = new TorusGeometry(0.05, 0.011, 6, 10);
-  const pipeGeo = new CylinderGeometry(0.016, 0.016, 1, 6);
-  const pipeJointGeo = new TorusGeometry(0.019, 0.009, 5, 8);
-  const platformGeo = new CylinderGeometry(0.17, 0.19, 0.035, 10);
-  const railGeo = new CylinderGeometry(0.175, 0.175, 0.05, 10, 1, true);
-  const obsBoxGeo = new BoxGeometry(0.13, 0.11, 0.13);
-  const obsWindowGeo = new BoxGeometry(0.07, 0.045, 0.012);
-  const periscopeTubeGeo = new CylinderGeometry(0.024, 0.024, 1, 8);
-  const periscopeEyepieceGeo = new CylinderGeometry(0.032, 0.036, 0.035, 8);
-  const periscopeLensGeo = new CylinderGeometry(0.03, 0.03, 0.012, 10);
-  const periscopeGearGeo = new CylinderGeometry(0.028, 0.028, 0.025, 8);
-  const spindleGeo = new CylinderGeometry(0.015, 0.018, 1, 8);
-  const hubGeo = new CylinderGeometry(0.045, 0.05, 0.05, 10);
-  const arrayRingGeo = new TorusGeometry(0.16, 0.014, 6, 16);
-  const arrayGearGeo = new CylinderGeometry(0.03, 0.03, 0.03, 8);
-  const mirrorGeo = new BoxGeometry(0.16, 0.05, 0.012);
-  const lampBracketGeo = new BoxGeometry(0.016, 0.11, 0.016);
-  const lampHousingGeo = new CylinderGeometry(0.033, 0.028, 0.055, 8);
-  const lampGlowGeo = new SphereGeometry(0.022, 8, 6);
-  const lampCageGeo = new TorusGeometry(0.04, 0.006, 5, 8);
-  const tankGeo = new CylinderGeometry(0.05, 0.05, 0.34, 10);
-  const tankBandGeo = new TorusGeometry(0.052, 0.009, 6, 10);
-  const tankCapGeo = new CylinderGeometry(0.05, 0.05, 0.018, 10);
-  const tankValveGeo = new CylinderGeometry(0.014, 0.014, 0.05, 6);
-  const valveWheelGeo = new BoxGeometry(0.05, 0.01, 0.05);
-
-  // ─── InstancedMesh registry ────────────────────────────────────────
-  type Slot = { mesh: InstancedMesh; count: number; cap: number };
-  const slots = new Map<string, Slot>();
-
-  const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
-    const mesh = new InstancedMesh(geo, mat, cap);
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    scene.add(mesh);
-    const slot: Slot = { mesh, count: 0, cap };
-    slots.set(key, slot);
-    return slot;
-  };
-
-  make("anchor", anchorGeo, steelMaterial, C * 4);
-  make("baseBox", baseBoxGeo, ironMaterial, C);
-  make("baseVent", baseVentGeo, brassMaterial, C);
-  make("leg", legGeo, ironMaterial, C * 4);
-  make("brace", braceGeo, ironMaterial, C * 4);
-  make("column", columnGeo, ironMaterial, C);
-  make("columnBand", columnBandGeo, brassMaterial, C);
-  make("pipe", pipeGeo, brassMaterial, C * 2);
-  make("pipeJoint", pipeJointGeo, brassMaterial, C * 3);
-  make("platform", platformGeo, ironMaterial, C);
-  make("rail", railGeo, steelMaterial, C);
-  make("obsBox", obsBoxGeo, steelMaterial, C);
-  make("obsWindow", obsWindowGeo, glassMaterial, C);
-  make("periscopeTube", periscopeTubeGeo, brassMaterial, C * 3);
-  make("periscopeEyepiece", periscopeEyepieceGeo, brassMaterial, C * 3);
-  make("periscopeLens", periscopeLensGeo, glassMaterial, C * 3);
-  make("periscopeGear", periscopeGearGeo, mechMaterial, C * 3);
-  make("spindle", spindleGeo, brassBrightMaterial, C);
-  make("hub", hubGeo, brassBrightMaterial, C);
-  make("arrayRing", arrayRingGeo, brassMaterial, C);
-  make("arrayGear", arrayGearGeo, mechMaterial, C * GEARS_PER_BEACON);
-  make("mirror", mirrorGeo, brassBrightMaterial, C * MIRRORS_PER_BEACON);
-  make("lampBracket", lampBracketGeo, ironMaterial, C * 3);
-  make("lampHousing", lampHousingGeo, brassMaterial, C * 3);
-  make("lampGlow", lampGlowGeo, lampGlowMaterial, C * 3);
-  make("lampCage", lampCageGeo, ironMaterial, C * 3);
-  make("tank", tankGeo, ironMaterial, C);
-  make("tankBand", tankBandGeo, brassMaterial, C * 2);
-  make("tankCap", tankCapGeo, steelMaterial, C);
-  make("tankValve", tankValveGeo, steelMaterial, C);
-  make("valveWheel", valveWheelGeo, brassMaterial, C);
+  const { slots, dispose: disposeAssets } = createRelayBeaconAssets(scene, C, buildingEnvironmentTexture);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -239,6 +110,15 @@ export const createRelayBeaconOverlay = (
   const yAxis = new Vector3(0, 1, 0);
   const zAxis = new Vector3(0, 0, 1);
 
+  const presentation = createLazyConstructionPresentation(scene, buildingEnvironmentTexture);
+  // Construction state while one beacon is being laid out. `cutY` is the height of the
+  // built part (undefined = fully built); `measuring` dry-runs the layout to find the finished height.
+  let cutY: number | undefined;
+  let measuring = false;
+  let measuredTop = 0;
+  let keepHiddenSlots = false;
+
+  // Returns true when the piece was placed visibly.
   const addPiece = (
     key: string,
     wx: number,
@@ -253,9 +133,9 @@ export const createRelayBeaconOverlay = (
     rotY = 0,
     rotX = 0,
     rotZ = 0
-  ): void => {
+  ): boolean => {
     const slot = slots.get(key);
-    if (!slot || slot.count >= slot.cap) return;
+    if (!slot || (!measuring && slot.count >= slot.cap)) return false;
     position.set(wx + ox, sy + oy, wz + oz);
     scale.set(sx, sy2, sz);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
@@ -265,8 +145,24 @@ export const createRelayBeaconOverlay = (
       tmpQuat.setFromEuler(tmpEuler);
       matrix.compose(position, tmpQuat, scale);
     }
+    if (measuring || cutY !== undefined) {
+      const half = verticalHalfExtent(matrix.elements, slot.extents);
+      if (measuring) {
+        measuredTop = Math.max(measuredTop, oy + half);
+        return false;
+      }
+      if (oy - half > (cutY as number)) {
+        if (!keepHiddenSlots) return false;
+        // A zero-scale placeholder keeps the animated pieces' slot indices aligned across beacons.
+        matrix.compose(position, identityQuat, scale.set(0, 0, 0));
+        slot.mesh.setMatrixAt(slot.count, matrix);
+        slot.count += 1;
+        return false;
+      }
+    }
     slot.mesh.setMatrixAt(slot.count, matrix);
     slot.count += 1;
+    return true;
   };
 
   const eulerFromDir = (dx: number, dy: number, dz: number): { rx: number; ry: number; rz: number } => {
@@ -298,6 +194,24 @@ export const createRelayBeaconOverlay = (
     dz: number,
     len: number
   ): void => {
+    if (cutY !== undefined && !measuring && GROWING_PIECES.has(key)) {
+      tmpDir.set(dx, dy, dz).normalize();
+      if (tmpDir.y > MIN_GROWING_SLOPE) {
+        const half = (tmpDir.y * len) / 2;
+        const bottom = oy - half;
+        const top = oy + half;
+        if (bottom >= cutY) return;
+        if (top > cutY) {
+          // Cut the piece at the build height, keeping its bottom end fixed.
+          const newLen = (len * (cutY - bottom)) / (top - bottom);
+          const shift = (len - newLen) / 2;
+          ox -= tmpDir.x * shift;
+          oy -= tmpDir.y * shift;
+          oz -= tmpDir.z * shift;
+          len = newLen;
+        }
+      }
+    }
     const e = eulerFromDir(dx, dy, dz);
     addPiece(key, wx, sy, wz, ox, oy, oz, 1, 1, len, e.ry, e.rx, e.rz);
   };
@@ -319,7 +233,8 @@ export const createRelayBeaconOverlay = (
   };
 
   // ─── Beacon placement ───────────────────────────────────────────────
-  const addBeacon = (wx: number, sy: number, wz: number): void => {
+  // Returns whether the heliograph array was built (it is the last thing up the tower).
+  const addBeacon = (wx: number, sy: number, wz: number): boolean => {
     // Small mechanical anchor base + control housing.
     for (const ax of [-0.26, 0.26]) {
       for (const az of [-0.26, 0.26]) {
@@ -338,7 +253,7 @@ export const createRelayBeaconOverlay = (
     addPiece("valveWheel", wx, sy, wz, 0.24, 0.438, -0.16);
 
     // Slender lattice column with a brass band.
-    addPiece("column", wx, sy, wz, 0, 0.7, 0, 1, 1, 1.16);
+    addPieceAlong("column", wx, sy, wz, 0, 0.7, 0, 0, 1, 0, 1.16);
     addPiece("columnBand", wx, sy, wz, 0, 0.95, 0, 1, 1, 1, 0, PI_2, 0);
 
     // Four converging dark-iron lattice legs.
@@ -371,11 +286,19 @@ export const createRelayBeaconOverlay = (
     addPiece("obsWindow", wx, sy, wz, 0, 1.4, 0.056);
 
     // Heliograph spindle, hub and array disc (static; plates animate).
-    addPiece("spindle", wx, sy, wz, 0, 1.49, 0, 1, 1, 0.33);
+    addPieceAlong("spindle", wx, sy, wz, 0, 1.49, 0, 0, 1, 0, 0.33);
     addPiece("hub", wx, sy, wz, 0, HUB_Y, 0);
     addPiece("arrayRing", wx, sy, wz, 0, 1.6, 0, 1, 1, 1, 0, PI_2, 0);
-    for (const piece of arrayPieces) {
-      addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ);
+    // The animated pieces are addressed by slot index (i * perBeacon + slotIndex), so a
+    // gated-out one still takes its slot as a zero-scale placeholder.
+    let arrayBuilt = false;
+    keepHiddenSlots = true;
+    try {
+      for (const piece of arrayPieces) {
+        if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
+      }
+    } finally {
+      keepHiddenSlots = false;
     }
 
     // Geared brass periscopes sweeping out over the deck edge.
@@ -387,7 +310,9 @@ export const createRelayBeaconOverlay = (
     addLamp(wx, sy, wz, 0.15, 0.09);
     addLamp(wx, sy, wz, -0.15, 0.09);
     addLamp(wx, sy, wz, 0, -0.16);
+    return arrayBuilt;
   };
+
 
   const addPeriscope = (wx: number, sy: number, wz: number, px: number, py: number, pz: number, dx: number, dy: number, dz: number): void => {
     const dirLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -407,15 +332,30 @@ export const createRelayBeaconOverlay = (
     addPiece("lampCage", wx, sy, wz, lx, 1.42, lz, 1, 1, 1, 0, PI_2, 0);
   };
 
+  // Dry run of the finished beacon (nothing is placed) to learn its height.
+  measuring = true;
+  addBeacon(0, 0, 0);
+  measuring = false;
+  const totalHeight = measuredTop;
+
   const instances: RelayBeaconInstance[] = [];
 
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
     instances.length = 0;
+    presentation.clear();
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled = false): void => {
+  const addInstance = (
+    sceneX: number,
+    sceneZ: number,
+    surfaceY: number,
+    worldTileX: number,
+    worldTileY: number,
+    disabled = false,
+    site: ConstructionSite | undefined = undefined
+  ): void => {
     // The mirror/gear animation buffers (and every static-piece buffer) are
     // preallocated for `C` beacons; instances beyond that would index past
     // the InstancedMesh's typed arrays in update(), so drop the excess here
@@ -423,11 +363,23 @@ export const createRelayBeaconOverlay = (
     if (instances.length >= C) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled });
-    addBeacon(sceneX, surfaceY, sceneZ);
+    let arrayVisible: boolean;
+    if (site) {
+      cutY = (totalHeight * site.visibleBands) / CONSTRUCTION_PHASES;
+      try {
+        arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
+      } finally {
+        cutY = undefined; // never leave the cut on for the next beacon
+      }
+      presentation.addSite(sceneX, sceneZ, surfaceY, site, totalHeight);
+    } else {
+      arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
+    }
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible });
   };
 
   const commit = (): void => {
+    presentation.commit();
     for (const slot of slots.values()) {
       const { mesh, count } = slot;
       mesh.count = count;
@@ -439,12 +391,14 @@ export const createRelayBeaconOverlay = (
   };
 
   const update = (nowMs: number): void => {
+    presentation.update(nowMs);
     const count = instances.length;
     if (count === 0) return;
     const mirrorSlot = slots.get("mirror");
     const gearSlot = slots.get("arrayGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
+      if (!t.arrayVisible) continue; // still a zero-scale placeholder under construction
       const angle = t.disabled ? t.phase : nowMs * ARRAY_SPEED + t.phase;
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
@@ -478,20 +432,9 @@ export const createRelayBeaconOverlay = (
   };
 
   const dispose = (): void => {
-    for (const slot of slots.values()) scene.remove(slot.mesh);
-    [
-      anchorGeo, baseBoxGeo, baseVentGeo, legGeo, braceGeo, columnGeo, columnBandGeo,
-      pipeGeo, pipeJointGeo, platformGeo, railGeo, obsBoxGeo, obsWindowGeo,
-      periscopeTubeGeo, periscopeEyepieceGeo, periscopeLensGeo, periscopeGearGeo,
-      spindleGeo, hubGeo, arrayRingGeo, arrayGearGeo, mirrorGeo, lampBracketGeo,
-      lampHousingGeo, lampGlowGeo, lampCageGeo, tankGeo, tankBandGeo, tankCapGeo,
-      tankValveGeo, valveWheelGeo
-    ].forEach((g) => g.dispose());
-    [
-      ironMaterial, steelMaterial, brassMaterial, brassBrightMaterial,
-      mechMaterial, glassMaterial, lampGlowMaterial
-    ].forEach((m) => m.dispose());
+    presentation.dispose();
+    disposeAssets();
   };
 
-  return { clear, addInstance, commit, update, dispose };
+  return { clear, addInstance, constructionBoundaryPassed: presentation.boundaryPassed, commit, update, dispose };
 };

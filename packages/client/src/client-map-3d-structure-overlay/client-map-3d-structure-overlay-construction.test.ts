@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { InstancedMesh, Scene } from "three";
+import { InstancedMesh, Matrix4, Scene } from "three";
+import { geometryHalfExtents, verticalHalfExtent } from "../client-map-3d-construction/client-map-3d-vertical-extent.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay.js";
@@ -11,6 +12,7 @@ const HOUR = 3_600_000;
 const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 4,
   y: 7,
+  afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
   structureType: "MINTWORKS",
@@ -118,6 +120,8 @@ describe("structure overlay under construction", () => {
   });
 
   describe("delivery pods", () => {
+    // Parts come from the owner's AFC (4 tiles west, 3 north of the site).
+    const podSite = (bands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => siteAt(bands, { afcOffset: { dx: -4, dy: -3 }, ...over });
     const pods = (scene: Scene): number => scene.children.filter((c) => c.type === "Group").length;
     const rebuild = (overlay: ReturnType<typeof createStructureOverlay>, site?: ConstructionSite): void => {
       overlay.clear();
@@ -131,50 +135,91 @@ describe("structure overlay under construction", () => {
 
     it("does not fire for a site seen for the first time, however far along it is", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(3));
+      rebuild(overlay, podSite(3));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("fires one pod when an already-seen site enters a new phase, but not within the same phase", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(1));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(1));
       expect(pods(scene)).toBe(0);
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
       overlay.dispose();
     });
 
     it("stays quiet for removal and for stalled sites", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1, { direction: "remove" }));
-      rebuild(overlay, siteAt(2, { direction: "remove" }));
+      rebuild(overlay, podSite(1, { direction: "remove" }));
+      rebuild(overlay, podSite(2, { direction: "remove" }));
       expect(pods(scene)).toBe(0);
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(2, { stalled: true }));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(2, { stalled: true }));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("does not fire when a site scrolls out of view for a rebuild and returns in a later phase", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
+      rebuild(overlay, podSite(1));
       rebuild(overlay); // site not laid out this rebuild
-      rebuild(overlay, siteAt(3));
+      rebuild(overlay, podSite(3));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("keeps an in-flight pod alive across the rebuild that follows it", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(2));
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
       overlay.dispose();
+    });
+
+    it("shows no pod when the owner's AFC is not known: parts are never conjured at the site", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay, siteAt(2)); // phase advanced, but no afcOffset
+      expect(pods(scene)).toBe(0);
+      overlay.dispose();
+    });
+  });
+
+  describe("tall structures grow instead of appearing whole", () => {
+    // Highest point of the structure's own pieces (the construction scaffold, crates and
+    // crew are meshes created after the overlay, so they are excluded).
+    const topAt = (kind: "AETHER_TOWER" | "FARMSTEAD" | "WORLD_ENGINE", bands: number | undefined): number => {
+      const scene = new Scene();
+      const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
+      const own = new Set(scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh));
+      overlay.addInstance(0, 0, 0, kind, undefined, bands === undefined ? undefined : siteAt(bands));
+      overlay.commit();
+      let top = 0;
+      const m = new Matrix4();
+      for (const mesh of own) {
+        const ext = geometryHalfExtents(mesh.geometry);
+        for (let i = 0; i < mesh.count; i += 1) {
+          mesh.getMatrixAt(i, m);
+          top = Math.max(top, m.elements[13]! + verticalHalfExtent(m.elements, ext));
+        }
+      }
+      overlay.dispose();
+      return top;
+    };
+
+    it.each(["AETHER_TOWER", "FARMSTEAD", "WORLD_ENGINE"] as const)("%s climbs roughly a quarter of its height per phase", (kind) => {
+      const full = topAt(kind, undefined);
+      const ratios = [1, 2, 3, 4].map((bands) => topAt(kind, bands) / full);
+      // Not stuck at full height from the first phase (the old whole-piece behaviour)...
+      expect(ratios[0]!).toBeLessThan(0.45);
+      // ...rising every phase, and finishing at full height.
+      for (let i = 1; i < ratios.length; i += 1) expect(ratios[i]!).toBeGreaterThan(ratios[i - 1]! + 0.05);
+      expect(ratios[3]!).toBeCloseTo(1, 5);
     });
   });
 });

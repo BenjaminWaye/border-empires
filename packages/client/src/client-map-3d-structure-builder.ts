@@ -17,6 +17,7 @@ import {
   Vector3
 } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { geometryHalfExtents, verticalHalfExtent, type HalfExtents } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type StructurePieceGeometry =
   | BoxGeometry
@@ -29,7 +30,10 @@ export type StructurePieceGeometry =
 
 // halfExtent: half the geometry's bounding box, so construction gating/measuring
 // can find a piece's vertical extent (docs/construction-animation-plan.md).
-type Slot = { mesh: InstancedMesh; count: number; cap: number; halfX: number; halfY: number; halfZ: number };
+// `growable`: only boxes and cylinders read as "partly built" when cut in Y; a cut cone, sphere
+// or torus just looks squashed (a flattened roof or dome), so those wait to appear whole. Checked by
+// `type`, not instanceof: three's ConeGeometry extends CylinderGeometry.
+type Slot = { mesh: InstancedMesh; count: number; cap: number; extents: HalfExtents; growable: boolean };
 
 // Builder API used by per-family files to register their meshes and
 // place instances. Families never touch the underlying slots/scene
@@ -75,6 +79,10 @@ export type StructurePieceBuilder = {
   // (offset above the surface) any piece would reach. Callers must undo any
   // family-local side effects of the layout they ran (e.g. animation records).
   readonly measure: (run: () => void) => number;
+  // True when the last addPiece placed a piece cut short at the gate (it is still growing). A family
+  // that re-poses its pieces every frame from their full rest pose must leave such a piece alone,
+  // or it would pop back to full height mid-build.
+  readonly lastPieceWasCut: () => boolean;
 };
 
 export type StructurePieceBuilderInternals = {
@@ -134,21 +142,17 @@ export const createStructurePieceBuilder = (
     // here worth carving out.
     applyBuildingEnvMap(mat, envMap);
     scene.add(mesh);
-    geo.computeBoundingBox();
-    const box = geo.boundingBox;
-    slots.set(key, {
-      mesh,
-      count: 0,
-      cap,
-      halfX: box ? (box.max.x - box.min.x) / 2 : 0,
-      halfY: box ? (box.max.y - box.min.y) / 2 : 0,
-      halfZ: box ? (box.max.z - box.min.z) / 2 : 0
-    });
+    slots.set(key, { mesh, count: 0, cap, extents: geometryHalfExtents(geo), growable: geo.type === "BoxGeometry" || geo.type === "CylinderGeometry" });
     ownedGeos.add(geo);
     ownedMaterials.add(mat);
   };
 
   let gateY: number | undefined;
+  let lastCut = false;
+  // Pieces at least this tall (world units) grow with the build; thinner ones appear whole.
+  const MIN_GROWING_PIECE_HEIGHT = 0.1;
+  // Do not draw a growing piece until at least this much of it is above its base.
+  const MIN_VISIBLE_SLIVER = 0.01;
   let measuring = false;
   let measuredTop = 0;
   const matrix = new Matrix4();
@@ -173,6 +177,7 @@ export const createStructurePieceBuilder = (
     rotX = 0,
     rotZ = 0
   ): number => {
+    lastCut = false;
     const slot = slots.get(key);
     if (!slot || (!measuring && slot.count >= slot.cap)) return -1;
     position.set(sceneX + ox, surfaceY + oy, sceneZ + oz);
@@ -185,15 +190,35 @@ export const createStructurePieceBuilder = (
       matrix.compose(position, tmpQuat, scale);
     }
     if (measuring || gateY !== undefined) {
-      // Vertical half-extent of the (rotated, scaled) box: row 1 of the
-      // composed matrix already carries rotation and scale.
-      const e = matrix.elements;
-      const half = Math.abs(e[1]!) * slot.halfX + Math.abs(e[5]!) * slot.halfY + Math.abs(e[9]!) * slot.halfZ;
+      const half = verticalHalfExtent(matrix.elements, slot.extents);
       if (measuring) {
         measuredTop = Math.max(measuredTop, oy + half);
         return -1;
       }
-      if (oy - half > (gateY as number)) return -1;
+      const cut = gateY as number;
+      if (oy - half > cut) return -1;
+      // A tall upright piece grows with the build instead of appearing whole: without this a
+      // tower made of one tall shaft would show at full height the moment its base is built.
+      // Cut at the build height, base fixed. Tilted pieces and small ones still appear whole.
+      const tallUpright = rotX === 0 && rotZ === 0 && 2 * half >= MIN_GROWING_PIECE_HEIGHT && oy + half > cut;
+      // A shape that would only look squashed if cut (see Slot.growable) waits until the build
+      // passes its top and then appears whole: a roof cone or dome goes on last.
+      if (tallUpright && !slot.growable) {
+        if (oy + half > cut + 1e-6) return -1;
+      } else if (tallUpright) {
+        const ratio = (cut - (oy - half)) / (2 * half);
+        if (ratio * 2 * half < MIN_VISIBLE_SLIVER) return -1;
+        position.set(sceneX + ox, surfaceY + oy - (1 - ratio) * half, sceneZ + oz);
+        scale.set(sx, sy * ratio, sz);
+        lastCut = true;
+        if (rotY === 0) {
+          matrix.compose(position, identityQuat, scale);
+        } else {
+          tmpEuler.set(0, rotY, 0, "XYZ");
+          tmpQuat.setFromEuler(tmpEuler);
+          matrix.compose(position, tmpQuat, scale);
+        }
+      }
     }
     const index = slot.count;
     slot.mesh.setMatrixAt(index, matrix);
@@ -250,7 +275,7 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure, lastPieceWasCut: () => lastCut },
     clear,
     commit,
     dispose

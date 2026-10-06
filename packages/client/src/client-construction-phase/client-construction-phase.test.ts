@@ -1,4 +1,4 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { FORT_TIER_LADDER, structureBuildDurationMs, structureBuildDurationMsForManpowerCost } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import {
@@ -81,10 +81,10 @@ describe("constructionSiteForTile with types this client does not know", () => {
   it("degrades to a generic site instead of throwing", () => {
     const economic = unknown({ economicStructure: { ownerId: "me", type: "SOMETHING_NEW", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR } });
     expect(() => constructionSiteForTile(economic, HOUR)).not.toThrow();
-    expect(constructionSiteForTile(economic, HOUR)).toMatchObject({ field: "economicStructure", phase: 0, crew: 2 });
+    expect(constructionSiteForTile(economic, HOUR)).toMatchObject({ field: "economicStructure", phase: 0, crew: 4 });
 
     const fort = unknown({ fort: { ownerId: "me", status: "under_construction", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
-    expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 2 });
+    expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 4 });
 
     const siege = unknown({ siegeOutpost: { ownerId: "me", status: "removing", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
     expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeOutpost", direction: "remove" });
@@ -95,6 +95,20 @@ describe("constructionSiteForTile with types this client does not know", () => {
     const site = constructionSiteForTile(economic, 9.75 * HOUR)!;
     expect(site.fraction).toBeCloseTo(0.75, 5); // the 1h fallback window ending at completesAt
     expect(site.fraction).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("constructionSiteForTile instant placements", () => {
+  it("shows no construction for a zero-length window (first Relay Beacons)", () => {
+    const beacon = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", startedAt: 5_000, completesAt: 5_000 } } as Tile;
+    expect(constructionSiteForTile(beacon, 5_000)).toBeUndefined();
+    expect(constructionSiteForTile(beacon, 9_000)).toBeUndefined();
+  });
+
+  it("still shows a normal beacon build and an overdue (stalled) one", () => {
+    const sixth = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", startedAt: 0, completesAt: 2 * HOUR } } as Tile;
+    expect(constructionSiteForTile(sixth, HOUR)).toMatchObject({ phase: 2, stalled: false });
+    expect(constructionSiteForTile(sixth, 3 * HOUR)).toMatchObject({ stalled: true });
   });
 });
 
@@ -138,11 +152,11 @@ describe("constructionCratesAt", () => {
 });
 
 describe("crewSizeForManpower", () => {
-  it("scales with manpower and stays within 2..6 figures", () => {
-    expect(crewSizeForManpower(0)).toBe(2);
-    expect(crewSizeForManpower(50)).toBe(2);
-    expect(crewSizeForManpower(100)).toBe(4);
-    expect(crewSizeForManpower(10_000)).toBe(6);
+  it("scales with manpower and stays within 4..12 figures (pinprick figures need numbers to read)", () => {
+    expect(crewSizeForManpower(0)).toBe(4);
+    expect(crewSizeForManpower(50)).toBe(4);
+    expect(crewSizeForManpower(100)).toBe(8);
+    expect(crewSizeForManpower(10_000)).toBe(12);
   });
 });
 
@@ -168,5 +182,21 @@ describe("constructionSiteForTile while an attack has paused the build", () => {
     const site = constructionSiteForTile(mintworks({ startedAt: 0, completesAt: 4 * HOUR }), 2 * HOUR);
     expect(site?.fraction).toBeCloseTo(0.5, 6);
     expect(site?.pausedAtMs).toBeUndefined();
+  });
+});
+
+describe("constructionSiteForTile without startedAt", () => {
+  // Regression: the fort estimate used the base Fort's duration for every tier, so a quicker
+  // tier placed just now came out part-built.
+  it("estimates a fort's window from its own tier", () => {
+    const palisadeMs = structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.WOODEN_FORT.manpower);
+    const tile = { ...baseTile(), fort: { ownerId: "me", status: "under_construction", variant: "WOODEN_FORT", completesAt: palisadeMs } } as Tile;
+    expect(constructionSiteForTile(tile, 0, "fort")).toMatchObject({ fraction: 0, phase: 0 });
+  });
+
+  // Regression: a Relay Beacon's count-0 duration is 0 (the first five are instant), which hid a real, slower build.
+  it("still shows a Relay Beacon build", () => {
+    const tile = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", completesAt: 8 * HOUR } } as Tile;
+    expect(constructionSiteForTile(tile, 0, "economicStructure")).toBeDefined();
   });
 });
