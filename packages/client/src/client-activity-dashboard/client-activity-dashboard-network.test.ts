@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerHintStateSender } from "../client-discovery-tips/client-hint-server-sync.js";
 import {
   acknowledgeActivitySeen,
   applyActivitySeenAcknowledgedMessage,
@@ -6,6 +7,14 @@ import {
   handleActivityDashboardMessage,
   requestPersonalActivity
 } from "./client-activity-dashboard-network.js";
+
+// Server-bound hint-state writes (SET_HINT_STATE) the handler reports.
+const sentHintPatches: unknown[] = [];
+beforeEach(() => {
+  sentHintPatches.length = 0;
+  registerHintStateSender((patch) => sentHintPatches.push(patch));
+});
+afterEach(() => registerHintStateSender(() => undefined));
 
 const makeState = () => ({
   activityDashboard: {
@@ -18,6 +27,7 @@ const makeState = () => ({
     worldPulseLoading: false,
     worldPulseError: undefined as string | undefined,
     updatesAutoOpenedThisSession: false,
+    quietedSeasonId: "season-1", // every test but the first-login ones models a later login in season-1
     acknowledgedFor: 0,
     autoOpenedThisSession: false,
     scrollTopByView: {},
@@ -27,7 +37,9 @@ const makeState = () => ({
   changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },
   guide: { completed: true },
   authSessionReady: true,
-  profileSetupRequired: false
+  profileSetupRequired: false,
+  bridgeDebugSeasonId: "season-1",
+  authEmail: "a@example.com"
 });
 
 const timelineWith = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -58,6 +70,59 @@ describe("requestPersonalActivity", () => {
     const sendGameMessage = vi.fn(() => true);
     requestPersonalActivity(state, { sendGameMessage, renderHud: vi.fn() });
     expect(sendGameMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("the dashboard on the first login of a season", () => {
+  const firstLoginState = () => {
+    const state = makeState();
+    state.changelog.seenAt = 0; // returning player with release notes they have not read
+    state.activityDashboard.quietedSeasonId = ""; // server has not recorded this season yet
+    return state;
+  };
+  const deps = () => ({ sendGameMessage: vi.fn(), renderHud: vi.fn() });
+
+  it("does not auto-open What's New, and records the season on the server", () => {
+    const state = firstLoginState();
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(false);
+    expect(state.activityDashboard.updatesAutoOpenedThisSession).toBe(false);
+    expect(state.activityDashboard.quietedSeasonId).toBe("season-1");
+    expect(sentHintPatches).toEqual([{ dashboardQuietedSeasonId: "season-1" }]);
+  });
+
+  it("does not auto-open the Yours briefing either, even with unseen activity", () => {
+    const state = firstLoginState();
+    state.activitySeen.lastActivitySeenAt = 500;
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [{ kind: "COMBAT", occurredAt: 900 }] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(false);
+    expect(state.activityDashboard.autoOpenedThisSession).toBe(false);
+  });
+
+  it("opens What's New on the next login in that season (server now holds the season)", () => {
+    const state = firstLoginState();
+    state.activityDashboard.quietedSeasonId = "season-1"; // INIT.player.dashboardQuietedSeasonId on the next login
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
+    expect(state.activityDashboard.activeView).toBe("UPDATES");
+    expect(sentHintPatches).toEqual([]);
+  });
+
+  it("is quiet again on the first login of the following season", () => {
+    const state = firstLoginState();
+    state.activityDashboard.quietedSeasonId = "season-1";
+    state.bridgeDebugSeasonId = "season-2";
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(false);
+    expect(sentHintPatches).toEqual([{ dashboardQuietedSeasonId: "season-2" }]);
+  });
+
+  it("never quiets on an unknown season id", () => {
+    const state = firstLoginState();
+    state.bridgeDebugSeasonId = "";
+    applyPersonalActivityTimelineMessage({ timeline: timelineWith({ cards: [] }) }, state, deps());
+    expect(state.activityDashboard.open).toBe(true);
+    expect(sentHintPatches).toEqual([]);
   });
 });
 
