@@ -9,7 +9,7 @@ import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.
 // Construction animation (docs/construction-animation-plan.md). Structures take
 // 1h to many hours to build, so construction reads as discrete height bands
 // (foundation -> frame -> cladding -> fit-out), a scaffold cage, a parts stack
-// that shrinks as the crew uses it, and a lock-step ancillary crew. This story
+// that shrinks as the crew uses it, and the settle-style ancillary crew. This story
 // shows the real overlay code driven by a virtual build window, so the phases
 // can be scrubbed (or played at speed) instead of waited for.
 type Args = {
@@ -20,7 +20,7 @@ type Args = {
   cameraDistance: number;
 };
 
-const KINDS: ReadonlyArray<StructureKind> = ["FARMSTEAD", "WATERWORKS", "MINE", "GRANARY", "FOUNDRY", "ADVANCED_TITANIUM_WORKS", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "RADAR_SYSTEM", "AIRPORT", "WEAPONS_WORKSHOP"];
+const KINDS: ReadonlyArray<StructureKind> = ["AETHER_TOWER", "WORLD_ENGINE", "FARMSTEAD", "WATERWORKS", "MINE", "GRANARY", "FOUNDRY", "ADVANCED_TITANIUM_WORKS", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "RADAR_SYSTEM", "AIRPORT", "WEAPONS_WORKSHOP"];
 const HOUR_MS = 3_600_000;
 
 // A tile whose in-flight record spans a virtual window positioned so that

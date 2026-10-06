@@ -17,9 +17,10 @@ export const CONSTRUCTION_PHASES = 4;
 export const CONSTRUCTION_CRATES_PER_PHASE = 4;
 export const CONSTRUCTION_STEPS = CONSTRUCTION_PHASES * CONSTRUCTION_CRATES_PER_PHASE;
 
-const MANPOWER_PER_CREW_FIGURE = 25;
-const CREW_MIN = 2;
-const CREW_MAX = 6;
+// Pinprick figures are only visible in numbers: the settle swarm runs 2 to 18, so a crew of 4 to 12.
+const MANPOWER_PER_CREW_FIGURE = 12.5;
+const CREW_MIN = 4;
+const CREW_MAX = 12;
 
 export type ConstructionDirection = "build" | "remove";
 

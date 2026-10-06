@@ -141,6 +141,10 @@ export const createStructurePieceBuilder = (
   };
 
   let gateY: number | undefined;
+  // Pieces at least this tall (world units) grow with the build; thinner ones appear whole.
+  const MIN_GROWING_PIECE_HEIGHT = 0.1;
+  // Do not draw a growing piece until at least this much of it is above its base.
+  const MIN_VISIBLE_SLIVER = 0.01;
   let measuring = false;
   let measuredTop = 0;
   const matrix = new Matrix4();
@@ -182,7 +186,24 @@ export const createStructurePieceBuilder = (
         measuredTop = Math.max(measuredTop, oy + half);
         return -1;
       }
-      if (oy - half > (gateY as number)) return -1;
+      const cut = gateY as number;
+      if (oy - half > cut) return -1;
+      // A tall upright piece grows with the build instead of appearing whole: without this a
+      // tower made of one tall shaft would show at full height the moment its base is built.
+      // Cut at the build height, base fixed. Tilted pieces and small ones still appear whole.
+      if (rotX === 0 && rotZ === 0 && 2 * half >= MIN_GROWING_PIECE_HEIGHT && oy + half > cut) {
+        const ratio = (cut - (oy - half)) / (2 * half);
+        if (ratio * 2 * half < MIN_VISIBLE_SLIVER) return -1;
+        position.set(sceneX + ox, surfaceY + oy - (1 - ratio) * half, sceneZ + oz);
+        scale.set(sx, sy * ratio, sz);
+        if (rotY === 0) {
+          matrix.compose(position, identityQuat, scale);
+        } else {
+          tmpEuler.set(0, rotY, 0, "XYZ");
+          tmpQuat.setFromEuler(tmpEuler);
+          matrix.compose(position, tmpQuat, scale);
+        }
+      }
     }
     const index = slot.count;
     slot.mesh.setMatrixAt(index, matrix);

@@ -32,7 +32,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A Relay Beacon being built now grows in four phases, with scaffolding around it, in both the 3D and 2D maps: the legs and column rise, and the mirror array is fitted last",
       "Forts, Palisades and Bastions being built rise wall by wall in four phases, with scaffolding and a crew; removing one plays it in reverse",
       "Upgrading a fort keeps the standing fort fully drawn, since it keeps defending, and shows the crew and scaffolding working around it",
-      "Parts and an ancillary crew work at the site, and a fresh parts pod drops in at the start of every phase",
+      "Tall structures, such as towers, now rise gradually through the build phases instead of showing at full height straight away",
+      "Construction crews are now the same small black dots as when settling, and a stack of glowing fabricated parts sits at the site, with a fresh parts pod dropping in at the start of every phase",
       "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
     ]
   },

@@ -66,13 +66,15 @@ describe("drawConstructionStructure2D", () => {
     expect(complete.raw.setLineDash).not.toHaveBeenCalled();
   });
 
-  it("draws the parts stack and one square per crew member (plus rims)", () => {
+  it("draws the parts stack and the crew as the settle loader's dark pixel dots", () => {
     const { ctx, raw } = fakeCtx();
-    drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 3 }), 0);
-    // At least the crates and the 3 figures were filled.
-    expect(raw.fillRect.mock.calls.length).toBeGreaterThanOrEqual(3 + 1);
-    // Figures get a light rim so they read against dark terrain: crew strokeRects.
-    expect(raw.strokeRect.mock.calls.length).toBeGreaterThanOrEqual(3);
+    drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 6 }), 0);
+    // Crates plus one 2 px square per crew member.
+    expect(raw.fillRect.mock.calls.length).toBeGreaterThanOrEqual(6 + 1);
+    const dots = raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2 && (c as unknown as number[])[3] === 2);
+    expect(dots.length).toBeGreaterThanOrEqual(6);
+    expect(raw.fillStyle).toBe("rgba(6, 8, 12, 0.9)"); // same colour as the settle dots
+    expect(raw.strokeRect.mock.calls.every((c) => (c as unknown as number[])[2] !== 2)).toBe(true); // no outlined figures
   });
 
   it("skips crates and crew at tiny zoom but still shows the phase fill", () => {
@@ -82,13 +84,24 @@ describe("drawConstructionStructure2D", () => {
     expect(raw.fillRect).not.toHaveBeenCalled();
   });
 
-  it("moves the crew over time (the walk is animated)", () => {
-    const at = (nowMs: number): number[][] => {
+  it("moves the crew over time like the settle dots (pause-and-walk wander)", () => {
+    const dotsAt = (nowMs: number): string => {
       const { ctx, raw } = fakeCtx();
-      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 2 }), nowMs);
-      return raw.fillRect.mock.calls.map((c) => [...(c as unknown as number[])]);
+      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 8 }), nowMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
     };
-    expect(at(0)).not.toEqual(at(1_000));
+    const samples = new Set([0, 700, 1_400, 2_100, 2_800].map(dotsAt));
+    expect(samples.size).toBeGreaterThan(1);
+  });
+
+  it("freezes the crew of a stalled build", () => {
+    const dotsAt = (nowMs: number): string => {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 8, stalled: true }), nowMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
+    };
+    expect(dotsAt(0)).toBe(dotsAt(1_700));
+    expect(dotsAt(0)).toBe(dotsAt(5_000));
   });
 });
 

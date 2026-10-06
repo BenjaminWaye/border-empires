@@ -1,5 +1,5 @@
 import { drawCenteredOverlayWithAlpha } from "../client-map-render/client-map-render-centered-overlay.js";
-import { crewCycleState, crewSeed01 } from "../client-construction-phase/client-construction-crew-cycle.js";
+import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
 import {
   CONSTRUCTION_PHASES,
   constructionCratesAt,
@@ -11,14 +11,14 @@ import {
 // fallback, so it gets the same phases, parts stack and crew -- drawn cheaply.
 // The structure sprite fills in from the bottom in the same bands the 3D
 // pieces appear in, a dashed outline marks what is still to come, a few
-// cyan squares are the parts stack, and dots are the ancillary crew, walking
-// the shared crewCycleState.
+// cyan squares are the parts stack, and the ancillary crew are the same dark
+// pixel dots with the same pause-and-walk wander as the 2D settle loader.
 const GHOST_ALPHA = 0.2;
 const DASH = [3, 3];
 const OUTLINE_COLOR = "rgba(255, 226, 160, 0.85)";
 const CRATE_COLOR = "rgba(79, 216, 255, 0.95)";
-const FIGURE_COLOR = "#0a0d12";
-const FIGURE_RIM = "rgba(255, 255, 255, 0.75)";
+// The settle loader's dot colour (client-runtime-loop.ts).
+const CREW_DOT_COLOR = "rgba(6, 8, 12, 0.9)";
 
 export const drawConstructionStructure2D = (
   ctx: CanvasRenderingContext2D,
@@ -60,8 +60,7 @@ export const drawConstructionStructure2D = (
   drawConstructionAmbient2D(ctx, px, py, size, site, nowMs);
 };
 
-// The parts stack (back-left corner) and the crew walking between it and the
-// structure, drawn on top of whatever sprite the caller drew. Used on its own for a
+// The parts stack (back-left corner) and the crew wandering the tile, drawn on top of whatever sprite the caller drew. Used on its own for a
 // fort upgrade, where the standing tier must stay fully drawn (it is still defending).
 // Skipped at tiny zoom, where they would be sub-pixel noise.
 export const drawConstructionAmbient2D = (
@@ -80,27 +79,16 @@ export const drawConstructionAmbient2D = (
   ctx.fillStyle = CRATE_COLOR;
   for (let c = 0; c < crates; c += 1) ctx.fillRect(stackX + (c % 2) * (crate + 1), stackY - Math.floor(c / 2) * (crate + 1) - crate, crate, crate);
 
-  const seed = crewSeed01(site.x, site.y);
-  const { along, carrying } = crewCycleState(nowMs, seed, site.direction, site.stalled);
-  const dot = Math.max(2, size * 0.07);
-  const centerX = px + size / 2;
-  const centerY = py + size / 2;
+  // The crew: the settle loader's dots -- 1-2 px dark squares wandering the tile. (Uses the
+  // working wander hash, not settlePixelWanderPoint, whose dots all collapse into one corner.)
+  // A stalled (overdue) build freezes them where they stand.
+  const swarmInset = Math.max(1, Math.floor(size * 0.04));
+  const swarmWidth = Math.max(3, size - swarmInset * 2);
+  const pixelSize = size <= 10 ? 1 : 2;
+  const wanderTime = site.stalled ? 0 : nowMs;
+  ctx.fillStyle = CREW_DOT_COLOR;
   for (let i = 0; i < site.crew; i += 1) {
-    const angle = seed * Math.PI * 2 + (i / site.crew) * Math.PI * 2;
-    const workX = centerX + Math.cos(angle) * size * 0.4;
-    const workY = centerY + Math.sin(angle) * size * 0.4;
-    const startX = stackX + crate * 2 + (i % 3) * dot;
-    const startY = stackY - Math.floor(i / 3) * dot;
-    const x = startX + (workX - startX) * along;
-    const y = startY + (workY - startY) * along;
-    ctx.fillStyle = FIGURE_COLOR;
-    ctx.fillRect(x - dot / 2, y - dot / 2, dot, dot);
-    ctx.strokeStyle = FIGURE_RIM;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - dot / 2, y - dot / 2, dot, dot);
-    if (carrying) {
-      ctx.fillStyle = CRATE_COLOR;
-      ctx.fillRect(x - dot / 4, y - dot - dot / 2, dot / 2, dot / 2);
-    }
+    const point = wanderPoint(wanderTime, site.x, site.y, i);
+    ctx.fillRect(Math.floor(px + swarmInset + point.x * (swarmWidth - pixelSize)), Math.floor(py + swarmInset + point.y * (swarmWidth - pixelSize)), pixelSize, pixelSize);
   }
 };

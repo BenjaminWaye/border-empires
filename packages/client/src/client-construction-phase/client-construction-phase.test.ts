@@ -81,10 +81,10 @@ describe("constructionSiteForTile with types this client does not know", () => {
   it("degrades to a generic site instead of throwing", () => {
     const economic = unknown({ economicStructure: { ownerId: "me", type: "SOMETHING_NEW", status: "under_construction", startedAt: 0, completesAt: 8 * HOUR } });
     expect(() => constructionSiteForTile(economic, HOUR)).not.toThrow();
-    expect(constructionSiteForTile(economic, HOUR)).toMatchObject({ field: "economicStructure", phase: 0, crew: 2 });
+    expect(constructionSiteForTile(economic, HOUR)).toMatchObject({ field: "economicStructure", phase: 0, crew: 4 });
 
     const fort = unknown({ fort: { ownerId: "me", status: "under_construction", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
-    expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 2 });
+    expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 4 });
 
     const siege = unknown({ siegeOutpost: { ownerId: "me", status: "removing", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
     expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeOutpost", direction: "remove" });
@@ -152,11 +152,11 @@ describe("constructionCratesAt", () => {
 });
 
 describe("crewSizeForManpower", () => {
-  it("scales with manpower and stays within 2..6 figures", () => {
-    expect(crewSizeForManpower(0)).toBe(2);
-    expect(crewSizeForManpower(50)).toBe(2);
-    expect(crewSizeForManpower(100)).toBe(4);
-    expect(crewSizeForManpower(10_000)).toBe(6);
+  it("scales with manpower and stays within 4..12 figures (pinprick figures need numbers to read)", () => {
+    expect(crewSizeForManpower(0)).toBe(4);
+    expect(crewSizeForManpower(50)).toBe(4);
+    expect(crewSizeForManpower(100)).toBe(8);
+    expect(crewSizeForManpower(10_000)).toBe(12);
   });
 });
 

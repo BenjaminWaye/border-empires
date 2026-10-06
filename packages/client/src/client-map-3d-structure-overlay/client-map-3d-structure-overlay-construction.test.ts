@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { InstancedMesh, Scene } from "three";
+import { InstancedMesh, Matrix4, Scene } from "three";
+import { geometryHalfExtents, verticalHalfExtent } from "../client-map-3d-construction/client-map-3d-vertical-extent.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay.js";
@@ -175,6 +176,39 @@ describe("structure overlay under construction", () => {
       rebuild(overlay, siteAt(2));
       expect(pods(scene)).toBe(1);
       overlay.dispose();
+    });
+  });
+
+  describe("tall structures grow instead of appearing whole", () => {
+    // Highest point of the structure's own pieces (the construction scaffold, crates and
+    // crew are meshes created after the overlay, so they are excluded).
+    const topAt = (kind: "AETHER_TOWER" | "FARMSTEAD" | "WORLD_ENGINE", bands: number | undefined): number => {
+      const scene = new Scene();
+      const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
+      const own = new Set(scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh));
+      overlay.addInstance(0, 0, 0, kind, undefined, bands === undefined ? undefined : siteAt(bands));
+      overlay.commit();
+      let top = 0;
+      const m = new Matrix4();
+      for (const mesh of own) {
+        const ext = geometryHalfExtents(mesh.geometry);
+        for (let i = 0; i < mesh.count; i += 1) {
+          mesh.getMatrixAt(i, m);
+          top = Math.max(top, m.elements[13]! + verticalHalfExtent(m.elements, ext));
+        }
+      }
+      overlay.dispose();
+      return top;
+    };
+
+    it.each(["AETHER_TOWER", "FARMSTEAD", "WORLD_ENGINE"] as const)("%s climbs roughly a quarter of its height per phase", (kind) => {
+      const full = topAt(kind, undefined);
+      const ratios = [1, 2, 3, 4].map((bands) => topAt(kind, bands) / full);
+      // Not stuck at full height from the first phase (the old whole-piece behaviour)...
+      expect(ratios[0]!).toBeLessThan(0.45);
+      // ...rising every phase, and finishing at full height.
+      for (let i = 1; i < ratios.length; i += 1) expect(ratios[i]!).toBeGreaterThan(ratios[i - 1]! + 0.05);
+      expect(ratios[3]!).toBeCloseTo(1, 5);
     });
   });
 });

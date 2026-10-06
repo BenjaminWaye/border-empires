@@ -24,12 +24,14 @@ and assembled on site by ancillaries (bodies run by one AI).
   ancillaries consume it (steps are derived from the clock every frame).
 - **Scaffolding.** Corner posts + a bar at the current cut height mark the
   finished footprint while the structure is incomplete.
-- **Ancillary crew.** Reuses the settle overlay's small dark figures (extracted
-  to a shared module). Crew size comes from manpower committed (≈ 1 figure per
-  25 manpower, 2–6). All figures at one site share one timing (walk crate →
-  structure → pause) so they move in perfect, unsettling sync. If a build is
-  past `completesAt` but still `under_construction` (stalled) they freeze with
-  heads down.
+- **Ancillary crew.** The same black pinprick figures as the settle overlay, at the
+  same size and with the same random pause-and-walk wander (the wander lives in
+  `client-ancillary-wander/`, three-free, so 2D uses it too). Crew size comes from
+  manpower committed (about 1 figure per 12.5 manpower, 4 to 12, like the settle
+  swarm). A build past `completesAt` but still `under_construction` (stalled)
+  freezes them where they stand. (An earlier version scaled them up 2.4x and walked
+  them in lockstep between the stack and the structure; players expected the settle
+  look, so that was dropped.)
 - **Removal** (`removing`) plays the same phases backwards.
 - **Supply pods** (build phase change): when an on-screen site enters a new
   phase, a pod of fabricated parts drops from orbit onto the parts stack.
@@ -106,8 +108,7 @@ Umbrite rig/factory, Caravanary and Relay Beacons, i.e. every structure with a
 dedicated 3D branch. Each needs its own gate and a stack/crew placement that
 fits its footprint.
 
-Known approximations: gating treats pieces as whole boxes (a tall piece appears
-at once when its base reaches the cut); 2D clips the sprite's full bounds
+Known approximations: gating treats tilted and thin pieces as whole boxes (tall upright pieces grow; see "Revision" below); 2D clips the sprite's full bounds
 bottom-up rather than the structure's own silhouette; in-flight pods keep their
 scene position if a rebuild re-anchors the scene mid-flight (under 1 s).
 
@@ -191,7 +192,7 @@ Findings that shape the work:
   upgrade keeps the standing fort at full height and only adds the ambient work
   (scaffold, crates, crew, pods); only a fresh build or a removal is phased.
 - The parts stack's default corner (back-left, -0.4/-0.4) is exactly where a
-  corner tower stands. Sites get a layout (stack position, crew work radius), and
+  corner tower stands. Sites get a layout (the parts-stack position), and
   forts use one that fits inside the walls.
 - 2D: `drawFortificationOverlay2D` already serves forts. A fresh build/removal
   uses `drawConstructionStructure2D`; an upgrade draws the standing sprite and
@@ -230,3 +231,20 @@ Still not covered: siege camps (`SIEGE_OUTPOST`, `SIEGE_TOWER`, `DREAD_TOWER`; t
 siege-machine overlay is 494 lines and animated), Aether Tower, Umbrite rig/factory
 and Caravanary. They render fully built while under construction in 3D, and siege
 camps keep the flat translucent look in 2D.
+
+## Revision: growth and crew look (after review in Storybook)
+
+- **Tall pieces now grow.** Whole-piece gating made a tower built from one tall
+  shaft appear at full height in phase 1 and then barely change. The shared builder
+  now cuts any tall (>= 0.1) *upright* piece at the build height, base fixed, so
+  towers and walls climb about a quarter per phase (Aether Tower: 0.25 / 0.50 /
+  0.75 / 1.00 of its height). Tilted and small pieces still appear whole, so a
+  structure whose tallest part is a horizontal tank or ring (Waterworks, Granary,
+  Astral Dock) still starts taller than a quarter.
+- **Crew = settle dots**, as above. The carried-parts meshes and the lockstep walk
+  cycle (`client-construction-crew-cycle`) are gone; the crates remain as a static
+  prop that shrinks.
+- **Known pre-existing bug, not changed here:** the 2D settle loader's dots all
+  collapse into one corner pixel and barely move, because `settlePixelSeed` yields
+  values around 0.01. 3D settling has its own fixed hash (`wanderPoint`), which
+  construction now uses in both renderers.
