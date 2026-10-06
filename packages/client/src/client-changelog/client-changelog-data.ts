@@ -24,6 +24,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791208703442, // Date.now() frozen for this entry
+    introducedIn: "2026.10.05.3",
+    title: "Border Empires icon now appears everywhere",
+    why: "Some browsers and search results used an old fallback icon instead of the Border Empires castle.",
+    changes: [
+      "The fallback browser icon now uses the Border Empires castle, matching the primary icon"
+    ]
+  },
+  {
     createdAt: 1791195855000, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.1",
     title: "Muster flags attack launch tiles",
