@@ -1,4 +1,4 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { FORT_TIER_LADDER, structureBuildDurationMs, structureBuildDurationMsForManpowerCost } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import {
@@ -182,5 +182,21 @@ describe("constructionSiteForTile while an attack has paused the build", () => {
     const site = constructionSiteForTile(mintworks({ startedAt: 0, completesAt: 4 * HOUR }), 2 * HOUR);
     expect(site?.fraction).toBeCloseTo(0.5, 6);
     expect(site?.pausedAtMs).toBeUndefined();
+  });
+});
+
+describe("constructionSiteForTile without startedAt", () => {
+  // Regression: the fort estimate used the base Fort's duration for every tier, so a quicker
+  // tier placed just now came out part-built.
+  it("estimates a fort's window from its own tier", () => {
+    const palisadeMs = structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.WOODEN_FORT.manpower);
+    const tile = { ...baseTile(), fort: { ownerId: "me", status: "under_construction", variant: "WOODEN_FORT", completesAt: palisadeMs } } as Tile;
+    expect(constructionSiteForTile(tile, 0, "fort")).toMatchObject({ fraction: 0, phase: 0 });
+  });
+
+  // Regression: a Relay Beacon's count-0 duration is 0 (the first five are instant), which hid a real, slower build.
+  it("still shows a Relay Beacon build", () => {
+    const tile = { ...baseTile(), economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", completesAt: 8 * HOUR } } as Tile;
+    expect(constructionSiteForTile(tile, 0, "economicStructure")).toBeDefined();
   });
 });

@@ -3,7 +3,7 @@ import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
 import { constructionSiteForTile } from "@client/client-construction-phase/client-construction-phase.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
-import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
+import { addStoryAfc, withStoryAfc } from "./construction-story-afc.js";
 
 // Fort construction (docs/construction-animation-plan.md, follow-up 2): the real
 // overlay driven by a virtual build window. A fresh build (or a removal) has the walls
@@ -39,7 +39,7 @@ const layout = (overlay: ReturnType<typeof createFortOverlay>, args: Args, entri
   overlay.clear();
   entries.forEach((entry, i) => {
     const tile = entry.progress === undefined ? undefined : tileAtProgress(args, entry.progress);
-    const site = tile ? constructionSiteForTile(tile, Date.now(), "fort", storyAfcOffset(entry.x, 0)) : undefined;
+    const site = tile ? withStoryAfc(constructionSiteForTile(tile, Date.now(), "fort"), entry.x, 0) : undefined;
     // Upgrade: the standing tier is what is drawn; otherwise the tier being built.
     const kind = args.mode === "upgrade" && site ? ((tile?.fort?.upgradingFrom as FortKind | undefined) ?? "WOODEN_FORT") : args.kind;
     overlay.addInstance(entry.x, 0, 0, kind, "CLOSED", i, 0, 0, site ? { site, keepStanding: args.mode === "upgrade" } : undefined);

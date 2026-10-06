@@ -16,7 +16,7 @@ import { registerConstructionScaffold } from "./client-map-3d-construction-scaff
 export type ConstructionPresentation = {
   // Call once per site laid out in a rebuild. `structureHeight` is the finished
   // structure's height above the surface (scene units).
-  // `layout` places the parts stack and crew ring; the default suits a structure that fills the tile centre.
+  // `layout` places the parts stack and the crew's wander area; the default suits a structure that fills the tile centre.
   readonly addSite: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, structureHeight: number, layout?: ConstructionLayout) => void;
   readonly clear: () => void;
   readonly commit: () => void;
@@ -50,9 +50,11 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
     const previousPhase = phasesLastRebuild.get(siteKey);
     // A new phase brings a fresh batch of fabricated parts, flown out from the owner's AFC
     // (build only). No AFC known means no pod: parts are never conjured at the site.
+    const stack = stackCenterFor(layout);
+    // Pods already flying to this site follow it to its new scene position (this rebuild may have re-anchored the scene).
+    pods.relocate(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY);
     if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase && site.afcOffset) {
-      const stack = stackCenterFor(layout);
-      pods.spawn(sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z });
+      pods.spawn(siteKey, sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z });
     }
   };
 
@@ -62,14 +64,18 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
       scaffoldBuilder.clear();
       crew.clear();
       // Pods already in flight are deliberately NOT cleared: a rebuild happens at
-      // the very phase boundary that spawns one.
+      // the very phase boundary that spawns one. addSite moves them with their site,
+      // and commit drops those whose site was not laid out again.
       phasesLastRebuild = phasesThisRebuild;
       phasesThisRebuild = new Map();
       earliestPhaseAtMs = Infinity;
     },
-    commit: (): void => scaffoldBuilder.commit(),
+    commit: (): void => {
+      scaffoldBuilder.commit();
+      pods.retainOnly(new Set(phasesThisRebuild.keys()));
+    },
     update: (nowMs: number): void => {
-      crew.update(nowMs);
+      crew.update(Date.now());
       pods.update(nowMs);
     },
     boundaryPassed: (): boolean => Date.now() >= earliestPhaseAtMs,

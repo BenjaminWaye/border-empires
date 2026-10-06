@@ -5,6 +5,7 @@ import {
 } from "../client-map-render/client-map-render-centered-overlay.js";
 import { drawConstructionAmbient2D, drawConstructionStructure2D } from "../client-construction-2d/client-construction-2d.js";
 import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
+import { DEFAULT_CONSTRUCTION_LAYOUT, FORT_CONSTRUCTION_LAYOUT } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -36,19 +37,20 @@ export const drawFortificationOverlay2D = (
   py: number,
   size: number,
   facingDeps: FortificationOverlayDeps,
-  nowMs: number = performance.now()
+  epochMs: number = Date.now()
 ): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
   // A Relay Beacon or a fort being built or removed is drawn in phases with a parts stack
   // and crew (docs/construction-animation-plan.md); siege camps keep the flat translucent
   // look until their own follow-up.
   const field = constructionFieldFor(kind);
-  const site = field ? constructionSiteForTile(tile, Date.now(), field) : undefined;
+  const site = field ? constructionSiteForTile(tile, epochMs, field) : undefined;
+  const layout = field === "fort" ? FORT_CONSTRUCTION_LAYOUT : DEFAULT_CONSTRUCTION_LAYOUT;
   // A fort *upgrade* keeps the previous tier standing and defending, so it stays fully
   // drawn below; only the ambient crates and crew are added on top.
   const upgradeInProgress = field === "fort" && Boolean(tile.fort?.upgradingFrom);
   if (site && !upgradeInProgress) {
-    drawConstructionStructure2D(ctx, overlay, px, py, size, 1, site, nowMs);
+    drawConstructionStructure2D(ctx, overlay, px, py, size, 1, site, epochMs, layout);
     return;
   }
   const alpha = fortificationOverlayAlphaForTile(tile, kind);
@@ -61,7 +63,7 @@ export const drawFortificationOverlay2D = (
     return;
   }
   drawCenteredOverlayWithAlpha(ctx, overlay, px, py, size, 1, alpha);
-  if (site) drawConstructionAmbient2D(ctx, px, py, size, site, nowMs);
+  if (site) drawConstructionAmbient2D(ctx, px, py, size, site, epochMs, layout);
 };
 
 // The tile's fortification overlay plus, when a Relay Beacon shares the tile
@@ -75,12 +77,12 @@ export const drawTileFortificationOverlays2D = (
   size: number,
   deps: FortificationOverlayDeps,
   overlayImageFor: (kind: FortificationOverlayKind, opening: FortificationOpening) => HTMLImageElement | undefined,
-  nowMs: number = performance.now()
+  epochMs: number = Date.now()
 ): void => {
   const kind = fortificationOverlayKindForTile(tile);
   if (!kind) return;
-  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, nowMs);
+  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, epochMs);
   if (stackedRelayBeaconForTile(tile)) {
-    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, nowMs);
+    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, epochMs);
   }
 };

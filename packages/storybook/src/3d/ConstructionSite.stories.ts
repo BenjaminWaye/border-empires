@@ -5,7 +5,7 @@ import { constructionSiteForTile } from "@client/client-construction-phase/clien
 import { drawConstructionStructure2D } from "@client/client-construction-2d/client-construction-2d.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
-import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
+import { addStoryAfc, withStoryAfc } from "./construction-story-afc.js";
 
 // Construction animation (docs/construction-animation-plan.md). Structures take
 // 1h to many hours to build, so construction reads as discrete height bands
@@ -51,7 +51,7 @@ const layout = (
   overlay.clear();
   contactShadows.clear();
   for (const { x, kind, tile } of entries) {
-    const site = tile ? constructionSiteForTile(tile, Date.now(), undefined, storyAfcOffset(x, 0)) : undefined;
+    const site = tile ? withStoryAfc(constructionSiteForTile(tile, Date.now()), x, 0) : undefined;
     overlay.addInstance(x, 0, 0, kind, undefined, site);
   }
   overlay.commit();
@@ -108,7 +108,7 @@ const scrub = (args: Args): HTMLElement => {
 
   const refresh = (): void => {
     const tile = tileAtProgress(args.kind, args.hours, progress, args.direction);
-    const site = constructionSiteForTile(tile, Date.now(), undefined, storyAfcOffset(0, 0))!;
+    const site = withStoryAfc(constructionSiteForTile(tile, Date.now()), 0, 0)!;
     layout(overlay, contactShadows, [{ x: 0, kind: args.kind, tile }]);
     label.textContent = `${(progress * args.hours).toFixed(1)}h / ${args.hours}h  -  phase ${site.phase + 1}/4`;
     slider.value = String(progress);
@@ -180,7 +180,7 @@ const twoD = (args: Args): HTMLElement => {
     for (const size of sizes) {
       const tile = tileAtProgress(args.kind, args.hours, progress, args.direction);
       const site = constructionSiteForTile(tile, Date.now());
-      if (site) drawConstructionStructure2D(ctx, image, x, 110 - size / 2, size, 1.08, site, now);
+      if (site) drawConstructionStructure2D(ctx, image, x, 110 - size / 2, size, 1.08, site, Date.now());
       x += size + 40;
     }
     label.textContent = `${(progress * args.hours).toFixed(1)}h / ${args.hours}h  (tile sizes 24 / 48 / 96 px)`;

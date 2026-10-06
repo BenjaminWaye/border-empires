@@ -20,7 +20,7 @@ describe("fortification overlay asset wiring", () => {
     expect(overlayImages).toContain('SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static")');
     expect(overlayImages).toContain('RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")');
     expect(loop).toContain("drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,");
-    expect(loop).toContain("deps.fortificationOverlayImageFor, nowMs);");
+    expect(loop).toContain("deps.fortificationOverlayImageFor);");
     expect(draw2D).toContain("const kind = fortificationOverlayKindForTile(tile);");
     expect(draw2D).toContain("overlayImageFor(kind, fortificationOpeningForTile(tile, deps))");
     expect(draw2D).toContain('overlayImageFor("RELAY_BEACON", "CLOSED")');

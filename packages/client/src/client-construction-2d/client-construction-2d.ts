@@ -1,8 +1,10 @@
 import { drawCenteredOverlayWithAlpha } from "../client-map-render/client-map-render-centered-overlay.js";
 import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
+import { DEFAULT_CONSTRUCTION_LAYOUT, type ConstructionLayout } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
 import {
   CONSTRUCTION_PHASES,
   constructionCratesAt,
+  constructionCrewClockMs,
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
 
@@ -28,7 +30,8 @@ export const drawConstructionStructure2D = (
   size: number,
   scale: number,
   site: ConstructionSite,
-  nowMs: number
+  epochMs: number,
+  layout: ConstructionLayout = DEFAULT_CONSTRUCTION_LAYOUT
 ): void => {
   const drawSize = size * scale;
   const offset = (drawSize - size) / 2;
@@ -57,11 +60,15 @@ export const drawConstructionStructure2D = (
     }
   }
 
-  drawConstructionAmbient2D(ctx, px, py, size, site, nowMs);
+  drawConstructionAmbient2D(ctx, px, py, size, site, epochMs, layout);
 };
 
-// The parts stack (back-left corner) and the crew wandering the tile, drawn on top of whatever sprite the caller drew. Used on its own for a
-// fort upgrade, where the standing tier must stay fully drawn (it is still defending).
+// The parts stack and the crew wandering the tile, drawn on top of whatever sprite the caller
+// drew. Used on its own for a fort upgrade, where the standing tier must stay fully drawn (it is
+// still defending). `layout` is the same one the 3D renderer uses, so a fort's stack and crew stay
+// inside its walls here too: tile-local x maps across, and the stack's ground line sits at the
+// mirror of its z (the default's -0.4 lands it near the bottom-left, as before).
+// `epochMs` is the wall clock, so a stalled build freezes the crew where it stood.
 // Skipped at tiny zoom, where they would be sub-pixel noise.
 export const drawConstructionAmbient2D = (
   ctx: CanvasRenderingContext2D,
@@ -69,23 +76,22 @@ export const drawConstructionAmbient2D = (
   py: number,
   size: number,
   site: ConstructionSite,
-  nowMs: number
+  epochMs: number,
+  layout: ConstructionLayout = DEFAULT_CONSTRUCTION_LAYOUT
 ): void => {
   if (size < 12) return;
   const crate = Math.max(2, size * 0.09);
-  const stackX = px + size * 0.08;
-  const stackY = py + size * 0.9;
-  const crates = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? Date.now());
+  const stackX = px + size * (0.5 + layout.stackX);
+  const stackY = py + size * (0.5 - layout.stackZ);
+  const crates = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
   ctx.fillStyle = CRATE_COLOR;
   for (let c = 0; c < crates; c += 1) ctx.fillRect(stackX + (c % 2) * (crate + 1), stackY - Math.floor(c / 2) * (crate + 1) - crate, crate, crate);
 
-  // The crew: the settle loader's dots -- 1-2 px dark squares wandering the tile. (Uses the
-  // working wander hash, not settlePixelWanderPoint, whose dots all collapse into one corner.)
-  // A stalled (overdue) build freezes them where they stand.
-  const swarmInset = Math.max(1, Math.floor(size * 0.04));
-  const swarmWidth = Math.max(3, size - swarmInset * 2);
-  const pixelSize = size <= 10 ? 1 : 2;
-  const wanderTime = site.stalled ? 0 : nowMs;
+  // The crew: the settle loader's dots -- 2 px dark squares wandering the layout's crew area.
+  const swarmWidth = Math.max(3, size * layout.crewSpan);
+  const swarmInset = (size - swarmWidth) / 2;
+  const pixelSize = 2;
+  const wanderTime = constructionCrewClockMs(site, epochMs);
   ctx.fillStyle = CREW_DOT_COLOR;
   for (let i = 0; i < site.crew; i += 1) {
     const point = wanderPoint(wanderTime, site.x, site.y, i);

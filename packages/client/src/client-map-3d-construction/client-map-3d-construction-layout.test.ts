@@ -48,7 +48,7 @@ describe("construction layout", () => {
   it("honours a custom layout (forts keep the stack clear of the corner towers)", () => {
     const scene = new Scene();
     const crew = createConstructionCrewLayer(scene);
-    crew.add(10, 20, 0, site(0), { stackX: -0.15, stackZ: -0.36 });
+    crew.add(10, 20, 0, site(0), { stackX: -0.15, stackZ: -0.36, crewSpan: 0.5 });
     crew.update(0);
     const { x, z } = firstCrateXZ(crateMesh(scene));
     expect(x).toBeCloseTo(10 - 0.15, 5);
@@ -59,7 +59,7 @@ describe("construction layout", () => {
   it("lands delivery pods on the layout's stack, flown from the AFC", () => {
     const scene = new Scene();
     const presentation = createConstructionPresentation(scene);
-    const layout = { stackX: -0.15, stackZ: -0.36 };
+    const layout = { stackX: -0.15, stackZ: -0.36, crewSpan: 0.5 };
     const afcOffset = { dx: -5, dy: -2 };
     presentation.addSite(5, 6, 0, { ...site(0), afcOffset }, 0.5, layout);
     presentation.clear(); // next rebuild: the site is now known

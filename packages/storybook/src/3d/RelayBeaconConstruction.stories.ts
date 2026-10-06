@@ -4,7 +4,7 @@ import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow
 import { constructionSiteForTile } from "@client/client-construction-phase/client-construction-phase.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
-import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
+import { addStoryAfc, withStoryAfc } from "./construction-story-afc.js";
 
 // Relay Beacon under construction (docs/construction-animation-plan.md,
 // follow-up 1): the real overlay driven by a virtual build window. The lattice
@@ -36,7 +36,7 @@ type Entry = { x: number; progress: number | undefined };
 const layout = (overlay: ReturnType<typeof createRelayBeaconOverlay>, args: Args, entries: ReadonlyArray<Entry>): void => {
   overlay.clear();
   entries.forEach((entry, i) => {
-    const site = entry.progress === undefined ? undefined : constructionSiteForTile(tileAtProgress(args.hours, entry.progress, args.direction), Date.now(), "economicStructure", storyAfcOffset(entry.x, 0));
+    const site = entry.progress === undefined ? undefined : withStoryAfc(constructionSiteForTile(tileAtProgress(args.hours, entry.progress, args.direction), Date.now(), "economicStructure"), entry.x, 0);
     overlay.addInstance(entry.x, 0, 0, i, 0, false, site);
   });
   overlay.commit();

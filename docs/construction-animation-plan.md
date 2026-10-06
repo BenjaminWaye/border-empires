@@ -28,8 +28,9 @@ and assembled on site by ancillaries (bodies run by one AI).
   same size and with the same random pause-and-walk wander (the wander lives in
   `client-ancillary-wander/`, three-free, so 2D uses it too). Crew size comes from
   manpower committed (about 1 figure per 12.5 manpower, 4 to 12, like the settle
-  swarm). A build past `completesAt` but still `under_construction` (stalled)
-  freezes them where they stand. (An earlier version scaled them up 2.4x and walked
+  swarm). They wander on the wall clock, and a stalled build (paused under attack,
+  or past `completesAt` but still `under_construction`) stops that clock at the
+  moment it stalled, so they freeze exactly where they were standing. (An earlier version scaled them up 2.4x and walked
   them in lockstep between the stack and the structure; players expected the settle
   look, so that was dropped.)
 - **Removal** (`removing`) plays the same phases backwards.
@@ -194,8 +195,9 @@ Findings that shape the work:
   upgrade keeps the standing fort at full height and only adds the ambient work
   (scaffold, crates, crew, pods); only a fresh build or a removal is phased.
 - The parts stack's default corner (back-left, -0.4/-0.4) is exactly where a
-  corner tower stands. Sites get a layout (the parts-stack position), and
-  forts use one that fits inside the walls.
+  corner tower stands. Sites get a layout (`ConstructionLayout`: the parts-stack
+  position and the crew's wander area), and forts use `FORT_CONSTRUCTION_LAYOUT`,
+  which keeps both inside the walls and clear of the towers in 3D and 2D.
 - 2D: `drawFortificationOverlay2D` already serves forts. A fresh build/removal
   uses `drawConstructionStructure2D`; an upgrade draws the standing sprite and
   then only the ambient crates and crew.
@@ -242,14 +244,16 @@ camps keep the flat translucent look in 2D.
   towers and walls climb about a quarter per phase (Aether Tower: 0.25 / 0.50 /
   0.75 / 1.00 of its height). Tilted and small pieces still appear whole, so a
   structure whose tallest part is a horizontal tank or ring (Waterworks, Granary,
-  Astral Dock) still starts taller than a quarter.
+  Astral Dock) still starts taller than a quarter. Only boxes and cylinders grow:
+  a cone, sphere or torus cut in Y just looks squashed, so a tall upright one waits
+  until the build passes its top and then appears whole (the roof goes on last).
+  A family that re-poses pieces every frame (Mintworks' flywheel) checks
+  `lastPieceWasCut()` and leaves a growing piece alone.
 - **Crew = settle dots**, as above. The carried-parts meshes and the lockstep walk
   cycle (`client-construction-crew-cycle`) are gone; the crates remain as a static
   prop that shrinks.
-- **Known pre-existing bug, not changed here:** the 2D settle loader's dots all
-  collapse into one corner pixel and barely move, because `settlePixelSeed` yields
-  values around 0.01. 3D settling has its own fixed hash (`wanderPoint`), which
-  construction now uses in both renderers.
+- The 2D settle loader's dots used to collapse into one corner pixel; `develop` has
+  since fixed that by moving it onto the same `wanderPoint` hash construction uses.
 
 ## Revision: AFC pods
 
@@ -258,12 +262,19 @@ the site's parts stack, launching with a flash at the AFC and landing with a fla
 
 - `ConstructionSite.afcOffset` is the wrap-aware tile offset from the site to its owner's
   home AFC (same earliest-activation rule the simulation uses to pick where modules dock:
-  `findHomeAfcTileForOwner`). It is the *site owner's* AFC, so rivals' sites fly from
+  `afcPrecedes`). It is the *site owner's* AFC, so rivals' sites fly from
   theirs when it is loaded.
-- `afcOffsetForSite` caches the AFC scan per terrain rebuild (and per tile map), since
-  every site in a rebuild asks about the same owners and scanning all tiles per site would
-  be too slow. `constructionSiteForRebuild` is the 3D renderers' entry point.
-- Flight time and arc height scale with distance (about 0.9 to 3.2 s); a very close AFC
-  still hops rather than teleporting.
+- `afcOffsetForSite` keeps an index of every owner's home AFC (one per tile map). Building
+  it walks every loaded tile, and rebuilds also run on camera pans, so it is only rebuilt
+  when tiles changed (`tilesRevision`) and at most every 10 s. A cached AFC that is gone
+  is noticed at once by re-checking its tile. `constructionSiteForRebuild` is the 3D
+  renderers' entry point.
+- Flight time scales with distance and is **not capped** (0.9 s plus 170 ms per tile), so
+  a site far from its AFC visibly takes longer to supply: groundwork for making build time
+  depend on AFC distance. Arc height scales too but is capped, so a long flight stays in view.
+  A very close AFC still hops rather than teleporting.
+- A rebuild can re-anchor the scene. Pods are tagged with their site, so each rebuild
+  moves in-flight pods to their site's new position, and drops those whose site was not
+  laid out again.
 - **No fallback.** An unknown AFC (captured, or not loaded) means no pod. Do not add a
   stand-in drop.

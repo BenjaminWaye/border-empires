@@ -3,22 +3,24 @@ import type { Tile } from "../client-types.js";
 
 type AfcLocateState = Pick<ClientState, "tiles" | "me" | "camX" | "camY" | "camSubX" | "camSubY" | "selected">;
 
-/** The viewer's home AFC among loaded tiles: earliest activatedAt, tile key
- * breaking ties -- the same rule the simulation uses to pick where newly
+/** Whether AFC `a` outranks `b` as its owner's home AFC: earliest activatedAt,
+ * tile key breaking ties -- the same rule the simulation uses to pick where newly
  * researched modules dock (homeAfcTileKey in afc-module-commissioning.ts). */
-export const findHomeAfcTileForOwner = (tiles: ReadonlyMap<string, Tile>, ownerId: string | undefined): Tile | undefined => {
-  if (!ownerId) return undefined;
+export const afcPrecedes = (a: { key: string; activatedAt: number }, b: { key: string; activatedAt: number }): boolean =>
+  a.activatedAt < b.activatedAt || (a.activatedAt === b.activatedAt && a.key < b.key);
+
+/** The viewer's home AFC among loaded tiles (see afcPrecedes). */
+export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile | undefined => {
+  if (!state.me) return undefined;
   let best: { tile: Tile; key: string; activatedAt: number } | undefined;
-  for (const [key, tile] of tiles) {
+  for (const [key, tile] of state.tiles) {
     const afc = tile.afc;
-    if (!afc || afc.ownerId !== ownerId || tile.ownerId !== ownerId) continue;
-    const activatedAt = afc.activatedAt ?? 0;
-    if (!best || activatedAt < best.activatedAt || (activatedAt === best.activatedAt && key < best.key)) best = { tile, key, activatedAt };
+    if (!afc || afc.ownerId !== state.me || tile.ownerId !== state.me) continue;
+    const candidate = { tile, key, activatedAt: afc.activatedAt ?? 0 };
+    if (!best || afcPrecedes(candidate, best)) best = candidate;
   }
   return best?.tile;
 };
-
-export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile | undefined => findHomeAfcTileForOwner(state.tiles, state.me);
 
 /** Jumps the camera to the home AFC, selects it and opens its tile menu on
  * the overview tab (which lists the docked modules). Returns false when no

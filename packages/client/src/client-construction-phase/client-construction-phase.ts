@@ -1,7 +1,10 @@
 import {
   FORT_TIER_LADDER,
+  RELAY_BEACON_FIRST_TIER_COUNT,
   SIEGE_TIER_LADDER,
+  economicStructureBuildDurationMs,
   structureBuildDurationMs,
+  structureBuildDurationMsForManpowerCost,
   structureBuildManpowerCost,
   type EconomicStructureType
 } from "@border-empires/shared";
@@ -109,6 +112,12 @@ const safely = <T>(read: () => T, fallback: T): T => {
   }
 };
 
+// Only used when a record has no startedAt. The owned count is unknown here, and a Relay
+// Beacon's count-0 duration is 0 (the first five are instant), which would hide a real,
+// slower build entirely; a beacon that is genuinely under construction is a paid-tier one.
+const estimatedEconomicDurationMs = (type: EconomicStructureType): number =>
+  type === "RELAY_BEACON" ? economicStructureBuildDurationMs(type, RELAY_BEACON_FIRST_TIER_COUNT) : structureBuildDurationMs(type);
+
 const inFlight = (status: string | undefined): status is "under_construction" | "removing" =>
   status === "under_construction" || status === "removing";
 
@@ -121,7 +130,9 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
   if (allowed("fort") && fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
     const variant = fort.variant ?? "FORT";
     const manpower = safely(() => FORT_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER);
-    return { field: "fort", structureType: variant, ownerId: fort.ownerId, status: fort.status, completesAt: fort.completesAt, startedAt: fort.startedAt, manpower, estimatedDurationMs: safely(() => structureBuildDurationMs("FORT"), FALLBACK_DURATION_MS) };
+    // Build time follows the tier's own manpower cost (as the simulation charges it), not the base Fort's.
+    const estimatedDurationMs = safely(() => structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower), FALLBACK_DURATION_MS);
+    return { field: "fort", structureType: variant, ownerId: fort.ownerId, status: fort.status, completesAt: fort.completesAt, startedAt: fort.startedAt, manpower, estimatedDurationMs };
   }
   if (allowed("observatory") && observatory && inFlight(observatory.status) && typeof observatory.completesAt === "number") {
     return { field: "observatory", structureType: "OBSERVATORY", ownerId: observatory.ownerId, status: observatory.status, completesAt: observatory.completesAt, startedAt: observatory.startedAt, manpower: safely(() => structureBuildManpowerCost("OBSERVATORY"), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs("OBSERVATORY"), FALLBACK_DURATION_MS) };
@@ -132,12 +143,12 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
   }
   if (allowed("economicStructure") && economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
     const type = economicStructure.type as EconomicStructureType;
-    return { field: "economicStructure", structureType: type, ownerId: economicStructure.ownerId, status: economicStructure.status, completesAt: economicStructure.completesAt, startedAt: economicStructure.startedAt, manpower: safely(() => structureBuildManpowerCost(type), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs(type), FALLBACK_DURATION_MS) };
+    return { field: "economicStructure", structureType: type, ownerId: economicStructure.ownerId, status: economicStructure.status, completesAt: economicStructure.completesAt, startedAt: economicStructure.startedAt, manpower: safely(() => structureBuildManpowerCost(type), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => estimatedEconomicDurationMs(type), FALLBACK_DURATION_MS) };
   }
   return undefined;
 };
 
-export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: ConstructionSite["field"], afcOffset?: AfcOffset): ConstructionSite | undefined => {
+export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: ConstructionSite["field"]): ConstructionSite | undefined => {
   const record = recordForTile(tile, only);
   if (!record) return undefined;
   const startedAt = record.startedAt ?? record.completesAt - record.estimatedDurationMs;
@@ -155,7 +166,7 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
   return {
     x: tile.x,
     y: tile.y,
-    afcOffset,
+    afcOffset: undefined,
     direction,
     field: record.field,
     structureType: record.structureType,
@@ -171,3 +182,9 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
     nextPhaseAtMs: rawFraction >= 1 || pausedAt !== undefined ? undefined : startedAt + ((phase + 1) / CONSTRUCTION_PHASES) * durationMs
   };
 };
+
+// The clock the crew wanders on (epoch ms, like the construction window). A stalled build --
+// paused under attack, or overdue -- stops it at the moment the build stopped, so the figures
+// stay exactly where they were standing rather than jumping somewhere new.
+export const constructionCrewClockMs = (site: Pick<ConstructionSite, "stalled" | "pausedAtMs" | "completesAtMs">, epochMs: number): number =>
+  site.stalled ? (site.pausedAtMs ?? site.completesAtMs) : epochMs;

@@ -150,7 +150,7 @@ describe("fort overlay under construction", () => {
 
 describe("addFortificationInstancesForTile fort construction", () => {
   const deps = {
-    state: { tiles: new Map<string, Tile>(), siegeAimOverrides: new Map() },
+    state: { tiles: new Map<string, Tile>(), tilesRevision: 0, siegeAimOverrides: new Map() },
     keyFor: (x: number, y: number) => `${x},${y}`,
     wrapX: (x: number) => x,
     wrapY: (y: number) => y

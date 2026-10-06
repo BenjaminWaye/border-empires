@@ -11,7 +11,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createLazyConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
-import type { ConstructionLayout } from "./client-map-3d-construction/client-map-3d-construction-layout.js";
+import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-map-3d-construction-layout.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
@@ -43,10 +43,6 @@ const TITANIUM_WALL_COLOR = "#9aa7b3";
 const TITANIUM_TOWER_COLOR = "#b0bdc9";
 const THUNDER_WALL_COLOR = "#4e5864";
 const THUNDER_TOWER_COLOR = "#5e6874";
-
-// Inside the walls (inner face at 0.38) and clear of the corner towers (0.30 to 0.46),
-// unlike the default layout whose back-left stack would sit inside a tower.
-const FORT_CONSTRUCTION_LAYOUT: ConstructionLayout = { stackX: -0.17, stackZ: -0.33 };
 
 // A fort being built or removed (docs/construction-animation-plan.md, follow-up 2).
 // `keepStanding` is an upgrade in progress: the previous tier is still up and

@@ -3,6 +3,7 @@ import {
   CONSTRUCTION_CRATES_PER_PHASE,
   CREW_MAX,
   constructionCratesAt,
+  constructionCrewClockMs,
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
 import { DEFAULT_CONSTRUCTION_LAYOUT, type ConstructionLayout } from "./client-map-3d-construction-layout.js";
@@ -19,9 +20,7 @@ import { createAncillaryFigureAssets, PERSON_Y } from "../client-map-3d-ancillar
 // entry itself, which the overlay re-adds on every rebuild.
 export const MAX_CONSTRUCTION_SITES = 96;
 
-// The parts stack position comes per site; see client-map-3d-construction-layout.ts.
-// Figures wander the same tile-local area the settle overlay's people do (inside the tile edge).
-const WANDER_SPAN = 0.84;
+// The parts stack position and the crew's wander area come per site; see client-map-3d-construction-layout.ts.
 const CRATE_SIZE = { x: 0.075, y: 0.05, z: 0.075 };
 const CRATE_SLOTS: ReadonlyArray<readonly [number, number, number]> = [
   [0, CRATE_SIZE.y / 2, 0],
@@ -40,7 +39,8 @@ type SiteEntry = {
 export type ConstructionCrewLayer = {
   readonly clear: () => void;
   readonly add: (sceneX: number, sceneZ: number, surfaceY: number, site: ConstructionSite, layout?: ConstructionLayout) => void;
-  readonly update: (nowMs: number) => void;
+  // `epochMs` is the wall clock (the construction window's clock), so a stalled build can freeze the crew in place.
+  readonly update: (epochMs: number) => void;
   readonly dispose: () => void;
 };
 
@@ -82,10 +82,9 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     mesh.instanceMatrix.needsUpdate = true;
   };
 
-  const update = (nowMs: number): void => {
-    // The common case is no site on screen: skip the clock read and the buffer syncs.
+  const update = (epochMs: number): void => {
+    // The common case is no site on screen: skip the buffer syncs.
     if (entries.length === 0 && figureMesh.count === 0 && crateMesh.count === 0) return;
-    const epochMs = Date.now();
     let figures = 0;
     let crates = 0;
     for (const { sceneX, sceneZ, surfaceY, site, layout } of entries) {
@@ -99,11 +98,11 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
         crates += 1;
       }
 
-      // A stalled (overdue) build freezes the crew where it stands; otherwise they wander like settlers.
-      const wanderTime = site.stalled ? 0 : nowMs;
+      // They wander like settlers; a stalled build freezes them where they stand.
+      const wanderTime = constructionCrewClockMs(site, epochMs);
       for (let i = 0; i < crew; i += 1) {
         const point = wanderPoint(wanderTime, site.x, site.y, i);
-        position.set(sceneX + (point.x - 0.5) * WANDER_SPAN, surfaceY + PERSON_Y, sceneZ + (point.y - 0.5) * WANDER_SPAN);
+        position.set(sceneX + (point.x - 0.5) * layout.crewSpan, surfaceY + PERSON_Y, sceneZ + (point.y - 0.5) * layout.crewSpan);
         matrix.compose(position, identity, scale.set(1, 1, 1));
         figureMesh.setMatrixAt(figures, matrix);
         figures += 1;

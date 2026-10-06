@@ -17,9 +17,10 @@ import {
 // short cyan-trailed arc to the site's parts stack, where the restocked crates take over.
 // Everything is fabricated at the AFC and carried over; nothing is built in orbit, so there
 // is no drop-from-orbit variant. A site whose AFC is unknown simply gets no pod.
+// Flight time grows with the distance and is deliberately not capped: a site far from its
+// AFC really is far from where its parts are made, and the flight shows it.
 const MIN_FLIGHT_MS = 900;
 const MS_PER_TILE = 170;
-const MAX_FLIGHT_MS = 3200;
 const LAUNCH_FLASH_MS = 320;
 const LAND_FLASH_MS = 220;
 const RING_MS = 600;
@@ -33,6 +34,8 @@ const PEAK_PER_TILE = 0.16;
 const MAX_PEAK = 2.4;
 
 type PodEntry = {
+  // The site the pod is delivering to, so a rebuild can follow it (see relocate).
+  readonly siteKey: string;
   readonly group: Group;
   readonly pod: Mesh;
   readonly trail: Mesh;
@@ -54,7 +57,12 @@ type PodEntry = {
 
 export type ConstructionPodFxLayer = {
   // `from` is where the pod launches relative to the landing point: the AFC's offset.
-  readonly spawn: (landX: number, landZ: number, surfaceY: number, nowMs: number, from: { readonly dx: number; readonly dz: number }) => void;
+  readonly spawn: (siteKey: string, landX: number, landZ: number, surfaceY: number, nowMs: number, from: { readonly dx: number; readonly dz: number }) => void;
+  // A rebuild re-anchors the scene, so the same site lands somewhere else in scene units: move its
+  // pods (still in flight or landing) to the new landing point.
+  readonly relocate: (siteKey: string, landX: number, landZ: number, surfaceY: number) => void;
+  // Drop the pods of every site the last rebuild did not lay out (scrolled away, or finished).
+  readonly retainOnly: (siteKeys: ReadonlySet<string>) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly activeCount: () => number;
@@ -90,7 +98,7 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
     entry.ringMaterial.dispose();
   };
 
-  const spawn: ConstructionPodFxLayer["spawn"] = (landX, landZ, surfaceY, nowMs, from) => {
+  const spawn: ConstructionPodFxLayer["spawn"] = (siteKey, landX, landZ, surfaceY, nowMs, from) => {
     if (entries.length >= MAX_PODS) return;
     const distance = Math.hypot(from.dx, from.dz);
     const group = new Group();
@@ -111,12 +119,13 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
     group.add(pod, trail, launch, flash, ring);
     scene.add(group);
     entries.push({
+      siteKey,
       group, pod, trail, launch, flash, ring,
       podMaterial, trailMaterial, launchMaterial, flashMaterial, ringMaterial,
       startedAt: nowMs,
       fromX: from.dx,
       fromZ: from.dz,
-      flightMs: Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + MS_PER_TILE * distance),
+      flightMs: MIN_FLIGHT_MS + MS_PER_TILE * distance,
       peak: Math.min(MAX_PEAK, MIN_PEAK + PEAK_PER_TILE * distance)
     });
   };
@@ -169,6 +178,19 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
     }
   };
 
+  const relocate: ConstructionPodFxLayer["relocate"] = (siteKey, landX, landZ, surfaceY) => {
+    for (const entry of entries) if (entry.siteKey === siteKey) entry.group.position.set(landX, surfaceY, landZ);
+  };
+
+  const retainOnly: ConstructionPodFxLayer["retainOnly"] = (siteKeys) => {
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const entry = entries[i]!;
+      if (siteKeys.has(entry.siteKey)) continue;
+      remove(entry);
+      entries.splice(i, 1);
+    }
+  };
+
   const clear = (): void => {
     for (const entry of entries) remove(entry);
     entries.length = 0;
@@ -183,5 +205,5 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
     ringGeometry.dispose();
   };
 
-  return { spawn, update, clear, activeCount: () => entries.length, dispose };
+  return { spawn, relocate, retainOnly, update, clear, activeCount: () => entries.length, dispose };
 };

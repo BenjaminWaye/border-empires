@@ -30,7 +30,7 @@ const flightScrub = (args: Args): HTMLElement => {
     // The layer takes `now - startedAt` as the age: re-spawn on a fresh clock whenever the story's clock moves backwards.
     if (spawnedFor < 0 || scrubMs !== null) {
       pods.clear();
-      pods.spawn(0, 0, 0, now - age, from);
+      pods.spawn("story", 0, 0, 0, now - age, from);
       spawnedFor = 1;
     }
     pods.update(now);

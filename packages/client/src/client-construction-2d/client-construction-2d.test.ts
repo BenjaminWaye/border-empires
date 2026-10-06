@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
+import { FORT_CONSTRUCTION_LAYOUT } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
 import { drawConstructionAmbient2D, drawConstructionStructure2D } from "./client-construction-2d.js";
 
 // A recording stand-in for CanvasRenderingContext2D: only the calls the
@@ -119,5 +120,32 @@ describe("drawConstructionAmbient2D", () => {
     const { ctx, raw } = fakeCtx();
     drawConstructionAmbient2D(ctx, 0, 0, 8, site(), 0);
     expect(raw.fillRect).not.toHaveBeenCalled();
+  });
+
+  // Regression: the 2D fort crew and parts stack used the whole tile, over the walls and the corner towers.
+  it("keeps a fort's stack and crew inside the walls, clear of the corner towers", () => {
+    const size = 100;
+    for (let t = 0; t < 20_000; t += 500) {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionAmbient2D(ctx, 0, 0, size, site({ crew: 12 }), t, FORT_CONSTRUCTION_LAYOUT);
+      for (const [x, y, w, h] of raw.fillRect.mock.calls as unknown as number[][]) {
+        // Towers occupy the outer 0.2 of each corner and walls the outer ~0.12 of each edge.
+        expect(x!).toBeGreaterThanOrEqual(size * 0.2);
+        expect(x! + w!).toBeLessThanOrEqual(size * 0.8);
+        expect(y!).toBeGreaterThanOrEqual(size * 0.12);
+        expect(y! + h!).toBeLessThanOrEqual(size * 0.88);
+      }
+    }
+  });
+
+  // Regression: a stall froze the dots at their time-0 positions, so they jumped the moment the build stopped.
+  it("freezes the crew where it stood when the build paused", () => {
+    const pausedAt = 1_791_000_000_000;
+    const dots = (s: ConstructionSite, epochMs: number): string => {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionAmbient2D(ctx, 0, 0, 40, s, epochMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
+    };
+    expect(dots(site({ crew: 8, stalled: true, pausedAtMs: pausedAt }), pausedAt + 60_000)).toBe(dots(site({ crew: 8, pausedAtMs: undefined }), pausedAt));
   });
 });

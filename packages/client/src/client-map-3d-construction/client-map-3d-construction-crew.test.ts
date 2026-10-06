@@ -3,6 +3,7 @@ import { BoxGeometry, InstancedMesh, Matrix4, Scene } from "three";
 import type { ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { PERSON_D, PERSON_H, PERSON_W } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
 import { createConstructionCrewLayer } from "./client-map-3d-construction-crew.js";
+import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction-layout.js";
 
 const HOUR = 3_600_000;
 const site = (over: Partial<ConstructionSite> = {}): ConstructionSite => ({
@@ -98,6 +99,40 @@ describe("construction crew", () => {
     crew.update(1_700);
     crew.update(9_000);
     expect(positions(figureMesh(scene))).toBe(first);
+    crew.dispose();
+  });
+
+  // Regression: a stall froze the crew at their time-0 positions, so they all jumped the moment the build stopped.
+  it("freezes the crew exactly where it stood when the build paused", () => {
+    const pausedAt = 1_791_000_000_000;
+    const liveScene = new Scene();
+    const liveCrew = createConstructionCrewLayer(liveScene);
+    liveCrew.add(0, 0, 0, site());
+    liveCrew.update(pausedAt);
+    const pausedScene = new Scene();
+    const pausedCrew = createConstructionCrewLayer(pausedScene);
+    pausedCrew.add(0, 0, 0, site({ stalled: true, pausedAtMs: pausedAt }));
+    pausedCrew.update(pausedAt + 60_000);
+    expect(positions(figureMesh(pausedScene))).toBe(positions(figureMesh(liveScene)));
+    liveCrew.dispose();
+    pausedCrew.dispose();
+  });
+
+  // Regression: the fort layout only moved the parts stack, so the crew wandered through the walls and corner towers.
+  it("keeps a fort's crew inside the walls and clear of the corner towers", () => {
+    const scene = new Scene();
+    const crew = createConstructionCrewLayer(scene);
+    crew.add(0, 0, 0, site({ crew: 12 }), FORT_CONSTRUCTION_LAYOUT);
+    const m = new Matrix4();
+    for (let t = 0; t < 30_000; t += 250) {
+      crew.update(t);
+      const mesh = figureMesh(scene);
+      for (let i = 0; i < mesh.count; i += 1) {
+        mesh.getMatrixAt(i, m);
+        expect(Math.abs(m.elements[12]!) + PERSON_W / 2).toBeLessThan(0.3);
+        expect(Math.abs(m.elements[14]!) + PERSON_D / 2).toBeLessThan(0.3);
+      }
+    }
     crew.dispose();
   });
 

@@ -28,6 +28,7 @@ export type FortificationInstanceOverlays = {
 export type FortificationInstanceDeps = {
   state: {
     tiles: Map<string, Tile>;
+    tilesRevision: number;
     siegeAimOverrides: Map<string, { targetX: number; targetY: number; expiresAt: number }>;
   };
   keyFor: (x: number, y: number) => string;
@@ -48,7 +49,7 @@ export const addFortificationInstancesForTile = (
   const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
   const beaconInactive = tile.economicStructure?.status === "inactive";
   // A beacon being built or removed is laid out in phases. `nowMs` is the rebuild's
-  // performance.now(), used only to cache the owner's AFC lookup per rebuild (the construction
+  // performance.now(), used only to pace the owner's AFC index rescans (the construction
   // window itself is in epoch ms, which the site lookup reads from the wall clock).
   const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForRebuild(deps.state, tile, "economicStructure", nowMs) : undefined;
   if (siegeTowerVariant) {

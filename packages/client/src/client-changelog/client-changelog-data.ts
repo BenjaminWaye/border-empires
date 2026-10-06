@@ -30,12 +30,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Relay Beacons and forts are built piece by piece",
     why: "A Relay Beacon or fort under construction looked the same as a finished one, so a multi-hour build gave no sign of progress.",
     changes: [
-      "A Relay Beacon being built now grows in four phases, with scaffolding around it, in both the 3D and 2D maps: the legs and column rise, and the mirror array is fitted last",
-      "Forts, Palisades and Bastions being built rise wall by wall in four phases, with scaffolding and a crew; removing one plays it in reverse",
+      "A Relay Beacon being built now grows in four phases in both the 3D and 2D maps (with scaffolding around it in 3D): the legs and column rise, and the mirror array is fitted last",
+      "Forts, Palisades and Bastions being built rise wall by wall in four phases, with a crew working inside the walls (and scaffolding in 3D); removing one plays it in reverse",
       "Upgrading a fort keeps the standing fort fully drawn, since it keeps defending, and shows the crew and scaffolding working around it",
       "Tall structures, such as towers, now rise gradually through the build phases instead of showing at full height straight away",
-      "Construction crews are now the same small black dots as when settling, and a stack of glowing fabricated parts sits at the site",
-      "At the start of every phase a pod of freshly fabricated parts now flies in from your Automated Fabrication Complex, instead of dropping from orbit",
+      "Construction crews are now the same small black dots as when settling, and stop where they stand while a build is paused; a stack of glowing fabricated parts sits at the site",
+      "At the start of every phase a pod of freshly fabricated parts now flies in from your Automated Fabrication Complex, instead of dropping from orbit; the farther the site is from it, the longer the flight",
       "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
     ]
   },
