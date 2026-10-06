@@ -148,6 +148,20 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The battle card's chance of winning reflects the effort you committed"
     ]
   },
+  {
+    createdAt: 1791280725000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.2",
+    title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
+    why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
+    changes: [
+      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
+      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
+      "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
+      "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
+      "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
+      "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,

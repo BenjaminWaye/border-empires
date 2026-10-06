@@ -68,11 +68,13 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
   if (!tile?.afc) return undefined;
   // A research-created House module becomes a captured copy when its AFC is
   // taken. It stays installed, but the winner cannot redeploy it away.
+  // Modules still in transit (incomingModules) never land: they are lost.
+  const { incomingModules: _inTransit, ...afc } = tile.afc;
   return {
-    ...tile.afc,
+    ...afc,
     ownerId: nextOwnerId,
     activatedAt: now,
-    ...(tile.afc.houseModules ? { houseModules: [] } : {})
+    ...(afc.houseModules ? { houseModules: [] } : {})
   };
 };
 
