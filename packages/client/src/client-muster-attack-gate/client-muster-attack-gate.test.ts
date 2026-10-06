@@ -127,7 +127,7 @@ describe("findClosestMuster", () => {
     expect(findClosestMuster(state, 6, 6)).toBeDefined();
   });
 
-  it("uses the cheaper barbarian raid cost against a barbarian target", () => {
+  it("holds a barbarian target to the same muster floor as a player target", () => {
     const state = createInitialState();
     state.me = "me";
     state.tiles.set("6,6", makeTile({ x: 6, y: 6, ownerId: "barbarian-1" }));
@@ -139,8 +139,8 @@ describe("findClosestMuster", () => {
     });
     state.tiles.set("5,5", musterTile);
 
-    // Below MUSTER_ATTACK_COST but above BARBARIAN_RAID_COST — still ready.
-    expect(findClosestMuster(state, 6, 6)).toBeDefined();
+    // Below MUSTER_ATTACK_COST -- not ready; there is no cheaper raid path.
+    expect(findClosestMuster(state, 6, 6)).toBeUndefined();
   });
 });
 

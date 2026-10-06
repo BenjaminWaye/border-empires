@@ -232,11 +232,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1791317162415, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.5",
     title: "Effort levels boost your odds more gently",
-    why: "Committing extra manpower used to square your odds, which made Planetary Defense raids roll at around 1% and Double effort feel like a coin flip between hopeless and certain.",
+    why: "Committing extra manpower used to square your odds, which made Planetary Defense raids roll at around 1% and effort feel like a coin flip between hopeless and certain.",
     changes: [
       "Extra effort now multiplies your odds ratio by 1.5 and Double by 2, so a 50% fight becomes 60% and 67%",
       "Effort never guarantees a win: the boost matters most in contested fights and barely moves hopeless ones",
-      "Raids on Planetary Defense tiles roll at their normal odds instead of a heavy penalty"
+      "Raids are gone: attacking Planetary Defense now works exactly like attacking a player, with the same mustered-manpower requirement and effort levels",
+      "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,

@@ -4138,8 +4138,7 @@ export class SimulationRuntime {
   /**
    * Manpower an attacker must have mustered to strike this target. Phase 5
    * baseline: flat attack cost, raised to a flat per-fort-tier floor,
-   * lowered for barbarian raids (Phase 8) and FRONTIER targets (forts only
-   * defend once SETTLED).
+   * lowered for FRONTIER targets (forts only defend once SETTLED).
    */
   private requiredMusterForTarget(target: DomainTileState): number {
     return requiredMusterForTargetImpl(target);

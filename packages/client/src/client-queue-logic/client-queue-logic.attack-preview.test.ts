@@ -317,15 +317,15 @@ describe("commitPreviewWinChanceForTarget", () => {
     expect(chance).toBeLessThan(1);
   });
 
-  it("ignores commitment for a barbarian (Planetary Defense) target", () => {
+  it("applies commitment to a barbarian (Planetary Defense) target like any other settled target", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const state = createInitialState();
     state.me = "me";
     const target = makeTile({ x: 5, y: 7, ownerId: "barbarian-1", ownershipState: "SETTLED" });
     state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.3, receivedAt: 4_500 });
 
-    expect(commitPreviewWinChanceForTarget(state, target, 10, deps)).toBe(0.3);
-    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)).toBe(0.3);
+    expect(commitPreviewWinChanceForTarget(state, target, 60, deps)).toBeCloseTo(0.3, 6);
+    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)!).toBeGreaterThan(0.3);
   });
 
   it("leaves a non-SETTLED target's win chance unaffected by commitment", () => {

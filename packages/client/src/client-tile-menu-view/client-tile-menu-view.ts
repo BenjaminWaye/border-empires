@@ -326,8 +326,7 @@ export const menuOverviewForTile = (
   if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
-    // the muster the client will actually demand — including the cheap
-    // barbarian-raid path, which the fort tier alone would overstate.
+    // the muster the client will actually demand.
     const required = requiredMusterForTarget(tile);
     pushLine(`Capturing requires ${required} mustered manpower.`);
   }
