@@ -1,12 +1,12 @@
 import { isSeaTerrain, tileKey } from "@border-empires/shared";
 import { parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
-import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
 import {
   tileKeysAroundAnchor,
   type LocalAnchor,
   type LocalLandConnectivityQuery
 } from "./client-reach-overlay-anchor-disk.js";
+import { localAnchorsForTile, OUTPOST_STRUCTURE_TYPES } from "./client-reach-overlay-anchors.js";
 
 export { tileKeysAroundAnchor, type LocalAnchor, type LocalLandConnectivityQuery };
 
@@ -47,7 +47,7 @@ export { tileKeysAroundAnchor, type LocalAnchor, type LocalLandConnectivityQuery
 
 export type ReachOverlayTileMap = ReadonlyMap<string, Tile>;
 
-export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+export { OUTPOST_STRUCTURE_TYPES };
 
 /**
  * Scans currently-known tiles for this player's own reach anchors (towns,
@@ -58,42 +58,7 @@ export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST",
 export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Set<string> => {
   const anchors: LocalAnchor[] = [];
   for (const tile of tiles.values()) {
-    if (tile.ownerId !== me) continue;
-    // Mirrors the server's ownershipState gate (runtime.ts's
-    // gatherReachAnchors): a dormant/unsettled tile keeps its town/outpost
-    // fields but must not count as a live reach anchor, or this preview
-    // would overstate reach for previously-overtaken ground. Docks are
-    // deliberately left ungated, same rationale as server-side.
-    const isSettled = tile.ownershipState === "SETTLED";
-    // Same detail-payload-vs-lightweight-reference bug the dock anchor had:
-    // `tile.town` is the heavy detail object (goldPerMinute, population,
-    // etc.), only populated once the client has fetched full detail for
-    // that specific tile -- most map tiles never do, including a player's
-    // own town if it hasn't been recently viewed. `townType` is the
-    // lightweight reference always present regardless of detail level
-    // (same convention client-town-identity.ts's townIdentityForTile
-    // already uses) -- gating on `tile.town` alone silently zeroed out the
-    // single most common reach anchor for smaller empires.
-    if (isSettled && tileHasTownIdentity(tile)) anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
-    // Server-side (runtime.ts's gatherReachAnchors) a dock anchor only ever
-    // needs the tile to be an owned dock tile (from the docks registry) --
-    // it doesn't require the tile's full economic-detail payload. `tile.dock`
-    // is that heavy detail object (goldPerMinute, modifiers, etc.), only
-    // populated once the client has fetched full detail for that specific
-    // tile -- most map tiles never do, so gating on it here silently dropped
-    // almost every real dock anchor. `dockId` is the lightweight reference
-    // already present on any dock-linked tile regardless of detail level,
-    // matching what the server actually checks.
-    if (tile.dockId) anchors.push({ x: tile.x, y: tile.y, kind: "DOCK" });
-    const outpostType = tile.economicStructure?.type;
-    const isActiveOutpostEconomic =
-      isSettled &&
-      tile.economicStructure?.ownerId === me &&
-      tile.economicStructure?.status === "active" &&
-      outpostType !== undefined &&
-      OUTPOST_STRUCTURE_TYPES.has(outpostType);
-    const isActiveSiegeOutpost = isSettled && tile.siegeOutpost?.ownerId === me && tile.siegeOutpost?.status === "active";
-    if (isActiveOutpostEconomic || isActiveSiegeOutpost) anchors.push({ x: tile.x, y: tile.y, kind: "OUTPOST" });
+    if (tile.ownerId === me) anchors.push(...localAnchorsForTile(tile));
   }
   // Land-gate every anchor's disk to mirror the server (see reach.ts). Unlike
   // the server, the client only has partial map knowledge (fog of war), so

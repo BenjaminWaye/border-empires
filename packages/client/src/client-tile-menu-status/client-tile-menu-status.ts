@@ -69,10 +69,21 @@ export const outOfReachDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
   encirclementRemainingMsForTile(tile, nowMs) !== undefined;
 
+/**
+ * "Inside <Name> Reach" when the covering empire(s) are known (one or two);
+ * otherwise -- unknown owner (fogged anchors) or a crowd -- the generic
+ * "Inside Enemy Reach".
+ */
+const insideReachText = (ownerNames: readonly string[]): string =>
+  ownerNames.length === 0 || ownerNames.length > 2 ? "Inside Enemy Reach" : `Inside ${ownerNames.join(" & ")} Reach`;
+
 export const tileMenuHeaderStatusForTile = (
   tile: Tile,
   nowMs = Date.now(),
-  isOwnedTileInReach?: (tile: Tile) => boolean
+  isOwnedTileInReach?: (tile: Tile) => boolean,
+  // Lazy: only called when the "Inside ... Reach" line is actually shown, so
+  // the (cached-tile scan) owner lookup costs nothing on every other status.
+  reachOwnerNames?: () => readonly string[]
 ): TileMenuHeaderStatus | undefined => {
   // Fogged takes precedence over everything below: those other statuses
   // (encirclement/out-of-reach decay countdowns, capture recovery) are all
@@ -124,10 +135,7 @@ export const tileMenuHeaderStatusForTile = (
   // contested-zone exemption) -- that's an actively contested tile sitting
   // inside an enemy's reach, not empty no-man's-land, so say so.
   if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
-    return {
-      text: "Inside Enemy Reach",
-      tone: "warning"
-    };
+    return { text: insideReachText(reachOwnerNames?.() ?? []), tone: "warning" };
   }
 
   return undefined;

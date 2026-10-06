@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { encirclementRemainingMsForTile, isFrontierOriginCutOff, outOfReachDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import type { Tile } from "../client-types.js";
 
@@ -146,5 +146,27 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     const nowMs = 1_000;
     const tile = makeFrontierTile();
     expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Inside Enemy Reach");
+  });
+
+  it("names the covering empire instead of \"Enemy\" when it is known", () => {
+    const tile = makeFrontierTile();
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["Ravenwood"])?.text).toBe("Inside Ravenwood Reach");
+  });
+
+  it("names both empires when two reaches overlap the tile", () => {
+    const tile = makeFrontierTile();
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["Ravenwood", "Ironvale"])?.text).toBe("Inside Ravenwood & Ironvale Reach");
+  });
+
+  it("falls back to \"Enemy\" when the owner is unknown or there are too many to list", () => {
+    const tile = makeFrontierTile();
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => [])?.text).toBe("Inside Enemy Reach");
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["A", "B", "C"])?.text).toBe("Inside Enemy Reach");
+  });
+
+  it("does not look up owner names unless the reach line is shown", () => {
+    const lookup = vi.fn(() => ["Ravenwood"]);
+    tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => true, lookup);
+    expect(lookup).not.toHaveBeenCalled();
   });
 });
