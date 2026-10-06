@@ -16,3 +16,13 @@ export const ownershipHelpSubtitleHtml = (kind: OwnershipHelpKind, ownerLabel: s
   `<details class="tile-ownership-help"><summary>${ownerLabel}</summary>` +
   `<div class="tile-ownership-help-body">${HELP.map((h) => `<p${h.kind === kind ? ' class="is-current"' : ""}><strong>${h.name}.</strong> ${h.text}</p>`).join("")}</div></details>` +
   (regionLabel ? ` · ${regionLabel}` : "");
+
+/**
+ * Header status line that expands in place to a plain-text explainer when one
+ * is given (same native <details> pattern and styling as the ownership help).
+ * `statusText` is already HTML-safe; `helpText` is trusted static copy.
+ */
+export const statusWithHelpHtml = (statusText: string, helpText?: string): string =>
+  helpText
+    ? `<details class="tile-ownership-help"><summary>${statusText}</summary><div class="tile-ownership-help-body"><p>${helpText}</p></div></details>`
+    : statusText;

@@ -155,7 +155,7 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
 
   it("names both empires when two reaches overlap the tile", () => {
     const tile = makeFrontierTile();
-    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["Ravenwood", "Ironvale"])?.text).toBe("Inside Ravenwood & Ironvale Reach");
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["Ravenwood", "Ironvale"])?.text).toBe("Inside Ravenwood and Ironvale Reach");
   });
 
   it("falls back to \"Enemy\" when the owner is unknown or there are too many to list", () => {
@@ -168,5 +168,13 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     const lookup = vi.fn(() => ["Ravenwood"]);
     tileMenuHeaderStatusForTile(makeFrontierTile(), 1_000, () => true, lookup);
     expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("escapes player-controlled names and attaches the explainer to the reach line only", () => {
+    const tile = makeFrontierTile();
+    const status = tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["<b>Evil</b>"]);
+    expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
+    expect(status?.helpText).toContain("can't settle");
+    expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });
 });

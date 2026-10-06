@@ -10,6 +10,7 @@ import {
   buildingActionCategory,
   type BuildingCategory
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
+import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
 
 // Two-color versus bar shown on the "Battle in progress" / "Under attack"
@@ -372,7 +373,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
         <div class="tile-action-title">${view.title}</div>
         ${view.townCharacter ? `<div class="tile-action-town-character">Town character · <strong>${view.townCharacter}</strong></div>` : ""}
         <div class="tile-action-subtitle">${view.subtitleHtml ?? view.subtitle}</div>
-        ${view.statusText ? `<div class="tile-action-status is-${view.statusTone ?? "neutral"}">${view.statusText}</div>` : ""}
+        ${view.statusText ? `<div class="tile-action-status is-${view.statusTone ?? "neutral"}">${statusWithHelpHtml(view.statusText, view.statusHelpText)}</div>` : ""}
       </div>
       ${tabsHtml}
       <div class="tile-menu-body" data-tile-menu-scroll>${tileMenuBodyHtml(view, activeTab)}</div>

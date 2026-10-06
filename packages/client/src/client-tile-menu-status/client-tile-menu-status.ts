@@ -1,4 +1,5 @@
 import { OUT_OF_REACH_DECAY_MS } from "@border-empires/shared";
+import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
@@ -10,9 +11,16 @@ const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
 const ENCIRCLEMENT_DECAY_MS = 60_000;
 
 export type TileMenuHeaderStatus = {
+  /** Rendered as HTML by the tile menu: escape anything player-controlled. */
   text: string;
   tone: "warning" | "neutral";
+  /** Plain-text explainer; when present the status expands in place to show it. */
+  helpText?: string;
 };
+
+const INSIDE_REACH_HELP_TEXT =
+  "You can't settle here while the tile is inside another empire's reach. " +
+  "Your people are protected, though: the tile won't decay for as long as that empire's anchor points keep covering it.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
@@ -75,7 +83,9 @@ export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean 
  * "Inside Enemy Reach".
  */
 const insideReachText = (ownerNames: readonly string[]): string =>
-  ownerNames.length === 0 || ownerNames.length > 2 ? "Inside Enemy Reach" : `Inside ${ownerNames.join(" & ")} Reach`;
+  ownerNames.length === 0 || ownerNames.length > 2
+    ? "Inside Enemy Reach"
+    : `Inside ${ownerNames.map(escapeHtml).join(" and ")} Reach`;
 
 export const tileMenuHeaderStatusForTile = (
   tile: Tile,
@@ -135,7 +145,7 @@ export const tileMenuHeaderStatusForTile = (
   // contested-zone exemption) -- that's an actively contested tile sitting
   // inside an enemy's reach, not empty no-man's-land, so say so.
   if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
-    return { text: insideReachText(reachOwnerNames?.() ?? []), tone: "warning" };
+    return { text: insideReachText(reachOwnerNames?.() ?? []), tone: "warning", helpText: INSIDE_REACH_HELP_TEXT };
   }
 
   return undefined;

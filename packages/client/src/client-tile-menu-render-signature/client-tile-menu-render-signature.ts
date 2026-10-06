@@ -8,6 +8,7 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
     subtitleHtml: view.subtitleHtml,
     statusText: view.statusText,
     statusTone: view.statusTone,
+    statusHelpText: view.statusHelpText,
     tabs: view.tabs,
     ...(activeTab === "overview"
       ? {
