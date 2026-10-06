@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { setWorldSeed, terrainAt, enumerateMountainRings, CURRENT_WORLDGEN_VERSION, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
+import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
 
 const noopPlayer = (id: string, isAi: boolean) => ({
   id,
@@ -58,13 +59,15 @@ const checkRingCoverage = (
 
 describe("mountain ring interior coverage", () => {
   it("gives every land-accessible ring interior a town/cluster/dock across sampled seeds (continents + islands)", () => {
-    const seeds = [101, 202, 303, 404, 505];
+    const shard = parseTestShard(process.env.WORLDGEN_COVERAGE_SHARD);
+    const seeds = valuesForTestShard([101, 202, 303, 404, 505], shard);
+    expect(seeds).not.toHaveLength(0);
     for (const style of ["continents", "islands"] as const) {
       for (const seed of seeds) {
         const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 0, aiPlayerCount: 4, style });
         const result = checkRingCoverage(world.worldSeed, style, world.tiles);
         // eslint-disable-next-line no-console
-        console.log(`style=${style} seed=${seed}(->${world.worldSeed}) rings=${result.total} covered=${result.covered} empty=${result.emptyRings.length}`);
+        console.log(`shard=${shard.index}/${shard.total} style=${style} seed=${seed}(->${world.worldSeed}) rings=${result.total} covered=${result.covered} empty=${result.emptyRings.length}`);
         expect(result.total).toBeGreaterThan(0);
         expect(result.covered).toBe(result.total);
       }

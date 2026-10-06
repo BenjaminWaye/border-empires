@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findKnownShieldAmount, winChanceColor, winChanceForTile, type KnownShieldFlag } from "./frontier-combat-win-chance-paint.js";
 import { SHIELD_RADIUS_TILES } from "../config.js";
+import { applyOddsScale } from "./frontier-combat.js";
 
 describe("winChanceForTile", () => {
   it("returns 0.5 (base preview win chance) with a neutral committed amount", () => {
@@ -38,8 +39,8 @@ describe("winChanceForTile", () => {
     const unshielded = winChanceForTile(target, { committedManpower: 50, baseMusterCost: 50 });
     const shielded = winChanceForTile(target, { committedManpower: 50, baseMusterCost: 50, knownShieldAmount: 50 });
     expect(shielded.winChance).toBeLessThan(unshielded.winChance);
-    // shieldDefenseMultiplier(50, 50) === 2, so shielded should be exactly half.
-    expect(shielded.winChance).toBeCloseTo(unshielded.winChance / 2, 10);
+    // shieldDefenseMultiplier(50, 50) === 2, so the odds ratio is halved.
+    expect(shielded.winChance).toBeCloseTo(applyOddsScale(unshielded.winChance, 0.5), 10);
   });
 
   it("a zero/absent knownShieldAmount is a no-op (matches unshielded)", () => {

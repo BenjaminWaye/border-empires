@@ -110,6 +110,17 @@ consolidation, planning cadence), not deletion.
 
 ## Known pitfalls
 
+- **Relay ocean filtering must retain water inside existing reach.**
+  `relay-beacon-command-planner.ts` excludes existing reach from new-coverage
+  credit, but must still classify visible water there for
+  `markOceanShadowedFog`. Skipping those cells before reading terrain erases
+  the ocean barrier and lets nearby coastal relays repeatedly score offshore
+  fog as fresh land. Keep coverage eligibility separate from terrain evidence.
+  Never use worker `terrainAt` to solve this: the worker lacks the season seed
+  and that previously deadlocked exploration. Regression coverage lives in
+  `relay-beacon-coastal-reach.test.ts`, including wraparound, inland fog,
+  narrow straits, known prizes and bounded lookup work.
+
 - The AI decision-diagnostics buffer (`recordAiDecisionDiagnosticFromPlanner`)
   looks like write-only "record-then-never-read" — but it **is** read via the
   `GetAiDecisionDiagnostics` RPC (`/admin/debug/ai/decisions`). Not dead.

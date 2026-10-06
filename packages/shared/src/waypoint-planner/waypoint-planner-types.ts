@@ -1,7 +1,6 @@
 // Types and small pure helpers for the waypoint planner (see
 // waypoint-planner.ts for the A* algorithm itself) -- split into its own
 // file to stay under the repo's per-file line cap.
-import { BARBARIAN_RAID_COST } from "../config.js";
 import { frontierClaimDurationMsAt } from "../frontier-claim-duration/frontier-claim-duration.js";
 import { defendingFortVariant, requiredMusterForFort } from "../structure-costs/structure-costs.js";
 import type { FortVariant } from "../types.js";
@@ -170,6 +169,5 @@ export const classifyTile = (
 };
 
 export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined): number => {
-  if (!tile || tile.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
-  return requiredMusterForFort(defendingFortVariant(tile.fort));
+  return requiredMusterForFort(defendingFortVariant(tile?.fort));
 };

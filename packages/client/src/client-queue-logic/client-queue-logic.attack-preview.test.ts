@@ -298,22 +298,34 @@ describe("commitPreviewWinChanceForTarget", () => {
     state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.2, receivedAt: 4_500 });
 
     // No fort -> requiredMusterForFort(undefined) = 60 (the base). Committing
-    // 120 is 2x, so the multiplier is (120/60)^2 = 4, clamped to [0, 1]:
-    // 0.2 * 4 = 0.8.
-    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)).toBeCloseTo(0.8, 6);
+    // 120 is 2x, so the odds ratio (0.25) doubles to 0.5: 0.5 / 1.5 = 1/3.
+    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)).toBeCloseTo(1 / 3, 6);
     // At exactly the floor (60), the multiplier is 1x -- unchanged from the
     // server's base odds.
     expect(commitPreviewWinChanceForTarget(state, target, 60, deps)).toBeCloseTo(0.2, 6);
   });
 
-  it("clamps to 1 instead of exceeding 100% win chance", () => {
+  it("never reaches 100% win chance, however much is committed", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const state = createInitialState();
     state.me = "me";
     const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "SETTLED" });
     state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.9, receivedAt: 4_500 });
 
-    expect(commitPreviewWinChanceForTarget(state, target, 600, deps)).toBe(1);
+    const chance = commitPreviewWinChanceForTarget(state, target, 600, deps)!;
+    expect(chance).toBeGreaterThan(0.9);
+    expect(chance).toBeLessThan(1);
+  });
+
+  it("applies commitment to a barbarian (Planetary Defense) target like any other settled target", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "barbarian-1", ownershipState: "SETTLED" });
+    state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.3, receivedAt: 4_500 });
+
+    expect(commitPreviewWinChanceForTarget(state, target, 60, deps)).toBeCloseTo(0.3, 6);
+    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)!).toBeGreaterThan(0.3);
   });
 
   it("leaves a non-SETTLED target's win chance unaffected by commitment", () => {

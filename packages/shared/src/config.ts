@@ -135,9 +135,7 @@ export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
 
 // --- Manpower economy: Expand/Settle costs (manpower-economy-rewrite-plan.md §4.2) ---
-// Cheapest action — just claiming dirt; deliberately matches BARBARIAN_RAID_COST
-// (10) so claiming land and raiding a barbarian tile share one "10 = a cheap
-// frontier poke" mental model.
+// Cheapest action — just claiming dirt.
 export const EXPAND_MANPOWER_COST = 10;
 // Priced below every structure on purpose — acquisition is always a little
 // cheaper than optimization (§4.2's ordering rule).
@@ -353,7 +351,7 @@ export const MUSTER_ATTACK_COST = 60;
 // zero effective defense (see defenseMultiplierForTile in frontier-combat.ts,
 // which returns 0 for ownershipState === "FRONTIER" regardless of any fort
 // built on the tile — forts only grant their defense bonus once the tile is
-// SETTLED). Cheap like a barbarian raid, not the full settled-attack floor.
+// SETTLED). Cheap, not the full settled-attack floor.
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
@@ -463,8 +461,6 @@ export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;
 export const TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
 export const TITANIUM_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
 
-// --- Barbarian raids ---
-export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 
 // --- Breakthrough momentum ---
 export const BREAKTHROUGH_ENABLED = process.env["BREAKTHROUGH_ENABLED"] === "true";

@@ -187,7 +187,7 @@ const estimateNewReachCoverage = (
       boxState[idx] = CELL_OTHER;
       if (dx === 0 && dy === 0) continue;
       const neighborKey = tileKeyOf(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT));
-      if (reachTileKeys.has(neighborKey)) continue;
+      const alreadyInReach = reachTileKeys.has(neighborKey);
       const neighbor = tilesByKey.get(neighborKey);
       // Never delivered to this player at all — still fogged. Can't be owned
       // (that requires having seen it). Credited as possible unexplored land
@@ -198,11 +198,15 @@ const estimateNewReachCoverage = (
       // credit, deadlocking reach-locked AIs on WAIT — and generating real
       // terrain in the worker costs a multi-second whole-world mask build.
       if (!neighbor) {
+        if (alreadyInReach) continue;
         boxState[idx] = CELL_FOG;
         fogCells += 1;
         continue;
       }
-      boxTiles[idx] = neighbor;
+      // Existing reach excludes coverage credit, not terrain evidence. Water
+      // inside an active relay's reach still shadows the ocean beyond it;
+      // discarding it lets nearby coastal relays repeatedly bank fog credit.
+      if (!alreadyInReach) boxTiles[idx] = neighbor;
       if (neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA") {
         boxState[idx] = CELL_WATER;
         waterCells += 1;

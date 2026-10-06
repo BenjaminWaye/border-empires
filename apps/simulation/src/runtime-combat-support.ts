@@ -291,8 +291,8 @@ const resolveAttackCombat = (
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
-  // docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds
-  // for a SETTLED target -- `base` is the same attack-muster ladder cost
+  // docs/replenishment-update-plan.md D6, revised: the odds ratio is scaled by
+  // commit / base (applyOddsScale) for a SETTLED target -- `base` is the same attack-muster ladder cost
   // (structure-costs.ts requiredMusterForFort) the attack was required to
   // meet to launch at all, so committing exactly the floor (today's only
   // option until the commitment-choice UI ships) reproduces today's base_odds

@@ -25,6 +25,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791315189192, // Date.now() frozen for this entry
+    introducedIn: "2026.10.06.1",
+    title: "AI stops building redundant coastal relays",
+    why: "Existing relay coverage hid known water from the AI’s ocean filter, so it mistook offshore fog for new land.",
+    changes: ["AI relay placement now recognizes ocean inside existing reach while preserving exploration toward unseen land"]
+  },
+  {
     createdAt: 1791208703442, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.3",
     title: "Border Empires icon now appears everywhere",
@@ -204,6 +211,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attacking a tile that is being settled cancels the settle and refunds it",
       "Buildings under construction on an attacked tile pause, showing \"Paused: ongoing attack\", and resume with the same time remaining if the defender holds",
       "A tile under attack can't be settled or have a new building started until the battle resolves"
+    ]
+  },
+  {
+    createdAt: 1791317162415, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.5",
+    title: "Effort levels boost your odds more gently",
+    why: "Committing extra manpower used to square your odds, which made Planetary Defense raids roll at around 1% and effort feel like a coin flip between hopeless and certain.",
+    changes: [
+      "Extra effort now multiplies your odds ratio by 1.5 and Double by 2, so a 50% fight becomes 60% and 67%",
+      "Effort never guarantees a win: the boost matters most in contested fights and barely moves hopeless ones",
+      "Raids are gone: attacking Planetary Defense now works exactly like attacking a player, with the same mustered-manpower requirement and effort levels",
+      "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
