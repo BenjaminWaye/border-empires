@@ -81,7 +81,7 @@ describe("AFC landing among barbarians", () => {
           tiles: [
             // SETTLED, not FRONTIER: a lone frontier origin is stranded and decays before combat, but this
             // must stay player-1's only tile so losing it eliminates them.
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 100, mode: "HOLD", updatedAt: 0 } },
             { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []

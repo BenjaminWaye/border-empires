@@ -44,14 +44,13 @@ describe("commitManpower (D6 commitment choice)", () => {
     expect(result).toMatchObject({ ok: true, manpowerCost: 60 });
   });
 
-  it("ignores commitManpower for a barbarian raid target", () => {
+  it("honors commitManpower against a barbarian (Planetary Defense) target like any player target", () => {
     const result = validateFrontierCommand({
       ...baseInput,
       to: { ...baseInput.to, ownerId: "barbarian-1" },
       originMuster: 200,
       commitManpower: 150
     });
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.manpowerCost).not.toBe(150);
+    expect(result).toMatchObject({ ok: true, manpowerCost: 150 });
   });
 });
