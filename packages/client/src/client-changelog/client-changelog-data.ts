@@ -140,7 +140,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   {
     createdAt: 1791196969000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.3",
+    introducedIn: "2026.10.06.1",
     title: "Attacks now pause settling and building",
     why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
     changes: [
