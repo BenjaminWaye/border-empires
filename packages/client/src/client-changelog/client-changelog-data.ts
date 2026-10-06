@@ -139,8 +139,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791280725000, // frozen Date.now() value for this release
+    createdAt: 1791277545524, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.1",
+    title: "Extra and Double effort now actually boost muster attacks",
+    why: "Choosing Extra or Double effort for a muster flag was lost on the way to the server, so the flag attacked at Normal effort and the battle card showed Normal odds.",
+    changes: [
+      "A muster flag's chosen effort level is now saved and used for the attacks it launches",
+      "The battle card's chance of winning reflects the effort you committed"
+    ]
+  },
+  {
+    createdAt: 1791280725000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.2",
     title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
     why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
     changes: [
