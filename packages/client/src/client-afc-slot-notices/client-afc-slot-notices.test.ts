@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
-import {
-  AFC_NO_LANDING_SITE_MESSAGE,
-  AFC_NO_SITE_CHECK_DELAY_MS,
-  holdsTerritoryWithoutAfc,
-  isAfcModuleWaitingForSlot,
-  scheduleAfcNoLandingSiteCheck
-} from "./client-afc-slot-notices.js";
+import { AFC_FREE_REBUILD_MESSAGE, holdsTerritoryWithoutAfc, isAfcModuleWaitingForSlot, notifyIfLastAfcLost } from "./client-afc-slot-notices.js";
 
 const EIGHT = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const afcTile = (x: number, modules: string[]): Tile =>
@@ -23,26 +17,21 @@ describe("isAfcModuleWaitingForSlot", () => {
   });
 });
 
-describe("no landing site warning", () => {
+describe("last AFC lost", () => {
+  const plain = { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+
   it("detects territory without an AFC", () => {
-    const plain = { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
     expect(holdsTerritoryWithoutAfc(stateOf([plain]))).toBe(true);
     expect(holdsTerritoryWithoutAfc(stateOf([plain, afcTile(0, [])]))).toBe(false);
     expect(holdsTerritoryWithoutAfc(stateOf([]))).toBe(false);
   });
 
-  it("warns after the delay only if no replacement AFC has landed by then", () => {
-    const plain = { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
-    const state = stateOf([plain]);
+  it("tells the player they can rebuild for free only when the lost AFC was their last", () => {
     const pushFeed = vi.fn();
-    const tasks: Array<() => void> = [];
-    scheduleAfcNoLandingSiteCheck(state, pushFeed, (task, delayMs) => { expect(delayMs).toBe(AFC_NO_SITE_CHECK_DELAY_MS); tasks.push(task); });
-    scheduleAfcNoLandingSiteCheck(state, pushFeed, (task) => { tasks.push(task); });
-    tasks[0]!();
-    expect(pushFeed).toHaveBeenCalledWith(AFC_NO_LANDING_SITE_MESSAGE, "combat", "warn");
-    state.tiles.set("0,0", afcTile(0, [])); // replacement landed
+    notifyIfLastAfcLost(stateOf([plain]), pushFeed);
+    expect(pushFeed).toHaveBeenCalledWith(AFC_FREE_REBUILD_MESSAGE, "combat", "warn");
     pushFeed.mockClear();
-    tasks[1]!();
+    notifyIfLastAfcLost(stateOf([plain, afcTile(0, [])]), pushFeed);
     expect(pushFeed).not.toHaveBeenCalled();
   });
 });

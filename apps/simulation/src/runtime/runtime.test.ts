@@ -4935,7 +4935,7 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("respawns instead of overwriting the only town when recovered gross income is zero", () => {
+  it("neither overwrites the only town nor drops an AFC on neutral land when an AFC-less empire has zero income", () => {
     const runtime = new SimulationRuntime({
       seedTiles: new Map(),
       initialState: {
@@ -4984,7 +4984,9 @@ describe("simulation runtime", () => {
         ]
       }
     });
-    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"]).repaired).toBe(1);
+    // No AFC: a human rebuilds it for free and an AI gets one from the startup
+    // AFC repair, so the zero-income repair no longer drops one on neutral land.
+    expect(runtime.repairZeroGrossIncomeSettlements(["player-1"]).repaired).toBe(0);
 
     const recoveredState = runtime.exportState();
     const originalTown = recoveredState.tiles.find((tile) => tile.x === 12 && tile.y === 18);
@@ -5004,12 +5006,8 @@ describe("simulation runtime", () => {
         townPopulationTier: "TOWN"
       })
     );
-    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 16 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
-    expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
-    expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
-      expect.objectContaining({ ownerId: "player-1", status: "active" })
-    );
-    expect(recoveredState.players.find((player) => player.id === "player-1")?.incomePerMinute).toBeGreaterThan(0);
+    expect(recoveredState.tiles.find((tile) => tile.x === 16 && tile.y === 18)?.ownerId).toBeUndefined();
+    expect(recoveredState.tiles.some((tile) => tile.afcJson)).toBe(false);
   });
 
   it("does not leak seed-only resources, towns, or structures back onto recovered tiles after restart", () => {

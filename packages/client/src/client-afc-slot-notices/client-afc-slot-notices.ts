@@ -32,8 +32,8 @@ export const isAfcModuleWaitingForSlot = (state: SlotState, techId: string): boo
 export const afcModuleWaitingMessage = (moduleName: string): string =>
   `${moduleName} is waiting: all your AFCs are full (${AFC_MODULE_SLOTS} modules each). Build another AFC to install it.`;
 
-export const AFC_NO_LANDING_SITE_MESSAGE =
-  "Your last AFC was lost and there is no valid landing site for a new one. Free up an empty tile in your territory to receive it.";
+export const AFC_FREE_REBUILD_MESSAGE =
+  "Your last AFC was captured. Build a new one for free: tap any empty tile in your territory and choose Build AFC.";
 
 /** True when the viewer still holds territory but owns no AFC. */
 export const holdsTerritoryWithoutAfc = (state: SlotState): boolean => {
@@ -47,18 +47,7 @@ export const holdsTerritoryWithoutAfc = (state: SlotState): boolean => {
   return ownsTile;
 };
 
-// The server grants the replacement AFC in the same combat resolution, but its
-// tile delta can arrive in a later batch than the capture -- so wait briefly
-// before deciding there was no landing site.
-export const AFC_NO_SITE_CHECK_DELAY_MS = 3_000;
-
-/** After the viewer loses an AFC, warns once if no replacement has landed by the time the check runs. */
-export const scheduleAfcNoLandingSiteCheck = (
-  state: SlotState,
-  pushFeed: PushFeed,
-  schedule: (task: () => void, delayMs: number) => unknown = (task, delayMs) => setTimeout(task, delayMs)
-): void => {
-  schedule(() => {
-    if (holdsTerritoryWithoutAfc(state)) pushFeed(AFC_NO_LANDING_SITE_MESSAGE, "combat", "warn");
-  }, AFC_NO_SITE_CHECK_DELAY_MS);
+/** After the viewer loses an AFC: if it was their last, tell them they can rebuild it for free. */
+export const notifyIfLastAfcLost = (state: SlotState, pushFeed: PushFeed): void => {
+  if (holdsTerritoryWithoutAfc(state)) pushFeed(AFC_FREE_REBUILD_MESSAGE, "combat", "warn");
 };

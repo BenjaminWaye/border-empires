@@ -21,18 +21,28 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
   });
 };
 
+const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
+  [...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc?.ownerId === state.me).length;
+
+/** "Build AFC" sits on an owned AFC and costs Coin -- except after losing the
+ * last one, when it is offered free on every owned tile (the server waives the
+ * cost when the player owns no AFC). */
 export const buildAfcActionForTile = (state: ClientState, tile: Tile, availability: Availability): TileActionDef | undefined => {
-  if (tile.ownerId !== state.me || tile.afc?.status !== "active") return undefined;
-  const cost = afcBuildCost([...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc).length);
+  if (tile.ownerId !== state.me) return undefined;
+  const owned = ownedAfcCount(state);
+  if (owned === 0) return { id: "build_afc", label: "Build AFC", ...availability(true, "", "Free: your last AFC was lost") };
+  if (tile.afc?.status !== "active") return undefined;
+  const cost = afcBuildCost(owned);
   return { id: "build_afc", label: "Build AFC", ...availability(state.gold >= cost, state.gold >= cost ? "" : `Need ${cost} coin`, `${cost} Coin`) };
 };
 
+/** Empty land you own; SETTLED only, except a free rebuild may also use FRONTIER (settled on landing). */
 export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined): boolean =>
   Boolean(
     tile &&
       tile.terrain === "LAND" &&
       tile.ownerId === state.me &&
-      tile.ownershipState === "SETTLED" &&
+      (tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && ownedAfcCount(state) === 0)) &&
       !tile.town &&
       !tile.dockId &&
       !tile.afc &&

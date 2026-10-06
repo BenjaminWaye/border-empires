@@ -1,14 +1,15 @@
-// Coverage for the replacement-AFC grant: a player who holds territory but
-// owns no AFC (last one captured, or an empire settled before AFCs existed,
-// docs/manifest-afc-settlement-migration-plan.md) gets one on their own land,
-// falling back to neutral land touching their territory.
+// Coverage for the automatic replacement-AFC grant (AI players only): an AI
+// that holds territory but owns no AFC gets one on its own land, falling back
+// to neutral land touching its territory.
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { SimulationRuntime } from "./runtime/runtime.js";
 
+// AI players: only they get a replacement AFC placed automatically; a human
+// builds their own for free (see the human case at the end).
 const makePlayer = (id: string) => ({
   id,
-  isAi: false,
+  isAi: true,
   points: 10_000,
   manpower: 10_000,
   techIds: new Set<string>(),
@@ -216,5 +217,17 @@ describe("ensurePlayerHasAfc — AFC settlement migration", () => {
     expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false);
     const afcTiles = runtime.exportState().tiles.filter((tile) => tile.ownerId === "player-1" && tile.afcJson);
     expect(afcTiles).toHaveLength(1);
+  });
+
+  it("never places an AFC for a human: they build their own, for free", () => {
+    const settledTile: DomainTileState = { x: 15, y: 15, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", { ...makePlayer("player-1"), isAi: false }]]),
+      initialState: { tiles: [settledTile, ...emptyLandGrid(new Set(["15,15"]))], activeLocks: [] }
+    });
+
+    expect(runtime.ensurePlayerHasAfc("player-1")).toBe(false);
+    expect(runtime.exportState().tiles.some((tile) => tile.afcJson)).toBe(false);
   });
 });

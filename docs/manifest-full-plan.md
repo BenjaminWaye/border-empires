@@ -309,13 +309,18 @@ Resonance Core, avoiding nine separate giant factory overlays.
   before the cap move their newest House copies to the player's other AFCs
   with room (on connect and after building an AFC); what fits nowhere stays.
   Captured copies count toward the captor's slots.
-- **Losing the last AFC while holding land:** a replacement lands in the
-  same combat resolution (`respawnIfEliminated` →
-  `ensureReplacementAfcAfterLoss`), on the empty owned tile (SETTLED or
-  FRONTIER) nearest the territory's centroid, else on empty neutral land
-  touching the territory (`apps/simulation/src/afc-owned-site/`). With no
-  valid site, nothing lands and the client warns the player. The reconnect
-  hook retries.
+- **Losing the last AFC while holding land:** the captured AFC transfers to
+  the captor and nothing spawns automatically for a human, so AFCs don't pile
+  up on the map. The player rebuilds it themselves for free: BUILD_AFC costs
+  nothing while they own zero AFCs and may land on any empty owned land tile,
+  FRONTIER included (settled on landing). The zero-income repair
+  (`ensureGrossIncomeSettlementForPlayer`) no longer drops an AFC on neutral
+  land for an AFC-less player. AI players never issue BUILD_AFC, so an AI
+  gets its replacement placed automatically 10 minutes after the loss
+  (`AI_AFC_REPLACEMENT_DELAY_MS`), on its empty owned tile nearest its
+  territory's centroid, else empty neutral land touching it
+  (`apps/simulation/src/afc-owned-site/`). The timer is not persisted: after a
+  restart, the startup AI repair places it straight away.
 - **Re-delivery:** missing House copies land one per 60s call-down, Economy
   first, then Manpower, War, Aether.
 - **Capture plunder:** taking another player's AFC also plunders 33% of the

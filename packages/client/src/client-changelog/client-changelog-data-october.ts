@@ -300,10 +300,9 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1791318269732, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.1",
     title: "Fabrication Complexes: 8 modules each, and losing one now costs more",
-    why: "When an enemy captured your last AFC you got no replacement until you reloaded, it could land away from your empire, and every lost module came straight back at once.",
+    why: "Losing your last AFC dropped a new one onto open ground for free, so captured AFCs piled up across the map, and every lost module came straight back at once.",
     changes: [
-      "A replacement AFC now lands the moment your last one is captured, with no reload needed",
-      "It lands on one of your own empty tiles near the middle of your territory, or on open land touching your border if none are free; you are warned if there is nowhere to land",
+      "If your last AFC is captured, build a new one yourself, free: tap any empty tile in your territory and choose Build AFC",
       "Lost modules come back one per minute, Economy modules first",
       "Each AFC holds 8 modules. When all your AFCs are full, a newly researched module waits until you build another AFC",
       "Capturing an enemy AFC also plunders 33% of their Coin"

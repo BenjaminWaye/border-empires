@@ -221,25 +221,38 @@ export const ensurePlayerHasSpawnTerritory = (
   return true;
 };
 
-// Replacement AFC for a player who still holds territory but owns no AFC:
-// either their last one was just captured (respawnIfEliminated runs this in
-// the same combat resolution, see ensureReplacementAfcAfterLoss below) or the
-// empire was settled before AFCs existed (docs/manifest-afc-settlement-migration-plan.md),
-// which the per-connection hook (preparePlayerHandler) still catches. The
-// ownedAfcTileKeys guard makes every call after the first a fast no-op.
-// Unlike a genuine respawn this grants no manpower/Coin floor and no respawn
-// notice -- the player already has a running empire. Also calls down House
-// module copies the player researched but has on no AFC (see
-// backfillMissingHouseModules). Returns true when either changed.
+// A human who holds territory but owns no AFC (last one captured, or an empire
+// settled before AFCs existed) builds a replacement themselves, for free
+// (handleBuildAfcCommand). AI players never issue BUILD_AFC, so they get one
+// placed automatically instead: here from the startup/rollover repair
+// (repairPlayerInfrastructure), and AI_AFC_REPLACEMENT_DELAY_MS after a loss
+// (respawnIfEliminated -> scheduleAiReplacementAfc). The ownedAfcTileKeys
+// guard makes every call after the first a fast no-op. Unlike a genuine
+// respawn this grants no manpower/Coin floor and no respawn notice. Also calls
+// down House module copies the player researched but has on no AFC (see
+// backfillMissingHouseModules), for humans and AI alike. Returns true when
+// anything changed.
 export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
-  const granted = grantReplacementAfcIfMissing(ctx, playerId, `afc-migration:${playerId}:${ctx.now()}`);
+  const granted = ctx.players.get(playerId)?.isAi === true && grantReplacementAfcIfMissing(ctx, playerId, `afc-migration:${playerId}:${ctx.now()}`);
   return backfillHouseModules(ctx, playerId) || granted;
 };
 
-/** Hot-path variant for combat resolution: an O(1) AFC-count check, and the
- * module backfill only runs when a replacement actually landed. */
+/** How long an AI that lost its last AFC goes without one before a replacement lands. */
+export const AI_AFC_REPLACEMENT_DELAY_MS = 10 * 60_000;
+
+/** After a loss: if an AI player is now AFC-less, queue its replacement for
+ * AI_AFC_REPLACEMENT_DELAY_MS later. The fire-time re-check makes a duplicate
+ * or stale timer a no-op. Not persisted: after a restart the startup repair
+ * (repairPlayerInfrastructure) places the AFC instead. */
+const scheduleAiReplacementAfc = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
+  if (ctx.players.get(playerId)?.isAi !== true || ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return;
+  ctx.scheduleAfter(AI_AFC_REPLACEMENT_DELAY_MS, () => { ensureReplacementAfcAfterLoss(ctx, playerId, commandId); });
+};
+
+/** AI players only: an O(1) AFC-count check, and the module backfill only
+ * runs when a replacement actually landed. */
 export const ensureReplacementAfcAfterLoss = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): boolean => {
-  if (ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return false;
+  if (ctx.players.get(playerId)?.isAi !== true || ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return false;
   if (!grantReplacementAfcIfMissing(ctx, playerId, `${commandId}:afc-replacement:${playerId}`)) return false;
   backfillHouseModules(ctx, playerId);
   return true;
@@ -351,9 +364,10 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const actor = ctx.players.get(playerId);
   if (!actor) return;
   // Still holding ground: not eliminated, but the loss that triggered this
-  // call may have taken their last AFC -- replace it now, not on reconnect.
+  // call may have taken their last AFC. AI players get a replacement ten
+  // minutes later; humans build their own, for free (handleBuildAfcCommand).
   if (ctx.summaryForPlayer(playerId).territoryTileKeys.size > 0) {
-    ensureReplacementAfcAfterLoss(ctx, playerId, commandId);
+    scheduleAiReplacementAfc(ctx, playerId, commandId);
     return;
   }
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) {
