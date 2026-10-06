@@ -21,7 +21,7 @@ export const afcModuleActionsForTile = (state: ClientState, tile: Tile, availabi
   });
 };
 
-const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
+export const ownedAfcCount = (state: Pick<ClientState, "tiles" | "me">): number =>
   [...state.tiles.values()].filter((candidate) => candidate.ownerId === state.me && candidate.afc?.ownerId === state.me).length;
 
 /** "Build AFC" sits on an owned AFC and costs Coin -- except after losing the
@@ -36,13 +36,14 @@ export const buildAfcActionForTile = (state: ClientState, tile: Tile, availabili
   return { id: "build_afc", label: "Build AFC", ...availability(state.gold >= cost, state.gold >= cost ? "" : `Need ${cost} coin`, `${cost} Coin`) };
 };
 
-/** Empty land you own; SETTLED only, except a free rebuild may also use FRONTIER (settled on landing). */
-export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined): boolean =>
+/** Empty land you own; SETTLED only, except a free rebuild may also use FRONTIER (settled on landing).
+ * Per-tile callers (the placement overlays) pass freeRebuild once per session so this never re-scans every tile. */
+export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined, freeRebuild?: boolean): boolean =>
   Boolean(
     tile &&
       tile.terrain === "LAND" &&
       tile.ownerId === state.me &&
-      (tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && ownedAfcCount(state) === 0)) &&
+      (tile.ownershipState === "SETTLED" || (tile.ownershipState === "FRONTIER" && (freeRebuild ?? ownedAfcCount(state) === 0))) &&
       !tile.town &&
       !tile.dockId &&
       !tile.afc &&

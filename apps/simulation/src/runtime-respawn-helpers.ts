@@ -244,10 +244,20 @@ export const AI_AFC_REPLACEMENT_DELAY_MS = 10 * 60_000;
  * AI_AFC_REPLACEMENT_DELAY_MS later. The fire-time re-check makes a duplicate
  * or stale timer a no-op. Not persisted: after a restart the startup repair
  * (repairPlayerInfrastructure) places the AFC instead. */
-const scheduleAiReplacementAfc = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
+export const scheduleAiReplacementAfc = (ctx: RuntimeRespawnContext, playerId: string, commandId: string): void => {
   if (ctx.players.get(playerId)?.isAi !== true || ctx.summaryForPlayer(playerId).ownedAfcTileKeys.size > 0) return;
-  ctx.scheduleAfter(AI_AFC_REPLACEMENT_DELAY_MS, () => { ensureReplacementAfcAfterLoss(ctx, playerId, commandId); });
+  // One pending timer per AI: an AFC-less AI losing more tiles must not queue
+  // another timer per capture. Keyed on the (stable) players map; bounded by player count.
+  let pending = pendingAiAfcReplacements.get(ctx.players);
+  if (!pending) pendingAiAfcReplacements.set(ctx.players, (pending = new Set()));
+  if (pending.has(playerId)) return;
+  pending.add(playerId);
+  ctx.scheduleAfter(AI_AFC_REPLACEMENT_DELAY_MS, () => {
+    pending.delete(playerId);
+    ensureReplacementAfcAfterLoss(ctx, playerId, commandId);
+  });
 };
+const pendingAiAfcReplacements = new WeakMap<Map<string, RuntimePlayer>, Set<string>>();
 
 /** AI players only: an O(1) AFC-count check, and the module backfill only
  * runs when a replacement actually landed. */
