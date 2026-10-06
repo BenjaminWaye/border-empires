@@ -293,10 +293,13 @@ export const createRelayBeaconOverlay = (
     // gated-out one still takes its slot as a zero-scale placeholder.
     let arrayBuilt = false;
     keepHiddenSlots = true;
-    for (const piece of arrayPieces) {
-      if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
+    try {
+      for (const piece of arrayPieces) {
+        if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
+      }
+    } finally {
+      keepHiddenSlots = false;
     }
-    keepHiddenSlots = false;
 
     // Geared brass periscopes sweeping out over the deck edge.
     addPeriscope(wx, sy, wz, 0.1, 1.34, 0.1, 0.44, -0.8, 0.28);
