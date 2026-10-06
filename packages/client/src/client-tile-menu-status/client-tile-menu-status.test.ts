@@ -174,7 +174,7 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     const tile = makeFrontierTile();
     const status = tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["<b>Evil</b>"]);
     expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
-    expect(status?.helpText).toContain("can't settle");
+    expect(status?.helpText).toBe("Can't settle inside another empire's reach.");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });
 });

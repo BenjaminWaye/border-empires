@@ -247,7 +247,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A contested frontier tile just said \"Inside Enemy Reach\", which made you guess which empire was pressing on it.",
     changes: [
       "The tile menu now says \"Inside <empire> Reach\" with the empire's name, or both names when two reaches overlap",
-      "Tap the line to read what it means: you can't settle there, but your people are protected for as long as that empire's anchor points cover the tile",
+      "Tap the line to see why: you can't settle inside another empire's reach",
       "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
     ]
   },

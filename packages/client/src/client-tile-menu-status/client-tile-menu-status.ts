@@ -18,9 +18,7 @@ export type TileMenuHeaderStatus = {
   helpText?: string;
 };
 
-const INSIDE_REACH_HELP_TEXT =
-  "You can't settle here while the tile is inside another empire's reach. " +
-  "Your people are protected, though: the tile won't decay for as long as that empire's anchor points keep covering it.";
+const INSIDE_REACH_HELP_TEXT = "Can't settle inside another empire's reach.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
