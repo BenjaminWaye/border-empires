@@ -276,7 +276,7 @@ const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: stri
   }
   const { frontierDecayAt: _decayAt, frontierDecayKind: _decayKind, ...siteTile } = site.tile;
   const tileKey = simulationTileKey(siteTile.x, siteTile.y);
-  // An AFC always sits on SETTLED ground (homeAfcTileKey and the build rule
+  // An AFC always sits on SETTLED ground (commissioning and the build rule
   // both require it), so a FRONTIER or neutral site is settled on landing.
   const afcTile: DomainTileState = {
     ...siteTile,
