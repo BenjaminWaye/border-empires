@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
+import { applyOddsScale, buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -428,19 +428,33 @@ describe("frontier combat", () => {
     });
   });
 
-  describe("commitOddsMultiplier", () => {
-    // docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds.
+  describe("commitOddsMultiplier / applyOddsScale", () => {
     it("is 1 at exactly the base (1x commitment)", () => {
       expect(commitOddsMultiplier(300, 300)).toBe(1);
     });
 
-    it("scales quadratically above and below base, uncapped", () => {
-      expect(commitOddsMultiplier(600, 300)).toBe(4);
-      expect(commitOddsMultiplier(150, 300)).toBe(0.25);
+    it("scales linearly with commitment, uncapped", () => {
+      expect(commitOddsMultiplier(450, 300)).toBe(1.5);
+      expect(commitOddsMultiplier(600, 300)).toBe(2);
+      expect(commitOddsMultiplier(150, 300)).toBe(0.5);
     });
 
     it("treats a zero/negative base as a no-op multiplier", () => {
       expect(commitOddsMultiplier(100, 0)).toBe(1);
+    });
+
+    it("scales the odds ratio, not the raw probability", () => {
+      expect(applyOddsScale(0.5, 1.5)).toBeCloseTo(0.6, 6);
+      expect(applyOddsScale(0.5, 2)).toBeCloseTo(2 / 3, 6);
+      expect(applyOddsScale(0.2, 2)).toBeCloseTo(1 / 3, 6);
+      expect(applyOddsScale(0.2, 1)).toBeCloseTo(0.2, 6);
+    });
+
+    it("never reaches certainty from a sub-1 chance and keeps the 0/1 bounds", () => {
+      expect(applyOddsScale(0.9, 100)).toBeLessThan(1);
+      expect(applyOddsScale(0, 5)).toBe(0);
+      expect(applyOddsScale(1, 0.5)).toBe(1);
+      expect(applyOddsScale(0.5, 0)).toBe(0);
     });
   });
 
@@ -459,27 +473,22 @@ describe("frontier combat", () => {
       expect(shieldDefenseMultiplier(100, 0)).toBe(1);
     });
 
-    it("a full match exactly cancels commitOddsMultiplier's boost at that same commitment level", () => {
-      // "Attacking straight into a full shield is poor value" -- committing
-      // exactly 2x base against a shield that matches the full 2x commitment
-      // divides the attack boost (4x) by the defense boost (1 + 2 = 3x),
-      // leaving a net boost well under the unshielded 4x.
+    it("a full match leaves a net attack odds scale below 1", () => {
       const commit = 600;
       const base = 300;
-      const attackBoost = commitOddsMultiplier(commit, base);
-      const defenseBoost = shieldDefenseMultiplier(commit, base);
-      expect(attackBoost / defenseBoost).toBeCloseTo(4 / 3, 6);
+      const net = commitOddsMultiplier(commit, base) / shieldDefenseMultiplier(commit, base);
+      expect(net).toBeCloseTo(2 / 3, 6);
     });
   });
 
   describe("rollFrontierCombat commitMultiplier", () => {
-    it("scales winChance by the commit multiplier, clamped to [0, 1]", () => {
+    it("scales the winChance odds ratio by the commit multiplier, clamped to [0, 1]", () => {
       const target = { terrain: "LAND", ownershipState: "SETTLED" as const };
       const base = buildFrontierCombatPreview(target);
-      const doubled = rollFrontierCombat(target, "ATTACK", 0, {}, 4);
-      expect(doubled.winChance).toBeCloseTo(Math.min(1, base.winChance * 4), 6);
-      const halved = rollFrontierCombat(target, "ATTACK", 0, {}, 0.25);
-      expect(halved.winChance).toBeCloseTo(base.winChance * 0.25, 6);
+      const doubled = rollFrontierCombat(target, "ATTACK", 0, {}, 2);
+      expect(doubled.winChance).toBeCloseTo(applyOddsScale(base.winChance, 2), 6);
+      const halved = rollFrontierCombat(target, "ATTACK", 0, {}, 0.5);
+      expect(halved.winChance).toBeCloseTo(applyOddsScale(base.winChance, 0.5), 6);
     });
   });
 });
