@@ -63,7 +63,7 @@ export const drawConstructionStructure2D = (
   const crate = Math.max(2, size * 0.09);
   const stackX = px + size * 0.08;
   const stackY = py + size * 0.9;
-  const crates = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, Date.now());
+  const crates = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? Date.now());
   ctx.fillStyle = CRATE_COLOR;
   for (let c = 0; c < crates; c += 1) ctx.fillRect(stackX + (c % 2) * (crate + 1), stackY - Math.floor(c / 2) * (crate + 1) - crate, crate, crate);
 

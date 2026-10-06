@@ -194,6 +194,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The 2D map is unchanged"
     ]
   },
+  {
+    createdAt: 1791196969000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.4",
+    title: "Attacks now pause settling and building",
+    why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
+    changes: [
+      "Attacking a tile that is being settled cancels the settle and refunds it",
+      "Buildings under construction on an attacked tile pause, showing \"Paused: ongoing attack\", and resume with the same time remaining if the defender holds",
+      "A tile under attack can't be settled or have a new building started until the battle resolves"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,

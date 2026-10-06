@@ -9,5 +9,7 @@ export type ClientTileFort = {
   upgradingFrom?: FortVariant;
   completesAt?: number;
   startedAt?: number;
+  // Construction is on hold (tile under attack); remaining time is frozen at this instant.
+  pausedAt?: number;
   disabledUntil?: number;
 };

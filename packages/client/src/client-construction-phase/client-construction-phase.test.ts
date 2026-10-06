@@ -145,3 +145,28 @@ describe("crewSizeForManpower", () => {
     expect(crewSizeForManpower(10_000)).toBe(6);
   });
 });
+
+describe("constructionSiteForTile while an attack has paused the build", () => {
+  it("freezes progress, phase and crew at the pause instead of following the clock", () => {
+    const tile = mintworks({ startedAt: 0, completesAt: 4 * HOUR, pausedAt: HOUR + 1 });
+    const atPause = constructionSiteForTile(tile, HOUR + 1);
+    const muchLater = constructionSiteForTile(tile, 3 * HOUR);
+    expect(muchLater?.fraction).toBe(atPause?.fraction);
+    expect(muchLater?.phase).toBe(atPause?.phase);
+    expect(muchLater?.pausedAtMs).toBe(HOUR + 1);
+    expect(muchLater?.stalled).toBe(true); // crew stands still
+    expect(muchLater?.nextPhaseAtMs).toBeUndefined(); // no rebuild scheduled off the wall clock
+  });
+
+  it("is not treated as stalled-and-overdue even when the pause outlasts the original deadline", () => {
+    const tile = mintworks({ startedAt: 0, completesAt: HOUR, pausedAt: HOUR / 2 });
+    const site = constructionSiteForTile(tile, 5 * HOUR);
+    expect(site?.fraction).toBeCloseTo(0.5, 6);
+  });
+
+  it("an unpaused build still follows the clock", () => {
+    const site = constructionSiteForTile(mintworks({ startedAt: 0, completesAt: 4 * HOUR }), 2 * HOUR);
+    expect(site?.fraction).toBeCloseTo(0.5, 6);
+    expect(site?.pausedAtMs).toBeUndefined();
+  });
+});

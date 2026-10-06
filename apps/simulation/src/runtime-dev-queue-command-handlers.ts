@@ -52,6 +52,8 @@ export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & 
   // already tolerated client-side: see isQueuedDevelopmentActionStillValid
   // and its INIT-time reconciliation in client-network-init-message.ts.
   isPlayerOnline: (playerId: string) => boolean;
+  /** True while an unresolved ATTACK targets the tile (attack-development-hold.ts). Optional so existing fixtures stay valid. */
+  isTileUnderAttack?: (tileKey: string) => boolean;
   nextDrainCommandId: (playerId: string, tileKey: string) => string;
   dispatchSettle: (command: CommandEnvelope) => void;
   dispatchBuild: (command: CommandEnvelope) => void;
@@ -170,9 +172,13 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
   // Scanning rather than always taking the head matters here: a server-origin
   // entry must not be stuck behind client-origin ones we're standing down on,
   // which would strand it for as long as the player stays connected.
+  //
+  // Entries on a tile under attack stay queued: dispatching one would be rejected
+  // ("tile is under attack") and the rejected entry is gone for good.
+  const isDrainable = (candidate: ServerDevQueueEntry): boolean => !context.isTileUnderAttack?.(candidate.tileKey);
   const drainIndex = context.isPlayerOnline(playerId)
-    ? summary.devQueue.findIndex((candidate) => candidate.origin === "server")
-    : 0;
+    ? summary.devQueue.findIndex((candidate) => candidate.origin === "server" && isDrainable(candidate))
+    : summary.devQueue.findIndex(isDrainable);
   if (drainIndex < 0) return;
   const entry = summary.devQueue[drainIndex]!;
   summary.devQueue = [...summary.devQueue.slice(0, drainIndex), ...summary.devQueue.slice(drainIndex + 1)];

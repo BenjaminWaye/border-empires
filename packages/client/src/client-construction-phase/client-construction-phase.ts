@@ -49,8 +49,12 @@ export type ConstructionSite = {
   readonly startedAtMs: number;
   readonly completesAtMs: number;
   readonly crew: number;
-  // Past completesAt but still not completed server-side: the crew freezes.
+  // Past completesAt but still not completed server-side, or paused by an attack
+  // on the tile: the crew freezes.
   readonly stalled: boolean;
+  // Set while an attack on the tile has paused the build: everything above is
+  // frozen at this instant, so per-frame readers must use it instead of the clock.
+  readonly pausedAtMs?: number | undefined;
   // Wall-clock time the next *phase* boundary passes, or undefined once the
   // window has elapsed. Only phase changes alter what the 3D renderer lays
   // out (gated pieces, scaffold height), so only they force a rebuild.
@@ -132,7 +136,8 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
   if (!record) return undefined;
   const startedAt = record.startedAt ?? record.completesAt - record.estimatedDurationMs;
   const durationMs = Math.max(1, record.completesAt - startedAt);
-  const rawFraction = (nowMs - startedAt) / durationMs;
+  const pausedAt = record.status === "under_construction" ? tile[record.field]?.pausedAt : undefined;
+  const rawFraction = ((pausedAt ?? nowMs) - startedAt) / durationMs;
   const fraction = Math.max(0, Math.min(1, rawFraction));
   const phase = Math.min(CONSTRUCTION_PHASES - 1, Math.floor(fraction * CONSTRUCTION_PHASES));
   const direction: ConstructionDirection = record.status === "removing" ? "remove" : "build";
@@ -150,7 +155,8 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
     startedAtMs: startedAt,
     completesAtMs: record.completesAt,
     crew: crewSizeForManpower(record.manpower),
-    stalled: rawFraction >= 1,
-    nextPhaseAtMs: rawFraction >= 1 ? undefined : startedAt + ((phase + 1) / CONSTRUCTION_PHASES) * durationMs
+    stalled: rawFraction >= 1 || pausedAt !== undefined,
+    pausedAtMs: pausedAt,
+    nextPhaseAtMs: rawFraction >= 1 || pausedAt !== undefined ? undefined : startedAt + ((phase + 1) / CONSTRUCTION_PHASES) * durationMs
   };
 };

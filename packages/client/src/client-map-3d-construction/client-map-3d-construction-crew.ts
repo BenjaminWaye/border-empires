@@ -109,7 +109,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     for (const { sceneX, sceneZ, surfaceY, site } of entries) {
       const seed = crewSeed01(site.x, site.y);
       const crew = Math.min(site.crew, MAX_CREW_PER_SITE);
-      const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, epochMs);
+      const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
       for (let c = 0; c < crateCount; c += 1) {
         const slot = CRATE_SLOTS[c]!;
         position.set(sceneX + STACK_X + slot[0], surfaceY + slot[1], sceneZ + STACK_Z + slot[2]);

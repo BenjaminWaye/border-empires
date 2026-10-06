@@ -52,4 +52,43 @@ describe("CombatLockIndex", () => {
     expect(index.targetLockAt("t1")).toBeUndefined();
     expect(index.targetLockAt("t2")?.commandId).toBe("a");
   });
+
+  describe("onAttackTargetReleased", () => {
+    it("fires once an ATTACK lock stops targeting its tile, however it was removed", () => {
+      const index = new CombatLockIndex();
+      const released: string[] = [];
+      index.onAttackTargetReleased((l) => released.push(l.commandId));
+      const a = lock("a", "o", "t");
+      index.addLock(a);
+      expect(released).toEqual([]);
+      index.removeLock(a);
+      expect(released).toEqual(["a"]);
+    });
+
+    it("does not fire for EXPAND locks or for a lock that no longer owns its target slot", () => {
+      const index = new CombatLockIndex();
+      const released: string[] = [];
+      index.onAttackTargetReleased((l) => released.push(l.commandId));
+      const expand: LockRecord = { ...lock("e", "o", "t1"), actionType: "EXPAND" };
+      index.addLock(expand);
+      index.removeLock(expand);
+
+      const stale = lock("stale", "o", "t2");
+      index.addLock(stale);
+      index.addLock({ ...lock("fresh", "o2", "t2") });
+      index.removeLock(stale); // fresh owns t2 now; removing the stale one must not "release" t2
+      expect(released).toEqual([]);
+      expect(index.targetLockAt("t2")?.commandId).toBe("fresh");
+    });
+
+    it("fires after the index is consistent (the tile reads as unlocked inside the callback)", () => {
+      const index = new CombatLockIndex();
+      let lockedInsideCallback: boolean | undefined;
+      index.onAttackTargetReleased((l) => { lockedInsideCallback = index.targetLockAt(l.targetKey) !== undefined; });
+      const a = lock("a", "o", "t");
+      index.addLock(a);
+      index.removeLock(a);
+      expect(lockedInsideCallback).toBe(false);
+    });
+  });
 });
