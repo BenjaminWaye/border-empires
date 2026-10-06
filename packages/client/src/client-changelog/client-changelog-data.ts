@@ -174,6 +174,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
     ]
   },
+  {
+    createdAt: 1791311280000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.3",
+    title: "Territory colour shows on hills by the coast",
+    why: "On the 3D map, hills next to the sea often showed no ownership colour, because the colour layer was drawn underneath the hill.",
+    changes: [
+      "Owned, frontier and settling hills along the coast now show their empire colour like any other tile",
+      "The 2D map is unchanged"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
