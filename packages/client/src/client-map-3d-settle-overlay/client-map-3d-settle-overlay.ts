@@ -12,12 +12,13 @@ import {
 } from "three";
 import { hillBumpsWithCorridorAt, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { createAncillaryFigureAssets, PERSON_Y, wanderPoint } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
+import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
+import { createAncillaryFigureAssets, PERSON_Y } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
 
 // 3D settle loader: when a tile is being settled, a swarm of small black
 // "people" boxes wander on top of the tile, with the owner-color tint
 // plate underneath and a pulsing yellow perimeter frame. Wander pattern
-// matches the 2D loader (uses settlePixelWanderPoint), so the cadence of
+// matches the 2D loader (both use wanderPoint), so the cadence of
 // pause-then-walk is identical.
 
 const PEOPLE_PER_TILE = 18;

@@ -378,32 +378,6 @@ export const drawStartingExpansionArrow = (
 
 export const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
-export const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
-  ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
-
-export const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
-  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 13 : 83 + step * 17);
-
-export const settlePixelWanderPoint = (
-  nowMs: number,
-  wx: number,
-  wy: number,
-  i: number
-): { x: number; y: number } => {
-  const moveDurationMs = 1700;
-  const pauseDurationMs = 1000;
-  const cycleDurationMs = moveDurationMs + pauseDurationMs;
-  const offsetMs = settlePixelSeed(wx, wy, i, 11) * cycleDurationMs;
-  const localTime = nowMs + offsetMs;
-  const segment = Math.floor(localTime / cycleDurationMs);
-  const segmentTime = localTime - segment * cycleDurationMs;
-  const fromX = settlePixelWaypoint(wx, wy, i, segment, "x");
-  const fromY = settlePixelWaypoint(wx, wy, i, segment, "y");
-  const toX = settlePixelWaypoint(wx, wy, i, segment + 1, "x");
-  const toY = settlePixelWaypoint(wx, wy, i, segment + 1, "y");
-  const t = segmentTime >= moveDurationMs ? 1 : segmentTime / moveDurationMs;
-  return {
-    x: fromX + (toX - fromX) * t,
-    y: fromY + (toY - fromY) * t
-  };
-};
+// 2D settle dots share the 3D wander path (see client-ancillary-wander.ts); the
+// loader snaps the result to whole pixels.
+export { wanderPoint as settlePixelWanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
