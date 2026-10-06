@@ -175,8 +175,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791196969000, // frozen Date.now() value for this release
+    createdAt: 1791311280000, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.3",
+    title: "Territory colour shows on hills by the coast",
+    why: "On the 3D map, hills next to the sea often showed no ownership colour, because the colour layer was drawn underneath the hill.",
+    changes: [
+      "Owned, frontier and settling hills along the coast now show their empire colour like any other tile",
+      "The 2D map is unchanged"
+    ]
+  },
+  {
+    createdAt: 1791196969000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.06.4",
     title: "Attacks now pause settling and building",
     why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
     changes: [

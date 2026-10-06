@@ -90,15 +90,24 @@ export const computeHeightfieldCorner = (
     let sumG = 0;
     let sumB = 0;
     let n = 0;
+    let touchesHills = false;
     for (const s of [s00, s10, s01, s11]) {
       if (!s.isExplored) continue;
+      if (s.isHills) touchesHills = true;
       sumE += s.isHills ? s.elevation - HEIGHTFIELD_HILLS_ELEVATION_BONUS : s.elevation;
       sumR += s.r;
       sumG += s.g;
       sumB += s.b;
       n += 1;
     }
-    out.elevation = sumE / n;
+    // A hills + sea corner takes the dome's own coast pin (see
+    // client-map-3d-hills-corner.ts), not an average dragged down by the
+    // sea floor -- otherwise every overlay anchored here via cornerYAt sits
+    // up to ~0.4 under the dome and gets depth-tested away. Sea-only corners
+    // (no hill) keep the plain average: nothing drapes over them.
+    out.elevation = touchesHills && seaCount > 0
+      ? coastCornerElevationWobbled(s00, s10, s01, s11, COAST_EDGE_Y, coastWobbleAt(cornerWorldX, cornerWorldZ))
+      : sumE / n;
     out.r = sumR / n;
     out.g = sumG / n;
     out.b = sumB / n;
