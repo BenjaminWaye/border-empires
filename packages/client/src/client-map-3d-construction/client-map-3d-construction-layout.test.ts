@@ -9,6 +9,7 @@ const HOUR = 3_600_000;
 const site = (phase: number): ConstructionSite => ({
   x: 1,
   y: 2,
+  afcOffset: undefined,
   direction: "build",
   field: "fort",
   structureType: "FORT",
@@ -55,13 +56,14 @@ describe("construction layout", () => {
     crew.dispose();
   });
 
-  it("lands delivery pods on the layout's stack", () => {
+  it("lands delivery pods on the layout's stack, flown from the AFC", () => {
     const scene = new Scene();
     const presentation = createConstructionPresentation(scene);
     const layout = { stackX: -0.15, stackZ: -0.36 };
-    presentation.addSite(5, 6, 0, site(0), 0.5, layout);
+    const afcOffset = { dx: -5, dy: -2 };
+    presentation.addSite(5, 6, 0, { ...site(0), afcOffset }, 0.5, layout);
     presentation.clear(); // next rebuild: the site is now known
-    presentation.addSite(5, 6, 0, site(1), 0.5, layout); // phase advanced -> pod
+    presentation.addSite(5, 6, 0, { ...site(1), afcOffset }, 0.5, layout); // phase advanced -> pod
     const pod = scene.children.find((c) => c.type === "Group");
     expect(pod).toBeDefined();
     const stack = stackCenterFor(layout);

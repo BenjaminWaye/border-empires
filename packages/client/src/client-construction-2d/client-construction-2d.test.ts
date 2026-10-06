@@ -29,6 +29,7 @@ const HOUR = 3_600_000;
 const site = (over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 2,
   y: 3,
+  afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
   structureType: "FOUNDRY",

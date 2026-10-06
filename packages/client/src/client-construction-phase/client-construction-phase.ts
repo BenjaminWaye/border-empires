@@ -24,11 +24,16 @@ const CREW_MAX = 12;
 
 export type ConstructionDirection = "build" | "remove";
 
+export type AfcOffset = { readonly dx: number; readonly dy: number };
+
 export type ConstructionSite = {
   // World tile coordinates: stable seeds for per-site animation timing (scene
   // coordinates shift whenever the renderer re-anchors on a rebuild).
   readonly x: number;
   readonly y: number;
+  // Tile offset (wrap-aware) from this site to its owner's home AFC, where the fabricated
+  // parts come from. Undefined when that AFC is not known: no delivery pod is shown then.
+  readonly afcOffset: AfcOffset | undefined;
   readonly direction: ConstructionDirection;
   // Which structure record this is. Only "economicStructure" goes through the
   // shared 3D piece builder (and so gets phase-gated pieces); the others keep
@@ -132,7 +137,7 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
   return undefined;
 };
 
-export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: ConstructionSite["field"]): ConstructionSite | undefined => {
+export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: ConstructionSite["field"], afcOffset?: AfcOffset): ConstructionSite | undefined => {
   const record = recordForTile(tile, only);
   if (!record) return undefined;
   const startedAt = record.startedAt ?? record.completesAt - record.estimatedDurationMs;
@@ -150,6 +155,7 @@ export const constructionSiteForTile = (tile: Tile, nowMs: number, only?: Constr
   return {
     x: tile.x,
     y: tile.y,
+    afcOffset,
     direction,
     field: record.field,
     structureType: record.structureType,

@@ -2,7 +2,7 @@
 // fort/Palisade/siege battery, Relay Beacon), extracted from client-map-3d.ts's
 // terrain rebuild loop. The 2D counterpart is drawTileFortificationOverlays2D.
 import type { Tile } from "./client-types.js";
-import { constructionSiteForTile } from "./client-construction-phase/client-construction-phase.js";
+import { constructionSiteForRebuild } from "./client-construction-afc-offset/client-construction-afc-offset.js";
 import type { FortOverlay } from "./client-map-3d-fort-overlay.js";
 import type { RelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 import type { SiegeTowerOverlay } from "./client-map-3d-siege-tower-overlay.js";
@@ -47,9 +47,10 @@ export const addFortificationInstancesForTile = (
   const { x, z, surfaceY, wx, wy } = site;
   const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
   const beaconInactive = tile.economicStructure?.status === "inactive";
-  // A beacon being built or removed is laid out in phases. Wall-clock time, not `nowMs`
-  // (the rebuild's performance.now()), because the construction window is in epoch ms.
-  const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForTile(tile, Date.now(), "economicStructure") : undefined;
+  // A beacon being built or removed is laid out in phases. `nowMs` is the rebuild's
+  // performance.now(), used only to cache the owner's AFC lookup per rebuild (the construction
+  // window itself is in epoch ms, which the site lookup reads from the wall clock).
+  const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForRebuild(deps.state, tile, "economicStructure", nowMs) : undefined;
   if (siegeTowerVariant) {
     overlays.siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
@@ -67,7 +68,7 @@ export const addFortificationInstancesForTile = (
   const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, nowMs) : undefined;
   // A fort being built or removed rises in phases. A fort *upgrade* keeps the standing tier at full
   // height (it is still defending), so it only gets the ambient work around it.
-  const fortSite = tile.fort ? constructionSiteForTile(tile, Date.now(), "fort") : undefined;
+  const fortSite = tile.fort ? constructionSiteForRebuild(deps.state, tile, "fort", nowMs) : undefined;
   const fortConstruction = fortSite ? { site: fortSite, keepStanding: Boolean(tile.fort?.upgradingFrom) } : undefined;
   overlays.fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad, fortConstruction);
   // LARGE: fort walls run WALL_LENGTH = 0.86 tiles (client-map-3d-fort-overlay.ts) — same reasoning as towns.

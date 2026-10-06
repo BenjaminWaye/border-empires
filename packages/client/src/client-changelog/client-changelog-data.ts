@@ -33,7 +33,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Forts, Palisades and Bastions being built rise wall by wall in four phases, with scaffolding and a crew; removing one plays it in reverse",
       "Upgrading a fort keeps the standing fort fully drawn, since it keeps defending, and shows the crew and scaffolding working around it",
       "Tall structures, such as towers, now rise gradually through the build phases instead of showing at full height straight away",
-      "Construction crews are now the same small black dots as when settling, and a stack of glowing fabricated parts sits at the site, with a fresh parts pod dropping in at the start of every phase",
+      "Construction crews are now the same small black dots as when settling, and a stack of glowing fabricated parts sits at the site",
+      "At the start of every phase a pod of freshly fabricated parts now flies in from your Automated Fabrication Complex, instead of dropping from orbit",
       "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
     ]
   },

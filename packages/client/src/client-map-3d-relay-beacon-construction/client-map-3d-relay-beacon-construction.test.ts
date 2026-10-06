@@ -11,6 +11,7 @@ const HOUR = 3_600_000;
 const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 4,
   y: 7,
+  afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
   structureType: "RELAY_BEACON",

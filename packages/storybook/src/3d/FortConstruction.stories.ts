@@ -3,6 +3,7 @@ import { createFortOverlay } from "@client/client-map-3d-fort-overlay.js";
 import { constructionSiteForTile } from "@client/client-construction-phase/client-construction-phase.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
+import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
 
 // Fort construction (docs/construction-animation-plan.md, follow-up 2): the real
 // overlay driven by a virtual build window. A fresh build (or a removal) has the walls
@@ -38,7 +39,7 @@ const layout = (overlay: ReturnType<typeof createFortOverlay>, args: Args, entri
   overlay.clear();
   entries.forEach((entry, i) => {
     const tile = entry.progress === undefined ? undefined : tileAtProgress(args, entry.progress);
-    const site = tile ? constructionSiteForTile(tile, Date.now(), "fort") : undefined;
+    const site = tile ? constructionSiteForTile(tile, Date.now(), "fort", storyAfcOffset(entry.x, 0)) : undefined;
     // Upgrade: the standing tier is what is drawn; otherwise the tier being built.
     const kind = args.mode === "upgrade" && site ? ((tile?.fort?.upgradingFrom as FortKind | undefined) ?? "WOODEN_FORT") : args.kind;
     overlay.addInstance(entry.x, 0, 0, kind, "CLOSED", i, 0, 0, site ? { site, keepStanding: args.mode === "upgrade" } : undefined);
@@ -73,6 +74,7 @@ const scrub = (args: Args): HTMLElement => {
   const ground = createGrassGround(6);
   stage.scene.add(ground.group);
   const overlay = createFortOverlay(stage.scene, 2);
+  const afc = addStoryAfc(stage.scene); // where the phase pods fly from
   let progress = args.progress;
   let playing = false;
   let lastFrame = 0;
@@ -93,6 +95,7 @@ const scrub = (args: Args): HTMLElement => {
   play.style.cssText = "padding:6px 12px;border-radius:6px;border:1px solid #888;background:#2a2d33;color:#eee;cursor:pointer;";
   play.addEventListener("click", () => { playing = !playing; play.textContent = playing ? "Pause" : "Play (1 build-hour / second)"; });
   const stop = loop(overlay, (now) => {
+    afc.update(now);
     const dt = lastFrame === 0 ? 0 : now - lastFrame;
     lastFrame = now;
     if (!playing) return;
@@ -101,7 +104,7 @@ const scrub = (args: Args): HTMLElement => {
     refresh();
   });
   refresh();
-  const root = wrapWithCleanup(stage, [stop, overlay.dispose, ground.dispose]);
+  const root = wrapWithCleanup(stage, [stop, overlay.dispose, ground.dispose, afc.dispose]);
   const bar = document.createElement("div");
   bar.style.cssText = "position:absolute;top:12px;left:12px;right:12px;z-index:10;display:flex;gap:12px;align-items:center;color:#eee;font:700 13px system-ui,sans-serif;";
   bar.append(play, slider, label);

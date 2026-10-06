@@ -33,10 +33,13 @@ and assembled on site by ancillaries (bodies run by one AI).
   them in lockstep between the stack and the structure; players expected the settle
   look, so that was dropped.)
 - **Removal** (`removing`) plays the same phases backwards.
-- **Supply pods** (build phase change): when an on-screen site enters a new
-  phase, a pod of fabricated parts drops from orbit onto the parts stack.
-  Cosmetic only: the server does not track which AFC "made" the parts. Pods are
-  not shown for removal.
+- **Supply pods** (build phase change): when an on-screen site enters a new phase, the
+  owner's AFC fabricates the next batch of parts and a pod flies them out in an arc to the
+  site's parts stack. Everything is fabricated at the AFC and carried over; nothing is
+  built in orbit (that would imply orbital fabrication, with its cost), so there is no
+  drop-from-orbit variant and **no pod at all** when the owner's AFC is not known.
+  Cosmetic only: the server does not track which AFC "made" the parts. Pods are not shown
+  for removal.
 
 ## Data change
 
@@ -95,10 +98,9 @@ Notes on what shipped (several design points above were settled during implement
 - **Crates and crew animate per frame** from the construction window instead of
   forcing a terrain rebuild per crate step; only the four phase boundaries
   trigger a rebuild (`constructionBoundaryPassed`).
-- **Pods drop from orbit onto the parts stack** (consistent with the existing
-  orbital module-delivery effect) rather than arcing from the owner's nearest
-  AFC; they fire on build phase changes seen between rebuilds, never on first
-  sight or reconnect, and not for removal.
+- **Pods fly from the owner's AFC** (see "Revision: AFC pods" below; an earlier version
+  dropped them from orbit, which was wrong). They fire on build phase changes seen
+  between rebuilds, never on first sight or reconnect, and not for removal.
 - **No dedicated "finish" beat** and no stall pose beyond the crew freezing and
   stooping; the structure simply switches to its normal active rendering.
 
@@ -248,3 +250,20 @@ camps keep the flat translucent look in 2D.
   collapse into one corner pixel and barely move, because `settlePixelSeed` yields
   values around 0.01. 3D settling has its own fixed hash (`wanderPoint`), which
   construction now uses in both renderers.
+
+## Revision: AFC pods
+
+Parts are fabricated at the owner's AFC, not in orbit. A pod flies an arc from the AFC to
+the site's parts stack, launching with a flash at the AFC and landing with a flash and ring.
+
+- `ConstructionSite.afcOffset` is the wrap-aware tile offset from the site to its owner's
+  home AFC (same earliest-activation rule the simulation uses to pick where modules dock:
+  `findHomeAfcTileForOwner`). It is the *site owner's* AFC, so rivals' sites fly from
+  theirs when it is loaded.
+- `afcOffsetForSite` caches the AFC scan per terrain rebuild (and per tile map), since
+  every site in a rebuild asks about the same owners and scanning all tiles per site would
+  be too slow. `constructionSiteForRebuild` is the 3D renderers' entry point.
+- Flight time and arc height scale with distance (about 0.9 to 3.2 s); a very close AFC
+  still hops rather than teleporting.
+- **No fallback.** An unknown AFC (captured, or not loaded) means no pod. Do not add a
+  stand-in drop.

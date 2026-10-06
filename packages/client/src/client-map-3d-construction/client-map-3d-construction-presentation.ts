@@ -48,10 +48,11 @@ export const createConstructionPresentation = (scene: Scene, envMap?: Texture): 
     const siteKey = `${site.x},${site.y}`;
     phasesThisRebuild.set(siteKey, site.phase);
     const previousPhase = phasesLastRebuild.get(siteKey);
-    // A new phase brings a fresh delivery of fabricated parts (build only).
-    if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase) {
+    // A new phase brings a fresh batch of fabricated parts, flown out from the owner's AFC
+    // (build only). No AFC known means no pod: parts are never conjured at the site.
+    if (site.direction === "build" && !site.stalled && previousPhase !== undefined && site.phase > previousPhase && site.afcOffset) {
       const stack = stackCenterFor(layout);
-      pods.spawn(sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now());
+      pods.spawn(sceneX + stack.x, sceneZ + stack.z, surfaceY, performance.now(), { dx: site.afcOffset.dx - stack.x, dz: site.afcOffset.dy - stack.z });
     }
   };
 

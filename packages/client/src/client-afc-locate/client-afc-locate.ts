@@ -6,17 +6,19 @@ type AfcLocateState = Pick<ClientState, "tiles" | "me" | "camX" | "camY" | "camS
 /** The viewer's home AFC among loaded tiles: earliest activatedAt, tile key
  * breaking ties -- the same rule the simulation uses to pick where newly
  * researched modules dock (homeAfcTileKey in afc-module-commissioning.ts). */
-export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile | undefined => {
-  if (!state.me) return undefined;
+export const findHomeAfcTileForOwner = (tiles: ReadonlyMap<string, Tile>, ownerId: string | undefined): Tile | undefined => {
+  if (!ownerId) return undefined;
   let best: { tile: Tile; key: string; activatedAt: number } | undefined;
-  for (const [key, tile] of state.tiles) {
+  for (const [key, tile] of tiles) {
     const afc = tile.afc;
-    if (!afc || afc.ownerId !== state.me || tile.ownerId !== state.me) continue;
+    if (!afc || afc.ownerId !== ownerId || tile.ownerId !== ownerId) continue;
     const activatedAt = afc.activatedAt ?? 0;
     if (!best || activatedAt < best.activatedAt || (activatedAt === best.activatedAt && key < best.key)) best = { tile, key, activatedAt };
   }
   return best?.tile;
 };
+
+export const findHomeAfcTile = (state: Pick<ClientState, "tiles" | "me">): Tile | undefined => findHomeAfcTileForOwner(state.tiles, state.me);
 
 /** Jumps the camera to the home AFC, selects it and opens its tile menu on
  * the overview tab (which lists the docked modules). Returns false when no

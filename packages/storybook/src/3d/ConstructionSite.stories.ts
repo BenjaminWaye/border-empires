@@ -5,6 +5,7 @@ import { constructionSiteForTile } from "@client/client-construction-phase/clien
 import { drawConstructionStructure2D } from "@client/client-construction-2d/client-construction-2d.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
+import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
 
 // Construction animation (docs/construction-animation-plan.md). Structures take
 // 1h to many hours to build, so construction reads as discrete height bands
@@ -50,7 +51,7 @@ const layout = (
   overlay.clear();
   contactShadows.clear();
   for (const { x, kind, tile } of entries) {
-    const site = tile ? constructionSiteForTile(tile, Date.now()) : undefined;
+    const site = tile ? constructionSiteForTile(tile, Date.now(), undefined, storyAfcOffset(x, 0)) : undefined;
     overlay.addInstance(x, 0, 0, kind, undefined, site);
   }
   overlay.commit();
@@ -91,6 +92,7 @@ const scrub = (args: Args): HTMLElement => {
   stage.scene.add(ground.group);
   const contactShadows = createContactShadowOverlay(stage.scene, 2);
   const overlay = createStructureOverlay(stage.scene, 2, contactShadows);
+  const afc = addStoryAfc(stage.scene); // where the phase pods fly from
 
   let progress = args.progress;
   let playing = false;
@@ -106,7 +108,7 @@ const scrub = (args: Args): HTMLElement => {
 
   const refresh = (): void => {
     const tile = tileAtProgress(args.kind, args.hours, progress, args.direction);
-    const site = constructionSiteForTile(tile, Date.now())!;
+    const site = constructionSiteForTile(tile, Date.now(), undefined, storyAfcOffset(0, 0))!;
     layout(overlay, contactShadows, [{ x: 0, kind: args.kind, tile }]);
     label.textContent = `${(progress * args.hours).toFixed(1)}h / ${args.hours}h  -  phase ${site.phase + 1}/4`;
     slider.value = String(progress);
@@ -120,6 +122,7 @@ const scrub = (args: Args): HTMLElement => {
   play.addEventListener("click", () => { playing = !playing; play.textContent = playing ? "Pause" : "Play (1 build-hour / second)"; });
 
   const stop = startLoop(overlay, (now) => {
+    afc.update(now);
     const dt = lastFrame === 0 ? 0 : now - lastFrame;
     lastFrame = now;
     if (!playing) return;
@@ -129,7 +132,7 @@ const scrub = (args: Args): HTMLElement => {
   });
   refresh();
 
-  const root = wrapWithCleanup(stage, [stop, overlay.dispose, contactShadows.dispose, ground.dispose]);
+  const root = wrapWithCleanup(stage, [stop, overlay.dispose, contactShadows.dispose, ground.dispose, afc.dispose]);
   const bar = document.createElement("div");
   bar.style.cssText = "position:absolute;top:12px;left:12px;right:12px;z-index:10;display:flex;gap:12px;align-items:center;color:#eee;font:700 13px system-ui,sans-serif;";
   bar.append(play, slider, label);

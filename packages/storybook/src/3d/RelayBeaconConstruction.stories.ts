@@ -4,6 +4,7 @@ import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow
 import { constructionSiteForTile } from "@client/client-construction-phase/client-construction-phase.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
+import { addStoryAfc, storyAfcOffset } from "./construction-story-afc.js";
 
 // Relay Beacon under construction (docs/construction-animation-plan.md,
 // follow-up 1): the real overlay driven by a virtual build window. The lattice
@@ -35,7 +36,7 @@ type Entry = { x: number; progress: number | undefined };
 const layout = (overlay: ReturnType<typeof createRelayBeaconOverlay>, args: Args, entries: ReadonlyArray<Entry>): void => {
   overlay.clear();
   entries.forEach((entry, i) => {
-    const site = entry.progress === undefined ? undefined : constructionSiteForTile(tileAtProgress(args.hours, entry.progress, args.direction), Date.now(), "economicStructure");
+    const site = entry.progress === undefined ? undefined : constructionSiteForTile(tileAtProgress(args.hours, entry.progress, args.direction), Date.now(), "economicStructure", storyAfcOffset(entry.x, 0));
     overlay.addInstance(entry.x, 0, 0, i, 0, false, site);
   });
   overlay.commit();
@@ -70,6 +71,7 @@ const scrub = (args: Args): HTMLElement => {
   stage.scene.add(ground.group);
   const shadows = createContactShadowOverlay(stage.scene, 2);
   const overlay = createRelayBeaconOverlay(stage.scene, 2);
+  const afc = addStoryAfc(stage.scene); // where the phase pods fly from
   let progress = args.progress;
   let playing = false;
   let lastFrame = 0;
@@ -90,6 +92,7 @@ const scrub = (args: Args): HTMLElement => {
   play.style.cssText = "padding:6px 12px;border-radius:6px;border:1px solid #888;background:#2a2d33;color:#eee;cursor:pointer;";
   play.addEventListener("click", () => { playing = !playing; play.textContent = playing ? "Pause" : "Play (1 build-hour / second)"; });
   const stop = loop(overlay, (now) => {
+    afc.update(now);
     const dt = lastFrame === 0 ? 0 : now - lastFrame;
     lastFrame = now;
     if (!playing) return;
@@ -98,7 +101,7 @@ const scrub = (args: Args): HTMLElement => {
     refresh();
   });
   refresh();
-  const root = wrapWithCleanup(stage, [stop, overlay.dispose, shadows.dispose, ground.dispose]);
+  const root = wrapWithCleanup(stage, [stop, overlay.dispose, shadows.dispose, ground.dispose, afc.dispose]);
   const bar = document.createElement("div");
   bar.style.cssText = "position:absolute;top:12px;left:12px;right:12px;z-index:10;display:flex;gap:12px;align-items:center;color:#eee;font:700 13px system-ui,sans-serif;";
   bar.append(play, slider, label);

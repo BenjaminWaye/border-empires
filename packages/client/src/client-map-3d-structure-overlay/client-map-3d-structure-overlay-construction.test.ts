@@ -12,6 +12,7 @@ const HOUR = 3_600_000;
 const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 4,
   y: 7,
+  afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
   structureType: "MINTWORKS",
@@ -119,6 +120,8 @@ describe("structure overlay under construction", () => {
   });
 
   describe("delivery pods", () => {
+    // Parts come from the owner's AFC (4 tiles west, 3 north of the site).
+    const podSite = (bands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => siteAt(bands, { afcOffset: { dx: -4, dy: -3 }, ...over });
     const pods = (scene: Scene): number => scene.children.filter((c) => c.type === "Group").length;
     const rebuild = (overlay: ReturnType<typeof createStructureOverlay>, site?: ConstructionSite): void => {
       overlay.clear();
@@ -132,49 +135,57 @@ describe("structure overlay under construction", () => {
 
     it("does not fire for a site seen for the first time, however far along it is", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(3));
+      rebuild(overlay, podSite(3));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("fires one pod when an already-seen site enters a new phase, but not within the same phase", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(1));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(1));
       expect(pods(scene)).toBe(0);
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
       overlay.dispose();
     });
 
     it("stays quiet for removal and for stalled sites", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1, { direction: "remove" }));
-      rebuild(overlay, siteAt(2, { direction: "remove" }));
+      rebuild(overlay, podSite(1, { direction: "remove" }));
+      rebuild(overlay, podSite(2, { direction: "remove" }));
       expect(pods(scene)).toBe(0);
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(2, { stalled: true }));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(2, { stalled: true }));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("does not fire when a site scrolls out of view for a rebuild and returns in a later phase", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
+      rebuild(overlay, podSite(1));
       rebuild(overlay); // site not laid out this rebuild
-      rebuild(overlay, siteAt(3));
+      rebuild(overlay, podSite(3));
       expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
 
     it("keeps an in-flight pod alive across the rebuild that follows it", () => {
       const { scene, overlay } = setup();
-      rebuild(overlay, siteAt(1));
-      rebuild(overlay, siteAt(2));
-      rebuild(overlay, siteAt(2));
+      rebuild(overlay, podSite(1));
+      rebuild(overlay, podSite(2));
+      rebuild(overlay, podSite(2));
       expect(pods(scene)).toBe(1);
+      overlay.dispose();
+    });
+
+    it("shows no pod when the owner's AFC is not known: parts are never conjured at the site", () => {
+      const { scene, overlay } = setup();
+      rebuild(overlay, siteAt(1));
+      rebuild(overlay, siteAt(2)); // phase advanced, but no afcOffset
+      expect(pods(scene)).toBe(0);
       overlay.dispose();
     });
   });

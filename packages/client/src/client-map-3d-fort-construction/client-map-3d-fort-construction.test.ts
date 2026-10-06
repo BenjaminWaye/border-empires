@@ -14,6 +14,7 @@ const TOWER_HEIGHT = 0.58;
 const siteAt = (visibleBands: number, over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 3,
   y: 4,
+  afcOffset: undefined,
   direction: "build",
   field: "fort",
   structureType: "FORT",

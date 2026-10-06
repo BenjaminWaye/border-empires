@@ -72,7 +72,7 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, mineResourceHintFor, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
-import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
+import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
 import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
 import {
   createContactShadowOverlay,
@@ -1149,7 +1149,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (structureType === "CARAVANARY") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForTile(tile, Date.now(), "economicStructure"));
+            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildStartAt));
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).
