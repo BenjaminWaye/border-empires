@@ -1,22 +1,12 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
-import { afcOffsetForSite, constructionSiteForRebuild, wrappedDelta } from "./client-construction-afc-offset.js";
+import { afcOffsetForSite, constructionSiteForRebuild } from "./client-construction-afc-offset.js";
 
 const HOUR = 3_600_000;
 const afcTile = (x: number, y: number, ownerId: string, activatedAt = 1): Tile =>
   ({ x, y, terrain: "LAND", ownerId, afc: { ownerId, status: "active", activatedAt } }) as unknown as Tile;
 const tilesOf = (...tiles: Tile[]): Map<string, Tile> => new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
-
-describe("wrappedDelta", () => {
-  it("is the plain difference away from the seam, and the short way round across it", () => {
-    expect(wrappedDelta(10, 15, 100)).toBe(5);
-    expect(wrappedDelta(15, 10, 100)).toBe(-5);
-    expect(wrappedDelta(98, 3, 100)).toBe(5); // across the seam, not -95
-    expect(wrappedDelta(3, 98, 100)).toBe(-5);
-    expect(wrappedDelta(0, 0, 100)).toBe(0);
-  });
-});
 
 describe("afcOffsetForSite", () => {
   it("points from the site to its owner's AFC", () => {
@@ -46,18 +36,19 @@ describe("afcOffsetForSite", () => {
     expect(afcOffsetForSite({ tiles: new Map() }, { x: 5, y: 5, ownerId: "me" }, 6)).toBeUndefined();
   });
 
-  it("scans for AFCs once per rebuild, not once per site", () => {
+  it("scans the map once per rebuild, however many sites and owners it asks about", () => {
     let scans = 0;
-    const base = tilesOf(afcTile(10, 10, "me"));
-    const counting = new Map<string, Tile>(base);
+    const counting = tilesOf(afcTile(10, 10, "me"), afcTile(60, 60, "rival-a"), afcTile(90, 20, "rival-b"));
     const originalEntries = counting[Symbol.iterator].bind(counting);
     counting[Symbol.iterator] = () => {
       scans += 1;
       return originalEntries();
     };
     const state = { tiles: counting };
-    for (let i = 0; i < 20; i += 1) afcOffsetForSite(state, { x: 20 + i, y: 5, ownerId: "me" }, 7);
-    expect(scans).toBe(1);
+    for (let i = 0; i < 20; i += 1) {
+      for (const ownerId of ["me", "rival-a", "rival-b", "nobody"]) afcOffsetForSite(state, { x: 20 + i, y: 5, ownerId }, 7);
+    }
+    expect(scans).toBe(1); // one pass for all four owners and 80 lookups
     afcOffsetForSite(state, { x: 1, y: 1, ownerId: "me" }, 8); // next rebuild rescans
     expect(scans).toBe(2);
   });

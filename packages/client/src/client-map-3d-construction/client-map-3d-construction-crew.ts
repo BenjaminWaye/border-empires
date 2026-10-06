@@ -1,6 +1,7 @@
 import { BoxGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
 import {
   CONSTRUCTION_CRATES_PER_PHASE,
+  CREW_MAX,
   constructionCratesAt,
   type ConstructionSite
 } from "../client-construction-phase/client-construction-phase.js";
@@ -20,7 +21,6 @@ import {
 // Everything is a pure function of (site, clock): nothing is stored per site besides the
 // entry itself, which the overlay re-adds on every rebuild.
 export const MAX_CONSTRUCTION_SITES = 96;
-const MAX_CREW_PER_SITE = 12;
 
 // The parts stack position comes per site; see client-map-3d-construction-layout.ts.
 // Figures wander the same tile-local area the settle overlay's people do (inside the tile edge).
@@ -54,7 +54,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
   // cyan its drop effect uses).
   const crateMaterial = new MeshStandardMaterial({ color: "#46505c", emissive: "#4fd8ff", emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.5, flatShading: true });
 
-  const figureMesh = new InstancedMesh(figureGeometry, figureMaterial, MAX_CONSTRUCTION_SITES * MAX_CREW_PER_SITE);
+  const figureMesh = new InstancedMesh(figureGeometry, figureMaterial, MAX_CONSTRUCTION_SITES * CREW_MAX);
   const crateMesh = new InstancedMesh(crateGeometry, crateMaterial, MAX_CONSTRUCTION_SITES * CONSTRUCTION_CRATES_PER_PHASE);
   const meshes = [figureMesh, crateMesh];
   for (const mesh of meshes) {
@@ -92,7 +92,7 @@ export const createConstructionCrewLayer = (scene: Scene): ConstructionCrewLayer
     let figures = 0;
     let crates = 0;
     for (const { sceneX, sceneZ, surfaceY, site, layout } of entries) {
-      const crew = Math.min(site.crew, MAX_CREW_PER_SITE);
+      const crew = Math.min(site.crew, CREW_MAX);
       const crateCount = constructionCratesAt(site.direction, site.startedAtMs, site.completesAtMs, site.pausedAtMs ?? epochMs);
       for (let c = 0; c < crateCount; c += 1) {
         const slot = CRATE_SLOTS[c]!;

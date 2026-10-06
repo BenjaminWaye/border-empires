@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Scene } from "three";
+import { Scene, Vector3 } from "three";
 import { createConstructionPodFxLayer } from "./client-map-3d-construction-pod-fx.js";
 
 // Parts are fabricated at the owner's AFC and flown to the site; nothing drops from orbit.
@@ -92,6 +92,32 @@ describe("construction pod fx", () => {
     layer.clear();
     expect(layer.activeCount()).toBe(0);
     expect(scene.children).toHaveLength(0);
+    layer.dispose();
+  });
+
+  it("aims the trail at launch too: no stray default-orientation streak on the first frame", () => {
+    const scene = new Scene();
+    const layer = createConstructionPodFxLayer(scene);
+    layer.spawn(10, 20, 0, 1_000, { dx: -6, dz: 0 });
+    layer.update(1_000); // age exactly 0: the case a backward sample could not orient
+    const trail = scene.children[0]!.children[1]!;
+    // The trail lies along the flight direction (west to east here), not the default vertical cylinder at the landing point.
+    expect(Math.abs(trail.position.x + 6)).toBeLessThan(1);
+    expect(trail.position.x).toBeLessThan(0);
+    const up = new Vector3(0, 1, 0).applyQuaternion(trail.quaternion);
+    expect(Math.abs(up.x)).toBeGreaterThan(0.5); // tilted along x, not standing upright
+    layer.dispose();
+  });
+
+  it("never runs the flight backwards when the frame timestamp precedes the spawn time", () => {
+    const scene = new Scene();
+    const layer = createConstructionPodFxLayer(scene);
+    layer.spawn(0, 0, 0, 1_000, { dx: -6, dz: -4 });
+    layer.update(990); // the frame started 10 ms before the pod was spawned
+    const p = scene.children[0]!.children[0]!.position;
+    expect(p.x).toBeCloseTo(-6, 5);
+    expect(p.z).toBeCloseTo(-4, 5);
+    expect(p.y).toBeCloseTo(0.3, 5); // still at the AFC's launch height
     layer.dispose();
   });
 });

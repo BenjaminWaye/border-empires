@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { findHomeAfcTileForOwner } from "../client-afc-locate/client-afc-locate.js";
+import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import {
   constructionSiteForTile,
   type AfcOffset,
@@ -13,20 +13,28 @@ import type { Tile } from "../client-types.js";
 // nothing is built in orbit, so a site whose owner's AFC is not known gets no delivery pod
 // rather than a stand-in drop.
 
-// Shortest signed distance from `from` to `to` on a wrapping axis of `size` tiles.
-export const wrappedDelta = (from: number, to: number, size: number): number => {
-  let delta = (to - from) % size;
-  if (delta > size / 2) delta -= size;
-  else if (delta < -size / 2) delta += size;
-  return delta;
-};
-
-// Scanning every loaded tile for AFCs is far too much to repeat per construction site, and
-// every site in one terrain rebuild asks about the same owners, so the lookup is cached
-// for the rebuild (`rebuildKey` is that rebuild's own timestamp).
+// One pass over the loaded tiles records every owner's home AFC (the same earliest-activation
+// rule as findHomeAfcTileForOwner). Scanning every loaded tile is expensive, and a rebuild can
+// have sites from many owners, so the scan happens once per terrain rebuild (`rebuildKey` is
+// that rebuild's own timestamp) rather than once per owner or per site.
+type AfcPosition = { readonly x: number; readonly y: number };
 let cachedKey: number | undefined;
-let cachedTiles: unknown;
-const cachedAfcByOwner = new Map<string, { x: number; y: number } | undefined>();
+let cachedTiles: ReadonlyMap<string, Tile> | undefined;
+let cachedAfcByOwner = new Map<string, AfcPosition>();
+
+const homeAfcsByOwner = (tiles: ReadonlyMap<string, Tile>): Map<string, AfcPosition> => {
+  const best = new Map<string, { x: number; y: number; key: string; activatedAt: number }>();
+  for (const [key, tile] of tiles) {
+    const afc = tile.afc;
+    if (!afc || tile.ownerId !== afc.ownerId) continue;
+    const activatedAt = afc.activatedAt ?? 0;
+    const current = best.get(afc.ownerId);
+    if (!current || activatedAt < current.activatedAt || (activatedAt === current.activatedAt && key < current.key)) {
+      best.set(afc.ownerId, { x: tile.x, y: tile.y, key, activatedAt });
+    }
+  }
+  return new Map([...best].map(([ownerId, { x, y }]) => [ownerId, { x, y }]));
+};
 
 export const afcOffsetForSite = (
   state: Pick<ClientState, "tiles">,
@@ -36,15 +44,11 @@ export const afcOffsetForSite = (
   if (cachedKey !== rebuildKey || cachedTiles !== state.tiles) {
     cachedKey = rebuildKey;
     cachedTiles = state.tiles;
-    cachedAfcByOwner.clear();
-  }
-  if (!cachedAfcByOwner.has(site.ownerId)) {
-    const afc = findHomeAfcTileForOwner(state.tiles as ReadonlyMap<string, Tile>, site.ownerId);
-    cachedAfcByOwner.set(site.ownerId, afc ? { x: afc.x, y: afc.y } : undefined);
+    cachedAfcByOwner = homeAfcsByOwner(state.tiles);
   }
   const afc = cachedAfcByOwner.get(site.ownerId);
   if (!afc) return undefined;
-  return { dx: wrappedDelta(site.x, afc.x, WORLD_WIDTH), dy: wrappedDelta(site.y, afc.y, WORLD_HEIGHT) };
+  return { dx: toroidDelta(site.x, afc.x, WORLD_WIDTH), dy: toroidDelta(site.y, afc.y, WORLD_HEIGHT) };
 };
 
 // The 3D renderers' entry point: the site for `tile`'s `field` record, with the owner's AFC offset.
@@ -54,7 +58,6 @@ export const constructionSiteForRebuild = (
   field: ConstructionSite["field"],
   rebuildKey: number
 ): ConstructionSite | undefined => {
-  const bare = constructionSiteForTile(tile, Date.now(), field);
-  if (!bare) return undefined;
-  return constructionSiteForTile(tile, Date.now(), field, afcOffsetForSite(state, bare, rebuildKey));
+  const site = constructionSiteForTile(tile, Date.now(), field);
+  return site ? { ...site, afcOffset: afcOffsetForSite(state, site, rebuildKey) } : undefined;
 };

@@ -138,13 +138,15 @@ export const createConstructionPodFxLayer = (scene: Scene): ConstructionPodFxLay
       }
       entry.launchMaterial.opacity = 0.8 * (1 - clamp01(age / LAUNCH_FLASH_MS));
       if (age < entry.flightMs) {
-        const t = age / entry.flightMs;
+        // The frame's timestamp can precede the spawn time by a few ms: never run the flight backwards.
+        const t = Math.max(0, age) / entry.flightMs;
         podAt(entry, t, here);
         entry.pod.visible = true;
         entry.pod.position.copy(here);
-        // The trail streams behind the pod, along its direction of travel.
-        podAt(entry, Math.max(0, t - 0.04), before);
-        dir.subVectors(before, here);
+        // The trail streams behind the pod, opposite its direction of travel (a forward sample, so
+        // it is well defined at launch too).
+        podAt(entry, Math.min(1, t + 0.04), before);
+        dir.subVectors(here, before);
         if (dir.lengthSq() > 1e-8) {
           dir.normalize();
           quat.setFromUnitVectors(yAxis, dir);

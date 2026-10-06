@@ -186,4 +186,49 @@ describe("addFortificationInstancesForTile fort construction", () => {
   it("passes nothing for an active fort", () => {
     expect(route(fortTile({ status: "active" }))).toBeUndefined();
   });
+
+  it("attaches the owner's AFC offset so phase pods have somewhere to fly from", () => {
+    const now = Date.now();
+    const afcTile = { x: 6, y: 9, terrain: "LAND", ownerId: "me", afc: { ownerId: "me", status: "active", activatedAt: 1 } } as unknown as Tile;
+    const withAfc = { ...deps, state: { ...deps.state, tiles: new Map([["6,9", afcTile]]) } };
+    const fortArgs: unknown[][] = [];
+    addFortificationInstancesForTile(
+      { x: 1, y: 1, terrain: "LAND", fort: { ownerId: "me", variant: "FORT", status: "under_construction", startedAt: now - HOUR, completesAt: now + 7 * HOUR } } as unknown as Tile,
+      { x: 0, z: 0, surfaceY: 0, wx: 1, wy: 1 },
+      {
+        fortOverlay: { addInstance: (...args: unknown[]) => void fortArgs.push(args) },
+        relayBeaconOverlay: { addInstance: () => undefined },
+        siegeTowerOverlay: { addInstance: () => undefined },
+        contactShadowOverlay: { addShadow: () => undefined }
+      } as never,
+      withAfc,
+      101
+    );
+    const construction = fortArgs[0]?.[8] as { site: ConstructionSite };
+    expect(construction.site.afcOffset).toEqual({ dx: 5, dy: 8 });
+  });
+
+  it("attaches it for a Relay Beacon too, and leaves it undefined when the owner has no known AFC", () => {
+    const now = Date.now();
+    const beaconTile = { x: 1, y: 1, terrain: "LAND", economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", startedAt: now - HOUR, completesAt: now + 7 * HOUR } } as unknown as Tile;
+    const run = (tiles: Map<string, Tile>, key: number) => {
+      const beaconArgs: unknown[][] = [];
+      addFortificationInstancesForTile(
+        beaconTile,
+        { x: 0, z: 0, surfaceY: 0, wx: 1, wy: 1 },
+        {
+          fortOverlay: { addInstance: () => undefined },
+          relayBeaconOverlay: { addInstance: (...args: unknown[]) => void beaconArgs.push(args) },
+          siegeTowerOverlay: { addInstance: () => undefined },
+          contactShadowOverlay: { addShadow: () => undefined }
+        } as never,
+        { ...deps, state: { ...deps.state, tiles } },
+        key
+      );
+      return (beaconArgs[0]?.[6] as ConstructionSite | undefined)?.afcOffset;
+    };
+    const afcTile = { x: 4, y: 1, terrain: "LAND", ownerId: "me", afc: { ownerId: "me", status: "active", activatedAt: 1 } } as unknown as Tile;
+    expect(run(new Map([["4,1", afcTile]]), 201)).toEqual({ dx: 3, dy: 0 });
+    expect(run(new Map(), 202)).toBeUndefined();
+  });
 });
