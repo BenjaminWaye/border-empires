@@ -429,7 +429,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
-          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor);
+          { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, deps.fortificationOverlayImageFor, nowMs);
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
         // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.

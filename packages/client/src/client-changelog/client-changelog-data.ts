@@ -24,6 +24,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791311818491, // Date.now() frozen for this entry
+    introducedIn: "2026.10.06.1",
+    title: "Relay Beacons are built piece by piece",
+    why: "A Relay Beacon under construction looked the same as a finished one, so a multi-hour build gave no sign of progress.",
+    changes: [
+      "A Relay Beacon being built now grows in four phases, with scaffolding around it, in both the 3D and 2D maps: the legs and column rise, and the mirror array is fitted last",
+      "Parts and an ancillary crew work at the site, and a fresh parts pod drops in at the start of every phase; removing a beacon plays it in reverse",
+      "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
+    ]
+  },
+  {
     createdAt: 1791208703442, // Date.now() frozen for this entry
     introducedIn: "2026.10.05.3",
     title: "Border Empires icon now appears everywhere",

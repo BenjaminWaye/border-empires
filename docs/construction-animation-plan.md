@@ -151,3 +151,22 @@ Steps:
 Follow-up 2 (next): forts (note: a fort *upgrade* keeps the old fort standing
 and defending, so it must not be hidden by phasing) and siege camps. Then
 Aether Tower, Umbrite rig/factory and Caravanary.
+
+### Follow-up 1 status
+
+Implemented: Relay Beacon construction in 3D and 2D, as planned above. Notes:
+
+- Phase heights come from a dry-run measure of the finished beacon (about 1.7);
+  legs, column, pipes and spindle are cut at the build height and grow, everything
+  else appears once its base is below the cut.
+- The mirror array and its drive gears appear in the last phase. Their slots are
+  held as zero-scale placeholders until then, because `update()` addresses them
+  by index and must not animate or desync them.
+- `ConstructionPresentation` (scaffold, crates/crew, pods, phase-diff, boundary
+  tracking) now backs both the shared structure overlay and the beacon overlay,
+  and is what the remaining overlays (forts, siege camps, Aether Tower, Umbrite,
+  Caravanary) will use.
+- 2D: `drawFortificationOverlay2D` routes only `RELAY_BEACON` sites through the
+  construction renderer; forts and siege camps stay flat until follow-up 2.
+- A beacon stacked under a fort shares the economic-structure record, so it
+  phases independently of the fort on the same tile.

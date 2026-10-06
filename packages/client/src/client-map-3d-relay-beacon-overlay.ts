@@ -10,10 +10,25 @@
 
 import { Euler, Matrix4, Quaternion, Scene, Texture, Vector3 } from "three";
 import { createRelayBeaconAssets, GEARS_PER_BEACON, MIRRORS_PER_BEACON } from "./client-map-3d-relay-beacon-assets.js";
+import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
+import { createConstructionPresentation } from "./client-map-3d-construction/client-map-3d-construction-presentation.js";
+import { verticalHalfExtent } from "./client-map-3d-construction/client-map-3d-vertical-extent.js";
 
 export type RelayBeaconOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled?: boolean) => void;
+  // `site` is set while the beacon is being built or removed
+  // (docs/construction-animation-plan.md): it is laid out band by band.
+  readonly addInstance: (
+    sceneX: number,
+    sceneZ: number,
+    surfaceY: number,
+    worldTileX: number,
+    worldTileY: number,
+    disabled?: boolean,
+    site?: ConstructionSite
+  ) => void;
+  // True once a phase boundary passed that changes what a construction site laid out in the last rebuild would show.
+  readonly constructionBoundaryPassed: () => boolean;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -23,6 +38,10 @@ const PI_2 = Math.PI / 2;
 const ARRAY_SPEED = 0.0006;
 const HUB_Y = 1.58;
 const MIRROR_RADIUS = 0.115;
+// Tall, upward pieces that grow with the build instead of appearing whole: a
+// full-height leg or column in phase 1 would make the tower look finished.
+const GROWING_PIECES: ReadonlySet<string> = new Set(["leg", "column", "pipe", "spindle"]);
+const MIN_GROWING_SLOPE = 0.2;
 
 // The mirror-array pieces (plates + drive gears) are the only animated parts.
 // Each piece stores its offset from the hub centre (lx,ly,lz), the yaw it has
@@ -67,6 +86,8 @@ type RelayBeaconInstance = {
   readonly z: number;
   readonly phase: number;
   readonly disabled: boolean;
+  // False while the heliograph array is not built yet; its slots are held as zero-scale placeholders, so update() must not animate them.
+  readonly arrayVisible: boolean;
 };
 
 export const createRelayBeaconOverlay = (
@@ -89,6 +110,15 @@ export const createRelayBeaconOverlay = (
   const yAxis = new Vector3(0, 1, 0);
   const zAxis = new Vector3(0, 0, 1);
 
+  const presentation = createConstructionPresentation(scene, buildingEnvironmentTexture);
+  // Construction state while one beacon is being laid out. `cutY` is the height of the
+  // built part (undefined = fully built); `measuring` dry-runs the layout to find the finished height.
+  let cutY: number | undefined;
+  let measuring = false;
+  let measuredTop = 0;
+  let keepHiddenSlots = false;
+
+  // Returns true when the piece was placed visibly.
   const addPiece = (
     key: string,
     wx: number,
@@ -103,9 +133,9 @@ export const createRelayBeaconOverlay = (
     rotY = 0,
     rotX = 0,
     rotZ = 0
-  ): void => {
+  ): boolean => {
     const slot = slots.get(key);
-    if (!slot || slot.count >= slot.cap) return;
+    if (!slot || (!measuring && slot.count >= slot.cap)) return false;
     position.set(wx + ox, sy + oy, wz + oz);
     scale.set(sx, sy2, sz);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
@@ -115,8 +145,24 @@ export const createRelayBeaconOverlay = (
       tmpQuat.setFromEuler(tmpEuler);
       matrix.compose(position, tmpQuat, scale);
     }
+    if (measuring || cutY !== undefined) {
+      const half = verticalHalfExtent(matrix.elements, slot.extents);
+      if (measuring) {
+        measuredTop = Math.max(measuredTop, oy + half);
+        return false;
+      }
+      if (oy - half > (cutY as number)) {
+        if (!keepHiddenSlots) return false;
+        // A zero-scale placeholder keeps the animated pieces' slot indices aligned across beacons.
+        matrix.compose(position, identityQuat, scale.set(0, 0, 0));
+        slot.mesh.setMatrixAt(slot.count, matrix);
+        slot.count += 1;
+        return false;
+      }
+    }
     slot.mesh.setMatrixAt(slot.count, matrix);
     slot.count += 1;
+    return true;
   };
 
   const eulerFromDir = (dx: number, dy: number, dz: number): { rx: number; ry: number; rz: number } => {
@@ -148,6 +194,24 @@ export const createRelayBeaconOverlay = (
     dz: number,
     len: number
   ): void => {
+    if (cutY !== undefined && !measuring && GROWING_PIECES.has(key)) {
+      tmpDir.set(dx, dy, dz).normalize();
+      if (tmpDir.y > MIN_GROWING_SLOPE) {
+        const half = (tmpDir.y * len) / 2;
+        const bottom = oy - half;
+        const top = oy + half;
+        if (bottom >= cutY) return;
+        if (top > cutY) {
+          // Cut the piece at the build height, keeping its bottom end fixed.
+          const newLen = (len * (cutY - bottom)) / (top - bottom);
+          const shift = (len - newLen) / 2;
+          ox -= tmpDir.x * shift;
+          oy -= tmpDir.y * shift;
+          oz -= tmpDir.z * shift;
+          len = newLen;
+        }
+      }
+    }
     const e = eulerFromDir(dx, dy, dz);
     addPiece(key, wx, sy, wz, ox, oy, oz, 1, 1, len, e.ry, e.rx, e.rz);
   };
@@ -169,7 +233,8 @@ export const createRelayBeaconOverlay = (
   };
 
   // ─── Beacon placement ───────────────────────────────────────────────
-  const addBeacon = (wx: number, sy: number, wz: number): void => {
+  // Returns whether the heliograph array was built (it is the last thing up the tower).
+  const addBeacon = (wx: number, sy: number, wz: number): boolean => {
     // Small mechanical anchor base + control housing.
     for (const ax of [-0.26, 0.26]) {
       for (const az of [-0.26, 0.26]) {
@@ -188,7 +253,7 @@ export const createRelayBeaconOverlay = (
     addPiece("valveWheel", wx, sy, wz, 0.24, 0.438, -0.16);
 
     // Slender lattice column with a brass band.
-    addPiece("column", wx, sy, wz, 0, 0.7, 0, 1, 1, 1.16);
+    addPieceAlong("column", wx, sy, wz, 0, 0.7, 0, 0, 1, 0, 1.16);
     addPiece("columnBand", wx, sy, wz, 0, 0.95, 0, 1, 1, 1, 0, PI_2, 0);
 
     // Four converging dark-iron lattice legs.
@@ -221,12 +286,17 @@ export const createRelayBeaconOverlay = (
     addPiece("obsWindow", wx, sy, wz, 0, 1.4, 0.056);
 
     // Heliograph spindle, hub and array disc (static; plates animate).
-    addPiece("spindle", wx, sy, wz, 0, 1.49, 0, 1, 1, 0.33);
+    addPieceAlong("spindle", wx, sy, wz, 0, 1.49, 0, 0, 1, 0, 0.33);
     addPiece("hub", wx, sy, wz, 0, HUB_Y, 0);
     addPiece("arrayRing", wx, sy, wz, 0, 1.6, 0, 1, 1, 1, 0, PI_2, 0);
+    // The animated pieces are addressed by slot index (i * perBeacon + slotIndex), so a
+    // gated-out one still takes its slot as a zero-scale placeholder.
+    let arrayBuilt = false;
+    keepHiddenSlots = true;
     for (const piece of arrayPieces) {
-      addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ);
+      if (addPiece(piece.key, wx, sy, wz, piece.lx, HUB_Y + piece.ly, piece.lz, 1, 1, 1, piece.baseYaw, piece.rotX, piece.rotZ)) arrayBuilt = true;
     }
+    keepHiddenSlots = false;
 
     // Geared brass periscopes sweeping out over the deck edge.
     addPeriscope(wx, sy, wz, 0.1, 1.34, 0.1, 0.44, -0.8, 0.28);
@@ -237,7 +307,9 @@ export const createRelayBeaconOverlay = (
     addLamp(wx, sy, wz, 0.15, 0.09);
     addLamp(wx, sy, wz, -0.15, 0.09);
     addLamp(wx, sy, wz, 0, -0.16);
+    return arrayBuilt;
   };
+
 
   const addPeriscope = (wx: number, sy: number, wz: number, px: number, py: number, pz: number, dx: number, dy: number, dz: number): void => {
     const dirLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -257,15 +329,30 @@ export const createRelayBeaconOverlay = (
     addPiece("lampCage", wx, sy, wz, lx, 1.42, lz, 1, 1, 1, 0, PI_2, 0);
   };
 
+  // Dry run of the finished beacon (nothing is placed) to learn its height.
+  measuring = true;
+  addBeacon(0, 0, 0);
+  measuring = false;
+  const totalHeight = measuredTop;
+
   const instances: RelayBeaconInstance[] = [];
 
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
     instances.length = 0;
+    presentation.clear();
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled = false): void => {
+  const addInstance = (
+    sceneX: number,
+    sceneZ: number,
+    surfaceY: number,
+    worldTileX: number,
+    worldTileY: number,
+    disabled = false,
+    site: ConstructionSite | undefined = undefined
+  ): void => {
     // The mirror/gear animation buffers (and every static-piece buffer) are
     // preallocated for `C` beacons; instances beyond that would index past
     // the InstancedMesh's typed arrays in update(), so drop the excess here
@@ -273,11 +360,23 @@ export const createRelayBeaconOverlay = (
     if (instances.length >= C) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled });
-    addBeacon(sceneX, surfaceY, sceneZ);
+    let arrayVisible: boolean;
+    if (site) {
+      cutY = (totalHeight * site.visibleBands) / CONSTRUCTION_PHASES;
+      try {
+        arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
+      } finally {
+        cutY = undefined; // never leave the cut on for the next beacon
+      }
+      presentation.addSite(sceneX, sceneZ, surfaceY, site, totalHeight);
+    } else {
+      arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
+    }
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible });
   };
 
   const commit = (): void => {
+    presentation.commit();
     for (const slot of slots.values()) {
       const { mesh, count } = slot;
       mesh.count = count;
@@ -289,12 +388,14 @@ export const createRelayBeaconOverlay = (
   };
 
   const update = (nowMs: number): void => {
+    presentation.update(nowMs);
     const count = instances.length;
     if (count === 0) return;
     const mirrorSlot = slots.get("mirror");
     const gearSlot = slots.get("arrayGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
+      if (!t.arrayVisible) continue; // still a zero-scale placeholder under construction
       const angle = t.disabled ? t.phase : nowMs * ARRAY_SPEED + t.phase;
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
@@ -327,7 +428,10 @@ export const createRelayBeaconOverlay = (
     }
   };
 
-  const dispose = (): void => disposeAssets();
+  const dispose = (): void => {
+    presentation.dispose();
+    disposeAssets();
+  };
 
-  return { clear, addInstance, commit, update, dispose };
+  return { clear, addInstance, constructionBoundaryPassed: presentation.boundaryPassed, commit, update, dispose };
 };

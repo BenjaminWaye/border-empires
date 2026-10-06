@@ -2,6 +2,7 @@
 // fort/Palisade/siege battery, Relay Beacon), extracted from client-map-3d.ts's
 // terrain rebuild loop. The 2D counterpart is drawTileFortificationOverlays2D.
 import type { Tile } from "./client-types.js";
+import { constructionSiteForTile } from "./client-construction-phase/client-construction-phase.js";
 import type { FortOverlay } from "./client-map-3d-fort-overlay.js";
 import type { RelayBeaconOverlay } from "./client-map-3d-relay-beacon-overlay.js";
 import type { SiegeTowerOverlay } from "./client-map-3d-siege-tower-overlay.js";
@@ -46,6 +47,9 @@ export const addFortificationInstancesForTile = (
   const { x, z, surfaceY, wx, wy } = site;
   const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
   const beaconInactive = tile.economicStructure?.status === "inactive";
+  // A beacon being built or removed is laid out in phases. Wall-clock time, not `nowMs`
+  // (the rebuild's performance.now()), because the construction window is in epoch ms.
+  const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForTile(tile, Date.now(), "economicStructure") : undefined;
   if (siegeTowerVariant) {
     overlays.siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
@@ -53,7 +57,7 @@ export const addFortificationInstancesForTile = (
   }
   const fortKind = fortificationOverlayKindForTile(tile);
   if (fortKind === "RELAY_BEACON") {
-    overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive);
+    overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
     return;
   }
@@ -66,5 +70,5 @@ export const addFortificationInstancesForTile = (
   overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
   // A beacon stacked under the fort gets its own mesh: the walls ring the tile
   // edge and the beacon stands in the middle, so the fort no longer hides it.
-  if (stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive);
+  if (stackedRelayBeaconForTile(tile)) overlays.relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, beaconInactive, beaconSite);
 };

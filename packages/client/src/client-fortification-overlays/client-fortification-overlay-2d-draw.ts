@@ -3,6 +3,8 @@ import {
   drawCenteredOverlayRotatedWithAlpha,
   drawCenteredOverlayWithAlpha
 } from "../client-map-render/client-map-render-centered-overlay.js";
+import { drawConstructionStructure2D } from "../client-construction-2d/client-construction-2d.js";
+import { constructionSiteForTile } from "../client-construction-phase/client-construction-phase.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -28,9 +30,20 @@ export const drawFortificationOverlay2D = (
   px: number,
   py: number,
   size: number,
-  facingDeps: FortificationOverlayDeps
+  facingDeps: FortificationOverlayDeps,
+  nowMs: number = performance.now()
 ): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
+  // A Relay Beacon being built or removed is drawn in phases with a parts stack
+  // and crew (docs/construction-animation-plan.md); forts and siege camps keep the
+  // flat translucent look until their own follow-up.
+  if (kind === "RELAY_BEACON") {
+    const site = constructionSiteForTile(tile, Date.now(), "economicStructure");
+    if (site) {
+      drawConstructionStructure2D(ctx, overlay, px, py, size, 1, site, nowMs);
+      return;
+    }
+  }
   const alpha = fortificationOverlayAlphaForTile(tile, kind);
   if (kind === "SIEGE_OUTPOST") {
     const facingRad = siegeBatteryFacingRadiansForTile(tile, facingDeps);
@@ -53,12 +66,13 @@ export const drawTileFortificationOverlays2D = (
   py: number,
   size: number,
   deps: FortificationOverlayDeps,
-  overlayImageFor: (kind: FortificationOverlayKind, opening: FortificationOpening) => HTMLImageElement | undefined
+  overlayImageFor: (kind: FortificationOverlayKind, opening: FortificationOpening) => HTMLImageElement | undefined,
+  nowMs: number = performance.now()
 ): void => {
   const kind = fortificationOverlayKindForTile(tile);
   if (!kind) return;
-  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps);
+  drawFortificationOverlay2D(ctx, tile, kind, overlayImageFor(kind, fortificationOpeningForTile(tile, deps)), px, py, size, deps, nowMs);
   if (stackedRelayBeaconForTile(tile)) {
-    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps);
+    drawFortificationOverlay2D(ctx, tile, "RELAY_BEACON", overlayImageFor("RELAY_BEACON", "CLOSED"), px, py, size, deps, nowMs);
   }
 };
