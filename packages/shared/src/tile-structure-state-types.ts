@@ -57,6 +57,9 @@ export type TileAfcState = {
   // The researched, House-owned copy of each module. A player may redeploy
   // this one between their AFCs; captured copies deliberately stay put.
   houseModules?: string[];
+  // House modules called down to this AFC and still in transit; each moves
+  // into modules/houseModules once arrivesAt passes (AFC_MODULE_CALL_DOWN_MS).
+  incomingModules?: Array<{ techId: string; arrivesAt: number }>;
 };
 
 export type TileEconomicStructureState = {

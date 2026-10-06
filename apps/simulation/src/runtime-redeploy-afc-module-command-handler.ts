@@ -4,8 +4,10 @@ import { parseRedeployAfcModulePayload } from "./runtime-command-parsers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { rejectCommand } from "./runtime-structure-command-handlers-reject.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { callDownAfcModules, type AfcModuleDeliveryContext } from "./afc-module-delivery/afc-module-delivery.js";
 
-/** Moves the single researched House copy of an AFC module between owned AFCs.
+/** Calls the single researched House copy of an AFC module down to an owned
+ * AFC; it lands after AFC_MODULE_CALL_DOWN_MS (afc-module-delivery.ts).
  * Captured copies are intentionally not removed: they are earned duplicates. */
 export const handleRedeployAfcModuleCommand = (context: RuntimeStructureCommandContext, command: CommandEnvelope): void => {
   const actor = context.players.get(command.playerId);
@@ -20,39 +22,19 @@ export const handleRedeployAfcModuleCommand = (context: RuntimeStructureCommandC
     rejectCommand(context, command, "BUILD_INVALID", "target must be an active AFC you control");
     return;
   }
-  const changed = [];
-  for (const [tileKey, tile] of context.tiles) {
-    if (!tile?.afc || tile.ownerId !== actor.id || tileKey === targetKey || !tile.afc.houseModules?.includes(payload.techId)) continue;
-    const next = {
-      ...tile,
-      afc: {
-        ...tile.afc,
-        modules: removeOneModule(tile.afc.modules ?? [], payload.techId),
-        houseModules: tile.afc.houseModules.filter((techId) => techId !== payload.techId)
-      }
-    };
-    context.replaceTileState(tileKey, next, command.commandId);
-    changed.push(next);
-  }
-  if (!target.afc.houseModules?.includes(payload.techId)) {
-    const next = {
-      ...target,
-      afc: {
-        ...target.afc,
-        modules: [...(target.afc.modules ?? []), payload.techId],
-        houseModules: [...(target.afc.houseModules ?? []), payload.techId]
-      }
-    };
-    context.replaceTileState(targetKey, next, command.commandId);
-    changed.push(next);
-  }
-  if (changed.length > 0) {
-    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: actor.id, tileDeltas: changed.map((tile) => context.tileDeltaFromState(tile)) });
-    context.emitPlayerStateUpdate(command);
-  }
+  callDownAfcModules(afcModuleDeliveryContextFor(context), actor.id, targetKey, [payload.techId], command.commandId);
 };
 
-const removeOneModule = (modules: readonly string[], techId: string): string[] => {
-  const index = modules.indexOf(techId);
-  return index < 0 ? [...modules] : [...modules.slice(0, index), ...modules.slice(index + 1)];
-};
+/** Adapts the structure command context; it carries no player summary, so owned AFCs come from a tile scan. */
+export const afcModuleDeliveryContextFor = (context: RuntimeStructureCommandContext): AfcModuleDeliveryContext => ({
+  tiles: context.tiles,
+  now: context.now,
+  ownedAfcTileKeys: (playerId) =>
+    context.summaryForPlayer?.(playerId).ownedAfcTileKeys ??
+    [...context.tiles].filter(([, tile]) => tile.afc && tile.ownerId === playerId).map(([tileKey]) => tileKey),
+  replaceTileState: context.replaceTileState,
+  tileDeltaFromState: context.tileDeltaFromState,
+  emitEvent: context.emitEvent,
+  emitPlayerStateUpdate: (command) => context.emitPlayerStateUpdate(command),
+  scheduleAfter: context.scheduleAfter
+});

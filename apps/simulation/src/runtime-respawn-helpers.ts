@@ -32,6 +32,7 @@ export type RuntimeRespawnContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
+  scheduleAfter: (delayMs: number, task: () => void) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   incomePerMinuteForPlayer: (playerId: string) => number;
   respawnMinimumGold: number;
@@ -230,14 +231,13 @@ export const ensurePlayerHasSpawnTerritory = (
 // call after the first a fast no-op by construction). Unlike a genuine
 // respawn, this grants no manpower/Coin floor and no respawn notice -- the
 // player already has a running empire; this only backfills infrastructure.
-// Also backfills House module copies the player researched but never had
-// docked (see backfillMissingHouseModules). Returns true when either changed.
+// Also calls down House module copies the player researched but has on no
+// AFC (see backfillMissingHouseModules). Returns true when either changed.
 export const ensurePlayerHasAfc = (ctx: RuntimeRespawnContext, playerId: string): boolean => {
   const granted = grantMigrationAfcIfMissing(ctx, playerId);
   const techIds = ctx.players.get(playerId)?.techIds;
-  const commandId = `afc-module-backfill:${playerId}:${ctx.now()}`;
-  const backfilled = techIds ? backfillMissingHouseModules(ctx, playerId, techIds, commandId) : false;
-  if (backfilled) ctx.emitPlayerStateUpdate({ commandId, playerId });
+  const delivery = { ...ctx, ownedAfcTileKeys: (id: string) => ctx.summaryForPlayer(id).ownedAfcTileKeys };
+  const backfilled = techIds ? backfillMissingHouseModules(ctx, delivery, playerId, techIds, `afc-module-backfill:${playerId}:${ctx.now()}`) : false;
   return granted || backfilled;
 };
 

@@ -141,10 +141,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1791280725000, // frozen Date.now() value for this release
     introducedIn: "2026.10.06.1",
-    title: "Missing Fabrication Complex modules restored, plus an AFC button",
-    why: "Modules you researched before you had a Fabrication Complex -- or that were lost when an AFC holding them was captured -- never docked, so your AFC could show only one module despite lots of research. There was also no quick way to find your AFC.",
+    title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
+    why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
     changes: [
-      "Every researched module that isn't docked on one of your AFCs is now installed on your home AFC the next time you connect",
+      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
+      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
+      "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
+      "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
+      "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
       "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
     ]
   },

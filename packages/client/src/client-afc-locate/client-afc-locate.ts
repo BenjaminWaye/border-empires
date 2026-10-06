@@ -36,3 +36,27 @@ export const locateHomeAfc = (
   openTileMenu(tile, viewportCenter.x, viewportCenter.y);
   return true;
 };
+
+/** The owned AFC a module docks on (or is incoming to), else the home AFC --
+ * where a freshly researched module is commissioned. */
+export const afcTileForModule = (state: Pick<ClientState, "tiles" | "me">, techId: string): Tile | undefined => {
+  for (const tile of state.tiles.values()) {
+    const afc = tile.afc;
+    if (!afc || afc.ownerId !== state.me || tile.ownerId !== state.me) continue;
+    if (afc.houseModules?.includes(techId) || afc.incomingModules?.some((entry) => entry.techId === techId)) return tile;
+  }
+  return findHomeAfcTile(state);
+};
+
+/** Points the camera at the AFC a just-researched module lands on so its
+ * delivery animation plays on screen. Returns false when no AFC is loaded. */
+export const focusAfcForResearchedModule = (state: AfcLocateState, techId: string): boolean => {
+  const tile = afcTileForModule(state, techId);
+  if (!tile) return false;
+  state.camX = tile.x;
+  state.camY = tile.y;
+  state.camSubX = 0;
+  state.camSubY = 0;
+  state.selected = { x: tile.x, y: tile.y };
+  return true;
+};
