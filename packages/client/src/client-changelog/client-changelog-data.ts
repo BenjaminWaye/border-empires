@@ -74,6 +74,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791324109390, // Date.now() frozen for this entry
+    introducedIn: "2026.10.07.1",
+    title: "Soldiers now show when you attack enemy frontier land",
+    why: "Launching an attack on an enemy's frontier tile showed the tile changing colour but no soldiers, so it looked like a plain expansion.",
+    changes: [
+      "Your soldiers now step onto the enemy frontier tile you attack and stand there until it is yours, in the 3D map (the 2D map draws no soldiers for attacks)"
+    ]
+  },
+  {
     createdAt: 1791311818491, // Date.now() frozen for this entry
     introducedIn: "2026.10.06.1",
     title: "Relay Beacons and forts are built piece by piece",
