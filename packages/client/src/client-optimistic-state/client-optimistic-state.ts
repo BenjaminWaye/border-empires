@@ -158,10 +158,11 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (kind === "RELAY_BEACON") {
       for (const t of state.tiles.values()) if (t.ownerId === state.me && t.economicStructure?.type === "RELAY_BEACON") ownedBeacons += 1;
     }
-    const completesAt = Date.now() + structureBuildDurationMs(kind, ownedBeacons);
+    const startedAt = Date.now();
+    const completesAt = startedAt + structureBuildDurationMs(kind, ownedBeacons);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt);
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt);
     });
   };
 

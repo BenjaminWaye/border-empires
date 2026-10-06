@@ -35,8 +35,9 @@ export const drawResourceOverlay2D = (deps: ResourceOverlayDrawDeps, tile: Tile,
     if (!isTrue3DRendererActive()) {
       const scale = deps.resourceOverlayScaleForTile(tile);
       // Only the economic structure's sprite is the one being built; a fort or siege camp on the same tile keeps the flat look.
-      const site = builtOverlay ? constructionSiteForTile(tile, Date.now(), "economicStructure") : undefined;
-      if (site) drawConstructionStructure2D(deps.ctx, overlay, px, py, size, scale, site, nowMs);
+      const epochMs = Date.now();
+      const site = builtOverlay ? constructionSiteForTile(tile, epochMs, "economicStructure") : undefined;
+      if (site) drawConstructionStructure2D(deps.ctx, overlay, px, py, size, scale, site, epochMs);
       else deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, scale, builtOverlay ? deps.economicStructureOverlayAlpha(tile) : 1);
     }
     deps.drawResourceCornerMarker(tile, px, py, size);

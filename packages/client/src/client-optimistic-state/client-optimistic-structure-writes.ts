@@ -6,6 +6,7 @@ import {
   bestSiegeTierForTech,
   defendingFortVariant,
   fortTierForBuild,
+  structureBuildDurationMsForManpowerCost,
   nextSiegeTierForUpgrade,
   type SiegeOutpostVariant
 } from "@border-empires/shared";
@@ -16,7 +17,10 @@ export const writeOptimisticStructureBuild = (
   kind: OptimisticStructureKind,
   ownerId: string,
   hasTech: (id: string) => boolean,
-  completesAt: number
+  completesAt: number,
+  // When the build starts (the sim stamps the same). Without it the construction renderers
+  // would have to guess the window from a per-type duration and could show a fresh build part-done.
+  startedAt: number
 ): void => {
   if (kind === "FORT" || kind === "WOODEN_FORT") {
     // Don't write a construction the sim will reject (max tier, or a Palisade on a fortified tile).
@@ -28,14 +32,16 @@ export const writeOptimisticStructureBuild = (
       ownerId,
       status: "under_construction",
       variant: tier.variant,
-      completesAt,
+      // The sim times a fort build from the resolved tier's own manpower cost, not the requested kind's.
+      completesAt: startedAt + structureBuildDurationMsForManpowerCost(tier.manpower),
+      startedAt,
       ...(standing ? { upgradingFrom: standing } : {}),
       ...(standing && tile.fort?.disabledUntil !== undefined ? { disabledUntil: tile.fort.disabledUntil } : {})
     };
     return;
   }
   if (kind === "OBSERVATORY") {
-    tile.observatory = { ownerId, status: "under_construction", completesAt };
+    tile.observatory = { ownerId, status: "under_construction", completesAt, startedAt };
     return;
   }
   if (kind === "SIEGE_OUTPOST") {
@@ -44,10 +50,10 @@ export const writeOptimisticStructureBuild = (
     const variant: SiegeOutpostVariant = tile.siegeOutpost
       ? nextSiegeTierForUpgrade(tile.siegeOutpost.variant, hasTech)!.variant
       : bestSiegeTierForTech(hasTech).variant;
-    tile.siegeOutpost = { ownerId, status: "under_construction", variant, completesAt };
+    tile.siegeOutpost = { ownerId, status: "under_construction", variant, completesAt, startedAt };
     return;
   }
-  tile.economicStructure = { ownerId, type: kind, status: "under_construction", completesAt };
+  tile.economicStructure = { ownerId, type: kind, status: "under_construction", completesAt, startedAt };
 };
 
 // Undo only the one structure action the sim's cancel targets (fort first,
@@ -59,6 +65,7 @@ export const writeOptimisticStructureCancel = (tile: Tile): void => {
     if (fort.status === "removing") {
       tile.fort = { ...fort, status: "active" };
       delete tile.fort.completesAt;
+      delete tile.fort.startedAt;
     } else if (fort.upgradingFrom) {
       tile.fort = {
         ownerId: fort.ownerId,
@@ -77,7 +84,7 @@ export const writeOptimisticStructureCancel = (tile: Tile): void => {
     if (structure.status === "under_construction") {
       delete tile[field];
     } else {
-      const { completesAt: _completesAt, ...rest } = structure;
+      const { completesAt: _completesAt, startedAt: _startedAt, ...rest } = structure;
       Object.assign(tile, { [field]: { ...rest, status: "active" } });
     }
     return;

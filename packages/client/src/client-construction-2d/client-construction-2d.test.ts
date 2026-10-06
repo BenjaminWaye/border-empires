@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
-import { drawConstructionStructure2D } from "./client-construction-2d.js";
+import { FORT_CONSTRUCTION_LAYOUT } from "../client-map-3d-construction/client-map-3d-construction-layout.js";
+import { drawConstructionAmbient2D, drawConstructionStructure2D } from "./client-construction-2d.js";
 
 // A recording stand-in for CanvasRenderingContext2D: only the calls the
 // construction renderer makes.
@@ -29,6 +30,7 @@ const HOUR = 3_600_000;
 const site = (over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   x: 2,
   y: 3,
+  afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
   structureType: "FOUNDRY",
@@ -66,13 +68,15 @@ describe("drawConstructionStructure2D", () => {
     expect(complete.raw.setLineDash).not.toHaveBeenCalled();
   });
 
-  it("draws the parts stack and one square per crew member (plus rims)", () => {
+  it("draws the parts stack and the crew as the settle loader's dark pixel dots", () => {
     const { ctx, raw } = fakeCtx();
-    drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 3 }), 0);
-    // At least the crates and the 3 figures were filled.
-    expect(raw.fillRect.mock.calls.length).toBeGreaterThanOrEqual(3 + 1);
-    // Figures get a light rim so they read against dark terrain: crew strokeRects.
-    expect(raw.strokeRect.mock.calls.length).toBeGreaterThanOrEqual(3);
+    drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 6 }), 0);
+    // Crates plus one 2 px square per crew member.
+    expect(raw.fillRect.mock.calls.length).toBeGreaterThanOrEqual(6 + 1);
+    const dots = raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2 && (c as unknown as number[])[3] === 2);
+    expect(dots.length).toBeGreaterThanOrEqual(6);
+    expect(raw.fillStyle).toBe("rgba(6, 8, 12, 0.9)"); // same colour as the settle dots
+    expect(raw.strokeRect.mock.calls.every((c) => (c as unknown as number[])[2] !== 2)).toBe(true); // no outlined figures
   });
 
   it("skips crates and crew at tiny zoom but still shows the phase fill", () => {
@@ -82,12 +86,66 @@ describe("drawConstructionStructure2D", () => {
     expect(raw.fillRect).not.toHaveBeenCalled();
   });
 
-  it("moves the crew over time (the walk is animated)", () => {
-    const at = (nowMs: number): number[][] => {
+  it("moves the crew over time like the settle dots (pause-and-walk wander)", () => {
+    const dotsAt = (nowMs: number): string => {
       const { ctx, raw } = fakeCtx();
-      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 2 }), nowMs);
-      return raw.fillRect.mock.calls.map((c) => [...(c as unknown as number[])]);
+      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 8 }), nowMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
     };
-    expect(at(0)).not.toEqual(at(1_000));
+    const samples = new Set([0, 700, 1_400, 2_100, 2_800].map(dotsAt));
+    expect(samples.size).toBeGreaterThan(1);
+  });
+
+  it("freezes the crew of a stalled build", () => {
+    const dotsAt = (nowMs: number): string => {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 8, stalled: true }), nowMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
+    };
+    expect(dotsAt(0)).toBe(dotsAt(1_700));
+    expect(dotsAt(0)).toBe(dotsAt(5_000));
+  });
+});
+
+describe("drawConstructionAmbient2D", () => {
+  it("draws only the crates and crew, never the sprite or a clip", () => {
+    const { ctx, raw } = fakeCtx();
+    drawConstructionAmbient2D(ctx, 0, 0, 40, site({ crew: 3 }), 0);
+    expect(raw.fillRect).toHaveBeenCalled();
+    expect(raw.drawImage).not.toHaveBeenCalled();
+    expect(raw.clip).not.toHaveBeenCalled();
+  });
+
+  it("is skipped at tiny zoom", () => {
+    const { ctx, raw } = fakeCtx();
+    drawConstructionAmbient2D(ctx, 0, 0, 8, site(), 0);
+    expect(raw.fillRect).not.toHaveBeenCalled();
+  });
+
+  // Regression: the 2D fort crew and parts stack used the whole tile, over the walls and the corner towers.
+  it("keeps a fort's stack and crew inside the walls, clear of the corner towers", () => {
+    const size = 100;
+    for (let t = 0; t < 20_000; t += 500) {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionAmbient2D(ctx, 0, 0, size, site({ crew: 12 }), t, FORT_CONSTRUCTION_LAYOUT);
+      for (const [x, y, w, h] of raw.fillRect.mock.calls as unknown as number[][]) {
+        // Towers occupy the outer 0.2 of each corner and walls the outer ~0.12 of each edge.
+        expect(x!).toBeGreaterThanOrEqual(size * 0.2);
+        expect(x! + w!).toBeLessThanOrEqual(size * 0.8);
+        expect(y!).toBeGreaterThanOrEqual(size * 0.12);
+        expect(y! + h!).toBeLessThanOrEqual(size * 0.88);
+      }
+    }
+  });
+
+  // Regression: a stall froze the dots at their time-0 positions, so they jumped the moment the build stopped.
+  it("freezes the crew where it stood when the build paused", () => {
+    const pausedAt = 1_791_000_000_000;
+    const dots = (s: ConstructionSite, epochMs: number): string => {
+      const { ctx, raw } = fakeCtx();
+      drawConstructionAmbient2D(ctx, 0, 0, 40, s, epochMs);
+      return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
+    };
+    expect(dots(site({ crew: 8, stalled: true, pausedAtMs: pausedAt }), pausedAt + 60_000)).toBe(dots(site({ crew: 8, pausedAtMs: undefined }), pausedAt));
   });
 });
