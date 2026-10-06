@@ -10,7 +10,7 @@ import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-da
 type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
-    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "changelog" | "authSessionReady" | "profileSetupRequired"
+    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail"
   > &
     GuideCompletionState;
   overlayEl: HTMLDivElement;

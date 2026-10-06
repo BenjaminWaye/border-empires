@@ -85,6 +85,22 @@ describe("client changelog", () => {
     }
   });
 
+  // Regression: two entries used `createdAt: Date.now()`, so the "latest"
+  // timestamp tracked the page-load clock and every login looked like it had
+  // unseen release notes -- What's New reopened on every login.
+  it("derives the latest timestamp from frozen literals, not the clock", async () => {
+    const before = latestClientChangelogTimestamp();
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(before + 30 * 24 * 60 * 60 * 1000);
+      vi.resetModules();
+      const reloaded = await import("./client-changelog.js");
+      expect(reloaded.latestClientChangelogTimestamp()).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps only the latest week of entries in the client bundle", () => {
     const latestAt = latestClientChangelogTimestamp();
     const oldestAllowedAt = latestAt - 6 * 24 * 60 * 60 * 1000;
