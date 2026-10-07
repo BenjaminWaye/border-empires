@@ -4,8 +4,9 @@
 import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { isHillsTileAt, riverCornerWidthsForCurrentSeed, setWorldSeed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { createRiverOverlay, isRiverSampleDrawable, type RiverOverlayDeps } from "./client-map-3d-rivers.js";
-import { heightfieldSurfaceY } from "./client-map-3d-rivers-channel.js";
+import { createRiverOverlay, type RiverOverlayDeps } from "./client-map-3d-rivers.js";
+import { appendWater, heightfieldSurfaceY, type WaterBuffers } from "./client-map-3d-rivers-channel.js";
+import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner } from "./client-map-3d-river-edge-water.js";
 import { heightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 
@@ -36,19 +37,54 @@ const v9RiverCamera = (): { camX: number; camY: number } => {
 describe("river culling and look (phase 1a)", () => {
   const tileWindow = heightfieldTileWindow(10, 10);
 
-  it("keeps a river sample only when the tiles on both sides of it are explored", () => {
-    // A vertical river on the border x = 0 between tile -1 (west) and tile 0 (east).
+  it("draws each half of a border river only where its own tile is explored", () => {
+    // A vertical river on the border x = 0 between tile -1 (west, world 99)
+    // and tile 0 (east, world 100); normal (1, 0), so "left" is west.
     const onlyWest = (wx: number): boolean => wx === 99;
-    expect(isRiverSampleDrawable(0, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toBe(true);
-    expect(isRiverSampleDrawable(0, 0.5, 1, 0, 100, 50, tileWindow, onlyWest)).toBe(false);
-    expect(isRiverSampleDrawable(0, 0.5, 1, 0, 100, 50, tileWindow, (wx) => wx === 100)).toBe(false);
+    expect(riverSampleSides(0, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toEqual({ left: true, right: true });
+    expect(riverSampleSides(0, 0.5, 1, 0, 100, 50, tileWindow, onlyWest)).toEqual({ left: true, right: false });
+    expect(riverSampleSides(0, 0.5, 1, 0, 100, 50, tileWindow, (wx: number) => wx === 100)).toEqual({ left: false, right: true });
+    expect(riverSampleSides(0, 0.5, 1, 0, 100, 50, tileWindow, () => false)).toEqual({ left: false, right: false });
   });
 
-  it("never draws a river sample outside the heightfield's tile window", () => {
+  it("treats a side outside the heightfield's tile window like an unexplored one", () => {
     const edgeX = tileWindow.tileOffsetX + tileWindow.tileSpanX; // first tile past the window
-    // On the window's outer border: one side is outside the terrain.
-    expect(isRiverSampleDrawable(edgeX, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toBe(false);
-    expect(isRiverSampleDrawable(edgeX - 1, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toBe(true);
+    expect(riverSampleSides(edgeX, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toEqual({ left: true, right: false });
+    expect(riverSampleSides(edgeX - 1, 0.5, 1, 0, 100, 50, tileWindow, ALWAYS)).toEqual({ left: true, right: true });
+  });
+
+  it("at the fog edge the explored half keeps its water, stopping at the border", () => {
+    // Regression: water was dropped entirely when one side was unexplored,
+    // leaving the explored tile's carved half-bed dry and empty.
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    const run = [{ x: 0, z: 0, halfWidth: 0.15 }, { x: 0, z: 1, halfWidth: 0.15 }, { x: 0, z: 2, halfWidth: 0.15 }];
+    // Tangent +z, so the -normal ("left") side is +x here; keep only it.
+    appendWater(buffers, run, () => 0, run.map(() => ({ left: true, right: false })));
+    const xs = buffers.positions.filter((_, i) => i % 3 === 0);
+    expect(Math.max(...xs)).toBeGreaterThan(0.1);
+    expect(Math.min(...xs)).toBeCloseTo(0, 6);
+  });
+
+  it("runs the river mouth out into the sea, starting at the channel's end, widening and fading", () => {
+    // Regression: v9 rivers stopped at their final corner with a hard square
+    // end at the coast. Sea only at tile (-1, -1) of corner (10, 10).
+    const seaDir = seaDirectionAtCorner(10, 10, (wx: number, wy: number) => wx === 9 && wy === 9);
+    expect(seaDir!.x).toBeCloseTo(-Math.SQRT1_2);
+    expect(seaDir!.z).toBeCloseTo(-Math.SQRT1_2);
+    expect(seaDirectionAtCorner(10, 10, () => false)).toBeNull();
+    const end = { x: 0, z: 0, halfWidth: 0.15 };
+    const plume = riverMouthPlume(end, { x: 0, z: -1 }, seaDir!);
+    expect(plume[0]).toMatchObject({ x: 0, z: 0, mouth: 0 }); // meets the channel with no gap
+    const last = plume[plume.length - 1]!;
+    expect(last.mouth).toBe(1);
+    expect(last.x).toBeLessThan(-0.4);
+    expect(last.z).toBeLessThan(-0.4);
+    expect(last.halfWidth).toBeGreaterThan(end.halfWidth * 2);
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendWater(buffers, plume, () => 0);
+    const alphas = buffers.colors.filter((_, i) => i % 4 === 3);
+    expect(alphas[2]).toBe(1); // solid where it leaves the coast
+    expect(Math.max(...alphas.slice(-5))).toBe(0); // fully faded at the end
   });
 
   it("v9: valley patches and water stay inside the heightfield window (no squares past the terrain edge)", () => {
@@ -64,10 +100,12 @@ describe("river culling and look (phase 1a)", () => {
     for (const mesh of all) {
       const pos = positions(mesh);
       for (let i = 0; i < pos.length; i += 3) {
-        expect(pos[i]!).toBeGreaterThanOrEqual(w.tileOffsetX - 0.01);
-        expect(pos[i]!).toBeLessThanOrEqual(w.tileOffsetX + w.tileSpanX + 0.01);
-        expect(pos[i + 2]!).toBeGreaterThanOrEqual(w.tileOffsetY - 0.01);
-        expect(pos[i + 2]!).toBeLessThanOrEqual(w.tileOffsetY + w.tileSpanY + 0.01);
+        // Slop: a half drawn at the window edge stops on the centreline,
+        // which wobbles up to ~0.05 off the tile border.
+        expect(pos[i]!).toBeGreaterThanOrEqual(w.tileOffsetX - 0.06);
+        expect(pos[i]!).toBeLessThanOrEqual(w.tileOffsetX + w.tileSpanX + 0.06);
+        expect(pos[i + 2]!).toBeGreaterThanOrEqual(w.tileOffsetY - 0.06);
+        expect(pos[i + 2]!).toBeLessThanOrEqual(w.tileOffsetY + w.tileSpanY + 0.06);
       }
     }
     overlay.dispose();

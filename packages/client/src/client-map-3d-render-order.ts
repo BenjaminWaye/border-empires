@@ -12,6 +12,10 @@ export const RENDER_ORDER = {
   riverWater: 8,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,
+  // client-map-3d-water-surface.ts: the ocean plane.
+  oceanSurface: 12,
+  // A river's mouth plume spills out over the sea, so it draws after it.
+  riverMouth: 13,
   // client-map-3d.ts: selectedMarker / hoverMarker.
   selectedMarker: 30,
   hoverMarker: 31

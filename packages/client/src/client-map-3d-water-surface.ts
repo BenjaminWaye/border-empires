@@ -12,6 +12,7 @@ import {
   Scene,
   Vector2
 } from "three";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 
 export const WATER_SURFACE_Y = -0.06;
 
@@ -284,7 +285,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
     mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
-    mesh.renderOrder = 12;
+    mesh.renderOrder = RENDER_ORDER.oceanSurface;
     scene.add(mesh);
 
     // Skirt: a vertical wall dropped to WATER_SKIRT_BOTTOM_Y along every

@@ -12,8 +12,15 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
 import { RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
 
-/** A path point in camera-relative scene coords (x/z) with its river half-width. */
-export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number };
+/**
+ * A path point in camera-relative scene coords (x/z) with its river
+ * half-width. `mouth` (0..1, default 0) marks points past the river's final
+ * corner, running out into the sea: the water flares and fades along them.
+ */
+export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number; readonly mouth?: number };
+
+/** Which halves of the water draw at a sample (`left` = the -normal side). */
+export type WaterSides = { readonly left: boolean; readonly right: boolean };
 
 const CHAIKIN_ITERATIONS = 2;
 const CHAIKIN_CUT = 0.25;
@@ -79,6 +86,12 @@ export const riverWaterHalfWidth = (halfWidth: number): number => {
   return lo + 0.02;
 };
 
+const lerpPoint = (a: ChannelPathPoint, b: ChannelPathPoint, t: number): ChannelPathPoint => {
+  const point = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t };
+  const mouth = (a.mouth ?? 0) + ((b.mouth ?? 0) - (a.mouth ?? 0)) * t;
+  return mouth > 0 ? { ...point, mouth } : point;
+};
+
 /** Chaikin corner cutting: rounds right-angle bends while keeping both endpoints. */
 export const chaikinSmooth = (points: readonly ChannelPathPoint[], iterations = CHAIKIN_ITERATIONS): ChannelPathPoint[] => {
   let pts: ChannelPathPoint[] = [...points];
@@ -87,11 +100,7 @@ export const chaikinSmooth = (points: readonly ChannelPathPoint[], iterations = 
     for (let i = 0; i + 1 < pts.length; i += 1) {
       const a = pts[i]!;
       const b = pts[i + 1]!;
-      const lerp = (t: number): ChannelPathPoint => ({
-        x: a.x + (b.x - a.x) * t,
-        z: a.z + (b.z - a.z) * t,
-        halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t
-      });
+      const lerp = (t: number): ChannelPathPoint => lerpPoint(a, b, t);
       next.push(lerp(CHAIKIN_CUT), lerp(1 - CHAIKIN_CUT));
     }
     next.push(pts[pts.length - 1]!);
@@ -108,7 +117,7 @@ const densify = (points: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / MAX_SAMPLE_SPACING));
     for (let s = 0; s < steps; s += 1) {
       const t = s / steps;
-      out.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t });
+      out.push(lerpPoint(a, b, t));
     }
   }
   if (points.length > 0) out.push(points[points.length - 1]!);
@@ -247,12 +256,16 @@ const WATER_COLUMN_COUNT = WATER_COLUMNS.length;
 /**
  * Appends a flat water strip along `run` (a centreline run, scene coords):
  * WATER_COLUMN_COUNT vertices per sample, level across the channel at
- * `waterYAt(centre)`, with RGBA colours (opaque core, soft edges).
+ * `waterYAt(centre)`, with RGBA colours (opaque core, soft edges). Where
+ * `sides` says a half may not draw, that half's columns collapse onto the
+ * centreline (the tile border), so the water stops at the border. Mouth
+ * points fade out toward the sea.
  */
 export const appendWater = (
   buffers: WaterBuffers,
   run: readonly ChannelPathPoint[],
-  waterYAt: (sceneX: number, sceneZ: number) => number
+  waterYAt: (sceneX: number, sceneZ: number, mouth: number) => number,
+  sides?: readonly WaterSides[]
 ): void => {
   if (run.length < 2) return;
   const base = buffers.positions.length / 3;
@@ -266,10 +279,16 @@ export const appendWater = (
     const w = riverWaterHalfWidth(cur.halfWidth);
     const nx = (-tz / tlen) * w;
     const nz = (tx / tlen) * w;
-    const y = waterYAt(cur.x, cur.z);
+    const y = waterYAt(cur.x, cur.z, cur.mouth ?? 0);
+    const side = sides?.[i];
+    // Mouth: stays solid while it leaves the coast, fading out toward its end.
+    const mouth = cur.mouth ?? 0;
+    const fade = 1 - mouth * mouth;
     for (const [f, color] of WATER_COLUMNS) {
-      buffers.positions.push(cur.x + nx * f, y, cur.z + nz * f);
-      buffers.colors.push(color[0], color[1], color[2], color[3]);
+      const drawn = !side || (f < 0 ? side.left : f > 0 ? side.right : true);
+      const g = drawn ? f : 0;
+      buffers.positions.push(cur.x + nx * g, y, cur.z + nz * g);
+      buffers.colors.push(color[0], color[1], color[2], color[3] * fade);
     }
   }
   for (let i = 0; i + 1 < run.length; i += 1) {
