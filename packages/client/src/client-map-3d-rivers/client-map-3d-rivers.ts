@@ -4,16 +4,7 @@
 // module reads world-gen state (terrainAt/landBiomeAt) but never writes
 // anything, and nothing outside this file and its one wiring point in
 // client-map-3d.ts knows rivers exist. Deleting both is a full revert.
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  type Material,
-  DoubleSide,
-  Mesh,
-  MeshStandardMaterial,
-  Scene
-} from "three";
+import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import {
   edgeRiversActive,
   isHillsTileAt,
@@ -44,8 +35,11 @@ import {
   type WaterBuffers
 } from "./client-map-3d-rivers-channel.js";
 import { createRiverValley, type RiverValleyTile } from "./client-map-3d-river-valley.js";
+import { createRiverWaterMaterial } from "./client-map-3d-river-water-material.js";
 import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { UV_WORLD_SCALE, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
+import { heightfieldTileWindow, isInHeightfieldTileWindow, type HeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 
 export type { RiverPath, RiverPoint };
 // Re-exported for the existing test suite (smoothRiverPath is exercised
@@ -56,11 +50,9 @@ export { smoothRiverPath };
 // Lift above the real ground surface — same "surface lift to win the depth
 // test against sloped terrain" technique as client-map-3d-contact-shadow.
 const SURFACE_LIFT_Y = 0.025;
-// Visual family with the ocean (client-map-3d-water-surface.ts's
-// DEEP_COLOR/SHALLOW_COLOR) without importing that module's heavier
-// dual-normal-map material — a thin land ribbon at close camera range
-// doesn't need the ocean's animated chop.
-const RIVER_COLOR = new Color(0x3f7fa0);
+// How far either side of a v9 centreline sample to look for "the tile on
+// each side of the river" (the centreline hugs the tile border).
+const RIVER_SIDE_PROBE = 0.3;
 
 const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   const terrain = terrainAt(wx, wy);
@@ -139,19 +131,8 @@ type RibbonLayer = {
   indices: number[];
 };
 
-const createRibbonLayer = (color: Color, opacity: number, roughness: number, renderOrder: number): RibbonLayer => ({
-  material: new MeshStandardMaterial({
-    color,
-    roughness,
-    metalness: 0.0,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-    side: DoubleSide
-  }),
+const createRibbonLayer = (material: MeshStandardMaterial, renderOrder: number): RibbonLayer => ({
+  material,
   renderOrder,
   mesh: null,
   geometry: null,
@@ -186,17 +167,41 @@ const TAU = Math.PI * 2;
 
 export type RiverOverlayDeps = {
   // v9 rivers carve a valley mesh matched to the heightfield's rendered
-  // surface and drawn with its terrain material.
+  // surface and drawn with its terrain material; v1-v8 strips are draped
+  // on that same surface.
   readonly heightfield: Pick<Heightfield, "cornerYAt" | "cornerAttributesAt" | "material">;
-  // v9 river water uses the ocean's animated material
-  // (client-map-3d-water-surface.ts), so it ripples and shines like the sea.
-  readonly waterMaterial: Material;
+};
+
+/**
+ * v9 water culling: keep a centreline sample only when the tiles on *both*
+ * sides of the river are explored and inside the heightfield's window.
+ * Checking one tile let water hang over the unexplored void at the fog edge.
+ */
+export const isRiverSampleDrawable = (
+  x: number,
+  z: number,
+  normalX: number,
+  normalZ: number,
+  camX: number,
+  camY: number,
+  tileWindow: HeightfieldTileWindow,
+  isExploredAt: (wx: number, wy: number) => boolean
+): boolean => {
+  for (const side of [-RIVER_SIDE_PROBE, RIVER_SIDE_PROBE]) {
+    const dx = Math.floor(x + normalX * side);
+    const dz = Math.floor(z + normalZ * side);
+    if (!isInHeightfieldTileWindow(tileWindow, dx, dz)) return false;
+    if (!isExploredAt(wrap(camX + dx, WORLD_WIDTH), wrap(camY + dz, WORLD_HEIGHT))) return false;
+  }
+  return true;
 };
 
 export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverOverlay => {
-  const { heightfield, waterMaterial } = deps;
-  // v1-v8: the original flat ribbon floated over the tile centres.
-  const water = createRibbonLayer(RIVER_COLOR, 0.82, 0.32, 5);
+  const { heightfield } = deps;
+  // v1-v8: flat strip through the tile centres, draped on the ground.
+  const water = createRibbonLayer(createRiverWaterMaterial(false), RENDER_ORDER.riverWater);
+  // v9: the river's own water material (RGBA vertex colours).
+  const waterMaterial = createRiverWaterMaterial(true);
   // v9: carved valley terrain + real water.
   const valley = createRiverValley(scene, heightfield.material);
   let riverWaterMesh: Mesh | null = null;
@@ -208,11 +213,19 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     riverWaterGeometry = null;
   };
 
-  // Without accounting for nearby terrain (see maxNearbyElevation above),
-  // the ribbon rendered underground for a stretch near every mountain
-  // source, reading as the river getting "cut off" right where it should
-  // visibly begin.
-  const surfaceYAt = (wx: number, wy: number): number => maxNearbyElevation(wx, wy, kindAt) + SURFACE_LIFT_Y;
+  // v1-v8 strip height: draped exactly on the rendered heightfield (it used
+  // to float at the highest nearby tile's elevation -- maxNearbyElevation --
+  // visibly hovering wherever the ground dipped). Hills tiles are a separate
+  // dome mesh the heightfield doesn't know about, so they keep that bound.
+  // Never below the sea surface, so the mouth meets the ocean flush.
+  const surfaceYAt = (sceneX: number, sceneZ: number, camX: number, camY: number): number => {
+    const wx = wrap(Math.floor(camX + sceneX), WORLD_WIDTH);
+    const wy = wrap(Math.floor(camY + sceneZ), WORLD_HEIGHT);
+    const ground = isHillsTileAt(wx, wy)
+      ? maxNearbyElevation(wx, wy, kindAt)
+      : heightfieldSurfaceY(sceneX, sceneZ, camX, camY, heightfield.cornerYAt);
+    return Math.max(ground, WATER_SURFACE_Y) + SURFACE_LIFT_Y;
+  };
 
   // v9: centrelines from runs of path points near the camera (camera-
   // relative coords wrap, so a whole path far across the world could jump
@@ -223,6 +236,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     camY: number,
     marginW: number,
     marginH: number,
+    tileWindow: HeightfieldTileWindow,
     isExploredAt: (wx: number, wy: number) => boolean
   ): void => {
     const reachW = marginW + 2;
@@ -252,8 +266,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     }
     if (centerlines.length === 0) return;
 
-    // Valley tiles: every explored land tile touching a river corner in view
-    // -- exactly the tiles the heightfield leaves out for us.
+    // Valley tiles: every explored land tile touching a river corner inside
+    // the heightfield's own window -- exactly the tiles it leaves out for us.
     const tiles: RiverValleyTile[] = [];
     const seen = new Set<number>();
     for (const cornerIndex of riverCornerWidthsForCurrentSeed().keys()) {
@@ -268,6 +282,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
         const key = wz * WORLD_WIDTH + wx;
         if (seen.has(key)) continue;
         seen.add(key);
+        if (!isInHeightfieldTileWindow(tileWindow, sx + dx, sz + dz)) continue;
         if (terrainAt(wx, wz) !== "LAND" || !isExploredAt(wx, wz)) continue;
         tiles.push({ sceneX: sx + dx, sceneZ: sz + dz, worldX: wx, worldZ: wz, worldX1: wrap(wx + 1, WORLD_WIDTH), worldZ1: wrap(wz + 1, WORLD_HEIGHT) });
       }
@@ -283,32 +298,34 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
 
     // Water: level across the channel at the trench's water line, never
     // below the sea's own surface (the river mouth meets the ocean flush).
-    const buffers: WaterBuffers = { positions: [], colors: [], uvs: [], indices: [] };
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
     const waterYAt = (x: number, z: number): number =>
       Math.max(heightfieldSurfaceY(x, z, camX, camY, heightfield.cornerYAt) - RIVER_WATER_DEPTH, WATER_SURFACE_Y);
-    const uvAt = (x: number, z: number): readonly [number, number] => [x / UV_WORLD_SCALE, z / UV_WORLD_SCALE];
     for (const line of centerlines) {
       let run: ChannelPathPoint[] = [];
-      for (const p of line) {
-        const visible = Math.abs(p.x) <= marginW && Math.abs(p.z) <= marginH && isExploredAt(wrap(Math.floor(camX + p.x), WORLD_WIDTH), wrap(Math.floor(camY + p.z), WORLD_HEIGHT));
-        if (visible) run.push(p);
+      line.forEach((p, i) => {
+        const prev = line[Math.max(0, i - 1)]!;
+        const next = line[Math.min(line.length - 1, i + 1)]!;
+        const tlen = Math.hypot(next.x - prev.x, next.z - prev.z) || 1;
+        const nx = -(next.z - prev.z) / tlen;
+        const nz = (next.x - prev.x) / tlen;
+        if (isRiverSampleDrawable(p.x, p.z, nx, nz, camX, camY, tileWindow, isExploredAt)) run.push(p);
         else {
-          appendWater(buffers, run, waterYAt, uvAt);
+          appendWater(buffers, run, waterYAt);
           run = [];
         }
-      }
-      appendWater(buffers, run, waterYAt, uvAt);
+      });
+      appendWater(buffers, run, waterYAt);
     }
     if (buffers.positions.length === 0) return;
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(new Float32Array(buffers.positions), 3));
-    geometry.setAttribute("color", new BufferAttribute(new Float32Array(buffers.colors), 3));
-    geometry.setAttribute("uv", new BufferAttribute(new Float32Array(buffers.uvs), 2));
+    geometry.setAttribute("color", new BufferAttribute(new Float32Array(buffers.colors), 4));
     geometry.setIndex(buffers.indices);
     geometry.computeVertexNormals();
     const mesh = new Mesh(geometry, waterMaterial);
     mesh.frustumCulled = false;
-    mesh.renderOrder = 12; // same as the ocean surface
+    mesh.renderOrder = RENDER_ORDER.riverWater; // above ownership fill, below fog-darken
     scene.add(mesh);
     riverWaterGeometry = geometry;
     riverWaterMesh = mesh;
@@ -339,12 +356,12 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     };
 
     if (edgeRiversActive()) {
-      rebuildEdgeRivers(camX, camY, marginW, marginH, isExploredAt);
+      rebuildEdgeRivers(camX, camY, marginW, marginH, heightfieldTileWindow(halfW, halfH), isExploredAt);
       return;
     }
 
-    type ScenePoint = { readonly x: number; readonly z: number; readonly y: number; readonly halfWidth: number };
-    type StripVertex = { readonly leftX: number; readonly leftZ: number; readonly rightX: number; readonly rightZ: number; readonly y: number };
+    type ScenePoint = { readonly x: number; readonly z: number; readonly halfWidth: number };
+    type StripVertex = { readonly leftX: number; readonly leftZ: number; readonly rightX: number; readonly rightZ: number; readonly leftY: number; readonly rightY: number };
 
     // Left/right offsets are computed from the *full* path's neighbours
     // before any view/fog culling, not from a run truncated by that culling.
@@ -361,7 +378,11 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       const cur = points[i]!;
       const px = (-tz / tlen) * cur.halfWidth;
       const pz = (tx / tlen) * cur.halfWidth;
-      return { leftX: cur.x - px, leftZ: cur.z - pz, rightX: cur.x + px, rightZ: cur.z + pz, y: cur.y };
+      const leftX = cur.x - px;
+      const leftZ = cur.z - pz;
+      const rightX = cur.x + px;
+      const rightZ = cur.z + pz;
+      return { leftX, leftZ, rightX, rightZ, leftY: surfaceYAt(leftX, leftZ, camX, camY), rightY: surfaceYAt(rightX, rightZ, camX, camY) };
     };
 
     // Sharing a vertex between consecutive segments (rather than each
@@ -371,7 +392,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     const pushRibbonStrip = (run: readonly StripVertex[]): void => {
       if (run.length < 2) return;
       const base = water.positions.length / 3;
-      for (const v of run) water.positions.push(v.leftX, v.y, v.leftZ, v.rightX, v.y, v.rightZ);
+      for (const v of run) water.positions.push(v.leftX, v.leftY, v.leftZ, v.rightX, v.rightY, v.rightZ);
       for (let i = 0; i < run.length - 1; i += 1) {
         const li = base + i * 2;
         const ri = li + 1;
@@ -385,7 +406,6 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       const scenePoints = path.map((p) => ({
         x: toroidDelta(camX, p.wx, WORLD_WIDTH),
         z: toroidDelta(camY, p.wy, WORLD_HEIGHT),
-        y: surfaceYAt(p.wx, p.wy),
         halfWidth: p.halfWidth
       }));
       const keep = keepMask(path, scenePoints);
@@ -409,8 +429,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     clearRiverWater();
     valley.dispose();
     water.material.dispose();
-    // waterMaterial belongs to the ocean surface and the valley shares the
-    // heightfield's material -- both are disposed by their owners.
+    waterMaterial.dispose();
+    // The valley shares the heightfield's material -- disposed by its owner.
   };
 
   return { rebuild, dispose };

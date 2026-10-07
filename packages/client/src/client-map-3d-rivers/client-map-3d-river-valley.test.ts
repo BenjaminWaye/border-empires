@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
 import { createHeightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { createRiverValley } from "./client-map-3d-river-valley.js";
-import { indexCenterlines, TRENCH_DEPTH } from "./client-map-3d-rivers-channel.js";
+import { createRiverValley, riverBankColor } from "./client-map-3d-river-valley.js";
+import { indexCenterlines, RIVER_WATER_DEPTH, TRENCH_DEPTH } from "./client-map-3d-rivers-channel.js";
 
 const GROUND = 0.18;
 const flatCorner = (_x: number, _z: number, out: HeightfieldCornerAttributes): boolean => {
@@ -56,5 +56,18 @@ describe("v9 river valley terrain", () => {
     for (let i = 0; i <= n; i += 1) expect(yAt(i, n)).toBeCloseTo(GROUND, 6);
     valley.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+  it("darkens the lower bank into a wet band at the waterline, leaving untouched ground alone", () => {
+    // Regression: with no waterline cue the water read as floating on top.
+    const base: readonly [number, number, number] = [0.4, 0.6, 0.3];
+    const out: [number, number, number] = [0, 0, 0];
+    riverBankColor(base, 0, out);
+    expect(out).toEqual([0.4, 0.6, 0.3]);
+    const lum = (c: readonly number[]): number => c[0]! + c[1]! + c[2]!;
+    riverBankColor(base, RIVER_WATER_DEPTH * 0.3, out);
+    const upperBank = lum(out);
+    riverBankColor(base, RIVER_WATER_DEPTH, out);
+    const waterline = lum(out);
+    expect(waterline).toBeLessThan(upperBank * 0.5);
   });
 });

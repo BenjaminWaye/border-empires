@@ -25,11 +25,10 @@ const positionsOf = (mesh: Mesh | undefined): Float32Array | undefined => {
   return (geometry.getAttribute("position").array as Float32Array).slice();
 };
 
-// v1-v8 rivers ignore the heightfield entirely (they float above the highest
-// nearby tile); v9 edge rivers carve a valley matched to its rendered corners
-// and draw water with the ocean's material.
+// v1-v8 rivers are draped on the heightfield's rendered surface; v9 edge
+// rivers carve a valley matched to its rendered corners and draw water with
+// the river's own material.
 const TERRAIN_MATERIAL = new MeshStandardMaterial();
-const WATER_MATERIAL = new MeshStandardMaterial();
 const stubDeps = (cornerY = 0): RiverOverlayDeps => ({
   heightfield: {
     material: TERRAIN_MATERIAL,
@@ -38,8 +37,7 @@ const stubDeps = (cornerY = 0): RiverOverlayDeps => ({
       Object.assign(out, { y: cornerY, r: 0.4, g: 0.6, b: 0.3, forestZone: 0, tundraZone: 0 });
       return true;
     }
-  },
-  waterMaterial: WATER_MATERIAL
+  }
 });
 
 describe("decorative river overlay", () => {
@@ -302,7 +300,7 @@ describe("decorative river overlay", () => {
     }
   });
 
-  it("v9 carves a valley mesh (terrain material) and fills it with real water (the ocean's material); v8 keeps its plain ribbon", () => {
+  it("v9 carves a valley mesh (terrain material) and fills it with the river's own opaque water; v8 keeps its plain ribbon", () => {
     const meshes = (scene: Scene): Mesh[] => scene.children.filter((child): child is Mesh => child instanceof Mesh);
     const GROUND_Y = 0.18;
     setWorldSeed(555, "continents", 9);
@@ -310,7 +308,7 @@ describe("decorative river overlay", () => {
     const v9 = createRiverOverlay(v9Scene, stubDeps(GROUND_Y));
     v9.rebuild(WIDE_WINDOW);
     const valleyMesh = meshes(v9Scene).find((m) => m.material === TERRAIN_MATERIAL);
-    const waterMesh = meshes(v9Scene).find((m) => m.material === WATER_MATERIAL);
+    const waterMesh = meshes(v9Scene).find((m) => m.material !== TERRAIN_MATERIAL);
     expect(valleyMesh && waterMesh).toBeTruthy();
     // The valley really is carved: some of its vertices sit below the ground.
     const valleyPos = (valleyMesh!.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
@@ -330,7 +328,7 @@ describe("decorative river overlay", () => {
     const v8 = createRiverOverlay(v8Scene, stubDeps());
     v8.rebuild(WIDE_WINDOW);
     expect(meshes(v8Scene)).toHaveLength(1);
-    expect(meshes(v8Scene)[0]!.material).not.toBe(WATER_MATERIAL);
+    expect(meshes(v8Scene)[0]!.material).not.toBe(TERRAIN_MATERIAL);
     v8.dispose();
   });
 });

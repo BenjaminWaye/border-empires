@@ -5,6 +5,9 @@ import {
   heightfieldSurfaceY,
   indexCenterlines,
   nearestOnSegments,
+  channelCenterline,
+  MAX_CHANNEL_HALF_WIDTH,
+  RIVER_BANK_REACH,
   RIVER_WATER_DEPTH,
   riverTrenchDepth,
   riverWaterHalfWidth,
@@ -50,12 +53,33 @@ describe("v9 river channel geometry", () => {
     expect(riverTrenchDepth(edge + 0.03, hw)).toBeLessThan(RIVER_WATER_DEPTH);
   });
 
-  it("builds a level water strip (edge, middle, edge) per centreline sample", () => {
-    const buffers: WaterBuffers = { positions: [], colors: [], uvs: [], indices: [] };
-    appendWater(buffers, [p(0, 0), p(1, 0), p(2, 0)], () => -0.02, (x, z) => [x, z]);
-    expect(buffers.positions.length / 3).toBe(9);
+  it("builds a level water strip, five vertices across, opaque core and soft edges", () => {
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendWater(buffers, [p(0, 0), p(1, 0), p(2, 0)], () => -0.02);
+    expect(buffers.positions.length / 3).toBe(15);
     for (let i = 1; i < buffers.positions.length; i += 3) expect(buffers.positions[i]).toBe(-0.02);
-    expect(buffers.indices.length).toBe(2 * 2 * 6);
+    expect(buffers.indices.length).toBe(2 * 4 * 6);
+    // RGBA per vertex. Regression: the old water was see-through everywhere
+    // (ocean material at 0.78 opacity), reading as a film over the ground.
+    expect(buffers.colors.length).toBe(15 * 4);
+    const alphas = buffers.colors.filter((_, i) => i % 4 === 3);
+    expect(alphas.slice(0, 5)).toEqual([alphas[0], 1, 1, 1, alphas[4]]);
+    expect(alphas[0]).toBeLessThan(1);
+  });
+
+  it("keeps trench, bank and water within RIVER_BANK_REACH of the border, so they never reach tile centres", () => {
+    // Regression: the widest water reached ~0.34 tile from the border, so
+    // trees and towns at river-adjacent tile centres stood in the river.
+    expect(RIVER_BANK_REACH).toBeLessThanOrEqual(0.3);
+    const line = channelCenterline([p(0, 0, 0.24), p(1, 0, 0.24), p(2, 0, 0.24)], 0, false);
+    for (const q of line) {
+      expect(q.halfWidth).toBeLessThanOrEqual(MAX_CHANNEL_HALF_WIDTH);
+      expect(riverWaterHalfWidth(q.halfWidth)).toBeLessThan(RIVER_BANK_REACH);
+      expect(riverTrenchDepth(RIVER_BANK_REACH, q.halfWidth)).toBe(0);
+    }
+    // Taper is kept: a narrow source stays narrower than the mouth.
+    const narrow = channelCenterline([p(0, 0, 0.1), p(1, 0, 0.1), p(2, 0, 0.1)], 0, false);
+    expect(narrow[1]!.halfWidth).toBeLessThan(line[1]!.halfWidth);
   });
 
   it("finds the nearest centreline segment near a tile, and its width", () => {

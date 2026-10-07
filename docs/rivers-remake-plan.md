@@ -193,6 +193,39 @@ for v9 (staging) and v8 (prod):
   overlap rings, no trees/towns standing in water.
 - Changelog entry.
 
+1a implementation (file by file):
+
+1. `client-map-3d-render-order.ts` (new): named render-order constants for
+   ownership (6/7), river water (8) and fog-darken (9/10), plus markers.
+   `createOwnershipOverlay` takes an optional render-order override; the two
+   fog overlays (both multiply blends, so their order relative to each other
+   doesn't matter) move to 9/10, above the water.
+2. `client-map-3d-river-water-material.ts` (new): dedicated
+   `MeshStandardMaterial`, RGBA vertex colours (opaque core, soft alpha only
+   at the outer edge), `depthWrite: true`. `appendWater` emits five
+   vertices across the channel instead of three so the core stays opaque.
+   The ocean material is no longer passed in.
+3. `client-map-3d-rivers-channel.ts`: cap the rendered half-width
+   (`MAX_CHANNEL_HALF_WIDTH`) and narrow `BANK_WIDTH` so trench + bank stays
+   within 0.30 tile of the border; dark wet band in the valley colours just
+   above the waterline (`client-map-3d-river-valley.ts`).
+4. Culling: `client-map-3d-heightfield-window.ts` (new) is the single
+   source for the heightfield's tile window; the heightfield, the valley
+   patches and the water all use it (the valley used to reach 3 tiles past
+   it). A water sample is kept only when the tiles on *both* sides of the
+   centreline are explored and inside that window.
+5. v8 ribbon: same river material and render order; vertices draped on
+   `heightfieldSurfaceY` (+ small lift) instead of the `maxNearbyElevation`
+   upper bound, keeping that bound only on hills tiles (separate dome mesh).
+6. Trees: forest and tropical-forest layouts skip any tree within the bank
+   reach of a river edge of its tile (v9 only; v8 has no edge rivers).
+7. 2D: new water/bank colours; after the live ownership tint, the tile's
+   river water is drawn again so territory no longer hides it (helper
+   extracted from `client-runtime-loop.ts` so that file shrinks). 2D
+   already draws only the explored tile's own half of the channel, so it
+   has no void-hanging pieces to cull.
+8. Changelog entry; tests beside each module.
+
 1b (the rest of Phase 1) then replaces the valley patches with the draped
 ribbon. Banks get their slope from per-vertex normals tilted away from the
 water (lit like a bank, no geometry moved), so the recessed look survives

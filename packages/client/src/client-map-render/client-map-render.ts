@@ -15,7 +15,7 @@ import {
   overlaySrc,
   structureOverlayImages
 } from "./client-map-overlay-images.js";
-import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { RoadDirections } from "../client-road-network/client-road-network.js";
@@ -25,7 +25,8 @@ export { dockOverlayVariants, structureOverlayImages } from "./client-map-overla
 
 type TileMap = Map<string, Tile>;
 
-export const useTerrainReliefRenderer = isCanvasReliefRendererMode;
+export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
+import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -78,13 +79,6 @@ const shardOverlayVariants = {
   FALL: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"])
 } as const;
 
-export const terrainReliefPx = (wx: number, wy: number, terrain: Tile["terrain"], size: number): number => {
-  if (terrain === "SEA" || terrain === "COASTAL_SEA") return Math.max(1, Math.floor(size * 0.08));
-  if (terrain === "MOUNTAIN") return Math.max(3, Math.floor(size * 0.3));
-  const groupedNoise = Math.abs(Math.sin(wx * 0.77 + wy * 1.13) + Math.cos(wx * 0.51 - wy * 0.89)) * 0.5;
-  const base = size * (0.15 + groupedNoise * 0.11);
-  return Math.max(2, Math.floor(base));
-};
 export const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
   const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
   return hash % count;

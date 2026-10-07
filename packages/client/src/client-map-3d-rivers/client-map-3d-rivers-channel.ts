@@ -10,6 +10,7 @@
 // with a flat bed and sloping banks) and to decide where the water sits.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
+import { RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
 
 /** A path point in camera-relative scene coords (x/z) with its river half-width. */
 export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number };
@@ -20,14 +21,28 @@ const MAX_SAMPLE_SPACING = 0.2;
 const WOBBLE_AMPLITUDE = 0.05;
 const SOURCE_TAPER_LENGTH = 1.5;
 
+// Rendered width. Worldgen half-widths run 0.1 (source) to 0.24 (mouth);
+// drawn at that size the water reached ~0.34 tile into river-adjacent tiles,
+// where towns and trees stand. Scaled (keeping the taper) and capped so the
+// whole trench + bank stays within RIVER_BANK_REACH of the border.
+const RENDER_HALF_WIDTH_SCALE = 0.75;
+export const MAX_CHANNEL_HALF_WIDTH = 0.18;
+
 // Trench profile. The bed is flat out to BED_FRACTION of the half-width,
 // then the bank rises smoothly to ground level BANK_WIDTH beyond the
-// half-width. The whole trench (widest river: 0.24 + 0.22) stays well under
-// the ~0.95 distance between a river and the nearest tile edge the valley
-// mesh shares with regular terrain, so those shared edges are never carved.
+// half-width. The whole trench (at most MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH)
+// stays well under the ~0.95 distance between a river and the nearest tile
+// edge the valley mesh shares with regular terrain, so those shared edges
+// are never carved.
 export const TRENCH_DEPTH = 0.16;
 const BED_FRACTION = 0.8;
-const BANK_WIDTH = 0.22;
+const BANK_WIDTH = 0.12;
+/** Furthest any river trench or bank reaches from its centreline (tile units). */
+export const RIVER_BANK_REACH = MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH;
+
+/** Worldgen half-width -> rendered half-width (scaled, capped). */
+export const renderedChannelHalfWidth = (halfWidth: number): number =>
+  Math.min(MAX_CHANNEL_HALF_WIDTH, halfWidth * RENDER_HALF_WIDTH_SCALE);
 // Water fills the trench to this fraction of its depth, so the upper bank
 // stays visible above the waterline.
 const WATER_FILL = 0.45;
@@ -150,7 +165,7 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
     const endFade = i === 0 || i === dense.length - 1 ? 0 : 1;
     const wobble = endFade * WOBBLE_AMPLITUDE * (Math.sin(arc * 2.1 + phase) * 0.7 + Math.sin(arc * 5.3 + phase * 1.7) * 0.3);
     const taper = isSource ? Math.min(1, 0.35 + (0.65 * arc) / SOURCE_TAPER_LENGTH) : 1;
-    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth: p.halfWidth * taper };
+    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth: renderedChannelHalfWidth(p.halfWidth) * taper };
   });
 };
 
@@ -215,23 +230,29 @@ export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPath
   return { segmentsNearTile };
 };
 
-export type WaterBuffers = { positions: number[]; colors: number[]; uvs: number[]; indices: number[] };
+export type WaterBuffers = { positions: number[]; colors: number[]; indices: number[] };
 
-// Water colours sit in the ocean's palette (client-map-3d-water-surface.ts
-// DEEP_COLOR/SHALLOW_COLOR) -- it's drawn with the ocean's own material.
-const WATER_MID: readonly [number, number, number] = [0.16, 0.39, 0.5];
-const WATER_EDGE: readonly [number, number, number] = [0.33, 0.62, 0.68];
+// Across the channel, as fractions of the water half-width: edge, shallow,
+// centre, shallow, edge. The core three are opaque; only the edges fade,
+// so the water reads as solid with a soft waterline.
+const WATER_COLUMNS: ReadonlyArray<readonly [number, Rgba]> = [
+  [-1, RIVER_WATER_EDGE],
+  [-0.6, RIVER_WATER_SHALLOW],
+  [0, RIVER_WATER_CORE],
+  [0.6, RIVER_WATER_SHALLOW],
+  [1, RIVER_WATER_EDGE]
+];
+const WATER_COLUMN_COUNT = WATER_COLUMNS.length;
 
 /**
  * Appends a flat water strip along `run` (a centreline run, scene coords):
- * three vertices per sample (edge, middle, edge), level across the channel
- * at `waterYAt(centre)`, with world-anchored UVs for the ocean's normal maps.
+ * WATER_COLUMN_COUNT vertices per sample, level across the channel at
+ * `waterYAt(centre)`, with RGBA colours (opaque core, soft edges).
  */
 export const appendWater = (
   buffers: WaterBuffers,
   run: readonly ChannelPathPoint[],
-  waterYAt: (sceneX: number, sceneZ: number) => number,
-  uvAt: (sceneX: number, sceneZ: number) => readonly [number, number]
+  waterYAt: (sceneX: number, sceneZ: number) => number
 ): void => {
   if (run.length < 2) return;
   const base = buffers.positions.length / 3;
@@ -246,20 +267,16 @@ export const appendWater = (
     const nx = (-tz / tlen) * w;
     const nz = (tx / tlen) * w;
     const y = waterYAt(cur.x, cur.z);
-    for (const [ox, oz, color] of [[-nx, -nz, WATER_EDGE], [0, 0, WATER_MID], [nx, nz, WATER_EDGE]] as const) {
-      const x = cur.x + ox;
-      const z = cur.z + oz;
-      buffers.positions.push(x, y, z);
-      buffers.colors.push(color[0], color[1], color[2]);
-      const [u, v] = uvAt(x, z);
-      buffers.uvs.push(u, v);
+    for (const [f, color] of WATER_COLUMNS) {
+      buffers.positions.push(cur.x + nx * f, y, cur.z + nz * f);
+      buffers.colors.push(color[0], color[1], color[2], color[3]);
     }
   }
   for (let i = 0; i + 1 < run.length; i += 1) {
-    for (let k = 0; k < 2; k += 1) {
-      const a = base + i * 3 + k;
+    for (let k = 0; k + 1 < WATER_COLUMN_COUNT; k += 1) {
+      const a = base + i * WATER_COLUMN_COUNT + k;
       const b = a + 1;
-      const c = a + 3;
+      const c = a + WATER_COLUMN_COUNT;
       const d = c + 1;
       buffers.indices.push(a, c, b, b, c, d);
     }

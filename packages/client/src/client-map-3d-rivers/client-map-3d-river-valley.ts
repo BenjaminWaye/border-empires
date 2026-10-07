@@ -13,12 +13,12 @@
 // Seamless by construction: the patch surface *is* the heightfield surface
 // wherever the trench depth is 0, and the trench never reaches a tile edge
 // shared with a regular (non-valley) tile -- such an edge is ~1 tile from
-// the river, the trench at most ~0.46 wide. Patch vertex colours/masks are
+// the river, the trench at most RIVER_BANK_REACH (0.3) wide. Patch vertex colours/masks are
 // interpolated from the heightfield's rendered corners (cornerAttributesAt),
 // so textures and tints match too.
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { heightfieldSurfaceY, nearestOnSegments, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
+import { heightfieldSurfaceY, nearestOnSegments, RIVER_WATER_DEPTH, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
 
 const SUBDIVISIONS = 8;
 // A patch edge has SUBDIVISIONS+1 vertices where the neighbouring regular
@@ -31,6 +31,30 @@ const SKIRT_DROP = 0.002;
 const MUD: readonly [number, number, number] = [0.3, 0.26, 0.16];
 const MUD_MIX = 0.8;
 const MUD_RAMP = 0.45;
+// Waterline cue: a dark wet band on the lower bank, just above the water.
+// Without it nothing told the eye the water sits below the ground, so it
+// read as a film floating on top (docs/rivers-remake-plan.md, Phase 0).
+const WET_BANK: readonly [number, number, number] = [0.11, 0.1, 0.07];
+const WET_BANK_MIX = 0.6;
+const WET_BANK_START = 0.45; // fraction of the water depth where the band begins
+
+const smooth01 = (t: number): number => {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+};
+
+/** Bank colour for a valley vertex `depth` below the ground (writes into `out`). */
+/** How much a valley vertex `depth` below the ground is mud (0..MUD_MIX). */
+export const riverMudAmount = (depth: number): number => smooth01(depth / (TRENCH_DEPTH * MUD_RAMP)) * MUD_MIX;
+
+export const riverBankColor = (base: readonly [number, number, number], depth: number, out: [number, number, number]): void => {
+  const mud = riverMudAmount(depth);
+  const wetLine = smooth01((depth - RIVER_WATER_DEPTH * WET_BANK_START) / (RIVER_WATER_DEPTH * (1 - WET_BANK_START))) * WET_BANK_MIX;
+  for (let k = 0; k < 3; k += 1) {
+    const muddy = base[k]! * (1 - mud) + MUD[k]! * mud;
+    out[k] = muddy * (1 - wetLine) + WET_BANK[k]! * wetLine;
+  }
+};
 
 export type RiverValleyTile = {
   /** Tile's top-left corner in camera-relative scene coords. */
@@ -73,6 +97,8 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
   let mesh: Mesh | null = null;
   let geometry: BufferGeometry | null = null;
   const corners: CornerSet = [blankCorner(), blankCorner(), blankCorner(), blankCorner()];
+  const baseColor: [number, number, number] = [0, 0, 0];
+  const bankColor: [number, number, number] = [0, 0, 0];
 
   const clear = (): void => {
     if (mesh) scene.remove(mesh);
@@ -153,16 +179,18 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
           normals[vi * 3] = nx / nlen;
           normals[vi * 3 + 1] = ny / nlen;
           normals[vi * 3 + 2] = nz / nlen;
-          const wet = Math.min(1, depth / (TRENCH_DEPTH * MUD_RAMP));
-          const mud = wet * wet * (3 - 2 * wet) * MUD_MIX;
-          colors[vi * 3] = triLerp(corners, "r", u, v) * (1 - mud) + MUD[0] * mud;
-          colors[vi * 3 + 1] = triLerp(corners, "g", u, v) * (1 - mud) + MUD[1] * mud;
-          colors[vi * 3 + 2] = triLerp(corners, "b", u, v) * (1 - mud) + MUD[2] * mud;
+          baseColor[0] = triLerp(corners, "r", u, v);
+          baseColor[1] = triLerp(corners, "g", u, v);
+          baseColor[2] = triLerp(corners, "b", u, v);
+          riverBankColor(baseColor, depth, bankColor);
+          colors[vi * 3] = bankColor[0];
+          colors[vi * 3 + 1] = bankColor[1];
+          colors[vi * 3 + 2] = bankColor[2];
           // World-anchored UVs, like the heightfield's, so the painted
           // terrain textures continue across the patch boundary.
           uvs[vi * 2] = camX + x;
           uvs[vi * 2 + 1] = camY + z;
-          forestZones[vi] = triLerp(corners, "forestZone", u, v) * (1 - mud);
+          forestZones[vi] = triLerp(corners, "forestZone", u, v) * (1 - riverMudAmount(depth));
           tundraZones[vi] = triLerp(corners, "tundraZone", u, v);
           rockZones[vi] = 0;
           vi += 1;

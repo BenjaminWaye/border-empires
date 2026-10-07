@@ -251,6 +251,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
     ]
   },
+  {
+    createdAt: 1791401674856, // frozen Date.now() value for this release
+    introducedIn: "2026.10.07.2",
+    title: "Rivers look like water again",
+    why: "River water was a pale see-through film drawn on top of everything, so it looked like it floated over the land, glowed through fog, and hung off the edge of explored land.",
+    changes: [
+      "River water is now a solid deep blue-teal with a dark wet bank along the waterline, so it sits down in the land",
+      "Territory colour stops at the riverbank instead of covering or bleaching the water, in both 3D and 2D",
+      "Fog now darkens rivers like the land around them",
+      "No more river pieces hanging into unexplored space at the fog edge",
+      "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
