@@ -4,12 +4,11 @@
 // module reads world-gen state (terrainAt/landBiomeAt) but never writes
 // anything, and nothing outside this file and its one wiring point in
 // client-map-3d.ts knows rivers exist. Deleting both is a full revert.
-import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
+import { BufferAttribute, BufferGeometry, type Material, Mesh, MeshStandardMaterial, Scene } from "three";
 import {
   edgeRiversActive,
   isHillsTileAt,
   riverCornerWidthsForCurrentSeed,
-  landBiomeAt,
   riversForCurrentSeed,
   smoothRiverPath,
   terrainAt,
@@ -18,12 +17,8 @@ import {
   type RiverPath,
   type RiverPoint
 } from "@border-empires/shared";
-import {
-  heightfieldFlatTileElevation,
-  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
-  wrap,
-  type HeightfieldTerrainKind
-} from "../client-map-3d-heightfield-terrain.js";
+import { wrap } from "../client-map-3d-heightfield-terrain.js";
+import { kindAt, maxNearbyElevation } from "./client-map-3d-river-nearby-elevation.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import {
   appendWater,
@@ -31,13 +26,15 @@ import {
   heightfieldSurfaceY,
   indexCenterlines,
   RIVER_WATER_DEPTH,
+  riverDescentScale,
   type ChannelPathPoint,
   type WaterBuffers,
   type WaterSides
 } from "./client-map-3d-rivers-channel.js";
 import { createRiverValley, type RiverValleyTile } from "./client-map-3d-river-valley.js";
 import { createRiverWaterMaterial } from "./client-map-3d-river-water-material.js";
-import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner } from "./client-map-3d-river-edge-water.js";
+import { appendBank, createRiverBankMaterial } from "./client-map-3d-river-bank-strip.js";
+import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow, type HeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
@@ -47,64 +44,13 @@ export type { RiverPath, RiverPoint };
 // Re-exported for the existing test suite (smoothRiverPath is exercised
 // directly there) and any other client-side consumer that imported it from
 // this module before path generation moved to @border-empires/shared.
-export { smoothRiverPath };
+export { smoothRiverPath, maxNearbyElevation };
 
 // Lift above the real ground surface — same "surface lift to win the depth
 // test against sloped terrain" technique as client-map-3d-contact-shadow.
 const SURFACE_LIFT_Y = 0.025;
 // How far above the sea surface the end of a v9 river mouth sits.
 const MOUTH_LIFT_Y = 0.004;
-
-const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
-  const terrain = terrainAt(wx, wy);
-  if (terrain === "SEA") return "SEA";
-  if (terrain === "COASTAL_SEA") return "COASTAL_SEA";
-  if (terrain === "MOUNTAIN") return "MOUNTAIN";
-  const biome = landBiomeAt(wx, wy);
-  if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
-  if (biome === "TUNDRA") return "TUNDRA";
-  return "GRASS";
-};
-
-// The real heightfield renders each *corner* as an average of its 4
-// surrounding tiles' elevations (client-map-3d-heightfield.ts), not a
-// single tile's own value — so a point sitting one tile from a MOUNTAIN
-// (elevation ~1.15, vs. ~0.07-0.20 for flat land) can have a real rendered
-// ground surface well above what heightfieldFlatTileElevation reports for
-// its own tile alone. Taking the max elevation over the tile and its 8
-// neighbours is a safe upper bound for any corner blend touching this point
-// — corner averaging can never exceed the highest contributing tile.
-// Exported (rather than a private closure) so this can be tested with a
-// synthetic tileKindAt, the same injection pattern client-map-3d-heightfield
-// tests already use, instead of needing real world-gen state.
-export const maxNearbyElevation = (
-  wx: number,
-  wy: number,
-  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind,
-  // Hills are a dome mesh bolted on top of the flat grid (see
-  // client-map-3d-hills.ts), invisible to heightfieldFlatTileElevation —
-  // without this bonus the river ribbon renders under the dome bulge
-  // wherever its path crosses a hills tile. Injectable (like tileKindAt
-  // above) so this stays testable with synthetic tile state instead of
-  // needing real world-gen.
-  isHillsAt: (wx: number, wy: number) => boolean = isHillsTileAt
-): number => {
-  const tx = Math.floor(wx);
-  const ty = Math.floor(wy);
-  let maxElevation = Number.NEGATIVE_INFINITY;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      const nx = wrap(tx + dx, WORLD_WIDTH);
-      const ny = wrap(ty + dy, WORLD_HEIGHT);
-      const kind = tileKindAt(nx, ny);
-      if (kind === "SEA" || kind === "COASTAL_SEA") continue;
-      const elevation =
-        heightfieldFlatTileElevation(nx, ny, kind) + (isHillsAt(nx, ny) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0);
-      if (elevation > maxElevation) maxElevation = elevation;
-    }
-  }
-  return maxElevation;
-};
 
 export type RiverOverlayRebuildInputs = {
   readonly camX: number;
@@ -186,6 +132,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
   // ocean's animated surface dips below it in places, and a depth-writing
   // plume hid the ocean there and left a dark hole in the sea.
   const mouthMaterial = createRiverWaterMaterial(true);
+  const bankMaterial = createRiverBankMaterial();
   mouthMaterial.depthWrite = false;
   let riverWaterMeshes: Mesh[] = [];
   const clearRiverWater = (): void => {
@@ -224,6 +171,10 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
   ): void => {
     const reachW = marginW + 2;
     const reachH = marginH + 2;
+    const isSeaAtScene = (x: number, z: number): boolean => {
+      const terrain = terrainAt(wrap(camX + Math.floor(x), WORLD_WIDTH), wrap(camY + Math.floor(z), WORLD_HEIGHT));
+      return terrain === "SEA" || terrain === "COASTAL_SEA";
+    };
     const centerlines: ChannelPathPoint[][] = [];
     for (const path of riversForCurrentSeed()) {
       const first = path[0];
@@ -239,9 +190,12 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
           const end = line[line.length - 1]!;
           const before = line[line.length - 2]!;
           const tlen = Math.hypot(end.x - before.x, end.z - before.z) || 1;
-          // The river's final corner touches the sea: spill out into it.
-          if (seaDir) line.push(...riverMouthPlume(end, { x: (end.x - before.x) / tlen, z: (end.z - before.z) / tlen }, seaDir).slice(1));
-          centerlines.push(line);
+          // The river's final corner touches the sea: cut down to sea level
+          // over the last stretch, then spill out into it.
+          if (seaDir) {
+            const plume = riverMouthPlume(end, { x: (end.x - before.x) / tlen, z: (end.z - before.z) / tlen }, seaDir, isSeaAtScene).slice(1);
+            centerlines.push([...withMouthDescent(line), ...plume.map((q) => ({ ...q, descent: 1 }))]);
+          } else centerlines.push(line);
         }
         run = [];
         mouthCorner = null;
@@ -279,7 +233,13 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
         seen.add(key);
         if (!isInHeightfieldTileWindow(tileWindow, sx + dx, sz + dz)) continue;
         if (terrainAt(wx, wz) !== "LAND" || !isExploredAt(wx, wz)) continue;
-        tiles.push({ sceneX: sx + dx, sceneZ: sz + dz, worldX: wx, worldZ: wz, worldX1: wrap(wx + 1, WORLD_WIDTH), worldZ1: wrap(wz + 1, WORLD_HEIGHT) });
+        // Same "hole" rule as the heightfield's coast skirt.
+        const isHole = (hx: number, hz: number): boolean => {
+          const terrain = terrainAt(wrap(hx, WORLD_WIDTH), wrap(hz, WORLD_HEIGHT));
+          return terrain === "SEA" || terrain === "COASTAL_SEA" || !isExploredAt(wrap(hx, WORLD_WIDTH), wrap(hz, WORLD_HEIGHT));
+        };
+        const holeEdges = { top: isHole(wx, wz - 1), bottom: isHole(wx, wz + 1), left: isHole(wx - 1, wz), right: isHole(wx + 1, wz) };
+        tiles.push({ sceneX: sx + dx, sceneZ: sz + dz, worldX: wx, worldZ: wz, worldX1: wrap(wx + 1, WORLD_WIDTH), worldZ1: wrap(wz + 1, WORLD_HEIGHT), holeEdges });
       }
     }
     valley.rebuild({
@@ -298,9 +258,16 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
     // Over the sea the mouth sits just above the sea surface (it draws
     // after the ocean -- see mouthMaterial).
-    const waterYAt = (x: number, z: number, mouth: number): number =>
-      Math.max(heightfieldSurfaceY(x, z, camX, camY, heightfield.cornerYAt) - RIVER_WATER_DEPTH, WATER_SURFACE_Y + (mouth > 0 ? MOUTH_LIFT_Y : 0));
+    // Near a mouth the channel is cut deeper (riverDescentScale), so the
+    // water steps down to the sea with it.
+    const waterYAt = (p: ChannelPathPoint): number => {
+      const surface = heightfieldSurfaceY(p.x, p.z, camX, camY, heightfield.cornerYAt);
+      const floor = WATER_SURFACE_Y + ((p.mouth ?? 0) > 0 ? MOUTH_LIFT_Y : 0);
+      return Math.max(surface - RIVER_WATER_DEPTH * riverDescentScale(surface, p.descent ?? 0), floor);
+    };
     const mouthBuffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    const bankBuffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    const surfaceAt = (x: number, z: number): number => heightfieldSurfaceY(x, z, camX, camY, heightfield.cornerYAt);
     for (const line of centerlines) {
       let run: ChannelPathPoint[] = [];
       let runSides: WaterSides[] = [];
@@ -308,6 +275,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       let mouthSides: WaterSides[] = [];
       const flushWater = (): void => {
         appendWater(buffers, run, waterYAt, runSides);
+        appendBank(bankBuffers, run, runSides, surfaceAt);
         appendWater(mouthBuffers, mouthRun, waterYAt, mouthSides);
         run = [];
         runSides = [];
@@ -320,8 +288,13 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
         const tlen = Math.hypot(next.x - prev.x, next.z - prev.z) || 1;
         const nx = -(next.z - prev.z) / tlen;
         const nz = (next.x - prev.x) / tlen;
-        const sides = riverSampleSides(p.x, p.z, nx, nz, camX, camY, tileWindow, isExploredAt);
-        if (!sides.left && !sides.right) {
+        const explored = riverSampleSides(p.x, p.z, nx, nz, camX, camY, tileWindow, isExploredAt);
+        // Plume water only ever lies over the sea, never over coastal land.
+        const isPlume = (p.mouth ?? 0) > 0;
+        const sides = isPlume
+          ? { left: explored.left && isSeaAtScene(p.x - nx * 0.3, p.z - nz * 0.3), right: explored.right && isSeaAtScene(p.x + nx * 0.3, p.z + nz * 0.3) }
+          : explored;
+        if ((!sides.left && !sides.right) || (isPlume && !isSeaAtScene(p.x, p.z))) {
           flushWater();
           return;
         }
@@ -341,11 +314,12 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       });
       flushWater();
     }
+    commitWater(bankBuffers, bankMaterial, RENDER_ORDER.riverBank);
     commitWater(buffers, waterMaterial, RENDER_ORDER.riverWater);
     commitWater(mouthBuffers, mouthMaterial, RENDER_ORDER.riverMouth);
   };
 
-  const commitWater = (buffers: WaterBuffers, material: MeshStandardMaterial, renderOrder: number): void => {
+  const commitWater = (buffers: WaterBuffers, material: Material, renderOrder: number): void => {
     if (buffers.positions.length === 0) return;
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(new Float32Array(buffers.positions), 3));
@@ -459,6 +433,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     water.material.dispose();
     waterMaterial.dispose();
     mouthMaterial.dispose();
+    bankMaterial.dispose();
     // The valley shares the heightfield's material -- disposed by its owner.
   };
 

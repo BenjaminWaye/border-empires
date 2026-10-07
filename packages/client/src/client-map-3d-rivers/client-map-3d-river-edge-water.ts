@@ -70,15 +70,19 @@ export const seaDirectionAtCorner = (
  * coords, already smoothed), heading along the river (`tangent`, unit) and
  * bending toward the sea (`seaDir`, unit) on a quadratic curve. `mouth`
  * ramps 0..1 along it (the water flares and fades); the first sample is
- * `end` itself so the plume meets the channel without a gap.
+ * `end` itself so the plume meets the channel without a gap. When carrying
+ * on along the river would run over land (the sea only touches the final
+ * corner diagonally), the plume heads straight out to sea instead.
  */
 export const riverMouthPlume = (
   end: ChannelPathPoint,
   tangent: { readonly x: number; readonly z: number },
-  seaDir: { readonly x: number; readonly z: number }
+  seaDir: { readonly x: number; readonly z: number },
+  isSeaAtScene: (sceneX: number, sceneZ: number) => boolean = () => true
 ): ChannelPathPoint[] => {
-  const cx = end.x + tangent.x * MOUTH_REACH * 0.4;
-  const cz = end.z + tangent.z * MOUTH_REACH * 0.4;
+  const ahead = isSeaAtScene(end.x + tangent.x * 0.3, end.z + tangent.z * 0.3) ? tangent : seaDir;
+  const cx = end.x + ahead.x * MOUTH_REACH * 0.4;
+  const cz = end.z + ahead.z * MOUTH_REACH * 0.4;
   const ex = end.x + seaDir.x * MOUTH_REACH;
   const ez = end.z + seaDir.z * MOUTH_REACH;
   const out: ChannelPathPoint[] = [];
@@ -94,6 +98,26 @@ export const riverMouthPlume = (
       halfWidth: end.halfWidth * (1 + MOUTH_FLARE * t * t),
       mouth: t
     });
+  }
+  return out;
+};
+
+// The channel cuts down to sea level over this much river before the mouth.
+const MOUTH_DESCENT_LENGTH = 1.2;
+
+/**
+ * Marks the last MOUTH_DESCENT_LENGTH of a smoothed centreline with a
+ * `descent` ramp (0 -> 1 at the final sample), so the channel and its water
+ * step down to sea level at the coast instead of ending on the cliff top.
+ */
+export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
+  const out = [...line];
+  let arc = 0;
+  for (let i = out.length - 1; i >= 0; i -= 1) {
+    if (i < out.length - 1) arc += Math.hypot(out[i + 1]!.x - out[i]!.x, out[i + 1]!.z - out[i]!.z);
+    if (arc >= MOUTH_DESCENT_LENGTH) break;
+    const t = 1 - arc / MOUTH_DESCENT_LENGTH;
+    out[i] = { ...out[i]!, descent: t * t * (3 - 2 * t) };
   }
   return out;
 };

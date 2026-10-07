@@ -84,7 +84,7 @@ describe("v9 river channel geometry", () => {
 
   it("finds the nearest centreline segment near a tile, and its width", () => {
     const index = indexCenterlines([[p(0, 0, 0.1), p(0.2, 0, 0.2)]]);
-    const out = { distance: 0, halfWidth: 0 };
+    const out = { distance: 0, halfWidth: 0, descent: 0 };
     expect(nearestOnSegments(index.segmentsNearTile(0, 0), 0.1, 0.3, out)).toBe(true);
     expect(out.distance).toBeCloseTo(0.3);
     expect(out.halfWidth).toBeCloseTo(0.15);

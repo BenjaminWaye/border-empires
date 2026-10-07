@@ -1,7 +1,7 @@
 // 2D canvas: the live (visible-tile) ownership tint, extracted from
-// client-runtime-loop.ts. After the tint it redraws the tile's river water,
-// so territory colour stops at the waterline instead of covering the river
-// at 0.92 opacity (docs/rivers-remake-plan.md decision 4, Phase 1a).
+// client-runtime-loop.ts. After the tint it redraws the tile's river bank
+// and water, so territory colour stops at the bank instead of covering the
+// river at 0.92 opacity (docs/rivers-remake-plan.md, Phase 1a option A).
 import type { Tile } from "../client-types.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 import { drawRiverEdges } from "./client-map-render-river-edges.js";
@@ -46,5 +46,5 @@ export const drawLiveOwnershipTint2D = (
   ctx.globalAlpha = 1;
   // Same top-face height the terrain draw used (client-map-render.ts drawTerrainTile).
   const topHeight = useTerrainReliefRenderer ? Math.max(2, size - terrainReliefPx(wx, wy, "LAND", size)) : size;
-  drawRiverEdges(ctx, wx, wy, px, py, size, topHeight, "water");
+  drawRiverEdges(ctx, wx, wy, px, py, size, topHeight, "bank-and-water");
 };

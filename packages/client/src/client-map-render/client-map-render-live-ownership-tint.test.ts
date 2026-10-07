@@ -22,7 +22,7 @@ describe("2D live ownership tint", () => {
     expect(liveOwnershipTintAlpha({ ownershipState: "SETTLED", breachShockUntil: 10 }, 0)).toBe(0.62);
   });
 
-  it("redraws river water over the territory tint, so a river inside territory stays visible", () => {
+  it("redraws the river bank and water over the territory tint, so a river inside territory stays visible", () => {
     // Regression: the 0.92 owner fill was drawn after the river and hid it.
     setWorldSeed(555, "continents", 9);
     const [key] = riverEdgeKeysForCurrentSeed();
@@ -35,7 +35,10 @@ describe("2D live ownership tint", () => {
     expect(fills[0]).toEqual({ style: "#ff0000", alpha: 0.92 });
     const after = fills.slice(1);
     expect(after.length).toBeGreaterThan(0);
-    // Water only (no bank band over the territory), at full canvas alpha.
-    expect(after.every((f) => f.style.startsWith("rgba(22, 72, 96") && f.alpha === 1)).toBe(true);
+    // Bank and water bands over the territory, at full canvas alpha (the
+    // bank keeps the river reading as cut into the land -- option A).
+    expect(after.every((f) => (f.style.startsWith("rgba(22, 72, 96") || f.style.startsWith("rgba(28, 26, 18")) && f.alpha === 1)).toBe(true);
+    expect(after.some((f) => f.style.startsWith("rgba(22, 72, 96"))).toBe(true);
+    expect(after.some((f) => f.style.startsWith("rgba(28, 26, 18"))).toBe(true);
   });
 });

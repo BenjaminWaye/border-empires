@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createRiverOverlay, maxNearbyElevation, smoothRiverPath, type RiverOverlayDeps, type RiverPath } from "./client-map-3d-rivers.js";
 import {
   heightfieldFlatTileElevation,
@@ -308,7 +309,7 @@ describe("decorative river overlay", () => {
     const v9 = createRiverOverlay(v9Scene, stubDeps(GROUND_Y));
     v9.rebuild(WIDE_WINDOW);
     const valleyMesh = meshes(v9Scene).find((m) => m.material === TERRAIN_MATERIAL);
-    const waterMesh = meshes(v9Scene).find((m) => m.material !== TERRAIN_MATERIAL);
+    const waterMesh = meshes(v9Scene).find((m) => m.renderOrder === RENDER_ORDER.riverWater);
     expect(valleyMesh && waterMesh).toBeTruthy();
     // The valley really is carved: some of its vertices sit below the ground.
     const valleyPos = (valleyMesh!.geometry as BufferGeometry).getAttribute("position").array as Float32Array;

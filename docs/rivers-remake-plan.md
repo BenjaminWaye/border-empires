@@ -226,6 +226,30 @@ for v9 (staging) and v8 (prod):
    has no void-hanging pieces to cull.
 8. Changelog entry; tests beside each module.
 
+1a follow-ups after in-game review (2026-10-07):
+
+- **Fog edge: half a river per tile.** A border river is half on each of
+  its two tiles; each half of the water draws when its own tile is
+  explored (`riverSampleSides`). The all-or-nothing rule left the explored
+  tile's carved half-bed dry. Rivers stay on tile borders (decision 1).
+- **Mouth.** The channel cuts down to sea level over its last ~1.2 tiles
+  (`withMouthDescent` / `riverDescentScale`), then a plume curves from the
+  river's heading into the sea tile(s) at the final corner, widening and
+  fading (`riverMouthPlume`; straight out to sea when carrying on would run
+  over land). The plume draws after the ocean (`RENDER_ORDER.riverMouth`)
+  without writing depth, only over sea tiles, and is never carved into the
+  coast. Valley patches drop a full coast skirt on edges facing sea or
+  unexplored tiles (the heightfield skips its own skirt for them), which
+  removed a black crack along river coasts.
+- **Territory colour vs bank (option A).** Decision 4 taken literally let
+  the flat ownership sheet paint the carved bank owner-coloured up to the
+  water, so the river read as a strip stuck on top. A wet-earth bank strip
+  now lies on the carved bank between the ownership fill and the water
+  (`RENDER_ORDER.riverBank`, `client-map-3d-river-bank-strip.ts`): territory
+  colour shows up to the top of the bank. 2D redraws the bank band with the
+  water after the tint. Option B (tint draped into the trench, fading
+  toward the water) is left for 1b.
+
 1b (the rest of Phase 1) then replaces the valley patches with the draped
 ribbon. Banks get their slope from per-vertex normals tilted away from the
 water (lit like a bank, no geometry moved), so the recessed look survives

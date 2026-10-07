@@ -9,6 +9,8 @@
 export const RENDER_ORDER = {
   ownershipSettled: 6,
   ownershipFrontier: 7,
+  // Wet river bank over the ownership fill, under the water (river-bank-strip).
+  riverBank: 7.5,
   riverWater: 8,
   fogDarkenSettled: 9,
   fogDarkenFrontier: 10,

@@ -18,7 +18,8 @@
 // so textures and tints match too.
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { heightfieldSurfaceY, nearestOnSegments, RIVER_WATER_DEPTH, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
+import { SKIRT_BOTTOM_Y } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { heightfieldSurfaceY, nearestOnSegments, RIVER_WATER_DEPTH, riverDescentScale, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
 
 const SUBDIVISIONS = 8;
 // A patch edge has SUBDIVISIONS+1 vertices where the neighbouring regular
@@ -65,6 +66,13 @@ export type RiverValleyTile = {
   readonly worldZ: number;
   readonly worldX1: number;
   readonly worldZ1: number;
+  /**
+   * Edges facing a sea or unexplored tile (a coastline / fog edge). The
+   * heightfield skips its own coast skirt for valley tiles, so the patch
+   * drops a full-height skirt there; without it the coast showed a black
+   * crack down past the land edge (worst at river mouths).
+   */
+  readonly holeEdges?: { readonly top: boolean; readonly bottom: boolean; readonly left: boolean; readonly right: boolean };
 };
 
 export type RiverValleyRebuildInputs = {
@@ -110,7 +118,7 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
   const rebuild = (inputs: RiverValleyRebuildInputs): void => {
     clear();
     const { tiles, camX, camY, centerlines, cornerYAt, cornerAttributesAt } = inputs;
-    const near: NearestCenterline = { distance: 0, halfWidth: 0 };
+    const near: NearestCenterline = { distance: 0, halfWidth: 0, descent: 0 };
     const n = SUBDIVISIONS;
     const perTile = (n + 1) * (n + 1);
     const drawn = tiles.filter(
@@ -156,8 +164,11 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
           const x = t.sceneX + u;
           const z = t.sceneZ + v;
           const baseY = inside ? triLerp(corners, "y", u, v) : heightfieldSurfaceY(x, z, camX, camY, cornerYAt);
-          const depth = segments.length > 0 && nearestOnSegments(segments, x, z, near) ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
-          padHeights[(j + 1) * stride + (i + 1)] = baseY - depth;
+          const hit = segments.length > 0 && nearestOnSegments(segments, x, z, near);
+          // padDepths keeps the normal profile depth (bank colouring is
+          // relative to it); near a mouth the cut itself goes deeper.
+          const depth = hit ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
+          padHeights[(j + 1) * stride + (i + 1)] = baseY - (hit ? depth * riverDescentScale(baseY, near.descent) : 0);
           padDepths[(j + 1) * stride + (i + 1)] = depth;
         }
       }
@@ -196,10 +207,11 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
           vi += 1;
         }
       }
-      // Skirt: copy each edge's vertices SKIRT_DROP lower (same attributes).
-      const copyDown = (src: number): number => {
+      // Skirt: copy each edge's vertices SKIRT_DROP lower (same attributes),
+      // or all the way down to the heightfield's SKIRT_BOTTOM_Y on a coast.
+      const copyDown = (src: number, toBottom: boolean): number => {
         positions[vi * 3] = positions[src * 3]!;
-        positions[vi * 3 + 1] = positions[src * 3 + 1]! - SKIRT_DROP;
+        positions[vi * 3 + 1] = toBottom ? SKIRT_BOTTOM_Y : positions[src * 3 + 1]! - SKIRT_DROP;
         positions[vi * 3 + 2] = positions[src * 3 + 2]!;
         for (let k = 0; k < 3; k += 1) {
           normals[vi * 3 + k] = normals[src * 3 + k]!;
@@ -214,15 +226,16 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
         rockZones[vi] = 0;
         return vi++;
       };
-      const edges: ReadonlyArray<(k: number) => number> = [
-        (k) => base + k, // top row
-        (k) => base + n * (n + 1) + k, // bottom row
-        (k) => base + k * (n + 1), // left column
-        (k) => base + k * (n + 1) + n // right column
+      const holes = t.holeEdges;
+      const edges: ReadonlyArray<readonly [(k: number) => number, boolean]> = [
+        [(k) => base + k, holes?.top ?? false], // top row
+        [(k) => base + n * (n + 1) + k, holes?.bottom ?? false], // bottom row
+        [(k) => base + k * (n + 1), holes?.left ?? false], // left column
+        [(k) => base + k * (n + 1) + n, holes?.right ?? false] // right column
       ];
-      for (const edge of edges) {
+      for (const [edge, toBottom] of edges) {
         const dropped: number[] = [];
-        for (let k = 0; k <= n; k += 1) dropped.push(copyDown(edge(k)));
+        for (let k = 0; k <= n; k += 1) dropped.push(copyDown(edge(k), toBottom));
         for (let k = 0; k < n; k += 1) {
           const a = edge(k);
           const b = edge(k + 1);

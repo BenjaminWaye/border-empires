@@ -5,8 +5,9 @@ import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { isHillsTileAt, riverCornerWidthsForCurrentSeed, setWorldSeed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { createRiverOverlay, type RiverOverlayDeps } from "./client-map-3d-rivers.js";
-import { appendWater, heightfieldSurfaceY, type WaterBuffers } from "./client-map-3d-rivers-channel.js";
-import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner } from "./client-map-3d-river-edge-water.js";
+import { appendWater, heightfieldSurfaceY, RIVER_WATER_DEPTH, riverDescentScale, type WaterBuffers } from "./client-map-3d-rivers-channel.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
+import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import { heightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 
@@ -87,6 +88,20 @@ describe("river culling and look (phase 1a)", () => {
     expect(Math.max(...alphas.slice(-5))).toBe(0); // fully faded at the end
   });
 
+  it("cuts the channel down to sea level over the last stretch before the mouth", () => {
+    // Regression: the water sat in its trench at land height, so every river
+    // ended on top of the coastal cliff above the sea.
+    const line = [0, 0.5, 1, 1.5, 2, 2.5, 3].map((x) => ({ x, z: 0, halfWidth: 0.15 }));
+    const descended = withMouthDescent(line);
+    expect(descended[0]!.descent ?? 0).toBe(0);
+    expect(descended[descended.length - 1]!.descent).toBe(1);
+    expect(descended[descended.length - 2]!.descent!).toBeGreaterThan(0);
+    const land = 0.18;
+    expect(riverDescentScale(land, 0)).toBe(1);
+    // Fully descended, the water line reaches (just below) the sea surface.
+    expect(land - RIVER_WATER_DEPTH * riverDescentScale(land, 1)).toBeLessThan(WATER_SURFACE_Y);
+  });
+
   it("v9: valley patches and water stay inside the heightfield window (no squares past the terrain edge)", () => {
     const { camX, camY } = v9RiverCamera();
     const halfW = 60;
@@ -116,7 +131,7 @@ describe("river culling and look (phase 1a)", () => {
     const scene = new Scene();
     const overlay = createRiverOverlay(scene, deps);
     overlay.rebuild({ camX, camY, halfW: 20, halfH: 20, isExploredAt: ALWAYS });
-    const water = meshes(scene).find((m) => m.material !== TERRAIN_MATERIAL);
+    const water = meshes(scene).find((m) => m.renderOrder === RENDER_ORDER.riverWater);
     expect(water).toBeDefined();
     const material = water!.material as MeshStandardMaterial;
     expect(material.opacity).toBe(1);

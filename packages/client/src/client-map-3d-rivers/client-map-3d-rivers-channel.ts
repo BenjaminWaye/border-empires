@@ -11,13 +11,38 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
 import { RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 
 /**
  * A path point in camera-relative scene coords (x/z) with its river
  * half-width. `mouth` (0..1, default 0) marks points past the river's final
  * corner, running out into the sea: the water flares and fades along them.
+ * `descent` (0..1, default 0) ramps up over the channel's last stretch
+ * before the sea: the channel cuts down so it reaches sea level at the
+ * coast instead of ending on top of the coastal cliff.
  */
-export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number; readonly mouth?: number };
+export type ChannelPathPoint = {
+  readonly x: number;
+  readonly z: number;
+  readonly halfWidth: number;
+  readonly mouth?: number;
+  readonly descent?: number;
+};
+
+// Fully descended, the water surface sits this far below the sea surface
+// (it is clamped to the sea surface), so the cut always reaches the sea.
+const DESCENT_UNDERCUT = 0.02;
+
+/**
+ * How much deeper than usual the channel is cut where the ground is at
+ * `surfaceY` and the river is `descent` of the way into its final descent:
+ * 1 normally; at full descent, deep enough that the water reaches the sea.
+ */
+export const riverDescentScale = (surfaceY: number, descent: number): number => {
+  if (descent <= 0) return 1;
+  const toSea = (surfaceY - WATER_SURFACE_Y + DESCENT_UNDERCUT) / RIVER_WATER_DEPTH;
+  return 1 + descent * Math.max(0, toSea - 1);
+};
 
 /** Which halves of the water draw at a sample (`left` = the -normal side). */
 export type WaterSides = { readonly left: boolean; readonly right: boolean };
@@ -43,7 +68,7 @@ export const MAX_CHANNEL_HALF_WIDTH = 0.18;
 // are never carved.
 export const TRENCH_DEPTH = 0.16;
 const BED_FRACTION = 0.8;
-const BANK_WIDTH = 0.12;
+export const BANK_WIDTH = 0.12;
 /** Furthest any river trench or bank reaches from its centreline (tile units). */
 export const RIVER_BANK_REACH = MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH;
 
@@ -89,7 +114,8 @@ export const riverWaterHalfWidth = (halfWidth: number): number => {
 const lerpPoint = (a: ChannelPathPoint, b: ChannelPathPoint, t: number): ChannelPathPoint => {
   const point = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t };
   const mouth = (a.mouth ?? 0) + ((b.mouth ?? 0) - (a.mouth ?? 0)) * t;
-  return mouth > 0 ? { ...point, mouth } : point;
+  const descent = (a.descent ?? 0) + ((b.descent ?? 0) - (a.descent ?? 0)) * t;
+  return { ...point, ...(mouth > 0 ? { mouth } : {}), ...(descent > 0 ? { descent } : {}) };
 };
 
 /** Chaikin corner cutting: rounds right-angle bends while keeping both endpoints. */
@@ -182,7 +208,7 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
 export type CenterlineSegment = { readonly a: ChannelPathPoint; readonly b: ChannelPathPoint };
 
 /** Out-param for nearest-segment queries (reused, so the per-vertex loop doesn't allocate). */
-export type NearestCenterline = { distance: number; halfWidth: number };
+export type NearestCenterline = { distance: number; halfWidth: number; descent: number };
 
 /**
  * Nearest point on any of `segments` to (x, z): writes distance + the river
@@ -199,6 +225,7 @@ export const nearestOnSegments = (segments: readonly CenterlineSegment[], x: num
     if (!found || distance < out.distance) {
       out.distance = distance;
       out.halfWidth = a.halfWidth + (b.halfWidth - a.halfWidth) * t;
+      out.descent = (a.descent ?? 0) + ((b.descent ?? 0) - (a.descent ?? 0)) * t;
       found = true;
     }
   }
@@ -264,7 +291,7 @@ const WATER_COLUMN_COUNT = WATER_COLUMNS.length;
 export const appendWater = (
   buffers: WaterBuffers,
   run: readonly ChannelPathPoint[],
-  waterYAt: (sceneX: number, sceneZ: number, mouth: number) => number,
+  waterYAt: (point: ChannelPathPoint) => number,
   sides?: readonly WaterSides[]
 ): void => {
   if (run.length < 2) return;
@@ -279,7 +306,7 @@ export const appendWater = (
     const w = riverWaterHalfWidth(cur.halfWidth);
     const nx = (-tz / tlen) * w;
     const nz = (tx / tlen) * w;
-    const y = waterYAt(cur.x, cur.z, cur.mouth ?? 0);
+    const y = waterYAt(cur);
     const side = sides?.[i];
     // Mouth: stays solid while it leaves the coast, fading out toward its end.
     const mouth = cur.mouth ?? 0;

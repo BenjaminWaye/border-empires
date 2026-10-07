@@ -258,9 +258,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "River water was a pale see-through film drawn on top of everything, so it looked like it floated over the land, glowed through fog, and hung off the edge of explored land.",
     changes: [
       "River water is now a solid deep blue-teal with a dark wet bank along the waterline, so it sits down in the land",
-      "Territory colour stops at the riverbank instead of covering or bleaching the water, in both 3D and 2D",
+      "Territory colour stops at a dark wet riverbank instead of covering or bleaching the water, in both 3D and 2D",
       "Fog now darkens rivers like the land around them",
-      "No more river pieces hanging into unexplored space at the fog edge",
+      "At the edge of explored land you see your half of a river; no more pieces hanging into unexplored space or dry riverbeds",
+      "Rivers cut down through the coast and spill out into the sea instead of stopping at a square end on the shore",
       "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
     ]
   },

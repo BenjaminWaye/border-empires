@@ -1,7 +1,7 @@
 import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
-import { createHeightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createHeightfield, SKIRT_BOTTOM_Y } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { createRiverValley, riverBankColor } from "./client-map-3d-river-valley.js";
 import { indexCenterlines, RIVER_WATER_DEPTH, TRENCH_DEPTH } from "./client-map-3d-rivers-channel.js";
@@ -69,5 +69,24 @@ describe("v9 river valley terrain", () => {
     riverBankColor(base, RIVER_WATER_DEPTH, out);
     const waterline = lum(out);
     expect(waterline).toBeLessThan(upperBank * 0.5);
+  });
+  it("drops a full coast skirt on edges facing sea or unexplored land, a tiny one elsewhere", () => {
+    // Regression: the heightfield skips its coast skirt for valley tiles and
+    // the patch's own skirt only dropped 0.002, leaving a black crack down
+    // past the land edge along river coasts (most visible at the mouth).
+    const scene = new Scene();
+    const valley = createRiverValley(scene, new MeshStandardMaterial());
+    const tile = { sceneX: 0, sceneZ: 0, worldX: 10, worldZ: 10, worldX1: 11, worldZ1: 11 };
+    const lowest = (holeEdges?: { top: boolean; bottom: boolean; left: boolean; right: boolean }): number => {
+      valley.rebuild({ tiles: [holeEdges ? { ...tile, holeEdges } : tile], camX: 10, camY: 10, centerlines: indexCenterlines([]), cornerYAt: () => GROUND, cornerAttributesAt: flatCorner });
+      const mesh = scene.children.find((c): c is Mesh => c instanceof Mesh)!;
+      const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+      let low = Infinity;
+      for (let i = 1; i < pos.length; i += 3) low = Math.min(low, pos[i]!);
+      return low;
+    };
+    expect(lowest()).toBeGreaterThan(GROUND - 0.01);
+    expect(lowest({ top: true, bottom: false, left: false, right: false })).toBeCloseTo(SKIRT_BOTTOM_Y, 6);
+    valley.dispose();
   });
 });
