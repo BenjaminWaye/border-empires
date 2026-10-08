@@ -1,3 +1,4 @@
+import { playAfcDropSound } from "../client-audio/client-audio.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 import { tickAfcJoinDrop, type AfcJoinDropTickState } from "./client-afc-join-drop.js";
@@ -21,6 +22,7 @@ export const tickAfcJoinDropForFrame = (
     onTileChanged: (x, y) => {
       state.tilesRevision += 1;
       recordTileRevisionChange(state, x, y);
-    }
+    },
+    onDropStart: playAfcDropSound
   });
 };

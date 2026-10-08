@@ -240,6 +240,35 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
     ]
   },
+  {
+    createdAt: 1791324311000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.07.1",
+    title: "Tile menu names whose reach you are inside",
+    why: "A contested frontier tile just said \"Inside Enemy Reach\", which made you guess which empire was pressing on it.",
+    changes: [
+      "The tile menu now says \"Inside <empire> Reach\" with the empire's name, or both names when two reaches overlap",
+      "Tap the line to see why: you can't settle inside another empire's reach",
+      "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
+    ]
+  },
+  {
+    createdAt: 1791434436666,
+    introducedIn: "2026.10.08.1",
+    title: "Your AFC's landing has sound",
+    why: "The orbital landing of your Automated Fabrication Complex played in silence.",
+    changes: [
+      "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
+      "The landing now follows the sound: thrusters at full burn as it comes in, winding down as it slows, cutting out just above the ground, then touchdown on the impact",
+      "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
+    ]
+  },
+  {
+    createdAt: 1791437889049,
+    introducedIn: "2026.10.08.2",
+    title: "AFC landing stays put when you pan",
+    why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
+    changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

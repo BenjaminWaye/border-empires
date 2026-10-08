@@ -6,7 +6,7 @@ import { landGatedTileKeysInDisk, tileKey, WORLD_HEIGHT, WORLD_WIDTH, type Reach
 
 export type LocalAnchor = { x: number; y: number; kind: ReachAnchorKind };
 
-const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
+export const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
   TOWN: 3,
   OUTPOST: 5,
   DOCK: 1

@@ -5,15 +5,25 @@
 
 /** The map must have been continuously unobstructed for this long before the drop starts (absorbs modal fade-out; nothing animates during it). */
 export const AFC_JOIN_DROP_DWELL_MS = 1200;
-/** Re-entry: the AFC falls from orbit, accelerating through the atmosphere. */
-export const AFC_JOIN_REENTRY_MS = 2000;
-/** Braking burn: the last, slowest part of the descent, ending at zero velocity. */
-export const AFC_JOIN_BRAKE_MS = 1200;
-/** Start of the drop to touchdown. */
-export const AFC_JOIN_DESCENT_MS = AFC_JOIN_REENTRY_MS + AFC_JOIN_BRAKE_MS;
-/** Touchdown to the end of the smoke/power-on afterglow. */
-export const AFC_JOIN_AFTERGLOW_MS = 3000;
+// The beats below are pinned to the 9 s rocket clip played as the drop starts
+// (/audio/afc-drop-rocket.mp3): a bright full-power roar, a long wind-down as
+// its pitch falls, a short lull when the engines cut, then a sharp impact at
+// 7.15 s followed by a low ground rumble.
+/** Thrusters at full burn from the moment the drop starts (the clip's bright opening roar). */
+export const AFC_JOIN_FULL_BURN_MS = 1700;
+/** The thrust winds down from full burn until the engines cut here (the clip's falling pitch, then its lull). */
+export const AFC_JOIN_ENGINE_CUT_MS = 6350;
+/** Start of the drop to touchdown, on the clip's impact hit. After the engine cut the AFC drops the last stretch unpowered. */
+export const AFC_JOIN_DESCENT_MS = 7150;
+/** Touchdown to the end of the smoke/power-on afterglow (the clip's ground rumble, then the smoke settling). */
+export const AFC_JOIN_AFTERGLOW_MS = 2850;
 export const AFC_JOIN_TOTAL_MS = AFC_JOIN_DESCENT_MS + AFC_JOIN_AFTERGLOW_MS;
+/** Fraction of the fall completed when the engines cut: the AFC has braked to a near-hover just above the ground. */
+const ENGINE_CUT_FALLEN = 0.95;
+/** Re-entry streak fade-in, so the AFC is seen coming. */
+const STREAK_FADE_IN_MS = 500;
+/** The streak burns off over this long once the thrust starts winding down. */
+const STREAK_FADE_OUT_MS = 1500;
 /** The descending copy stays this long past touchdown so the real AFC can take over under the smoke. */
 export const AFC_JOIN_MODEL_OVERLAP_MS = 800;
 /** Only an AFC activated this recently counts as a join; a returning player's old AFC never replays. */
@@ -21,25 +31,32 @@ export const AFC_JOIN_MAX_AGE_MS = 30 * 60_000;
 /** Safety net: if some overlay stays "open" this long the AFC is revealed without the animation, so it can never stay hidden. */
 export const AFC_JOIN_FALLBACK_REVEAL_MS = 5 * 60_000;
 
-/** Fraction of the fall completed after `ageMs` (0 = in orbit, 1 = landed). Velocity is continuous at the re-entry/braking seam and reaches zero at touchdown. */
+/** Fraction of the fall completed after `ageMs` (0 = in orbit, 1 = landed). The thrusters brake the AFC from orbital speed to a standstill just above the ground at the engine cut, then it drops the last stretch and hits the ground with a thud. */
 export const afcJoinFallenFraction = (ageMs: number): number => {
   if (ageMs <= 0) return 0;
   if (ageMs >= AFC_JOIN_DESCENT_MS) return 1;
-  // The seam sits where the two quadratic segments have equal speed.
-  const seam = AFC_JOIN_REENTRY_MS / AFC_JOIN_DESCENT_MS;
-  if (ageMs < AFC_JOIN_REENTRY_MS) {
-    const s = ageMs / AFC_JOIN_REENTRY_MS;
-    return seam * s * s;
+  if (ageMs < AFC_JOIN_ENGINE_CUT_MS) {
+    const s = ageMs / AFC_JOIN_ENGINE_CUT_MS;
+    return ENGINE_CUT_FALLEN * (1 - (1 - s) * (1 - s));
   }
-  const u = (ageMs - AFC_JOIN_REENTRY_MS) / AFC_JOIN_BRAKE_MS;
-  return seam + (1 - seam) * (1 - (1 - u) * (1 - u));
+  const u = (ageMs - AFC_JOIN_ENGINE_CUT_MS) / (AFC_JOIN_DESCENT_MS - AFC_JOIN_ENGINE_CUT_MS);
+  return ENGINE_CUT_FALLEN + (1 - ENGINE_CUT_FALLEN) * u * u;
 };
 
-/** 0..1 thruster strength: lights just before braking starts, then tapers as the AFC slows. */
+/** 0..1 thruster strength: ignites at the start, holds at full burn, winds down to a low idle, then cuts out. */
 export const afcJoinBrakeIntensity = (ageMs: number): number => {
-  const rampStart = AFC_JOIN_REENTRY_MS - 150;
-  if (ageMs < rampStart || ageMs >= AFC_JOIN_DESCENT_MS) return 0;
-  const ramp = Math.min(1, (ageMs - rampStart) / 300);
-  const taper = 1 - 0.8 * Math.max(0, (ageMs - AFC_JOIN_REENTRY_MS) / AFC_JOIN_BRAKE_MS);
-  return ramp * taper;
+  if (ageMs < 0 || ageMs >= AFC_JOIN_ENGINE_CUT_MS) return 0;
+  const ignite = Math.min(1, ageMs / 200);
+  if (ageMs < AFC_JOIN_FULL_BURN_MS) return ignite;
+  const windDown = (ageMs - AFC_JOIN_FULL_BURN_MS) / (AFC_JOIN_ENGINE_CUT_MS - AFC_JOIN_FULL_BURN_MS);
+  // Sputter out over the last 120 ms rather than snapping off.
+  const cutoff = Math.min(1, (AFC_JOIN_ENGINE_CUT_MS - ageMs) / 120);
+  return (1 - 0.65 * windDown) * cutoff;
+};
+
+/** 0..1 re-entry streak above the hull: fades in so the AFC is seen coming, and burns off once the thrust starts winding down. Shared by both renderers. */
+export const afcJoinStreakAlpha = (ageMs: number): number => {
+  const fadeIn = Math.max(0, Math.min(1, ageMs / STREAK_FADE_IN_MS));
+  const fadeOut = Math.max(0, Math.min(1, (ageMs - AFC_JOIN_FULL_BURN_MS) / STREAK_FADE_OUT_MS));
+  return fadeIn * (1 - fadeOut);
 };

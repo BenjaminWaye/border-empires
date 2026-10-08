@@ -220,8 +220,10 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
       const drop = state.afcJoinDropFxQueue.shift()!;
       const { sceneX, sceneZ } = sceneXZ(drop.x, drop.y);
       // The drop's timeline is anchored at when it started, not at this drain, so 3D and 2D stay in step.
-      layers.afcDropFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(drop.x, drop.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, drop.queuedAt);
+      layers.afcDropFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(drop.x, drop.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, drop.queuedAt, { x: drop.x, y: drop.y });
     }
+    // Runs every frame after any rebuild has moved sceneOrigin, so a drop stays on its tile while the player pans.
+    layers.afcDropFx.reanchor(sceneXZ);
   };
 
   const syncAstralDockLaunchFxQueue = (): void => {
