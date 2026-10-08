@@ -10,7 +10,7 @@
 // with a flat bed and sloping banks) and to decide where the water sits.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
-import { RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
+import { RIVER_SEA_BLEND, RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 
 /**
@@ -315,7 +315,13 @@ export const appendWater = (
       const drawn = !side || (f < 0 ? side.left : f > 0 ? side.right : true);
       const g = drawn ? f : 0;
       buffers.positions.push(cur.x + nx * g, y, cur.z + nz * g);
-      buffers.colors.push(color[0], color[1], color[2], color[3] * fade);
+      // Out in the mouth the river's colour mixes into the sea's.
+      buffers.colors.push(
+        color[0] + (RIVER_SEA_BLEND[0] - color[0]) * mouth,
+        color[1] + (RIVER_SEA_BLEND[1] - color[1]) * mouth,
+        color[2] + (RIVER_SEA_BLEND[2] - color[2]) * mouth,
+        color[3] * fade
+      );
     }
   }
   for (let i = 0; i + 1 < run.length; i += 1) {

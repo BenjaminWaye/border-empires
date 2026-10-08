@@ -251,6 +251,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       c >= -1 && c <= tileCols && r >= -1 && r <= tileRows && land[(r + 1) * landCols + (c + 1)] === 1;
     surfaceCalm = isLandAt ? computeShoreCalm(vCols, vRows, isLandTile) : new Float32Array(vCount);
     const calmCorners = waveCalmCorners();
+    const mouthsInScene: { x: number; z: number }[] = [];
     const uvs = new Float32Array(vCount * 2);
     const colors = new Float32Array(vCount * 3);
     const indices = new Uint32Array(tiles.length * 6); // 2 triangles × 3 indices
@@ -279,6 +280,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       const vc = sx - minGC;
       const vr = sz - minGR;
       if (vc >= 0 && vc < vCols && vr >= 0 && vr < vRows) surfaceCalm[vr * vCols + vc] = Math.max(surfaceCalm[vr * vCols + vc]!, calm);
+      if (calm >= 1) mouthsInScene.push({ x: sx, z: sz }); // full calm sits only on a river mouth corner
     }
 
     // Vertex color: blend deep/shallow based on how many of the up-to-4
@@ -403,7 +405,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     }
     const foamEnabled = isLandAt !== undefined && Math.max(tileCols, tileRows) <= SHORE_FOAM_MAX_WINDOW_TILES;
     // Foam works in scene grid coords; the land grid is relative to (minGC, minGR).
-    shoreFoam.rebuild(tiles, (gc, gr) => isLandTile(gc - minGC, gr - minGR), WATER_SURFACE_Y + FOAM_LIFT_Y, foamEnabled);
+    shoreFoam.rebuild(tiles, (gc, gr) => isLandTile(gc - minGC, gr - minGR), WATER_SURFACE_Y + FOAM_LIFT_Y, foamEnabled, mouthsInScene);
   };
 
   // Same swell+chop formula the main surface uses in tick() below — shared

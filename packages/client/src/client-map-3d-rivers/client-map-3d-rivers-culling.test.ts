@@ -10,6 +10,7 @@ import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import { heightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { RIVER_SEA_BLEND, RIVER_WATER_CORE } from "./client-map-3d-river-water-material.js";
 
 const TERRAIN_MATERIAL = new MeshStandardMaterial();
 // Varies per corner so "draped on the surface" is distinguishable from "flat".
@@ -100,6 +101,16 @@ describe("river culling and look (phase 1a)", () => {
     expect(riverDescentScale(land, 0)).toBe(1);
     // Fully descended, the water line reaches (just below) the sea surface.
     expect(land - RIVER_WATER_DEPTH * riverDescentScale(land, 1)).toBeLessThan(WATER_SURFACE_Y);
+  });
+
+  it("blends the plume's colour into the sea colour as it runs out", () => {
+    // Regression: the river switched from its own colour to a flat pool at the coast.
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    const plume = riverMouthPlume({ x: 0, z: 0, halfWidth: 0.15 }, { x: 0, z: -1 }, { x: -Math.SQRT1_2, z: -Math.SQRT1_2 });
+    appendWater(buffers, plume, () => 0);
+    const coreAt = (sample: number): number => buffers.colors[(sample * 5 + 2) * 4]!; // red of the centre column
+    expect(coreAt(0)).toBeCloseTo(RIVER_WATER_CORE[0], 6);
+    expect(coreAt(plume.length - 1)).toBeCloseTo(RIVER_SEA_BLEND[0], 6);
   });
 
   it("v9: valley patches and water stay inside the heightfield window (no squares past the terrain edge)", () => {

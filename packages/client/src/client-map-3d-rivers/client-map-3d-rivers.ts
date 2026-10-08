@@ -32,7 +32,7 @@ import {
   type WaterSides
 } from "./client-map-3d-rivers-channel.js";
 import { createRiverValley, type RiverValleyTile } from "./client-map-3d-river-valley.js";
-import { createRiverWaterMaterial, RIVER_WATER_SHALLOW } from "./client-map-3d-river-water-material.js";
+import { createRiverWaterMaterial, RIVER_SEA_BLEND, RIVER_WATER_CORE } from "./client-map-3d-river-water-material.js";
 import { appendBank, createRiverBankMaterial } from "./client-map-3d-river-bank-strip.js";
 import { appendEstuary, riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
@@ -332,7 +332,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       });
       flushWater();
     }
-    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_SHALLOW, seaDistanceAt);
+    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_CORE, seaDistanceAt, RIVER_SEA_BLEND);
     commitWater(bankBuffers, bankMaterial, RENDER_ORDER.riverBank);
     commitWater(buffers, waterMaterial, RENDER_ORDER.riverWater);
     commitWater(mouthBuffers, mouthMaterial, RENDER_ORDER.riverMouth);

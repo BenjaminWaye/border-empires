@@ -152,7 +152,16 @@ export const riverCoveY = (baseY: number, distance: number, seaDistance = 0): nu
 };
 
 const ESTUARY_SEGMENTS = 20;
-const ESTUARY_RINGS: ReadonlyArray<readonly [number, number]> = [[0.6, 1], [1, 0.9], [1.35, 0]]; // [radius / COVE_RADIUS, alpha]
+// [radius / COVE_RADIUS, alpha, blend toward the sea colour]. A faint,
+// graded wash -- an opaque disc hid the river's own structure where it met
+// the coast and ended the shore foam in a hard edge.
+const ESTUARY_RINGS: ReadonlyArray<readonly [number, number, number]> = [
+  [0.5, 0.45, 0.25],
+  [0.95, 0.3, 0.55],
+  [1.35, 0.14, 0.8],
+  [1.75, 0, 1]
+];
+const ESTUARY_CENTRE_ALPHA = 0.5;
 
 /** How much of the estuary pool shows `seaDistance` from the nearest sea tile: all of it near the coast, none inland. */
 export const estuaryCoastFade = (seaDistance: number): number => smooth01(1 - seaDistance / COVE_COAST_BAND);
@@ -169,18 +178,20 @@ export const appendEstuary = (
   centerZ: number,
   y: number,
   color: readonly [number, number, number, ...number[]],
-  seaDistanceAt: (x: number, z: number) => number = () => 0
+  seaDistanceAt: (x: number, z: number) => number = () => 0,
+  seaColor: readonly [number, number, number, ...number[]] = color
 ): void => {
+  const mix = (k: number, t: number): number => color[k]! + (seaColor[k]! - color[k]!) * t;
   const center = buffers.positions.length / 3;
   buffers.positions.push(centerX, y, centerZ);
-  buffers.colors.push(color[0], color[1], color[2], estuaryCoastFade(seaDistanceAt(centerX, centerZ)));
-  for (const [r, alpha] of ESTUARY_RINGS) {
+  buffers.colors.push(color[0], color[1], color[2], ESTUARY_CENTRE_ALPHA * estuaryCoastFade(seaDistanceAt(centerX, centerZ)));
+  for (const [r, alpha, toSea] of ESTUARY_RINGS) {
     for (let k = 0; k < ESTUARY_SEGMENTS; k += 1) {
       const a = (k / ESTUARY_SEGMENTS) * Math.PI * 2;
       const x = centerX + Math.cos(a) * r * COVE_RADIUS;
       const z = centerZ + Math.sin(a) * r * COVE_RADIUS;
       buffers.positions.push(x, y, z);
-      buffers.colors.push(color[0], color[1], color[2], alpha * estuaryCoastFade(seaDistanceAt(x, z)));
+      buffers.colors.push(mix(0, toSea), mix(1, toSea), mix(2, toSea), alpha * estuaryCoastFade(seaDistanceAt(x, z)));
     }
   }
   const ring = (i: number, k: number): number => center + 1 + i * ESTUARY_SEGMENTS + (k % ESTUARY_SEGMENTS);

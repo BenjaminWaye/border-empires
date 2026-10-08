@@ -24,13 +24,17 @@ describe("river mouth: calm sea, cove and estuary pool", () => {
     expect(riverCoveY(-0.5, 0)).toBe(-0.5);
   });
 
-  it("lays a round estuary pool, opaque at the centre and fading to nothing at its rim", () => {
+  it("lays a round estuary pool: a faint wash at the centre, graded into the sea colour and faded out at its rim", () => {
     const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
-    appendEstuary(buffers, 1, 2, WATER_SURFACE_Y, [0.1, 0.3, 0.4, 1]);
+    appendEstuary(buffers, 1, 2, WATER_SURFACE_Y, [0.1, 0.3, 0.4, 1], () => 0, [0.2, 0.4, 0.5, 1]);
     const n = buffers.positions.length / 3;
     const alphas = buffers.colors.filter((_, i) => i % 4 === 3);
-    expect(alphas[0]).toBe(1);
+    // Regression: an opaque disc hid the river's own structure at the coast.
+    expect(alphas[0]).toBeGreaterThan(0.3);
+    expect(alphas[0]).toBeLessThan(0.7);
     expect(alphas[n - 1]).toBe(0);
+    // Rim colour has moved to the sea colour.
+    expect(buffers.colors[(n - 1) * 4]).toBeCloseTo(0.2, 6);
     let maxR = 0;
     for (let i = 0; i < n; i += 1) maxR = Math.max(maxR, Math.hypot(buffers.positions[i * 3]! - 1, buffers.positions[i * 3 + 2]! - 2));
     expect(maxR).toBeGreaterThan(COVE_RADIUS);
@@ -50,6 +54,6 @@ describe("river mouth: calm sea, cove and estuary pool", () => {
     for (let i = 0; i < n; i += 1) {
       if (buffers.positions[i * 3]! > 0.01) expect(buffers.colors[i * 4 + 3]).toBe(0);
     }
-    expect(buffers.colors.filter((_, i) => i % 4 === 3).some((a) => a > 0.5)).toBe(true);
+    expect(buffers.colors.filter((_, i) => i % 4 === 3).some((a) => a > 0.2)).toBe(true);
   });
 });

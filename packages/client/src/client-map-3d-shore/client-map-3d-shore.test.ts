@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeAll, describe, expect, it } from "vitest";
 import { BufferGeometry, Mesh, Scene } from "three";
-import { appendShoreFoam, computeShoreCalm, type FoamBuffers } from "./client-map-3d-shore.js";
+import { appendShoreFoam, computeShoreCalm, foamMouthFade, type FoamBuffers } from "./client-map-3d-shore.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 
@@ -51,5 +51,18 @@ describe("coastline polish: calm shore and foam", () => {
       expect(pos[i * 3 + 1]!).toBeGreaterThan(WATER_SURFACE_Y);
     }
     water.dispose();
+  });
+  it("fades the foam out around a river mouth, so it doesn't run across the river's entry", () => {
+    const mouths = [{ x: 5, z: 5 }];
+    expect(foamMouthFade(5, 5, mouths)).toBe(0);
+    expect(foamMouthFade(5.4, 5, mouths)).toBeGreaterThan(0);
+    expect(foamMouthFade(5.4, 5, mouths)).toBeLessThan(1);
+    expect(foamMouthFade(7, 5, mouths)).toBe(1);
+    const near: FoamBuffers = { positions: [], colors: [], indices: [] };
+    appendShoreFoam(near, 5, 5, 0, (gc, gr) => gc === 4 && gr === 5, [{ x: 5, z: 5.5 }]);
+    const far: FoamBuffers = { positions: [], colors: [], indices: [] };
+    appendShoreFoam(far, 5, 5, 0, (gc, gr) => gc === 4 && gr === 5);
+    const sum = (b: FoamBuffers): number => b.colors.filter((_, i) => i % 4 === 3).reduce((a, v) => a + v, 0);
+    expect(sum(near)).toBeLessThan(sum(far) * 0.6);
   });
 });

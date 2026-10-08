@@ -53,6 +53,20 @@ export const FOAM_LIFT_Y = 0.004;
 
 export type FoamBuffers = { positions: number[]; colors: number[]; indices: number[] };
 
+// Foam fades out within this distance (tiles) of a river mouth: the river
+// cuts the shoreline there, and a foam line across it read as a hard edge.
+const FOAM_MOUTH_CLEARANCE = 0.8;
+
+/** Foam strength (0..1) at (x, z) given river mouth points (same coords). */
+export const foamMouthFade = (x: number, z: number, mouths: ReadonlyArray<{ readonly x: number; readonly z: number }>): number => {
+  let fade = 1;
+  for (const m of mouths) {
+    const t = Math.min(1, Math.hypot(x - m.x, z - m.z) / FOAM_MOUTH_CLEARANCE);
+    fade = Math.min(fade, t * t * (3 - 2 * t));
+  }
+  return fade;
+};
+
 const distanceToSquare = (px: number, pz: number, x: number, z: number): number =>
   Math.hypot(Math.max(x - px, 0, px - (x + 1)), Math.max(z - pz, 0, pz - (z + 1)));
 
@@ -66,7 +80,8 @@ export const appendShoreFoam = (
   gc: number,
   gr: number,
   y: number,
-  isLandTile: (gc: number, gr: number) => boolean
+  isLandTile: (gc: number, gr: number) => boolean,
+  mouths: ReadonlyArray<{ readonly x: number; readonly z: number }> = []
 ): void => {
   // Most water tiles are open sea: reject them without allocating.
   let landMask = 0;
@@ -79,7 +94,7 @@ export const appendShoreFoam = (
     let d = Infinity;
     for (const [lx, lz] of land) d = Math.min(d, distanceToSquare(x, z, lx, lz));
     const t = Math.min(1, d / FOAM_WIDTH);
-    return FOAM_MAX_ALPHA * (1 - t * t * (3 - 2 * t));
+    return FOAM_MAX_ALPHA * (1 - t * t * (3 - 2 * t)) * (mouths.length > 0 ? foamMouthFade(x, z, mouths) : 1);
   };
   const alphas: number[] = [];
   for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) alphas.push(alphaAt(gc + i / n, gr + j / n));
@@ -108,7 +123,8 @@ export type ShoreFoamLayer = {
     tiles: ReadonlyArray<{ readonly gc: number; readonly gr: number }>,
     isLandTile: (gc: number, gr: number) => boolean,
     y: number,
-    enabled: boolean
+    enabled: boolean,
+    mouths?: ReadonlyArray<{ readonly x: number; readonly z: number }>
   ) => void;
   readonly dispose: () => void;
 };
@@ -128,11 +144,15 @@ export const createShoreFoamLayer = (scene: Scene, renderOrder: number): ShoreFo
     mesh.geometry.dispose();
     mesh = null;
   };
-  const rebuild: ShoreFoamLayer["rebuild"] = (tiles, isLandTile, y, enabled) => {
+  const rebuild: ShoreFoamLayer["rebuild"] = (tiles, isLandTile, y, enabled, mouths = []) => {
     clear();
     if (!enabled) return;
     const buffers: FoamBuffers = { positions: [], colors: [], indices: [] };
-    for (const { gc, gr } of tiles) appendShoreFoam(buffers, gc, gr, y, isLandTile);
+    // Only mouths near this tile matter; most tiles have none.
+    for (const { gc, gr } of tiles) {
+      const near = mouths.filter((m) => Math.abs(m.x - gc - 0.5) < 2 && Math.abs(m.z - gr - 0.5) < 2);
+      appendShoreFoam(buffers, gc, gr, y, isLandTile, near);
+    }
     if (buffers.indices.length === 0) return;
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(new Float32Array(buffers.positions), 3));

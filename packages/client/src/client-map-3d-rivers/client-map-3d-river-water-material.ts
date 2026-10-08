@@ -15,6 +15,11 @@ export const RIVER_WATER_SHALLOW: Rgba = [0.11, 0.33, 0.4, 1];
 // Outermost edge: fades out so the water meets the wet bank softly.
 export const RIVER_WATER_EDGE: Rgba = [0.12, 0.3, 0.33, 0.35];
 
+// What the river blends toward as it spills into the sea: matched to how
+// the lit, part-transparent ocean renders near the coast (river water and
+// sea then meet without a colour step).
+export const RIVER_SEA_BLEND: Rgba = [0.15, 0.37, 0.44, 1];
+
 // v1-v8 strip has no per-vertex colours: one flat colour, the core's.
 export const RIVER_WATER_FLAT_COLOR = new Color(RIVER_WATER_CORE[0], RIVER_WATER_CORE[1], RIVER_WATER_CORE[2]);
 
