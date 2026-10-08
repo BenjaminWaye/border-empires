@@ -156,7 +156,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES, riverMouthCalmCorners);
+  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES, { waveCalmCorners: riverMouthCalmCorners, isLandAt: (x, z) => { const t = deps.terrainAt(deps.wrapX(x), deps.wrapY(z)); return t !== "SEA" && t !== "COASTAL_SEA"; } });
   const riverOverlay = createRiverOverlay(scene, { heightfield });
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);

@@ -16,6 +16,8 @@ export const RENDER_ORDER = {
   fogDarkenFrontier: 10,
   // client-map-3d-water-surface.ts: the ocean plane.
   oceanSurface: 12,
+  // Soft foam band along every coastline, on the sea (client-map-3d-shore.ts).
+  shoreFoam: 12.5,
   // A river's mouth plume spills out over the sea, so it draws after it.
   riverMouth: 13,
   // client-map-3d.ts: selectedMarker / hoverMarker.

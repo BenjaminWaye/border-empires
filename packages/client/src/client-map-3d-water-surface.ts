@@ -14,6 +14,7 @@ import {
 } from "three";
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { computeShoreCalm, createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore/client-map-3d-shore.js";
 
 export const WATER_SURFACE_Y = -0.06;
 
@@ -103,15 +104,24 @@ type TileEntry = { gc: number; gr: number; shallow: boolean; worldGc: number; wo
 
 const tileKey = (gc: number, gr: number): string => `${gc},${gr}`;
 
-export const createWaterSurface = (
-  scene: Scene,
-  _maxTiles: number,
+export type WaterSurfaceOptions = {
   // Wave calm by absolute world corner (key z * WORLD_WIDTH + x; 0 = full
   // waves, 1 = flat; absent = full waves). Calms the sea around river
   // mouths (client-map-3d-river-mouths.ts) so its tile edges don't bob
   // above and below the river where it flows in.
-  waveCalmCorners: () => ReadonlyMap<number, number> = () => new Map()
-): WaterSurface => {
+  readonly waveCalmCorners?: () => ReadonlyMap<number, number>;
+  // Whether absolute world tile (x, z) is land. Drives the calm shoreline and
+  // shore foam (client-map-3d-shore.ts); without it neither is drawn. Told
+  // apart from undrawn (unexplored) sea, which must keep its waves.
+  readonly isLandAt?: (worldX: number, worldZ: number) => boolean;
+};
+
+// Foam would be sub-pixel this far out (window wider than this many tiles).
+const SHORE_FOAM_MAX_WINDOW_TILES = 140;
+
+export const createWaterSurface = (scene: Scene, _maxTiles: number, options: WaterSurfaceOptions = {}): WaterSurface => {
+  const waveCalmCorners = options.waveCalmCorners ?? ((): ReadonlyMap<number, number> => new Map());
+  const shoreFoam = createShoreFoamLayer(scene, RENDER_ORDER.shoreFoam);
   // _maxTiles kept for API compatibility — merged geometry sizes itself.
 
   let tiles: TileEntry[] = [];
@@ -225,10 +235,22 @@ export const createWaterSurface = (
     const vCount = vCols * vRows;
 
     const positions = new Float32Array(vCount * 3);
-    surfaceCalm = new Float32Array(vCount);
+    // Land flags for the grid's tiles plus a one-tile border (tile (c, r) is
+    // the one whose top-left corner is grid vertex (c, r)).
+    const isLandAt = options.isLandAt;
+    const landCols = tileCols + 2;
+    const land = new Uint8Array(landCols * (tileRows + 2));
+    if (isLandAt) {
+      for (let r = -1; r <= tileRows; r++) {
+        for (let c = -1; c <= tileCols; c++) {
+          land[(r + 1) * landCols + (c + 1)] = isLandAt(minGC + c + waveWorldOffsetX, minGR + r + waveWorldOffsetZ) ? 1 : 0;
+        }
+      }
+    }
+    const isLandTile = (c: number, r: number): boolean =>
+      c >= -1 && c <= tileCols && r >= -1 && r <= tileRows && land[(r + 1) * landCols + (c + 1)] === 1;
+    surfaceCalm = isLandAt ? computeShoreCalm(vCols, vRows, isLandTile) : new Float32Array(vCount);
     const calmCorners = waveCalmCorners();
-    const waveCalmAt = (worldX: number, worldZ: number): number =>
-      calmCorners.get(wrapIndex(worldZ, WORLD_HEIGHT) * WORLD_WIDTH + wrapIndex(worldX, WORLD_WIDTH)) ?? 0;
     const uvs = new Float32Array(vCount * 2);
     const colors = new Float32Array(vCount * 3);
     const indices = new Uint32Array(tiles.length * 6); // 2 triangles × 3 indices
@@ -256,7 +278,7 @@ export const createWaterSurface = (
       const sz = nearestWrapped(Math.floor(key / WORLD_WIDTH) - waveWorldOffsetZ, minGR, WORLD_HEIGHT);
       const vc = sx - minGC;
       const vr = sz - minGR;
-      if (vc >= 0 && vc < vCols && vr >= 0 && vr < vRows) surfaceCalm[vr * vCols + vc] = calm;
+      if (vc >= 0 && vc < vCols && vr >= 0 && vr < vRows) surfaceCalm[vr * vCols + vc] = Math.max(surfaceCalm[vr * vCols + vc]!, calm);
     }
 
     // Vertex color: blend deep/shallow based on how many of the up-to-4
@@ -365,9 +387,12 @@ export const createWaterSurface = (
       const skirtPosAttr = new BufferAttribute(new Float32Array(skirtPositions), 3);
       skirtPosAttr.setUsage(DynamicDrawUsage); // top row updated every frame in tick()
       skirtGeometry.setAttribute("position", skirtPosAttr);
+      // Skirt tops sit on grid corners: same calm as the surface there.
       skirtCalm = new Float32Array(skirtPositions.length / 3);
-      for (let i = 0; i < skirtCalm.length && calmCorners.size > 0; i++) {
-        skirtCalm[i] = waveCalmAt((skirtPositions[i * 3] ?? 0) + waveWorldOffsetX, (skirtPositions[i * 3 + 2] ?? 0) + waveWorldOffsetZ);
+      for (let i = 0; i < skirtCalm.length; i++) {
+        const vc = (skirtPositions[i * 3] ?? 0) - minGC;
+        const vr = (skirtPositions[i * 3 + 2] ?? 0) - minGR;
+        if (vc >= 0 && vc < vCols && vr >= 0 && vr < vRows) skirtCalm[i] = surfaceCalm[vr * vCols + vc] ?? 0;
       }
       skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));
       skirtGeometry.setIndex(skirtIndices);
@@ -376,6 +401,9 @@ export const createWaterSurface = (
       skirtMesh.renderOrder = 11;
       scene.add(skirtMesh);
     }
+    const foamEnabled = isLandAt !== undefined && Math.max(tileCols, tileRows) <= SHORE_FOAM_MAX_WINDOW_TILES;
+    // Foam works in scene grid coords; the land grid is relative to (minGC, minGR).
+    shoreFoam.rebuild(tiles, (gc, gr) => isLandTile(gc - minGC, gr - minGR), WATER_SURFACE_Y + FOAM_LIFT_Y, foamEnabled);
   };
 
   // Same swell+chop formula the main surface uses in tick() below — shared
@@ -442,6 +470,7 @@ export const createWaterSurface = (
     skirtGeometry?.dispose();
     material.dispose();
     skirtMaterial.dispose();
+    shoreFoam.dispose();
     swellMap.dispose();
     choppyMap.dispose();
   };

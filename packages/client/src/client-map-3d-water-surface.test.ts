@@ -173,7 +173,7 @@ describe("createWaterSurface", () => {
       const scene = new Scene();
       const corners = new Map<number, number>();
       for (let x = 7; x <= 10; x += 1) for (let z = 3; z <= 6; z += 1) corners.set(z * WORLD_WIDTH + x, calm);
-      const water = createWaterSurface(scene, 9, () => corners);
+      const water = createWaterSurface(scene, 9, { waveCalmCorners: () => corners });
       for (let x = 0; x < 3; x += 1) for (let z = 0; z < 3; z += 1) water.addTile(x + 0.5, z + 0.5, false, x + 7, z + 3);
       water.commit();
       water.tick(12_345);
@@ -189,7 +189,7 @@ describe("createWaterSurface", () => {
   it("maps a world-corner calm entry onto exactly that vertex of the scene-relative grid", () => {
     const scene = new Scene();
     // World corner (8, 4) is calm; tiles sit at world (7..9, 3..5), scene (0..2, 0..2).
-    const water = createWaterSurface(scene, 9, () => new Map([[4 * WORLD_WIDTH + 8, 1]]));
+    const water = createWaterSurface(scene, 9, { waveCalmCorners: () => new Map([[4 * WORLD_WIDTH + 8, 1]]) });
     for (let x = 0; x < 3; x += 1) for (let z = 0; z < 3; z += 1) water.addTile(x + 0.5, z + 0.5, false, x + 7, z + 3);
     water.commit();
     water.tick(12_345);

@@ -26,6 +26,7 @@ export { dockOverlayVariants, structureOverlayImages } from "./client-map-overla
 type TileMap = Map<string, Tile>;
 
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
+export { drawShardFallback } from "./client-map-render-shard-fallback.js"; import { drawShoreFoam2D } from "./client-map-render-shore-foam.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
@@ -256,6 +257,7 @@ export const drawTerrainTile = (
       ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
       ctx.fillStyle = "rgba(173, 229, 255, 0.15)";
       ctx.fillRect(options.px + 1, options.py + 1, options.size - 2, Math.max(1, Math.floor(options.size * 0.12)));
+      drawShoreFoam2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
     } else {
       ctx.fillStyle = options.terrain === "MOUNTAIN" ? "rgba(52, 55, 63, 0.9)" : "rgba(34, 42, 26, 0.65)";
       ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
@@ -279,6 +281,7 @@ export const drawTerrainTile = (
   }
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
   if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
+  else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawShoreFoam2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
 };
 
 // drawForestOverlay moved to client-map-render-forest-overlay.ts (adding the
@@ -788,38 +791,6 @@ export const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined =>
   if (!tile.shardSite) return undefined;
   const variants = shardOverlayVariants[tile.shardSite.kind];
   return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-
-export const drawShardFallback = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number): void => {
-  const cx = px + size / 2;
-  ctx.fillStyle = "rgba(41, 26, 10, 0.28)";
-  ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.76, size * 0.28, size * 0.1, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(22, 35, 49, 0.94)";
-  ctx.beginPath();
-  ctx.moveTo(cx, py + size * 0.24);
-  ctx.lineTo(px + size * 0.7, py + size * 0.42);
-  ctx.lineTo(px + size * 0.63, py + size * 0.67);
-  ctx.lineTo(px + size * 0.37, py + size * 0.67);
-  ctx.lineTo(px + size * 0.3, py + size * 0.42);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(50, 210, 233, 0.98)";
-  ctx.beginPath();
-  ctx.moveTo(cx, py + size * 0.31);
-  ctx.lineTo(px + size * 0.62, py + size * 0.45);
-  ctx.lineTo(px + size * 0.57, py + size * 0.64);
-  ctx.lineTo(px + size * 0.43, py + size * 0.64);
-  ctx.lineTo(px + size * 0.38, py + size * 0.45);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 223, 132, 0.58)";
-  ctx.lineWidth = Math.max(1.2, size * 0.045);
-  ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.68, size * 0.2, size * 0.06, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.lineWidth = 1;
 };
 
 export const resourceOverlayScaleForTile = (tile: Tile): number => {

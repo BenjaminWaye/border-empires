@@ -263,6 +263,31 @@ ribbon. Banks get their slope from per-vertex normals tilted away from the
 water (lit like a bank, no geometry moved), so the recessed look survives
 without carving.
 
+### 1a-coast Coastline polish, step 1 (calm shore + foam)
+
+Owner review (2026-10-08): the round river mouths clash with the square,
+bobbing sea-tile edges along every coast. A frame diff showed the coast's
+sea edges flickering everywhere except the calmed mouths. Step 1 (this PR):
+
+1. **Calm shoreline** (`client-map-3d-water-surface.ts`): wave amplitude
+   fades to flat at every sea corner that touches a land tile (ring 0),
+   0.6 at ring 1, 0.25 at ring 2 -- combined (max) with the river-mouth
+   calm. Land is told apart from undrawn/unexplored sea by an `isLandAt`
+   dependency, so fog edges keep their waves. The south skirt walls calm
+   with the surface, so they stop flickering at the coast.
+2. **Shore foam** (new `client-map-3d-shore-foam.ts`): a soft light band on
+   the sea along every coastline, alpha from the distance to the nearest
+   land tile square (so it is rounded around convex sea corners), drawn
+   just after the ocean, no depth write. Only cells near land get geometry;
+   skipped when the view is zoomed far out (band would be sub-pixel).
+3. **2D parity**: sea tiles in the canvas renderer get the same light band
+   along edges that border land (helper extracted beside the river-edge
+   helper; `client-map-render.ts` must not grow).
+4. Tests for each; screenshots at close/mid/far zoom, before and after.
+
+Step 2 (separate PR): rounded coast corners and a land slope down to the
+water, the river cove generalised to the whole coastline, in both renderers.
+
 ### 1.0 v8 (prod) coverage
 
 Prod is on v8 (Phase 0). v1-v8 paths go through the same draped-ribbon
