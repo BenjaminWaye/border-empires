@@ -62,6 +62,7 @@ const saveOptions = (guestSave: GuestSaveController): HTMLElement[] => {
   return [
     action("Continue with Google", "google", "panel-btn guest-save-btn guest-save-primary"),
     action("Continue with Twitch", "twitch", "panel-btn guest-save-btn guest-save-twitch"),
+    action("Continue with Discord", "discord", "panel-btn guest-save-btn guest-save-discord"),
     el("div", "guest-save-or", "or"),
     emailRow
   ];
@@ -109,7 +110,7 @@ export const closeGuestSavePanel = (): void => {
 };
 
 // Static content, unlike the save panel: it is not driven by GuestSaveController
-// state and offers no Google/Twitch/email buttons, since neither works here. Reuses
+// state and offers no Google/Twitch/Discord/email buttons, since neither works here. Reuses
 // the same card markup/CSS and the "close" click handler already wired below.
 const renderInAppNotice = (appName: string): HTMLElement[] => [
   el("h2", undefined, "You're playing as a guest"),
@@ -141,6 +142,7 @@ const onPanelClick = (event: Event): void => {
   if (name === "close") return closeGuestSavePanel();
   if (name === "google") void guestSave.saveWithGoogle();
   else if (name === "twitch") void guestSave.saveWithTwitch();
+  else if (name === "discord") void guestSave.saveWithDiscord();
   else if (name === "email") void guestSave.saveWithEmail((panelEl()?.querySelector('[data-guest-save="email-input"]') as HTMLInputElement | null)?.value ?? "");
   else if (name === "switch") void guestSave.switchToExisting();
   else if (name === "keep") {

@@ -23,7 +23,7 @@ import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
-import { createSsoSignInHandler, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
+import { createSsoSignInHandler, DISCORD_PROVIDER_ID, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
 import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from "../client-guest-save/client-guest-save.js";
@@ -50,6 +50,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     firebaseAuth,
     googleProvider,
     twitchProvider,
+    discordProvider,
     analytics,
     ws,
     wsUrl,
@@ -65,7 +66,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     emailLinkSentTo: "",
     emailLinkPending: false
   };
-  initGuestSave({ firebaseAuth, googleProvider, twitchProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
+  initGuestSave({ firebaseAuth, googleProvider, twitchProvider, discordProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
 
   const clearEmailLinkUrl = (): void => {
     try {
@@ -98,6 +99,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authEmailLinkBtn: dom.authEmailLinkBtn,
       authGoogleBtn: dom.authGoogleBtn,
       authTwitchBtn: dom.authTwitchBtn,
+      authDiscordBtn: dom.authDiscordBtn,
       authPlayNowBtn: dom.authPlayNowBtn,
       authEmailEl: dom.authEmailEl,
       authPasswordEl: dom.authPasswordEl,
@@ -258,6 +260,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     };
     dom.authGoogleBtn.onclick = createSsoSignInHandler(ssoDeps, googleProvider && { provider: googleProvider, label: "Google", method: "google.com" });
     dom.authTwitchBtn.onclick = createSsoSignInHandler(ssoDeps, twitchProvider && { provider: twitchProvider, label: "Twitch", method: TWITCH_PROVIDER_ID });
+    dom.authDiscordBtn.onclick = createSsoSignInHandler(ssoDeps, discordProvider && { provider: discordProvider, label: "Discord", method: DISCORD_PROVIDER_ID });
 
     dom.authEmailLinkBtn.onclick = async () => {
       if (!firebaseAuth) return;
