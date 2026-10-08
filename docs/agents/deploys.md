@@ -133,6 +133,9 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
   - Twitch app (dev.twitch.tv/console) OAuth redirect URLs: `https://play.borderempires.com/__/auth/handler`, `https://staging.borderempires.com/__/auth/handler`, `https://border-empires.firebaseapp.com/__/auth/handler` (the first two go through the `vercel.json` `/__/auth/*` proxy; the last is the localhost/preview fallback authDomain).
   - Firebase provider: Sign-in method → Add new provider → OpenID Connect, code flow, name `twitch` (provider id `oidc.twitch`, `TWITCH_PROVIDER_ID` in `packages/client/src/client-auth-flow/client-auth-flow-sso.ts`), issuer `https://id.twitch.tv/oauth2`, Twitch client ID and secret.
   - The client requests the `email` claim; the gateway drops an `oidc.*` email Firebase doesn't mark verified (`firebase-token-verifier.ts`), so an unverified Twitch email never email-matches an existing player.
+- **Discord** ("Continue with Discord", login screen and guest panel) is set up the same way, as a second OpenID Connect provider (Discord publishes `https://discord.com/.well-known/openid-configuration`).
+  - Discord app (discord.com/developers/applications → OAuth2): add the same three `/__/auth/handler` redirect URLs as Twitch, and copy the client ID and secret.
+  - Firebase provider: OpenID Connect, code flow, name `discord` (provider id `oidc.discord`, `DISCORD_PROVIDER_ID` in `client-auth-flow-sso.ts`), issuer `https://discord.com`. The client requests scopes `openid identify email`.
 
 ## Fly (legacy rollback only)
 

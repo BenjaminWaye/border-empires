@@ -8,15 +8,16 @@ import {
 } from "../client-inapp-browser/client-inapp-browser.js";
 import { logSignUpIfNewUser, type SignUpMethod } from "./client-auth-flow-analytics.js";
 
-// Firebase provider ids for the popup sign-in buttons. Twitch has no built-in
-// Firebase provider, so it is a custom OpenID Connect provider whose id is
-// "oidc." + the provider name configured in the Firebase console.
+// Firebase provider ids for the popup sign-in buttons. Twitch and Discord have
+// no built-in Firebase provider, so each is a custom OpenID Connect provider
+// whose id is "oidc." + the provider name configured in the Firebase console.
 export const TWITCH_PROVIDER_ID = "oidc.twitch";
+export const DISCORD_PROVIDER_ID = "oidc.discord";
 
 export type SsoProvider = {
   provider: AuthProvider;
-  label: "Google" | "Twitch";
-  method: Extract<SignUpMethod, "google.com" | "oidc.twitch">;
+  label: "Google" | "Twitch" | "Discord";
+  method: Extract<SignUpMethod, "google.com" | "oidc.twitch" | "oidc.discord">;
 };
 
 export type SsoSignInDeps = {
@@ -83,6 +84,7 @@ export const signInProviderLabel = (user: Pick<User, "providerData">): string =>
   // Defensive: partial User objects (test fakes) can omit providerData.
   const providerIds = (user.providerData ?? []).map((info) => info.providerId);
   if (providerIds.includes(TWITCH_PROVIDER_ID)) return "Twitch";
+  if (providerIds.includes(DISCORD_PROVIDER_ID)) return "Discord";
   if (providerIds.includes("google.com")) return "Google";
   return "account";
 };

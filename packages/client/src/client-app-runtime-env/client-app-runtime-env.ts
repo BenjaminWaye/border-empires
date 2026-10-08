@@ -4,7 +4,7 @@ import { GoogleAuthProvider, OAuthProvider, getAuth } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { TWITCH_PROVIDER_ID } from "../client-auth-flow/client-auth-flow-sso.js";
+import { DISCORD_PROVIDER_ID, TWITCH_PROVIDER_ID } from "../client-auth-flow/client-auth-flow-sso.js";
 
 // The default Firebase authDomain (border-empires.firebaseapp.com) is a
 // different origin than the app itself (play.borderempires.com /
@@ -42,6 +42,17 @@ export const createTwitchProvider = (): OAuthProvider => {
   return provider;
 };
 
+// Discord is also a custom OpenID Connect provider (provider id
+// "oidc.discord"). The email scope is what puts email / email_verified in
+// Discord's ID token; identify gives the username.
+export const createDiscordProvider = (): OAuthProvider => {
+  const provider = new OAuthProvider(DISCORD_PROVIDER_ID);
+  provider.addScope("openid");
+  provider.addScope("identify");
+  provider.addScope("email");
+  return provider;
+};
+
 const defaultAuthDomain = (): string => {
   if (typeof window === "undefined") return FALLBACK_AUTH_DOMAIN;
   const hostname = window.location.hostname.toLowerCase();
@@ -52,6 +63,7 @@ export const createClientFirebaseSetup = (): {
   firebaseAuth: ReturnType<typeof getAuth> | undefined;
   googleProvider: GoogleAuthProvider | undefined;
   twitchProvider: OAuthProvider | undefined;
+  discordProvider: OAuthProvider | undefined;
   analytics: Analytics | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
@@ -59,7 +71,7 @@ export const createClientFirebaseSetup = (): {
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
-    return { firebaseAuth: undefined, googleProvider: undefined, twitchProvider: undefined, analytics: undefined };
+    return { firebaseAuth: undefined, googleProvider: undefined, twitchProvider: undefined, discordProvider: undefined, analytics: undefined };
   }
 
   const firebaseConfig: FirebaseOptions = { apiKey, authDomain, projectId, appId };
@@ -90,6 +102,7 @@ export const createClientFirebaseSetup = (): {
     firebaseAuth,
     googleProvider: new GoogleAuthProvider(),
     twitchProvider: createTwitchProvider(),
+    discordProvider: createDiscordProvider(),
     analytics
   };
 };

@@ -21,6 +21,7 @@ export type AuthFlowDeps = {
   firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
   twitchProvider?: OAuthProvider | undefined;
+  discordProvider?: OAuthProvider | undefined;
   analytics?: Analytics | undefined;
   ws: RealtimeSocket;
   wsUrl: string;

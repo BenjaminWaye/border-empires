@@ -222,6 +222,7 @@ describe("Save your empire panel", () => {
     expect(panel()!.textContent).toContain("lives only in this browser");
     expect(panel()!.querySelector('[data-guest-save="google"]')).not.toBeNull();
     expect(panel()!.querySelector('[data-guest-save="twitch"]')).not.toBeNull();
+    expect(panel()!.querySelector('[data-guest-save="discord"]')).not.toBeNull();
     expect(panel()!.querySelector('[data-guest-save="email-input"]')).not.toBeNull();
   });
 
