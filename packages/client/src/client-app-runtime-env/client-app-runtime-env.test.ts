@@ -11,6 +11,9 @@ vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: vi.fn(function GoogleAuthProviderMock(this: unknown) {
     return this;
   }),
+  OAuthProvider: vi.fn(function OAuthProviderMock(this: unknown) {
+    return Object.assign(this as object, { addScope: vi.fn(), setCustomParameters: vi.fn() });
+  }),
   getAuth: vi.fn(() => ({}))
 }));
 

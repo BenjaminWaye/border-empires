@@ -15,6 +15,7 @@ import {
   Scene
 } from "three";
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
+import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 
 const PALM_TRUNK_HEIGHT = 0.5;
 // Trunk base sits a touch below the surface so it never floats on slopes.
@@ -63,9 +64,11 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
+    const inRiverBank = riverBankTreeFilter(worldX, worldZ);
 
     for (const tree of layout) {
       if (count >= maxInstances) continue;
+      if (inRiverBank?.(tree.ox, tree.oz)) continue;
       scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_TRUNK_Y * tree.scale, sceneZ + tree.oz);

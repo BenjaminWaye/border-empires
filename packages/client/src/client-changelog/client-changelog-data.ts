@@ -252,6 +252,22 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791401674856, // frozen Date.now() value for this release
+    introducedIn: "2026.10.07.2",
+    title: "Rivers look like water again",
+    why: "River water was a pale see-through film drawn on top of everything, so it looked like it floated over the land, glowed through fog, and hung off the edge of explored land.",
+    changes: [
+      "River water is now a solid deep blue-teal with a dark wet bank along the waterline, so it sits down in the land",
+      "Territory colour stops at a dark wet riverbank instead of covering or bleaching the water, in both 3D and 2D",
+      "Fog now darkens rivers like the land around them",
+      "At the edge of explored land you see your half of a river; no more pieces hanging into unexplored space or dry riverbeds",
+      "Rivers cut down through the coast and spill out into the sea instead of stopping at a square end on the shore",
+      "River mouths widen and blend into the sea instead of looking cut off at the coastline (3D and 2D)",
+      "Coastlines are calmer and softer: waves settle near the shore instead of flickering the square sea edges, and a light foam line runs along every coast (3D and 2D)",
+      "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
+    ]
+  },
+  {
     createdAt: 1791434436666,
     introducedIn: "2026.10.08.1",
     title: "Your AFC's landing has sound",
@@ -268,6 +284,34 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AFC landing stays put when you pan",
     why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
     changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
+  },
+  {
+    createdAt: 1791450095409,
+    introducedIn: "2026.10.08.3",
+    title: "Tips wait for your AFC to land",
+    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
+    changes: [
+      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
+      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
+    ]
+  },
+  {
+    createdAt: 1791462529729,
+    introducedIn: "2026.10.08.4",
+    title: "Map effects stay put when you pan",
+    why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
+    changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
+  },
+  {
+    createdAt: 1791469121213,
+    introducedIn: "2026.10.08.5",
+    title: "New empires no longer land inside a neighbour's reach",
+    why: "A new empire could land right next to another player whose reach already covered its starting land. The AFC then claimed almost nothing and could barely see past its own tile.",
+    changes: [
+      "New and respawning empires now land where their starting reach is clear of every other empire's reach, whenever the map has room",
+      "Your AFC always sees 4 tiles around itself",
+      "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
+    ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

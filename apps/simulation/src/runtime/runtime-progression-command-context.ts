@@ -5,7 +5,7 @@ import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, type Out
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { mapTile } from "../runtime-snapshot-sections.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
-import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses } from "../runtime-town-vision.js";
+import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses } from "../runtime-town-vision/runtime-town-vision.js";
 import type { RuntimeProgressionCommandContext } from "../runtime-progression-command-handlers.js";
 import { tileResourceMatchesRevealCategory } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "../visibility-coverage-cache.js";
@@ -111,8 +111,9 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     invalidateUpkeepAccrual: (playerId) => deps.upkeepAccrualCacheByPlayer.delete(playerId),
     resyncVisionRadius: (playerId) => {
       deps.visibilityCoverage.resyncVisionRadius(playerId, deps.visionTransitionCallbacks);
-      // A base-radius change also moves every owned town's +1 reveal ring.
-      resyncPlayerTownVisionBonuses({ players: deps.players, coverage: deps.visibilityCoverage, callbacks: deps.visionTransitionCallbacks }, playerId, deps.summaryForPlayer(playerId).ownedTownTierByTile);
+      // A base-radius change also moves every owned town's +1 reveal ring (and each AFC's, once it outgrows AFC_VISION_RADIUS).
+      const summary = deps.summaryForPlayer(playerId);
+      resyncPlayerTownVisionBonuses({ players: deps.players, coverage: deps.visibilityCoverage, callbacks: deps.visionTransitionCallbacks }, playerId, summary.ownedTownTierByTile, summary.ownedAfcTileKeys);
       // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
       // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
       // this also doubles as the dormancy resync for a slot-waiver change

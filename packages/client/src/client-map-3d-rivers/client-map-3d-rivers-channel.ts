@@ -10,9 +10,42 @@
 // with a flat bed and sloping banks) and to decide where the water sits.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
+import { RIVER_SEA_BLEND, RIVER_WATER_CORE, RIVER_WATER_EDGE, RIVER_WATER_SHALLOW, type Rgba } from "./client-map-3d-river-water-material.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 
-/** A path point in camera-relative scene coords (x/z) with its river half-width. */
-export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number };
+/**
+ * A path point in camera-relative scene coords (x/z) with its river
+ * half-width. `mouth` (0..1, default 0) marks points past the river's final
+ * corner, running out into the sea: the water flares and fades along them.
+ * `descent` (0..1, default 0) ramps up over the channel's last stretch
+ * before the sea: the channel cuts down so it reaches sea level at the
+ * coast instead of ending on top of the coastal cliff.
+ */
+export type ChannelPathPoint = {
+  readonly x: number;
+  readonly z: number;
+  readonly halfWidth: number;
+  readonly mouth?: number;
+  readonly descent?: number;
+};
+
+// Fully descended, the water surface sits this far below the sea surface
+// (it is clamped to the sea surface), so the cut always reaches the sea.
+const DESCENT_UNDERCUT = 0.02;
+
+/**
+ * How much deeper than usual the channel is cut where the ground is at
+ * `surfaceY` and the river is `descent` of the way into its final descent:
+ * 1 normally; at full descent, deep enough that the water reaches the sea.
+ */
+export const riverDescentScale = (surfaceY: number, descent: number): number => {
+  if (descent <= 0) return 1;
+  const toSea = (surfaceY - WATER_SURFACE_Y + DESCENT_UNDERCUT) / RIVER_WATER_DEPTH;
+  return 1 + descent * Math.max(0, toSea - 1);
+};
+
+/** Which halves of the water draw at a sample (`left` = the -normal side). */
+export type WaterSides = { readonly left: boolean; readonly right: boolean };
 
 const CHAIKIN_ITERATIONS = 2;
 const CHAIKIN_CUT = 0.25;
@@ -20,14 +53,28 @@ const MAX_SAMPLE_SPACING = 0.2;
 const WOBBLE_AMPLITUDE = 0.05;
 const SOURCE_TAPER_LENGTH = 1.5;
 
+// Rendered width. Worldgen half-widths run 0.1 (source) to 0.24 (mouth);
+// drawn at that size the water reached ~0.34 tile into river-adjacent tiles,
+// where towns and trees stand. Scaled (keeping the taper) and capped so the
+// whole trench + bank stays within RIVER_BANK_REACH of the border.
+const RENDER_HALF_WIDTH_SCALE = 0.75;
+export const MAX_CHANNEL_HALF_WIDTH = 0.18;
+
 // Trench profile. The bed is flat out to BED_FRACTION of the half-width,
 // then the bank rises smoothly to ground level BANK_WIDTH beyond the
-// half-width. The whole trench (widest river: 0.24 + 0.22) stays well under
-// the ~0.95 distance between a river and the nearest tile edge the valley
-// mesh shares with regular terrain, so those shared edges are never carved.
+// half-width. The whole trench (at most MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH)
+// stays well under the ~0.95 distance between a river and the nearest tile
+// edge the valley mesh shares with regular terrain, so those shared edges
+// are never carved.
 export const TRENCH_DEPTH = 0.16;
 const BED_FRACTION = 0.8;
-const BANK_WIDTH = 0.22;
+export const BANK_WIDTH = 0.12;
+/** Furthest any river trench or bank reaches from its centreline inland (tile units); the estuary flare (withMouthDescent) reaches further, inside the mouth cove. */
+export const RIVER_BANK_REACH = MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH;
+
+/** Worldgen half-width -> rendered half-width (scaled, capped). */
+export const renderedChannelHalfWidth = (halfWidth: number): number =>
+  Math.min(MAX_CHANNEL_HALF_WIDTH, halfWidth * RENDER_HALF_WIDTH_SCALE);
 // Water fills the trench to this fraction of its depth, so the upper bank
 // stays visible above the waterline.
 const WATER_FILL = 0.45;
@@ -64,6 +111,13 @@ export const riverWaterHalfWidth = (halfWidth: number): number => {
   return lo + 0.02;
 };
 
+const lerpPoint = (a: ChannelPathPoint, b: ChannelPathPoint, t: number): ChannelPathPoint => {
+  const point = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t };
+  const mouth = (a.mouth ?? 0) + ((b.mouth ?? 0) - (a.mouth ?? 0)) * t;
+  const descent = (a.descent ?? 0) + ((b.descent ?? 0) - (a.descent ?? 0)) * t;
+  return { ...point, ...(mouth > 0 ? { mouth } : {}), ...(descent > 0 ? { descent } : {}) };
+};
+
 /** Chaikin corner cutting: rounds right-angle bends while keeping both endpoints. */
 export const chaikinSmooth = (points: readonly ChannelPathPoint[], iterations = CHAIKIN_ITERATIONS): ChannelPathPoint[] => {
   let pts: ChannelPathPoint[] = [...points];
@@ -72,11 +126,7 @@ export const chaikinSmooth = (points: readonly ChannelPathPoint[], iterations = 
     for (let i = 0; i + 1 < pts.length; i += 1) {
       const a = pts[i]!;
       const b = pts[i + 1]!;
-      const lerp = (t: number): ChannelPathPoint => ({
-        x: a.x + (b.x - a.x) * t,
-        z: a.z + (b.z - a.z) * t,
-        halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t
-      });
+      const lerp = (t: number): ChannelPathPoint => lerpPoint(a, b, t);
       next.push(lerp(CHAIKIN_CUT), lerp(1 - CHAIKIN_CUT));
     }
     next.push(pts[pts.length - 1]!);
@@ -93,7 +143,7 @@ const densify = (points: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / MAX_SAMPLE_SPACING));
     for (let s = 0; s < steps; s += 1) {
       const t = s / steps;
-      out.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t });
+      out.push(lerpPoint(a, b, t));
     }
   }
   if (points.length > 0) out.push(points[points.length - 1]!);
@@ -150,7 +200,7 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
     const endFade = i === 0 || i === dense.length - 1 ? 0 : 1;
     const wobble = endFade * WOBBLE_AMPLITUDE * (Math.sin(arc * 2.1 + phase) * 0.7 + Math.sin(arc * 5.3 + phase * 1.7) * 0.3);
     const taper = isSource ? Math.min(1, 0.35 + (0.65 * arc) / SOURCE_TAPER_LENGTH) : 1;
-    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth: p.halfWidth * taper };
+    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth: renderedChannelHalfWidth(p.halfWidth) * taper };
   });
 };
 
@@ -158,7 +208,7 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
 export type CenterlineSegment = { readonly a: ChannelPathPoint; readonly b: ChannelPathPoint };
 
 /** Out-param for nearest-segment queries (reused, so the per-vertex loop doesn't allocate). */
-export type NearestCenterline = { distance: number; halfWidth: number };
+export type NearestCenterline = { distance: number; halfWidth: number; descent: number };
 
 /**
  * Nearest point on any of `segments` to (x, z): writes distance + the river
@@ -175,6 +225,7 @@ export const nearestOnSegments = (segments: readonly CenterlineSegment[], x: num
     if (!found || distance < out.distance) {
       out.distance = distance;
       out.halfWidth = a.halfWidth + (b.halfWidth - a.halfWidth) * t;
+      out.descent = (a.descent ?? 0) + ((b.descent ?? 0) - (a.descent ?? 0)) * t;
       found = true;
     }
   }
@@ -215,51 +266,92 @@ export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPath
   return { segmentsNearTile };
 };
 
-export type WaterBuffers = { positions: number[]; colors: number[]; uvs: number[]; indices: number[] };
+export type WaterBuffers = { positions: number[]; colors: number[]; indices: number[] };
 
-// Water colours sit in the ocean's palette (client-map-3d-water-surface.ts
-// DEEP_COLOR/SHALLOW_COLOR) -- it's drawn with the ocean's own material.
-const WATER_MID: readonly [number, number, number] = [0.16, 0.39, 0.5];
-const WATER_EDGE: readonly [number, number, number] = [0.33, 0.62, 0.68];
+// Across the channel, as fractions of the water half-width: edge, shallow,
+// centre, shallow, edge. The core three are opaque; only the edges fade,
+// so the water reads as solid with a soft waterline.
+const WATER_COLUMNS: ReadonlyArray<readonly [number, Rgba]> = [
+  [-1, RIVER_WATER_EDGE],
+  [-0.6, RIVER_WATER_SHALLOW],
+  [0, RIVER_WATER_CORE],
+  [0.6, RIVER_WATER_SHALLOW],
+  [1, RIVER_WATER_EDGE]
+];
+const WATER_COLUMN_COUNT = WATER_COLUMNS.length;
+
+// How far the channel's colour has mixed toward the sea's by the time it
+// reaches the coast (descent 1); the mouth plume carries on from there.
+const CHANNEL_SEA_BLEND = 0.45;
+
+/**
+ * How far (0..1) a sample's water colour mixes toward RIVER_SEA_BLEND: it
+ * starts over the channel's final descent, so the river's banded inland
+ * look has already softened when it reaches the coast, and is continuous
+ * where the channel hands over to the plume (descent 1, mouth 0).
+ */
+export const riverSeaBlend = (point: ChannelPathPoint): number => {
+  const descent = point.descent ?? 0;
+  return 1 - (1 - CHANNEL_SEA_BLEND * descent * descent) * (1 - (point.mouth ?? 0));
+};
+
+/** The channel core's colour where it reaches the coast (descent 1): where the estuary pool starts. */
+const coastMix = (k: 0 | 1 | 2): number => RIVER_WATER_CORE[k] + (RIVER_SEA_BLEND[k] - RIVER_WATER_CORE[k]) * CHANNEL_SEA_BLEND;
+export const RIVER_COAST_COLOR: Rgba = [coastMix(0), coastMix(1), coastMix(2), 1];
 
 /**
  * Appends a flat water strip along `run` (a centreline run, scene coords):
- * three vertices per sample (edge, middle, edge), level across the channel
- * at `waterYAt(centre)`, with world-anchored UVs for the ocean's normal maps.
+ * WATER_COLUMN_COUNT vertices per sample, level across the channel at
+ * `waterYAt(centre)`, with RGBA colours (opaque core, soft edges). Where
+ * `sides` says a half may not draw, that half's columns collapse onto the
+ * centreline (the tile border), so the water stops at the border. Mouth
+ * points fade out toward the sea. `ends` are the centreline samples just
+ * before and after the run, when it continues in another mesh: the shared
+ * end sample then gets the same direction in both, so they meet exactly.
  */
 export const appendWater = (
   buffers: WaterBuffers,
   run: readonly ChannelPathPoint[],
-  waterYAt: (sceneX: number, sceneZ: number) => number,
-  uvAt: (sceneX: number, sceneZ: number) => readonly [number, number]
+  waterYAt: (point: ChannelPathPoint) => number,
+  sides?: readonly WaterSides[],
+  ends: { readonly before?: ChannelPathPoint | undefined; readonly after?: ChannelPathPoint | undefined } = {}
 ): void => {
   if (run.length < 2) return;
   const base = buffers.positions.length / 3;
   for (let i = 0; i < run.length; i += 1) {
     const cur = run[i]!;
-    const prev = run[Math.max(0, i - 1)]!;
-    const next = run[Math.min(run.length - 1, i + 1)]!;
+    const prev = i > 0 ? run[i - 1]! : (ends.before ?? cur);
+    const next = i + 1 < run.length ? run[i + 1]! : (ends.after ?? cur);
     const tx = next.x - prev.x;
     const tz = next.z - prev.z;
     const tlen = Math.hypot(tx, tz) || 1;
     const w = riverWaterHalfWidth(cur.halfWidth);
     const nx = (-tz / tlen) * w;
     const nz = (tx / tlen) * w;
-    const y = waterYAt(cur.x, cur.z);
-    for (const [ox, oz, color] of [[-nx, -nz, WATER_EDGE], [0, 0, WATER_MID], [nx, nz, WATER_EDGE]] as const) {
-      const x = cur.x + ox;
-      const z = cur.z + oz;
-      buffers.positions.push(x, y, z);
-      buffers.colors.push(color[0], color[1], color[2]);
-      const [u, v] = uvAt(x, z);
-      buffers.uvs.push(u, v);
+    const y = waterYAt(cur);
+    const side = sides?.[i];
+    // Mouth: stays solid while it leaves the coast, fading out toward its end.
+    const mouth = cur.mouth ?? 0;
+    const fade = 1 - mouth * mouth;
+    const toSea = riverSeaBlend(cur);
+    for (const [f, color] of WATER_COLUMNS) {
+      const drawn = !side || (f < 0 ? side.left : f > 0 ? side.right : true);
+      const g = drawn ? f : 0;
+      buffers.positions.push(cur.x + nx * g, y, cur.z + nz * g);
+      // Toward and out in the mouth the river's colour mixes into the sea's.
+      buffers.colors.push(
+        color[0] + (RIVER_SEA_BLEND[0] - color[0]) * toSea,
+        color[1] + (RIVER_SEA_BLEND[1] - color[1]) * toSea,
+        color[2] + (RIVER_SEA_BLEND[2] - color[2]) * toSea,
+        color[3] * fade
+      );
     }
   }
   for (let i = 0; i + 1 < run.length; i += 1) {
-    for (let k = 0; k < 2; k += 1) {
-      const a = base + i * 3 + k;
+    for (let k = 0; k + 1 < WATER_COLUMN_COUNT; k += 1) {
+      const a = base + i * WATER_COLUMN_COUNT + k;
       const b = a + 1;
-      const c = a + 3;
+      const c = a + WATER_COLUMN_COUNT;
       const d = c + 1;
       buffers.indices.push(a, c, b, b, c, d);
     }

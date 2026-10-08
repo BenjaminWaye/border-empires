@@ -62,6 +62,8 @@ export const initClientDom = () => {
   const authRegisterBtn = requireElement<HTMLButtonElement>("#auth-register");
   const authEmailLinkBtn = requireElement<HTMLButtonElement>("#auth-email-link");
   const authGoogleBtn = requireElement<HTMLButtonElement>("#auth-google");
+  const authTwitchBtn = requireElement<HTMLButtonElement>("#auth-twitch");
+  const authDiscordBtn = requireElement<HTMLButtonElement>("#auth-discord");
   const authPlayNowBtn = requireElement<HTMLButtonElement>("#auth-play-now");
   const authStatusEl = requireElement<HTMLDivElement>("#auth-status");
   const authDebugRouteEl = requireElement<HTMLDivElement>("#auth-debug-route");
@@ -162,6 +164,8 @@ export const initClientDom = () => {
     authEmailResetBtn,
     authEmailSentAddressEl,
     authGoogleBtn,
+    authTwitchBtn,
+    authDiscordBtn,
     authPlayNowBtn,
     authLoginBtn,
     authBusyCopyEl,

@@ -1,6 +1,6 @@
 import type { Analytics } from "firebase/analytics";
 import type { Auth } from "firebase/auth";
-import type { GoogleAuthProvider } from "firebase/auth";
+import type { GoogleAuthProvider, OAuthProvider } from "firebase/auth";
 import type { User } from "firebase/auth";
 import type { initClientDom } from "../client-dom.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -20,6 +20,8 @@ export type AuthFlowDeps = {
   dom: ClientDom;
   firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
+  twitchProvider?: OAuthProvider | undefined;
+  discordProvider?: OAuthProvider | undefined;
   analytics?: Analytics | undefined;
   ws: RealtimeSocket;
   wsUrl: string;

@@ -6,8 +6,8 @@ import {
   MeshBasicMaterial,
   OctahedronGeometry,
   RingGeometry,
-  Scene,
-  TorusGeometry
+  TorusGeometry,
+  type Object3D
 } from "three";
 
 const DURATION_MS = 2300;
@@ -53,7 +53,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = Math.max(0, Math.min(1, opacity));
 };
 
-export const createAetherPurgeFxLayer = (scene: Scene): AetherPurgeFxLayer => {
+export const createAetherPurgeFxLayer = (scene: Object3D): AetherPurgeFxLayer => {
   const group = new Group();
   group.name = "aether-purge-fx";
   scene.add(group);

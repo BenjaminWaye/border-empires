@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { beforeAll, describe, expect, it } from "vitest";
 import { DoubleSide, Mesh, Scene } from "three";
-import { createWaterSurface } from "./client-map-3d-water-surface.js";
+import { BufferGeometry } from "three";
+import { WORLD_WIDTH } from "@border-empires/shared";
+import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 
 // Regression test for the water surface rendering solid black from below:
 // the surface mesh only winds a front face (normal pointing up), so without
@@ -163,5 +166,55 @@ describe("createWaterSurface", () => {
 
     waterA.dispose();
     waterB.dispose();
+  });
+  it("drops the shore foam when a later commit has no sea in view", () => {
+    // Regression: an empty commit returned before rebuilding the foam, so
+    // the previous view's foam stayed in the scene at stale coordinates.
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4, { isLandAt: (x) => x === 1 });
+    water.addTile(0.5, 0.5, false, 0, 0);
+    water.commit();
+    const foamCount = (): number => scene.children.filter((c) => c instanceof Mesh && c.renderOrder === RENDER_ORDER.shoreFoam).length;
+    expect(foamCount()).toBe(1);
+    water.clear();
+    water.commit();
+    expect(foamCount()).toBe(0);
+  });
+
+  it("keeps the sea flat where waveCalmAt says calm (river mouths), and waving elsewhere", () => {
+    // Regression: the sea's tile corners bobbed ~0.22 up and down right
+    // where rivers flow in, so the sea-tile edges showed around the mouth.
+    const heights = (calm: number): number[] => {
+      const scene = new Scene();
+      const corners = new Map<number, number>();
+      for (let x = 7; x <= 10; x += 1) for (let z = 3; z <= 6; z += 1) corners.set(z * WORLD_WIDTH + x, calm);
+      const water = createWaterSurface(scene, 9, { waveCalmCorners: () => corners });
+      for (let x = 0; x < 3; x += 1) for (let z = 0; z < 3; z += 1) water.addTile(x + 0.5, z + 0.5, false, x + 7, z + 3);
+      water.commit();
+      water.tick(12_345);
+      const mesh = scene.children.find((child): child is Mesh => child instanceof Mesh)!;
+      const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+      const ys = Array.from(pos).filter((_, i) => i % 3 === 1);
+      water.dispose();
+      return ys;
+    };
+    expect(heights(1).every((y) => Math.abs(y - WATER_SURFACE_Y) < 1e-6)).toBe(true);
+    expect(heights(0).some((y) => Math.abs(y - WATER_SURFACE_Y) > 0.01)).toBe(true);
+  });
+  it("maps a world-corner calm entry onto exactly that vertex of the scene-relative grid", () => {
+    const scene = new Scene();
+    // World corner (8, 4) is calm; tiles sit at world (7..9, 3..5), scene (0..2, 0..2).
+    const water = createWaterSurface(scene, 9, { waveCalmCorners: () => new Map([[4 * WORLD_WIDTH + 8, 1]]) });
+    for (let x = 0; x < 3; x += 1) for (let z = 0; z < 3; z += 1) water.addTile(x + 0.5, z + 0.5, false, x + 7, z + 3);
+    water.commit();
+    water.tick(12_345);
+    const mesh = scene.children.find((child): child is Mesh => child instanceof Mesh)!;
+    const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+    for (let i = 0; i < pos.length; i += 3) {
+      const flat = Math.abs(pos[i + 1]! - WATER_SURFACE_Y) < 1e-6;
+      if (pos[i] === 1 && pos[i + 2] === 1) expect(flat).toBe(true);
+    }
+    expect(Array.from(pos).filter((_, i) => i % 3 === 1).filter((y) => Math.abs(y - WATER_SURFACE_Y) > 0.01).length).toBeGreaterThan(5);
+    water.dispose();
   });
 });

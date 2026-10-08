@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { computeAfcBlockerKeys, computeCoastalLandKeys, computeLandRegions, hasWaterNeighbor, isAfcSiteClear, preferDryFootprintCandidates } from "@border-empires/game-domain";
-import type { Terrain } from "@border-empires/shared";
+import { TOWN_REACH_RADIUS, type Terrain } from "@border-empires/shared";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { BARBARIAN_SPAWN_AVOID_RADIUS } from "./barbarian-proximity.js";
@@ -24,6 +24,13 @@ type SpawnRequirements = {
   // last-resort loop still accept any site, so a barbarian-heavy map always
   // yields a spawn (the landing wipe clears whatever is in reach).
   avoidBarbarians?: boolean;
+  // Keeps the new AFC's whole reach disk (plus a one-tile buffer, see
+  // SPAWN_RIVAL_REACH_CLEARANCE) out of every other player's reach border.
+  // Reach is first-come: a disk landing on a rival's reach is never
+  // auto-claimed, leaving the newcomer one tile of territory and no view of
+  // its surroundings. Every pass sets it except the very last, so a full map
+  // still yields a spawn.
+  avoidRivalReach?: boolean;
 };
 
 type SpawnSearchPass = {
@@ -63,7 +70,19 @@ export type LegacySpawnPlacementInput = {
   // only by passes flagged SpawnRequirements.avoidBarbarians and only after
   // every other check passed. Omitted = no barbarian preference.
   hasNearbyBarbarian?: (x: number, y: number, radius: number) => boolean;
+  // Reach-border owner of (x, y), toroidally wrapped by the caller (the
+  // runtime's reachBorder). Consulted only by passes flagged
+  // SpawnRequirements.avoidRivalReach. Omitted = no reach preference.
+  reachOwnerAt?: (x: number, y: number) => string | undefined;
+  // Called when the spawn could only be placed by a pass that drops
+  // avoidRivalReach — the map has no open ground left clear of every empire's
+  // reach, which is the signal to size the next season's world up.
+  onRivalReachRelaxed?: () => void;
 };
+
+// The AFC's own TOWN_REACH_RADIUS disk plus one ring, so the new border never
+// starts flush against a rival's.
+export const SPAWN_RIVAL_REACH_CLEARANCE = TOWN_REACH_RADIUS + 1;
 
 export const RALLY_SPAWN_RADIUS = 24;
 
@@ -83,21 +102,25 @@ const MIN_TOWN_SPAWN_DISTANCE = 5;
 // (unlike LEGACY_SPAWN_SEARCH_ORDER's 50): the whole point of a rally spawn
 // is landing close to the anchor player's own settled tiles.
 const RALLY_SPAWN_SEARCH_ORDER: readonly SpawnRequirements[] = [
-  { needsTown: true, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
-  { needsTown: true, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
-  { needsTown: false, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
-  { needsTown: false, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
+  { needsTown: true, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true },
+  { needsTown: true, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true },
+  { needsTown: false, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true },
+  { needsTown: false, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true },
+  { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0, avoidRivalReach: true },
   { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 }
 ];
 
 const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
-  { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0 } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0, avoidBarbarians: true } },
+  { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true } },
+  { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true } },
+  { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true } },
+  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE, avoidRivalReach: true } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0, avoidRivalReach: true } },
+  // Rival reach outranks barbarians: a landing wipes barbarians in its disk,
+  // but nothing frees ground inside a rival's reach.
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0, avoidRivalReach: true, avoidBarbarians: true } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0, avoidRivalReach: true } },
   { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 } }
 ];
 
@@ -177,16 +200,34 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
       return (x, y) => terrainByKey.get(simulationTileKey(x, y));
     })();
 
+  const reachOwnerAt = input.reachOwnerAt;
+  const hasRivalReachNearby = (x: number, y: number): boolean => {
+    if (!reachOwnerAt) return false;
+    for (let dy = -SPAWN_RIVAL_REACH_CLEARANCE; dy <= SPAWN_RIVAL_REACH_CLEARANCE; dy += 1) {
+      for (let dx = -SPAWN_RIVAL_REACH_CLEARANCE; dx <= SPAWN_RIVAL_REACH_CLEARANCE; dx += 1) {
+        const owner = reachOwnerAt(x + dx, y + dy);
+        if (owner && owner !== input.playerId) return true;
+      }
+    }
+    return false;
+  };
+
   const canSpawnAt = (x: number, y: number, requirements: SpawnRequirements, requireDryFootprint = true): boolean => {
     if (requireDryFootprint && hasWaterNeighbor(terrainAt, x, y)) return false;
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
     if (requirements.minTownDistance > 0 && hasNearbyTown(x, y, requirements.minTownDistance - 1)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
     if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
-    // Last on purpose: the scan is the priciest check, so it only runs for a
-    // candidate every other rule already accepted.
+    // Last on purpose: these scans are the priciest checks, so they only run
+    // for a candidate every other rule already accepted.
+    if (requirements.avoidRivalReach && hasRivalReachNearby(x, y)) return false;
     if (requirements.avoidBarbarians && input.hasNearbyBarbarian?.(x, y, BARBARIAN_SPAWN_AVOID_RADIUS)) return false;
     return true;
+  };
+
+  const accept = (tile: { x: number; y: number }, requirements: SpawnRequirements): { x: number; y: number } => {
+    if (!requirements.avoidRivalReach && reachOwnerAt) input.onRivalReachRelaxed?.();
+    return { x: tile.x, y: tile.y };
   };
 
   if (input.rallyAnchor) {
@@ -200,7 +241,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
     for (const requirements of RALLY_SPAWN_SEARCH_ORDER) {
       const qualifyingCandidates = nearbyCandidates.filter((tile) => canSpawnAt(tile.x, tile.y, requirements, false));
       const rallySpawn = qualifyingCandidates[hashString(input.playerId) % Math.max(1, Math.min(qualifyingCandidates.length, 8))];
-      if (rallySpawn) return { x: rallySpawn.x, y: rallySpawn.y };
+      if (rallySpawn) return accept(rallySpawn, requirements);
     }
   }
 
@@ -210,7 +251,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
       seed = nextSeed(seed + attempt);
       const candidate = spawnCandidates[seed % spawnCandidates.length];
       if (!candidate) continue;
-      if (canSpawnAt(candidate.x, candidate.y, pass.requirements)) return { x: candidate.x, y: candidate.y };
+      if (canSpawnAt(candidate.x, candidate.y, pass.requirements)) return accept(candidate, pass.requirements);
     }
   }
   // Last resort: the loosest pass again without the dry-footprint rule, so a
@@ -219,7 +260,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   for (let attempt = 0; attempt < loosestPass.tries; attempt += 1) {
     seed = nextSeed(seed + attempt);
     const candidate = spawnCandidates[seed % spawnCandidates.length];
-    if (candidate && canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, false)) return { x: candidate.x, y: candidate.y };
+    if (candidate && canSpawnAt(candidate.x, candidate.y, loosestPass.requirements, false)) return accept(candidate, loosestPass.requirements);
   }
 
   return undefined;

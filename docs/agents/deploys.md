@@ -26,9 +26,9 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 ## Per-environment world size
 
-- `WORLD_WIDTH` / `WORLD_HEIGHT` (default 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging sets 320x160 with watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
-- The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 320x160 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
-- On a shrunken world, worldgen keeps the default-size counts for resource clusters, the town target, waystations and coverage cells, and shrinks the spacing so they fit. Towns and farm tiles still come out lower (~195 vs ~360 towns at 320x160) because less land is available. A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
+- `WORLD_WIDTH` / `WORLD_HEIGHT` (standard size 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging explicitly sets the standard 640x320 size and keeps watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
+- The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 640x320 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
+- A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
 - `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size).
 
 ## Season rollover (new map, map size, AI count, worldgen)
@@ -125,6 +125,17 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 - `/admin` on `play.borderempires.com` / `staging.borderempires.com` is a separate static page (`packages/client/admin.html` + `packages/client/admin-app/`). You sign in with Google, and it calls that deployment's gateway `/admin/*` JSON endpoints directly with the Firebase ID token. The gateway only accepts the token for the verified `ADMIN_EMAIL` (`apps/realtime-gateway/src/admin-auth/admin-firebase-auth.ts`). It replaces the old `api/admin` edge proxy, which never served anything.
 - `/r/:code` (rally invite links) is served by the edge function `api/rally/[code].ts`, which returns the normal app shell with link-preview (Open Graph/Twitter) tags injected. It reads the inviter name from the gateway's cached `GET /rally/preview/:code` via the `BACKEND_URL` Vercel env var, and fails open to generic tags if that is unset or slow. The share image is `packages/client/public/og/rally-preview.jpg` (1200x630 JPEG, kept under ~300 KB for WhatsApp). After a client deploy, check a link with the platform debuggers (Facebook Sharing Debugger, X Card Validator) or `curl -A "facebookexternalhit/1.1" <play origin>/r/<code>`.
 - Do not create or link additional Vercel projects for this repo. Reuse `border-empires-client` and prefer the stable production domain `https://border-empires-client.vercel.app/` when reporting deploy results.
+
+## Firebase sign-in providers
+
+- Google, email link, email/password and anonymous (Play now) are built-in Firebase Auth providers for the `border-empires` project.
+- **Twitch** ("Continue with Twitch" on the login screen and the guest "Save your empire" panel) is a custom OpenID Connect provider, so the project must be on Identity Platform (Firebase console → Authentication → Settings → upgrade; needs the Blaze plan, one-way). Without the provider enabled the button fails with `auth/operation-not-allowed`.
+  - Twitch app (dev.twitch.tv/console) OAuth redirect URLs: `https://play.borderempires.com/__/auth/handler`, `https://staging.borderempires.com/__/auth/handler`, `https://border-empires.firebaseapp.com/__/auth/handler` (the first two go through the `vercel.json` `/__/auth/*` proxy; the last is the localhost/preview fallback authDomain).
+  - Firebase provider: Sign-in method → Add new provider → OpenID Connect, code flow, name `twitch` (provider id `oidc.twitch`, `TWITCH_PROVIDER_ID` in `packages/client/src/client-auth-flow/client-auth-flow-sso.ts`), issuer `https://id.twitch.tv/oauth2`, Twitch client ID and secret.
+  - The client requests the `email` claim; the gateway drops an `oidc.*` email Firebase doesn't mark verified (`firebase-token-verifier.ts`), so an unverified Twitch email never email-matches an existing player.
+- **Discord** ("Continue with Discord", login screen and guest panel) is set up the same way, as a second OpenID Connect provider (Discord publishes `https://discord.com/.well-known/openid-configuration`).
+  - Discord app (discord.com/developers/applications → OAuth2): add the same three `/__/auth/handler` redirect URLs as Twitch, and copy the client ID and secret.
+  - Firebase provider: OpenID Connect, code flow, name `discord` (provider id `oidc.discord`, `DISCORD_PROVIDER_ID` in `client-auth-flow-sso.ts`), issuer `https://discord.com`. The client requests scopes `openid identify email`.
 
 ## Fly (legacy rollback only)
 
