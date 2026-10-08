@@ -356,4 +356,41 @@ describe("client-audio", () => {
     expect(musicEl.paused).toBe(false);
     vi.useRealTimers();
   });
+
+  it("plays the AFC drop rocket on its own element, layered over the music bed and any location theme", async () => {
+    vi.stubGlobal("requestAnimationFrame", () => 0); // the theme's duck fade isn't under test here
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+    fresh.setAmbientAudioMuted(false);
+
+    fresh.startAmbientAudio();
+    fresh.playLocationTheme("town");
+    const musicEl = audios[0] as FakeAudio;
+    const sfxEl = audios[1] as FakeAudio;
+    const sfxPlaysBefore = sfxEl.playCount;
+
+    fresh.playAfcDropSound();
+
+    expect(audios).toHaveLength(3);
+    const dropEl = audios[2] as FakeAudio;
+    expect(dropEl.playCount).toBe(1);
+    expect(sfxEl.paused).toBe(false);
+    expect(sfxEl.playCount).toBe(sfxPlaysBefore);
+    expect(musicEl.src).not.toContain("afc-drop");
+  });
+
+  it("keeps the AFC drop rocket silent before audio has started and while muted", async () => {
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.playAfcDropSound();
+    expect(audios).toHaveLength(0);
+
+    fresh.setAmbientAudioMuted(true);
+    fresh.startAmbientAudio();
+    fresh.playAfcDropSound();
+    expect(audios).toHaveLength(1); // only the music bed
+  });
 });

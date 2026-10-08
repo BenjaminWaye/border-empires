@@ -33,6 +33,8 @@ export type AfcJoinDropTickDeps = {
   readonly markSeen: (tipId: string) => void;
   /** Bumps the tile revision so the 3D renderer rebuilds (AFC hidden/revealed). */
   readonly onTileChanged: (x: number, y: number) => void;
+  /** Fires once, the moment the landing animation starts (plays the rocket sound). */
+  readonly onDropStart?: () => void;
 };
 
 /** Minimum gap between scans for a fresh AFC, and the longer gap once a drop has settled (a later fresh AFC is rare). */
@@ -144,6 +146,7 @@ export const tickAfcJoinDrop = (deps: AfcJoinDropTickDeps): void => {
         state.afcJoinDropFxQueue.push({ x: drop.x, y: drop.y, queuedAt: nowMs });
         // Only the 3D renderer drains this; keep a 2D-only session from accumulating one entry per season/respawn.
         if (state.afcJoinDropFxQueue.length > FX_QUEUE_CAP) state.afcJoinDropFxQueue.shift();
+        deps.onDropStart?.();
       }
     } else {
       drop.gateOpenSince = 0;

@@ -27,9 +27,12 @@ const LOCATION_TRACKS: Record<LocationTheme, string> = {
   dock: "/audio/dock.m4a",
   wonder: "/audio/wonder.m4a"
 };
+const AFC_DROP_TRACK = "/audio/afc-drop-rocket.mp3";
 
 let musicElement: HTMLAudioElement | undefined;
 let sfxElement: HTMLAudioElement | undefined;
+/** The AFC join-drop rocket one-shot. Its own element so it layers over the music bed and any location theme without cutting either off. */
+let afcDropElement: HTMLAudioElement | undefined;
 let musicMode: MusicMode = "calm";
 let calmIndex = 0;
 let started = false;
@@ -71,6 +74,7 @@ const targetVolume = (): number => (muted ? 0 : volume);
 const applyGain = (): void => {
   if (musicElement) musicElement.volume = targetVolume();
   if (sfxElement) sfxElement.volume = targetVolume();
+  if (afcDropElement) afcDropElement.volume = targetVolume();
 };
 
 // `isCurrent` lets a fade check, on every frame, whether a newer fade of the
@@ -200,6 +204,7 @@ export const initClientAudio = (): void => {
     if (document.hidden) {
       musicElement?.pause();
       sfxElement?.pause();
+      afcDropElement?.pause();
       return;
     }
     if (muted) return;
@@ -322,4 +327,13 @@ const playOneShot = (theme: LocationTheme): void => {
   sfxElement.currentTime = 0;
   sfxElement.volume = targetVolume();
   sfxElement.play().catch(() => {});
+};
+
+/** Plays the rocket sound for the AFC join drop, once, as the landing animation starts. Silent until the player's first interaction has started audio, and while muted. */
+export const playAfcDropSound = (): void => {
+  if (!started || muted || typeof Audio === "undefined") return;
+  if (!afcDropElement) afcDropElement = new Audio(AFC_DROP_TRACK);
+  afcDropElement.currentTime = 0;
+  afcDropElement.volume = targetVolume();
+  afcDropElement.play().catch(() => {});
 };
