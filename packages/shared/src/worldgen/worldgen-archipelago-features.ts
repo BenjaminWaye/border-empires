@@ -10,7 +10,9 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { seeded01 } from "./worldgen-noise.js";
 import { buildPlates } from "./worldgen-plates.js";
-import { worldSeed } from "./worldgen.js";
+import { isOceanicPlateAt } from "./worldgen-continent-score.js";
+import { POLAR_BAND, worldSeed } from "./worldgen.js";
+import { continentSeparationActive, worldgenVersion } from "./worldgen-version.js";
 
 const toroidalDx = (a: number, b: number): number => {
   const d = Math.abs(a - b);
@@ -33,6 +35,25 @@ const distToNearestContinentalPlate = (x: number, y: number): number => {
   return best;
 };
 
+// v10+: continental plates cover most of the map (see worldgen-plates.ts),
+// so "far from every continental plate CENTRE" is rarely satisfiable and
+// placement fell back to its last random attempt -- dropping atoll rings and
+// lagoons into the middle of continents. Instead a feature must sit wholly in
+// open ocean: its centre and a ring of points around it all on oceanic
+// plates, clear of the polar bands. If no attempt qualifies, it is skipped.
+const OPEN_OCEAN_RING_SAMPLES = 12;
+const POLAR_CLEARANCE = 12;
+const isOpenOceanSite = (x: number, y: number, radius: number): boolean => {
+  if (y - radius < POLAR_BAND + POLAR_CLEARANCE || y + radius >= WORLD_HEIGHT - POLAR_BAND - POLAR_CLEARANCE) return false;
+  if (!isOceanicPlateAt(x, y)) return false;
+  for (let i = 0; i < OPEN_OCEAN_RING_SAMPLES; i += 1) {
+    const a = (i / OPEN_OCEAN_RING_SAMPLES) * Math.PI * 2;
+    const sx = (Math.round(x + Math.cos(a) * radius) + WORLD_WIDTH) % WORLD_WIDTH;
+    if (!isOceanicPlateAt(sx, Math.round(y + Math.sin(a) * radius))) return false;
+  }
+  return true;
+};
+
 // --- Archipelago zones (Indonesia-style dense island chains) --------------
 
 const ARCHIPELAGO_ZONE_COUNT = Math.max(1, Math.round(2 * (WORLD_WIDTH / WORLD_HEIGHT)));
@@ -46,31 +67,49 @@ const ISLAND_PLACEMENT_ATTEMPTS = 40;
 const ISLAND_MIN_RADIUS = 3;
 const ISLAND_MAX_RADIUS = 10;
 const ISLAND_BUMP_HEIGHT = 0.45;
+// v10+: continental plates cover more of the map, so the calibrated sea
+// threshold sits higher (~0.4-0.63 vs ~0.25-0.3) and the old bumps no longer
+// lift these features above water. Island/atoll land must clear it.
+const ISLAND_BUMP_HEIGHT_V10 = 0.8;
 
 type IslandSeed = { cx: number; cy: number; radius: number };
 type ArchipelagoZone = { cx: number; cy: number; islands: IslandSeed[] };
 
 let cachedZonesSeed = Number.NaN;
+// Keyed on version too: placement avoids continental plates, which v10 changes.
+let cachedZonesVersion: number | undefined;
 let cachedZones: ArchipelagoZone[] = [];
 
 const buildArchipelagoZones = (): ArchipelagoZone[] => {
   const seed = worldSeed();
-  if (seed === cachedZonesSeed && cachedZones.length > 0) return cachedZones;
+  const version = worldgenVersion();
+  if (seed === cachedZonesSeed && version === cachedZonesVersion) return cachedZones;
   cachedZonesSeed = seed;
+  cachedZonesVersion = version;
 
+  const openOceanOnly = continentSeparationActive();
   const zoneCenters: { cx: number; cy: number }[] = [];
   for (let i = 0; i < ARCHIPELAGO_ZONE_COUNT; i += 1) {
     let cx = 0, cy = 0;
+    let placed = false;
     for (let attempt = 0; attempt < ZONE_PLACEMENT_ATTEMPTS; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 310011) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 320022) * WORLD_HEIGHT);
-      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
       const farFromOtherZones = zoneCenters.every((z) => distTo(candX, candY, z.cx, z.cy) >= ZONE_MIN_SPACING);
       cx = candX;
       cy = candY;
+      if (openOceanOnly) {
+        if (farFromOtherZones && isOpenOceanSite(candX, candY, ARCHIPELAGO_ZONE_RADIUS * 0.5)) {
+          placed = true;
+          break;
+        }
+        continue;
+      }
+      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
+      placed = true;
       if ((farFromContinents && farFromOtherZones) || attempt === ZONE_PLACEMENT_ATTEMPTS - 1) break;
     }
-    zoneCenters.push({ cx, cy });
+    if (placed) zoneCenters.push({ cx, cy });
   }
 
   cachedZones = zoneCenters.map((zone, zi) => {
@@ -111,7 +150,7 @@ export const archipelagoBumpAt = (wx: number, wy: number): number => {
       const d = distTo(wx, wy, island.cx, island.cy);
       if (d >= island.radius) continue;
       const t = 1 - d / island.radius; // 0 at the edge, 1 at the center
-      const contribution = ISLAND_BUMP_HEIGHT * t * t;
+      const contribution = (continentSeparationActive() ? ISLAND_BUMP_HEIGHT_V10 : ISLAND_BUMP_HEIGHT) * t * t;
       if (contribution > bump) bump = contribution;
     }
   }
@@ -127,6 +166,7 @@ const ATOLL_OUTER_RADIUS_MIN = 9;
 const ATOLL_OUTER_RADIUS_MAX = 15;
 const ATOLL_RING_WIDTH = 3.5;
 const ATOLL_RING_BUMP_HEIGHT = 0.5;
+const ATOLL_RING_BUMP_HEIGHT_V10 = 0.85;
 // Actively pushed down, not just left at ambient ocean elevation, so the
 // lagoon reads as real open water even if this exact ocean point happened to
 // sample a locally high plate/uplift score.
@@ -135,30 +175,45 @@ const ATOLL_LAGOON_DEPRESSION = -0.5;
 type Atoll = { cx: number; cy: number; outerRadius: number };
 
 let cachedAtollsSeed = Number.NaN;
+// Keyed on version too: placement avoids continental plates, which v10 changes.
+let cachedAtollsVersion: number | undefined;
 let cachedAtolls: Atoll[] = [];
 
 const buildAtolls = (): Atoll[] => {
   const seed = worldSeed();
-  if (seed === cachedAtollsSeed && cachedAtolls.length > 0) return cachedAtolls;
+  const version = worldgenVersion();
+  if (seed === cachedAtollsSeed && version === cachedAtollsVersion) return cachedAtolls;
   cachedAtollsSeed = seed;
+  cachedAtollsVersion = version;
 
   const zones = buildArchipelagoZones();
+  const openOceanOnly = continentSeparationActive();
   const atolls: Atoll[] = [];
   for (let i = 0; i < ATOLL_COUNT; i += 1) {
     let cx = 0, cy = 0;
+    let placed = false;
+    const outerRadius =
+      ATOLL_OUTER_RADIUS_MIN + seeded01(i, 0, seed + 380088) * (ATOLL_OUTER_RADIUS_MAX - ATOLL_OUTER_RADIUS_MIN);
     for (let attempt = 0; attempt < ATOLL_PLACEMENT_ATTEMPTS; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 360066) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 370077) * WORLD_HEIGHT);
-      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
       const farFromZones = zones.every((z) => distTo(candX, candY, z.cx, z.cy) >= ARCHIPELAGO_ZONE_RADIUS * 1.3);
       const farFromOtherAtolls = atolls.every((a) => distTo(candX, candY, a.cx, a.cy) >= ATOLL_MIN_SPACING);
       cx = candX;
       cy = candY;
+      if (openOceanOnly) {
+        // A clear margin of open water beyond the ring, so it reads as a remote atoll.
+        if (farFromZones && farFromOtherAtolls && isOpenOceanSite(candX, candY, outerRadius + 8)) {
+          placed = true;
+          break;
+        }
+        continue;
+      }
+      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
+      placed = true;
       if ((farFromContinents && farFromZones && farFromOtherAtolls) || attempt === ATOLL_PLACEMENT_ATTEMPTS - 1) break;
     }
-    const outerRadius =
-      ATOLL_OUTER_RADIUS_MIN + seeded01(i, 0, seed + 380088) * (ATOLL_OUTER_RADIUS_MAX - ATOLL_OUTER_RADIUS_MIN);
-    atolls.push({ cx, cy, outerRadius });
+    if (placed) atolls.push({ cx, cy, outerRadius });
   }
   cachedAtolls = atolls;
   return cachedAtolls;
@@ -181,7 +236,7 @@ export const atollBumpAt = (wx: number, wy: number): number => {
       const ringMid = (innerRadius + atoll.outerRadius) / 2;
       const ringHalfWidth = (atoll.outerRadius - innerRadius) / 2;
       const t = Math.max(0, 1 - Math.abs(d - ringMid) / ringHalfWidth);
-      bump += ATOLL_RING_BUMP_HEIGHT * t;
+      bump += (continentSeparationActive() ? ATOLL_RING_BUMP_HEIGHT_V10 : ATOLL_RING_BUMP_HEIGHT) * t;
     }
   }
   return bump;

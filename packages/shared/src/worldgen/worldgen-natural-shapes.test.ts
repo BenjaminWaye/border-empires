@@ -150,7 +150,7 @@ describe("continents mountain ranges (v10)", () => {
 describe("atolls (v10)", () => {
   // Land tiles near an atoll's centre form its ring; the ratio of the ring's
   // principal-axis variances is 1 for a circle and ~4 for a 2:1 oval.
-  test("atoll rings are round, not stretched by the domain warp", () => {
+  test("atolls sit in open ocean and their rings are round, not stretched by the domain warp", () => {
     let atollsChecked = 0;
     for (const seed of [777777, 2024]) {
       setWorldSeed(seed, "continents", FIX_VERSION);
@@ -161,29 +161,39 @@ describe("atolls (v10)", () => {
       // Group lagoon tiles by atoll (centres are >= 64 tiles apart).
       const groups: Array<Array<[number, number]>> = [];
       for (const t of lagoon) {
-        const g = groups.find((grp) => Math.hypot(grp[0]![0] - t[0], grp[0]![1] - t[1]) < 20);
+        const g = groups.find((grp) => Math.hypot(grp[0]![0] - t[0], grp[0]![1] - t[1]) < 30);
         if (g) g.push(t);
         else groups.push([t]);
       }
       for (const g of groups) {
         const cx = Math.round(g.reduce((s, t) => s + t[0], 0) / g.length);
         const cy = Math.round(g.reduce((s, t) => s + t[1], 0) / g.length);
-        const land: Array<[number, number]> = [];
-        for (let dy = -22; dy <= 22; dy += 1) {
-          for (let dx = -22; dx <= 22; dx += 1) {
-            const x = (cx + dx + WORLD_WIDTH) % WORLD_WIDTH;
+        const ring: Array<[number, number]> = [];
+        let band = 0;
+        let bandLand = 0;
+        for (let dy = -24; dy <= 24; dy += 1) {
+          for (let dx = -24; dx <= 24; dx += 1) {
             const y = cy + dy;
-            if (y < 0 || y >= WORLD_HEIGHT || Math.hypot(dx, dy) > 22) continue;
-            if (terrainCodeAt(x, y) === 1 || terrainCodeAt(x, y) === TERRAIN_MOUNTAIN) land.push([dx, dy]);
+            if (y < 0 || y >= WORLD_HEIGHT) continue;
+            const t = terrainCodeAt((cx + dx + WORLD_WIDTH) % WORLD_WIDTH, y);
+            const isLand = t === TERRAIN_LAND || t === TERRAIN_MOUNTAIN;
+            const r = Math.hypot(dx, dy);
+            if (r <= 18 && isLand) ring.push([dx, dy]);
+            if (r > 19 && r <= 24) {
+              band += 1;
+              if (isLand) bandLand += 1;
+            }
           }
         }
-        // Skip atolls fused to a coast or erased by the polar band: only an
-        // isolated ring (under ~500 land tiles within 22 of its centre) is measurable.
-        if (land.length < 40 || land.length > 500) continue;
+        // Remote, not dropped into or against a continent: the band just
+        // outside the ring is (almost) all water. Pre-v10 placement fell back
+        // to continents whenever open ocean was scarce.
+        expect(bandLand / band).toBeLessThan(0.2);
+        expect(ring.length).toBeGreaterThan(100);
         let sxx = 0;
         let sxy = 0;
         let syy = 0;
-        for (const [dx, dy] of land) {
+        for (const [dx, dy] of ring) {
           sxx += dx * dx;
           sxy += dx * dy;
           syy += dy * dy;
@@ -195,6 +205,6 @@ describe("atolls (v10)", () => {
         atollsChecked += 1;
       }
     }
-    expect(atollsChecked).toBeGreaterThan(0);
+    expect(atollsChecked).toBeGreaterThanOrEqual(3);
   }, 120_000);
 });

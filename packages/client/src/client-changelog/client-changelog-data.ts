@@ -305,12 +305,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1791487400564, // Date.now() frozen for this entry
     introducedIn: "2026.10.08.1",
-    title: "More natural mountain ranges and round atolls on new worlds",
-    why: "Mountain ranges on continent maps ran in ruler-straight lines or filled wide gray wedges, and ring-shaped atolls were stretched into ovals, which looked artificial.",
+    title: "Separate continents, natural mountain ranges and round atolls on new worlds",
+    why: "Continent maps often fused into one supercontinent holding most of the land, mountain ranges ran in ruler-straight lines or filled wide gray wedges, and atolls were stretched into ovals or dropped onto continents.",
     changes: [
+      "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
       "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
       "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
-      "Atoll islands now stay round instead of being stretched into ovals",
+      "Atoll islands now stay round and sit out in open ocean instead of being stretched into ovals or placed on a continent",
       "Seasons already in progress keep their current map"
     ]
   },

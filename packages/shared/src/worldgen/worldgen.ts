@@ -155,17 +155,20 @@ const rawBaseTerrainCodeAt = (x: number, y: number): number => {
 // never queries terrain doesn't pay for a full-map pass it never needed.
 let cachedPruneMaskSeed = Number.NaN;
 let cachedPruneMaskStyle: WorldStyle | undefined;
+let cachedPruneMaskVersion: number | undefined;
 let cachedCoastalCleanupMasks: { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } | undefined;
 const isLandLikeCode = (code: number): boolean => code === TERRAIN_LAND || code === TERRAIN_MOUNTAIN;
-// Lazy, cached once per (seed, style): see computeCoastalCleanupMasks in
+// Lazy, cached once per (seed, style, worldgen version): see computeCoastalCleanupMasks in
 // worldgen-island-pruning.ts for what this full-map pass does (CA smoothing
 // + tiny-island flood-fill pruning).
 const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } => {
   const seed = worldSeed();
   const style = worldStyle();
-  if (seed !== cachedPruneMaskSeed || style !== cachedPruneMaskStyle || !cachedCoastalCleanupMasks) {
+  const version = worldgenVersion();
+  if (seed !== cachedPruneMaskSeed || style !== cachedPruneMaskStyle || version !== cachedPruneMaskVersion || !cachedCoastalCleanupMasks) {
     cachedPruneMaskSeed = seed;
     cachedPruneMaskStyle = style;
+    cachedPruneMaskVersion = version;
     cachedCoastalCleanupMasks = computeCoastalCleanupMasks(
       WORLD_WIDTH,
       WORLD_HEIGHT,

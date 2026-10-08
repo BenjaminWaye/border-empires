@@ -24,7 +24,7 @@ import { buildPlates, type Plate } from "./worldgen-plates.js";
 import { POLAR_BAND, type WorldStyle, worldIndex, worldSeed, worldStyle } from "./worldgen.js";
 import { amplitudeFromNearCoastSpread, setCoastNoiseAmplitude, shorelineRoughnessAt } from "./worldgen-coastline-style.js";
 import { archipelagoBumpAt, atollBumpAt } from "./worldgen-archipelago-features.js";
-import { naturalRangeShapeActive } from "./worldgen-version.js";
+import { continentSeparationActive, naturalRangeShapeActive, worldgenVersion } from "./worldgen-version.js";
 
 const UNSET_I16 = -2;
 const TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
@@ -178,6 +178,16 @@ const nearestPlates = (wx: number, wy: number, plates: Plate[]): { near: Plate; 
   return { near: plates[nearIdx]!, nearDist, far: plates[farIdx]!, farDist };
 };
 
+// Whether (x, y) -- a raw tile coordinate -- falls in an OCEANIC plate's
+// cell, using the same domain warp and per-plate distortion as the score
+// field. Lets open-ocean features (atolls, archipelago zones) check where
+// open water really is without depending on the calibrated thresholds,
+// which themselves depend on those features' elevation bumps.
+export const isOceanicPlateAt = (x: number, y: number): boolean => {
+  const { wx, wy } = warpedCoords(x, y);
+  return !nearestPlates(wx, wy, buildPlates()).near.isContinental;
+};
+
 // How far into a convergent/divergent boundary's influence zone (wx, wy)
 // sits: ~1 right at the boundary (near and far plate equidistant), decaying
 // to 0 deep inside a single plate's territory. The Red Blob Games trick for
@@ -234,6 +244,19 @@ const upliftMultiplierFor = (nearContinental: boolean, farContinental: boolean, 
 };
 const UPLIFT_SCALE = 0.9;
 
+// v10+: continental plates from DIFFERENT continent clusters (see
+// worldgen-plates.ts) used to meet like any other pair -- usually as a
+// continental collision -- so neighbouring clusters' Voronoi cells fused
+// into one landmass holding 80-100% of all land on many seeds. Real
+// separate continents have ocean between them, so that boundary becomes a
+// rift seaway instead: a depression deep enough to sit well below any
+// calibrated sea threshold, spread over a wider band than the mountain-
+// building blend so the strait reads as open water, not a crack.
+const RIFT_BLEND_WIDTH = Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.1;
+const RIFT_DEPTH = 1.1;
+const isSeparateContinentPair = (near: Plate, far: Plate): boolean =>
+  near.isContinental && far.isContinental && near.clusterId !== far.clusterId;
+
 // Computes elevation score AND raw convergent boundary stress together from
 // a single nearestPlates lookup -- these used to be two separate functions
 // that each ran their own (expensive, now-distorted-per-plate) nearestPlates
@@ -242,10 +265,13 @@ const UPLIFT_SCALE = 0.9;
 const computePlateContinentScore = (wx: number, wy: number, x: number, y: number): { index: number; score: number; stress: number } => {
   const plates = buildPlates();
   const { near, nearDist, far, farDist } = nearestPlates(wx, wy, plates);
+  const rifted = continentSeparationActive() && isSeparateContinentPair(near, far);
   const boundaryStrength = boundaryStrengthOf(nearDist, farDist);
-  const stress = convergentStressOf(near, far);
+  const stress = rifted ? 0 : convergentStressOf(near, far);
+  const riftDepth = rifted ? Math.max(0, 1 - (farDist - nearDist) / RIFT_BLEND_WIDTH) * RIFT_DEPTH : 0;
   const elevation =
-    near.baseElevation +
+    near.baseElevation -
+    riftDepth +
     boundaryStrength * stress * upliftMultiplierFor(near.isContinental, far.isContinental, stress) * UPLIFT_SCALE +
     // Deliberate open-ocean features (Indonesia-style island chains, ring-
     // shaped atolls) that don't fall out of plate elevation on its own --
@@ -352,6 +378,8 @@ const calibrateThresholds = (style: WorldStyle): LandWaterThresholds => {
 
 let cachedThresholdSeed = Number.NaN;
 let cachedThresholdStyle: WorldStyle | undefined;
+// Keyed on version too: v10 continent separation changes the score field.
+let cachedThresholdVersion: number | undefined;
 let cachedThresholds: LandWaterThresholds | undefined;
 
 // Always reads worldStyle() live (see continents() above) rather than taking
@@ -359,9 +387,11 @@ let cachedThresholds: LandWaterThresholds | undefined;
 export const getLandWaterThresholds = (): LandWaterThresholds => {
   const seed = worldSeed();
   const style = worldStyle();
-  if (seed !== cachedThresholdSeed || style !== cachedThresholdStyle || !cachedThresholds) {
+  const version = worldgenVersion();
+  if (seed !== cachedThresholdSeed || style !== cachedThresholdStyle || version !== cachedThresholdVersion || !cachedThresholds) {
     cachedThresholdSeed = seed;
     cachedThresholdStyle = style;
+    cachedThresholdVersion = version;
     cachedThresholds = calibrateThresholds(style);
   }
   return cachedThresholds;
@@ -406,14 +436,18 @@ const INLAND_HEADROOM_FRACTION = {
 
 let cachedInlandSeed = Number.NaN;
 let cachedInlandStyle: WorldStyle | undefined;
+// Keyed on version too: v10 continent separation changes the score field.
+let cachedInlandVersion: number | undefined;
 let cachedInland: InlandThresholds | undefined;
 
 export const getInlandThresholds = (): InlandThresholds => {
   const seed = worldSeed();
   const style = worldStyle();
-  if (seed !== cachedInlandSeed || style !== cachedInlandStyle || !cachedInland) {
+  const version = worldgenVersion();
+  if (seed !== cachedInlandSeed || style !== cachedInlandStyle || version !== cachedInlandVersion || !cachedInland) {
     cachedInlandSeed = seed;
     cachedInlandStyle = style;
+    cachedInlandVersion = version;
     const { coastalThreshold, scoreCeiling } = getLandWaterThresholds();
     const headroom = scoreCeiling - coastalThreshold;
     cachedInland = {
