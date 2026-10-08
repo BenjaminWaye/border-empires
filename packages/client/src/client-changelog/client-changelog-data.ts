@@ -262,6 +262,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fog now darkens rivers like the land around them",
       "At the edge of explored land you see your half of a river; no more pieces hanging into unexplored space or dry riverbeds",
       "Rivers cut down through the coast and spill out into the sea instead of stopping at a square end on the shore",
+      "River mouths widen and blend into the sea instead of looking cut off at the coastline (3D and 2D)",
       "Coastlines are calmer and softer: waves settle near the shore instead of flickering the square sea edges, and a light foam line runs along every coast (3D and 2D)",
       "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
     ]

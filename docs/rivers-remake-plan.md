@@ -249,6 +249,20 @@ for v9 (staging) and v8 (prod):
   covers it (`appendEstuary`); its rim hides wherever the land rises, giving
   a curved shoreline. The ocean's waves fade to flat around each mouth
   (`client-map-3d-river-mouths.ts` -> `createWaterSurface(..., waveCalmAt)`).
+- **Channel into mouth, no cut-off.** The textured channel ran at full
+  inland width and colour right up to the coastline, where a separate plume
+  mesh took over, so the river looked cut off by the straight coast. Over
+  its descent the channel now flares into a funnel (`withMouthDescent`,
+  `ESTUARY_FLARE`), mixes its colour toward the sea's (`riverSeaBlend`) and
+  fades its wet bank out. About 0.4 tile before the coast
+  (`MOUTH_HANDOVER_DESCENT`) its water moves into the mouth mesh, so one
+  mesh drawn after the ocean crosses the coastline. Both meshes take the
+  shared sample's direction from the same neighbours (`appendWater`'s
+  `ends`), so there is no seam. The plume's sides are no longer collapsed
+  over coastal land (that folded it into a wedge); the land hides them.
+  2D: sea tiles at a mouth corner draw a radial wash of river water fading
+  into the sea (`client-map-render-river-mouth.ts`), covering the shore
+  foam where the river crosses.
 - **Territory colour vs bank (option A).** Decision 4 taken literally let
   the flat ownership sheet paint the carved bank owner-coloured up to the
   water, so the river read as a strip stuck on top. A wet-earth bank strip

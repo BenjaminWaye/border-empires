@@ -41,4 +41,13 @@ describe("river bank strip over the territory colour (option A)", () => {
     appendBank(plumeOnly, run.map((p) => ({ ...p, mouth: 0.5 })), both, () => GROUND);
     expect(plumeOnly.positions).toHaveLength(0);
   });
+
+  it("fades out over the descent to the sea instead of ending square at the coast", () => {
+    // Regression: the wet bank ran at full strength right up to the coastline.
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendBank(buffers, run.map((p, i) => ({ ...p, descent: i / 2 })), both, () => GROUND);
+    const innerAlpha = (sample: number): number => buffers.colors[(sample * 3) * 4 + 3]!; // left side, waterline column
+    expect(innerAlpha(1)).toBeLessThan(innerAlpha(0));
+    expect(innerAlpha(2)).toBe(0);
+  });
 });

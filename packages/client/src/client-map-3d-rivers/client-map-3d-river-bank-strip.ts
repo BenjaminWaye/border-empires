@@ -50,6 +50,10 @@ export const appendBank = (
       const nz = ((next.x - prev.x) / tlen) * sign;
       const side = sides[run.indexOf(cur)];
       const drawn = !side || (sign < 0 ? side.left : side.right);
+      // The wet bank fades out over the descent to the sea instead of
+      // ending square at the coast.
+      const descent = cur.descent ?? 0;
+      const bankFade = 1 - descent * descent;
       const inner = riverWaterHalfWidth(cur.halfWidth) * INNER_OVERLAP;
       const outer = cur.halfWidth + BANK_WIDTH;
       for (const [d, color] of [[inner, BANK_WET], [(inner + outer) / 2, BANK_MID], [outer, BANK_TOP]] as const) {
@@ -58,7 +62,7 @@ export const appendBank = (
         const surface = surfaceYAt(x, z);
         const y = surface - riverTrenchDepth(d, cur.halfWidth) * riverDescentScale(surface, cur.descent ?? 0) + BANK_LIFT_Y;
         buffers.positions.push(x, y, z);
-        buffers.colors.push(color[0], color[1], color[2], drawn ? color[3] : 0);
+        buffers.colors.push(color[0], color[1], color[2], drawn ? color[3] * bankFade : 0);
       }
     });
     for (let i = 0; i + 1 < samples.length; i += 1) {

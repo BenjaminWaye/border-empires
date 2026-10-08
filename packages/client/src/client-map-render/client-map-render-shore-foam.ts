@@ -3,6 +3,7 @@
 // plus a small rounded patch where land only touches a corner, so the coast
 // reads as a waterline rather than a hard square seam.
 import { terrainAt } from "@border-empires/shared";
+import { drawRiverMouth2D } from "./client-map-render-river-mouth.js";
 
 // Same light shallow-water tone as the 3D foam (FOAM_COLOR 0.6/0.86/0.85).
 const FOAM_RGB = "153, 219, 217";
@@ -50,4 +51,10 @@ export const drawShoreFoam2D = (
       ctx.fill();
     }
   }
+};
+
+/** A sea tile's coast: shore foam, then any river mouth washing out over it. */
+export const drawSeaCoast2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, w: number, h: number): void => {
+  drawShoreFoam2D(ctx, wx, wy, px, py, w, h);
+  drawRiverMouth2D(ctx, wx, wy, px, py, w, h);
 };

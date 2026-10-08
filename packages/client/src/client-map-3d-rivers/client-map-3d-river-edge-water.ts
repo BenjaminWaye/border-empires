@@ -105,11 +105,16 @@ export const riverMouthPlume = (
 
 // The channel cuts down to sea level over this much river before the mouth.
 const MOUTH_DESCENT_LENGTH = 1.2;
+// ...and widens into a funnel there, ESTUARY_FLARE more at the coast itself:
+// a channel that met the sea at its full inland width (banks and all) looked
+// cut off by the straight coastline.
+const ESTUARY_FLARE = 0.6;
 
 /**
  * Marks the last MOUTH_DESCENT_LENGTH of a smoothed centreline with a
  * `descent` ramp (0 -> 1 at the final sample), so the channel and its water
- * step down to sea level at the coast instead of ending on the cliff top.
+ * step down to sea level at the coast instead of ending on the cliff top,
+ * and flares the channel's width with it into an estuary.
  */
 export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
   const out = [...line];
@@ -118,7 +123,8 @@ export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPath
     if (i < out.length - 1) arc += Math.hypot(out[i + 1]!.x - out[i]!.x, out[i + 1]!.z - out[i]!.z);
     if (arc >= MOUTH_DESCENT_LENGTH) break;
     const t = 1 - arc / MOUTH_DESCENT_LENGTH;
-    out[i] = { ...out[i]!, descent: t * t * (3 - 2 * t) };
+    const descent = t * t * (3 - 2 * t);
+    out[i] = { ...out[i]!, halfWidth: out[i]!.halfWidth * (1 + ESTUARY_FLARE * descent * descent), descent };
   }
   return out;
 };

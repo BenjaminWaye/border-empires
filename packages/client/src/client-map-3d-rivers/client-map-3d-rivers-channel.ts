@@ -69,7 +69,7 @@ export const MAX_CHANNEL_HALF_WIDTH = 0.18;
 export const TRENCH_DEPTH = 0.16;
 const BED_FRACTION = 0.8;
 export const BANK_WIDTH = 0.12;
-/** Furthest any river trench or bank reaches from its centreline (tile units). */
+/** Furthest any river trench or bank reaches from its centreline inland (tile units); the estuary flare (withMouthDescent) reaches further, inside the mouth cove. */
 export const RIVER_BANK_REACH = MAX_CHANNEL_HALF_WIDTH + BANK_WIDTH;
 
 /** Worldgen half-width -> rendered half-width (scaled, capped). */
@@ -280,26 +280,44 @@ const WATER_COLUMNS: ReadonlyArray<readonly [number, Rgba]> = [
 ];
 const WATER_COLUMN_COUNT = WATER_COLUMNS.length;
 
+// How far the channel's colour has mixed toward the sea's by the time it
+// reaches the coast (descent 1); the mouth plume carries on from there.
+const CHANNEL_SEA_BLEND = 0.45;
+
+/**
+ * How far (0..1) a sample's water colour mixes toward RIVER_SEA_BLEND: it
+ * starts over the channel's final descent, so the river's banded inland
+ * look has already softened when it reaches the coast, and is continuous
+ * where the channel hands over to the plume (descent 1, mouth 0).
+ */
+export const riverSeaBlend = (point: ChannelPathPoint): number => {
+  const descent = point.descent ?? 0;
+  return 1 - (1 - CHANNEL_SEA_BLEND * descent * descent) * (1 - (point.mouth ?? 0));
+};
+
 /**
  * Appends a flat water strip along `run` (a centreline run, scene coords):
  * WATER_COLUMN_COUNT vertices per sample, level across the channel at
  * `waterYAt(centre)`, with RGBA colours (opaque core, soft edges). Where
  * `sides` says a half may not draw, that half's columns collapse onto the
  * centreline (the tile border), so the water stops at the border. Mouth
- * points fade out toward the sea.
+ * points fade out toward the sea. `ends` are the centreline samples just
+ * before and after the run, when it continues in another mesh: the shared
+ * end sample then gets the same direction in both, so they meet exactly.
  */
 export const appendWater = (
   buffers: WaterBuffers,
   run: readonly ChannelPathPoint[],
   waterYAt: (point: ChannelPathPoint) => number,
-  sides?: readonly WaterSides[]
+  sides?: readonly WaterSides[],
+  ends: { readonly before?: ChannelPathPoint | undefined; readonly after?: ChannelPathPoint | undefined } = {}
 ): void => {
   if (run.length < 2) return;
   const base = buffers.positions.length / 3;
   for (let i = 0; i < run.length; i += 1) {
     const cur = run[i]!;
-    const prev = run[Math.max(0, i - 1)]!;
-    const next = run[Math.min(run.length - 1, i + 1)]!;
+    const prev = i > 0 ? run[i - 1]! : (ends.before ?? cur);
+    const next = i + 1 < run.length ? run[i + 1]! : (ends.after ?? cur);
     const tx = next.x - prev.x;
     const tz = next.z - prev.z;
     const tlen = Math.hypot(tx, tz) || 1;
@@ -311,15 +329,16 @@ export const appendWater = (
     // Mouth: stays solid while it leaves the coast, fading out toward its end.
     const mouth = cur.mouth ?? 0;
     const fade = 1 - mouth * mouth;
+    const toSea = riverSeaBlend(cur);
     for (const [f, color] of WATER_COLUMNS) {
       const drawn = !side || (f < 0 ? side.left : f > 0 ? side.right : true);
       const g = drawn ? f : 0;
       buffers.positions.push(cur.x + nx * g, y, cur.z + nz * g);
-      // Out in the mouth the river's colour mixes into the sea's.
+      // Toward and out in the mouth the river's colour mixes into the sea's.
       buffers.colors.push(
-        color[0] + (RIVER_SEA_BLEND[0] - color[0]) * mouth,
-        color[1] + (RIVER_SEA_BLEND[1] - color[1]) * mouth,
-        color[2] + (RIVER_SEA_BLEND[2] - color[2]) * mouth,
+        color[0] + (RIVER_SEA_BLEND[0] - color[0]) * toSea,
+        color[1] + (RIVER_SEA_BLEND[1] - color[1]) * toSea,
+        color[2] + (RIVER_SEA_BLEND[2] - color[2]) * toSea,
         color[3] * fade
       );
     }

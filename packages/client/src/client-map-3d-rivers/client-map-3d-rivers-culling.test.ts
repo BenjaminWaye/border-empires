@@ -5,7 +5,7 @@ import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { isHillsTileAt, riverCornerWidthsForCurrentSeed, setWorldSeed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { createRiverOverlay, type RiverOverlayDeps } from "./client-map-3d-rivers.js";
-import { appendWater, heightfieldSurfaceY, RIVER_WATER_DEPTH, riverDescentScale, type WaterBuffers } from "./client-map-3d-rivers-channel.js";
+import { appendWater, heightfieldSurfaceY, RIVER_WATER_DEPTH, riverDescentScale, riverSeaBlend, type WaterBuffers } from "./client-map-3d-rivers-channel.js";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import { heightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
@@ -97,10 +97,39 @@ describe("river culling and look (phase 1a)", () => {
     expect(descended[0]!.descent ?? 0).toBe(0);
     expect(descended[descended.length - 1]!.descent).toBe(1);
     expect(descended[descended.length - 2]!.descent!).toBeGreaterThan(0);
+    // ...and flares into an estuary: a channel meeting the sea at its full
+    // inland width, banks and all, looked cut off by the straight coast.
+    expect(descended[0]!.halfWidth).toBe(0.15);
+    expect(descended[descended.length - 1]!.halfWidth).toBeGreaterThan(0.15 * 1.4);
     const land = 0.18;
     expect(riverDescentScale(land, 0)).toBe(1);
     // Fully descended, the water line reaches (just below) the sea surface.
     expect(land - RIVER_WATER_DEPTH * riverDescentScale(land, 1)).toBeLessThan(WATER_SURFACE_Y);
+  });
+
+  it("starts mixing the channel's colour toward the sea's on its descent, continuous into the plume", () => {
+    // Regression: the textured channel ran at full inland colour right up to
+    // the coast and the plume took over there, so the river looked cut off.
+    expect(riverSeaBlend({ x: 0, z: 0, halfWidth: 0.15 })).toBe(0);
+    const channelEnd = riverSeaBlend({ x: 0, z: 0, halfWidth: 0.15, descent: 1 });
+    expect(channelEnd).toBeGreaterThan(0.3);
+    expect(riverSeaBlend({ x: 0, z: 0, halfWidth: 0.15, descent: 1, mouth: 0 })).toBe(channelEnd);
+    expect(riverSeaBlend({ x: 0, z: 0, halfWidth: 0.15, descent: 1, mouth: 1 })).toBe(1);
+  });
+
+  it("a strip split across two meshes meets exactly at the shared sample", () => {
+    // Regression: channel and mouth meshes each took the shared sample's
+    // direction from their own neighbours, leaving a hairline seam.
+    const line = [[0, 0], [0.5, 0.1], [1, 0.4], [1.5, 0.9], [2, 1.2]].map(([x, z]) => ({ x: x!, z: z!, halfWidth: 0.15 }));
+    const whole: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendWater(whole, line, () => 0);
+    const channel: WaterBuffers = { positions: [], colors: [], indices: [] };
+    const mouth: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendWater(channel, line.slice(0, 3), () => 0, undefined, { after: line[3] });
+    appendWater(mouth, line.slice(2), () => 0, undefined, { before: line[1] });
+    const shared = whole.positions.slice(2 * 15, 3 * 15); // 5 columns x 3 coords at sample 2
+    expect(channel.positions.slice(2 * 15, 3 * 15)).toEqual(shared);
+    expect(mouth.positions.slice(0, 15)).toEqual(shared);
   });
 
   it("blends the plume's colour into the sea colour as it runs out", () => {

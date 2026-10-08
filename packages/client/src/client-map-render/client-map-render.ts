@@ -26,7 +26,7 @@ export { dockOverlayVariants, structureOverlayImages } from "./client-map-overla
 type TileMap = Map<string, Tile>;
 
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
-export { drawShardFallback } from "./client-map-render-shard-fallback.js"; import { drawShoreFoam2D } from "./client-map-render-shore-foam.js";
+export { drawShardFallback } from "./client-map-render-shard-fallback.js"; import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
@@ -257,7 +257,7 @@ export const drawTerrainTile = (
       ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
       ctx.fillStyle = "rgba(173, 229, 255, 0.15)";
       ctx.fillRect(options.px + 1, options.py + 1, options.size - 2, Math.max(1, Math.floor(options.size * 0.12)));
-      drawShoreFoam2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
+      drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
     } else {
       ctx.fillStyle = options.terrain === "MOUNTAIN" ? "rgba(52, 55, 63, 0.9)" : "rgba(34, 42, 26, 0.65)";
       ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
@@ -281,7 +281,7 @@ export const drawTerrainTile = (
   }
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
   if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
-  else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawShoreFoam2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
+  else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
 };
 
 // drawForestOverlay moved to client-map-render-forest-overlay.ts (adding the

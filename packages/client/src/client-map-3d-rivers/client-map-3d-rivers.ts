@@ -49,6 +49,9 @@ export { smoothRiverPath, maxNearbyElevation };
 // Lift above the real ground surface — same "surface lift to win the depth
 // test against sloped terrain" technique as client-map-3d-contact-shadow.
 const SURFACE_LIFT_Y = 0.025;
+// Past this much of its descent to the sea, a v9 channel's water moves into
+// the mouth mesh (drawn after the ocean), ~0.4 tile before the coast.
+const MOUTH_HANDOVER_DESCENT = 0.75;
 // How far above the sea surface the end of a v9 river mouth sits.
 const MOUTH_LIFT_Y = 0.004;
 
@@ -200,8 +203,9 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       let mouthCorner: { readonly x: number; readonly z: number } | null = null;
       const flush = (): void => {
         if (run.length >= 2) {
-          const line = channelCenterline(run, phase, runStart === 0);
           const seaDir = mouthCorner && seaDirectionAtCorner(mouthCorner.x, mouthCorner.z);
+          const smoothed = channelCenterline(run, phase, runStart === 0);
+          const line = seaDir ? withMouthDescent(smoothed) : smoothed;
           const end = line[line.length - 1]!;
           const before = line[line.length - 2]!;
           const tlen = Math.hypot(end.x - before.x, end.z - before.z) || 1;
@@ -209,7 +213,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
           // over the last stretch, then spill out into it.
           if (seaDir) {
             const plume = riverMouthPlume(end, { x: (end.x - before.x) / tlen, z: (end.z - before.z) / tlen }, seaDir, isSeaAtScene).slice(1);
-            centerlines.push([...withMouthDescent(line), ...plume.map((q) => ({ ...q, descent: 1 }))]);
+            centerlines.push([...line, ...plume.map((q) => ({ ...q, descent: 1 }))]);
             coves.push({ x: end.x, z: end.z });
           } else centerlines.push(line);
         }
@@ -291,14 +295,21 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       let runSides: WaterSides[] = [];
       let mouthRun: ChannelPathPoint[] = [];
       let mouthSides: WaterSides[] = [];
+      let bankRun: ChannelPathPoint[] = [];
+      let bankSides: WaterSides[] = [];
       const flushWater = (): void => {
-        appendWater(buffers, run, waterYAt, runSides);
-        appendBank(bankBuffers, run, runSides, surfaceAt);
-        appendWater(mouthBuffers, mouthRun, waterYAt, mouthSides);
+        // When the channel hands over to the mouth mesh, each side sees the
+        // other's neighbouring sample (appendWater's `ends`).
+        const handover = run.length > 0 && mouthRun[0] === run[run.length - 1];
+        appendWater(buffers, run, waterYAt, runSides, { after: handover ? mouthRun[1] : undefined });
+        appendBank(bankBuffers, bankRun, bankSides, surfaceAt);
+        appendWater(mouthBuffers, mouthRun, waterYAt, mouthSides, { before: handover ? run[run.length - 2] : undefined });
         run = [];
         runSides = [];
         mouthRun = [];
         mouthSides = [];
+        bankRun = [];
+        bankSides = [];
       };
       line.forEach((p, i) => {
         const prev = line[Math.max(0, i - 1)]!;
@@ -307,18 +318,24 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
         const nx = -(next.z - prev.z) / tlen;
         const nz = (next.x - prev.x) / tlen;
         const explored = riverSampleSides(p.x, p.z, nx, nz, camX, camY, tileWindow, isExploredAt);
-        // Plume water only ever lies over the sea, never over coastal land.
+        // The plume's centre only ever lies over the sea. Its sides are not
+        // cut back at the coast (that folded the water into a wedge): the
+        // land there stands above the water and hides it, except in the cove.
         const isPlume = (p.mouth ?? 0) > 0;
-        const sides = isPlume
-          ? { left: explored.left && isSeaAtScene(p.x - nx * 0.3, p.z - nz * 0.3), right: explored.right && isSeaAtScene(p.x + nx * 0.3, p.z + nz * 0.3) }
-          : explored;
+        const sides = explored;
         if ((!sides.left && !sides.right) || (isPlume && !isSeaAtScene(p.x, p.z))) {
           flushWater();
           return;
         }
-        if ((p.mouth ?? 0) > 0) {
-          // The plume goes in its own mesh (see commitWater); its first
-          // sample is the channel's last, so the two meet without a gap.
+        if (!isPlume) {
+          bankRun.push(p);
+          bankSides.push(sides);
+        }
+        if (isPlume || (p.descent ?? 0) >= MOUTH_HANDOVER_DESCENT) {
+          // The mouth goes in its own mesh (see commitWater), taking over
+          // from the channel before the coast so a single mesh crosses the
+          // coastline; its first sample is the channel's last, so the two
+          // meet without a gap.
           if (mouthRun.length === 0 && run.length > 0) {
             mouthRun.push(run[run.length - 1]!);
             mouthSides.push(runSides[runSides.length - 1]!);
