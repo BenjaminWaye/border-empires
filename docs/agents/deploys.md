@@ -26,9 +26,9 @@ Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 ## Per-environment world size
 
-- `WORLD_WIDTH` / `WORLD_HEIGHT` (default 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging sets 320x160 with watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
-- The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 320x160 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
-- On a shrunken world, worldgen keeps the default-size counts for resource clusters, the town target, waystations and coverage cells, and shrinks the spacing so they fit. Towns and farm tiles still come out lower (~195 vs ~360 towns at 320x160) because less land is available. A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
+- `WORLD_WIDTH` / `WORLD_HEIGHT` (standard size 640x320, `packages/shared/src/world-size.ts`) and `WATCHTOWERS_ENABLED` are read from env. Staging explicitly sets the standard 640x320 size and keeps watchtowers off in `fly.combined.staging.toml` (re-render `deploy/env/staging.env` with `pnpm ops:hetzner:render-env`); production uses the defaults.
+- The client bundle bakes the size in at build time (`packages/client/vite.config.ts` `define`). `scripts/deploy-client-staging.mjs` builds with 640x320 unless `WORLD_WIDTH`/`WORLD_HEIGHT` are set. Server and client must match or tile coordinates break.
+- A size change only shows up after a forced season rollover (below), because a restart reloads the persisted season.
 - `GET /admin/world` (read-only admin auth, e.g. `X-Admin-Github-Token: $(gh auth token)`) reports the configured size and watchtowers, the size the current season was generated at, the AI count and `sizeStatus`: `match`, `rollover_pending` (new size deployed, old season still running), or `unknown` (season created before seasons were stamped with their size).
 
 ## Season rollover (new map, map size, AI count, worldgen)

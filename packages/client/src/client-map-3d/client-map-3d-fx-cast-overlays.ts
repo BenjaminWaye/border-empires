@@ -22,6 +22,7 @@ import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-
 import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
 import type { AfcDropFxLayer } from "../client-map-3d-afc-drop-fx/client-map-3d-afc-drop-fx.js";
 import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
+import type { AnchoredFxRoot } from "../client-map-3d-anchored-fx/client-map-3d-anchored-fx-root.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -55,6 +56,8 @@ export type FxCastOverlayDeps = {
   readonly sceneOrigin: { camX: number; camY: number };
   readonly aetherBridgeTileSurfaceY: (wx: number, wy: number) => number;
   readonly afcOverlayGroup: AfcOverlayGroup;
+  /** Parent of every one-shot effect layer below except surveySweepPingOverlay; spawn positions must be in its local space (fxXZ). */
+  readonly anchoredFx: AnchoredFxRoot;
   readonly layers: FxCastOverlayLayers;
 };
 
@@ -79,17 +82,24 @@ export type FxCastOverlaySyncs = {
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
-  const { state, sceneOrigin, aetherBridgeTileSurfaceY, afcOverlayGroup, layers } = deps;
+  const { state, sceneOrigin, aetherBridgeTileSurfaceY, afcOverlayGroup, anchoredFx, layers } = deps;
 
-  const sceneXZ = (x: number, y: number): { sceneX: number; sceneZ: number } => ({
+  /** Tile centre measured from the current scene origin: only for things redrawn every frame (survey-sweep pings). */
+  const originSceneXZ = (x: number, y: number): { sceneX: number; sceneZ: number } => ({
     sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET,
     sceneZ: toroidDelta(sceneOrigin.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET
   });
+  /** Tile centre in the anchored fx root's local space: the only coordinates a one-shot effect may spawn at, so it stays on its tile when the camera pans. */
+  const fxXZ = (x: number, y: number): { sceneX: number; sceneZ: number } => {
+    const origin = originSceneXZ(x, y);
+    const local = anchoredFx.toLocal(origin.sceneX, origin.sceneZ, sceneOrigin);
+    return { sceneX: local.x, sceneZ: local.z };
+  };
 
   const syncAetherLanceFxQueue = (): void => {
     while (state.aetherLanceFxQueue.length > 0) {
       const cast = state.aetherLanceFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.aetherLanceFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -97,7 +107,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncSurveySweepFxQueue = (): void => {
     while (state.surveySweepFxQueue.length > 0) {
       const cast = state.surveySweepFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.surveySweepFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -107,11 +117,11 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     layers.surveySweepPingOverlay.beginFrame();
     // camX/camY here are only for the debug log line — pass the live camera, not the rebuild anchor.
     state.surveySweepPings = filterAndLogSurveySweepPings(state.surveySweepPings, wallNowMs, state.camX, state.camY, (x, y) => {
-      const { sceneX, sceneZ } = sceneXZ(x, y);
+      const { sceneX, sceneZ } = originSceneXZ(x, y);
       return { sceneX, sceneZ, surfaceY: aetherBridgeTileSurfaceY(x, y) + MARKER_RISE_ABOVE_HEIGHTFIELD };
     });
     for (const ping of state.surveySweepPings) {
-      const { sceneX, sceneZ } = sceneXZ(ping.x, ping.y);
+      const { sceneX, sceneZ } = originSceneXZ(ping.x, ping.y);
       layers.surveySweepPingOverlay.addPing(
         ping.kind,
         sceneX,
@@ -128,7 +138,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncSiphonFxQueue = (): void => {
     while (state.siphonFxQueue.length > 0) {
       const cast = state.siphonFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.siphonFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -136,7 +146,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncRetortRecastFxQueue = (): void => {
     while (state.retortRecastFxQueue.length > 0) {
       const cast = state.retortRecastFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.retortRecastFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, cast.targetResource);
     }
   };
@@ -144,7 +154,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncRevealEmpireFxQueue = (): void => {
     while (state.revealEmpireFxQueue.length > 0) {
       const cast = state.revealEmpireFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.revealEmpireFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -152,7 +162,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncRevealEmpireStatsFxQueue = (): void => {
     while (state.revealEmpireStatsFxQueue.length > 0) {
       const cast = state.revealEmpireStatsFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.revealEmpireStatsFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -160,7 +170,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncBombardFxQueue = (): void => {
     while (state.bombardFxQueue.length > 0) {
       const cast = state.bombardFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.bombardFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, cast.tiles);
     }
   };
@@ -168,7 +178,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncSiegeBombardFxQueue = (): void => {
     while (state.siegeBombardFxQueue.length > 0) {
       const cast = state.siegeBombardFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.siegeBombardFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, [{ dx: 0, dy: 0, outcome: "hit" }]);
     }
   };
@@ -176,7 +186,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncWorldEngineStrikeFxQueue = (): void => {
     while (state.worldEngineStrikeFxQueue.length > 0) {
       const cast = state.worldEngineStrikeFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -191,7 +201,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncImperialExchangeLevyFxQueue = (): void => {
     while (state.imperialExchangeLevyFxQueue.length > 0) {
       const cast = state.imperialExchangeLevyFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -199,7 +209,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncUnsettleFxQueue = (): void => {
     while (state.unsettleFxQueue.length > 0) {
       const cast = state.unsettleFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.unsettleFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -207,18 +217,20 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncAfcModuleDeliveryFxQueue = (): void => {
     while (state.afcModuleDeliveryFxQueue.length > 0) {
       const delivery = state.afcModuleDeliveryFxQueue.shift()!;
-      const fallback = sceneXZ(delivery.x, delivery.y);
+      const fallback = fxXZ(delivery.x, delivery.y);
       const attachment = afcOverlayGroup.attachmentFor(delivery.x, delivery.y, delivery.techId);
       // A module that has no rendered family yet still gets the shared AFC
-      // delivery beat at centre. Rendered families land exactly on their socket.
-      layers.afcModuleDeliveryFx.spawn(attachment?.x ?? fallback.sceneX, attachment?.z ?? fallback.sceneZ, attachment?.y ?? aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now());
+      // delivery beat at centre. Rendered families land exactly on their socket
+      // (whose x/z is in scene space, so it is converted like any other spawn).
+      const socket = attachment ? anchoredFx.toLocal(attachment.x, attachment.z, sceneOrigin) : undefined;
+      layers.afcModuleDeliveryFx.spawn(socket?.x ?? fallback.sceneX, socket?.z ?? fallback.sceneZ, attachment?.y ?? aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now());
     }
   };
 
   const syncAfcDropFxQueue = (): void => {
     while (state.afcJoinDropFxQueue.length > 0) {
       const drop = state.afcJoinDropFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(drop.x, drop.y);
+      const { sceneX, sceneZ } = fxXZ(drop.x, drop.y);
       // The drop's timeline is anchored at when it started, not at this drain, so 3D and 2D stay in step.
       layers.afcDropFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(drop.x, drop.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, drop.queuedAt);
     }
@@ -227,7 +239,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncAstralDockLaunchFxQueue = (): void => {
     while (state.astralDockLaunchFxQueue.length > 0) {
       const cast = state.astralDockLaunchFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.astralDockLaunchFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
@@ -235,7 +247,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncAegisLockFxQueue = (): void => {
     while (state.aegisLockFxQueue.length > 0) {
       const cast = state.aegisLockFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
       layers.aegisLockFx.spawn(
         sceneX,
         sceneZ,

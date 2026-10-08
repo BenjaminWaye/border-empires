@@ -1,4 +1,4 @@
-import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, Scene } from "three";
+import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, type Object3D } from "three";
 
 const DURATION_MS = 1400;
 const FLASH_END_MS = 220;
@@ -31,7 +31,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
  * a fixed structure tile (World Engine Strike, Imperial Exchange Levy).
  * `color` distinguishes abilities visually without needing a bespoke effect each.
  */
-export const createMonumentPulseFxLayer = (scene: Scene, color: string, name: string): MonumentPulseFxLayer => {
+export const createMonumentPulseFxLayer = (scene: Object3D, color: string, name: string): MonumentPulseFxLayer => {
   const group = new Group();
   group.name = name;
   scene.add(group);

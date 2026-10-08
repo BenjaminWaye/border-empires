@@ -7,8 +7,8 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   RingGeometry,
-  Scene,
-  TorusGeometry
+  TorusGeometry,
+  type Object3D
 } from "three";
 
 const DURATION_MS = 2600;
@@ -56,7 +56,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = clamp01(opacity);
 };
 
-export const createSurveySweepFxLayer = (scene: Scene): SurveySweepFxLayer => {
+export const createSurveySweepFxLayer = (scene: Object3D): SurveySweepFxLayer => {
   const group = new Group();
   group.name = "survey-sweep-fx";
   scene.add(group);
