@@ -60,6 +60,7 @@ const render = (
       authRegisterBtn: makeButton(),
       authEmailLinkBtn: makeButton(),
       authGoogleBtn: makeButton(),
+      authTwitchBtn: makeButton(),
       authPlayNowBtn: makeButton(),
       authEmailEl: makeInput(),
       authPasswordEl: makeInput(),

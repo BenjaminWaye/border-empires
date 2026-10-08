@@ -1,9 +1,10 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAnalytics, type Analytics } from "firebase/analytics";
-import { GoogleAuthProvider, getAuth } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, getAuth } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { TWITCH_PROVIDER_ID } from "../client-auth-flow/client-auth-flow-sso.js";
 
 // The default Firebase authDomain (border-empires.firebaseapp.com) is a
 // different origin than the app itself (play.borderempires.com /
@@ -27,6 +28,20 @@ import type { ClientState } from "../client-state/client-state.js";
 const FALLBACK_AUTH_DOMAIN = "border-empires.firebaseapp.com";
 const CUSTOM_AUTH_DOMAIN_HOSTNAMES = new Set(["play.borderempires.com", "staging.borderempires.com"]);
 
+// Twitch is a custom OpenID Connect provider (Firebase Identity Platform,
+// provider id "oidc.twitch"). Twitch only puts the email in the ID token when
+// it is asked for explicitly through the OIDC claims parameter, and the
+// user:read:email scope is required for that claim.
+export const createTwitchProvider = (): OAuthProvider => {
+  const provider = new OAuthProvider(TWITCH_PROVIDER_ID);
+  provider.addScope("openid");
+  provider.addScope("user:read:email");
+  provider.setCustomParameters({
+    claims: JSON.stringify({ id_token: { email: null, email_verified: null, preferred_username: null } })
+  });
+  return provider;
+};
+
 const defaultAuthDomain = (): string => {
   if (typeof window === "undefined") return FALLBACK_AUTH_DOMAIN;
   const hostname = window.location.hostname.toLowerCase();
@@ -36,6 +51,7 @@ const defaultAuthDomain = (): string => {
 export const createClientFirebaseSetup = (): {
   firebaseAuth: ReturnType<typeof getAuth> | undefined;
   googleProvider: GoogleAuthProvider | undefined;
+  twitchProvider: OAuthProvider | undefined;
   analytics: Analytics | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
@@ -43,7 +59,7 @@ export const createClientFirebaseSetup = (): {
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
-    return { firebaseAuth: undefined, googleProvider: undefined, analytics: undefined };
+    return { firebaseAuth: undefined, googleProvider: undefined, twitchProvider: undefined, analytics: undefined };
   }
 
   const firebaseConfig: FirebaseOptions = { apiKey, authDomain, projectId, appId };
@@ -73,6 +89,7 @@ export const createClientFirebaseSetup = (): {
   return {
     firebaseAuth,
     googleProvider: new GoogleAuthProvider(),
+    twitchProvider: createTwitchProvider(),
     analytics
   };
 };

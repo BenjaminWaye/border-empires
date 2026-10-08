@@ -6,7 +6,6 @@ import {
   sendSignInLinkToEmail,
   setPersistence,
   signInWithEmailAndPassword,
-  signInWithPopup,
   updateProfile,
   type User
 } from "firebase/auth";
@@ -20,16 +19,11 @@ import {
 import { MOBILE_LOGIN_ZOOM } from "../client-constants.js";
 import { setDebugAuthEmail } from "../client-debug/client-debug.js";
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
-import {
-  detectInAppBrowserName,
-  inAppBrowserGoogleSignInMessage,
-  isMissingInitialStateError,
-  MISSING_INITIAL_STATE_MESSAGE
-} from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import { createSsoSignInHandler, signInProviderLabel, TWITCH_PROVIDER_ID } from "./client-auth-flow-sso.js";
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
 import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from "../client-guest-save/client-guest-save.js";
@@ -55,6 +49,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     dom,
     firebaseAuth,
     googleProvider,
+    twitchProvider,
     analytics,
     ws,
     wsUrl,
@@ -102,6 +97,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authRegisterBtn: dom.authRegisterBtn,
       authEmailLinkBtn: dom.authEmailLinkBtn,
       authGoogleBtn: dom.authGoogleBtn,
+      authTwitchBtn: dom.authTwitchBtn,
       authPlayNowBtn: dom.authPlayNowBtn,
       authEmailEl: dom.authEmailEl,
       authPasswordEl: dom.authPasswordEl,
@@ -249,33 +245,19 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       void authEmailAndPassword("register");
     };
 
-    dom.authGoogleBtn.onclick = async () => {
-      if (!firebaseAuth || !googleProvider) return;
-      const inAppBrowserName =
-        typeof navigator !== "undefined" ? detectInAppBrowserName(navigator.userAgent) : undefined;
-      if (inAppBrowserName) {
-        setAuthStatus(inAppBrowserGoogleSignInMessage(inAppBrowserName), "error");
-        syncAuthOverlay();
-        return;
-      }
-      authSession.emailLinkSentTo = "";
-      setAuthBusy(true);
-      setAuthStatus("Opening Google sign-in...");
-      syncAuthOverlay();
-      let authSucceeded = false;
-      try {
-        const cred = await signInWithPopup(firebaseAuth, googleProvider);
-        logSignUpIfNewUser(analytics, cred, "google.com");
-        authSucceeded = true;
-        setAuthStatus("Google sign-in complete. Authorizing empire...");
-      } catch (error) {
-        const rawMessage = error instanceof Error ? error.message : "Google sign-in failed.";
-        setAuthStatus(isMissingInitialStateError(rawMessage) ? MISSING_INITIAL_STATE_MESSAGE : rawMessage, "error");
-      } finally {
-        if (!authSucceeded) setAuthBusy(false);
-        syncAuthOverlay();
-      }
+    const ssoDeps = {
+      firebaseAuth,
+      analytics,
+      userAgent: () => (typeof navigator !== "undefined" ? navigator.userAgent : undefined),
+      clearEmailLinkSentTo: () => {
+        authSession.emailLinkSentTo = "";
+      },
+      setAuthBusy,
+      setAuthStatus,
+      syncAuthOverlay
     };
+    dom.authGoogleBtn.onclick = createSsoSignInHandler(ssoDeps, googleProvider && { provider: googleProvider, label: "Google", method: "google.com" });
+    dom.authTwitchBtn.onclick = createSsoSignInHandler(ssoDeps, twitchProvider && { provider: twitchProvider, label: "Twitch", method: TWITCH_PROVIDER_ID });
 
     dom.authEmailLinkBtn.onclick = async () => {
       if (!firebaseAuth) return;
@@ -405,14 +387,15 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
         state.authBusyTitle = "Securing session";
-        state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";
+        const providerLabel = signInProviderLabel(user);
+        state.authBusyDetail = `Loading your ${providerLabel} session and waiting for the realtime server connection.`;
         if (user.isAnonymous) state.authBusyDetail = "Loading your guest session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
           state.authBusyTitle = "Connecting your empire...";
-          state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
+          state.authBusyDetail = `Realtime connection open. Sending your ${providerLabel} session for ${state.authUserLabel}...`;
           setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
           if (ws.readyState === ws.OPEN) {
             // Routed through the guarded authenticateSocket (not a direct
@@ -423,8 +406,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           } else {
             setAuthBusy(true);
             state.authBusyTitle = "Securing session";
-            state.authBusyDetail = `Google account connected, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;
-            setAuthStatus(`Google account connected. Waiting for the game server at ${wsUrl}...`);
+            state.authBusyDetail = `Signed in, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;
+            setAuthStatus(`Signed in. Waiting for the game server at ${wsUrl}...`);
           }
         } catch (error) {
           state.authSessionReady = false;
