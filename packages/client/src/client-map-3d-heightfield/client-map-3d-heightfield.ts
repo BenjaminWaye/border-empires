@@ -34,7 +34,8 @@ export * from "../client-map-3d-heightfield-terrain.js";
 // A vertex shared by N tiles takes the mean of their elevations/colors, so
 // two mountain tiles raise their shared edge to a ridge while a lone
 // mountain swells to only ~25% height (completed by its massif peak).
-export const HEIGHTFIELD_MAX_TILES_PER_AXIS = 240;
+import { HEIGHTFIELD_MAX_TILES_PER_AXIS, heightfieldTileWindow } from "./client-map-3d-heightfield-window.js";
+export { HEIGHTFIELD_MAX_TILES_PER_AXIS };
 const VERT_DIM = HEIGHTFIELD_MAX_TILES_PER_AXIS + 1;
 const VERT_COUNT = VERT_DIM * VERT_DIM;
 const QUAD_COUNT = HEIGHTFIELD_MAX_TILES_PER_AXIS * HEIGHTFIELD_MAX_TILES_PER_AXIS;
@@ -243,12 +244,9 @@ export const createHeightfield = (): Heightfield => {
     const forestAt = isForestAt ?? ((): boolean => false);
     const hillsAt = isHillsAt ?? ((): boolean => false);
 
-    const tileSpanX = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfW + 3));
-    const tileSpanY = Math.min(HEIGHTFIELD_MAX_TILES_PER_AXIS, Math.max(2, 2 * halfH + 3));
+    const { tileSpanX, tileSpanY, tileOffsetX, tileOffsetY } = heightfieldTileWindow(halfW, halfH);
     const vertSpanX = tileSpanX + 1;
     const vertSpanY = tileSpanY + 1;
-    const tileOffsetX = -Math.floor(tileSpanX / 2);
-    const tileOffsetY = -Math.floor(tileSpanY / 2);
 
     type TileSample = HeightfieldTileSample;
     const tileSampleCache = new Map<number, TileSample>();

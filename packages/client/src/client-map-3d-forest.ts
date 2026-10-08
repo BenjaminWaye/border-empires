@@ -7,6 +7,7 @@ import {
   MeshStandardMaterial,
   Scene
 } from "three";
+import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 
 // Upper bound on trees per forest tile (the per-tile instance budget). The
 // layouts below hold 7-9 trees each so adjacent tiles vary in density too.
@@ -159,11 +160,13 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     const species = tileHash(worldX, worldZ, 11, 3); // 0 = pine, 1 = spruce, 2 = leaf
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
+    const inRiverBank = riverBankTreeFilter(worldX, worldZ);
     const canopyMesh = species === 1 ? spruceCanopyMesh : species === 2 ? leafCanopyMesh : pineCanopyMesh;
     const canopyY = species === 1 ? SPRUCE_CANOPY_Y : species === 2 ? LEAF_CANOPY_Y : PINE_CANOPY_Y;
 
     for (const tree of layout) {
       if (trunkCount >= maxInstances * 2) continue;
+      if (inRiverBank?.(tree.ox, tree.oz)) continue;
       scaleMatrix.makeScale(tree.scale, tree.scale, tree.scale);
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + tree.ox, surfaceY + TRUNK_CENTER_Y * tree.scale, sceneZ + tree.oz + TRUNK_Z_BIAS);

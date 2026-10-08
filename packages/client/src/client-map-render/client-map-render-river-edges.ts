@@ -8,8 +8,9 @@
 // render exactly as before.
 import { riverEdgeKey, riverEdgeKeysForCurrentSeed } from "@border-empires/shared";
 
-const RIVER_WATER = "rgba(63, 127, 160, 0.95)"; // same blue as the 3D ribbon (client-map-3d-rivers.ts RIVER_COLOR)
-const RIVER_BANK = "rgba(38, 50, 30, 0.55)"; // dark damp bank so the edge reads as cut into the ground
+// Same deep blue-teal as the 3D river water (client-map-3d-river-water-material.ts RIVER_WATER_CORE).
+const RIVER_WATER = "rgba(22, 72, 96, 0.97)";
+const RIVER_BANK = "rgba(28, 26, 18, 0.6)"; // dark wet bank so the edge reads as cut into the ground
 const MIN_TILE_PX = 10;
 
 export type TileRiverEdges = { top: boolean; right: boolean; bottom: boolean; left: boolean };
@@ -22,8 +23,22 @@ export const tileRiverEdges = (wx: number, wy: number, edges: ReadonlySet<number
   right: edges.has(riverEdgeKey(wx + 1, wy, "V"))
 });
 
-/** Draws this tile's half of every river on its borders over the tile's top face (px, py, w x h). */
-export const drawRiverEdges = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, w: number, h: number): void => {
+/**
+ * Draws this tile's half of every river on its borders over the tile's top
+ * face (px, py, w x h). "water" redraws only the water: the live ownership
+ * tint calls it after filling the tile, so territory stops at the waterline
+ * instead of hiding the river (docs/rivers-remake-plan.md decision 4).
+ */
+export const drawRiverEdges = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  w: number,
+  h: number,
+  layers: "bank-and-water" | "water" = "bank-and-water"
+): void => {
   if (w < MIN_TILE_PX) return;
   const edges = riverEdgeKeysForCurrentSeed();
   if (edges.size === 0) return;
@@ -36,6 +51,7 @@ export const drawRiverEdges = (ctx: CanvasRenderingContext2D, wx: number, wy: nu
   const water = Math.max(2, Math.round(w * 0.1)); // this tile's half of the channel
   const bank = Math.max(1, Math.round(w * 0.05));
   const band = (x: number, y: number, bw: number, bh: number, color: string): void => {
+    if (color === RIVER_BANK && layers === "water") return;
     ctx.fillStyle = color;
     ctx.fillRect(x, y, bw, bh);
   };
