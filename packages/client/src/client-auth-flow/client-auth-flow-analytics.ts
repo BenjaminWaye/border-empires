@@ -4,7 +4,7 @@ import type { Analytics } from "firebase/analytics";
 import { readAcquisitionParams } from "./client-auth-flow-acquisition.js";
 import { reportAcquisitionSignUp } from "../client-acquisition-funnel/client-acquisition-funnel.js";
 
-export type SignUpMethod = "password" | "google.com" | "email-link";
+export type SignUpMethod = "password" | "google.com" | "oidc.twitch" | "email-link";
 
 // GA4 conversion event for the acquisition funnel (landing -> sign_up),
 // fired once per new account regardless of which sign-in method created it.
@@ -25,7 +25,7 @@ export const logSignUpConversion = (analytics: Analytics | undefined, method: Si
 export const logSignUpIfNewUser = (
   analytics: Analytics | undefined,
   credential: UserCredential,
-  method: Extract<SignUpMethod, "google.com" | "email-link">
+  method: Exclude<SignUpMethod, "password">
 ): void => {
   if (getAdditionalUserInfo(credential)?.isNewUser) logSignUpConversion(analytics, method);
 };

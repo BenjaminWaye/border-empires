@@ -82,6 +82,15 @@ describe("createFirebaseTokenVerifier", () => {
     expect(await verify(noFirebaseClaim)).toEqual({ uid: "u-d" });
   });
 
+  it("drops an unverified email from a custom OIDC (Twitch) sign-in so it can't email-match an existing player", async () => {
+    const { verify } = makeVerifier();
+    const unverified = await sign({ sub: "u-t1", email: "victim@example.com", firebase: { sign_in_provider: "oidc.twitch", identities: {} } });
+    const verified = await sign({ sub: "u-t2", email: "me@example.com", email_verified: true, firebase: { sign_in_provider: "oidc.twitch", identities: {} } });
+
+    expect(await verify(unverified)).toEqual({ uid: "u-t1" });
+    expect(await verify(verified)).toEqual({ uid: "u-t2", email: "me@example.com", emailVerified: true });
+  });
+
   it("rejects an unsigned alg:none token carrying a victim uid", async () => {
     const { verify, rejected } = makeVerifier();
     const forged = unsigned({ sub: "victim", user_id: "victim", iss: `https://securetoken.google.com/${PROJECT}`, aud: PROJECT, exp: NOW_S + 3600, iat: NOW_S - 1 });
