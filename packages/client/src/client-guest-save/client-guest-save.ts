@@ -1,6 +1,7 @@
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
+  OAuthProvider,
   linkWithCredential,
   linkWithPopup,
   sendSignInLinkToEmail,
@@ -8,6 +9,7 @@ import {
   signInWithEmailLink,
   type Auth,
   type AuthCredential,
+  type AuthProvider,
   type UserCredential
 } from "firebase/auth";
 import type { Analytics } from "firebase/analytics";
@@ -20,7 +22,7 @@ import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-bro
 // the same browser can finish it when the link is opened.
 export const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
 
-export type SaveMethod = "google.com" | "email-link";
+export type SaveMethod = "google.com" | "oidc.twitch" | "oidc.discord" | "email-link";
 
 export type SaveView =
   | { kind: "idle" }
@@ -30,13 +32,21 @@ export type SaveView =
   | { kind: "error"; message: string };
 
 // What "Switch to that empire" does once a link hit an account that already
-// exists. Kept because a Google credential and an email link are each usable
-// only once, and the page URL that carried the email link is cleaned up.
-type PendingSwitch = { kind: "google"; credential: AuthCredential } | { kind: "email-link"; email: string; href: string };
+// exists. Kept because a Google/Twitch credential and an email link are each
+// usable only once, and the page URL that carried the email link is cleaned up.
+type PendingSwitch = { kind: "provider"; credential: AuthCredential } | { kind: "email-link"; email: string; href: string };
+
+type ProviderSaveMethod = Exclude<SaveMethod, "email-link">;
+
+const SAVE_METHOD_LABELS: Record<ProviderSaveMethod, string> = { "google.com": "Google", "oidc.twitch": "Twitch", "oidc.discord": "Discord" };
+
+export const saveMethodLabel = (method: ProviderSaveMethod): string => SAVE_METHOD_LABELS[method];
 
 export type GuestSaveDeps = {
   firebaseAuth: Auth | undefined;
   googleProvider: GoogleAuthProvider | undefined;
+  twitchProvider?: OAuthProvider | undefined;
+  discordProvider?: OAuthProvider | undefined;
   analytics: Analytics | undefined;
   reload: () => void;
   userAgent: () => string;
@@ -49,6 +59,8 @@ export type GuestSaveController = {
   /** Non-empty when saving cannot work in this browser; the reason to show. */
   unavailableReason: () => string | undefined;
   saveWithGoogle: () => Promise<void>;
+  saveWithTwitch: () => Promise<void>;
+  saveWithDiscord: () => Promise<void>;
   saveWithEmail: (emailRaw: string) => Promise<void>;
   switchToExisting: () => Promise<void>;
   keepPlayingAsGuest: () => void;
@@ -135,6 +147,31 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
     setView({ kind: "conflict", method });
   };
 
+  const saveWithProvider = async (method: ProviderSaveMethod): Promise<void> => {
+    const label = saveMethodLabel(method);
+    const providers: Record<ProviderSaveMethod, AuthProvider | undefined> = { "google.com": deps.googleProvider, "oidc.twitch": deps.twitchProvider, "oidc.discord": deps.discordProvider };
+    const provider = providers[method];
+    const user = currentGuest();
+    const blocked = unavailableReason();
+    if (blocked) return setView({ kind: "error", message: blocked });
+    if (!user || !provider) return setView({ kind: "error", message: `${label} sign-in isn't available right now.` });
+    setView({ kind: "busy", message: `Opening ${label}...` });
+    try {
+      await linkWithPopup(user, provider);
+      await finishUpgrade(method);
+    } catch (error) {
+      const code = errorCode(error);
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return setView({ kind: "idle" });
+      if (isConflictCode(code)) {
+        const credential = method === "google.com" ? GoogleAuthProvider.credentialFromError(error as never) : OAuthProvider.credentialFromError(error as never);
+        if (credential) return offerSwitch(method, { kind: "provider", credential });
+        // Nothing reusable to sign in with: say what happened instead of showing a raw Firebase code.
+        return setView({ kind: "error", message: `That ${label} account already has an empire. Use a different account, or keep playing as a guest.` });
+      }
+      setView({ kind: "error", message: errorText(error, `Could not save your empire with ${label}.`) });
+    }
+  };
+
   return {
     getView: () => view,
     subscribe: (listener) => {
@@ -143,27 +180,9 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
     },
     unavailableReason,
 
-    async saveWithGoogle() {
-      const user = currentGuest();
-      const blocked = unavailableReason();
-      if (blocked) return setView({ kind: "error", message: blocked });
-      if (!user || !deps.googleProvider) return setView({ kind: "error", message: "Google sign-in isn't available right now." });
-      setView({ kind: "busy", message: "Opening Google..." });
-      try {
-        await linkWithPopup(user, deps.googleProvider);
-        await finishUpgrade("google.com");
-      } catch (error) {
-        const code = errorCode(error);
-        if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return setView({ kind: "idle" });
-        if (isConflictCode(code)) {
-          const credential = GoogleAuthProvider.credentialFromError(error as never);
-          if (credential) return offerSwitch("google.com", { kind: "google", credential });
-          // Nothing reusable to sign in with: say what happened instead of showing a raw Firebase code.
-          return setView({ kind: "error", message: "That Google account already has an empire. Use a different account, or keep playing as a guest." });
-        }
-        setView({ kind: "error", message: errorText(error, "Could not save your empire with Google.") });
-      }
-    },
+    saveWithGoogle: () => saveWithProvider("google.com"),
+    saveWithTwitch: () => saveWithProvider("oidc.twitch"),
+    saveWithDiscord: () => saveWithProvider("oidc.discord"),
 
     async saveWithEmail(emailRaw) {
       const email = emailRaw.trim();
@@ -191,7 +210,7 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
       if (!target || !deps.firebaseAuth) return;
       setView({ kind: "busy", message: "Switching to your existing empire..." });
       try {
-        if (target.kind === "google") await signInWithCredential(deps.firebaseAuth, target.credential);
+        if (target.kind === "provider") await signInWithCredential(deps.firebaseAuth, target.credential);
         else await signInWithEmailLink(deps.firebaseAuth, target.email, target.href);
         pending = undefined;
         deps.reload();

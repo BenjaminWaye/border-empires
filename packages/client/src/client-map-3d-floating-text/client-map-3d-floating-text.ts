@@ -1,4 +1,4 @@
-import { CanvasTexture, Scene, Sprite, SpriteMaterial } from "three";
+import { CanvasTexture, Sprite, SpriteMaterial, type Object3D } from "three";
 
 const FLOAT_DURATION_MS = 5000;
 const FLOAT_RISE_HEIGHT = 4.2;
@@ -54,7 +54,7 @@ export type FloatingTextLayer = {
   readonly dispose: () => void;
 };
 
-export const createFloatingTextLayer = (scene: Scene): FloatingTextLayer => {
+export const createFloatingTextLayer = (scene: Object3D): FloatingTextLayer => {
   const entries: FloatingEntry[] = [];
 
   const spawn = (worldX: number, worldZ: number, surfaceY: number, text: string, color = "#ff2d2d"): void => {

@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { reachSetForPlayer, isInReach, type ReachAnchor } from "@border-empires/shared";
+import { AFC_LANDING_GUARANTEED_REACH_RADIUS, reachSetForPlayer, isInReach, type ReachAnchor } from "@border-empires/shared";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 
@@ -23,6 +23,13 @@ import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 // anchor for `barbarian-1`, and a fresh spawn nearby lost every contested
 // reach tile to it -- the barbarian "defended" ground it should never own.
 const isBarbarianOwner = (ownerId: string | undefined): boolean => ownerId?.startsWith("barbarian-") === true;
+
+// A spawn/respawn-landed AFC its lander still holds keeps its 3x3 footprint
+// whatever rival reach covers it (ReachAnchor.guaranteedRadius). A captured
+// AFC carries no landedAt (capturedAfc strips it), so a capture never gets to
+// strip a defender's surrounding ground this way.
+const landedAfcGuarantee = (tile: DomainTileState): Pick<ReachAnchor, "guaranteedRadius"> =>
+  tile.afc?.landedAt !== undefined && tile.afc.ownerId === tile.ownerId ? { guaranteedRadius: AFC_LANDING_GUARANTEED_REACH_RADIUS } : {};
 
 export interface GatherReachAnchorsDeps {
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
@@ -69,7 +76,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
     for (const tileKey of summary.ownedAfcTileKeys) {
       const tile = tiles.get(tileKey);
       if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-      anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: tileSettledAtByKey.get(tileKey) ?? now, kind: "TOWN" });
+      anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: tileSettledAtByKey.get(tileKey) ?? now, kind: "TOWN", ...landedAfcGuarantee(tile) });
     }
   }
   for (const [ownerId, keys] of activeRelayBeaconsByOwner) {
@@ -125,7 +132,7 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   const wasActiveTown = wasSettled && (previous?.town || previous?.afc) ? previous.ownerId : undefined;
   const isActiveTown = isSettled && (tile.town || tile.afc) ? tile.ownerId : undefined;
   if (isActiveTown && isActiveTown !== wasActiveTown) {
-    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: now, kind: "TOWN" });
+    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: now, kind: "TOWN", ...landedAfcGuarantee(tile) });
   }
   const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
   const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;

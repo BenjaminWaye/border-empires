@@ -453,7 +453,7 @@ import {
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
-import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
+import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision/runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
 import { StructureVisionDormancyTracker } from "../structure-vision-dormancy-tracker.js";
@@ -1516,11 +1516,8 @@ export class SimulationRuntime {
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
-      coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.state.tiles),
-      hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
-      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(this.state.tiles, x, y, radius),
-      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.state.tiles, x, y, radius),
-      claimFairSpawnSite: (isAvailable, rallyAnchor) => this.spawnPlacementIndex.claimFairSpawnSite(this.state.tiles, isAvailable, rallyAnchor)
+      // reachBorder is reassigned on every anchor activation, so it is read lazily per lookup.
+      ...this.spawnPlacementIndex.spawnSearchLookups(this.state.tiles, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y))
     };
   }
 

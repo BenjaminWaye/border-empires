@@ -30,6 +30,14 @@ export type ReachAnchor = {
    * requirement normal TOWN/OUTPOST/DOCK anchors are gated on.
    */
   crossesWater?: boolean;
+  /**
+   * Tiles within this Chebyshev radius of the anchor are granted to its owner
+   * outright, like the anchor's own tile, however live a rival's defense
+   * there is. Set only for a landed AFC (AFC_LANDING_GUARANTEED_REACH_RADIUS):
+   * a spawn that could only be placed beside a rival still gets its own
+   * footprint. Position-based, so the boot reseed reproduces it in any order.
+   */
+  guaranteedRadius?: number;
 };
 
 /** Answers "is the tile at this world position LAND terrain?" for land-gating a reach disk. */

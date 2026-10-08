@@ -6,8 +6,8 @@ import {
   MeshBasicMaterial,
   PlaneGeometry,
   RingGeometry,
-  Scene,
-  TorusGeometry
+  TorusGeometry,
+  type Object3D
 } from "three";
 
 const DURATION_MS = 2200;
@@ -55,7 +55,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = clamp01(opacity);
 };
 
-export const createRevealEmpireStatsFxLayer = (scene: Scene): RevealEmpireStatsFxLayer => {
+export const createRevealEmpireStatsFxLayer = (scene: Object3D): RevealEmpireStatsFxLayer => {
   const group = new Group();
   group.name = "reveal-empire-stats-fx";
   scene.add(group);

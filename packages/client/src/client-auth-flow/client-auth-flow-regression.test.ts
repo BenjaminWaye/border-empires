@@ -22,7 +22,7 @@ describe("client auth flow regression guard", () => {
   it("uses the cached Firebase token for initial auth bootstrap and reserves forced refresh for auth failures", () => {
     const source = clientSource();
 
-    expect(source).toContain('state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";');
+    expect(source).toContain("state.authBusyDetail = `Loading your ${providerLabel} session and waiting for the realtime server connection.`;");
     // Initial bootstrap routes through the guarded authenticateSocket with no
     // args — createSocketAuthenticator defaults forceRefresh to false, so
     // this uses the cached token (authenticateSocket(true) is reserved for
@@ -105,6 +105,8 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authRegisterBtn: makeButton(),
       authEmailLinkBtn: makeButton(),
       authGoogleBtn: makeButton(),
+      authTwitchBtn: makeButton(),
+      authDiscordBtn: makeButton(),
       authPlayNowBtn: makeButton(),
       authEmailEl: makeInput(),
       authPasswordEl: makeInput(),

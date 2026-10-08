@@ -7,21 +7,17 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
 import { showWaystationActivationOverlayWhenClear } from "../client-waystation-activation/client-waystation-activation-gate.js";
-import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
-import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
+import { refreshOnboardingChecklistHighlight, renderDiscoveryTipOverlayForState } from "../client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
 import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
-import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 import { detectAfcModuleDeliveries, recordAfcModuleDeliveries, snapshotAfcModules } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
 import { notifyIfLastAfcLost } from "../client-afc-slot-notices/client-afc-slot-notices.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
-/** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path below and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
-export const refreshOnboardingChecklistHighlight = (state: ClientState): void => {
-  state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles, state.me, state.authEmail);
-};
+// Moved to client-onboarding-ui-overlays.ts (it now applies the onboarding UI gate); re-exported for client-network.ts.
+export { refreshOnboardingChecklistHighlight };
 
 export type TileDeltaBatchHandlerDeps = {
   state: ClientState;
@@ -220,7 +216,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       isSeen: (x, y) => hasWaystationActivationBeenShown(state, x, y)
     });
   }
-  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));
+  renderDiscoveryTipOverlayForState(state, () => deps.renderHud());
   refreshOnboardingChecklistHighlight(state);
   deps.renderHud();
 };

@@ -9,8 +9,7 @@ import {
   WAYPOINT_QUEUE_CLIENT_CAP
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
-import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
-import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
+import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -67,11 +66,7 @@ const setWaypointForSelected = (
   // tile-delta confirms the decay stamp (client-action-flow.ts's
   // frontierDecayKind handler) -- by then the claim/decay is already
   // underway and the "why" is easy to miss.
-  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) {
-    announceDiscoveryTip(state.discoveryTipQueue, "OUT_OF_REACH_EXPAND", state.authEmail, renderHud, (def) =>
-      pushDiscoveryTipFeedEntry(state, def)
-    );
-  }
+  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud);
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

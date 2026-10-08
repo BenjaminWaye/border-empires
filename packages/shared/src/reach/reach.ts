@@ -84,7 +84,7 @@ export type OvertakenTile = { tileKey: string; fromOwnerId: string; toOwnerId: s
  *   If the claimant is still actively covering the tile, they keep it and
  *   the incoming anchor simply doesn't extend the border there.
  * - EXCEPT the anchor's own tile (the ground the town/dock/outpost actually
- *   stands on), which is always granted to the anchor's owner regardless of
+ *   stands on, widened to `anchor.guaranteedRadius` for a landed AFC), which is always granted to the anchor's owner regardless of
  *   any rival's live defense there. Reach is sticky (a rival's existing
  *   border never gets pushed back just because a new anchor activated
  *   somewhere inside it), but a captured town/dock deep in a rival's
@@ -111,6 +111,16 @@ export type OvertakenTile = { tileKey: string; fromOwnerId: string; toOwnerId: s
  * rival's settled ground resolves as a genuine contest, under the same
  * live-defense rule a claimed slot already uses.
  */
+/** The anchor's own tile plus its guaranteedRadius ring, toroidally wrapped. */
+const guaranteedTileKeys = (anchor: ReachAnchor): Set<string> => {
+  const radius = anchor.guaranteedRadius ?? 0;
+  const keys = new Set<string>();
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) keys.add(tileKey(wrapCoord(anchor.x + dx, WORLD_WIDTH), wrapCoord(anchor.y + dy, WORLD_HEIGHT)));
+  }
+  return keys;
+};
+
 export const grantAnchorToBorder = (
   border: ReadonlyMap<string, string>,
   anchor: ReachAnchor,
@@ -120,11 +130,12 @@ export const grantAnchorToBorder = (
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
-  const ownTileKey = tileKey(wrapCoord(anchor.x, WORLD_WIDTH), wrapCoord(anchor.y, WORLD_HEIGHT));
+  const guaranteedKeys = guaranteedTileKeys(anchor);
   for (const key of tileKeysInReach(anchor, landConnectivity)) {
-    // The anchor's own tile always wins the contest below, no matter how
-    // live the rival's defense is there — see this function's doc comment.
-    const isOwnTile = key === ownTileKey;
+    // The anchor's own tile (and a landed AFC's footprint) always wins the
+    // contest below, no matter how live the rival's defense is there — see
+    // this function's doc comment.
+    const isOwnTile = guaranteedKeys.has(key);
     const existingOwner = next.get(key);
     if (!existingOwner) {
       const settledOwner = settledOwnerAt?.(key);

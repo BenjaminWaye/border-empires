@@ -24,11 +24,11 @@ import {
   MeshBasicMaterial,
   NormalBlending,
   RingGeometry,
-  Scene,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
-  SRGBColorSpace
+  SRGBColorSpace,
+  type Object3D
 } from "three";
 
 const DROP_HEIGHT = 2.7;
@@ -128,7 +128,7 @@ export type AfcModuleDeliveryFxLayer = {
   readonly dispose: () => void;
 };
 
-export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryFxLayer => {
+export const createAfcModuleDeliveryFxLayer = (scene: Object3D): AfcModuleDeliveryFxLayer => {
   const group = new Group();
   group.name = "afc-module-delivery-fx";
   scene.add(group);

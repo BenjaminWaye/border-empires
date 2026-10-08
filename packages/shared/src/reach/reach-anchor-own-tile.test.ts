@@ -46,3 +46,20 @@ describe("grantAnchorToBorder — anchor's own tile always wins", () => {
     expect(overtaken).toContainEqual({ tileKey: tileKey(5, 5), fromOwnerId: "rival", toOwnerId: "capturer" });
   });
 });
+
+// A landed AFC (ReachAnchor.guaranteedRadius) widens the own-tile rule to its
+// 3x3 footprint, so a spawn placed beside a rival still owns the ground its
+// AFC stands on. Beyond the footprint, sticky territory holds as usual.
+describe("grantAnchorToBorder — guaranteedRadius", () => {
+  it("grants every tile within guaranteedRadius over a rival's live defense, and nothing past it", () => {
+    const rivalKeys: string[] = [];
+    for (let y = 2; y <= 8; y += 1) for (let x = 2; x <= 8; x += 1) rivalKeys.push(tileKey(x, y));
+    const existing = new Map(rivalKeys.map((key) => [key, "rival"] as const));
+    const landedAfc: ReachAnchor = { x: 5, y: 5, ownerId: "newcomer", activatedAt: 2, kind: "TOWN", guaranteedRadius: 1 };
+    const { border } = grantAnchorToBorder(existing, landedAfc, (ownerId) => (ownerId === "rival" ? new Set(rivalKeys) : new Set()));
+    const granted = rivalKeys.filter((key) => border.get(key) === "newcomer").sort();
+    const footprint: string[] = [];
+    for (let y = 4; y <= 6; y += 1) for (let x = 4; x <= 6; x += 1) footprint.push(tileKey(x, y));
+    expect(granted).toEqual(footprint.sort());
+  });
+});
