@@ -295,6 +295,10 @@ export const riverSeaBlend = (point: ChannelPathPoint): number => {
   return 1 - (1 - CHANNEL_SEA_BLEND * descent * descent) * (1 - (point.mouth ?? 0));
 };
 
+/** The channel core's colour where it reaches the coast (descent 1): where the estuary pool starts. */
+const coastMix = (k: 0 | 1 | 2): number => RIVER_WATER_CORE[k] + (RIVER_SEA_BLEND[k] - RIVER_WATER_CORE[k]) * CHANNEL_SEA_BLEND;
+export const RIVER_COAST_COLOR: Rgba = [coastMix(0), coastMix(1), coastMix(2), 1];
+
 /**
  * Appends a flat water strip along `run` (a centreline run, scene coords):
  * WATER_COLUMN_COUNT vertices per sample, level across the channel at

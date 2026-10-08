@@ -4,7 +4,7 @@
 // flat river plume, so the sea-tile edges showed right where the river
 // enters. Around each mouth the waves die down to flat, so the river meets
 // still water at the same level.
-import { riversForCurrentSeed, WORLD_HEIGHT, WORLD_WIDTH, type RiverPath } from "@border-empires/shared";
+import { edgeRiversActive, riversForCurrentSeed, WORLD_HEIGHT, WORLD_WIDTH, type RiverPath } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
 import { seaDirectionAtCorner } from "./client-map-3d-river-edge-water.js";
 
@@ -56,8 +56,12 @@ const NO_CALM: ReadonlyMap<number, number> = new Map();
  * surface walks this map instead of querying every sea vertex -- a
  * per-vertex lookup cost 10-15 ms per rebuild at full zoom-out.
  */
+const NO_RIVERS: readonly RiverPath[] = [];
+
 const currentCache = (): CalmCache => {
-  const rivers = riversForCurrentSeed();
+  // v9+ edge rivers only: v1-v8 centre rivers end mid-tile and have no
+  // mouth corner (their strip runs into the sea tile itself).
+  const rivers = edgeRiversActive() ? riversForCurrentSeed() : NO_RIVERS;
   if (cache?.rivers !== rivers) {
     const calmByCorner = buildRiverMouthCalm(rivers);
     // Full calm (1) only ever sits exactly on a mouth corner.

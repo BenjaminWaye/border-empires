@@ -263,6 +263,15 @@ for v9 (staging) and v8 (prod):
   2D: sea tiles at a mouth corner draw a radial wash of river water fading
   into the sea (`client-map-render-river-mouth.ts`), covering the shore
   foam where the river crosses.
+- **Review fixes.** Mouth water and the estuary pool draw after the
+  fog-darken layer, so on fogged tiles the channel keeps its water in the
+  channel mesh (`riverSampleFogged`) and the pool fades out, as it does over
+  unexplored tiles and outside the heightfield window. River mouths (calm
+  sea, foam clearance, 2D wash) are v9+ only: v1-v8 centre-river ends were
+  being treated as mouths. The v1-v8 strip doesn't write depth, so the fog
+  quads just under it still darken it. An empty water commit clears the
+  shore foam. Water and river wiring moved out of `client-map-3d.ts` into
+  `client-map-3d-water-wiring.ts`.
 - **Territory colour vs bank (option A).** Decision 4 taken literally let
   the flat ownership sheet paint the carved bank owner-coloured up to the
   water, so the river read as a strip stuck on top. A wet-earth bank strip

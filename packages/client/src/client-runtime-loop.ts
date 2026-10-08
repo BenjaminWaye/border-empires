@@ -6,7 +6,8 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
-import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js"; import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
+import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";

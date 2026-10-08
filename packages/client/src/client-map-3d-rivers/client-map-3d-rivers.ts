@@ -25,6 +25,7 @@ import {
   channelCenterline,
   heightfieldSurfaceY,
   indexCenterlines,
+  RIVER_COAST_COLOR,
   RIVER_WATER_DEPTH,
   riverDescentScale,
   type ChannelPathPoint,
@@ -32,9 +33,9 @@ import {
   type WaterSides
 } from "./client-map-3d-rivers-channel.js";
 import { createRiverValley, type RiverValleyTile } from "./client-map-3d-river-valley.js";
-import { createRiverWaterMaterial, RIVER_SEA_BLEND, RIVER_WATER_CORE } from "./client-map-3d-river-water-material.js";
+import { createRiverWaterMaterial, RIVER_SEA_BLEND } from "./client-map-3d-river-water-material.js";
 import { appendBank, createRiverBankMaterial } from "./client-map-3d-river-bank-strip.js";
-import { appendEstuary, riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
+import { appendEstuary, riverMouthPlume, riverSampleFogged, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow, type HeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
@@ -65,6 +66,8 @@ export type RiverOverlayRebuildInputs = {
   // through unexplored fog since this overlay only ever culled by camera
   // distance, never by what the player has actually seen.
   readonly isExploredAt: (wx: number, wy: number) => boolean;
+  // Explored but not currently seen (the fog-darken layer's tiles). Default: none.
+  readonly isFoggedAt?: (wx: number, wy: number) => boolean;
 };
 
 export type RiverOverlay = {
@@ -170,7 +173,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     marginW: number,
     marginH: number,
     tileWindow: HeightfieldTileWindow,
-    isExploredAt: (wx: number, wy: number) => boolean
+    isExploredAt: (wx: number, wy: number) => boolean,
+    isFoggedAt: (wx: number, wy: number) => boolean
   ): void => {
     const reachW = marginW + 2;
     const reachH = marginH + 2;
@@ -297,6 +301,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       let mouthSides: WaterSides[] = [];
       let bankRun: ChannelPathPoint[] = [];
       let bankSides: WaterSides[] = [];
+      // Once the water has moved into the mouth mesh it stays there (until a gap).
+      let inMouth = false;
       const flushWater = (): void => {
         // When the channel hands over to the mouth mesh, each side sees the
         // other's neighbouring sample (appendWater's `ends`).
@@ -310,6 +316,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
         mouthSides = [];
         bankRun = [];
         bankSides = [];
+        inMouth = false;
       };
       line.forEach((p, i) => {
         const prev = line[Math.max(0, i - 1)]!;
@@ -331,7 +338,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
           bankRun.push(p);
           bankSides.push(sides);
         }
-        if (isPlume || (p.descent ?? 0) >= MOUTH_HANDOVER_DESCENT) {
+        inMouth ||= isPlume || ((p.descent ?? 0) >= MOUTH_HANDOVER_DESCENT && !riverSampleFogged(p.x, p.z, nx, nz, camX, camY, isFoggedAt));
+        if (inMouth) {
           // The mouth goes in its own mesh (see commitWater), taking over
           // from the channel before the coast so a single mesh crosses the
           // coastline; its first sample is the channel's last, so the two
@@ -349,7 +357,20 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       });
       flushWater();
     }
-    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_CORE, seaDistanceAt, RIVER_SEA_BLEND);
+    // The pool starts from the channel's colour at the coast (no darker
+    // blot where they overlap) and never shows over tiles the terrain
+    // doesn't draw (unexplored, or outside the heightfield window) or over
+    // fogged ones (it draws after the fog-darken layer): there its coast
+    // distance reads as infinite, so it fades out.
+    const poolReachAt = (x: number, z: number): number => {
+      const tx = Math.floor(x);
+      const tz = Math.floor(z);
+      const wx = wrap(camX + tx, WORLD_WIDTH);
+      const wz = wrap(camY + tz, WORLD_HEIGHT);
+      const drawable = isInHeightfieldTileWindow(tileWindow, tx, tz) && isExploredAt(wx, wz) && !isFoggedAt(wx, wz);
+      return drawable ? seaDistanceAt(x, z) : Infinity;
+    };
+    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_COAST_COLOR, poolReachAt, RIVER_SEA_BLEND);
     commitWater(bankBuffers, bankMaterial, RENDER_ORDER.riverBank);
     commitWater(buffers, waterMaterial, RENDER_ORDER.riverWater);
     commitWater(mouthBuffers, mouthMaterial, RENDER_ORDER.riverMouth);
@@ -394,7 +415,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
     };
 
     if (edgeRiversActive()) {
-      rebuildEdgeRivers(camX, camY, marginW, marginH, heightfieldTileWindow(halfW, halfH), isExploredAt);
+      rebuildEdgeRivers(camX, camY, marginW, marginH, heightfieldTileWindow(halfW, halfH), isExploredAt, inputs.isFoggedAt ?? (() => false));
       return;
     }
 

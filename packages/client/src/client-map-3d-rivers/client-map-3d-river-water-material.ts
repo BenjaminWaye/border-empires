@@ -38,10 +38,12 @@ export const createRiverWaterMaterial = (vertexColors: boolean): MeshStandardMat
     // before fog-darken. Opacity stays 1; only the edge vertices fade.
     transparent: true,
     opacity: 1,
-    // Writing depth means overlapping water on a tight bend doesn't stack
-    // into darker rings, and the fog-darken quads (which sit above it on the
-    // ground surface) still pass the depth test.
-    depthWrite: true,
+    // v9 water writes depth, so overlapping water on a tight bend doesn't
+    // stack into darker rings; it sits down in its trench, below the
+    // fog-darken quads, which still pass the depth test. The v1-v8 strip is
+    // one opaque colour (nothing to stack) and lies just above the ground
+    // and the fog quads, so it must not write depth or fog couldn't darken it.
+    depthWrite: vertexColors,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,

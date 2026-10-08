@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { WORLD_WIDTH } from "@border-empires/shared";
+import { setWorldSeed, WORLD_WIDTH } from "@border-empires/shared";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
-import { buildRiverMouthCalm } from "./client-map-3d-river-mouths.js";
+import { buildRiverMouthCalm, riverMouthCalmCorners, riverMouthCorners } from "./client-map-3d-river-mouths.js";
 import { appendEstuary, COVE_COAST_BAND, COVE_RADIUS, riverCoveY } from "./client-map-3d-river-edge-water.js";
 import type { WaterBuffers } from "./client-map-3d-rivers-channel.js";
 
@@ -14,6 +14,16 @@ describe("river mouth: calm sea, cove and estuary pool", () => {
     expect(calm.get(10 * WORLD_WIDTH + 22)!).toBeLessThan(1);
     expect(calm.has(10 * WORLD_WIDTH + 25)).toBe(false);
     expect(buildRiverMouthCalm([river], () => false).size).toBe(0);
+  });
+
+  it("only v9+ edge rivers have mouths: v1-v8 centre rivers get no calm sea or mouth wash", () => {
+    // Regression: v1-v8 river ends were rounded to a corner and treated as
+    // mouths, so 2D drew a river wash where no river is drawn.
+    setWorldSeed(555, "continents", 8);
+    expect(riverMouthCorners().size).toBe(0);
+    expect(riverMouthCalmCorners().size).toBe(0);
+    setWorldSeed(555, "continents", 9);
+    expect(riverMouthCorners().size).toBeGreaterThan(0);
   });
 
   it("cuts the land at a mouth corner down below the sea, untouched from COVE_RADIUS out, never raising it", () => {

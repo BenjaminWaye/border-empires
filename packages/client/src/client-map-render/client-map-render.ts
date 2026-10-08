@@ -26,7 +26,8 @@ export { dockOverlayVariants, structureOverlayImages } from "./client-map-overla
 type TileMap = Map<string, Tile>;
 
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
-export { drawShardFallback } from "./client-map-render-shard-fallback.js"; import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
+export { drawShardFallback } from "./client-map-render-shard-fallback.js";
+import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>

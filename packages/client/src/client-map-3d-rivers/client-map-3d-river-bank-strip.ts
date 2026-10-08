@@ -38,7 +38,8 @@ export const appendBank = (
   sides: readonly WaterSides[],
   surfaceYAt: (sceneX: number, sceneZ: number) => number
 ): void => {
-  const samples = run.filter((p) => !(p.mouth ?? 0));
+  const indices = run.flatMap((p, i) => ((p.mouth ?? 0) > 0 ? [] : [i]));
+  const samples = indices.map((i) => run[i]!);
   if (samples.length < 2) return;
   for (const sign of [-1, 1] as const) {
     const base = buffers.positions.length / 3;
@@ -48,7 +49,7 @@ export const appendBank = (
       const tlen = Math.hypot(next.x - prev.x, next.z - prev.z) || 1;
       const nx = (-(next.z - prev.z) / tlen) * sign;
       const nz = ((next.x - prev.x) / tlen) * sign;
-      const side = sides[run.indexOf(cur)];
+      const side = sides[indices[i]!];
       const drawn = !side || (sign < 0 ? side.left : side.right);
       // The wet bank fades out over the descent to the sea instead of
       // ending square at the coast.

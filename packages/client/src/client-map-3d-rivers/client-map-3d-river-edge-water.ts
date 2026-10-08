@@ -37,6 +37,25 @@ export const riverSampleSides = (
   return { left: sideOk(-RIVER_SIDE_PROBE), right: sideOk(RIVER_SIDE_PROBE) };
 };
 
+/**
+ * True when the tile on either side of the river at a centreline sample is
+ * fogged (explored, not currently seen). The fog-darken layer draws before
+ * the mouth mesh, so water there stays in the channel mesh, which it darkens.
+ */
+export const riverSampleFogged = (
+  x: number,
+  z: number,
+  normalX: number,
+  normalZ: number,
+  camX: number,
+  camY: number,
+  isFoggedAt: (wx: number, wy: number) => boolean
+): boolean => {
+  const fogged = (side: number): boolean =>
+    isFoggedAt(wrap(camX + Math.floor(x + normalX * side), WORLD_WIDTH), wrap(camY + Math.floor(z + normalZ * side), WORLD_HEIGHT));
+  return fogged(-RIVER_SIDE_PROBE) || fogged(RIVER_SIDE_PROBE);
+};
+
 // The mouth runs this far past the river's final corner into the sea,
 // widening and fading out, so the river spills into the ocean instead of
 // stopping in a hard square end at the coast.

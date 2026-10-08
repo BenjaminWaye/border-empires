@@ -4,6 +4,7 @@ import { DoubleSide, Mesh, Scene } from "three";
 import { BufferGeometry } from "three";
 import { WORLD_WIDTH } from "@border-empires/shared";
 import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
+import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 
 // Regression test for the water surface rendering solid black from below:
 // the surface mesh only winds a front face (normal pointing up), so without
@@ -166,6 +167,20 @@ describe("createWaterSurface", () => {
     waterA.dispose();
     waterB.dispose();
   });
+  it("drops the shore foam when a later commit has no sea in view", () => {
+    // Regression: an empty commit returned before rebuilding the foam, so
+    // the previous view's foam stayed in the scene at stale coordinates.
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4, { isLandAt: (x) => x === 1 });
+    water.addTile(0.5, 0.5, false, 0, 0);
+    water.commit();
+    const foamCount = (): number => scene.children.filter((c) => c instanceof Mesh && c.renderOrder === RENDER_ORDER.shoreFoam).length;
+    expect(foamCount()).toBe(1);
+    water.clear();
+    water.commit();
+    expect(foamCount()).toBe(0);
+  });
+
   it("keeps the sea flat where waveCalmAt says calm (river mouths), and waving elsewhere", () => {
     // Regression: the sea's tile corners bobbed ~0.22 up and down right
     // where rivers flow in, so the sea-tile edges showed around the mouth.

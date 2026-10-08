@@ -205,7 +205,11 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       geometry.dispose();
       geometry = null;
     }
-    if (tiles.length === 0) return;
+    if (tiles.length === 0) {
+      // No sea in view: drop the previous commit's foam too.
+      shoreFoam.rebuild([], () => false, WATER_SURFACE_Y, false);
+      return;
+    }
 
     // The wave animation (tick()) needs each vertex's absolute world X/Z, not
     // its scene-relative position -- see waveWorldOffsetX/Z's declaration.

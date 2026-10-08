@@ -11,6 +11,7 @@ import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDesce
 import { heightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { RIVER_SEA_BLEND, RIVER_WATER_CORE } from "./client-map-3d-river-water-material.js";
+import { riverMouthCorners } from "./client-map-3d-river-mouths.js";
 
 const TERRAIN_MATERIAL = new MeshStandardMaterial();
 // Varies per corner so "draped on the surface" is distinguishable from "flat".
@@ -132,6 +133,32 @@ describe("river culling and look (phase 1a)", () => {
     expect(mouth.positions.slice(0, 15)).toEqual(shared);
   });
 
+  it("keeps river water on fogged coastal tiles in the fog-darkened channel mesh, and the estuary pool off them", () => {
+    // Regression: the last stretch before the coast and the estuary pool sit
+    // in the mouth mesh, drawn after the fog-darken layer, so on a fogged
+    // coast they showed bright inside a darkened tile.
+    setWorldSeed(555, "continents", 9);
+    const [mouth] = riverMouthCorners();
+    expect(mouth).toBeDefined();
+    const at = { camX: mouth! % WORLD_WIDTH, camY: Math.floor(mouth! / WORLD_WIDTH), halfW: 12, halfH: 10, isExploredAt: ALWAYS };
+    const measure = (isFoggedAt: () => boolean): { channel: number; mouthAlpha: number } => {
+      const scene = new Scene();
+      createRiverOverlay(scene, deps).rebuild({ ...at, isFoggedAt });
+      const byOrder = (order: number): Mesh[] => meshes(scene).filter((m) => m.renderOrder === order);
+      const channel = byOrder(RENDER_ORDER.riverWater).reduce((n, m) => n + positions(m).length / 3, 0);
+      let mouthAlpha = 0;
+      for (const m of byOrder(RENDER_ORDER.riverMouth)) {
+        const colors = (m.geometry as BufferGeometry).getAttribute("color").array;
+        for (let i = 3; i < colors.length; i += 4) mouthAlpha += colors[i]!;
+      }
+      return { channel, mouthAlpha };
+    };
+    const clear = measure(() => false);
+    const fogged = measure(() => true);
+    expect(fogged.channel).toBeGreaterThan(clear.channel);
+    expect(fogged.mouthAlpha).toBeLessThan(clear.mouthAlpha);
+  });
+
   it("blends the plume's colour into the sea colour as it runs out", () => {
     // Regression: the river switched from its own colour to a flat pool at the coast.
     const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
@@ -201,6 +228,11 @@ describe("river culling and look (phase 1a)", () => {
       checked += 1;
     }
     expect(checked).toBeGreaterThan(50);
+    // Regression: the strip lies just above the ground and the fog-darken
+    // quads; writing depth made those quads fail their depth test, so fogged
+    // v1-v8 rivers stayed at full brightness.
+    expect((strip!.material as MeshStandardMaterial).depthWrite).toBe(false);
+    expect(RENDER_ORDER.fogDarkenSettled).toBeGreaterThan(strip!.renderOrder);
     overlay.dispose();
   });
 });

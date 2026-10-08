@@ -24,8 +24,9 @@ import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
-import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
-import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js"; import { riverMouthCalmCorners } from "../client-map-3d-rivers/client-map-3d-river-mouths.js"; import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
+import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
+import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
@@ -156,8 +157,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES, { waveCalmCorners: riverMouthCalmCorners, isLandAt: (x, z) => { const t = deps.terrainAt(deps.wrapX(x), deps.wrapY(z)); return t !== "SEA" && t !== "COASTAL_SEA"; } });
-  const riverOverlay = createRiverOverlay(scene, { heightfield });
+  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
@@ -763,10 +763,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const { halfW, halfH } = window;
 
     heightfield.mesh.position.set(0, 0, 0);
+    const visibilityAt = (wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)));
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
       if (revealWholeMapInTrue3DMode) return true;
-      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-      const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
+      const visibility = visibilityAt(wx, wy);
       return visibility === "visible" || visibility === "fogged";
     };
     // Shared window params for the main sculpted grid and the separate hills
@@ -788,7 +788,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt });
-    riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
+    riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield, isFoggedAt: riverFoggedAt(revealWholeMapInTrue3DMode, visibilityAt) });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
