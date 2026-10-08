@@ -56,4 +56,23 @@ describe("createAfcDropFxLayer", () => {
     expect(entryGroups(layer)).toHaveLength(0);
     layer.dispose();
   });
+
+  it("stays on its world tile when the scene origin moves under it (camera pan forcing a terrain rebuild)", () => {
+    const layer = createAfcDropFxLayer(new Scene());
+    const now = performance.now();
+    const origin = { camX: 100, camY: 100 };
+    const tileToScene = (x: number, y: number) => ({ sceneX: x - origin.camX, sceneZ: y - origin.camY });
+    const start = tileToScene(103, 98);
+    layer.spawn(start.sceneX, start.sceneZ, 0, now, { x: 103, y: 98 });
+    layer.reanchor(tileToScene);
+    const entry = entryGroups(layer)[0]!;
+    expect([entry.position.x, entry.position.z]).toEqual([3, -2]);
+
+    // The player pans 20 tiles east; the rebuild re-bases the scene on the camera.
+    origin.camX = 120;
+    layer.reanchor(tileToScene);
+    layer.update(now + 2_000);
+    expect([entry.position.x, entry.position.z]).toEqual([-17, -2]);
+    layer.dispose();
+  });
 });

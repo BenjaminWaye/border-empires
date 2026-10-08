@@ -262,6 +262,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
     ]
   },
+  {
+    createdAt: 1791437889049,
+    introducedIn: "2026.10.08.2",
+    title: "AFC landing stays put when you pan",
+    why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
+    changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
