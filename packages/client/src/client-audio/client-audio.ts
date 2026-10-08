@@ -28,6 +28,8 @@ const LOCATION_TRACKS: Record<LocationTheme, string> = {
   wonder: "/audio/wonder.m4a"
 };
 const AFC_DROP_TRACK = "/audio/afc-drop-rocket.mp3";
+/** The rocket clip is mastered ~10 dB hotter than the soundtrack (-6.3 vs -16 LUFS), so it plays 10 dB under the player's music volume to sit level with it. */
+export const AFC_DROP_GAIN = 0.32;
 
 let musicElement: HTMLAudioElement | undefined;
 let sfxElement: HTMLAudioElement | undefined;
@@ -74,7 +76,7 @@ const targetVolume = (): number => (muted ? 0 : volume);
 const applyGain = (): void => {
   if (musicElement) musicElement.volume = targetVolume();
   if (sfxElement) sfxElement.volume = targetVolume();
-  if (afcDropElement) afcDropElement.volume = targetVolume();
+  if (afcDropElement) afcDropElement.volume = targetVolume() * AFC_DROP_GAIN;
 };
 
 // `isCurrent` lets a fade check, on every frame, whether a newer fade of the
@@ -338,6 +340,6 @@ const playOneShot = (theme: LocationTheme): void => {
 export const playAfcDropSound = (): void => {
   if (!started || muted || !afcDropElement) return;
   afcDropElement.currentTime = 0;
-  afcDropElement.volume = targetVolume();
+  afcDropElement.volume = targetVolume() * AFC_DROP_GAIN;
   afcDropElement.play().catch(() => {});
 };

@@ -286,6 +286,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
     changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
   },
+  {
+    createdAt: 1791469348919,
+    introducedIn: "2026.10.08.5",
+    title: "Quieter AFC landing",
+    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
+    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
