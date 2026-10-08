@@ -148,9 +148,17 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     tileField === "siegeOutpost" && structureType !== "RELAY_BEACON" ? "outpostDeploymentSpeedMult" :
     spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
     undefined;
-  const totalMs = speedMultKey
-    ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
-    : spec.buildMs;
+  // Price against the real build window the build handler stamped
+  // (startedAt..completesAt, which already folds in tier, owned count and speed
+  // effects). spec.buildMs is the pre-D9 flat constant -- 60s for a Relay Beacon
+  // that actually takes an hour -- so measuring against it priced every rush as
+  // "just started". It stays only as the fallback for records predating startedAt.
+  const startedAt = target[tileField]?.startedAt;
+  const totalMs = typeof startedAt === "number" && completesAt > startedAt
+    ? completesAt - startedAt
+    : speedMultKey
+      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
+      : spec.buildMs;
   const remainingMs = completesAt - context.now();
   const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), context.now());
   if (actor.points < price) {
