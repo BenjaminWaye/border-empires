@@ -269,6 +269,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
     changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
   },
+  {
+    createdAt: 1791462529729,
+    introducedIn: "2026.10.08.3",
+    title: "Map effects stay put when you pan",
+    why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
+    changes: ["Every one-shot effect on the 3D map now stays on its tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

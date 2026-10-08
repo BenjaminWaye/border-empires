@@ -7,9 +7,9 @@ import {
   MeshBasicMaterial,
   OctahedronGeometry,
   RingGeometry,
-  Scene,
   SphereGeometry,
-  TorusGeometry
+  TorusGeometry,
+  type Object3D
 } from "three";
 
 export type RetortRecastFxResource = "FARM" | "UMBRITE" | "TITANIUM" | "GEMS";
@@ -65,7 +65,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = clamp01(opacity);
 };
 
-export const createRetortRecastFxLayer = (scene: Scene): RetortRecastFxLayer => {
+export const createRetortRecastFxLayer = (scene: Object3D): RetortRecastFxLayer => {
   const group = new Group();
   group.name = "retort-recast-fx";
   scene.add(group);

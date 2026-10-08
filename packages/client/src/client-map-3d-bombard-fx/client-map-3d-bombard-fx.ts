@@ -1,4 +1,4 @@
-import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, NormalBlending, RingGeometry, Scene, SphereGeometry } from "three";
+import { AdditiveBlending, CylinderGeometry, Group, Mesh, MeshBasicMaterial, NormalBlending, RingGeometry, SphereGeometry, type Object3D } from "three";
 
 const DURATION_MS = 1500;
 const IMPACT_END_MS = 200;
@@ -56,7 +56,7 @@ const easeOut = (t: number): number => 1 - (1 - t) * (1 - t);
 export type BombardFxHitColors = { readonly ring: string; readonly flash: string };
 const DEFAULT_HIT_COLORS: BombardFxHitColors = { ring: "#ff6622", flash: "#ffaa44" };
 
-export const createBombardFxLayer = (scene: Scene, hitColors: BombardFxHitColors = DEFAULT_HIT_COLORS): BombardFxLayer => {
+export const createBombardFxLayer = (scene: Object3D, hitColors: BombardFxHitColors = DEFAULT_HIT_COLORS): BombardFxLayer => {
   const group = new Group();
   group.name = "bombard-fx";
   scene.add(group);
