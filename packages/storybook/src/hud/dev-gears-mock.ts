@@ -51,7 +51,7 @@ const STYLES = `
 .sb-dev-gear.is-busy .sb-dev-gear-body { fill: url(#sb-dev-brass); stroke: var(--sp-brass-700); }
 .sb-dev-gear.is-busy { filter: drop-shadow(0 0 3px rgba(217,173,82,0.55)); }
 .sb-dev-gear.is-busy .sb-dev-gear-body,
-.sb-dev-gear.is-busy .sb-dev-gear-rim { transform-origin: 0 0; animation: sbDevSpin 6s linear infinite; }
+.sb-dev-gear.is-busy .sb-dev-gear-rim { transform-origin: 0 0; animation: sbDevSpin 2.4s linear infinite; }
 .sb-dev-gear.is-busy.is-ccw .sb-dev-gear-body,
 .sb-dev-gear.is-busy.is-ccw .sb-dev-gear-rim { animation-direction: reverse; }
 @keyframes sbDevSpin { to { transform: rotate(360deg); } }
