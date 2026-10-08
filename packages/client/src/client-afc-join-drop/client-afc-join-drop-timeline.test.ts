@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
-  AFC_JOIN_BRAKE_MS,
   AFC_JOIN_DESCENT_MS,
-  AFC_JOIN_REENTRY_MS,
+  AFC_JOIN_ENGINE_CUT_MS,
+  AFC_JOIN_FULL_BURN_MS,
   AFC_JOIN_TOTAL_MS,
   afcJoinBrakeIntensity,
-  afcJoinFallenFraction
+  afcJoinFallenFraction,
+  afcJoinStreakAlpha
 } from "./client-afc-join-drop-timeline.js";
 
-describe("AFC join drop timeline", () => {
-  it("is slow and deliberate: several seconds of descent and a long afterglow", () => {
-    expect(AFC_JOIN_DESCENT_MS).toBeGreaterThanOrEqual(5000);
-    expect(AFC_JOIN_TOTAL_MS).toBeGreaterThanOrEqual(6000);
-  });
+const speed = (age: number): number => (afcJoinFallenFraction(age + 1) - afcJoinFallenFraction(age)) * 1000;
 
-  it("runs as long as the 9 s rocket sound that plays when it starts", () => {
-    expect(AFC_JOIN_TOTAL_MS).toBe(9000);
+describe("AFC join drop timeline", () => {
+  it("follows the rocket clip: full burn, wind-down, engine cut, then touchdown on the 7.15 s impact hit", () => {
+    expect(AFC_JOIN_FULL_BURN_MS).toBe(1700);
+    expect(AFC_JOIN_ENGINE_CUT_MS).toBe(6350);
+    expect(AFC_JOIN_DESCENT_MS).toBe(7150);
+    expect(AFC_JOIN_TOTAL_MS).toBeGreaterThanOrEqual(9000);
   });
 
   it("falls monotonically from orbit (0) to touchdown (1)", () => {
@@ -29,23 +30,38 @@ describe("AFC join drop timeline", () => {
     }
   });
 
-  it("brakes to a standstill: speed at touchdown is ~0 and never spikes above the re-entry seam speed", () => {
-    const speed = (age: number): number => (afcJoinFallenFraction(age + 1) - afcJoinFallenFraction(age)) * 1000;
-    expect(speed(AFC_JOIN_DESCENT_MS - 2)).toBeLessThan(0.001);
-    const seamSpeed = speed(AFC_JOIN_REENTRY_MS - 1);
-    for (let age = AFC_JOIN_REENTRY_MS; age < AFC_JOIN_DESCENT_MS; age += 25) expect(speed(age)).toBeLessThanOrEqual(seamSpeed + 1e-6);
+  it("burns the thrusters at full power from the start", () => {
+    expect(afcJoinBrakeIntensity(250)).toBe(1);
+    expect(afcJoinBrakeIntensity(AFC_JOIN_FULL_BURN_MS - 1)).toBe(1);
   });
 
-  it("has continuous velocity across the re-entry/braking seam", () => {
-    const speed = (age: number): number => afcJoinFallenFraction(age + 1) - afcJoinFallenFraction(age);
-    expect(Math.abs(speed(AFC_JOIN_REENTRY_MS - 1) - speed(AFC_JOIN_REENTRY_MS))).toBeLessThan(2e-5);
+  it("winds the thrust down after the full burn, then cuts it at the engine cut", () => {
+    let previous = afcJoinBrakeIntensity(AFC_JOIN_FULL_BURN_MS);
+    for (let age = AFC_JOIN_FULL_BURN_MS + 50; age < AFC_JOIN_ENGINE_CUT_MS; age += 50) {
+      const burn = afcJoinBrakeIntensity(age);
+      expect(burn).toBeLessThanOrEqual(previous);
+      previous = burn;
+    }
+    expect(afcJoinBrakeIntensity(AFC_JOIN_ENGINE_CUT_MS - 200)).toBeGreaterThan(0);
+    expect(afcJoinBrakeIntensity(AFC_JOIN_ENGINE_CUT_MS - 200)).toBeLessThan(0.45);
+    for (let age = AFC_JOIN_ENGINE_CUT_MS; age <= AFC_JOIN_DESCENT_MS; age += 50) expect(afcJoinBrakeIntensity(age)).toBe(0);
   });
 
-  it("lights the braking burn only around the braking window", () => {
-    expect(afcJoinBrakeIntensity(0)).toBe(0);
-    expect(afcJoinBrakeIntensity(AFC_JOIN_REENTRY_MS - 500)).toBe(0);
-    expect(afcJoinBrakeIntensity(AFC_JOIN_REENTRY_MS + 200)).toBeGreaterThan(0.5);
-    expect(afcJoinBrakeIntensity(AFC_JOIN_REENTRY_MS + AFC_JOIN_BRAKE_MS - 10)).toBeLessThan(afcJoinBrakeIntensity(AFC_JOIN_REENTRY_MS + 200));
-    expect(afcJoinBrakeIntensity(AFC_JOIN_DESCENT_MS)).toBe(0);
+  it("brakes while the thrusters burn, nearly hovers at the engine cut, then drops unpowered into the ground", () => {
+    let previous = speed(0);
+    for (let age = 50; age < AFC_JOIN_ENGINE_CUT_MS - 1; age += 50) {
+      const v = speed(age);
+      expect(v).toBeLessThanOrEqual(previous);
+      previous = v;
+    }
+    expect(speed(AFC_JOIN_ENGINE_CUT_MS - 2)).toBeLessThan(0.001);
+    expect(speed(AFC_JOIN_DESCENT_MS - 2)).toBeGreaterThan(speed(AFC_JOIN_ENGINE_CUT_MS + 50));
+  });
+
+  it("fades the re-entry streak in at the start and burns it off once the thrust winds down", () => {
+    expect(afcJoinStreakAlpha(0)).toBe(0);
+    expect(afcJoinStreakAlpha(1000)).toBe(1);
+    expect(afcJoinStreakAlpha(AFC_JOIN_FULL_BURN_MS + 500)).toBeLessThan(1);
+    expect(afcJoinStreakAlpha(AFC_JOIN_ENGINE_CUT_MS)).toBe(0);
   });
 });

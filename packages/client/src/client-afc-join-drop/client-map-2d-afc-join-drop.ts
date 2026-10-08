@@ -5,7 +5,8 @@ import {
   AFC_JOIN_DESCENT_MS,
   AFC_JOIN_TOTAL_MS,
   afcJoinBrakeIntensity,
-  afcJoinFallenFraction
+  afcJoinFallenFraction,
+  afcJoinStreakAlpha
 } from "./client-afc-join-drop-timeline.js";
 
 /**
@@ -21,9 +22,9 @@ type AfcTile = Pick<Tile, "x" | "y" | "afc">;
 const FALL_HEIGHT_TILES = 5;
 const FLASH_MS = 260;
 const DUST_MS = 1600;
-const SMOKE_MS = 3600;
-const POWER_ON_START_MS = 1800;
-const POWER_ON_MS = 1800;
+const SMOKE_MS = 2700;
+const POWER_ON_START_MS = 1000;
+const POWER_ON_MS = 1600;
 const SMOKE_PUFFS = 6;
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
@@ -60,8 +61,8 @@ const drawDescent2D = (ctx: CanvasRenderingContext2D, tile: AfcTile, px: number,
   ctx.ellipse(cx, cy + size * 0.32, size * (0.1 + 0.2 * fallen), size * (0.03 + 0.07 * fallen), 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Re-entry streak above the hull, fading out through the braking burn.
-  const streakAlpha = clamp01(age / 500) * (1 - clamp01((age - 2000) / 840));
+  // Re-entry streak above the hull, burning off as the thrust winds down.
+  const streakAlpha = afcJoinStreakAlpha(age);
   if (streakAlpha > 0) {
     const gradient = ctx.createLinearGradient(cx, cy - offset, cx, cy - offset - size * 2.6);
     gradient.addColorStop(0, `rgba(255, 224, 176, ${0.7 * streakAlpha})`);
