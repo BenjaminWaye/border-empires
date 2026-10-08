@@ -1,8 +1,9 @@
 // True-3D "a whole AFC lands from orbit" sequence for the join-time drop
 // (docs/manifest-afc-module-delivery-animation-plan.md, "Join drop"). Slow
 // and deliberate on purpose: a real AFC model falls out of orbit wrapped in
-// the module drop's white-hot-to-amber streak, lights a braking burn under
-// the hull and settles to zero velocity, then lands in a flash, shockwave
+// the module drop's white-hot-to-amber streak with its thrusters at full burn,
+// winds the burn down to a near-hover, cuts the engines and drops the last
+// stretch, then lands in a flash, shockwave
 // and a smoke bank that swallows the 3x3 footprint while the power-on glow
 // pulses. All timing comes from client-afc-join-drop-timeline.ts, which the
 // 2D companion shares.
@@ -32,23 +33,21 @@ import {
 import { createFabricationComplexOverlay, type FabricationComplexOverlay } from "../client-map-3d-fabrication-complex.js";
 import { makeGlowTexture, makeStreakTexture } from "../client-map-3d-afc-module-delivery-fx.js";
 import {
-  AFC_JOIN_BRAKE_MS,
   AFC_JOIN_DESCENT_MS,
   AFC_JOIN_MODEL_OVERLAP_MS,
-  AFC_JOIN_REENTRY_MS,
   AFC_JOIN_TOTAL_MS,
   afcJoinBrakeIntensity,
-  afcJoinFallenFraction
+  afcJoinFallenFraction,
+  afcJoinStreakAlpha
 } from "../client-afc-join-drop/client-afc-join-drop-timeline.js";
 
 const DROP_HEIGHT = 6.5;
 const STREAK_LENGTH = 4.5;
-const STREAK_FADE_IN_MS = 500;
 const FLASH_MS = 260;
 const SHOCKWAVE_MS = 1600;
-const SMOKE_MS = 2400;
-const POWER_ON_START_MS = 1300;
-const POWER_ON_MS = 1400;
+const SMOKE_MS = 1900;
+const POWER_ON_START_MS = 1000;
+const POWER_ON_MS = 1600;
 const SMOKE_PUFF_COUNT = 30;
 const SMOKE_SPREAD_RADIUS = 2.2;
 const SMOKE_DRIFT_HEIGHT = 1.1;
@@ -218,7 +217,7 @@ export const createAfcDropFxLayer = (scene: Scene, buildingEnvironmentTexture?: 
     entry.streakCore.position.y = baseY + STREAK_LENGTH / 2;
     entry.streakCore.scale.set(1, STREAK_LENGTH, 1);
     entry.headGlow.position.y = baseY + 0.3;
-    const streakA = clamp01(age / STREAK_FADE_IN_MS) * (1 - clamp01((age - AFC_JOIN_REENTRY_MS) / (AFC_JOIN_BRAKE_MS * 0.7)));
+    const streakA = afcJoinStreakAlpha(age);
     setOpacity(entry.streak.material, 0.4 * streakA);
     setOpacity(entry.streakCore.material, 0.7 * streakA);
     setOpacity(entry.headGlow.material, 0.55 * streakA);

@@ -179,6 +179,33 @@ describe("tickAfcJoinDrop gate", () => {
 });
 
 describe("tickAfcJoinDrop playback", () => {
+  it("fires onDropStart exactly once, the moment the landing starts (not during the dwell or afterward)", () => {
+    const t = setup();
+    let starts = 0;
+    const onDropStart = (): void => {
+      starts += 1;
+    };
+    t.tick(0, { onDropStart });
+    t.tick(100, { onDropStart });
+    t.tick(100 + AFC_JOIN_DROP_DWELL_MS - 1, { onDropStart });
+    expect(starts).toBe(0);
+    const startAt = 100 + AFC_JOIN_DROP_DWELL_MS;
+    t.tick(startAt, { onDropStart });
+    expect(starts).toBe(1);
+    t.tick(startAt + AFC_JOIN_DESCENT_MS, { onDropStart });
+    t.tick(startAt + AFC_JOIN_TOTAL_MS, { onDropStart });
+    t.tick(startAt + AFC_JOIN_TOTAL_MS + 60_000, { onDropStart });
+    expect(starts).toBe(1);
+  });
+
+  it("never fires onDropStart for a drop that was already played", () => {
+    const t = setup();
+    t.seen.add(afcJoinDropTipId(ACTIVATED_AT));
+    let starts = 0;
+    for (let now = 0; now <= 20_000; now += 500) t.tick(now, { onDropStart: () => (starts += 1) });
+    expect(starts).toBe(0);
+  });
+
   it("keeps the real AFC hidden until touchdown, then reveals it and rebuilds the 3D tiles", () => {
     const t = setup();
     const startAt = startDrop(t);
