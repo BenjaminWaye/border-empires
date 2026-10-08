@@ -18,6 +18,7 @@ export const CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP: ClientChangelogEntry[] = [
     why: "The orbital landing of your Automated Fabrication Complex played in silence.",
     changes: [
       "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
+      "The landing is longer and slower to match it: a 5-second descent and braking burn, then smoke and power-on over 4 more seconds",
       "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
     ]
   }

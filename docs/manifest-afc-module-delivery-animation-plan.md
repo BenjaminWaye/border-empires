@@ -476,13 +476,14 @@ scrubbing the timeline; the story owns its clock and has a slider):
 | Beat | Duration | What the player sees |
 | --- | --- | --- |
 | Settle dwell | 1200 ms | Nothing. Gate held open; the map is still. |
-| Re-entry | 2000 ms | AFC falls from orbit inside the module drop's streak, which fades in over the first 500 ms so it is seen *coming*. Accelerating fall. |
-| Braking burn | 1200 ms | Thruster cone and glow under the hull, a soft glow scouring the ground; the AFC decelerates to a standstill. Speed is continuous across the re-entry/braking seam and reaches zero at touchdown (unit-tested). |
+| Re-entry | 3000 ms | AFC falls from orbit inside the module drop's streak, which fades in over the first 500 ms so it is seen *coming*. Accelerating fall. |
+| Braking burn | 2000 ms | Thruster cone and glow under the hull, a soft glow scouring the ground; the AFC decelerates to a standstill. Speed is continuous across the re-entry/braking seam and reaches zero at touchdown (unit-tested). |
 | Touchdown | ~260 ms flash, 1600 ms shockwave | Impact glow, thin ring, expanding shockwave. |
-| Smoke settle | ~2400 ms per puff, staggered | A soft dust bank (gradient sprites, not solid spheres) wraps the 3x3 footprint, then thins. |
-| Power-on | 1300-2700 ms after touchdown | Cyan glow swell as the smoke thins. The real AFC is revealed at touchdown under the smoke; the descending copy lingers 800 ms to cover rebuild throttling. |
+| Smoke settle | ~3000 ms per puff, staggered | A soft dust bank (gradient sprites, not solid spheres) wraps the 3x3 footprint, then thins. |
+| Power-on | 1800-3600 ms after touchdown | Cyan glow swell as the smoke thins. The real AFC is revealed at touchdown under the smoke; the descending copy lingers 800 ms to cover rebuild throttling. |
 
-That is 6.2 s of animation after the 1.2 s dwell. The join drop is the
+That is 9 s of animation after the 1.2 s dwell, matching the 9 s rocket
+sound (`/audio/afc-drop-rocket.mp3`) that plays as the drop starts. The join drop is the
 only preset built so far; a mid-session drop (brisker, ~3 s, no dwell)
 would be a second preset over the same layer.
 

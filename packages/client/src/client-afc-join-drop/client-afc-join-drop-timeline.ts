@@ -6,13 +6,13 @@
 /** The map must have been continuously unobstructed for this long before the drop starts (absorbs modal fade-out; nothing animates during it). */
 export const AFC_JOIN_DROP_DWELL_MS = 1200;
 /** Re-entry: the AFC falls from orbit, accelerating through the atmosphere. */
-export const AFC_JOIN_REENTRY_MS = 2000;
+export const AFC_JOIN_REENTRY_MS = 3000;
 /** Braking burn: the last, slowest part of the descent, ending at zero velocity. */
-export const AFC_JOIN_BRAKE_MS = 1200;
+export const AFC_JOIN_BRAKE_MS = 2000;
 /** Start of the drop to touchdown. */
 export const AFC_JOIN_DESCENT_MS = AFC_JOIN_REENTRY_MS + AFC_JOIN_BRAKE_MS;
-/** Touchdown to the end of the smoke/power-on afterglow. */
-export const AFC_JOIN_AFTERGLOW_MS = 3000;
+/** Touchdown to the end of the smoke/power-on afterglow. The whole drop runs 9 s, matching the rocket sound played at its start. */
+export const AFC_JOIN_AFTERGLOW_MS = 4000;
 export const AFC_JOIN_TOTAL_MS = AFC_JOIN_DESCENT_MS + AFC_JOIN_AFTERGLOW_MS;
 /** The descending copy stays this long past touchdown so the real AFC can take over under the smoke. */
 export const AFC_JOIN_MODEL_OVERLAP_MS = 800;

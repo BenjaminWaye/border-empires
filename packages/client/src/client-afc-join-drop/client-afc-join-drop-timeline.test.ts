@@ -10,8 +10,12 @@ import {
 
 describe("AFC join drop timeline", () => {
   it("is slow and deliberate: several seconds of descent and a long afterglow", () => {
-    expect(AFC_JOIN_DESCENT_MS).toBeGreaterThanOrEqual(3000);
+    expect(AFC_JOIN_DESCENT_MS).toBeGreaterThanOrEqual(5000);
     expect(AFC_JOIN_TOTAL_MS).toBeGreaterThanOrEqual(6000);
+  });
+
+  it("runs as long as the 9 s rocket sound that plays when it starts", () => {
+    expect(AFC_JOIN_TOTAL_MS).toBe(9000);
   });
 
   it("falls monotonically from orbit (0) to touchdown (1)", () => {

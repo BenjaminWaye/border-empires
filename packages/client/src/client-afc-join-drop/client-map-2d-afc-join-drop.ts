@@ -21,9 +21,9 @@ type AfcTile = Pick<Tile, "x" | "y" | "afc">;
 const FALL_HEIGHT_TILES = 5;
 const FLASH_MS = 260;
 const DUST_MS = 1600;
-const SMOKE_MS = 2600;
-const POWER_ON_START_MS = 1300;
-const POWER_ON_MS = 1400;
+const SMOKE_MS = 3600;
+const POWER_ON_START_MS = 1800;
+const POWER_ON_MS = 1800;
 const SMOKE_PUFFS = 6;
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
