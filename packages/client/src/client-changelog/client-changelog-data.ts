@@ -251,6 +251,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
     ]
   },
+  {
+    createdAt: 1791434436666,
+    introducedIn: "2026.10.08.1",
+    title: "Your AFC's landing has sound",
+    why: "The orbital landing of your Automated Fabrication Complex played in silence.",
+    changes: [
+      "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
+      "The landing now follows the sound: thrusters at full burn as it comes in, winding down as it slows, cutting out just above the ground, then touchdown on the impact",
+      "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

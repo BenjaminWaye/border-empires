@@ -80,7 +80,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          "The slow, deliberate join-time AFC drop: an AFC falls out of orbit in a re-entry streak, lights a braking burn and settles to a standstill, then lands in a flash, shockwave and smoke bank with a cyan power-on swell. In the game it only plays once the map is unobstructed. Click Replay to run it again, or drag the slider to scrub."
+          "The slow, deliberate join-time AFC drop: an AFC comes in from orbit in a re-entry streak with its thrusters at full burn, winds the burn down to a near-hover, cuts the engines and drops the last stretch, then lands in a flash, shockwave and smoke bank with a cyan power-on swell. In the game it only plays once the map is unobstructed. Click Replay to run it again, or drag the slider to scrub."
       }
     }
   },

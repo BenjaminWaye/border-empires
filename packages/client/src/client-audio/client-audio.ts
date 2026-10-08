@@ -188,6 +188,11 @@ export const startAmbientAudio = (): void => {
     handleMusicEnded();
   });
   playMusicUrl(trackForModeEntry(musicMode));
+  // Fetch the AFC drop rocket now, well before any drop: its beats are synced
+  // to the landing animation, so it must not start late while it downloads.
+  afcDropElement = new Audio();
+  afcDropElement.preload = "auto";
+  afcDropElement.src = AFC_DROP_TRACK;
 };
 
 /** Registers one-time listeners that start the soundtrack on the player's first interaction with the page, and pause it while the tab is hidden. */
@@ -331,8 +336,7 @@ const playOneShot = (theme: LocationTheme): void => {
 
 /** Plays the rocket sound for the AFC join drop, once, as the landing animation starts. Silent until the player's first interaction has started audio, and while muted. */
 export const playAfcDropSound = (): void => {
-  if (!started || muted || typeof Audio === "undefined") return;
-  if (!afcDropElement) afcDropElement = new Audio(AFC_DROP_TRACK);
+  if (!started || muted || !afcDropElement) return;
   afcDropElement.currentTime = 0;
   afcDropElement.volume = targetVolume();
   afcDropElement.play().catch(() => {});
