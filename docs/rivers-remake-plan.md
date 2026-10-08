@@ -241,6 +241,14 @@ for v9 (staging) and v8 (prod):
   coast. Valley patches drop a full coast skirt on edges facing sea or
   unexplored tiles (the heightfield skips its own skirt for them), which
   removed a black crack along river coasts.
+- **Mouth cove and calm sea.** The coast is a square step with square
+  sea-tile edges, and the sea's tile corners bob ~0.22 with the waves, so
+  those edges showed exactly where the river met the sea. Within
+  `COVE_RADIUS` of each mouth corner the riverside land is cut down just
+  under the sea (`riverCoveY`) and a round estuary pool of river water
+  covers it (`appendEstuary`); its rim hides wherever the land rises, giving
+  a curved shoreline. The ocean's waves fade to flat around each mouth
+  (`client-map-3d-river-mouths.ts` -> `createWaterSurface(..., waveCalmAt)`).
 - **Territory colour vs bank (option A).** Decision 4 taken literally let
   the flat ownership sheet paint the carved bank owner-coloured up to the
   water, so the river read as a strip stuck on top. A wet-earth bank strip

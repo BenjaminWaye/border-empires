@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { beforeAll, describe, expect, it } from "vitest";
 import { DoubleSide, Mesh, Scene } from "three";
-import { createWaterSurface } from "./client-map-3d-water-surface.js";
+import { BufferGeometry } from "three";
+import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
 
 // Regression test for the water surface rendering solid black from below:
 // the surface mesh only winds a front face (normal pointing up), so without
@@ -163,5 +164,23 @@ describe("createWaterSurface", () => {
 
     waterA.dispose();
     waterB.dispose();
+  });
+  it("keeps the sea flat where waveCalmAt says calm (river mouths), and waving elsewhere", () => {
+    // Regression: the sea's tile corners bobbed ~0.22 up and down right
+    // where rivers flow in, so the sea-tile edges showed around the mouth.
+    const heights = (calm: number): number[] => {
+      const scene = new Scene();
+      const water = createWaterSurface(scene, 9, () => calm);
+      for (let x = 0; x < 3; x += 1) for (let z = 0; z < 3; z += 1) water.addTile(x + 0.5, z + 0.5, false, x + 7, z + 3);
+      water.commit();
+      water.tick(12_345);
+      const mesh = scene.children.find((child): child is Mesh => child instanceof Mesh)!;
+      const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+      const ys = Array.from(pos).filter((_, i) => i % 3 === 1);
+      water.dispose();
+      return ys;
+    };
+    expect(heights(1).every((y) => Math.abs(y - WATER_SURFACE_Y) < 1e-6)).toBe(true);
+    expect(heights(0).some((y) => Math.abs(y - WATER_SURFACE_Y) > 0.01)).toBe(true);
   });
 });

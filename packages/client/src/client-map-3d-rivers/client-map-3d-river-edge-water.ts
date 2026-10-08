@@ -3,7 +3,8 @@
 import { terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
 import { isInHeightfieldTileWindow, type HeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
-import type { ChannelPathPoint, WaterSides } from "./client-map-3d-rivers-channel.js";
+import type { ChannelPathPoint, WaterBuffers, WaterSides } from "./client-map-3d-rivers-channel.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 
 // How far either side of a centreline sample to look for "the tile on each
 // side of the river" (the centreline hugs the tile border).
@@ -120,4 +121,51 @@ export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPath
     out[i] = { ...out[i]!, descent: t * t * (3 - 2 * t) };
   }
   return out;
+};
+
+// A small cove at each mouth: within COVE_RADIUS of the river's final corner
+// the riverside land slopes down to just under the sea surface, and an
+// estuary pool of river water covers it. The coast is otherwise a square
+// step (land above the sea, square sea-tile edges and walls), which showed
+// right where the river met the sea; the pool's rim is hidden wherever the
+// land rises above it, so the shoreline around the mouth comes out curved.
+export const COVE_RADIUS = 0.55;
+const COVE_FLOOR_BELOW_SEA = 0.03;
+
+/** Ground height at `baseY`, `distance` from a mouth corner, once the cove is cut (never raises it). */
+export const riverCoveY = (baseY: number, distance: number): number => {
+  if (distance >= COVE_RADIUS) return baseY;
+  const t = 1 - distance / COVE_RADIUS;
+  const s = t * t * (3 - 2 * t);
+  return Math.min(baseY, baseY + (WATER_SURFACE_Y - COVE_FLOOR_BELOW_SEA - baseY) * s);
+};
+
+const ESTUARY_SEGMENTS = 20;
+const ESTUARY_RINGS: ReadonlyArray<readonly [number, number]> = [[0.6, 1], [1, 0.9], [1.35, 0]]; // [radius / COVE_RADIUS, alpha]
+
+/** Appends a round estuary pool of river water centred on a mouth corner (scene coords), at `y`. */
+export const appendEstuary = (
+  buffers: WaterBuffers,
+  centerX: number,
+  centerZ: number,
+  y: number,
+  color: readonly [number, number, number, ...number[]]
+): void => {
+  const center = buffers.positions.length / 3;
+  buffers.positions.push(centerX, y, centerZ);
+  buffers.colors.push(color[0], color[1], color[2], 1);
+  for (const [r, alpha] of ESTUARY_RINGS) {
+    for (let k = 0; k < ESTUARY_SEGMENTS; k += 1) {
+      const a = (k / ESTUARY_SEGMENTS) * Math.PI * 2;
+      buffers.positions.push(centerX + Math.cos(a) * r * COVE_RADIUS, y, centerZ + Math.sin(a) * r * COVE_RADIUS);
+      buffers.colors.push(color[0], color[1], color[2], alpha);
+    }
+  }
+  const ring = (i: number, k: number): number => center + 1 + i * ESTUARY_SEGMENTS + (k % ESTUARY_SEGMENTS);
+  for (let k = 0; k < ESTUARY_SEGMENTS; k += 1) buffers.indices.push(center, ring(0, k + 1), ring(0, k));
+  for (let i = 0; i + 1 < ESTUARY_RINGS.length; i += 1) {
+    for (let k = 0; k < ESTUARY_SEGMENTS; k += 1) {
+      buffers.indices.push(ring(i, k), ring(i, k + 1), ring(i + 1, k), ring(i, k + 1), ring(i + 1, k + 1), ring(i + 1, k));
+    }
+  }
 };

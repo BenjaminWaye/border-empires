@@ -19,6 +19,7 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { SKIRT_BOTTOM_Y } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { riverCoveY } from "./client-map-3d-river-edge-water.js";
 import { heightfieldSurfaceY, nearestOnSegments, RIVER_WATER_DEPTH, riverDescentScale, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
 
 const SUBDIVISIONS = 8;
@@ -82,6 +83,8 @@ export type RiverValleyRebuildInputs = {
   readonly centerlines: CenterlineIndex;
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
   readonly cornerAttributesAt: (cornerX: number, cornerZ: number, out: HeightfieldCornerAttributes) => boolean;
+  /** River mouth corners (scene coords): the land around each is cut into a cove (riverCoveY). */
+  readonly coves?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
 };
 
 export type RiverValley = {
@@ -118,6 +121,12 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
   const rebuild = (inputs: RiverValleyRebuildInputs): void => {
     clear();
     const { tiles, camX, camY, centerlines, cornerYAt, cornerAttributesAt } = inputs;
+    const coves = inputs.coves ?? [];
+    const coveDistance = (x: number, z: number): number => {
+      let best = Infinity;
+      for (const c of coves) best = Math.min(best, Math.hypot(x - c.x, z - c.z));
+      return best;
+    };
     const near: NearestCenterline = { distance: 0, halfWidth: 0, descent: 0 };
     const n = SUBDIVISIONS;
     const perTile = (n + 1) * (n + 1);
@@ -167,9 +176,12 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
           const hit = segments.length > 0 && nearestOnSegments(segments, x, z, near);
           // padDepths keeps the normal profile depth (bank colouring is
           // relative to it); near a mouth the cut itself goes deeper.
-          const depth = hit ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
-          padHeights[(j + 1) * stride + (i + 1)] = baseY - (hit ? depth * riverDescentScale(baseY, near.descent) : 0);
-          padDepths[(j + 1) * stride + (i + 1)] = depth;
+          const trench = hit ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
+          const carved = baseY - (hit ? trench * riverDescentScale(baseY, near.descent) : 0);
+          const height = coves.length > 0 ? Math.min(carved, riverCoveY(baseY, coveDistance(x, z))) : carved;
+          padHeights[(j + 1) * stride + (i + 1)] = height;
+          // Cove ground colours like the wet riverbed, not dry land.
+          padDepths[(j + 1) * stride + (i + 1)] = Math.max(trench, Math.min(TRENCH_DEPTH, baseY - height));
         }
       }
       for (let j = 0; j <= n; j += 1) {

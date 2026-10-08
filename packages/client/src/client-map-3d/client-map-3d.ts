@@ -25,7 +25,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
-import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js"; import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js"; import { riverMouthCalmAt } from "../client-map-3d-rivers/client-map-3d-river-mouths.js"; import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
@@ -156,7 +156,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
+  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES, riverMouthCalmAt);
   const riverOverlay = createRiverOverlay(scene, { heightfield });
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);

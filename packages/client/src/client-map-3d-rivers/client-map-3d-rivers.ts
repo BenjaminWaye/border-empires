@@ -32,9 +32,9 @@ import {
   type WaterSides
 } from "./client-map-3d-rivers-channel.js";
 import { createRiverValley, type RiverValleyTile } from "./client-map-3d-river-valley.js";
-import { createRiverWaterMaterial } from "./client-map-3d-river-water-material.js";
+import { createRiverWaterMaterial, RIVER_WATER_SHALLOW } from "./client-map-3d-river-water-material.js";
 import { appendBank, createRiverBankMaterial } from "./client-map-3d-river-bank-strip.js";
-import { riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
+import { appendEstuary, riverMouthPlume, riverSampleSides, seaDirectionAtCorner, withMouthDescent } from "./client-map-3d-river-edge-water.js";
 import type { Heightfield } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow, type HeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
@@ -176,6 +176,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       return terrain === "SEA" || terrain === "COASTAL_SEA";
     };
     const centerlines: ChannelPathPoint[][] = [];
+    const coves: { x: number; z: number }[] = [];
     for (const path of riversForCurrentSeed()) {
       const first = path[0];
       if (!first) continue;
@@ -195,6 +196,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
           if (seaDir) {
             const plume = riverMouthPlume(end, { x: (end.x - before.x) / tlen, z: (end.z - before.z) / tlen }, seaDir, isSeaAtScene).slice(1);
             centerlines.push([...withMouthDescent(line), ...plume.map((q) => ({ ...q, descent: 1 }))]);
+            coves.push({ x: end.x, z: end.z });
           } else centerlines.push(line);
         }
         run = [];
@@ -250,7 +252,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       // the coastal land tiles (their flared trench dug a hole in the coast).
       centerlines: indexCenterlines(centerlines.map((line) => line.filter((p) => !(p.mouth ?? 0)))),
       cornerYAt: heightfield.cornerYAt,
-      cornerAttributesAt: heightfield.cornerAttributesAt
+      cornerAttributesAt: heightfield.cornerAttributesAt,
+      coves
     });
 
     // Water: level across the channel at the trench's water line, never
@@ -314,6 +317,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       });
       flushWater();
     }
+    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_SHALLOW);
     commitWater(bankBuffers, bankMaterial, RENDER_ORDER.riverBank);
     commitWater(buffers, waterMaterial, RENDER_ORDER.riverWater);
     commitWater(mouthBuffers, mouthMaterial, RENDER_ORDER.riverMouth);

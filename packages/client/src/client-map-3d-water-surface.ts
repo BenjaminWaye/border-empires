@@ -98,7 +98,14 @@ type TileEntry = { gc: number; gr: number; shallow: boolean; worldGc: number; wo
 
 const tileKey = (gc: number, gr: number): string => `${gc},${gr}`;
 
-export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurface => {
+export const createWaterSurface = (
+  scene: Scene,
+  _maxTiles: number,
+  // 0 = full waves, 1 = flat, at an absolute world corner. Calms the sea
+  // around river mouths (client-map-3d-river-mouths.ts) so its tile edges
+  // don't bob above and below the river where it flows in.
+  waveCalmAt: (worldX: number, worldZ: number) => number = () => 0
+): WaterSurface => {
   // _maxTiles kept for API compatibility — merged geometry sizes itself.
 
   let tiles: TileEntry[] = [];
@@ -153,6 +160,9 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
   // directly off the scene-relative position.
   let waveWorldOffsetX = 0;
   let waveWorldOffsetZ = 0;
+  // Per-vertex wave calm (waveCalmAt), filled at commit, applied in tick().
+  let surfaceCalm = new Float32Array(0);
+  let skirtCalm = new Float32Array(0);
 
   const clear = (): void => {
     tiles = [];
@@ -209,6 +219,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     const vCount = vCols * vRows;
 
     const positions = new Float32Array(vCount * 3);
+    surfaceCalm = new Float32Array(vCount);
     const uvs = new Float32Array(vCount * 2);
     const colors = new Float32Array(vCount * 3);
     const indices = new Uint32Array(tiles.length * 6); // 2 triangles × 3 indices
@@ -223,6 +234,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
         positions[vi]     = worldX;
         positions[vi + 1] = WATER_SURFACE_Y;
         positions[vi + 2] = worldZ;
+        surfaceCalm[vi / 3] = waveCalmAt(worldX + waveWorldOffsetX, worldZ + waveWorldOffsetZ);
         const ui = (vr * vCols + vc) * 2;
         uvs[ui]     = worldX / UV_WORLD_SCALE;
         uvs[ui + 1] = worldZ / UV_WORLD_SCALE;
@@ -335,6 +347,10 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       const skirtPosAttr = new BufferAttribute(new Float32Array(skirtPositions), 3);
       skirtPosAttr.setUsage(DynamicDrawUsage); // top row updated every frame in tick()
       skirtGeometry.setAttribute("position", skirtPosAttr);
+      skirtCalm = new Float32Array(skirtPositions.length / 3);
+      for (let i = 0; i < skirtCalm.length; i++) {
+        skirtCalm[i] = waveCalmAt((skirtPositions[i * 3] ?? 0) + waveWorldOffsetX, (skirtPositions[i * 3 + 2] ?? 0) + waveWorldOffsetZ);
+      }
       skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));
       skirtGeometry.setIndex(skirtIndices);
       skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
@@ -374,7 +390,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       for (let i = 0; i < n; i++) {
         const wx = (pos[i * 3] ?? 0) + waveWorldOffsetX;
         const wz = (pos[i * 3 + 2] ?? 0) + waveWorldOffsetZ;
-        pos[i * 3 + 1] = waveY(wx, wz, s);
+        pos[i * 3 + 1] = WATER_SURFACE_Y + (waveY(wx, wz, s) - WATER_SURFACE_Y) * (1 - (surfaceCalm[i] ?? 0));
       }
       posAttr.needsUpdate = true;
     }
@@ -391,7 +407,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
         if (i % 4 >= 2) continue; // bottom-row vertex — stays put
         const wx = (skirtPos[i * 3] ?? 0) + waveWorldOffsetX;
         const wz = (skirtPos[i * 3 + 2] ?? 0) + waveWorldOffsetZ;
-        skirtPos[i * 3 + 1] = waveY(wx, wz, s);
+        skirtPos[i * 3 + 1] = WATER_SURFACE_Y + (waveY(wx, wz, s) - WATER_SURFACE_Y) * (1 - (skirtCalm[i] ?? 0));
       }
       skirtPosAttr.needsUpdate = true;
     }
