@@ -252,6 +252,22 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791401674856, // frozen Date.now() value for this release
+    introducedIn: "2026.10.07.2",
+    title: "Rivers look like water again",
+    why: "River water was a pale see-through film drawn on top of everything, so it looked like it floated over the land, glowed through fog, and hung off the edge of explored land.",
+    changes: [
+      "River water is now a solid deep blue-teal with a dark wet bank along the waterline, so it sits down in the land",
+      "Territory colour stops at a dark wet riverbank instead of covering or bleaching the water, in both 3D and 2D",
+      "Fog now darkens rivers like the land around them",
+      "At the edge of explored land you see your half of a river; no more pieces hanging into unexplored space or dry riverbeds",
+      "Rivers cut down through the coast and spill out into the sea instead of stopping at a square end on the shore",
+      "River mouths widen and blend into the sea instead of looking cut off at the coastline (3D and 2D)",
+      "Coastlines are calmer and softer: waves settle near the shore instead of flickering the square sea edges, and a light foam line runs along every coast (3D and 2D)",
+      "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
+    ]
+  },
+  {
     createdAt: 1791434436666,
     introducedIn: "2026.10.08.1",
     title: "Your AFC's landing has sound",

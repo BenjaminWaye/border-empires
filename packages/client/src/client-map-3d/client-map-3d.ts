@@ -24,8 +24,9 @@ import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
-import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
-import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js";
+import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
+import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
+import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
@@ -146,8 +147,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   heightfield.setGridlinesVisible(true);
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
-  const riverOverlay = createRiverOverlay(scene, { heightfield, waterMaterial: waterSurface.material });
+  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
   const villageEffects = createVillageEffects(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
@@ -160,8 +160,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
   // SETTLED_OPACITY (0.85) constant is never touched. Explicit multiply blend, unlike ownershipOverlay's own default -- alpha blend read washed-out.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 }, undefined, { settled: "multiply", frontier: "multiply" });
-  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" });
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
+  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
@@ -290,8 +290,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
   const placementOverlay = createPlacementRangeOverlay(scene);
   const selectionRangeOverlays = createSelectionRangeOverlays(scene);
-  selectedMarker.renderOrder = 30;
-  hoverMarker.renderOrder = 31;
+  selectedMarker.renderOrder = RENDER_ORDER.selectedMarker;
+  hoverMarker.renderOrder = RENDER_ORDER.hoverMarker;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -746,10 +746,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const { halfW, halfH } = window;
 
     heightfield.mesh.position.set(0, 0, 0);
+    const visibilityAt = (wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)));
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
       if (revealWholeMapInTrue3DMode) return true;
-      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-      const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
+      const visibility = visibilityAt(wx, wy);
       return visibility === "visible" || visibility === "fogged";
     };
     // Shared window params for the main sculpted grid and the separate hills
@@ -771,7 +771,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt });
-    riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
+    riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield, isFoggedAt: riverFoggedAt(revealWholeMapInTrue3DMode, visibilityAt) });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
