@@ -1,4 +1,4 @@
-import { AdditiveBlending, ConeGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, Scene } from "three";
+import { AdditiveBlending, ConeGeometry, Group, Mesh, MeshBasicMaterial, RingGeometry, type Object3D } from "three";
 
 // Total lifetime of one unsettle effect: a quick amber warning flash, then the
 // border ring collapses inward (mirroring grantAnchorToBorder's expanding
@@ -39,7 +39,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
  * a warning ring that collapses inward while a pylon shape sinks and dims,
  * rather than an expanding burst.
  */
-export const createUnsettleFxLayer = (scene: Scene): UnsettleFxLayer => {
+export const createUnsettleFxLayer = (scene: Object3D): UnsettleFxLayer => {
   const group = new Group();
   group.name = "unsettle-fx";
   scene.add(group);

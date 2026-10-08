@@ -28,7 +28,8 @@ import {
   Scene,
   Sprite,
   SpriteMaterial,
-  type Texture
+  type Texture,
+  type Object3D
 } from "three";
 import { createFabricationComplexOverlay, type FabricationComplexOverlay } from "../client-map-3d-fabrication-complex.js";
 import { makeGlowTexture, makeStreakTexture } from "../client-map-3d-afc-module-delivery-fx.js";
@@ -101,31 +102,18 @@ type DropEntry = {
   readonly smoke: SmokePuff[];
   readonly powerOnGlow: Sprite;
   readonly startedAt: number;
-  /** World tile the drop lands on, so it can be re-placed when the scene origin moves. */
-  readonly tile: AfcDropTile | undefined;
 };
-
-export type AfcDropTile = { readonly x: number; readonly y: number };
-/** Current scene position of a world tile's centre, relative to the renderer's floating scene origin. */
-export type AfcDropTileToScene = (x: number, y: number) => { readonly sceneX: number; readonly sceneZ: number };
 
 export type AfcDropFxLayer = {
   readonly group: Group;
-  /** Starts a drop whose timeline began at `startedAtMs` (performance.now()); a late start plays the remainder and a finished one is ignored. Pass `tile` so reanchor() can keep it on that tile. */
-  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, tile?: AfcDropTile) => void;
-  /**
-   * Re-places every in-flight drop on its world tile. The 3D map's scene origin
-   * jumps to the camera whenever a pan forces a terrain rebuild, so a position
-   * fixed at spawn would slide with the viewport across a 10 s drop; call this
-   * every frame after the origin has settled.
-   */
-  readonly reanchor: (tileToScene: AfcDropTileToScene) => void;
+  /** Starts a drop whose timeline began at `startedAtMs` (performance.now()); a late start plays the remainder and a finished one is ignored. Staying on its tile while the camera pans is the anchored fx root's job (client-map-3d-anchored-fx). */
+  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly dispose: () => void;
 };
 
-export const createAfcDropFxLayer = (scene: Scene, buildingEnvironmentTexture?: Texture): AfcDropFxLayer => {
+export const createAfcDropFxLayer = (scene: Object3D, buildingEnvironmentTexture?: Texture): AfcDropFxLayer => {
   const group = new Group();
   group.name = "afc-drop-fx";
   scene.add(group);
@@ -149,7 +137,7 @@ export const createAfcDropFxLayer = (scene: Scene, buildingEnvironmentTexture?: 
     new SpriteMaterial({ toneMapped: false, map: smokeTexture, color: "#ffffff", transparent: true, opacity: 0, blending: NormalBlending, depthWrite: false });
   const additiveGlowPlane = (color: string): MeshBasicMaterial => additiveMaterial(color, glowTexture);
 
-  const spawnEntry = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, tile: AfcDropTile | undefined): void => {
+  const spawnEntry = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number): void => {
     const entryGroup = new Group();
     entryGroup.position.set(sceneX, surfaceY, sceneZ);
 
@@ -198,7 +186,7 @@ export const createAfcDropFxLayer = (scene: Scene, buildingEnvironmentTexture?: 
     }
 
     group.add(entryGroup);
-    entries.push({ group: entryGroup, container, model, modelAlive: true, streak, streakCore, headGlow, burnCone, burnGlow, groundBlast, ring, flash, shockwave, smoke, powerOnGlow, startedAt: startedAtMs, tile });
+    entries.push({ group: entryGroup, container, model, modelAlive: true, streak, streakCore, headGlow, burnCone, burnGlow, groundBlast, ring, flash, shockwave, smoke, powerOnGlow, startedAt: startedAtMs });
   };
 
   const disposeModel = (entry: DropEntry): void => {
@@ -325,19 +313,10 @@ export const createAfcDropFxLayer = (scene: Scene, buildingEnvironmentTexture?: 
     smokeTexture?.dispose();
   };
 
-  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number, tile?: AfcDropTile): void => {
+  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, startedAtMs: number): void => {
     if (performance.now() - startedAtMs >= AFC_JOIN_TOTAL_MS) return;
-    spawnEntry(sceneX, sceneZ, surfaceY, startedAtMs, tile);
+    spawnEntry(sceneX, sceneZ, surfaceY, startedAtMs);
   };
 
-  const reanchor = (tileToScene: AfcDropTileToScene): void => {
-    for (const entry of entries) {
-      if (!entry.tile) continue;
-      const { sceneX, sceneZ } = tileToScene(entry.tile.x, entry.tile.y);
-      entry.group.position.x = sceneX;
-      entry.group.position.z = sceneZ;
-    }
-  };
-
-  return { group, spawn, reanchor, update, clear, dispose };
+  return { group, spawn, update, clear, dispose };
 };

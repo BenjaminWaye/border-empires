@@ -6,9 +6,9 @@ import {
   Mesh,
   MeshBasicMaterial,
   RingGeometry,
-  Scene,
   SphereGeometry,
-  TorusGeometry
+  TorusGeometry,
+  type Object3D
 } from "three";
 
 const DURATION_MS = 2400;
@@ -53,7 +53,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
   (material as MeshBasicMaterial).opacity = clamp01(opacity);
 };
 
-export const createSiphonFxLayer = (scene: Scene): SiphonFxLayer => {
+export const createSiphonFxLayer = (scene: Object3D): SiphonFxLayer => {
   const group = new Group();
   group.name = "siphon-fx";
   scene.add(group);

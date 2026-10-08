@@ -1,4 +1,4 @@
-import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, Scene, TorusGeometry } from "three";
+import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, TorusGeometry, type Object3D } from "three";
 
 const FADE_IN_MS = 400;
 const FADE_OUT_MS = 800;
@@ -35,7 +35,7 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
  * thin glowing boundary ring plus a faint rotating shimmer torus just inside
  * it — legible from a distance without blocking the view of tiles underneath.
  */
-export const createAegisLockFxLayer = (scene: Scene): AegisLockFxLayer => {
+export const createAegisLockFxLayer = (scene: Object3D): AegisLockFxLayer => {
   const group = new Group();
   group.name = "aegis-lock-fx";
   scene.add(group);
