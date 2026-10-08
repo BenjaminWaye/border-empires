@@ -43,14 +43,18 @@ export const createAnchoredFxRoot = (scene: Object3D): AnchoredFxRoot => {
   let syncedOrigin: { camX: number; camY: number } | undefined;
   const layerGroups: Object3D[] = [];
 
-  const wrapNearest = (local: number, offset: number, size: number): number => {
-    let shown = local + offset;
-    while (shown > size / 2) shown -= size;
-    while (shown < -size / 2) shown += size;
-    return shown - offset;
+  /** `value` moved by whole `size` steps into [-size/2, size/2); arithmetic, so a non-finite input cannot spin a loop. */
+  const wrapCentered = (value: number, size: number): number => {
+    if (!Number.isFinite(value)) return value;
+    return value - size * Math.floor((value + size / 2) / size);
   };
+  const wrapNearest = (local: number, offset: number, size: number): number => wrapCentered(local + offset, size) - offset;
 
   const rewrapInstances = (): void => {
+    // Keep the root's own offset within half a world: it would otherwise grow by a world width per lap, and
+    // the instance re-wrap below then never moves anything that is not genuinely half a world from the camera.
+    group.position.x = wrapCentered(group.position.x, WORLD_WIDTH);
+    group.position.z = wrapCentered(group.position.z, WORLD_HEIGHT);
     for (const layerGroup of layerGroups) {
       const offsetX = group.position.x + layerGroup.position.x;
       const offsetZ = group.position.z + layerGroup.position.z;

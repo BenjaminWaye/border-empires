@@ -8,16 +8,21 @@ import { describe, expect, it } from "vitest";
 // checks the wiring by reading the source.
 const read = (relative: string): string => readFileSync(new URL(relative, import.meta.url), "utf8");
 
-/** Every `export const createXxxFxLayer` / `createFloatingTextLayer` defined anywhere in the client source. */
-const listFxLayerFactories = (): string[] => {
+/**
+ * Every exported `create*` factory in a client source file that defines a `spawn` method: anything that
+ * places an effect once and lets it play out, whatever it is named.
+ */
+const listSpawningFactories = (): string[] => {
   const srcRoot = new URL("..", import.meta.url).pathname;
   const names = new Set<string>();
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir)) {
       const path = join(dir, entry);
       if (statSync(path).isDirectory()) walk(path);
-      else if (path.endsWith(".ts") && !path.endsWith(".test.ts")) {
-        for (const match of readFileSync(path, "utf8").matchAll(/export const (create\w*(?:FxLayer|FloatingTextLayer))\b/g)) names.add(match[1]!);
+      else if (path.endsWith(".ts") && !path.endsWith(".test.ts") && !path.includes("client-map-3d-anchored-fx")) {
+        const source = readFileSync(path, "utf8");
+        if (!/\bspawn\s*[:=]\s*\(|readonly spawn:/.test(source)) continue;
+        for (const match of source.matchAll(/export const (create\w+) = \(/g)) names.add(match[1]!);
       }
     }
   };
@@ -34,12 +39,14 @@ describe("anchored 3D effect wiring", () => {
     // Layers allowed outside the anchored root, each with the reason it cannot drift. Adding to this list
     // needs the same kind of reason; "it is short" is not one on its own.
     const notAnchored: Record<string, string> = {
-      createBorderDustFxLayer: "re-seeded from tile coordinates on every terrain rebuild (setSeams)",
       createConstructionPodFxLayer: "construction presentation re-anchors in-flight pods on every rebuild (pods.relocate)",
-      createBattleStrikeFxLayer: "owned by the popup-marine overlay, which positions its battle in the current scene each frame; one strike lasts ~1 s"
+      // Known, accepted gap: the strike is placed once, in the popup-marine overlay's scene space, so a rebuild
+      // during its ~1 s can offset it. Anchoring it means threading the root through that overlay.
+      createBattleStrikeFxLayer: "KNOWN GAP, accepted: lasts ~1 s inside the popup-marine overlay (see comment)"
     };
-    const factories = listFxLayerFactories().filter((name) => !(name in notAnchored));
+    const factories = listSpawningFactories().filter((name) => !(name in notAnchored));
     expect(factories.length).toBeGreaterThan(10);
+    for (const name of Object.keys(notAnchored)) expect(listSpawningFactories(), `stale exemption ${name}`).toContain(name);
     for (const name of factories) {
       expect(mapSource, `${name} must be created in client-map-3d-anchored-fx-layers.ts, not client-map-3d.ts`).not.toMatch(new RegExp(`\\b${name}\\(`));
       expect(layersSource, `${name} is a one-shot effect layer: create it in createAnchoredFxLayers`).toMatch(new RegExp(`\\b${name}\\(root\\.group|\\b${name}\\(floatingTextGroup`));
@@ -54,6 +61,15 @@ describe("anchored 3D effect wiring", () => {
       const name = body.slice(0, body.indexOf(" "));
       expect(body, `${name} must place its effect with fxXZ / anchoredFx.toLocal`).not.toMatch(/originSceneXZ\(/);
       expect(body, `${name} must place its effect with fxXZ / anchoredFx.toLocal`).toMatch(/fxXZ\(|anchoredFx\.toLocal\(/);
+    }
+  });
+
+  it("converts every effect spawned directly in client-map-3d.ts with anchoredFx.root.toLocal", () => {
+    const lines = mapSource.split("\n");
+    const spawnLines = lines.map((line, index) => ({ line, index })).filter(({ line }) => /\w\.spawn\(/.test(line));
+    for (const { line, index } of spawnLines) {
+      const window = lines.slice(Math.max(0, index - 3), index + 1).join("\n");
+      expect(window, `client-map-3d.ts:${index + 1} spawns an effect without anchoredFx.root.toLocal: ${line.trim()}`).toMatch(/anchoredFx\.root\.toLocal\(/);
     }
   });
 

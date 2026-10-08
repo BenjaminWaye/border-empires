@@ -81,6 +81,32 @@ describe("createAnchoredFxRoot", () => {
     expect(at().x).toBeCloseTo(5, 9);
   });
 
+  it("keeps its own offset within half a world however many laps the camera makes", () => {
+    const root = createAnchoredFxRoot(new Scene());
+    const origin = { camX: 0, camY: 0 };
+    root.follow(origin);
+    for (let step = 0; step < 500; step += 1) {
+      origin.camX = (origin.camX + 37) % WORLD_WIDTH;
+      origin.camY = (origin.camY + 11) % WORLD_HEIGHT;
+      root.follow(origin);
+    }
+    expect(Math.abs(root.group.position.x)).toBeLessThanOrEqual(WORLD_WIDTH / 2);
+    expect(Math.abs(root.group.position.z)).toBeLessThanOrEqual(WORLD_HEIGHT / 2);
+  });
+
+  it("does not hang on an instance with a non-finite position", () => {
+    const root = createAnchoredFxRoot(new Scene());
+    const layerGroup = new Group();
+    root.group.add(layerGroup);
+    root.registerLayerGroup(layerGroup);
+    const broken = new Group();
+    broken.position.x = Number.POSITIVE_INFINITY;
+    layerGroup.add(broken);
+    root.follow({ camX: 0, camY: 0 });
+    root.follow({ camX: 10, camY: 0 });
+    expect(broken.position.x).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it("refuses to register a layer group that is not parented to the root", () => {
     const root = createAnchoredFxRoot(new Scene());
     expect(() => root.registerLayerGroup(new Group())).toThrow(/must be parented/);
