@@ -313,6 +313,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
     ]
   },
+  {
+    createdAt: 1791469348919,
+    introducedIn: "2026.10.08.6",
+    title: "Quieter AFC landing",
+    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
+    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
