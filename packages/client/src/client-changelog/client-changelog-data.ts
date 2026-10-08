@@ -313,6 +313,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
     ]
   },
+  {
+    createdAt: 1791487381279,
+    introducedIn: "2026.10.08.6",
+    title: "Empire colors now have to look different",
+    why: "Two neighbours could both be blue: the game only rejected a color that matched another empire's hex code exactly, so near-identical shades were treated as different.",
+    changes: [
+      "Picking a color another empire already looks like is now rejected, and you get a clearly different suggestion",
+      "The suggested palette was trimmed so every swatch is easy to tell apart, including from the barbarian grey",
+      "AI empires re-pick their colors at the start of a season to stay clear of the colors players have chosen. Your own color is never changed for you"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

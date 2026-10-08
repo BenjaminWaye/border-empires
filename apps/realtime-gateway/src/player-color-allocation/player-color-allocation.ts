@@ -1,23 +1,22 @@
+import { isPerceptuallyClose, perceptualDistance } from "./perceptual-color-distance.js";
+
 // -- palette ------------------------------------------------------------------
 
+// Every pair here (and every entry against RESERVED_COLORS) is at least
+// MIN_PERCEPTUAL_GAP apart in OKLab, so two neighbours never both get "blue".
+// Order matters: assignUniqueColor starts at a hashed index and walks forward,
+// so adjacent entries are deliberately far apart in hue.
+
 export const BASE_PALETTE: readonly string[] = [
-  "#f3c300", "#00ffff", "#f032e6", "#2b3d26", "#ff0000", "#39ff14",
-  "#aaffc3", "#1f77b4", "#b3446c", "#ffbc79", "#8bc34a", "#800000",
-  "#e6beff", "#808000", "#008856", "#673ab7", "#9e9e9e", "#ff5722",
-  "#ff1493", "#03a9f4", "#d2f53c", "#5f9ed1", "#be0032", "#e377c2",
-  "#3cb44b", "#595959", "#46f0f0", "#a1caf1", "#fabebe", "#98df8a",
-  "#c85200", "#9467bd", "#bcbd22", "#ffff00", "#654522", "#f38400",
-  "#aa6e28", "#9c27b0", "#8db600", "#d0342c", "#e91e63", "#7f7f7f",
-  "#c7c7c7", "#8c564b", "#009688", "#dbdb8d", "#cc0000", "#c2b280",
-  "#17becf", "#f58231", "#ff9896", "#3f51b5", "#ffeb3b", "#875692",
-  "#882d17", "#ff3131", "#2ca02c", "#0082c8", "#ff4500", "#604e97",
-  "#0067a5", "#dc143c", "#b22222", "#2196f3", "#ffe119", "#ff2400",
-  "#e68fac", "#ffa500", "#ff6700", "#f99379", "#c49c94", "#ffd8b1",
-  "#e25822", "#dcd300", "#c5b0d5", "#cddc39", "#00bcd4", "#008080",
-  "#ababab", "#f7b6d2", "#f44336", "#ff0f0f", "#9edae5", "#795548",
-  "#ff7f0e", "#e6194b", "#cc1919", "#ba9b2c", "#65da0b", "#19cc58",
-  "#2ca7ba", "#0b1dda", "#9719cc", "#ba2c75", "#f46734", "#dfe740",
-  "#68d651", "#34f4aa", "#40a5e7", "#6a51d6",
+  "#f3c300", "#00ffff", "#f032e6", "#ff0000", "#39ff14", "#aaffc3",
+  "#1f77b4", "#b3446c", "#ffbc79", "#8bc34a", "#800000", "#e6beff",
+  "#808000", "#008856", "#673ab7", "#9e9e9e", "#ff5722", "#ff1493",
+  "#03a9f4", "#d2f53c", "#be0032", "#e377c2", "#3cb44b", "#595959",
+  "#a1caf1", "#fabebe", "#98df8a", "#c85200", "#9467bd", "#654522",
+  "#f38400", "#aa6e28", "#9c27b0", "#e91e63", "#7f7f7f", "#c7c7c7",
+  "#8c564b", "#009688", "#dbdb8d", "#c2b280", "#17becf", "#ff9896",
+  "#3f51b5", "#875692", "#ffe119", "#ffa500", "#ffd8b1", "#c5b0d5",
+  "#ba9b2c", "#65da0b", "#0b1dda", "#34f4aa",
 ] as const;
 
 // -- reserved colours ---------------------------------------------------------
@@ -53,8 +52,33 @@ export function colorDistance(a: string, b: string): number {
 
 // -- taken helpers -------------------------------------------------------------
 
+/** Taken means an exact match OR a colour too close to look different on the map. */
 export function isTaken(hex: string, taken: ReadonlySet<string>): boolean {
-  return taken.has(hex) || RESERVED_COLORS.has(hex);
+  if (taken.has(hex) || RESERVED_COLORS.has(hex)) return true;
+  return isPerceptuallyClose(hex, taken) || isPerceptuallyClose(hex, RESERVED_COLORS);
+}
+
+/** Never-refuse fallback: the candidate whose nearest taken/reserved colour is furthest away. */
+function mostDistinctCandidate(candidates: Iterable<string>, taken: ReadonlySet<string>): string {
+  let best = "#ff00ff";
+  let bestGap = -1;
+  for (const candidate of candidates) {
+    let nearest = Infinity;
+    for (const other of taken) nearest = Math.min(nearest, perceptualDistance(candidate, other));
+    for (const other of RESERVED_COLORS) nearest = Math.min(nearest, perceptualDistance(candidate, other));
+    if (nearest > bestGap) { bestGap = nearest; best = candidate; }
+  }
+  return best;
+}
+
+function* hueWheel(saturation: number, lightness: number, startHue = 0): Generator<string> {
+  for (let i = 0; i < 360; i++) yield hslToHex({ h: (startHue + i) % 360, s: saturation, l: lightness });
+}
+
+const FALLBACK_WHEEL: readonly (readonly [number, number])[] = [[0.6, 0.5], [0.75, 0.35], [0.5, 0.7]];
+
+function* fallbackCandidates(startHue = 0): Generator<string> {
+  for (const [s, l] of FALLBACK_WHEEL) yield* hueWheel(s, l, startHue);
 }
 
 // -- HSL helpers (used by suggestAlternative) -----------------------------------
@@ -140,16 +164,14 @@ export function pickSuggestedPalette(count: number, taken: ReadonlySet<string>):
     if (!isTaken(entry, taken)) free.push(entry);
   }
 
+  // BASE_PALETTE entries are already pairwise distinct, so `free` needs no extra spreading
   if (free.length >= count) return free.slice(0, count);
 
-  // generate additional colours by rotating hue evenly
+  // generate additional colours by rotating hue; each must also clear the ones already picked
   const result = [...free];
-  let hue = 0;
-  let iter = 0;
-  while (result.length < count && iter++ < 720) {
-    const generated = hslToHex({ h: hue, s: 0.6, l: 0.5 });
-    if (!isTaken(generated, taken)) result.push(generated);
-    hue = (hue + 1) % 360;
+  for (const generated of fallbackCandidates()) {
+    if (result.length >= count) break;
+    if (!isTaken(generated, taken) && !isPerceptuallyClose(generated, result)) result.push(generated);
   }
   return result.slice(0, count);
 }
@@ -176,14 +198,10 @@ export function assignUniqueColor(seed: string, taken: ReadonlySet<string>): str
     if (entry && !isTaken(entry, taken)) return entry;
   }
 
-  // all 100 taken — generate via HSL rotation
-  let hue = (hash % 360);
-  for (let i = 0; i < 360; i++) {
-    const generated = hslToHex({ h: hue, s: 0.6, l: 0.5 });
+  // palette exhausted — generate via HSL rotation, then fall back to the most distinct colour
+  const startHue = hash % 360;
+  for (const generated of fallbackCandidates(startHue)) {
     if (!isTaken(generated, taken)) return generated;
-    hue = (hue + 1) % 360;
   }
-
-  // ultimate fallback (should never reach here)
-  return "#ff00ff";
+  return mostDistinctCandidate(fallbackCandidates(startHue), taken);
 }

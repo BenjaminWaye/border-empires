@@ -90,14 +90,14 @@ describe("unique display names", () => {
     const first = await login(wsUrl, { sub: "uid-1" }, sign);
     const second = await login(wsUrl, { sub: "uid-2" }, sign);
 
-    setProfile(first.client, "House Ashgrove", "#112233");
+    setProfile(first.client, "House Ashgrove", "#000033");
     await first.client.waitFor("first saved", saved("House Ashgrove"));
 
-    setProfile(second.client, "  house   ASHGROVE ", "#445566");
+    setProfile(second.client, "  house   ASHGROVE ", "#330022");
     const rejection = await second.client.waitFor("name taken", nameTaken);
     expect(rejection.suggestion).toBe("house ASHGROVE II");
 
-    setProfile(second.client, rejection.suggestion as string, "#445566");
+    setProfile(second.client, rejection.suggestion as string, "#330022");
     await second.client.waitFor("second saved with suggestion", saved(rejection.suggestion as string));
     first.client.socket.close();
     second.client.socket.close();
@@ -109,8 +109,8 @@ describe("unique display names", () => {
     const a = await login(wsUrl, { sub: "uid-a" }, sign);
     const b = await login(wsUrl, { sub: "uid-b" }, sign);
 
-    setProfile(a.client, "House Valmont", "#111111");
-    setProfile(b.client, "House Valmont", "#222222");
+    setProfile(a.client, "House Valmont", "#002200");
+    setProfile(b.client, "House Valmont", "#770066");
     const outcomeOf = async (client: Client) =>
       (await client.waitFor("outcome", (message) => saved("House Valmont")(message) || nameTaken(message))).type;
     const outcomes = await Promise.all([outcomeOf(a.client), outcomeOf(b.client)]);
@@ -126,10 +126,10 @@ describe("unique display names", () => {
     openApps.push(app);
     const player = await login(wsUrl, { sub: "uid-keeper" }, sign);
 
-    setProfile(player.client, "House Corthorne", "#123456");
+    setProfile(player.client, "House Corthorne", "#000077");
     await player.client.waitFor("saved", saved("House Corthorne"));
     const before = player.client.messages.length;
-    setProfile(player.client, "house corthorne", "#123456");
+    setProfile(player.client, "house corthorne", "#000077");
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     expect(player.client.messages.slice(before).some(nameTaken)).toBe(false);
@@ -143,7 +143,7 @@ describe("unique display names", () => {
 
     for (const name of ["Barbarians", "AI 3"]) {
       const before = player.client.messages.length;
-      setProfile(player.client, name, "#778899");
+      setProfile(player.client, name, "#110000");
       await player.client.waitFor(`reserved ${name}`, (message) => nameTaken(message) && player.client.messages.indexOf(message) >= before);
     }
     player.client.socket.close();

@@ -29,7 +29,8 @@ import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
-import { normalizeHex, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
+import { normalizeHex, pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { seedAiColors } from "../player-color-allocation/seed-ai-colors.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
@@ -780,16 +781,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...seasonalAiPlayerIds
   ]);
 
-  // -- Phase 6: AI empire color seeding -----------------------------------
-  // Assign each AI a unique colour from BASE_PALETTE and register it in
-  // profileOverrides so the taken-set sees it immediately.
-  const aiTaken = new Set<string>(RESERVED_COLORS);
-  for (const aiId of [...seededAiPlayerIds].sort()) {
-    const color = assignUniqueColor(aiId, aiTaken);
-    aiTaken.add(color);
-    await profileStore.setTileColor(aiId, color);
-    profileOverrides.upsert(aiId, { tileColor: color });
-  }
+  // -- Phase 6: AI empire color seeding (boot + season rollover; see player-color-allocation/seed-ai-colors.ts)
+  const reseedAiColors = (): Promise<unknown> => seedAiColors({
+    aiPlayerIds: seededAiPlayerIds, profileStore, profileOverrides,
+    onColorChanged: (id, tileColor) => { const payload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId: id, tileColor }); for (const target of playerSubscriptions.allSockets()) queueOrSendSessionPayload(target, payload); }
+  });
+  await reseedAiColors();
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
@@ -1003,7 +1000,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); void reseedAiColors().catch((error) => app.log.error({ err: error }, "failed to re-seed AI colors")); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
       snapshotForPlayer: socialState.snapshotForPlayer,
       playerFunnel: { store: playerFunnelStore, tracker: playerFunnel }
     })

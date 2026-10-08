@@ -283,9 +283,9 @@ describe("rewrite stack integration", () => {
         player: expect.objectContaining({ profileNeedsSetup: true })
       })
     );
-    socketOne.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Nauticus Prime", color: "#123456" }));
+    socketOne.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Nauticus Prime", color: "#000077" }));
     expect(await nextTypedMessage(socketOne, "profile update", "PLAYER_STYLE")).toEqual(
-      expect.objectContaining({ playerId: "player-1", name: "Nauticus Prime", tileColor: "#123456" })
+      expect.objectContaining({ playerId: "player-1", name: "Nauticus Prime", tileColor: "#000077" })
     );
     await closeSocket(socketOne.socket);
     await gatewayOne.close();
@@ -300,7 +300,7 @@ describe("rewrite stack integration", () => {
       expect.objectContaining({
         player: expect.objectContaining({
           name: "Nauticus Prime",
-          tileColor: "#123456",
+          tileColor: "#000077",
           profileNeedsSetup: false
         })
       })
@@ -1666,7 +1666,7 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock1.socket));
       sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
       await nextTypedMessage(sock1, "init", "INIT");
-      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
 
       const gatewayTwo = await createGateway("player-2");
@@ -1676,7 +1676,7 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock2.socket));
       sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
       await nextTypedMessage(sock2, "init", "INIT");
-      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#000077" }));
 
       const error = await nextTypedMessage(sock2, "color error", "ERROR");
       expect(error.code).toBe("COLOR_TAKEN");
@@ -1712,7 +1712,7 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock1.socket));
       sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
       await nextTypedMessage(sock1, "init", "INIT");
-      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
 
       const gatewayTwo = await createGateway("player-2");
@@ -1722,12 +1722,12 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock2.socket));
       sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
       await nextTypedMessage(sock2, "init", "INIT");
-      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#000077" }));
 
       const error = await nextTypedMessage(sock2, "color error", "ERROR");
       const suggestion = error.suggestion as string;
       expect(suggestion).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(suggestion).not.toBe("#123456");
+      expect(suggestion).not.toBe("#000077");
       expect(suggestion).not.toBe("#2f3842");
     }, 15_000);
 
@@ -1760,7 +1760,7 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock1.socket));
       sock1.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
       await nextTypedMessage(sock1, "init", "INIT");
-      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock1.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock1, "profile", "PLAYER_STYLE");
 
       const gatewayTwo = await createGateway("player-2");
@@ -1770,7 +1770,7 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock2.socket));
       sock2.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
       await nextTypedMessage(sock2, "init", "INIT");
-      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#123456" }));
+      sock2.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P2", color: "#000077" }));
 
       const error = await nextTypedMessage(sock2, "color error", "ERROR");
       const suggestion = error.suggestion as string;
@@ -1869,13 +1869,13 @@ describe("rewrite stack integration", () => {
       cleanup.push(() => closeSocket(sock.socket));
       sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
       await nextTypedMessage(sock, "init", "INIT");
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock, "profile", "PLAYER_STYLE");
 
       // Re-save the same colour — should succeed (self is excluded from taken set)
-      sock.socket.send(JSON.stringify({ type: "SET_TILE_COLOR", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_TILE_COLOR", color: "#000077" }));
       const style = await nextTypedMessage(sock, "player style", "PLAYER_STYLE");
-      expect(style.tileColor).toBe("#123456");
+      expect(style.tileColor).toBe("#000077");
     }, 15_000);
   });
 
@@ -1915,17 +1915,17 @@ describe("rewrite stack integration", () => {
 
       // Initial profile setup (profile not yet complete) doesn't consume the
       // season's rename allowance.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
 
       // First real rename of an already-complete profile: allowed, and starts
       // the once-per-season clock.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#000077" }));
       const renamed = await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
       expect(renamed.name).toBe("P1 Renamed");
 
       // Second rename attempt in the same season: rejected.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed Again", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed Again", color: "#000077" }));
       const error = await nextTypedMessage(sock, "throttled rename", "ERROR");
       expect(error.code).toBe("DISPLAY_NAME_LIMIT");
     }, 15_000);
@@ -1957,17 +1957,17 @@ describe("rewrite stack integration", () => {
       sock.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
       await nextTypedMessage(sock, "init", "INIT");
 
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1", color: "#000077" }));
       await nextTypedMessage(sock, "initial profile", "PLAYER_STYLE");
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#123456" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#000077" }));
       await nextTypedMessage(sock, "first rename", "PLAYER_STYLE");
 
       // Re-sending the same name (e.g. only intending a colour change) is not
       // a rename and should never hit the throttle.
-      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#654321" }));
+      sock.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "P1 Renamed", color: "#440077" }));
       const style = await nextTypedMessage(sock, "unchanged-name resend", "PLAYER_STYLE");
       expect(style.name).toBe("P1 Renamed");
-      expect(style.tileColor).toBe("#654321");
+      expect(style.tileColor).toBe("#440077");
     }, 15_000);
   });
 
