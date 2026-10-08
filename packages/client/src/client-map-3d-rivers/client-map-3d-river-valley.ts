@@ -19,7 +19,7 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
 import { SKIRT_BOTTOM_Y } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { riverCoveY } from "./client-map-3d-river-edge-water.js";
+import { COVE_RADIUS, riverCoveY } from "./client-map-3d-river-edge-water.js";
 import { heightfieldSurfaceY, nearestOnSegments, RIVER_WATER_DEPTH, riverDescentScale, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
 
 const SUBDIVISIONS = 8;
@@ -85,6 +85,8 @@ export type RiverValleyRebuildInputs = {
   readonly cornerAttributesAt: (cornerX: number, cornerZ: number, out: HeightfieldCornerAttributes) => boolean;
   /** River mouth corners (scene coords): the land around each is cut into a cove (riverCoveY). */
   readonly coves?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+  /** Distance (scene coords) to the nearest sea tile; the cove only cuts near the coast. */
+  readonly seaDistanceAt?: (x: number, z: number) => number;
 };
 
 export type RiverValley = {
@@ -178,7 +180,8 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
           // relative to it); near a mouth the cut itself goes deeper.
           const trench = hit ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
           const carved = baseY - (hit ? trench * riverDescentScale(baseY, near.descent) : 0);
-          const height = coves.length > 0 ? Math.min(carved, riverCoveY(baseY, coveDistance(x, z))) : carved;
+          const toCove = coves.length > 0 ? coveDistance(x, z) : Infinity;
+          const height = toCove < COVE_RADIUS ? Math.min(carved, riverCoveY(baseY, toCove, inputs.seaDistanceAt?.(x, z) ?? 0)) : carved;
           padHeights[(j + 1) * stride + (i + 1)] = height;
           // Cove ground colours like the wet riverbed, not dry land.
           padDepths[(j + 1) * stride + (i + 1)] = Math.max(trench, Math.min(TRENCH_DEPTH, baseY - height));

@@ -176,6 +176,20 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       return terrain === "SEA" || terrain === "COASTAL_SEA";
     };
     const centerlines: ChannelPathPoint[][] = [];
+    // Distance (scene coords) from (x, z) to the nearest sea tile among the 3x3 around it.
+    const seaDistanceAt = (x: number, z: number): number => {
+      let best = Infinity;
+      const tx = Math.floor(x);
+      const tz = Math.floor(z);
+      for (let dz = -1; dz <= 1; dz += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (!isSeaAtScene(tx + dx + 0.5, tz + dz + 0.5)) continue;
+          best = Math.min(best, Math.hypot(Math.max(tx + dx - x, 0, x - (tx + dx + 1)), Math.max(tz + dz - z, 0, z - (tz + dz + 1))));
+        }
+      }
+      return best;
+    };
+
     const coves: { x: number; z: number }[] = [];
     for (const path of riversForCurrentSeed()) {
       const first = path[0];
@@ -253,7 +267,8 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       centerlines: indexCenterlines(centerlines.map((line) => line.filter((p) => !(p.mouth ?? 0)))),
       cornerYAt: heightfield.cornerYAt,
       cornerAttributesAt: heightfield.cornerAttributesAt,
-      coves
+      coves,
+      seaDistanceAt
     });
 
     // Water: level across the channel at the trench's water line, never
@@ -317,7 +332,7 @@ export const createRiverOverlay = (scene: Scene, deps: RiverOverlayDeps): RiverO
       });
       flushWater();
     }
-    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_SHALLOW);
+    for (const cove of coves) appendEstuary(mouthBuffers, cove.x, cove.z, WATER_SURFACE_Y + MOUTH_LIFT_Y, RIVER_WATER_SHALLOW, seaDistanceAt);
     commitWater(bankBuffers, bankMaterial, RENDER_ORDER.riverBank);
     commitWater(buffers, waterMaterial, RENDER_ORDER.riverWater);
     commitWater(mouthBuffers, mouthMaterial, RENDER_ORDER.riverMouth);

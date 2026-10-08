@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { buildRiverMouthCalm } from "./client-map-3d-river-mouths.js";
-import { appendEstuary, COVE_RADIUS, riverCoveY } from "./client-map-3d-river-edge-water.js";
+import { appendEstuary, COVE_COAST_BAND, COVE_RADIUS, riverCoveY } from "./client-map-3d-river-edge-water.js";
 import type { WaterBuffers } from "./client-map-3d-rivers-channel.js";
 
 describe("river mouth: calm sea, cove and estuary pool", () => {
@@ -35,5 +35,21 @@ describe("river mouth: calm sea, cove and estuary pool", () => {
     for (let i = 0; i < n; i += 1) maxR = Math.max(maxR, Math.hypot(buffers.positions[i * 3]! - 1, buffers.positions[i * 3 + 2]! - 2));
     expect(maxR).toBeGreaterThan(COVE_RADIUS);
     expect(Math.max(...buffers.indices)).toBe(n - 1);
+  });
+  it("only cuts the cove along the coast, not into the neighbouring tiles' interiors", () => {
+    expect(riverCoveY(0.15, 0.1, 0)).toBeLessThan(WATER_SURFACE_Y);
+    expect(riverCoveY(0.15, 0.1, COVE_COAST_BAND)).toBe(0.15);
+  });
+
+  it("fades the estuary pool out over land away from the coast", () => {
+    // Coastal ground near a mouth can sit at sea level; an unfaded pool
+    // spread river water over the neighbouring land tiles.
+    const buffers: WaterBuffers = { positions: [], colors: [], indices: [] };
+    appendEstuary(buffers, 0, 0, WATER_SURFACE_Y, [0.1, 0.3, 0.4, 1], (x) => (x < 0 ? 0 : 1)); // sea west, land east
+    const n = buffers.positions.length / 3;
+    for (let i = 0; i < n; i += 1) {
+      if (buffers.positions[i * 3]! > 0.01) expect(buffers.colors[i * 4 + 3]).toBe(0);
+    }
+    expect(buffers.colors.filter((_, i) => i % 4 === 3).some((a) => a > 0.5)).toBe(true);
   });
 });

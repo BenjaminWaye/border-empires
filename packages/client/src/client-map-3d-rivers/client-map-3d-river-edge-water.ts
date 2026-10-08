@@ -131,34 +131,56 @@ export const withMouthDescent = (line: readonly ChannelPathPoint[]): ChannelPath
 // land rises above it, so the shoreline around the mouth comes out curved.
 export const COVE_RADIUS = 0.55;
 const COVE_FLOOR_BELOW_SEA = 0.03;
+// The cove only cuts land this close to the sea (tiles): a full circle cut
+// into the neighbouring tiles' interiors left their buildings standing in
+// the estuary water.
+export const COVE_COAST_BAND = 0.3;
 
-/** Ground height at `baseY`, `distance` from a mouth corner, once the cove is cut (never raises it). */
-export const riverCoveY = (baseY: number, distance: number): number => {
-  if (distance >= COVE_RADIUS) return baseY;
-  const t = 1 - distance / COVE_RADIUS;
-  const s = t * t * (3 - 2 * t);
+const smooth01 = (t: number): number => {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+};
+
+/**
+ * Ground height at `baseY`, `distance` from a mouth corner and `seaDistance`
+ * from the nearest sea tile, once the cove is cut (never raises it).
+ */
+export const riverCoveY = (baseY: number, distance: number, seaDistance = 0): number => {
+  if (distance >= COVE_RADIUS || seaDistance >= COVE_COAST_BAND) return baseY;
+  const s = smooth01(1 - distance / COVE_RADIUS) * smooth01(1 - seaDistance / COVE_COAST_BAND);
   return Math.min(baseY, baseY + (WATER_SURFACE_Y - COVE_FLOOR_BELOW_SEA - baseY) * s);
 };
 
 const ESTUARY_SEGMENTS = 20;
 const ESTUARY_RINGS: ReadonlyArray<readonly [number, number]> = [[0.6, 1], [1, 0.9], [1.35, 0]]; // [radius / COVE_RADIUS, alpha]
 
-/** Appends a round estuary pool of river water centred on a mouth corner (scene coords), at `y`. */
+/** How much of the estuary pool shows `seaDistance` from the nearest sea tile: all of it near the coast, none inland. */
+export const estuaryCoastFade = (seaDistance: number): number => smooth01(1 - seaDistance / COVE_COAST_BAND);
+
+/**
+ * Appends a round estuary pool of river water centred on a mouth corner
+ * (scene coords), at `y`. `seaDistanceAt` fades it out over land away from
+ * the coast: coastal ground near a mouth can already sit at sea level, and
+ * an unfaded pool flooded the neighbouring tiles and their buildings.
+ */
 export const appendEstuary = (
   buffers: WaterBuffers,
   centerX: number,
   centerZ: number,
   y: number,
-  color: readonly [number, number, number, ...number[]]
+  color: readonly [number, number, number, ...number[]],
+  seaDistanceAt: (x: number, z: number) => number = () => 0
 ): void => {
   const center = buffers.positions.length / 3;
   buffers.positions.push(centerX, y, centerZ);
-  buffers.colors.push(color[0], color[1], color[2], 1);
+  buffers.colors.push(color[0], color[1], color[2], estuaryCoastFade(seaDistanceAt(centerX, centerZ)));
   for (const [r, alpha] of ESTUARY_RINGS) {
     for (let k = 0; k < ESTUARY_SEGMENTS; k += 1) {
       const a = (k / ESTUARY_SEGMENTS) * Math.PI * 2;
-      buffers.positions.push(centerX + Math.cos(a) * r * COVE_RADIUS, y, centerZ + Math.sin(a) * r * COVE_RADIUS);
-      buffers.colors.push(color[0], color[1], color[2], alpha);
+      const x = centerX + Math.cos(a) * r * COVE_RADIUS;
+      const z = centerZ + Math.sin(a) * r * COVE_RADIUS;
+      buffers.positions.push(x, y, z);
+      buffers.colors.push(color[0], color[1], color[2], alpha * estuaryCoastFade(seaDistanceAt(x, z)));
     }
   }
   const ring = (i: number, k: number): number => center + 1 + i * ESTUARY_SEGMENTS + (k % ESTUARY_SEGMENTS);
