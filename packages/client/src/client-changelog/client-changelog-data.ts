@@ -320,6 +320,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
+  {
+    createdAt: 1791488967000,
+    introducedIn: "2026.10.08.7",
+    title: "Waystations no longer promise population without a town",
+    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
+    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

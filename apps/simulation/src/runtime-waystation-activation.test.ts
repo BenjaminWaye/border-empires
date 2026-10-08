@@ -170,20 +170,25 @@ describe("activateWaystationAt", () => {
     expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedTownName).toBeUndefined();
   });
 
-  it("POPULATION effect with no owned town nearby is a silent no-op, but the tile still activates permanently", () => {
+  // Regression: a POPULATION roll with no owned town used to record
+  // grantedEffect POPULATION with no town, so the client claimed "+5,000
+  // Population" although nothing was granted. It now pays out GOLD instead.
+  it("POPULATION effect with no owned town falls back to GOLD instead of claiming a population burst", () => {
     const tiles = new Map<string, DomainTileState>([
       [WAYSTATION_KEY, waystationTile()],
       [FAR_TOWN_KEY, townTile(400, 400, "someone-else")]
     ]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION]));
+    const players = new Map([[PLAYER_ID, makePlayer({ points: 7 })]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION, 0]));
 
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-pop-noop");
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-pop-fallback");
 
     expect(tiles.get(FAR_TOWN_KEY)?.town?.population).toBe(1000);
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.activated).toBe(true);
-    expect(waystation?.grantedEffect).toBe("POPULATION");
+    expect(waystation?.grantedEffect).toBe("GOLD");
+    expect(waystation?.grantedGold).toBeGreaterThan(0);
+    expect(players.get(PLAYER_ID)?.points).toBe(7 + waystation!.grantedGold!);
     expect(waystation?.grantedTownName).toBeUndefined();
     expect(waystation?.grantedTownX).toBeUndefined();
     expect(waystation?.grantedTownY).toBeUndefined();
