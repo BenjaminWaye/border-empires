@@ -74,7 +74,7 @@ const STYLES = `
 
 /* Mobile: the gauge becomes a thin strip on the chip's bottom edge. */
 .sb-mp-chip-manpower.is-mobile { padding-bottom: 9px; gap: 0; }
-.sb-mp-chip-manpower.is-mobile .sb-mp-label { font-size: 9px; letter-spacing: 0.08em; }
+.sb-mp-chip-manpower.is-mobile .sb-mp-label { font-size: 8px; letter-spacing: 0.06em; }
 .sb-mp-chip-manpower.is-mobile .sb-mp-refill { font-size: 8.5px; }
 .sb-mp-chip-manpower.is-mobile .sb-mp-value { font-size: 10.5px; }
 .sb-mp-chip-manpower.is-mobile .sb-mp-value small { font-size: 9px; }

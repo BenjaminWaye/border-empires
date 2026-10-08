@@ -9,6 +9,7 @@ import {
   minutesToRefill,
   type ManpowerGaugeArgs
 } from "./hud/manpower-gauge-mock.js";
+import { ensureStatChipSteampunkStyles, STAT_CHIPS_STEAMPUNK_CLASS } from "./hud/stat-chip-steampunk-mock.js";
 
 /**
  * Design proposal: HUD manpower chip as a depletable gauge with a periodic
@@ -54,6 +55,7 @@ type BarArgs = ManpowerGaugeArgs & { regenPerMinute: number };
 
 const ensureStyles = (): void => {
   ensureManpowerGaugeStyles();
+  ensureStatChipSteampunkStyles();
   if (document.getElementById("sb-mp-stage-styles")) return;
   const style = document.createElement("style");
   style.id = "sb-mp-stage-styles";
@@ -62,7 +64,7 @@ const ensureStyles = (): void => {
 };
 
 const framed = (args: ManpowerGaugeArgs): string =>
-  `<div class="sb-mp-frame ${args.mobile ? "is-mobile" : ""}">${manpowerGaugeChipHtml(args)}</div>`;
+  `<div class="sb-mp-frame ${STAT_CHIPS_STEAMPUNK_CLASS} ${args.mobile ? "is-mobile" : ""}">${manpowerGaugeChipHtml(args)}</div>`;
 
 const popoverHtml = (args: BarArgs): string => `
   <div class="sb-mp-popover">
