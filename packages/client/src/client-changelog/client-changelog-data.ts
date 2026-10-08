@@ -324,6 +324,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "AI empires re-pick their colors at the start of a season to stay clear of the colors players have chosen. Your own color is never changed for you"
     ]
   },
+  {
+    createdAt: 1791487926226,
+    introducedIn: "2026.10.08.7",
+    title: "You can now see whose reach unowned ground is in",
+    why: "Ground inside another empire's reach looked like plain neutral land, so there was no sign of why you could not claim it or whose border you were standing in.",
+    changes: [
+      "On the 3D map, unowned ground inside a rival's reach is hatched with diagonal stripes in that rival's color",
+      "Tapping that ground now says \"Inside <player>'s reach\" in the tile header, and tiles another player owns say \"Owned by <player>\"",
+      "The 2D map does not show the hatching yet"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

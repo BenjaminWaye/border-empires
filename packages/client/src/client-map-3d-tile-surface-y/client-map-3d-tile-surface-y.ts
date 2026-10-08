@@ -50,3 +50,30 @@ export const tileSurfaceHeights = (inputs: TileSurfaceInputs): TileSurfaceHeight
   const domeY = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, wx, wy, inputs.roadDirsAt(wx, wy));
   return { surfaceY, flatOverlayY: Math.min(surfaceY, Math.max(domeY, groundY) + rise) };
 };
+
+export type TileCornerYs = {
+  readonly corner00Y: number;
+  readonly corner10Y: number;
+  readonly corner01Y: number;
+  readonly corner11Y: number;
+};
+
+/**
+ * The heightfield's rendered Y at a tile's four corners, lifted by `rise`.
+ * Per-tile ground overlays (ownership fill, settle sweep, rival-reach hatch)
+ * trace exactly the visible surface with these; wxNext/wyNext are the
+ * already-wrapped neighbour coordinates.
+ */
+export const tileCornerYs = (
+  heightfield: Pick<TileSurfaceHeightfield, "cornerYAt">,
+  wx: number,
+  wy: number,
+  wxNext: number,
+  wyNext: number,
+  rise: number
+): TileCornerYs => ({
+  corner00Y: heightfield.cornerYAt(wx, wy) + rise,
+  corner10Y: heightfield.cornerYAt(wxNext, wy) + rise,
+  corner01Y: heightfield.cornerYAt(wx, wyNext) + rise,
+  corner11Y: heightfield.cornerYAt(wxNext, wyNext) + rise
+});

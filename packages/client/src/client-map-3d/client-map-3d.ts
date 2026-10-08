@@ -31,7 +31,7 @@ import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileCornerYs, tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js"; import { createRivalReachHatch, rivalReachHatchOwnerId } from "../client-map-3d-rival-reach-hatch/client-map-3d-rival-reach-hatch.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
 import {
   createBendingMarkerGeometry,
@@ -155,7 +155,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
-  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.18, frontier: 0.18 });
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.18, frontier: 0.18 }); const rivalReachHatch = createRivalReachHatch(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
@@ -777,7 +777,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear(); tropicalForest.clear();
-    ownershipOverlay.clear(); prospectOverlay.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
+    ownershipOverlay.clear(); prospectOverlay.clear(); rivalReachHatch.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
     townOverlay.clear();
@@ -1173,12 +1173,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             ? tmpSettleOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)))
             : SETTLE_FALLBACK_COLOR;
           if (isHillsTile(wx, wy)) {
-            const wxOwn = deps.wrapX(wx + 1);
-            const wyOwn = deps.wrapY(wy + 1);
-            const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-            const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-            const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-            const corner11Y = heightfield.cornerYAt(wxOwn, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+            const { corner00Y, corner10Y, corner01Y, corner11Y } = tileCornerYs(heightfield, wx, wy, deps.wrapX(wx + 1), deps.wrapY(wy + 1), OWNERSHIP_RISE_ABOVE_HEIGHTFIELD);
             const x0 = x - 0.5;
             const x1 = x + 0.5;
             const z0 = z - 0.5;
@@ -1204,8 +1199,6 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const ownerColor = tmpOwnerColor.set(normalizedColor);
           // Decay countdown pulse is applied every frame by frontierDecayPulse.render() instead of baked in here, so camera pan/zoom rebuilds can't make it jump -- see client-map-3d-frontier-decay-pulse.ts.
           const isDecayingFrontierTile = ownershipState === "FRONTIER" && typeof tile.frontierDecayAt === "number"; const barbarianTintTransition = observeBarbarianFrontierTint(barbarianFrontierTint, ownerId, ownershipState, tileKey, ownerColor); // see client-map-3d-barbarian-frontier-tint.ts
-          const wxOwn = deps.wrapX(wx + 1);
-          const wyOwn = deps.wrapY(wy + 1);
           // cornerYAt returns the heightfield's *rendered* Y for each
           // corner — the same value written into the position buffer
           // (including coastEdgeY pull-down at mixed corners and the
@@ -1219,10 +1212,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // never reflects their raised surface. Each tile's quad has
           // private, unshared corner vertices, so it's safe to bump the
           // whole quad up to clear the dome peak without creating seams.
-          const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
-          const corner11Y = heightfield.cornerYAt(wxOwn, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const { corner00Y, corner10Y, corner01Y, corner11Y } = tileCornerYs(heightfield, wx, wy, deps.wrapX(wx + 1), deps.wrapY(wy + 1), OWNERSHIP_RISE_ABOVE_HEIGHTFIELD);
           const x0 = x - 0.5;
           const x1 = x + 0.5;
           const z0 = z - 0.5;
@@ -1256,6 +1246,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             };
           }
         }
+        const hatchOwnerId = tile && visibility === "visible" && !isHillsTile(wx, wy) ? rivalReachHatchOwnerId(tile, deps.state.me) : undefined;
+        if (hatchOwnerId) { const c = tileCornerYs(heightfield, wx, wy, deps.wrapX(wx + 1), deps.wrapY(wy + 1), OWNERSHIP_RISE_ABOVE_HEIGHTFIELD); rivalReachHatch.addTile(x - 0.5, x + 0.5, z - 0.5, z + 0.5, c.corner00Y, c.corner10Y, c.corner01Y, c.corner11Y, tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(hatchOwnerId)))); }
         // Aether Survey Line 3D overlay: dormant-frontier fill is still
         // per-tile (mirrors the 2D path's conditions in
         // client-runtime-loop.ts exactly). The sparse pylons + connecting
@@ -1302,7 +1294,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit(); tropicalForest.commit();
-    ownershipOverlay.commit(); prospectOverlay.commit();
+    ownershipOverlay.commit(); prospectOverlay.commit(); rivalReachHatch.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
     townOverlay.commit();
@@ -1566,7 +1558,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     contextGuard.dispose();
     renderer.dispose();
-    ownershipOverlay.dispose(); prospectOverlay.dispose();
+    ownershipOverlay.dispose(); prospectOverlay.dispose(); rivalReachHatch.dispose();
     fogDarkenOverlay.dispose();
     fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();

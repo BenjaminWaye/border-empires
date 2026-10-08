@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield-terrain.js";
 import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "../client-map-3d-hill-shape.js";
-import { tileSurfaceHeights, type TileSurfaceInputs } from "./client-map-3d-tile-surface-y.js";
+import { tileCornerYs, tileSurfaceHeights, type TileSurfaceInputs } from "./client-map-3d-tile-surface-y.js";
 
 const RISE = 0.012;
 const GROUND = 0.3;
@@ -44,5 +44,17 @@ describe("tileSurfaceHeights", () => {
     expect(heights.surfaceY).toBeCloseTo(GROUND + HEIGHTFIELD_HILLS_ELEVATION_BONUS + RISE, 6);
     expect(heights.surfaceY - heights.flatOverlayY).toBeGreaterThan(0.15);
     expect(heights.flatOverlayY).toBeGreaterThan(GROUND);
+  });
+});
+
+describe("tileCornerYs", () => {
+  it("samples the four corners (wrapped neighbours included) and lifts each by rise", () => {
+    const heightfield = { cornerYAt: (x: number, y: number) => x * 10 + y };
+    expect(tileCornerYs(heightfield, 3, 4, 0, 5, 0.5)).toEqual({
+      corner00Y: 34.5,
+      corner10Y: 4.5,
+      corner01Y: 35.5,
+      corner11Y: 5.5
+    });
   });
 });
