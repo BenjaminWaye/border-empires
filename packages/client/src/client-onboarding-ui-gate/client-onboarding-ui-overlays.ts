@@ -10,7 +10,7 @@ import { createOnboardingUiGateTicker, isOnboardingUiDeferred, type OnboardingUi
 // client-onboarding-ui-gate.ts deferral instead of each re-deriving it.
 
 export type DiscoveryTipUiState = OnboardingUiGateState & FeedMutableState & Pick<ClientState, "discoveryTipQueue" | "authEmail">;
-export type OnboardingChecklistUiState = OnboardingUiGateState & Pick<ClientState, "tiles" | "me" | "authEmail" | "onboardingHighlightTiles">;
+export type OnboardingChecklistUiState = OnboardingUiGateState & Pick<ClientState, "tiles" | "me" | "authEmail" | "onboardingHighlightTiles" | "firstChunkAt">;
 
 /** Re-renders the discovery-tip toast for the front of the queue, or hides it while deferred. */
 export const renderDiscoveryTipOverlayForState = (state: DiscoveryTipUiState, renderHud: () => void): void =>
@@ -35,6 +35,8 @@ const tickGate = createOnboardingUiGateTicker();
 export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & OnboardingChecklistUiState, renderHud: () => void): void =>
   tickGate(state, () => {
     renderDiscoveryTipOverlayForState(state, renderHud);
-    refreshOnboardingChecklistHighlight(state);
+    // Before the player's first map chunk the checklist has nothing to judge
+    // (it would show every goal open); the spawn/chunk path renders it then.
+    if (state.me && state.firstChunkAt > 0) refreshOnboardingChecklistHighlight(state);
     renderHud();
   });

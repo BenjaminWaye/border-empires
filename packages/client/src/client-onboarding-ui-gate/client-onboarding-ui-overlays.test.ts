@@ -27,6 +27,7 @@ const joiningPlayerState = () => {
   state.seasonWinner = undefined;
   state.me = "p1";
   state.authEmail = "new@example.com";
+  state.firstChunkAt = 1;
   return state;
 };
 
@@ -85,5 +86,16 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     state.guide.open = false;
     tickOnboardingUiGateForFrame(state, renderHud);
     expect(toast()?.textContent).toContain("First Muster Flag Placed!");
+  });
+
+  it("does not pop the checklist up when the gate lifts before the first map chunk has arrived", () => {
+    const state = joiningPlayerState();
+    state.firstChunkAt = 0;
+    const renderHud = vi.fn();
+    tickOnboardingUiGateForFrame(state, renderHud);
+
+    state.guide.open = false;
+    tickOnboardingUiGateForFrame(state, renderHud);
+    expect(checklist()).toBeNull();
   });
 });
