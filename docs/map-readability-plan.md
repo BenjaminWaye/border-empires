@@ -71,8 +71,11 @@ Four workstreams, landed as separate PRs in this order.
   (`SET_TILE_COLOR` / `SET_PROFILE` collision rejection).
 - Prune `BASE_PALETTE` so no two entries fall under the threshold. Order it
   so hash-picked colors spread around the hue wheel.
-- Open question: whether existing players' colors get re-assigned at season
-  rollover, or only new picks are checked.
+- **Decided (2026-10-08): only new picks are checked.** A human player's
+  existing color is never changed behind their back. AI empires are the
+  exception: their colors are re-assigned at season rollover (and at boot)
+  against the full taken set, so an AI never keeps a color that now sits
+  under the threshold next to a human's pick.
 
 ### 3. 3D reach and ownership overlay (client, 3D first)
 
@@ -104,8 +107,12 @@ reach.**
 - A toggle or hold-key lens that flattens the map to political colors: **you
   in green, everyone else in red**, with empire names labelled over their
   territory at zoomed-out levels.
-- Open question: whether allies get a third color (e.g. blue) or count as
-  "everyone else".
+- **Decided (2026-10-08): allies get a third color (blue).** "You vs everyone
+  else" hides the distinction that matters most at a border: who is safe and
+  who is a threat. Green/red alone is also unreadable for red-green
+  colour-blind players, so each state also gets a non-color cue (own land
+  keeps the gold edge from workstream 3; allies get a dotted edge; hostile
+  land gets none). Unowned land stays neutral and barbarians stay grey.
 
 ## Acceptance criteria
 
