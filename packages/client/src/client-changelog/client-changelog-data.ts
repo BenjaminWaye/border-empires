@@ -269,6 +269,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
     changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
   },
+  {
+    createdAt: 1791450095409,
+    introducedIn: "2026.10.08.3",
+    title: "Tips wait for your AFC to land",
+    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
+    changes: [
+      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
+      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

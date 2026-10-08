@@ -4,8 +4,7 @@ import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
 import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
-import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
-import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
+import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
@@ -150,11 +149,7 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   const { x, y } = tile;
   if (actionId === "muster_hold" || actionId === "muster_advance") {
     deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" });
-    if (deps.state.discoveryTipQueue) {
-      announceDiscoveryTip(deps.state.discoveryTipQueue, "FIRST_MUSTER", deps.state.authEmail, deps.renderHud, (def) =>
-        pushDiscoveryTipFeedEntry(deps.state, def)
-      );
-    }
+    if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud);
     return true;
   }
   if (actionId === "muster_march") {

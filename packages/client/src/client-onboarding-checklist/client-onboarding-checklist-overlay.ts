@@ -187,11 +187,18 @@ const render = (state: OnboardingChecklistState): void => {
  * last-step dedup guard (not on every re-render), so callers can call this
  * freely on each render/tile-delta tick. Returns the current highlight
  * tiles so the caller can feed the map's highlight-drawing layer.
+ *
+ * While `deferred` (see client-onboarding-ui-gate.ts: a dialog covers the
+ * map or the join-time AFC drop hasn't finished) the bubble and its map
+ * highlights are hidden, and the once-per-account force-open is held back
+ * so a new player's first look at the checklist is after the AFC lands
+ * rather than underneath the tutorial.
  */
 export const renderOnboardingChecklistOverlay = (
   tiles: ReadonlyMap<string, Tile>,
   playerId: string,
-  authEmail: string | null | undefined
+  authEmail: string | null | undefined,
+  deferred = false
 ): Array<{ x: number; y: number }> => {
   const state = onboardingChecklistState(tiles, playerId, authEmail);
 
@@ -200,6 +207,10 @@ export const renderOnboardingChecklistOverlay = (
     lastCompletedStep = "DONE";
     removeOnboardingChecklistOverlay();
     return state.highlightTiles;
+  }
+  if (deferred) {
+    removeOnboardingChecklistOverlay();
+    return [];
   }
   lastCompletedStep = state.step;
   forceOpenForNewPlayer(authEmail);

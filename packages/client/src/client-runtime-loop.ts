@@ -11,7 +11,7 @@ import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { paintFpsAndZoomReadouts } from "./client-fps-monitor/client-fps-readouts.js";
-import { tickAfcJoinDropForFrame } from "./client-afc-join-drop/client-afc-join-drop-frame.js";
+import { tickJoinExperienceForFrame } from "./client-onboarding-ui-gate/client-join-experience-frame.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
@@ -218,7 +218,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const frameStartAt = nowMs;
     const previousDrawAt = lastDrawAt;
     lastDrawAt = nowMs;
-    tickAfcJoinDropForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor); // before either renderer draws, so the joining AFC is hidden from its first frame
+    tickJoinExperienceForFrame(state, nowMs, { canvasWidth: deps.canvas.width, canvasHeight: deps.canvas.height, tilePx: state.zoom }, deps.keyFor, deps.renderHud); // before either renderer draws, so the joining AFC is hidden from its first frame; also releases the tips/checklist once it lands
     if (nowMs - lastFpsPaintAt > 500) {
       lastFpsPaintAt = nowMs;
       paintFpsAndZoomReadouts(getCurrentFps(), state.zoom);
