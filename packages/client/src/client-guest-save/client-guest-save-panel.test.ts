@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("firebase/auth", () => ({
   EmailAuthProvider: { credentialWithLink: vi.fn() },
   GoogleAuthProvider: { credentialFromError: vi.fn() },
+  OAuthProvider: { credentialFromError: vi.fn() },
   linkWithCredential: vi.fn(),
   linkWithPopup: vi.fn(),
   sendSignInLinkToEmail: vi.fn(),
@@ -220,6 +221,7 @@ describe("Save your empire panel", () => {
     expect(panel()!.textContent).toContain("Alliances and truces are for saved empires");
     expect(panel()!.textContent).toContain("lives only in this browser");
     expect(panel()!.querySelector('[data-guest-save="google"]')).not.toBeNull();
+    expect(panel()!.querySelector('[data-guest-save="twitch"]')).not.toBeNull();
     expect(panel()!.querySelector('[data-guest-save="email-input"]')).not.toBeNull();
   });
 
@@ -242,6 +244,18 @@ describe("Save your empire panel", () => {
 
     expect(linkWithPopup).toHaveBeenCalledTimes(1);
     expect(panel()!.textContent).toContain("Opening Google");
+  });
+
+  it("starts Twitch saving from its button and names Twitch when that account already has an empire", async () => {
+    init({ twitchProvider: {} as never });
+    vi.mocked(linkWithPopup).mockRejectedValue({ code: "auth/credential-already-in-use" });
+    openGuestSavePanel("badge");
+
+    click("twitch");
+    await flush();
+
+    expect(linkWithPopup).toHaveBeenCalledTimes(1);
+    expect(panel()!.textContent).toContain("That Twitch account already has an empire");
   });
 
   it("sends the email link with the address typed in, then tells the guest to open it in this browser", async () => {

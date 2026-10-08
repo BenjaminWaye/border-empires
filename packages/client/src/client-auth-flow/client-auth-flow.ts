@@ -65,7 +65,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     emailLinkSentTo: "",
     emailLinkPending: false
   };
-  initGuestSave({ firebaseAuth, googleProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
+  initGuestSave({ firebaseAuth, googleProvider, twitchProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
 
   const clearEmailLinkUrl = (): void => {
     try {
