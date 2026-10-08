@@ -159,9 +159,13 @@ describe("prepare player integration", () => {
       full: false
     });
 
+    // Spawned exactly once: one AFC. The landing may also hold FRONTIER
+    // footprint tiles around it (AFC_LANDING_GUARANTEED_REACH_RADIUS).
     const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);
-    expect(ownedTiles).toHaveLength(1);
-    expect(ownedTiles[0]?.ownershipState).toBe("SETTLED");
+    const afcTiles = ownedTiles.filter((tile) => tile.afcJson !== undefined);
+    expect(afcTiles).toHaveLength(1);
+    expect(afcTiles[0]?.ownershipState).toBe("SETTLED");
+    expect(ownedTiles.filter((tile) => tile.ownershipState === "SETTLED")).toHaveLength(1);
   });
 
   it("does not implicitly spawn unknown players during subscribe", async () => {

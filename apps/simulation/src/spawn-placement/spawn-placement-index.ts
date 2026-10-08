@@ -4,6 +4,31 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type SpawnPlacementCoord = { x: number; y: number };
 
+/**
+ * The spawn-search slice of RuntimeRespawnContext, bound to the live world by
+ * SpawnPlacementIndex.spawnSearchLookups.
+ */
+export type SpawnSearchLookups = {
+  // Cached/incrementally-maintained, spatially-indexed lookups threaded
+  // through to chooseLegacySpawnPlacement — see SpawnPlacementIndex and
+  // LegacySpawnPlacementInput's matching fields. Passing these avoids both
+  // re-scanning every tile on the map AND linearly scanning every owned tile
+  // on every single spawn/respawn placement, which load testing showed
+  // costing ~700-900ms per new player connecting at 100-tile-map-scale.
+  coastalLandKeys: () => ReadonlySet<string>;
+  hasNearbySettled: (x: number, y: number, radius: number) => boolean;
+  hasNearbyTown: (x: number, y: number, radius: number) => boolean;
+  hasNearbyFood: (x: number, y: number, radius: number) => boolean;
+  // Precomputed, equal-opportunity worldgen spawn roster (see
+  // computeFairSpawnSites/SpawnPlacementIndex.claimFairSpawnSite). Tried
+  // before falling back to chooseLegacySpawnPlacement's per-player random
+  // search, which stays as the fallback once the roster is exhausted.
+  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: SpawnPlacementCoord) => SpawnPlacementCoord | undefined;
+  // Reach-border owner of (x, y) — keeps a spawn's AFC disk out of a rival's
+  // reach (see SpawnRequirements.avoidRivalReach).
+  reachOwnerAt: (x: number, y: number) => string | undefined;
+};
+
 const isSettledCoordTile = (tile: DomainTileState): boolean =>
   Boolean(tile.ownerId) && Boolean(tile.ownershipState) && tile.ownershipState !== "BARBARIAN";
 const isTownCoordTile = (tile: DomainTileState): boolean => Boolean(tile.town);
@@ -162,6 +187,18 @@ export class SpawnPlacementIndex {
   private foodGridCache: CoordGrid | undefined;
   private landRegionByTileKeyCache: ReadonlyMap<string, number> | undefined;
   private fairSpawnSitesCache: readonly FairSpawnSite[] | undefined;
+
+  /** Binds this index's lookups to `tiles` (and the caller's reach border) for one spawn/respawn context. */
+  spawnSearchLookups(tiles: ReadonlyMap<string, DomainTileState>, reachOwnerAt: (x: number, y: number) => string | undefined): SpawnSearchLookups {
+    return {
+      coastalLandKeys: () => this.coastalLandKeys(tiles),
+      hasNearbySettled: (x, y, radius) => this.hasNearbySettled(x, y, radius),
+      hasNearbyTown: (x, y, radius) => this.hasNearbyTown(tiles, x, y, radius),
+      hasNearbyFood: (x, y, radius) => this.hasNearbyFood(tiles, x, y, radius),
+      claimFairSpawnSite: (isAvailable, rallyAnchor) => this.claimFairSpawnSite(tiles, isAvailable, rallyAnchor),
+      reachOwnerAt
+    };
+  }
 
   refreshForTileChange(tileKey: string, next: DomainTileState): void {
     if (isSettledCoordTile(next)) this.settledGrid.set(tileKey, { x: next.x, y: next.y });
