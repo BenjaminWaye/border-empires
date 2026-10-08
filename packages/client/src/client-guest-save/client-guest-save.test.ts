@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("firebase/auth", () => ({
   EmailAuthProvider: { credentialWithLink: vi.fn((email: string, href: string) => ({ kind: "email-credential", email, href })) },
   GoogleAuthProvider: { credentialFromError: vi.fn() },
+  OAuthProvider: { credentialFromError: vi.fn() },
   linkWithCredential: vi.fn(),
   linkWithPopup: vi.fn(),
   sendSignInLinkToEmail: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("firebase/analytics", () => ({ logEvent: vi.fn() }));
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
+  OAuthProvider,
   linkWithCredential,
   linkWithPopup,
   sendSignInLinkToEmail,
@@ -57,10 +59,50 @@ beforeEach(() => {
     vi.mocked(signInWithCredential),
     vi.mocked(signInWithEmailLink),
     vi.mocked(logEvent),
-    vi.mocked(GoogleAuthProvider.credentialFromError)
+    vi.mocked(GoogleAuthProvider.credentialFromError),
+    vi.mocked(OAuthProvider.credentialFromError)
   ];
   for (const mock of mocks) mock.mockReset();
   window.localStorage.clear();
+});
+
+describe("saving with Twitch", () => {
+  it("links the Twitch provider to the guest and reloads", async () => {
+    vi.mocked(linkWithPopup).mockResolvedValue({} as never);
+    const twitchProvider = { providerId: "oidc.twitch" } as never;
+    const { deps, firebaseAuth } = makeDeps({ twitchProvider });
+    const controller = createGuestSaveController(deps);
+
+    await controller.saveWithTwitch();
+
+    expect(linkWithPopup).toHaveBeenCalledWith(firebaseAuth.currentUser, twitchProvider);
+    expect(deps.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers to switch using the Twitch credential when that Twitch account already has an empire", async () => {
+    const credential = { kind: "twitch-credential" };
+    vi.mocked(linkWithPopup).mockRejectedValue({ code: "auth/credential-already-in-use" });
+    vi.mocked(OAuthProvider.credentialFromError).mockReturnValue(credential as never);
+    vi.mocked(signInWithCredential).mockResolvedValue({} as never);
+    const { deps, firebaseAuth } = makeDeps({ twitchProvider: {} as never });
+    const controller = createGuestSaveController(deps);
+
+    await controller.saveWithTwitch();
+    expect(controller.getView()).toEqual({ kind: "conflict", method: "oidc.twitch" });
+    expect(GoogleAuthProvider.credentialFromError).not.toHaveBeenCalled();
+
+    await controller.switchToExisting();
+    expect(signInWithCredential).toHaveBeenCalledWith(firebaseAuth, credential);
+  });
+
+  it("says Twitch is unavailable when no Twitch provider is configured", async () => {
+    const controller = createGuestSaveController(makeDeps().deps);
+
+    await controller.saveWithTwitch();
+
+    expect(linkWithPopup).not.toHaveBeenCalled();
+    expect(controller.getView()).toEqual({ kind: "error", message: "Twitch sign-in isn't available right now." });
+  });
 });
 
 describe("saving with Google", () => {

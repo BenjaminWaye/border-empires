@@ -129,7 +129,7 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 ## Firebase sign-in providers
 
 - Google, email link, email/password and anonymous (Play now) are built-in Firebase Auth providers for the `border-empires` project.
-- **Twitch** ("Continue with Twitch") is a custom OpenID Connect provider, so the project must be on Identity Platform (Firebase console → Authentication → Settings → upgrade; needs the Blaze plan, one-way). Without the provider enabled the button fails with `auth/operation-not-allowed`.
+- **Twitch** ("Continue with Twitch" on the login screen and the guest "Save your empire" panel) is a custom OpenID Connect provider, so the project must be on Identity Platform (Firebase console → Authentication → Settings → upgrade; needs the Blaze plan, one-way). Without the provider enabled the button fails with `auth/operation-not-allowed`.
   - Twitch app (dev.twitch.tv/console) OAuth redirect URLs: `https://play.borderempires.com/__/auth/handler`, `https://staging.borderempires.com/__/auth/handler`, `https://border-empires.firebaseapp.com/__/auth/handler` (the first two go through the `vercel.json` `/__/auth/*` proxy; the last is the localhost/preview fallback authDomain).
   - Firebase provider: Sign-in method → Add new provider → OpenID Connect, code flow, name `twitch` (provider id `oidc.twitch`, `TWITCH_PROVIDER_ID` in `packages/client/src/client-auth-flow/client-auth-flow-sso.ts`), issuer `https://id.twitch.tv/oauth2`, Twitch client ID and secret.
   - The client requests the `email` claim; the gateway drops an `oidc.*` email Firebase doesn't mark verified (`firebase-token-verifier.ts`), so an unverified Twitch email never email-matches an existing player.

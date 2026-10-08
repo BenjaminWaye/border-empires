@@ -46,7 +46,7 @@ export const logGuestStart = (analytics: Analytics | undefined, credential: User
 // GA4: a guest saved their empire to a real account. Logged together with
 // sign_up (the moment a real account comes into existence), which the caller
 // does not do for a link because getAdditionalUserInfo().isNewUser is false.
-export const logGuestUpgrade = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+export const logGuestUpgrade = (analytics: Analytics | undefined, method: Exclude<SignUpMethod, "password">): void => {
   logSignUpConversion(analytics, method);
   if (!analytics) return;
   try {
@@ -57,7 +57,7 @@ export const logGuestUpgrade = (analytics: Analytics | undefined, method: Extrac
 };
 
 // GA4: the account a guest tried to save to already has an empire.
-export const logGuestUpgradeConflict = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+export const logGuestUpgradeConflict = (analytics: Analytics | undefined, method: Exclude<SignUpMethod, "password">): void => {
   if (!analytics) return;
   try {
     logEvent(analytics, "guest_upgrade_conflict", { method });
