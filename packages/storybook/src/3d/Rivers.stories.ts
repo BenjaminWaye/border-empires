@@ -69,7 +69,7 @@ const render = (args: Args): HTMLElement => {
   }
   water.commit();
 
-  const rivers = createRiverOverlay(stage.scene, { heightfield: hf, waterMaterial: water.material });
+  const rivers = createRiverOverlay(stage.scene, { heightfield: hf });
   rivers.rebuild({
     camX: args.camX,
     camY: args.camY,

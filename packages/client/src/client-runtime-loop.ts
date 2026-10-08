@@ -7,6 +7,7 @@ import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity 
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { drawResourceOverlay2D } from "./client-resource-overlay-2d/client-resource-overlay-2d.js";
 import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { drawLiveOwnershipTint2D } from "./client-map-render/client-map-render-live-ownership-tint.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
@@ -787,7 +788,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const screenCenter = isTrue3DRendererActive() ? deps.worldToScreen(wx, wy, size, halfW, halfH) : undefined;
         const px = screenCenter ? screenCenter.sx - size / 2 : (x + halfW) * size;
         const py = screenCenter ? screenCenter.sy - size / 2 : (y + halfH) * size;
-        let ownerAlpha = 1;
 
         if (!isTrue3DRendererActive()) {
           if (vis === "unexplored") {
@@ -814,25 +814,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-          deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
-          ownerAlpha =
-            t.ownershipState === "FRONTIER" ? (isTrue3DRendererActive() ? 0.08 : 0.2)
-            : isTrue3DRendererActive() ? 0.24
-            : 0.92;
-          if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
-            ownerAlpha = Math.min(ownerAlpha, 0.62);
-          }
-          if (t.ownershipState === "FRONTIER" && typeof t.frontierDecayAt === "number") {
-            const remainingMs = t.frontierDecayAt - Date.now();
-            if (remainingMs > 0 && remainingMs <= 60_000) {
-              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2);
-              ownerAlpha *= 0.55 + blink * 0.6;
-            }
-          }
-          deps.ctx.globalAlpha = ownerAlpha;
-          if (t.ownershipState === "SETTLED") deps.ctx.fillRect(px, py, size, size);
-          else deps.ctx.fillRect(px, py, size - 1, size - 1);
-          deps.ctx.globalAlpha = 1;
+          drawLiveOwnershipTint2D(deps.ctx, t, deps.effectiveOverlayColor(t.ownerId), wx, wy, px, py, size);
         }
 
         // Fogged tiles show the last-witnessed owner at a fixed dim tint —
