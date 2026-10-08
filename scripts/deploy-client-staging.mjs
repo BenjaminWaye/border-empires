@@ -65,10 +65,10 @@ ensureTrackedProjectLink(rootDir);
 if (!process.env.GIT_COMMIT_SHA) {
   process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
 }
-// Staging runs a half-size map (fly.combined.staging.toml WORLD_WIDTH/HEIGHT);
+// Staging runs at the standard map size (fly.combined.staging.toml WORLD_WIDTH/HEIGHT);
 // the client bundle must be built with the same dimensions.
-const stagingWorldWidth = process.env.WORLD_WIDTH ?? "320";
-const stagingWorldHeight = process.env.WORLD_HEIGHT ?? "160";
+const stagingWorldWidth = process.env.WORLD_WIDTH ?? "640";
+const stagingWorldHeight = process.env.WORLD_HEIGHT ?? "320";
 process.env.WORLD_WIDTH = stagingWorldWidth;
 process.env.WORLD_HEIGHT = stagingWorldHeight;
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
