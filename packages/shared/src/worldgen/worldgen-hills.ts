@@ -15,9 +15,11 @@ import {
   terrainCodeAt,
   valueNoise,
   worldIndex,
-  worldSeed
+  worldSeed,
+  worldStyle
 } from "./worldgen.js";
-import { worldgenVersion } from "./worldgen-version.js";
+import { isNaturalRangeFoothill } from "./worldgen-natural-ranges.js";
+import { naturalRangeShapeActive, worldgenVersion } from "./worldgen-version.js";
 import { hillFieldAt, hillThresholdFor } from "./worldgen-biome-thresholds.js";
 
 let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
@@ -118,6 +120,13 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
         const roll = seeded01(wx * 3 + 7, wy * 5 - 11, seed + 841);
         isHills = roll < chance;
       }
+    }
+
+    // v10+ continents ranges keep a thin mountain core only (a band thicker
+    // than ~2 tiles looks fake), so the wide convergent-boundary zone around
+    // it -- and a margin beyond -- is hills instead. See worldgen-natural-ranges.ts.
+    if (!isHills && naturalRangeShapeActive() && worldStyle() === "continents") {
+      isHills = isNaturalRangeFoothill(wx, wy);
     }
 
     if (!isHills) {

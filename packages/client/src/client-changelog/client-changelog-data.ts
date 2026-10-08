@@ -302,6 +302,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
     changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
   },
+  {
+    createdAt: 1791487400564, // Date.now() frozen for this entry
+    introducedIn: "2026.10.08.1",
+    title: "More natural mountain ranges and round atolls on new worlds",
+    why: "Mountain ranges on continent maps ran in ruler-straight lines or filled wide gray wedges, and ring-shaped atolls were stretched into ovals, which looked artificial.",
+    changes: [
+      "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
+      "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
+      "Atoll islands now stay round instead of being stretched into ovals",
+      "Seasons already in progress keep their current map"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

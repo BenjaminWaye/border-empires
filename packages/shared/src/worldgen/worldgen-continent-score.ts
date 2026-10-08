@@ -24,6 +24,7 @@ import { buildPlates, type Plate } from "./worldgen-plates.js";
 import { POLAR_BAND, type WorldStyle, worldIndex, worldSeed, worldStyle } from "./worldgen.js";
 import { amplitudeFromNearCoastSpread, setCoastNoiseAmplitude, shorelineRoughnessAt } from "./worldgen-coastline-style.js";
 import { archipelagoBumpAt, atollBumpAt } from "./worldgen-archipelago-features.js";
+import { naturalRangeShapeActive } from "./worldgen-version.js";
 
 const UNSET_I16 = -2;
 const TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
@@ -238,7 +239,7 @@ const UPLIFT_SCALE = 0.9;
 // that each ran their own (expensive, now-distorted-per-plate) nearestPlates
 // search for the same tile, doubling the cost of a full-map generation for
 // no reason since isMountainRange always queries both for the same tile.
-const computePlateContinentScore = (wx: number, wy: number): { index: number; score: number; stress: number } => {
+const computePlateContinentScore = (wx: number, wy: number, x: number, y: number): { index: number; score: number; stress: number } => {
   const plates = buildPlates();
   const { near, nearDist, far, farDist } = nearestPlates(wx, wy, plates);
   const boundaryStrength = boundaryStrengthOf(nearDist, farDist);
@@ -252,7 +253,10 @@ const computePlateContinentScore = (wx: number, wy: number): { index: number; sc
     // roughness multiplier below) so both still get the same coastline
     // jaggedness as everything else instead of needing bespoke shape logic.
     archipelagoBumpAt(wx, wy) +
-    atollBumpAt(wx, wy);
+    // v10+: atolls are circles by definition, so sample them at the raw
+    // (unwarped) tile -- the domain warp's ~58-tile amplitude stretched a
+    // 9-15 tile radius ring into a 15x30 oval.
+    (naturalRangeShapeActive() ? atollBumpAt(x, y) : atollBumpAt(wx, wy));
   const roughness = shorelineRoughnessAt(wx, wy, near.cx, near.cy, Math.floor(near.cx * 7919 + near.cy * 104729));
   const index = plates.indexOf(near);
   const rawStress = stress > 0 ? boundaryStrength * stress : 0;
@@ -262,7 +266,7 @@ const computePlateContinentScore = (wx: number, wy: number): { index: number; sc
 const computeContinentScore = (x: number, y: number): { index: number; score: number; stress: number } => {
   const { wx, wy } = warpedCoords(x, y);
   if (worldStyle() === "islands") return { ...computeEllipseContinentScore(wx, wy), stress: 0 };
-  return computePlateContinentScore(wx, wy);
+  return computePlateContinentScore(wx, wy, x, y);
 };
 
 export const boundaryConvergentStressCachedAt = (x: number, y: number): number => {
