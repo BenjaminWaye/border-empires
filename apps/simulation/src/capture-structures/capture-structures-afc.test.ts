@@ -47,8 +47,9 @@ describe("capture structure survival — AFC", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              // A module still in transit is lost with the AFC (absent from the expected afcJson below).
-              afc: { ownerId: "player-2", status: "active", activatedAt: 0, incomingModules: [{ techId: "masonry", arrivesAt: 999_999 }] }
+              // A module still in transit is lost with the AFC, and the lander's
+              // guaranteed-footprint marker never transfers (both absent from the expected afcJson below).
+              afc: { ownerId: "player-2", status: "active", activatedAt: 0, landedAt: 0, incomingModules: [{ techId: "masonry", arrivesAt: 999_999 }] }
             }
           ],
           activeLocks: []

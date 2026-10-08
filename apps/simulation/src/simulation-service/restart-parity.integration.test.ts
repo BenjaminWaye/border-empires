@@ -181,12 +181,15 @@ describe("restart parity (in-memory stores)", () => {
       .exportState()
       .tiles.filter((tile) => tile.ownerId === spawnedPlayerId);
 
+    // The AFC tile: the landing's FRONTIER footprint tiles may sort ahead of it.
+    const afcBeforeRestart = ownedTilesBeforeRestart.find((tile) => tile.afcJson !== undefined);
+    expect(afcBeforeRestart).toBeDefined();
     expect(ownedTilesAfterRestart).toHaveLength(ownedTilesBeforeRestart.length);
     expect(ownedTilesAfterRestart).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          x: ownedTilesBeforeRestart[0]?.x,
-          y: ownedTilesBeforeRestart[0]?.y,
+          x: afcBeforeRestart?.x,
+          y: afcBeforeRestart?.y,
           ownerId: spawnedPlayerId,
           ownershipState: "SETTLED"
         })
