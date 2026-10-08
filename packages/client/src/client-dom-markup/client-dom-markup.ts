@@ -137,6 +137,14 @@ export const hudMarkup = `
             </span>
             <span>Continue with Google</span>
           </button>
+          <button id="auth-twitch" class="panel-btn auth-twitch-btn auth-primary-sso">
+            <span class="auth-twitch-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path fill="currentColor" d="M11.57 4.71h1.72v5.15h-1.72Zm4.72 0H18v5.15h-1.71ZM6 0 1.71 4.29v15.42h5.15V24l4.28-4.29h3.43L22.29 12V0Zm14.57 11.14-3.43 3.43h-3.43l-3 3v-3H6.86V1.71h13.71Z"></path>
+              </svg>
+            </span>
+            <span>Continue with Twitch</span>
+          </button>
           <div class="auth-divider"><span>Or</span></div>
           <div class="auth-email-entry">
             <span class="auth-email-icon" aria-hidden="true">

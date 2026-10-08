@@ -1,7 +1,7 @@
 import { safeLocalStorageGet, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-browser.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { getGuestSave, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
+import { getGuestSave, saveMethodLabel, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
 
 export type OpenReason = "badge" | "diplomacy" | "nudge";
 
@@ -59,7 +59,12 @@ const saveOptions = (guestSave: GuestSaveController): HTMLElement[] => {
   input.autocomplete = "email";
   input.dataset.guestSave = "email-input";
   emailRow.append(input, action("Email me a link", "email"));
-  return [action("Continue with Google", "google", "panel-btn guest-save-btn guest-save-primary"), el("div", "guest-save-or", "or"), emailRow];
+  return [
+    action("Continue with Google", "google", "panel-btn guest-save-btn guest-save-primary"),
+    action("Continue with Twitch", "twitch", "panel-btn guest-save-btn guest-save-twitch"),
+    el("div", "guest-save-or", "or"),
+    emailRow
+  ];
 };
 
 const renderBody = (view: SaveView, guestSave: GuestSaveController): HTMLElement[] => {
@@ -73,7 +78,7 @@ const renderBody = (view: SaveView, guestSave: GuestSaveController): HTMLElement
     }
     case "conflict":
       return [
-        el("h3", "guest-save-subtitle", `That ${view.method === "google.com" ? "Google account" : "email"} already has an empire`),
+        el("h3", "guest-save-subtitle", `That ${view.method === "email-link" ? "email" : `${saveMethodLabel(view.method)} account`} already has an empire`),
         el("p", "guest-save-note", "You can switch to it, but this guest empire will be left behind and can't be recovered."),
         action("Switch to that empire", "switch", "panel-btn guest-save-btn guest-save-primary"),
         action("Keep playing as a guest", "keep")
@@ -104,7 +109,7 @@ export const closeGuestSavePanel = (): void => {
 };
 
 // Static content, unlike the save panel: it is not driven by GuestSaveController
-// state and offers no Google/email buttons, since neither works here. Reuses
+// state and offers no Google/Twitch/email buttons, since neither works here. Reuses
 // the same card markup/CSS and the "close" click handler already wired below.
 const renderInAppNotice = (appName: string): HTMLElement[] => [
   el("h2", undefined, "You're playing as a guest"),
@@ -135,6 +140,7 @@ const onPanelClick = (event: Event): void => {
   if (!guestSave || !name) return;
   if (name === "close") return closeGuestSavePanel();
   if (name === "google") void guestSave.saveWithGoogle();
+  else if (name === "twitch") void guestSave.saveWithTwitch();
   else if (name === "email") void guestSave.saveWithEmail((panelEl()?.querySelector('[data-guest-save="email-input"]') as HTMLInputElement | null)?.value ?? "");
   else if (name === "switch") void guestSave.switchToExisting();
   else if (name === "keep") {
