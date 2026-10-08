@@ -45,10 +45,9 @@ const STYLES = `
 .sb-dev-gear + .sb-dev-gear { margin-left: -3px; }
 .sb-dev-gear:nth-child(even) { transform: translateY(2px) rotate(22.5deg); }
 .sb-dev-gear-body { fill: #3d3024; stroke: var(--sp-brass-700); stroke-width: 1; opacity: 0.85; }
-.sb-dev-gear.is-busy .sb-dev-gear-body { opacity: 1; }
 .sb-dev-gear-rim { fill: none; stroke: rgba(0,0,0,0.55); stroke-width: 1.2; }
 .sb-dev-gear-hub { fill: var(--sp-iron-950); stroke: var(--sp-brass-700); stroke-width: 0.8; }
-.sb-dev-gear.is-busy .sb-dev-gear-body { fill: url(#sb-dev-brass); stroke: var(--sp-brass-700); }
+.sb-dev-gear.is-busy .sb-dev-gear-body { fill: url(#sb-dev-brass); opacity: 1; }
 .sb-dev-gear.is-busy { filter: drop-shadow(0 0 3px rgba(217,173,82,0.55)); }
 .sb-dev-gear.is-busy .sb-dev-gear-body,
 .sb-dev-gear.is-busy .sb-dev-gear-rim { transform-origin: 0 0; animation: sbDevSpin 2.4s linear infinite; }
@@ -70,7 +69,9 @@ const STYLES = `
 .sb-dev-gears.is-mobile .sb-dev-gear + .sb-dev-gear { margin-left: -2px; }
 `;
 
-// Shared gradients referenced by url(#…) from every gear.
+// Gradients referenced by url(#…) from every gear. Emitted inside each chip
+// (duplicate ids resolve to the first, identical copy) so a chip never
+// depends on a node injected elsewhere in the document.
 const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <radialGradient id="sb-dev-brass" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#f4dfa6"/><stop offset="0.5" stop-color="#d9ad52"/><stop offset="1" stop-color="#8a611f"/></radialGradient>
   <radialGradient id="sb-dev-copper" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#f0b48a"/><stop offset="0.5" stop-color="#c9713f"/><stop offset="1" stop-color="#7a3d1c"/></radialGradient>
@@ -84,7 +85,6 @@ export const ensureDevGearsStyles = (): void => {
   style.id = "sb-dev-gears-styles";
   style.textContent = STYLES;
   document.head.appendChild(style);
-  document.body.insertAdjacentHTML("afterbegin", DEFS);
 };
 
 // Explicit width: overlapping negative margins otherwise confuse the grid's
@@ -100,7 +100,7 @@ export const devGearsChipHtml = (args: DevGearsArgs): string => {
   const label = `Development: ${args.busy} of ${args.limit} slots busy`;
   const gears = Array.from({ length: args.limit }, (_, i) => gearSvg(i < args.busy, i)).join("");
   return `<button class="stat-chip stat-chip-dev sb-dev-gears ${full ? "is-full" : ""} ${args.mobile ? "is-mobile" : ""}" type="button" data-panel="development" title="${label}. Tap for breakdown." aria-label="${label}">
-    <span>Dev</span>
+    ${DEFS}<span>Dev</span>
     <b class="sb-dev-train" style="width:${trainWidth(args)}px">${gears}</b>
   </button>`;
 };

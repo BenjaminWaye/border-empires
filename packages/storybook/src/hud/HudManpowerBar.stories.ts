@@ -13,9 +13,11 @@ import { ensureStatChipSteampunkStyles, STAT_CHIPS_STEAMPUNK_CLASS } from "./sta
  * The real top HUD strip (#top-strip / #stats-chips with style.css and the
  * steampunk theme), rendered twice: today's manpower chip and the proposed
  * gauge chip with every stat chip restyled to the steampunk theme
- * (stat-chip-steampunk-mock.ts). Mobile vs desktop follows the same `max-width: 900px` media
- * query the client uses, so resize the canvas (or use the viewport toolbar)
- * to switch layouts. Chip markup mirrors client-hud.ts:renderClientHud.
+ * (stat-chip-steampunk-mock.ts). Mobile vs desktop follows the same
+ * `max-width: 900px` media query the client uses; like client-hud.ts, the
+ * chip markup is picked at render time, so after resizing the canvas (or
+ * switching the viewport toolbar) re-render the story to switch layouts.
+ * Chip markup mirrors client-hud.ts:renderClientHud.
  */
 
 // `warnings` shows the alert states: Integrity below 90%, every Development
