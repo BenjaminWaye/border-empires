@@ -48,16 +48,19 @@ const showDiscoveryTipToast = (def: DiscoveryTipDef, onDismiss: (mute: boolean) 
  * a tip is first displayed (not on every re-render) — callers use this to
  * also record the tip into the Activity Feed, so the player can scroll back
  * and re-read it after the toast is gone, instead of it being lost the
- * moment it's dismissed.
+ * moment it's dismissed. While `deferred` (see client-onboarding-ui-gate.ts:
+ * a dialog covers the map or the join-time AFC drop hasn't finished) the
+ * toast is hidden and the queue kept, so the tip shows once it clears.
  */
 export const renderDiscoveryTipOverlay = (
   queue: DiscoveryTipId[],
   authEmail: string | null | undefined,
   onDismiss: () => void,
-  onShow?: (def: DiscoveryTipDef) => void
+  onShow?: (def: DiscoveryTipDef) => void,
+  deferred = false
 ): void => {
   const nextId = queue[0];
-  if (!nextId || isDiscoveryTipsMuted(authEmail)) {
+  if (!nextId || deferred || isDiscoveryTipsMuted(authEmail)) {
     if (currentOverlayTipId !== null) {
       removeDiscoveryTipOverlay();
       currentOverlayTipId = null;
@@ -81,9 +84,10 @@ export const announceDiscoveryTip = (
   id: DiscoveryTipId,
   authEmail: string | null | undefined,
   onDismiss: () => void,
-  onShow?: (def: DiscoveryTipDef) => void
+  onShow?: (def: DiscoveryTipDef) => void,
+  deferred = false
 ): void => {
-  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss, onShow);
+  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss, onShow, deferred);
 };
 
 const escapeHtml = (value: string): string =>

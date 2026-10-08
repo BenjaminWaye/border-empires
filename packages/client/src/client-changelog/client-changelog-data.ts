@@ -270,8 +270,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
   },
   {
-    createdAt: 1791462529729,
+    createdAt: 1791450095409,
     introducedIn: "2026.10.08.3",
+    title: "Tips wait for your AFC to land",
+    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
+    changes: [
+      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
+      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
+    ]
+  },
+  {
+    createdAt: 1791462529729,
+    introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
     why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
     changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
