@@ -91,6 +91,13 @@ describe("createFirebaseTokenVerifier", () => {
     expect(await verify(verified)).toEqual({ uid: "u-t2", email: "me@example.com", emailVerified: true });
   });
 
+  it("also drops an unverified email from a guest who linked Twitch while the token still says anonymous", async () => {
+    const { verify } = makeVerifier();
+    const linkedGuest = await sign({ sub: "u-t3", email: "victim@example.com", firebase: { sign_in_provider: "anonymous", identities: { "oidc.twitch": ["123"] } } });
+
+    expect(await verify(linkedGuest)).toEqual({ uid: "u-t3" });
+  });
+
   it("rejects an unsigned alg:none token carrying a victim uid", async () => {
     const { verify, rejected } = makeVerifier();
     const forged = unsigned({ sub: "victim", user_id: "victim", iss: `https://securetoken.google.com/${PROJECT}`, aud: PROJECT, exp: NOW_S + 3600, iat: NOW_S - 1 });
