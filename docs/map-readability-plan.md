@@ -48,7 +48,7 @@ up:
 
 Four workstreams, landed as separate PRs in this order.
 
-### 1. Spawn placement and starting vision (server). In review as PR #2274
+### 1. Spawn placement and starting vision (server). Shipped in PR #2274
 
 - Every spawn search pass except the last keeps the AFC's reach disk plus one
   ring (`SPAWN_RIVAL_REACH_CLEARANCE` = 4) clear of other players' reach, rally
@@ -63,7 +63,7 @@ Four workstreams, landed as separate PRs in this order.
   gains it.
 - Every owned AFC sees `AFC_VISION_RADIUS` (4) around itself.
 
-### 2. Colors that look different (gateway)
+### 2. Colors that look different (gateway). Implemented on `claude/zealous-bardeen-mu9nyw`
 
 - Replace the exact-hex "taken" test with a perceptual distance (OKLab ΔE or
   CIEDE2000) and a minimum-gap threshold. Use it for automatic assignment
@@ -77,7 +77,9 @@ Four workstreams, landed as separate PRs in this order.
   against the full taken set, so an AI never keeps a color that now sits
   under the threshold next to a human's pick.
 
-### 3. 3D reach and ownership overlay (client, 3D first)
+### 3. 3D reach and ownership overlay (client, 3D first). Partly implemented
+
+Status: rival-reach hatching (3D only) and the "Inside <player>'s reach" / "Owned by <player>" tile header are implemented, with the Storybook story `3D Library/RivalReachHatch` for sign-off. Still to do: the own-territory border and the clash-seam rework. Own tiles keep the more informative "Your frontier" / "Your settled land" labels instead of a bare "Yours".
 
 The visual rule: **color is for ownership; line style and pattern are for
 reach.**
@@ -131,7 +133,7 @@ reach.**
 - Workstream 1: regression tests in
   `apps/simulation/src/spawn-placement/spawn-placement-rival-reach.test.ts`
   and `apps/simulation/src/runtime/runtime-afc-crowded-spawn.test.ts`
-  (both added by PR #2274, which also documents the rules in
+  (both added by PR #2274, merged, which also documents the rules in
   `game-mechanics.md`).
 - Workstream 2: allocator unit tests, including a case where two near-identical
   blues are rejected.
