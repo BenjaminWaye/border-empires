@@ -11,6 +11,7 @@ import {
 } from "three";
 import { hillBumpsWithCorridorAt, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { RENDER_ORDER, type OverlayRenderOrders } from "./client-map-3d-render-order.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
 // straight multiply against whatever's already in the framebuffer (the
@@ -205,18 +206,21 @@ export const createOwnershipOverlay = (
   // bucket defaults to the original translucent alpha blend now. Still
   // overridable per-caller (unused today, kept for the same reason
   // BlendMode itself stays exported: see its doc comment above createMesh).
-  blendModes?: { settled: BlendMode; frontier: BlendMode }
+  blendModes?: { settled: BlendMode; frontier: BlendMode },
+  // Defaults to the live ownership slots; the fog overlays pass their own
+  // so they draw above river water (client-map-3d-render-order.ts).
+  renderOrders: OverlayRenderOrders = { settled: RENDER_ORDER.ownershipSettled, frontier: RENDER_ORDER.ownershipFrontier }
 ): OwnershipOverlay => {
   const settledBlend = blendModes?.settled ?? "normal";
   const frontierBlend = blendModes?.frontier ?? "normal";
   const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
-  settled.mesh.renderOrder = 6;
+  settled.mesh.renderOrder = renderOrders.settled;
   const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
-  frontier.mesh.renderOrder = 7;
+  frontier.mesh.renderOrder = renderOrders.frontier;
   const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
-  settledHill.mesh.renderOrder = 6;
+  settledHill.mesh.renderOrder = renderOrders.settled;
   const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
-  frontierHill.mesh.renderOrder = 7;
+  frontierHill.mesh.renderOrder = renderOrders.frontier;
   scene.add(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
 
   let settledCount = 0;

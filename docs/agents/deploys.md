@@ -126,6 +126,17 @@ Plan, phases and rationale: [`../hetzner-migration-plan.md`](../hetzner-migratio
 - `/r/:code` (rally invite links) is served by the edge function `api/rally/[code].ts`, which returns the normal app shell with link-preview (Open Graph/Twitter) tags injected. It reads the inviter name from the gateway's cached `GET /rally/preview/:code` via the `BACKEND_URL` Vercel env var, and fails open to generic tags if that is unset or slow. The share image is `packages/client/public/og/rally-preview.jpg` (1200x630 JPEG, kept under ~300 KB for WhatsApp). After a client deploy, check a link with the platform debuggers (Facebook Sharing Debugger, X Card Validator) or `curl -A "facebookexternalhit/1.1" <play origin>/r/<code>`.
 - Do not create or link additional Vercel projects for this repo. Reuse `border-empires-client` and prefer the stable production domain `https://border-empires-client.vercel.app/` when reporting deploy results.
 
+## Firebase sign-in providers
+
+- Google, email link, email/password and anonymous (Play now) are built-in Firebase Auth providers for the `border-empires` project.
+- **Twitch** ("Continue with Twitch" on the login screen and the guest "Save your empire" panel) is a custom OpenID Connect provider, so the project must be on Identity Platform (Firebase console → Authentication → Settings → upgrade; needs the Blaze plan, one-way). Without the provider enabled the button fails with `auth/operation-not-allowed`.
+  - Twitch app (dev.twitch.tv/console) OAuth redirect URLs: `https://play.borderempires.com/__/auth/handler`, `https://staging.borderempires.com/__/auth/handler`, `https://border-empires.firebaseapp.com/__/auth/handler` (the first two go through the `vercel.json` `/__/auth/*` proxy; the last is the localhost/preview fallback authDomain).
+  - Firebase provider: Sign-in method → Add new provider → OpenID Connect, code flow, name `twitch` (provider id `oidc.twitch`, `TWITCH_PROVIDER_ID` in `packages/client/src/client-auth-flow/client-auth-flow-sso.ts`), issuer `https://id.twitch.tv/oauth2`, Twitch client ID and secret.
+  - The client requests the `email` claim; the gateway drops an `oidc.*` email Firebase doesn't mark verified (`firebase-token-verifier.ts`), so an unverified Twitch email never email-matches an existing player.
+- **Discord** ("Continue with Discord", login screen and guest panel) is set up the same way, as a second OpenID Connect provider (Discord publishes `https://discord.com/.well-known/openid-configuration`).
+  - Discord app (discord.com/developers/applications → OAuth2): add the same three `/__/auth/handler` redirect URLs as Twitch, and copy the client ID and secret.
+  - Firebase provider: OpenID Connect, code flow, name `discord` (provider id `oidc.discord`, `DISCORD_PROVIDER_ID` in `client-auth-flow-sso.ts`), issuer `https://discord.com`. The client requests scopes `openid identify email`.
+
 ## Fly (legacy rollback only)
 
 Both Fly apps are stopped. Do not run `fly deploy` against them.

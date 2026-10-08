@@ -154,6 +154,18 @@
   border-color: rgba(255, 226, 168, 0.55) !important;
 }
 
+.guest-save-twitch {
+  background: #9146ff !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+.guest-save-discord {
+  background: #5865f2 !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+
 .guest-save-or {
   margin: 0 0 10px;
   text-align: center;

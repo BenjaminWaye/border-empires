@@ -4,7 +4,7 @@
 // Firebase's cryptic "Unable to process request due to missing initial
 // state." error on res.firebaseapp.com instead of ever showing our own UI.
 // Detect these environments up front so we can steer the player to their
-// system browser instead of letting Google sign-in fail silently there.
+// system browser instead of letting Google/Twitch/Discord sign-in fail silently there.
 type KnownInAppBrowser = {
   name: string;
   matches: (userAgent: string) => boolean;
@@ -22,13 +22,17 @@ const KNOWN_IN_APP_BROWSERS: KnownInAppBrowser[] = [
 export const detectInAppBrowserName = (userAgent: string): string | undefined =>
   KNOWN_IN_APP_BROWSERS.find((browser) => browser.matches(userAgent))?.name;
 
-export const inAppBrowserGoogleSignInMessage = (appName: string): string =>
-  `Google sign-in doesn't work inside the ${appName} in-app browser. Tap the menu (••• or ⋮) and choose "Open in Chrome" or "Open in Safari", then sign in again.`;
+export const inAppBrowserSsoSignInMessage = (appName: string, providerLabel = "Google"): string =>
+  `${providerLabel} sign-in doesn't work inside the ${appName} in-app browser. Tap the menu (••• or ⋮) and choose "Open in Chrome" or "Open in Safari", then sign in again.`;
+
+export const inAppBrowserGoogleSignInMessage = (appName: string): string => inAppBrowserSsoSignInMessage(appName, "Google");
 
 // Fallback for when detection above misses a browser but Firebase's redirect
 // fallback still fails because sessionStorage was cleared/partitioned.
 export const isMissingInitialStateError = (message: string): boolean =>
   /missing initial state/i.test(message);
 
-export const MISSING_INITIAL_STATE_MESSAGE =
-  'Google sign-in failed because this browser blocked the required session storage. Open this page in Chrome or Safari (not an in-app browser) and try again.';
+export const missingInitialStateMessage = (providerLabel = "Google"): string =>
+  `${providerLabel} sign-in failed because this browser blocked the required session storage. Open this page in Chrome or Safari (not an in-app browser) and try again.`;
+
+export const MISSING_INITIAL_STATE_MESSAGE = missingInitialStateMessage("Google");
