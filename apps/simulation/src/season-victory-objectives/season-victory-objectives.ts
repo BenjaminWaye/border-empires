@@ -21,6 +21,7 @@ import {
 } from "@border-empires/game-domain";
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { objectiveSelfProgress, objectiveSelfProgressLabel } from "./season-victory-self-progress.js";
+import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 type WorldTile = RuntimeState["tiles"][number];
@@ -211,9 +212,11 @@ const buildSeasonVictoryContext = (
 ): SeasonVictoryContext => {
   const competitivePlayerIds = new Set(leaderboardOverall.map((entry) => entry.id));
   const playerAlliesById = new Map<string, ReadonlySet<string>>();
+  const techIdsByPlayerId = new Map<string, { techIds: Set<string> }>();
   for (const player of players) {
     if (!competitivePlayerIds.has(player.id)) continue;
     playerAlliesById.set(player.id, new Set(player.allies ?? []));
+    techIdsByPlayerId.set(player.id, { techIds: new Set(player.techIds ?? []) });
   }
   const townCountByPlayerId = new Map<string, number>();
   const settledCountByPlayerId = new Map<string, number>();
@@ -241,7 +244,17 @@ const buildSeasonVictoryContext = (
     if (tile.resource) {
       const resource = tile.resource as ResourceType;
       totalResourceCounts[resource] += 1;
-      if (tile.ownerId && competitivePlayerIds.has(tile.ownerId)) {
+      // Monopoly control means settled resource tiles the owner can actually
+      // see: frontier claims don't count, and neither do tiles whose resource
+      // is still masked because the owner hasn't researched its reveal tech.
+      const ownerTech = tile.ownerId ? techIdsByPlayerId.get(tile.ownerId) : undefined;
+      if (
+        tile.ownerId &&
+        tile.ownershipState === "SETTLED" &&
+        competitivePlayerIds.has(tile.ownerId) &&
+        ownerTech &&
+        hasRevealedResourceForPlayer(ownerTech, resource)
+      ) {
         const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
         owned[resource] = (owned[resource] ?? 0) + 1;
         ownedResourceCountsByPlayerId.set(tile.ownerId, owned);
