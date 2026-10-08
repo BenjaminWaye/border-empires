@@ -22,7 +22,7 @@ import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-bro
 // the same browser can finish it when the link is opened.
 export const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
 
-export type SaveMethod = "google.com" | "oidc.twitch" | "email-link";
+export type SaveMethod = "google.com" | "oidc.twitch" | "oidc.discord" | "email-link";
 
 export type SaveView =
   | { kind: "idle" }
@@ -38,12 +38,15 @@ type PendingSwitch = { kind: "provider"; credential: AuthCredential } | { kind: 
 
 type ProviderSaveMethod = Exclude<SaveMethod, "email-link">;
 
-export const saveMethodLabel = (method: ProviderSaveMethod): string => (method === "oidc.twitch" ? "Twitch" : "Google");
+const SAVE_METHOD_LABELS: Record<ProviderSaveMethod, string> = { "google.com": "Google", "oidc.twitch": "Twitch", "oidc.discord": "Discord" };
+
+export const saveMethodLabel = (method: ProviderSaveMethod): string => SAVE_METHOD_LABELS[method];
 
 export type GuestSaveDeps = {
   firebaseAuth: Auth | undefined;
   googleProvider: GoogleAuthProvider | undefined;
   twitchProvider?: OAuthProvider | undefined;
+  discordProvider?: OAuthProvider | undefined;
   analytics: Analytics | undefined;
   reload: () => void;
   userAgent: () => string;
@@ -57,6 +60,7 @@ export type GuestSaveController = {
   unavailableReason: () => string | undefined;
   saveWithGoogle: () => Promise<void>;
   saveWithTwitch: () => Promise<void>;
+  saveWithDiscord: () => Promise<void>;
   saveWithEmail: (emailRaw: string) => Promise<void>;
   switchToExisting: () => Promise<void>;
   keepPlayingAsGuest: () => void;
@@ -145,7 +149,8 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
 
   const saveWithProvider = async (method: ProviderSaveMethod): Promise<void> => {
     const label = saveMethodLabel(method);
-    const provider: AuthProvider | undefined = method === "oidc.twitch" ? deps.twitchProvider : deps.googleProvider;
+    const providers: Record<ProviderSaveMethod, AuthProvider | undefined> = { "google.com": deps.googleProvider, "oidc.twitch": deps.twitchProvider, "oidc.discord": deps.discordProvider };
+    const provider = providers[method];
     const user = currentGuest();
     const blocked = unavailableReason();
     if (blocked) return setView({ kind: "error", message: blocked });
@@ -158,7 +163,7 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
       const code = errorCode(error);
       if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return setView({ kind: "idle" });
       if (isConflictCode(code)) {
-        const credential = method === "oidc.twitch" ? OAuthProvider.credentialFromError(error as never) : GoogleAuthProvider.credentialFromError(error as never);
+        const credential = method === "google.com" ? GoogleAuthProvider.credentialFromError(error as never) : OAuthProvider.credentialFromError(error as never);
         if (credential) return offerSwitch(method, { kind: "provider", credential });
         // Nothing reusable to sign in with: say what happened instead of showing a raw Firebase code.
         return setView({ kind: "error", message: `That ${label} account already has an empire. Use a different account, or keep playing as a guest.` });
@@ -177,6 +182,7 @@ export const createGuestSaveController = (deps: GuestSaveDeps): GuestSaveControl
 
     saveWithGoogle: () => saveWithProvider("google.com"),
     saveWithTwitch: () => saveWithProvider("oidc.twitch"),
+    saveWithDiscord: () => saveWithProvider("oidc.discord"),
 
     async saveWithEmail(emailRaw) {
       const email = emailRaw.trim();

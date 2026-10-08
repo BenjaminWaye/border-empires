@@ -289,6 +289,13 @@ export const TOWN_REACH_RADIUS = 3;
 // named constant so reach and the combat aura can be tuned independently.
 export const OUTPOST_REACH_RADIUS = 5;
 export const DOCK_REACH_RADIUS = 1;
+// An AFC always sees one ring past its own TOWN_REACH_RADIUS disk — the view
+// an unobstructed spawn gets from owning that disk — so a spawn whose disk a
+// rival's reach already covers is not left blind around its own AFC.
+export const AFC_VISION_RADIUS = TOWN_REACH_RADIUS + 1;
+// A landed AFC's own 3x3 footprint is always its owner's reach, even where a
+// rival's reach already covered it (see ReachAnchor.guaranteedRadius).
+export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 
 // Decay window for a FRONTIER tile claimed/captured outside the owner's
 // current reach (distinct from encirclement decay, which is

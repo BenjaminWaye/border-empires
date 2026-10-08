@@ -303,8 +303,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
   },
   {
-    createdAt: 1791469348919,
+    createdAt: 1791469121213,
     introducedIn: "2026.10.08.5",
+    title: "New empires no longer land inside a neighbour's reach",
+    why: "A new empire could land right next to another player whose reach already covered its starting land. The AFC then claimed almost nothing and could barely see past its own tile.",
+    changes: [
+      "New and respawning empires now land where their starting reach is clear of every other empire's reach, whenever the map has room",
+      "Your AFC always sees 4 tiles around itself",
+      "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
+    ]
+  },
+  {
+    createdAt: 1791469348919,
+    introducedIn: "2026.10.08.6",
     title: "Quieter AFC landing",
     why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]

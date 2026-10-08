@@ -95,6 +95,20 @@ describe("saving with Twitch", () => {
     expect(signInWithCredential).toHaveBeenCalledWith(firebaseAuth, credential);
   });
 
+  it("links Discord with its own provider and uses the generic OAuth credential on a conflict", async () => {
+    const discordProvider = { providerId: "oidc.discord" } as never;
+    vi.mocked(linkWithPopup).mockRejectedValue({ code: "auth/credential-already-in-use" });
+    vi.mocked(OAuthProvider.credentialFromError).mockReturnValue({ kind: "discord-credential" } as never);
+    const { deps, firebaseAuth } = makeDeps({ discordProvider });
+    const controller = createGuestSaveController(deps);
+
+    await controller.saveWithDiscord();
+
+    expect(linkWithPopup).toHaveBeenCalledWith(firebaseAuth.currentUser, discordProvider);
+    expect(controller.getView()).toEqual({ kind: "conflict", method: "oidc.discord" });
+    expect(GoogleAuthProvider.credentialFromError).not.toHaveBeenCalled();
+  });
+
   it("says Twitch is unavailable when no Twitch provider is configured", async () => {
     const controller = createGuestSaveController(makeDeps().deps);
 
