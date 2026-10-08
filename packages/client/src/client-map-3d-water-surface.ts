@@ -13,8 +13,13 @@ import {
   Vector2
 } from "three";
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 export const WATER_SURFACE_Y = -0.06;
+
+const wrapIndex = (v: number, size: number): number => ((v % size) + size) % size;
+// The representative of `v` (mod `size`) at or just above `from`.
+const nearestWrapped = (v: number, from: number, size: number): number => from + wrapIndex(v - from, size);
 
 // The water mesh itself is a flat, zero-thickness sheet (see commit() below)
 // — unlike land tiles, which get their own vertical "skirt" wall dropped at
@@ -101,10 +106,11 @@ const tileKey = (gc: number, gr: number): string => `${gc},${gr}`;
 export const createWaterSurface = (
   scene: Scene,
   _maxTiles: number,
-  // 0 = full waves, 1 = flat, at an absolute world corner. Calms the sea
-  // around river mouths (client-map-3d-river-mouths.ts) so its tile edges
-  // don't bob above and below the river where it flows in.
-  waveCalmAt: (worldX: number, worldZ: number) => number = () => 0
+  // Wave calm by absolute world corner (key z * WORLD_WIDTH + x; 0 = full
+  // waves, 1 = flat; absent = full waves). Calms the sea around river
+  // mouths (client-map-3d-river-mouths.ts) so its tile edges don't bob
+  // above and below the river where it flows in.
+  waveCalmCorners: () => ReadonlyMap<number, number> = () => new Map()
 ): WaterSurface => {
   // _maxTiles kept for API compatibility — merged geometry sizes itself.
 
@@ -220,6 +226,9 @@ export const createWaterSurface = (
 
     const positions = new Float32Array(vCount * 3);
     surfaceCalm = new Float32Array(vCount);
+    const calmCorners = waveCalmCorners();
+    const waveCalmAt = (worldX: number, worldZ: number): number =>
+      calmCorners.get(wrapIndex(worldZ, WORLD_HEIGHT) * WORLD_WIDTH + wrapIndex(worldX, WORLD_WIDTH)) ?? 0;
     const uvs = new Float32Array(vCount * 2);
     const colors = new Float32Array(vCount * 3);
     const indices = new Uint32Array(tiles.length * 6); // 2 triangles × 3 indices
@@ -234,11 +243,20 @@ export const createWaterSurface = (
         positions[vi]     = worldX;
         positions[vi + 1] = WATER_SURFACE_Y;
         positions[vi + 2] = worldZ;
-        surfaceCalm[vi / 3] = waveCalmAt(worldX + waveWorldOffsetX, worldZ + waveWorldOffsetZ);
         const ui = (vr * vCols + vc) * 2;
         uvs[ui]     = worldX / UV_WORLD_SCALE;
         uvs[ui + 1] = worldZ / UV_WORLD_SCALE;
       }
+    }
+
+    // Calm corners -> this commit's vertex grid (scene corner = world corner
+    // minus the wave offset, taken toroidally nearest to the grid).
+    for (const [key, calm] of calmCorners) {
+      const sx = nearestWrapped(key % WORLD_WIDTH - waveWorldOffsetX, minGC, WORLD_WIDTH);
+      const sz = nearestWrapped(Math.floor(key / WORLD_WIDTH) - waveWorldOffsetZ, minGR, WORLD_HEIGHT);
+      const vc = sx - minGC;
+      const vr = sz - minGR;
+      if (vc >= 0 && vc < vCols && vr >= 0 && vr < vRows) surfaceCalm[vr * vCols + vc] = calm;
     }
 
     // Vertex color: blend deep/shallow based on how many of the up-to-4
@@ -348,7 +366,7 @@ export const createWaterSurface = (
       skirtPosAttr.setUsage(DynamicDrawUsage); // top row updated every frame in tick()
       skirtGeometry.setAttribute("position", skirtPosAttr);
       skirtCalm = new Float32Array(skirtPositions.length / 3);
-      for (let i = 0; i < skirtCalm.length; i++) {
+      for (let i = 0; i < skirtCalm.length && calmCorners.size > 0; i++) {
         skirtCalm[i] = waveCalmAt((skirtPositions[i * 3] ?? 0) + waveWorldOffsetX, (skirtPositions[i * 3 + 2] ?? 0) + waveWorldOffsetZ);
       }
       skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));

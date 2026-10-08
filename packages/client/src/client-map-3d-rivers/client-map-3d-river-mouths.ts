@@ -11,7 +11,11 @@ import { seaDirectionAtCorner } from "./client-map-3d-river-edge-water.js";
 // Waves are fully back this far (tiles) from a mouth.
 const CALM_RADIUS = 2.5;
 
-type CalmCache = { readonly rivers: readonly RiverPath[]; readonly calmByCorner: ReadonlyMap<number, number> };
+type CalmCache = {
+  readonly rivers: readonly RiverPath[];
+  readonly calmByCorner: ReadonlyMap<number, number>;
+  readonly mouthCorners: ReadonlySet<number>;
+};
 // One seed at a time (rivers are per seed): bounded by mouths x ~25 corners.
 let cache: CalmCache | null = null;
 
@@ -43,9 +47,31 @@ export const buildRiverMouthCalm = (
   return calm;
 };
 
-/** Wave calm at world corner (x, z) for the current seed's rivers: 1 at a river mouth, 0 from CALM_RADIUS out. */
-export const riverMouthCalmAt = (x: number, z: number): number => {
+const NO_CALM: ReadonlyMap<number, number> = new Map();
+
+/**
+ * Wave calm for the current seed's rivers, keyed by world corner
+ * (z * WORLD_WIDTH + x): 1 at a river mouth, fading to 0 at CALM_RADIUS.
+ * Only corners near a mouth are present (a few hundred), so the water
+ * surface walks this map instead of querying every sea vertex -- a
+ * per-vertex lookup cost 10-15 ms per rebuild at full zoom-out.
+ */
+const currentCache = (): CalmCache => {
   const rivers = riversForCurrentSeed();
-  if (cache?.rivers !== rivers) cache = { rivers, calmByCorner: buildRiverMouthCalm(rivers) };
-  return cache.calmByCorner.get(cornerKey(x, z)) ?? 0;
+  if (cache?.rivers !== rivers) {
+    const calmByCorner = buildRiverMouthCalm(rivers);
+    // Full calm (1) only ever sits exactly on a mouth corner.
+    const mouthCorners = new Set([...calmByCorner].filter(([, calm]) => calm >= 1).map(([key]) => key));
+    cache = { rivers, calmByCorner, mouthCorners };
+  }
+  return cache;
 };
+
+export const riverMouthCalmCorners = (): ReadonlyMap<number, number> => {
+  const { calmByCorner } = currentCache();
+  return calmByCorner.size === 0 ? NO_CALM : calmByCorner;
+};
+
+/** World corners (z * WORLD_WIDTH + x) where a river meets the sea, for the current seed. */
+export const riverMouthCorners = (): ReadonlySet<number> => currentCache().mouthCorners;
+
