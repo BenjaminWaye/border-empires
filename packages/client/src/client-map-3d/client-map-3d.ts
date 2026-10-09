@@ -1474,7 +1474,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       lastRebuild.frontierAttackClaimKeysSnapshot = frontierAttackClaimKeysNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
-      sceneOrigin.camY = builtWindow.camY; atmosphere.updateShadowFrame(Math.max(builtWindow.halfW, builtWindow.halfH)); // resize the sun's shadow frustum to the new visible-tile radius
+      sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(Math.max(builtWindow.halfW, builtWindow.halfH), builtWindow.camX, builtWindow.camY); // resizes the sun's shadow frustum + re-anchors the unexplored storm clouds to the new origin
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the

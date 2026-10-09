@@ -41,6 +41,8 @@ const WATER_SKIRT_BOTTOM_Y = -0.6;
 // class DoubleSide above was added to fix. Baking the shade into the vertex
 // color guarantees a consistent look regardless of camera or light angle.
 const WATER_SKIRT_SHADE = 0.55;
+// Opaque floor under the water sheet, relative to it (see floorMaterial).
+const SEA_FLOOR_OFFSET_Y = -0.5;
 
 // Normal map repeats every UV_WORLD_SCALE world units (tiles).
 export const UV_WORLD_SCALE = 6.0;
@@ -164,6 +166,11 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
   // shade, not lit geometry), not something the scene's filmic tone curve
   // should touch. See client-map-3d-tone-mapping-regression.test.ts.
   const skirtMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, side: DoubleSide });
+  // The water is only 78% opaque and nothing is drawn under it, so without a
+  // floor the grey unexplored-storm sheet (client-map-3d-unexplored-storm.ts)
+  // would wash every sea grey. An unlit black copy of the surface just above
+  // the skirt bottom keeps the deep-water look it was tuned against.
+  const floorMaterial = new MeshBasicMaterial({ toneMapped: false, color: 0x000000, fog: false });
   let skirtMesh: Mesh | null = null;
   let skirtGeometry: BufferGeometry | null = null;
 
@@ -344,6 +351,10 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
     mesh.renderOrder = RENDER_ORDER.oceanSurface;
+    const floor = new Mesh(geometry, floorMaterial);
+    floor.position.y = SEA_FLOOR_OFFSET_Y;
+    floor.frustumCulled = false;
+    mesh.add(floor);
     scene.add(mesh);
 
     // Skirt: a vertical wall dropped to WATER_SKIRT_BOTTOM_Y along every
@@ -476,6 +487,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     skirtGeometry?.dispose();
     material.dispose();
     skirtMaterial.dispose();
+    floorMaterial.dispose();
     shoreFoam.dispose();
     swellMap.dispose();
     choppyMap.dispose();

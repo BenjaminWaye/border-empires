@@ -15,6 +15,8 @@ import {
 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { setBuildingEnvIntensity } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import { createUnexploredStormLayer, type UnexploredStormLayer } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
+import { UNEXPLORED_STORM_DARK, UNEXPLORED_STORM_MID } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   SUN_DISTANCE,
   getLightingSettings,
@@ -22,7 +24,8 @@ import {
   type LightingSettings
 } from "./client-lighting-tuner/client-lighting-tuner-settings.js";
 
-// These are black on purpose, and only one of them is ever drawn.
+// Only one of these is ever drawn, and barely: the unexplored-storm layer
+// (client-map-3d-unexplored-storm.ts) covers every pixel the terrain doesn't.
 //
 // Note the sky shader's naming is misleading: `midColor` is the color *at* the
 // horizon line, `topColor` is the zenith, and `horizonColor` is what's drawn
@@ -32,15 +35,13 @@ import {
 // FOV, which puts its topmost ray ~33° below horizontal. Every visible sky
 // fragment therefore has h <= -0.546, past the end of the shader's
 // smoothstep(0.0, -0.5, h) — so the whole screen resolves to `horizonColor`
-// and `midColor`/`topColor` never render at all.
-//
-// Consequence: giving these a daylight gradient does nothing except repaint
-// the entire unexplored void, which is what reads as fog-of-war in the
-// current art direction. Changing them is a camera change, not a color one.
-export const SKY_TOP_COLOR = "#000000";
-export const SKY_MID_COLOR = "#000000";
-export const SKY_HORIZON_COLOR = "#000000";
-export const FOG_COLOR = "#000000";
+// and `midColor`/`topColor` never render at all. They match the storm so any
+// sliver the cloud sheet misses doesn't flash black.
+export const SKY_TOP_COLOR = UNEXPLORED_STORM_DARK;
+export const SKY_MID_COLOR = UNEXPLORED_STORM_DARK;
+export const SKY_HORIZON_COLOR = UNEXPLORED_STORM_DARK;
+// Distant terrain hazes toward the storm, not toward black.
+export const FOG_COLOR = UNEXPLORED_STORM_MID;
 export const FOG_DENSITY = 0.0042;
 export const SKY_RADIUS = 1800;
 
@@ -95,6 +96,10 @@ export type AtmosphereResources = {
   // this stays cheap) so the shadow stays aligned with the live pan between
   // rebuilds instead of snapping only when sceneOrigin re-anchors.
   readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
+  readonly unexploredStorm: UnexploredStormLayer;
+  // Called once per terrain rebuild with the new visible-tile radius and the
+  // scene origin's world tile coords (sceneOrigin in client-map-3d.ts).
+  readonly onTerrainRebuilt: (halfExtentTiles: number, worldOriginX: number, worldOriginZ: number) => void;
   readonly dispose: () => void;
 };
 
@@ -272,11 +277,17 @@ export const createAtmosphere = (
   };
   // Keeps the light rigidly offset from its target along sunOffset's
   // direction so the frustum recenters without changing the sun's angle.
+  const unexploredStorm = createUnexploredStormLayer(scene);
   const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
+    unexploredStorm.recenter(sceneX, sceneZ);
     sun.target.position.set(sceneX, 0, sceneZ);
     sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
   updateShadowFrame(0);
+  const onTerrainRebuilt = (halfExtentTiles: number, worldOriginX: number, worldOriginZ: number): void => {
+    updateShadowFrame(halfExtentTiles);
+    unexploredStorm.setWorldOrigin(worldOriginX, worldOriginZ);
+  };
 
   // Single place every tunable light value is applied, both at startup (the
   // shipped defaults) and live from Settings > Admin > Lighting Tuner.
@@ -312,6 +323,7 @@ export const createAtmosphere = (
     skyMaterial.dispose();
     sun.shadow.dispose();
     scene.fog = null;
+    unexploredStorm.dispose();
     buildingEnvironmentTexture?.dispose();
   };
 
@@ -325,6 +337,8 @@ export const createAtmosphere = (
     buildingEnvironmentTexture,
     updateShadowFrame,
     updateShadowTarget,
+    unexploredStorm,
+    onTerrainRebuilt,
     dispose
   };
 };

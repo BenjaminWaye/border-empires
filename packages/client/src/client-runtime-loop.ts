@@ -49,6 +49,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrai
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { drawUnexploredStormTile } from "./client-unexplored-storm/client-unexplored-storm-2d.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
@@ -791,14 +792,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (!isTrue3DRendererActive()) {
           if (vis === "unexplored") {
-            deps.ctx.fillStyle = "#06090f";
-            deps.ctx.fillRect(px, py, size, size);
+            drawUnexploredStormTile(deps.ctx, wx, wy, px, py, size);
           } else if (!t) {
             if (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) {
               deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
             } else {
-              deps.ctx.fillStyle = "#06090f";
-              deps.ctx.fillRect(px, py, size, size);
+              drawUnexploredStormTile(deps.ctx, wx, wy, px, py, size);
             }
           } else if (vis === "fogged") {
             deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);

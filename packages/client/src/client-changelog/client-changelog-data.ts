@@ -320,6 +320,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
+  {
+    createdAt: 1791527610656,
+    introducedIn: "2026.10.09.1",
+    title: "Storm clouds over unexplored land",
+    why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
+    changes: ["Unexplored territory now shows as drifting grey storm clouds with rain streaks, in both the 3D map and the 2D map", "Explored land now stands above the clouds, and distant terrain fades into them instead of into black"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
