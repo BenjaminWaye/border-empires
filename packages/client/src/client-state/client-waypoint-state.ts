@@ -34,4 +34,8 @@ export type ClientWaypoint = {
   // rejecting the enqueue as a duplicate.
   planId?: string;
   plannedAt?: number;
+  // Effort level (commitManpower) chosen in the Expand To & Attack dialog
+  // for the final ATTACK on `target` -- see client-attack-commit.ts. Also
+  // mirrored to the server so its offline drain fires that leg with it.
+  commitManpower?: number;
 };

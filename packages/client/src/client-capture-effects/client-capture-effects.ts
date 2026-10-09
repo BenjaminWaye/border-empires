@@ -1,4 +1,4 @@
-import { requiredMusterForTarget } from "@border-empires/shared";
+import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
@@ -40,6 +40,7 @@ export const renderCaptureProgress = (
     | "musterAmountRateByTile"
     | "manpower"
     | "activeBattles"
+    | "attackCommitByTargetKey"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -247,7 +248,7 @@ export const renderCaptureProgress = (
     }
     const musterTile = state.tiles.get(entry.musterTileKey);
     const targetTile = state.tiles.get(targetKey);
-    const required = requiredMusterForTarget(targetTile);
+    const required = requiredMusterWithCommit(state, targetTile);
     const staged = Math.floor(extrapolatedMusterAmount(state, entry.musterTileKey, musterTile, required));
     const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
     deps.captureCardEl.dataset.state = "mustering";

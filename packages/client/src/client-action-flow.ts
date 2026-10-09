@@ -171,6 +171,8 @@ import type {
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
+import { attackWireMessage } from "./client-attack-commit/client-attack-commit.js";
+import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -614,6 +616,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
 
+  // Shared by the action queue's direct send and the muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
+  const sendAttackMessage = (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number): void =>
+    ws.send(JSON.stringify(attackWireMessage(state, { fromX, fromY, toX, toY, commandId, clientSeq, commitManpower })));
+
   const processActionQueue = (): boolean =>
     processActionQueueFromModule(state, {
       ws,
@@ -627,8 +633,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
+      sendAttack: sendAttackMessage,
       sendGameMessage
     });
 
@@ -1220,6 +1225,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void =>
     openBulkTileActionMenuFromModule(state, targetKeys, clientX, clientY, tileActionMenuUiDeps());
 
+  const attackLaunchDeps = (): AttackLaunchDeps => ({
+    keyFor, pickOriginForTarget, isTileOwnedByAlly, queueSpecificTargets, processActionQueue, attackQueueFailureReason, pushFeed, showCaptureAlert, hideTileActionMenu
+  });
+
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
@@ -1335,48 +1344,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "launch_attack") {
-      const enemyTargets = targets.filter((k) => {
-        const t = state.tiles.get(k);
-        return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
-      });
-      const out = queueSpecificTargets(enemyTargets);
-      if (out.queued > 0) processActionQueue();
-      if (out.queued > 0) {
-        pushFeed(`Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
-      } else {
-        const singleTile = !fromBulk && selected ? selected : undefined;
-        const failureMessage = singleTile
-          ? attackQueueFailureReason(singleTile)
-          : "Cannot launch attack for one or more selected tiles.";
-        showCaptureAlert("Attack failed", failureMessage, "warn");
-        pushFeed(failureMessage, "combat", "error");
-      }
-      hideTileActionMenu();
+      launchAttacksWithEffort(state, { targetKeys: targets, scope: fromBulk ? "bulk" : "single", selected }, attackLaunchDeps());
       return;
     }
     if (actionId === "attack_connected_region") {
-      const connectedTargets = !fromBulk && selected
-        ? connectedEnemyRegionKeys(state, selected, { keyFor, wrapX, wrapY }).filter((k) => {
-            const t = state.tiles.get(k);
-            return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
-          })
-        : [];
-      const out = queueSpecificTargets(connectedTargets);
-      if (out.queued > 0) processActionQueue();
-      if (out.queued > 0) {
-        pushFeed(
-          `Queued ${out.queued} attacks across the connected region${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`,
-          "combat",
-          "warn"
-        );
-      } else {
-        const failureMessage = selected
-          ? attackQueueFailureReason(selected)
-          : "Cannot attack this connected region right now.";
-        showCaptureAlert("Connected region attack failed", failureMessage, "warn");
-        pushFeed(failureMessage, "combat", "error");
-      }
-      hideTileActionMenu();
+      const regionKeys = !fromBulk && selected ? connectedEnemyRegionKeys(state, selected, { keyFor, wrapX, wrapY }) : [];
+      launchAttacksWithEffort(state, { targetKeys: regionKeys, scope: "region", selected }, attackLaunchDeps());
       return;
     }
     if (!selected) {
@@ -1838,6 +1811,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderTileActionMenu,
     openSingleTileActionMenu,
     openBulkTileActionMenu,
+    sendDeferredAttack: sendAttackMessage,
     handleTileAction,
     mapInteractionFlags,
     handleTileSelection,

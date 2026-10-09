@@ -6,7 +6,7 @@ import {
   waypointQueueCancel,
   waypointQueueEnqueue
 } from "./runtime-waypoint-queue.js";
-import type { ServerWaypointQueueEntry } from "./player-runtime-summary.js";
+import { waypointQueueWireEntries, type ServerWaypointQueueEntry } from "./player-runtime-summary.js";
 
 describe("waypointQueueEnqueue", () => {
   it("appends a new entry", () => {
@@ -133,5 +133,20 @@ describe("payload parsers", () => {
 
   it("parses a target-only payload", () => {
     expect(parseWaypointTargetPayload(JSON.stringify({ x: 3, y: 4 }))).toEqual({ x: 3, y: 4 });
+  });
+});
+
+describe("Expand To & Attack effort (commitManpower)", () => {
+  it("parses a positive commitManpower and ignores a non-positive one", () => {
+    expect(parseWaypointEnqueuePayload(JSON.stringify({ x: 3, y: 4, commitManpower: 150 }))).toMatchObject({ commitManpower: 150 });
+    expect(parseWaypointEnqueuePayload(JSON.stringify({ x: 3, y: 4, commitManpower: 0 }))).not.toHaveProperty("commitManpower");
+  });
+
+  it("stores it on a new entry and on an in-place re-plan, and echoes it in the wire entries", () => {
+    const added = waypointQueueEnqueue([], { x: 3, y: 4, plannedAt: 1, commitManpower: 150 }, 10);
+    expect(added.queue[0]).toMatchObject({ commitManpower: 150 });
+    const replanned = waypointQueueEnqueue(added.queue, { x: 3, y: 4, plannedAt: 2, commitManpower: 200 }, 20);
+    expect(replanned.queue[0]).toMatchObject({ commitManpower: 200 });
+    expect(waypointQueueWireEntries(replanned.queue)[0]).toMatchObject({ x: 3, y: 4, commitManpower: 200 });
   });
 });

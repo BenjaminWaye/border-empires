@@ -15,7 +15,7 @@ import { checkServerDeployingSession } from "../client-server-deploying-session/
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
-import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
+import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
@@ -290,10 +290,8 @@ export const createInitialState = () => ({
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
   outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean; winChance?: number }>(),
-  // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
-  // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
-  musterTransitByTile: new Map<string, MusterTransitEntry>(),
-  deferredAttackByTile: new Map<string, DeferredMusterAttack>(),
+  // See client-state-attack-dispatch-defaults.ts: muster transits, deferred attacks, chosen attack effort.
+  ...createInitialAttackDispatchState(),
   pendingCombatReveal: undefined as
     | {
         targetKey: string;

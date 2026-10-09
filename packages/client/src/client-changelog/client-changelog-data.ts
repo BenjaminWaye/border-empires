@@ -379,6 +379,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Seasons already in progress keep their current map"
     ]
   },
+  {
+    createdAt: 1791581686000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.2",
+    title: "Choose your effort when launching an attack",
+    why: "Committing extra manpower to a fight was only possible through March To. Launch Attack always sent the minimum.",
+    changes: [
+      "Launch Attack on a settled enemy tile now opens the Normal / Extra / Double effort picker March To uses, with a live win chance",
+      "Attacks on several tiles (box-select or Attack Connected Region) get one picker that applies to each settled target",
+      "Expand To & Attack asks for an effort level too; the waypoint's final attack uses it, even while you're offline",
+      "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
