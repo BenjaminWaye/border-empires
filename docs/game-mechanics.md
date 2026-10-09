@@ -98,7 +98,7 @@ Five concurrent victory paths, all per-season, all with a 24-hour hold requireme
 |---|---|---|
 | `TOWN_CONTROL` | Control ≥50% of towns | 24h |
 | `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 coin/min | 24h |
-| `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type | 24h |
+| `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type (settled tiles only, and only resources the owner has revealed via tech) | 24h |
 | `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
 | `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
 
