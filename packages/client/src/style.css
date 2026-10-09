@@ -141,16 +141,6 @@ body {
   user-select: none;
 }
 
-#auth-overlay[data-busy="true"] {
-  overflow: hidden;
-}
-
-#auth-overlay[data-busy="true"] #auth-card {
-  height: calc(100dvh - 48px);
-  min-height: 0;
-  overflow: hidden;
-}
-
 #auth-overlay[data-busy="true"] #auth-busy-modal {
   opacity: 1;
   pointer-events: auto;
