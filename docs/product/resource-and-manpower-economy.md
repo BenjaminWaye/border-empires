@@ -15,6 +15,8 @@ code and update this document in the same branch when the rule changes.
 | Action costs and base/town manpower | `packages/shared/src/config.ts` |
 | Structure slot requirements and supply constants | `packages/shared/src/structure-slots/structure-slots.ts` |
 | Current manpower calculation | `apps/simulation/src/runtime-manpower.ts` |
+| Refill schedule (window, per-player offsets) | `packages/shared/src/manpower-refill.ts` |
+| HUD manpower gauge and Development gears | `packages/client/src/client-manpower-gauge/`, `packages/client/src/client-dev-gears/` |
 | Slot demand, supply, and dormancy selection | `apps/simulation/src/resource-slot-view/resource-slot-view.ts` |
 | Gold income and town support | `apps/simulation/src/player-update-economy/` |
 | Build costs and placement rules | `packages/shared/src/structure-costs/` and `packages/shared/data/structure-placement-metadata.json` |
@@ -23,6 +25,22 @@ code and update this document in the same branch when the rule changes.
 
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
+- **Regeneration is paid out in refills, not continuously.** The per-minute rates
+  below still define how much manpower accrues, but it is credited in whole
+  `MANPOWER_REFILL_WINDOW_MS` windows (**4 hours**): at each refill a player
+  receives rate × time since the previous refill, capped at their cap. Each
+  player's refill moments are offset by a stable hash of their player id
+  (`manpowerRefillOffsetMs`), so refills are staggered across players. The
+  accrual anchor (`manpowerUpdatedAt`) only advances to the last refill
+  boundary while below the cap, so settling mid-window loses nothing; the
+  pending part of the window is recomputed at the current rate on every read.
+  While at or above the cap nothing accrues (the anchor moves to now), so time
+  spent full never becomes regen after manpower is spent. No new state or wire
+  field is involved: the client derives the schedule from the player id and
+  receives the payout through the normal periodic `PLAYER_UPDATE`.
+- The HUD shows manpower as a gauge (spendable now, manpower staged in muster
+  flags, countdown to the next refill; ember below an ordinary attack, green at
+  the cap) and the Development chip as one gear per slot (busy slots spin).
 - Town cap / regeneration by tier: Settlement 150 / 150÷720 per minute, Town
   300 / 300÷720, City 450 / 450÷720, Great City 750 / 750÷720, Metropolis
   1,350 / 1,350÷720. Terrain can adjust these values at runtime.

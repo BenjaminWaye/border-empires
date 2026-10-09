@@ -1,3 +1,5 @@
+import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
+import { formatRefillCountdown, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import type { LeaderboardOverallEntry } from "../client-types.js";
 
 export type ManpowerPanelMusterFlag = {
@@ -94,18 +96,26 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
  * "Manpower full in 3h 42min" — the personal, no-turns clock D1 calls for
  * (docs/replenishment-update-plan.md workstream A). Pure function of the
  * same manpower/manpowerCap/manpowerRegenPerMinute fields already on the
- * wire, so this needs no new server plumbing: it's just the inverse of the
- * continuous-regen formula the server already uses (effectiveManpowerAt).
+ * wire plus the player's refill schedule (derived from their id, see
+ * client-manpower-refill.ts), so this needs no new server plumbing: it counts
+ * whole refills the way the server credits them (effectiveManpowerAt).
  * A regen of 0 or less (the manpower-panel wire value is never 0 from a
  * genuine lack of towns — STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE and
  * MANPOWER_REGEN_GLOBAL_FLOOR both keep it positive — so 0 here means the
  * Titanium Levy's regen freeze is active) reads as "paused", not a countdown
  * to Infinity.
  */
-export const manpowerFullStatusText = (manpower: number, manpowerCap: number, manpowerRegenPerMinute: number, formatDuration: (ms: number) => string): string => {
-  if (manpower >= manpowerCap) return "Manpower full.";
-  if (manpowerRegenPerMinute <= 0) return "Regen paused.";
-  const msUntilFull = ((manpowerCap - manpower) / manpowerRegenPerMinute) * 60_000;
+export const manpowerFullStatusText = (
+  manpower: number,
+  manpowerCap: number,
+  manpowerRegenPerMinute: number,
+  formatDuration: (ms: number) => string,
+  nextRefillAtMs: number = Date.now() + MANPOWER_REFILL_WINDOW_MS,
+  nowMs: number = Date.now()
+): string => {
+  const msUntilFull = msUntilManpowerFull(manpower, manpowerCap, manpowerRegenPerMinute, nextRefillAtMs, nowMs);
+  if (msUntilFull === 0) return "Manpower full.";
+  if (msUntilFull === undefined) return "Regen paused.";
   return `Manpower full in ${formatDuration(msUntilFull)}.`;
 };
 
@@ -121,12 +131,15 @@ export const renderManpowerPanelHtml = (args: {
   formatManpowerAmount: (value: number) => string;
   rateToneClass: (rate: number) => string;
   formatDuration: (ms: number) => string;
+  /** Epoch ms of the player's next refill (client-manpower-refill.ts); undefined before the player id is known. */
+  nextRefillAtMs?: number | undefined;
 }): string => {
   const current = args.formatManpowerAmount(args.manpower);
   const cap = args.formatManpowerAmount(args.manpowerCap);
   const regen = args.manpowerRegenPerMinute;
   const regenText = `${regen >= 0 ? "+" : ""}${regen.toFixed(1)}/m`;
-  const fullStatusText = manpowerFullStatusText(args.manpower, args.manpowerCap, args.manpowerRegenPerMinute, args.formatDuration);
+  const fullStatusText = manpowerFullStatusText(args.manpower, args.manpowerCap, args.manpowerRegenPerMinute, args.formatDuration, args.nextRefillAtMs);
+  const nextRefillText = args.nextRefillAtMs !== undefined && args.manpower < args.manpowerCap && regen > 0 ? `Next refill in ${formatRefillCountdown(args.nextRefillAtMs - Date.now())}.` : "";
   const sectionHtml = (
     title: string,
     lines: Array<{ label: string; amount: number; note?: string }>
@@ -151,8 +164,8 @@ export const renderManpowerPanelHtml = (args: {
           </div>
           <div class="economy-rate ${args.rateToneClass(regen)}">${regenText}</div>
         </div>
-        <div class="economy-footnote manpower-full-eta">${fullStatusText}</div>
-        <div class="economy-footnote">Manpower gates attacks. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
+        <div class="economy-footnote manpower-full-eta">${fullStatusText}${nextRefillText ? ` ${nextRefillText}` : ""}</div>
+        <div class="economy-footnote">Manpower gates attacks. Regeneration is paid out in one refill every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
       ${sectionHtml("Regen modifiers", args.manpowerBreakdown.regen)}

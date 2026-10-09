@@ -11,6 +11,7 @@ import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { ManpowerStructureBonus } from "../runtime-manpower-structure-bonus.js";
 import {
   effectiveManpowerAt as effectiveManpowerAtImpl,
+  settledManpowerAnchor,
   playerManpowerBreakdownFromSummary,
   playerManpowerCapFromSummary,
   playerManpowerRegenPerMinuteFromSummary
@@ -146,9 +147,11 @@ export function refreshManpowerOnlyForPlayer(
     player.manpowerCapSnapshot = cap;
     return;
   }
-  player.manpower = effectiveManpowerAtForPlayer(ctx, player, nowMs);
+  const settled = effectiveManpowerAtForPlayer(ctx, player, nowMs);
+  const anchor = settledManpowerAnchor(player, settled, cap, nowMs);
+  player.manpower = settled;
   settleWaystationManpowerOverflow(player, cap);
-  player.manpowerUpdatedAt = nowMs;
+  player.manpowerUpdatedAt = anchor;
   player.manpowerCapSnapshot = cap;
 }
 

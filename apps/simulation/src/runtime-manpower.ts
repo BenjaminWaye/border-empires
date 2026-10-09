@@ -11,7 +11,7 @@ import {
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
-import { terrainAdjustedTownManpower } from "@border-empires/shared";
+import { lastManpowerRefillAtMs, terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
@@ -197,6 +197,15 @@ export const playerManpowerBreakdownFromSummary = (
   };
 };
 
+/**
+ * Manpower available to spend at `nowMs`. Regeneration is paid out in whole
+ * refill windows (see MANPOWER_REFILL_WINDOW_MS in shared): only the time up
+ * to the player's most recent refill boundary is credited, so manpower steps
+ * up at each boundary instead of ticking continuously. The accrual anchor
+ * (`manpowerUpdatedAt`) marks how far regen has been credited; the part of
+ * the current window since the anchor is still pending and is recomputed at
+ * the current rate on every read.
+ */
 export const effectiveManpowerAt = (
   player: RuntimePlayer,
   cap: number,
@@ -209,7 +218,27 @@ export const effectiveManpowerAt = (
   // Waystation overflow above the cap: held as-is (up to the ceiling), no regen until spent back under the cap.
   if (player.manpower >= cap) return Math.min(ceiling, player.manpower);
   const updatedAt = player.manpowerUpdatedAt ?? nowMs;
-  const elapsedMinutes = Math.max(0, (nowMs - updatedAt) / 60_000);
+  const creditedUntil = lastManpowerRefillAtMs(player.id, nowMs);
+  const elapsedMinutes = Math.max(0, (creditedUntil - updatedAt) / 60_000);
   const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
   return Math.max(0, Math.min(cap, nextManpower));
+};
+
+/**
+ * The accrual anchor to store after settling `settledManpower` at `nowMs`.
+ * While below the cap the anchor only advances to the last refill boundary
+ * (never past it), so the pending part of the current window keeps accruing
+ * across settles. At or above the cap nothing accrues, so the anchor moves to
+ * `nowMs`: time spent full must not become regen once manpower is spent.
+ * Call BEFORE overwriting `player.manpowerUpdatedAt`.
+ */
+export const settledManpowerAnchor = (
+  player: Pick<RuntimePlayer, "id" | "manpowerUpdatedAt">,
+  settledManpower: number,
+  cap: number,
+  nowMs: number
+): number => {
+  if (settledManpower >= cap) return nowMs;
+  const previous = Number.isFinite(player.manpowerUpdatedAt) ? player.manpowerUpdatedAt! : nowMs;
+  return Math.max(previous, Math.min(nowMs, lastManpowerRefillAtMs(player.id, nowMs)));
 };
