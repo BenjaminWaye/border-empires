@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormTile } from "./client-unexplored-storm-2d.js";
+import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormEdge2D, drawUnexploredStormTile, unexploredCreepDepth } from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
 
 const SIZE = 256;
@@ -55,5 +55,39 @@ describe("unexplored storm 2D texture", () => {
     calls.length = 0;
     drawUnexploredStormTile(ctx, 3, 4, 10, 20, 4);
     expect(calls).toHaveLength(1);
+  });
+
+  const recordingCtx = () => {
+    const ops: string[] = [];
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (target, key: string) => key in target ? target[key] : (...args: unknown[]) => { ops.push(key); return key.startsWith("create") ? { addColorStop: () => undefined } : undefined; },
+      set: (target, key: string, value) => { target[key] = value; return true; }
+    }) as unknown as CanvasRenderingContext2D;
+    return { ctx, ops };
+  };
+
+  it("draws nothing on an explored tile with no unexplored neighbour", () => {
+    const { ctx, ops } = recordingCtx();
+    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, () => false);
+    expect(ops).toEqual([]);
+  });
+
+  it("draws the band, creep and foam on a tile facing the fog, and skips tiny tiles", () => {
+    const { ctx, ops } = recordingCtx();
+    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 0 && oy === -1);
+    expect(ops).toContain("createLinearGradient");
+    expect(ops).toContain("fill");
+    expect(ops).toContain("stroke");
+    const tiny = recordingCtx();
+    drawUnexploredStormEdge2D(tiny.ctx, 5, 5, 0, 0, 4, () => true);
+    expect(tiny.ops).toEqual([]);
+  });
+
+  it("keeps the wavy creep within ~0.1-0.3 tile", () => {
+    for (let a = 0; a < 4; a += 0.05) {
+      const d = unexploredCreepDepth(a, 7);
+      expect(d).toBeGreaterThan(0.06);
+      expect(d).toBeLessThan(0.3);
+    }
   });
 });

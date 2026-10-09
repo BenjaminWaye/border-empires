@@ -1,16 +1,24 @@
-import { UNEXPLORED_STORM_DARK, UNEXPLORED_STORM_LIGHT, UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
+import {
+  UNEXPLORED_FOAM,
+  UNEXPLORED_PARCHMENT,
+  UNEXPLORED_PARCHMENT_INK,
+  UNEXPLORED_STORM_DARK,
+  UNEXPLORED_STORM_INK,
+  UNEXPLORED_STORM_LIGHT,
+  UNEXPLORED_STORM_MID
+} from "./client-unexplored-storm-palette.js";
 
 // 2D canvas counterpart of client-map-3d-unexplored-storm.ts: unexplored
 // tiles are filled from one seamlessly tiling storm-cloud texture (soft
-// cloud masses plus diagonal rain streaks), anchored to world coordinates so
+// cloud masses under straight engraved hatching), anchored to world coordinates so
 // the clouds stay put under the map while the camera pans.
 export const UNEXPLORED_STORM_TEXTURE_PX = 256;
 // World tiles one copy of the texture spans. Large enough that the repeat
 // isn't obvious, with cloud features sized like the 3D shader's (~5 tiles).
 export const UNEXPLORED_STORM_TEXTURE_TILES = 16;
-// Integer so the streaks wrap seamlessly at the texture edge; 6 matches the
-// 3D shader's ~1.3-tile streak spacing.
-const STREAK_BANDS_PER_TEXTURE = 6;
+// Hatch lines per texture along x. Integer so they wrap seamlessly at the
+// texture edge; 45 / 16 tiles ~= the 3D shader's 2.8 lines per tile.
+const HATCH_LINES_PER_TEXTURE = 45;
 // Base noise cells per texture for the fine cloud body and the broad masses.
 const BODY_LATTICE = 3;
 const MASS_LATTICE = 2;
@@ -64,6 +72,7 @@ export const buildUnexploredStormPixels = (sizePx: number = UNEXPLORED_STORM_TEX
   const dark = hexRgb(UNEXPLORED_STORM_DARK);
   const mid = hexRgb(UNEXPLORED_STORM_MID);
   const light = hexRgb(UNEXPLORED_STORM_LIGHT);
+  const ink = hexRgb(UNEXPLORED_STORM_INK);
   const out = new Uint8ClampedArray(sizePx * sizePx * 4);
   for (let py = 0; py < sizePx; py += 1) {
     for (let px = 0; px < sizePx; px += 1) {
@@ -73,11 +82,12 @@ export const buildUnexploredStormPixels = (sizePx: number = UNEXPLORED_STORM_TEX
       const mass = periodicFbm(u, v, MASS_LATTICE, 11);
       let color = mixRgb(dark, mid, smoothstep(0.3, 0.75, (body + mass) / 2));
       color = mixRgb(color, light, smoothstep(0.6, 0.85, body) * 0.55);
-      // Rain streaks run top-left to bottom-right, heaviest under the
-      // densest cloud.
-      const phase = ((px - py) / sizePx) * STREAK_BANDS_PER_TEXTURE * Math.PI * 2;
-      const streak = smoothstep(0.86, 1, Math.abs(Math.sin(phase))) * smoothstep(0.45, 0.7, mass);
-      color = mixRgb(color, mixRgb(dark, [0, 0, 0], 0.2), streak * 0.4);
+      // Straight engraved hatching, top-left to bottom-right, heavier under
+      // the densest cloud.
+      const hatchCoord = ((px - py) / sizePx) * HATCH_LINES_PER_TEXTURE;
+      const hatchDist = Math.abs(hatchCoord - Math.round(hatchCoord));
+      const hatch = 1 - smoothstep(0.1 + mass * 0.12, 0.22 + mass * 0.12, hatchDist);
+      color = mixRgb(color, ink, hatch * (0.25 + smoothstep(0.35, 0.75, mass) * 0.45));
       const i = (py * sizePx + px) * 4;
       out[i] = color[0];
       out[i + 1] = color[1];
@@ -110,6 +120,21 @@ const stormPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefin
   return pattern;
 };
 
+/**
+ * Sets fillStyle to the storm, world-anchored so tile (wx, wy) lands at
+ * screen (px, py); a solid storm grey where patterns aren't available.
+ */
+export const setUnexploredStormFill = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
+  const pattern = stormPatternFor(ctx);
+  if (pattern && typeof pattern.setTransform === "function" && typeof DOMMatrix !== "undefined") {
+    const scale = (size * UNEXPLORED_STORM_TEXTURE_TILES) / UNEXPLORED_STORM_TEXTURE_PX;
+    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
+    ctx.fillStyle = pattern;
+  } else {
+    ctx.fillStyle = UNEXPLORED_STORM_MID;
+  }
+};
+
 /** Fills one unexplored tile's screen square with the world-anchored storm clouds. */
 export const drawUnexploredStormTile = (
   ctx: CanvasRenderingContext2D,
@@ -119,14 +144,7 @@ export const drawUnexploredStormTile = (
   py: number,
   size: number
 ): void => {
-  const pattern = stormPatternFor(ctx);
-  if (pattern && typeof pattern.setTransform === "function" && typeof DOMMatrix !== "undefined") {
-    const scale = (size * UNEXPLORED_STORM_TEXTURE_TILES) / UNEXPLORED_STORM_TEXTURE_PX;
-    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
-    ctx.fillStyle = pattern;
-  } else {
-    ctx.fillStyle = UNEXPLORED_STORM_MID;
-  }
+  setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
   // Faint tile edges under the cloud (top + left, so each shared edge is
   // drawn once), matching the 3D layer's hinted grid. Skipped once tiles
@@ -136,4 +154,157 @@ export const drawUnexploredStormTile = (
     ctx.fillRect(px, py, size, 1);
     ctx.fillRect(px, py + 1, 1, size - 1);
   }
+};
+
+// 2D counterpart of the 3D storm shader's fog border
+// (client-map-3d-unexplored-storm-shader.ts). Drawn over an explored tile's
+// terrain, on each side that faces an unexplored tile:
+//   1. a parchment band with hatching, fading out ~0.8 tile in;
+//   2. the storm's leading edge creeping a wavy ~0.1-0.3 tile in;
+//   3. a pale foam rim along that wavy edge.
+// Diagonal-only fog neighbours get a small parchment corner wash.
+// The waves are keyed to world coordinates along the edge, so they run
+// continuously from one tile to the next.
+
+type Side = {
+  readonly ox: number;
+  readonly oy: number;
+  /** Screen point at fraction `t` along the side, `depth` px into the tile. */
+  readonly at: (px: number, py: number, size: number, t: number, depth: number) => readonly [number, number];
+  /** World coordinate along the side at t = 0, and of the side's own line. */
+  readonly along: (wx: number, wy: number) => number;
+  readonly line: (wx: number, wy: number) => number;
+};
+
+const SIDES: readonly Side[] = [
+  { ox: 0, oy: -1, at: (px, py, size, t, d) => [px + t * size, py + d], along: (wx) => wx, line: (_wx, wy) => wy },
+  { ox: 0, oy: 1, at: (px, py, size, t, d) => [px + t * size, py + size - d], along: (wx) => wx, line: (_wx, wy) => wy + 1 },
+  { ox: -1, oy: 0, at: (px, py, size, t, d) => [px + d, py + t * size], along: (_wx, wy) => wy, line: (wx) => wx },
+  { ox: 1, oy: 0, at: (px, py, size, t, d) => [px + size - d, py + t * size], along: (_wx, wy) => wy, line: (wx) => wx + 1 }
+];
+const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const;
+
+const BAND_DEPTH = 0.8;
+const CREEP_STEPS = 8;
+// Below this the border would be a sub-pixel smear; skip it (and its 8
+// neighbour lookups per tile) entirely on a zoomed-out 2D map.
+const EDGE_MIN_TILE_PX = 6;
+// Below this tile size the border is a few pixels wide; a plain foam line reads better.
+const EDGE_DETAIL_MIN_TILE_PX = 12;
+
+const rgba = (hex: string, alpha: number): string =>
+  `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
+
+/** Creep depth in tiles at world position `a` along a fog edge on line `l`. */
+export const unexploredCreepDepth = (a: number, l: number): number =>
+  0.18 + 0.07 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.04 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
+
+let hatchCache: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
+const HATCH_PX = 32;
+const hatchPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefined => {
+  if (hatchCache?.ctx === ctx) return hatchCache.pattern;
+  if (typeof document === "undefined" || typeof ctx.createPattern !== "function") return undefined;
+  const source = document.createElement("canvas");
+  source.width = HATCH_PX;
+  source.height = HATCH_PX;
+  const sctx = source.getContext("2d");
+  if (!sctx) return undefined;
+  sctx.strokeStyle = rgba(UNEXPLORED_PARCHMENT_INK, 0.75);
+  sctx.lineWidth = 5;
+  for (const shift of [-HATCH_PX, 0, HATCH_PX]) {
+    sctx.beginPath();
+    sctx.moveTo(shift, 0);
+    sctx.lineTo(shift + HATCH_PX, HATCH_PX);
+    sctx.stroke();
+  }
+  const pattern = ctx.createPattern(source, "repeat");
+  if (!pattern) return undefined;
+  hatchCache = { ctx, pattern };
+  return pattern;
+};
+
+export const drawUnexploredStormEdge2D = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number,
+  isUnexploredAt: (ox: number, oy: number) => boolean
+): void => {
+  if (size < EDGE_MIN_TILE_PX) return;
+  const sides = SIDES.filter((side) => isUnexploredAt(side.ox, side.oy));
+  const corners = CORNERS.filter(([ox, oy]) => isUnexploredAt(ox, oy) && !isUnexploredAt(ox, 0) && !isUnexploredAt(0, oy));
+  if (sides.length === 0 && corners.length === 0) return;
+  const detailed = size >= EDGE_DETAIL_MIN_TILE_PX;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, py, size, size);
+  ctx.clip();
+
+  // 1. Parchment band (+ hatching) and corner washes.
+  const hatch = detailed ? hatchPatternFor(ctx) : undefined;
+  if (hatch && typeof hatch.setTransform === "function" && typeof DOMMatrix !== "undefined") {
+    // 2.8 hatch lines per tile, anchored to the world like the storm.
+    const scale = size / (2.8 * HATCH_PX);
+    hatch.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
+  }
+  for (const side of sides) {
+    const [x0, y0] = side.at(px, py, size, 0, 0);
+    const [x1, y1] = side.at(px, py, size, 0, size * BAND_DEPTH);
+    const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+    gradient.addColorStop(0, rgba(UNEXPLORED_PARCHMENT, 0.8));
+    gradient.addColorStop(1, rgba(UNEXPLORED_PARCHMENT, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(px, py, size, size);
+    if (hatch) {
+      ctx.save();
+      ctx.beginPath();
+      const [hx0, hy0] = side.at(px, py, size, 0, 0);
+      const [hx1, hy1] = side.at(px, py, size, 1, size * 0.45);
+      ctx.rect(Math.min(hx0, hx1), Math.min(hy0, hy1), Math.abs(hx1 - hx0), Math.abs(hy1 - hy0));
+      ctx.clip();
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = hatch;
+      ctx.fillRect(px, py, size, size);
+      ctx.restore();
+    }
+  }
+  for (const [ox, oy] of corners) {
+    const cx = px + (ox > 0 ? size : 0);
+    const cy = py + (oy > 0 ? size : 0);
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.6);
+    gradient.addColorStop(0, rgba(UNEXPLORED_PARCHMENT, 0.7));
+    gradient.addColorStop(1, rgba(UNEXPLORED_PARCHMENT, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(px, py, size, size);
+  }
+
+  // 2 + 3. Wavy storm creep with a foam rim, per side.
+  for (const side of sides) {
+    const a0 = side.along(wx, wy);
+    const l = side.line(wx, wy);
+    const steps = detailed ? CREEP_STEPS : 1;
+    const edge: Array<readonly [number, number]> = [];
+    for (let k = 0; k <= steps; k += 1) {
+      const t = k / steps;
+      edge.push(side.at(px, py, size, t, size * (detailed ? unexploredCreepDepth(a0 + t, l) : 0.12)));
+    }
+    ctx.beginPath();
+    const [sx, sy] = side.at(px, py, size, 0, 0);
+    ctx.moveTo(sx, sy);
+    for (const [ex, ey] of edge) ctx.lineTo(ex, ey);
+    const [tx, ty] = side.at(px, py, size, 1, 0);
+    ctx.lineTo(tx, ty);
+    ctx.closePath();
+    setUnexploredStormFill(ctx, wx, wy, px, py, size);
+    ctx.fill();
+    ctx.beginPath();
+    edge.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey)));
+    ctx.strokeStyle = rgba(UNEXPLORED_FOAM, 0.9);
+    ctx.lineWidth = Math.max(1, size * 0.045);
+    ctx.stroke();
+  }
+  ctx.restore();
 };

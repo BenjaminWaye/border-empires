@@ -3,6 +3,7 @@ import { DataTexture, Scene, Vector2 } from "three";
 import { HEIGHTFIELD_GRASS_ELEVATION, HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terrain.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
+import { STORM_FRAGMENT_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 
 const vec = (storm: { material: { uniforms: Record<string, { value: unknown }> } }, name: string): number[] =>
   (storm.material.uniforms[name]!.value as Vector2).toArray();
@@ -23,9 +24,9 @@ describe("unexplored storm layer (3D)", () => {
     const mask = storm.material.uniforms.uMask!.value as DataTexture;
     const { width, height, data } = mask.image as { width: number; height: number; data: Uint8Array };
     expect([width, height]).toEqual([7, 5]);
-    // Centre texel (i = halfW + 1, j = halfH + 1) is explored, everything else fog.
-    expect(data[2 * width + 3]).toBe(0);
-    expect(Array.from(data).filter((v) => v === 255)).toHaveLength(width * height - 1);
+    // Centre texel (i = halfW + 1, j = halfH + 1) is the only explored (R = 0) one.
+    expect(data[(2 * width + 3) * 2]).toBe(0);
+    expect(Array.from(data).filter((v, k) => k % 2 === 0 && v === 255)).toHaveLength(width * height - 1);
     expect(vec(storm, "uMaskMin")).toEqual([-3, -2]);
     expect(vec(storm, "uMaskSize")).toEqual([7, 5]);
     expect(vec(storm, "uWorldOrigin")).toEqual([100, 200]);
@@ -57,5 +58,16 @@ describe("unexplored storm layer (3D)", () => {
     expect(atmosphere.unexploredStorm.mesh.position.x).toBe(3);
     atmosphere.dispose();
     expect(scene.children).not.toContain(atmosphere.unexploredStorm.mesh);
+  });
+
+  it("never lets the soft edge uncover an unexplored tile (hard mask forces full cover)", () => {
+    expect(STORM_FRAGMENT_SHADER).toMatch(/stormCover = max\(hard,/);
+    // The foam rim and parchment band are only ever drawn outside hard tiles.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/rim = \(1\.0 - hard\)/);
+    // Derivatives must come before the only discard.
+    const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
+    const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
+    expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D/);
+    expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
   });
 });
