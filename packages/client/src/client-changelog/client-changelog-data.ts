@@ -334,6 +334,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
   {
+    createdAt: 1791489815345,
+    introducedIn: "2026.10.08.7",
+    title: "Relay Beacon build time and rush price fixed",
+    why: "The build menu said a Relay Beacon takes 1 minute when it really takes an hour, and its rush-buy button showed 0 coin.",
+    changes: [
+      "The build menu shows the real Relay Beacon build time: instant for your first five, 60m after that",
+      "Rush-buy prices for buildings now match how much of the build is actually left, so a half-built structure costs about half"
+    ]
+  },
+  {
     createdAt: 1791489790895, // Date.now() frozen for this entry
     introducedIn: "2026.10.08.1",
     title: "Resource Monopoly counts only settled, revealed resources",

@@ -5,7 +5,6 @@
 import {
   EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
-  RELAY_BEACON_BUILD_MS,
   RELAY_BEACON_VISION_BONUS,
   SETTLE_COST,
   SETTLE_MANPOWER_COST,
@@ -15,6 +14,7 @@ import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constant
 import { economicStructureBuildMs } from "../client-map-display.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -144,8 +144,8 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-    const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
+    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&
       state.manpower >= totalExploreManpower &&
