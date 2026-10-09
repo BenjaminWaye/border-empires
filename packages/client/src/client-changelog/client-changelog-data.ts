@@ -353,6 +353,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A resource only counts once you've researched the tech that reveals it"
     ]
   },
+  {
+    createdAt: 1791579529000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Top ribbon hover highlight no longer blinks",
+    why: "The gold hover border on the top-bar chips flickered because the bar redraws every few seconds and each redraw restarted the fade-in.",
+    changes: [
+      "Hovering a top-bar chip now keeps a steady highlight"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
