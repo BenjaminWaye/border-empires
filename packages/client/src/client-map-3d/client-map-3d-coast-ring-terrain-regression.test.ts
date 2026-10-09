@@ -17,9 +17,17 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(source).toMatch(/const visibility = visibilityAt\(wx, wy\);/);
   });
 
+  it("skips the fog darken for ring tiles (it read as a dark hole beside explored land)", () => {
+    const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
+    const ringFlag = source.indexOf('const isFogRing = deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored";', fogBranchStart);
+    expect(ringFlag).toBeGreaterThan(fogBranchStart);
+    expect(source).toContain("if (fogIsHill && !isFogRing) {\n            fogDarkenOverlay.addHillTile(");
+    expect(source).toContain("} else if (!isFogRing) {\n            fogDarkenOverlay.addTile(");
+  });
+
   it("adds mountains, forests and grass scatter for ring tiles inside the fogged branch", () => {
     const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
-    const carveOut = source.indexOf('if (deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored") {', fogBranchStart);
+    const carveOut = source.indexOf("if (isFogRing) {", fogBranchStart);
     expect(fogBranchStart).toBeGreaterThan(-1);
     expect(carveOut).toBeGreaterThan(fogBranchStart);
     const block = source.slice(carveOut, source.indexOf("continue;", carveOut));

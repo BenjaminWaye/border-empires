@@ -3,8 +3,7 @@
 // tinted, hatched or overlapped. The fog's coastline lives in the first ring
 // of unexplored tiles (those touching explored land, diagonals included):
 //   1. A see-through hatched parchment band ("charted coast, not yet
-//      surveyed") over the ring tile's dimmed ground, fading in from the
-//      explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
+//      surveyed") over the ring tile's ground, from the explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
 //      the way across the ring tile.
 //   2. A pale foam rim on that contour, with a lit lip on the cloud behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
@@ -132,10 +131,11 @@ void main() {
   parch *= 1.0 - smoothstep(EDGE - 0.08, EDGE, s) * 0.25;
   float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
   vec3 col = mix(parch, storm, stormCover);
-  // The band is see-through: the ring tile's own ground is drawn (dimmed)
-  // underneath (client-map-3d-terrain-tile-rules.ts), so it reads as a
-  // glimpse of uncharted coast, fading in from the explored edge.
-  float parchAlpha = smoothstep(0.08, 0.36, s) * 0.8;
+  // The band is see-through: the ring tile's own ground is drawn underneath
+  // (client-map-3d-terrain-tile-rules.ts), so it reads as a glimpse of
+  // uncharted coast. Even, not faded in from the explored edge -- a clear
+  // edge let the ring's ground read as a hole beside explored land.
+  float parchAlpha = mix(0.55, 0.7, smoothstep(0.1, 0.4, s));
   float coverAlpha = mix(parchAlpha, 1.0, stormCover);
 
   // --- foam rim on the cloud's edge ---

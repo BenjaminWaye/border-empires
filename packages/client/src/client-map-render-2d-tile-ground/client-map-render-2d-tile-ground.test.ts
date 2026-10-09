@@ -56,12 +56,13 @@ describe("drawTileGround2D", () => {
     expect(explored.raw.stroke).not.toHaveBeenCalled();
   });
 
-  it("draws a first-ring fog tile's own ground, dimmed, under the coast", () => {
+  it("draws a first-ring fog tile's own ground, undimmed, under the coast", () => {
     const ring = makeCtx();
     const args = input({ tile: undefined, vis: "unexplored", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) });
     drawTileGround2D(ring.ctx, args);
     expect(args.drawTerrainTile).toHaveBeenCalledWith(3, 4, "SEA", 0, 0, 40);
-    expect(ring.fills).toContain("rgba(7, 20, 34, 0.25)");
+    expect(ring.fills.some((f) => f.startsWith("rgba(7, 20, 34") || f.startsWith("rgba(2, 5, 10"))).toBe(false); // no fog dim
+
     expect(args.drawTerrainDetail).not.toHaveBeenCalled(); // sea has no forest/hills
 
     const landRing = makeCtx();

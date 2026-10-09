@@ -27,7 +27,7 @@ export const isShallowSeaTile = (
 /**
  * Wraps a visibility lookup so the fog's first ring -- unexplored tiles with
  * an explored tile among their 8 neighbours -- reports "fogged". The 3D
- * terrain then draws those tiles' ground dimmed like remembered terrain
+ * terrain then draws those tiles' ground and natural features, undimmed
  * (no owners, roads or structures: the client has no tile data for them),
  * and the unexplored storm (client-map-3d-unexplored-storm.ts, which keeps
  * using the raw lookup) lays its see-through parchment coast band over it.

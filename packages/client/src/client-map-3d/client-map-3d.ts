@@ -943,9 +943,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const fx1 = x + 0.5;
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
-          if (fogIsHill) {
+          // The fog's first ring (withUnexploredCoastRingAsFogged) skips the darken -- the storm's parchment band mutes it instead.
+          const isFogRing = deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored";
+          if (fogIsHill && !isFogRing) {
             fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors, wx, wy, fogRoadDirs);
-          } else {
+          } else if (!isFogRing) {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
           }
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") { // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the black darken tint above it just read as a dark disconnected box
@@ -967,8 +969,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
               );
             }
           }
-          // The fog's first ring (withUnexploredCoastRingAsFogged) has no live data to hide -- load its natural terrain too.
-          if (deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored") {
+          // ...and, having no live data to hide, it loads its natural terrain too.
+          if (isFogRing) {
             if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY);
             else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
             else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);

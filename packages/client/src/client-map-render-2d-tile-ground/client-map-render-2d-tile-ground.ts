@@ -9,7 +9,7 @@ import {
 // The 2D canvas renderer's base layer for one tile (extracted from
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
 // unexplored storm. The fog's first ring (unexplored tiles touching explored
-// land) shows its own ground dimmed under a see-through parchment coast,
+// land) shows its own ground under a see-through parchment coast,
 // with the storm beyond. Explored tiles get only their own terrain -- the
 // fog never draws on them. Overlays (forest, ownership tint, structures...)
 // draw on top of this.
@@ -46,10 +46,8 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
     const terrain = input.terrainAt(wx, wy);
     input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
     if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
-    // Lighter than remembered-tile fog: the parchment wash on top already
-    // mutes it, and the full fog dim would bury the trees and hills.
-    ctx.fillStyle = isWater(terrain) ? "rgba(7, 20, 34, 0.25)" : "rgba(2, 5, 10, 0.35)";
-    ctx.fillRect(px, py, size, size);
+    // No fog dim: the parchment wash on top mutes it, and a darkened ring
+    // read as a hole beside explored land.
     drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, isExploredAt);
     return;
   }
