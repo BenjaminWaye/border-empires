@@ -142,9 +142,9 @@ const state = createInitialState();
 clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
 startPhotoMode(state, window.location.search); // ?photo=1 — clean-capture mode, see client-photo-mode.ts
-const { firebaseAuth, googleProvider, twitchProvider, analytics } = createClientFirebaseSetup();
+const { firebaseAuth, googleProvider, twitchProvider, discordProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
-startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authTwitchBtn, method: "oidc.twitch" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
+startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authTwitchBtn, method: "oidc.twitch" }, { button: dom.authDiscordBtn, method: "oidc.discord" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
 const devAuthPlayerId = resolveDevAuthPlayerId(window.location.hostname, window.location.search);
 
 dom.miniMapBase.width = dom.miniMapEl.width;
@@ -334,6 +334,7 @@ bootstrapClientApp({
   firebaseAuth,
   googleProvider,
   twitchProvider,
+  discordProvider,
   analytics,
   devAuthPlayerId,
   storageSet,

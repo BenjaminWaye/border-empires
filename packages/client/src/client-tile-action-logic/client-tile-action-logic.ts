@@ -3,7 +3,6 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   FORT_BUILD_MS, FORT_VARIANT_LABELS,
-  RELAY_BEACON_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -63,6 +62,7 @@ import { nextFortVariantForTile } from "./client-tile-action-fort-siege-variants
 import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason, ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { buildDurationMsForState, buildManpowerCostForState, relayBeaconBuildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
@@ -350,7 +350,7 @@ export const chainedBuildAvailabilityFromModule = (
   goldCostOverride?: number
 ): [boolean, string, string] => {
   const goldCost = goldCostOverride ?? deps.structureGoldCost(structureType);
-  const manpowerCost = structureBuildManpowerCost(structureType);
+  const manpowerCost = buildManpowerCostForState(state, structureType);
   // The siege ladder never needs SETTLED (see runtime-structure-command-
   // handlers.ts's OUTPOST-kind skip) -- it builds straight onto FRONTIER
   // ground, so it never pays the settle-then-build combined cost below,
@@ -367,7 +367,7 @@ export const chainedBuildAvailabilityFromModule = (
           : state.manpower < totalManpower
             ? `Need ${totalManpower} manpower`
             : "",
-      `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
+      `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType)) / 60000)}m total`
     ];
   }
   return [
@@ -1409,7 +1409,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
-            `${deps.structureCostText("RELAY_BEACON")} • ${Math.round(RELAY_BEACON_BUILD_MS / 60000)}m${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state))}`
+            `${deps.structureCostText("RELAY_BEACON")} • ${relayBeaconBuildTimeLabel(state)}${upkeepSuffixFor("RELAY_BEACON", ownedRelayBeaconCount(state))}`
           )),
           slots,
           deps

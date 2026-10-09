@@ -168,7 +168,11 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • settles this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "RELAY_BEACON"));
+    // A player's first beacons cost the discounted 50 MP and place instantly (D12), so
+    // the chain total is settle + 50 MP and the settle time alone -- matching what the
+    // server charges, not the flat 100 MP / stale 1m build time this used to show.
+    const settleMinutes = Math.round(settleDurationMsForState(state, frontier) / 60000);
+    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • settle + build • ${settleMinutes}m total`);
   });
 
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {

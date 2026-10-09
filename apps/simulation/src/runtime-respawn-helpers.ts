@@ -2,9 +2,10 @@ import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empir
 import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
-import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS } from "./spawn-placement/spawn-placement.js";
+import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { hasBarbarianWithin } from "./spawn-placement/barbarian-proximity.js";
+import type { SpawnSearchLookups } from "./spawn-placement/spawn-placement-index.js";
 import { prepareAfcLandingFootprint } from "./afc-landing-footprint/afc-landing-footprint.js";
 import { clearBarbariansAroundAfcLanding } from "./afc-landing-footprint/afc-landing-barbarian-clear.js";
 import { backfillMissingHouseModules, rebalanceOverfullAfcs } from "./afc-module-commissioning.js";
@@ -15,7 +16,7 @@ import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./pl
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
-export type RuntimeRespawnContext = {
+export type RuntimeRespawnContext = SpawnSearchLookups & {
   now: () => number;
   players: Map<string, RuntimePlayer>;
   tiles: Map<string, DomainTileState>;
@@ -40,21 +41,6 @@ export type RuntimeRespawnContext = {
   respawnMinimumGold: number;
   incrementAuthRecoveryRespawn: () => void;
   incrementAuthRecoveryRespawnGuarded: () => void;
-  // Cached/incrementally-maintained, spatially-indexed lookups threaded
-  // through to chooseLegacySpawnPlacement — see SpawnPlacementIndex and
-  // LegacySpawnPlacementInput's matching fields. Passing these avoids both
-  // re-scanning every tile on the map AND linearly scanning every owned tile
-  // on every single spawn/respawn placement, which load testing showed
-  // costing ~700-900ms per new player connecting at 100-tile-map-scale.
-  coastalLandKeys: () => ReadonlySet<string>;
-  hasNearbySettled: (x: number, y: number, radius: number) => boolean;
-  hasNearbyTown: (x: number, y: number, radius: number) => boolean;
-  hasNearbyFood: (x: number, y: number, radius: number) => boolean;
-  // Precomputed, equal-opportunity worldgen spawn roster (see
-  // computeFairSpawnSites/SpawnPlacementIndex.claimFairSpawnSite). Tried
-  // before falling back to chooseLegacySpawnPlacement's per-player random
-  // search, which stays as the fallback once the roster is exhausted.
-  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: { x: number; y: number }) => { x: number; y: number } | undefined;
 };
 
 // Same minSpawnDistance as chooseLegacySpawnPlacement's strictest search
@@ -79,6 +65,31 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
 
 const terrainLookup = (ctx: RuntimeRespawnContext) => (x: number, y: number): DomainTileState["terrain"] | undefined =>
   ctx.tiles.get(simulationTileKey(x, y))?.terrain;
+
+// The one input shape every spawn/respawn path hands chooseLegacySpawnPlacement.
+const legacySpawnSearchInput = (
+  ctx: RuntimeRespawnContext,
+  playerId: string,
+  blockedTileKeys: ReadonlySet<string>,
+  rallyAnchor?: { x: number; y: number }
+): LegacySpawnPlacementInput => ({
+  playerId,
+  tiles: ctx.tiles.values(),
+  blockedTileKeys,
+  coastalLandKeys: ctx.coastalLandKeys(),
+  hasNearbySettled: ctx.hasNearbySettled,
+  hasNearbyTown: ctx.hasNearbyTown,
+  hasNearbyFood: ctx.hasNearbyFood,
+  terrainAt: terrainLookup(ctx),
+  hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius),
+  reachOwnerAt: ctx.reachOwnerAt,
+  onRivalReachRelaxed: () =>
+    ctx.runtimeLogInfo(
+      { type: "spawn_map_nearly_full", playerId, rallyAnchor: rallyAnchor ?? null },
+      "spawn map nearly full: no open ground clear of rival reach, spawning inside it"
+    ),
+  ...(rallyAnchor ? { rallyAnchor } : {})
+});
 
 export const preparePlayerRespawnNotice = (
   ctx: RuntimeRespawnContext,
@@ -177,18 +188,7 @@ export const ensurePlayerHasSpawnTerritory = (
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
   const spawn =
     ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor) ??
-    chooseLegacySpawnPlacement({
-      playerId,
-      tiles: ctx.tiles.values(),
-      blockedTileKeys,
-      coastalLandKeys: ctx.coastalLandKeys(),
-      hasNearbySettled: ctx.hasNearbySettled,
-      hasNearbyTown: ctx.hasNearbyTown,
-      hasNearbyFood: ctx.hasNearbyFood,
-      terrainAt: terrainLookup(ctx),
-      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius),
-      ...(rallyAnchor ? { rallyAnchor } : {})
-    });
+    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
@@ -202,7 +202,7 @@ export const ensurePlayerHasSpawnTerritory = (
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
@@ -323,17 +323,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   const spawn =
     ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
-    chooseLegacySpawnPlacement({
-      playerId,
-      tiles: ctx.tiles.values(),
-      blockedTileKeys,
-      coastalLandKeys: ctx.coastalLandKeys(),
-      hasNearbySettled: ctx.hasNearbySettled,
-      hasNearbyTown: ctx.hasNearbyTown,
-      hasNearbyFood: ctx.hasNearbyFood,
-      terrainAt: terrainLookup(ctx),
-      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius)
-    });
+    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys));
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -344,7 +334,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
@@ -393,17 +383,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   const spawn =
     ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
-    chooseLegacySpawnPlacement({
-      playerId,
-      tiles: ctx.tiles.values(),
-      blockedTileKeys,
-      coastalLandKeys: ctx.coastalLandKeys(),
-      hasNearbySettled: ctx.hasNearbySettled,
-      hasNearbyTown: ctx.hasNearbyTown,
-      hasNearbyFood: ctx.hasNearbyFood,
-      terrainAt: terrainLookup(ctx),
-      hasNearbyBarbarian: (x, y, radius) => hasBarbarianWithin(ctx.tiles, x, y, radius)
-    });
+    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys));
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -414,7 +394,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now(), landedAt: ctx.now() }
   };
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);

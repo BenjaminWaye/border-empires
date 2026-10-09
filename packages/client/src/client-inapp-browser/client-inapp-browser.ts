@@ -4,7 +4,7 @@
 // Firebase's cryptic "Unable to process request due to missing initial
 // state." error on res.firebaseapp.com instead of ever showing our own UI.
 // Detect these environments up front so we can steer the player to their
-// system browser instead of letting Google/Twitch sign-in fail silently there.
+// system browser instead of letting Google/Twitch/Discord sign-in fail silently there.
 type KnownInAppBrowser = {
   name: string;
   matches: (userAgent: string) => boolean;

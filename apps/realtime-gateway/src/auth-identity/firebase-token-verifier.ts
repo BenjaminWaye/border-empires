@@ -101,10 +101,13 @@ export const createFirebaseTokenVerifier = (options: FirebaseTokenVerifierOption
         if (signInProvider === "anonymous" && !verified.email && !hasLinkedIdentity) verified.isGuest = true;
         // A custom OIDC provider (Twitch: oidc.twitch) can pass through an address
         // its user never verified. reconcileGatewayAuthBinding reuses an existing
-        // player on an email match, so an unverified OIDC email is dropped here.
-        if (typeof signInProvider === "string" && signInProvider.startsWith("oidc.") && !verified.emailVerified) {
-          delete verified.email;
-        }
+        // player on an email match, and stores the email on a binding that has
+        // none, so an unverified OIDC email is dropped here. Checks the linked
+        // identities too: a guest who saved with Twitch can still carry
+        // sign_in_provider "anonymous".
+        const identityProviders = hasLinkedIdentity ? Object.keys(identities as object) : [];
+        const usesOidc = [signInProvider, ...identityProviders].some((provider) => typeof provider === "string" && provider.startsWith("oidc."));
+        if (usesOidc && !verified.emailVerified) delete verified.email;
       }
       return verified;
     } catch (error) {

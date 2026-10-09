@@ -45,7 +45,8 @@ const buildContext = (tiles: Map<string, DomainTileState>) => {
     hasNearbySettled: () => false,
     hasNearbyTown: () => false,
     hasNearbyFood: () => false,
-    claimFairSpawnSite: () => undefined
+    claimFairSpawnSite: () => undefined,
+    reachOwnerAt: () => undefined
   };
   return { ctx, events };
 };

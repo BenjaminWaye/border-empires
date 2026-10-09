@@ -119,7 +119,7 @@ describe("buildWorldStatusSnapshot", () => {
           points: 76,
           incomePerMinute: 2.4,
           settledTileCount: 8,
-          techIds: [],
+          techIds: ["masonry"],
           domainIds: [],
           strategicResources: {},
           allies: [],

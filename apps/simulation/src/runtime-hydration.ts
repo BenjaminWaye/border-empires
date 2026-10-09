@@ -56,6 +56,7 @@ export const createPlayersFromRecoveredState = (
           points: player.points ?? 0,
           manpower: player.manpower ?? MANPOWER_BASE_CAP,
           ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
+          ...(typeof player.manpowerBanked === "number" && player.manpowerBanked > 0 ? { manpowerBanked: player.manpowerBanked } : {}),
           ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
           techIds,
           domainIds,

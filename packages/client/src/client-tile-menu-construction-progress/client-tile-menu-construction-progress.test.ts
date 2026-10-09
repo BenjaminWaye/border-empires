@@ -61,3 +61,26 @@ describe("constructionProgressForTile uses the server-stamped window", () => {
     expect(progress).toBe(0); // remaining (3h) exceeds the flat estimate, so the old formula clamps to 0
   });
 });
+
+describe("constructionProgressForTile rush-buy price", () => {
+  const HOUR = 3_600_000;
+  const beacon = (extra: Record<string, unknown>): Tile => ({
+    x: 2,
+    y: 2,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "under_construction", completesAt: Date.now() + HOUR, ...extra }
+  });
+
+  it("prices a just-started paid-tier Relay Beacon at full price, not 0", () => {
+    // 100 MP beacon (6th+), 1h build: full rush is 100 * 0.5 = 50 coin.
+    const label = constructionProgressForTile(beacon({}), () => "59:45", quickforge, "me")?.rushBuyLabel;
+    expect(label).toBe("⏩ 💰50");
+  });
+
+  it("prices against the server-stamped window, so a half-built beacon costs half", () => {
+    const label = constructionProgressForTile(beacon({ startedAt: Date.now() - HOUR }), () => "1:00:00", quickforge, "me")?.rushBuyLabel;
+    expect(label).toBe("⏩ 💰25");
+  });
+});

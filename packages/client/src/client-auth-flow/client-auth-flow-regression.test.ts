@@ -106,6 +106,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authEmailLinkBtn: makeButton(),
       authGoogleBtn: makeButton(),
       authTwitchBtn: makeButton(),
+      authDiscordBtn: makeButton(),
       authPlayNowBtn: makeButton(),
       authEmailEl: makeInput(),
       authPasswordEl: makeInput(),

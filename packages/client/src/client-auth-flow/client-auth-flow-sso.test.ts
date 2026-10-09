@@ -91,6 +91,7 @@ describe("signInProviderLabel", () => {
 
   it("names the provider the user signed in with", () => {
     expect(signInProviderLabel(userWith(TWITCH_PROVIDER_ID))).toBe("Twitch");
+    expect(signInProviderLabel(userWith("oidc.discord"))).toBe("Discord");
     expect(signInProviderLabel(userWith("google.com"))).toBe("Google");
     expect(signInProviderLabel(userWith("password"))).toBe("account");
   });
