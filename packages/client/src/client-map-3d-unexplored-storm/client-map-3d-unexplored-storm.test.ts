@@ -60,14 +60,14 @@ describe("unexplored storm layer (3D)", () => {
     expect(scene.children).not.toContain(atmosphere.unexploredStorm.mesh);
   });
 
-  it("never lets the soft edge uncover an unexplored tile (hard mask forces full cover)", () => {
-    expect(STORM_FRAGMENT_SHADER).toMatch(/stormCover = max\(hard,/);
-    // The foam rim and parchment band are only ever drawn outside hard tiles.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/rim = \(1\.0 - hard\)/);
-    // Derivatives must come before the only discard.
+  it("only ever draws on unexplored tiles, at full cover (bar inward edge AA)", () => {
+    // Alpha is the hard per-tile mask times inward-only edge anti-aliasing:
+    // explored tiles (hard 0) are never drawn on, unexplored tiles never
+    // show the void.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa;/);
     const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
     const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
-    expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D/);
+    expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D|maskR\(/);
     expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
   });
 });

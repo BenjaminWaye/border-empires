@@ -5,11 +5,11 @@ import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3
 // dx = i - halfW - 1, dy = j - halfH - 1 from the window's camX/camY):
 //   R -- hard: 255 = unexplored. Read at the texel centre, so every
 //        unexplored tile is always fully covered by cloud.
-//   G -- soft: 1 on unexplored tiles, a 3x3 tent blur of R on explored ones
-//        (outside the window counts as unexplored), bilinearly filtered in
-//        the shader. ~0.6 on a straight fog border, falling to 0 about 1.5
-//        tiles into explored land -- the
-//        gradient the cloud creep, foam rim and parchment band are cut from.
+//   G -- soft: on unexplored tiles, a 3x3 tent blur of explored-ness
+//        (outside the window counts as unexplored); 1 on explored tiles.
+//        Bilinearly filtered in the shader: ~0.6 on a straight fog border,
+//        falling to 0 about 1.5 tiles into the fog -- the gradient the
+//        parchment band and foam rim inside unexplored tiles are cut from.
 export type UnexploredStormMask = { readonly width: number; readonly height: number; readonly data: Uint8Array };
 
 const TENT = [1, 2, 1, 2, 4, 2, 1, 2, 1] as const;
@@ -38,13 +38,14 @@ export const buildUnexploredStormMask = (
         const ni = i + (k % 3) - 1;
         const nj = j + Math.floor(k / 3) - 1;
         const outside = ni < 0 || nj < 0 || ni >= width || nj >= height;
-        sum += TENT[k]! * (outside ? 1 : hard[nj * width + ni]!);
+        sum += TENT[k]! * (outside ? 0 : 1 - hard[nj * width + ni]!);
       }
       const at = (j * width + i) * 2;
-      data[at] = hard[j * width + i]! * 255;
-      // Unexplored tiles saturate, so the cloud contour rounds a fog
-      // corner that pokes into explored land instead of notching it square.
-      data[at + 1] = hard[j * width + i] ? 255 : Math.round((sum / 16) * 255);
+      const unexplored = hard[j * width + i] === 1;
+      data[at] = unexplored ? 255 : 0;
+      // Explored tiles saturate, so the band's contour rounds an explored
+      // corner instead of notching it square.
+      data[at + 1] = unexplored ? Math.round((sum / 16) * 255) : 255;
     }
   }
   return { width, height, data };

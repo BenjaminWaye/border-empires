@@ -26,15 +26,16 @@ import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unex
 import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
-// lying level with the land (just above plains/grass, ~0.18-0.2), so the
+// lying level with the land (grass/plains/tundra sit at ~0.18-0.2), so the
 // explored world doesn't sit in a void or above a pit -- the fog is on the
 // same plane as the ground it hides. A per-tile explored mask (rebuilt with
-// the terrain window) cuts it away over explored tiles, edged with a foam
-// rim and a parchment band; faint tile-edge lines show through the cloud so
-// the grid it hides is still hinted. Look and layering:
-// client-map-3d-unexplored-storm-shader.ts.
+// the terrain window) restricts it to unexplored tiles only: explored tiles
+// are never drawn over. Along a border with explored land, the unexplored
+// tile shows a parchment band and a foam rim before the storm; faint
+// tile-edge lines show through the cloud so the hidden grid is still
+// hinted. Look and layering: client-map-3d-unexplored-storm-shader.ts.
 // 2D counterpart: client-unexplored-storm-2d.ts.
-export const UNEXPLORED_STORM_Y = 0.24;
+export const UNEXPLORED_STORM_Y = 0.2;
 // Well past the farthest ground point the fixed-tilt camera can see at max
 // zoom-out, but inside PERSPECTIVE_FAR (4000).
 const STORM_PLANE_SIZE = 3600;

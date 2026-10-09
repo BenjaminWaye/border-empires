@@ -3,8 +3,9 @@ import { drawUnexploredStormEdge2D, drawUnexploredStormTile } from "../client-un
 
 // The 2D canvas renderer's base layer for one tile (extracted from
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
-// unexplored storm, then the storm's parchment/foam border on explored tiles
-// that face unexplored ones. Overlays (forest, ownership tint, structures...)
+// unexplored storm with its parchment/foam border along any side facing
+// explored land. Explored tiles get only their own terrain -- the fog border
+// never draws on them. Overlays (forest, ownership tint, structures...)
 // draw on top of this.
 export type TileGround2DInput = {
   readonly wx: number;
@@ -27,6 +28,7 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
   const { wx, wy, px, py, size, tile, vis } = input;
   if (vis === "unexplored") {
     drawUnexploredStormTile(ctx, wx, wy, px, py, size);
+    drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, (ox, oy) => !input.isUnexploredAt(ox, oy));
     return;
   }
   if (!tile) {
@@ -39,5 +41,4 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
   } else {
     input.drawTerrainTile(wx, wy, isWater(tile.terrain) || tile.terrain === "MOUNTAIN" ? tile.terrain : "LAND", px, py, size);
   }
-  drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, input.isUnexploredAt);
 };

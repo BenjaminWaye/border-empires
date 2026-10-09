@@ -10,7 +10,7 @@ const makeCtx = () => {
       fills.push(String(ctx.fillStyle));
     }),
     save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
-    closePath: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+    closePath: vi.fn(), fill: vi.fn(), stroke: vi.fn(), arc: vi.fn(),
     createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() }))
   };
@@ -54,12 +54,18 @@ describe("drawTileGround2D", () => {
     expect(visibleArgs.drawTerrainTile).toHaveBeenCalledWith(3, 4, "MOUNTAIN", 0, 0, 40);
   });
 
-  it("adds the storm border on explored tiles that face unexplored ones", () => {
-    const { ctx, raw } = makeCtx();
-    drawTileGround2D(ctx, input({ isUnexploredAt: (ox, oy) => ox === 1 && oy === 0 }));
-    expect(raw.stroke).toHaveBeenCalled();
-    const inland = makeCtx();
-    drawTileGround2D(inland.ctx, input({}));
-    expect(inland.raw.stroke).not.toHaveBeenCalled();
+  it("never draws the fog border on explored tiles, only on the fog tile facing them", () => {
+    const explored = makeCtx();
+    drawTileGround2D(explored.ctx, input({ isUnexploredAt: () => true }));
+    expect(explored.raw.clip).not.toHaveBeenCalled();
+    expect(explored.raw.stroke).not.toHaveBeenCalled();
+
+    const fogFacingLand = makeCtx();
+    drawTileGround2D(fogFacingLand.ctx, input({ vis: "unexplored", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) }));
+    expect(fogFacingLand.raw.stroke).toHaveBeenCalled();
+
+    const deepFog = makeCtx();
+    drawTileGround2D(deepFog.ctx, input({ vis: "unexplored", isUnexploredAt: () => true }));
+    expect(deepFog.raw.stroke).not.toHaveBeenCalled();
   });
 });

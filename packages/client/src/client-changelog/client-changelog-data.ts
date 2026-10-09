@@ -327,7 +327,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
     changes: [
       "Unexplored territory is now a hatched storm-cloud bank, drawn like weather on an old map, in both the 3D map and the 2D map",
-      "Where the clouds meet your explored land there's a pale, wavy rim and a parchment-tinted band, like an uncharted coast",
+      "Unexplored tiles bordering your land show a parchment band and a pale, wavy rim before the clouds, like an uncharted coast, while every tile you've explored stays completely clear",
       "The clouds lie level with the land, and faint tile outlines show through them so you can still see the grid you haven't explored",
       "Distant terrain fades into the clouds instead of into black"
     ]

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormEdge2D, drawUnexploredStormTile, unexploredCreepDepth } from "./client-unexplored-storm-2d.js";
+import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormEdge2D, drawUnexploredStormTile, unexploredBandDepth } from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
 
 const SIZE = 256;
@@ -66,16 +66,16 @@ describe("unexplored storm 2D texture", () => {
     return { ctx, ops };
   };
 
-  it("draws nothing on an explored tile with no unexplored neighbour", () => {
+  it("draws nothing on a fog tile with no explored neighbour", () => {
     const { ctx, ops } = recordingCtx();
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, () => false);
     expect(ops).toEqual([]);
   });
 
-  it("draws the band, creep and foam on a tile facing the fog, and skips tiny tiles", () => {
+  it("draws the parchment band and foam rim inside a fog tile facing explored land, and skips tiny tiles", () => {
     const { ctx, ops } = recordingCtx();
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 0 && oy === -1);
-    expect(ops).toContain("createLinearGradient");
+    expect(ops).toContain("clip");
     expect(ops).toContain("fill");
     expect(ops).toContain("stroke");
     const tiny = recordingCtx();
@@ -83,9 +83,9 @@ describe("unexplored storm 2D texture", () => {
     expect(tiny.ops).toEqual([]);
   });
 
-  it("keeps the wavy creep within ~0.1-0.3 tile", () => {
+  it("keeps the wavy band within ~0.1-0.3 tile of the explored edge", () => {
     for (let a = 0; a < 4; a += 0.05) {
-      const d = unexploredCreepDepth(a, 7);
+      const d = unexploredBandDepth(a, 7);
       expect(d).toBeGreaterThan(0.06);
       expect(d).toBeLessThan(0.3);
     }

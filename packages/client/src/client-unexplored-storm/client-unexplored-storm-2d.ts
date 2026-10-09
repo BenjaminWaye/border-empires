@@ -157,14 +157,14 @@ export const drawUnexploredStormTile = (
 };
 
 // 2D counterpart of the 3D storm shader's fog border
-// (client-map-3d-unexplored-storm-shader.ts). Drawn over an explored tile's
-// terrain, on each side that faces an unexplored tile:
-//   1. a parchment band with hatching, fading out ~0.8 tile in;
-//   2. the storm's leading edge creeping a wavy ~0.1-0.3 tile in;
-//   3. a pale foam rim along that wavy edge.
-// Diagonal-only fog neighbours get a small parchment corner wash.
-// The waves are keyed to world coordinates along the edge, so they run
-// continuously from one tile to the next.
+// (client-map-3d-unexplored-storm-shader.ts). Drawn over an UNEXPLORED
+// tile's storm, on each side that faces an explored tile -- explored tiles
+// themselves are never drawn on:
+//   1. a hatched parchment band from that edge to a wavy line ~0.1-0.3 tile in;
+//   2. a pale foam rim along the wavy line.
+// A fog tile touching explored land only diagonally gets a small parchment
+// corner. The waves are keyed to world coordinates along the edge, so they
+// run continuously from one tile to the next.
 
 type Side = {
   readonly ox: number;
@@ -184,20 +184,19 @@ const SIDES: readonly Side[] = [
 ];
 const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const;
 
-const BAND_DEPTH = 0.8;
-const CREEP_STEPS = 8;
+const WAVE_STEPS = 8;
 // Below this the border would be a sub-pixel smear; skip it (and its 8
 // neighbour lookups per tile) entirely on a zoomed-out 2D map.
 const EDGE_MIN_TILE_PX = 6;
-// Below this tile size the border is a few pixels wide; a plain foam line reads better.
+// Below this tile size the band is a few pixels wide; a straight one reads better.
 const EDGE_DETAIL_MIN_TILE_PX = 12;
 
 const rgba = (hex: string, alpha: number): string =>
   `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
 
-/** Creep depth in tiles at world position `a` along a fog edge on line `l`. */
-export const unexploredCreepDepth = (a: number, l: number): number =>
-  0.18 + 0.07 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.04 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
+/** Parchment band depth in tiles at world position `a` along a fog edge on line `l`. */
+export const unexploredBandDepth = (a: number, l: number): number =>
+  0.2 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
 
 let hatchCache: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
 const HATCH_PX = 32;
@@ -209,7 +208,9 @@ const hatchPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefin
   source.height = HATCH_PX;
   const sctx = source.getContext("2d");
   if (!sctx) return undefined;
-  sctx.strokeStyle = rgba(UNEXPLORED_PARCHMENT_INK, 0.75);
+  sctx.fillStyle = UNEXPLORED_PARCHMENT;
+  sctx.fillRect(0, 0, HATCH_PX, HATCH_PX);
+  sctx.strokeStyle = rgba(UNEXPLORED_PARCHMENT_INK, 0.7);
   sctx.lineWidth = 5;
   for (const shift of [-HATCH_PX, 0, HATCH_PX]) {
     sctx.beginPath();
@@ -223,6 +224,10 @@ const hatchPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefin
   return pattern;
 };
 
+/**
+ * Border treatment for an unexplored tile at (wx, wy) whose neighbours at
+ * offset (ox, oy) may be explored. Draws only inside this tile's square.
+ */
 export const drawUnexploredStormEdge2D = (
   ctx: CanvasRenderingContext2D,
   wx: number,
@@ -230,11 +235,11 @@ export const drawUnexploredStormEdge2D = (
   px: number,
   py: number,
   size: number,
-  isUnexploredAt: (ox: number, oy: number) => boolean
+  isExploredAt: (ox: number, oy: number) => boolean
 ): void => {
   if (size < EDGE_MIN_TILE_PX) return;
-  const sides = SIDES.filter((side) => isUnexploredAt(side.ox, side.oy));
-  const corners = CORNERS.filter(([ox, oy]) => isUnexploredAt(ox, oy) && !isUnexploredAt(ox, 0) && !isUnexploredAt(0, oy));
+  const sides = SIDES.filter((side) => isExploredAt(side.ox, side.oy));
+  const corners = CORNERS.filter(([ox, oy]) => isExploredAt(ox, oy) && !isExploredAt(ox, 0) && !isExploredAt(0, oy));
   if (sides.length === 0 && corners.length === 0) return;
   const detailed = size >= EDGE_DETAIL_MIN_TILE_PX;
 
@@ -243,67 +248,59 @@ export const drawUnexploredStormEdge2D = (
   ctx.rect(px, py, size, size);
   ctx.clip();
 
-  // 1. Parchment band (+ hatching) and corner washes.
   const hatch = detailed ? hatchPatternFor(ctx) : undefined;
   if (hatch && typeof hatch.setTransform === "function" && typeof DOMMatrix !== "undefined") {
     // 2.8 hatch lines per tile, anchored to the world like the storm.
     const scale = size / (2.8 * HATCH_PX);
     hatch.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
   }
-  for (const side of sides) {
-    const [x0, y0] = side.at(px, py, size, 0, 0);
-    const [x1, y1] = side.at(px, py, size, 0, size * BAND_DEPTH);
-    const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-    gradient.addColorStop(0, rgba(UNEXPLORED_PARCHMENT, 0.8));
-    gradient.addColorStop(1, rgba(UNEXPLORED_PARCHMENT, 0));
-    ctx.fillStyle = gradient;
-    ctx.fillRect(px, py, size, size);
-    if (hatch) {
-      ctx.save();
-      ctx.beginPath();
-      const [hx0, hy0] = side.at(px, py, size, 0, 0);
-      const [hx1, hy1] = side.at(px, py, size, 1, size * 0.45);
-      ctx.rect(Math.min(hx0, hx1), Math.min(hy0, hy1), Math.abs(hx1 - hx0), Math.abs(hy1 - hy0));
-      ctx.clip();
-      ctx.globalAlpha = 0.6;
-      ctx.fillStyle = hatch;
-      ctx.fillRect(px, py, size, size);
-      ctx.restore();
-    }
-  }
+  const parchmentFill = hatch ?? UNEXPLORED_PARCHMENT;
+  const foam = rgba(UNEXPLORED_FOAM, 0.9);
+  const foamWidth = Math.max(1, size * 0.045);
+
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
     const cy = py + (oy > 0 ? size : 0);
-    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.6);
-    gradient.addColorStop(0, rgba(UNEXPLORED_PARCHMENT, 0.7));
-    gradient.addColorStop(1, rgba(UNEXPLORED_PARCHMENT, 0));
-    ctx.fillStyle = gradient;
-    ctx.fillRect(px, py, size, size);
+    const r = size * 0.24;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = parchmentFill;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = foam;
+    ctx.lineWidth = foamWidth;
+    ctx.stroke();
   }
 
-  // 2 + 3. Wavy storm creep with a foam rim, per side.
+  // Bands first, then every foam line, so a second side's band can't cover
+  // the first side's rim where they meet in a corner.
+  const rims: Array<Array<readonly [number, number]>> = [];
   for (const side of sides) {
     const a0 = side.along(wx, wy);
     const l = side.line(wx, wy);
-    const steps = detailed ? CREEP_STEPS : 1;
-    const edge: Array<readonly [number, number]> = [];
+    const steps = detailed ? WAVE_STEPS : 1;
+    const wave: Array<readonly [number, number]> = [];
     for (let k = 0; k <= steps; k += 1) {
       const t = k / steps;
-      edge.push(side.at(px, py, size, t, size * (detailed ? unexploredCreepDepth(a0 + t, l) : 0.12)));
+      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.2)));
     }
     ctx.beginPath();
     const [sx, sy] = side.at(px, py, size, 0, 0);
     ctx.moveTo(sx, sy);
-    for (const [ex, ey] of edge) ctx.lineTo(ex, ey);
+    for (const [ex, ey] of wave) ctx.lineTo(ex, ey);
     const [tx, ty] = side.at(px, py, size, 1, 0);
     ctx.lineTo(tx, ty);
     ctx.closePath();
-    setUnexploredStormFill(ctx, wx, wy, px, py, size);
+    ctx.fillStyle = parchmentFill;
     ctx.fill();
+    rims.push(wave);
+  }
+  ctx.strokeStyle = foam;
+  ctx.lineWidth = foamWidth;
+  for (const wave of rims) {
     ctx.beginPath();
-    edge.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey)));
-    ctx.strokeStyle = rgba(UNEXPLORED_FOAM, 0.9);
-    ctx.lineWidth = Math.max(1, size * 0.045);
+    wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey)));
     ctx.stroke();
   }
   ctx.restore();
