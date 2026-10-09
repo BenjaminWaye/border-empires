@@ -1,13 +1,13 @@
 // Regression coverage for the v10 shape fixes: continents-style mountain
 // ranges used to run ruler-straight along Voronoi plate boundaries (150+
 // tiles) and fill wide solid wedges wherever the boundary flattened; now they
-// are a thin (<= ~2 tile) wandering core wrapped in hills. Atolls were also
-// stretched into ovals by the domain warp. See worldgen-natural-ranges.ts /
-// worldgen-continent-score.ts.
+// are a thin (<= ~2 tile) wandering core wrapped in hills. Atolls were
+// continent-sized perfect rings; now they are small reef-islet rings out in
+// open ocean. See worldgen-natural-ranges.ts / worldgen-atoll-shape.ts.
 import { describe, expect, test } from "vitest";
 
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
-import { atollBumpAt } from "./worldgen-archipelago-features.js";
+import { atollBumpAt, atollSites } from "./worldgen-archipelago-features.js";
 import { isHillsRegionAt } from "./worldgen-hills.js";
 import { isMountainRange } from "./worldgen-mountain-ranges.js";
 import { setWorldSeed, terrainCodeAt, TERRAIN_LAND, TERRAIN_MOUNTAIN } from "./worldgen.js";
@@ -148,63 +148,90 @@ describe("continents mountain ranges (v10)", () => {
 });
 
 describe("atolls (v10)", () => {
-  // Land tiles near an atoll's centre form its ring; the ratio of the ring's
-  // principal-axis variances is 1 for a circle and ~4 for a 2:1 oval.
-  test("atolls sit in open ocean and their rings are round, not stretched by the domain warp", () => {
-    let atollsChecked = 0;
-    for (const seed of [101, 424242, 40004]) {
-      setWorldSeed(seed, "continents", FIX_VERSION);
-      const lagoon: Array<[number, number]> = [];
-      for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-        for (let x = 0; x < WORLD_WIDTH; x += 1) if (atollBumpAt(x, y) <= -0.45) lagoon.push([x, y]);
+  type AtollSample = { extent: number; islets: number; otherLandShare: number };
+  // Every atoll (and companion) on the map: its reef land's extent, how many
+  // separate islets that reef forms, and how much NON-atoll land sits just
+  // outside it.
+  const atollSamples = (seed: number, version: number): AtollSample[] => {
+    setWorldSeed(seed, "continents", version);
+    // Reef tiles of each atoll: within its own reach, attributed to the
+    // nearest atoll so a close companion isn't counted as part of it.
+    const sites = atollSites();
+    const groups: Array<Array<[number, number]>> = sites.map(() => []);
+    sites.forEach((site, i) => {
+      const reach = Math.ceil(site.outerRadius * 1.6) + 2;
+      for (let dy = -reach; dy <= reach; dy += 1) {
+        for (let dx = -reach; dx <= reach; dx += 1) {
+          const x = (site.cx + dx + WORLD_WIDTH) % WORLD_WIDTH;
+          const y = site.cy + dy;
+          if (y < 0 || y >= WORLD_HEIGHT || atollBumpAt(x, y) <= 0.05) continue;
+          const nearest = sites.reduce((best, s2, j) =>
+            Math.hypot(s2.cx - x, s2.cy - y) < Math.hypot(sites[best]!.cx - x, sites[best]!.cy - y) ? j : best, i);
+          if (nearest === i) groups[i]!.push([site.cx + dx, y]);
+        }
       }
-      // Group lagoon tiles by atoll (centres are >= 64 tiles apart).
-      const groups: Array<Array<[number, number]>> = [];
-      for (const t of lagoon) {
-        const g = groups.find((grp) => Math.hypot(grp[0]![0] - t[0], grp[0]![1] - t[1]) < 30);
-        if (g) g.push(t);
-        else groups.push([t]);
-      }
-      for (const g of groups) {
-        const cx = Math.round(g.reduce((s, t) => s + t[0], 0) / g.length);
-        const cy = Math.round(g.reduce((s, t) => s + t[1], 0) / g.length);
-        const ring: Array<[number, number]> = [];
-        let band = 0;
-        let bandLand = 0;
-        for (let dy = -24; dy <= 24; dy += 1) {
-          for (let dx = -24; dx <= 24; dx += 1) {
-            const y = cy + dy;
-            if (y < 0 || y >= WORLD_HEIGHT) continue;
-            const t = terrainCodeAt((cx + dx + WORLD_WIDTH) % WORLD_WIDTH, y);
-            const isLand = t === TERRAIN_LAND || t === TERRAIN_MOUNTAIN;
-            const r = Math.hypot(dx, dy);
-            if (r <= 18 && isLand) ring.push([dx, dy]);
-            if (r > 19 && r <= 24) {
-              band += 1;
-              if (isLand) bandLand += 1;
+    });
+    const isLand = (x: number, y: number): boolean => {
+      const t = terrainCodeAt((x + WORLD_WIDTH) % WORLD_WIDTH, y);
+      return t === TERRAIN_LAND || t === TERRAIN_MOUNTAIN;
+    };
+    return groups.map((g, gi) => {
+      const land = g.filter(([x, y]) => isLand(x, y));
+      const xs = land.map((p) => p[0]);
+      const ys = land.map((p) => p[1]);
+      const extent = land.length ? Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) + 1 : 0;
+      // Islets: 8-connected components of the reef's land tiles.
+      const keys = new Set(land.map(([x, y]) => `${x},${y}`));
+      const seen = new Set<string>();
+      let islets = 0;
+      for (const k of keys) {
+        if (seen.has(k)) continue;
+        islets += 1;
+        const stack = [k];
+        seen.add(k);
+        while (stack.length) {
+          const [cx, cy] = stack.pop()!.split(",").map(Number) as [number, number];
+          for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) {
+              const nk = `${cx + dx},${cy + dy}`;
+              if (keys.has(nk) && !seen.has(nk)) {
+                seen.add(nk);
+                stack.push(nk);
+              }
             }
           }
         }
-        // Remote, not dropped into or against a continent: the band just
-        // outside the ring is (almost) all water. Pre-v10 placement fell back
-        // to continents whenever open ocean was scarce.
-        expect(bandLand / band).toBeLessThan(0.2);
-        expect(ring.length).toBeGreaterThan(100);
-        let sxx = 0;
-        let sxy = 0;
-        let syy = 0;
-        for (const [dx, dy] of ring) {
-          sxx += dx * dx;
-          sxy += dx * dy;
-          syy += dy * dy;
-        }
-        const half = Math.sqrt(((sxx - syy) / 2) ** 2 + sxy ** 2);
-        const major = (sxx + syy) / 2 + half;
-        const minor = (sxx + syy) / 2 - half;
-        expect(major / minor).toBeLessThan(1.6);
-        atollsChecked += 1;
       }
+      const cx = sites[gi]!.cx;
+      const cy = sites[gi]!.cy;
+      let band = 0;
+      let other = 0;
+      for (let dy = -16; dy <= 16; dy += 1) {
+        for (let dx = -16; dx <= 16; dx += 1) {
+          const r = Math.hypot(dx, dy);
+          const y = cy + dy;
+          if (r <= 10 || r > 16 || y < 0 || y >= WORLD_HEIGHT) continue;
+          band += 1;
+          const x = (cx + dx + WORLD_WIDTH) % WORLD_WIDTH;
+          if (isLand(x, y) && atollBumpAt(x, y) <= 0.05) other += 1;
+        }
+      }
+      return { extent, islets, otherLandShare: other / Math.max(1, band) };
+    });
+  };
+
+  test("atolls are small, broken into islets and out in open ocean -- not continent-sized perfect rings", () => {
+    const after = [101, 424242, 40004].flatMap((seed) => atollSamples(seed, FIX_VERSION)).filter((a) => a.extent > 0);
+    expect(after.length).toBeGreaterThanOrEqual(6);
+    for (const a of after) {
+      // At most ~15 tiles across, most 8-12 (pre-v10: 18-30 tiles, ~1,100-1,900 km).
+      expect(a.extent).toBeLessThanOrEqual(16);
+      expect(a.otherLandShare).toBeLessThan(0.2);
     }
-    expect(atollsChecked).toBeGreaterThanOrEqual(5);
-  }, 120_000);
+    // Most reefs break into separate islets rather than one closed ring.
+    expect(after.filter((a) => a.islets >= 2).length / after.length).toBeGreaterThan(0.5);
+
+    const before = atollSamples(202, PRE_FIX_VERSION).filter((a) => a.extent > 0);
+    expect(Math.max(...before.map((a) => a.extent))).toBeGreaterThanOrEqual(18);
+  }, 180_000);
 });

@@ -314,7 +314,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
       "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
       "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
-      "Atoll islands now stay round and sit out in open ocean instead of being stretched into ovals or placed on a continent",
+      "Atolls are now small, irregular rings of reef islets out in open ocean, sometimes with a smaller atoll nearby, instead of continent-sized perfect circles",
+      "Island chains now run along coasts as strings of small, elongated islands, instead of clusters of large round islands in the middle of the ocean",
       "Seasons already in progress keep their current map"
     ]
   },

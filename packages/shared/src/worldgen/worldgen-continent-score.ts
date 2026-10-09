@@ -165,6 +165,25 @@ export const isOceanicPlateAt = (x: number, y: number, deepOnly = false): boolea
 // that each ran their own (expensive, now-distorted-per-plate) nearestPlates
 // search for the same tile, doubling the cost of a full-map generation for
 // no reason since isMountainRange always queries both for the same tile.
+// How far offshore (x, y) -- a raw tile -- sits, in plate-distance units:
+// distance to the nearest continental plate minus distance to its own
+// oceanic plate (0 at the plate boundary, growing out to sea), or -1 on a
+// continental plate. v10 island chains use it to stay in the offshore seas
+// along a continent rather than in mid-ocean or on land.
+let offshoreScratch = new Float64Array(0);
+export const offshoreMarginAt = (x: number, y: number): number => {
+  const { wx, wy } = warpedCoords(x, y);
+  const plates = buildPlates();
+  if (offshoreScratch.length < plates.length) offshoreScratch = new Float64Array(plates.length);
+  const { nearIdx } = plateDistances(wx, wy, plates, offshoreScratch);
+  if (plates[nearIdx]!.isContinental) return -1;
+  let nearestContinent = Infinity;
+  plates.forEach((p, i) => {
+    if (p.isContinental && offshoreScratch[i]! < nearestContinent) nearestContinent = offshoreScratch[i]!;
+  });
+  return nearestContinent - offshoreScratch[nearIdx]!;
+};
+
 let plateDistanceScratch = new Float64Array(0);
 const computePlateContinentScore = (wx: number, wy: number, x: number, y: number): { index: number; score: number; stress: number } => {
   const plates = buildPlates();
@@ -198,7 +217,9 @@ const computePlateContinentScore = (wx: number, wy: number, x: number, y: number
     // see worldgen-archipelago-features.ts. Additive here (before the
     // roughness multiplier below) so both still get the same coastline
     // jaggedness as everything else instead of needing bespoke shape logic.
-    archipelagoBumpAt(wx, wy) +
+    // v10+ island chains are sampled on the raw tile, like atolls, so the
+    // domain warp can't stretch them.
+    (separation ? archipelagoBumpAt(x, y) : archipelagoBumpAt(wx, wy)) +
     // v10+: atolls are circles by definition, so sample them at the raw
     // (unwarped) tile -- the domain warp's ~58-tile amplitude stretched a
     // 9-15 tile radius ring into a 15x30 oval.
