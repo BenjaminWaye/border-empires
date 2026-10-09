@@ -15,15 +15,18 @@ import {
   terrainCodeAt,
   valueNoise,
   worldIndex,
-  worldSeed
+  worldSeed,
+  worldStyle
 } from "./worldgen.js";
-import { worldgenVersion } from "./worldgen-version.js";
+import { isNaturalRangeFoothill } from "./worldgen-natural-ranges.js";
+import { naturalRangeShapeActive, worldgenVersion } from "./worldgen-version.js";
 import { hillFieldAt, hillThresholdFor } from "./worldgen-biome-thresholds.js";
 
 let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheSeed: number | undefined;
 let hillsCacheVersion: number | undefined;
+let hillsCacheStyle: string | undefined;
 
 // How far out (Chebyshev distance, in tiles) a mountain's foothill effect
 // reaches, and the chance a LAND tile at each distance becomes hills purely
@@ -89,16 +92,19 @@ const isHighlandsClusterAt = (x: number, y: number, seed: number): boolean => {
 //   3. discrete diamond-shaped "highlands" clusters (see
 //      isHighlandsClusterAt above) as recognizable standalone formations.
 // All three, plus the clearing pass below, are pure functions of the tile's
-// own coordinate/terrain with no dependency on WorldStyle, so the same rules
-// apply unchanged on continents and islands maps.
+// own coordinate/terrain, so the same rules apply on continents and islands
+// maps. The v10+ range foothills are continents-only, hence the cache is keyed
+// on WorldStyle too.
 export const isHillsRegionAt = (x: number, y: number): boolean => {
   const seed = worldSeed();
   const version = worldgenVersion();
-  if (hillsCacheSeed !== seed || hillsCacheVersion !== version) {
+  const style = worldStyle();
+  if (hillsCacheSeed !== seed || hillsCacheVersion !== version || hillsCacheStyle !== style) {
     hillsCache = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheSeed = seed;
     hillsCacheVersion = version;
+    hillsCacheStyle = style;
   }
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -118,6 +124,13 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
         const roll = seeded01(wx * 3 + 7, wy * 5 - 11, seed + 841);
         isHills = roll < chance;
       }
+    }
+
+    // v10+ continents ranges keep a thin mountain core only (a band thicker
+    // than ~2 tiles looks fake), so the wide convergent-boundary zone around
+    // it -- and a margin beyond -- is hills instead. See worldgen-natural-ranges.ts.
+    if (!isHills && naturalRangeShapeActive() && worldStyle() === "continents") {
+      isHills = isNaturalRangeFoothill(wx, wy);
     }
 
     if (!isHills) {

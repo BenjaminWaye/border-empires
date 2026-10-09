@@ -2,14 +2,14 @@ import type { LandBiome, RegionType, ResourceType, Terrain } from "../types.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
-import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
+import { continentSeparationActive, setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
 import { continentField, continentIdAt, getInlandThresholds, getLandWaterThresholds, resetContinentScoreCaches } from "./worldgen-continent-score.js";
 import { nonCoastalLandBiomeAt } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js"; import { oasisFeatureAt } from "./worldgen-oasis.js";
-import { computeCoastalCleanupMasks } from "./worldgen-island-pruning.js";
+import { computeCoastalCleanupMasks, DEFAULT_CELLULAR_SMOOTHING, NOTCH_PRESERVING_CELLULAR_SMOOTHING } from "./worldgen-island-pruning.js";
 import { isMicroMountainRange, isMountainRange, isOceanChannel } from "./worldgen-mountain-ranges.js";
 
 let CURRENT_WORLD_SEED = 42;
@@ -155,21 +155,25 @@ const rawBaseTerrainCodeAt = (x: number, y: number): number => {
 // never queries terrain doesn't pay for a full-map pass it never needed.
 let cachedPruneMaskSeed = Number.NaN;
 let cachedPruneMaskStyle: WorldStyle | undefined;
+let cachedPruneMaskVersion: number | undefined;
 let cachedCoastalCleanupMasks: { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } | undefined;
 const isLandLikeCode = (code: number): boolean => code === TERRAIN_LAND || code === TERRAIN_MOUNTAIN;
-// Lazy, cached once per (seed, style): see computeCoastalCleanupMasks in
+// Lazy, cached once per (seed, style, worldgen version): see computeCoastalCleanupMasks in
 // worldgen-island-pruning.ts for what this full-map pass does (CA smoothing
 // + tiny-island flood-fill pruning).
 const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } => {
   const seed = worldSeed();
   const style = worldStyle();
-  if (seed !== cachedPruneMaskSeed || style !== cachedPruneMaskStyle || !cachedCoastalCleanupMasks) {
+  const version = worldgenVersion();
+  if (seed !== cachedPruneMaskSeed || style !== cachedPruneMaskStyle || version !== cachedPruneMaskVersion || !cachedCoastalCleanupMasks) {
     cachedPruneMaskSeed = seed;
     cachedPruneMaskStyle = style;
+    cachedPruneMaskVersion = version;
     cachedCoastalCleanupMasks = computeCoastalCleanupMasks(
       WORLD_WIDTH,
       WORLD_HEIGHT,
-      (x, y) => isLandLikeCode(rawBaseTerrainCodeAt(x, y))
+      (x, y) => isLandLikeCode(rawBaseTerrainCodeAt(x, y)),
+      continentSeparationActive() ? NOTCH_PRESERVING_CELLULAR_SMOOTHING : DEFAULT_CELLULAR_SMOOTHING
     );
   }
   return cachedCoastalCleanupMasks;

@@ -362,6 +362,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Hovering a top-bar chip now keeps a steady highlight"
     ]
   },
+  {
+    createdAt: 1791579131298, // Date.now() frozen for this entry
+    introducedIn: "2026.10.09.1",
+    title: "Separate continents, natural coasts and mountain ranges on new worlds",
+    why: "Continent maps often fused into one supercontinent holding most of the land, mountain ranges ran in ruler-straight lines or filled wide gray wedges, and atolls were stretched into ovals or dropped onto continents.",
+    changes: [
+      "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
+      "Coastlines are more natural: capes, coves and offshore islands, with craggier coasts toward the poles, instead of long smooth or ruler-straight shores",
+      "Coastal mountain ranges now sit just inland of the coast, like the Andes",
+      "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
+      "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
+      "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
+      "Atolls are now small, irregular rings of reef islets out in open ocean, sometimes with a smaller atoll nearby, instead of continent-sized perfect circles",
+      "Island chains now run along coasts as strings of small, elongated islands, instead of clusters of large round islands in the middle of the ocean",
+      "Seasons already in progress keep their current map"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
