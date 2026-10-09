@@ -16,6 +16,7 @@ import {
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { setBuildingEnvIntensity } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createUnexploredStormLayer, type UnexploredStormLayer } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
+import type { TerrainWindow } from "./client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { UNEXPLORED_STORM_DARK, UNEXPLORED_STORM_MID } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   SUN_DISTANCE,
@@ -24,8 +25,9 @@ import {
   type LightingSettings
 } from "./client-lighting-tuner/client-lighting-tuner-settings.js";
 
-// Only one of these is ever drawn, and barely: the unexplored-storm layer
-// (client-map-3d-unexplored-storm.ts) covers every pixel the terrain doesn't.
+// Only one of these is ever drawn: it shows wherever neither terrain nor the
+// unexplored-storm layer (client-map-3d-unexplored-storm.ts) covers a pixel,
+// e.g. under the storm's soft edge beside a coastal cliff.
 //
 // Note the sky shader's naming is misleading: `midColor` is the color *at* the
 // horizon line, `topColor` is the zenith, and `horizonColor` is what's drawn
@@ -65,6 +67,7 @@ void main() {
     ? mix(midColor, topColor, smoothstep(0.0, 0.7, h))
     : mix(midColor, horizonColor, smoothstep(0.0, -0.5, h));
   gl_FragColor = vec4(c, 1.0);
+  #include <colorspace_fragment>
 }
 `;
 
@@ -97,9 +100,9 @@ export type AtmosphereResources = {
   // rebuilds instead of snapping only when sceneOrigin re-anchors.
   readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
   readonly unexploredStorm: UnexploredStormLayer;
-  // Called once per terrain rebuild with the new visible-tile radius and the
-  // scene origin's world tile coords (sceneOrigin in client-map-3d.ts).
-  readonly onTerrainRebuilt: (halfExtentTiles: number, worldOriginX: number, worldOriginZ: number) => void;
+  // Called once per terrain rebuild with the new built window (whose camX/camY
+  // is the new sceneOrigin in client-map-3d.ts) and its explored test.
+  readonly onTerrainRebuilt: (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean) => void;
   readonly dispose: () => void;
 };
 
@@ -284,9 +287,9 @@ export const createAtmosphere = (
     sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
   updateShadowFrame(0);
-  const onTerrainRebuilt = (halfExtentTiles: number, worldOriginX: number, worldOriginZ: number): void => {
-    updateShadowFrame(halfExtentTiles);
-    unexploredStorm.setWorldOrigin(worldOriginX, worldOriginZ);
+  const onTerrainRebuilt = (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean): void => {
+    updateShadowFrame(Math.max(window.halfW, window.halfH));
+    unexploredStorm.rebuild(window, isExploredAt);
   };
 
   // Single place every tunable light value is applied, both at startup (the

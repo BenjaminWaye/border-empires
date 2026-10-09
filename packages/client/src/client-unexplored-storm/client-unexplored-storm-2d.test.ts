@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildUnexploredStormPixels, drawUnexploredStormTile } from "./client-unexplored-storm-2d.js";
+import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormTile } from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
 
 const SIZE = 256;
@@ -35,7 +35,25 @@ describe("unexplored storm 2D texture", () => {
     const fillRect = vi.fn();
     const ctx = { fillStyle: "", fillRect } as unknown as CanvasRenderingContext2D;
     drawUnexploredStormTile(ctx, 3, 4, 10, 20, 16);
-    expect(ctx.fillStyle).toBe(UNEXPLORED_STORM_MID);
     expect(fillRect).toHaveBeenCalledWith(10, 20, 16, 16);
+  });
+
+  it("hints the hidden tile's edges with faint lines, but not when tiles are tiny", () => {
+    const calls: Array<[string, number[]]> = [];
+    const ctx = {
+      fillStyle: "",
+      fillRect(...args: number[]) {
+        calls.push([String(ctx.fillStyle), args]);
+      }
+    } as unknown as CanvasRenderingContext2D;
+    drawUnexploredStormTile(ctx, 3, 4, 10, 20, 16);
+    expect(calls[0]).toEqual([UNEXPLORED_STORM_MID, [10, 20, 16, 16]]);
+    expect(calls.slice(1)).toEqual([
+      [UNEXPLORED_STORM_EDGE_COLOR, [10, 20, 16, 1]],
+      [UNEXPLORED_STORM_EDGE_COLOR, [10, 21, 1, 15]]
+    ]);
+    calls.length = 0;
+    drawUnexploredStormTile(ctx, 3, 4, 10, 20, 4);
+    expect(calls).toHaveLength(1);
   });
 });

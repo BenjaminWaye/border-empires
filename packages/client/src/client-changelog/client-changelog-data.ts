@@ -325,7 +325,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.09.1",
     title: "Storm clouds over unexplored land",
     why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
-    changes: ["Unexplored territory now shows as drifting grey storm clouds with rain streaks, in both the 3D map and the 2D map", "Explored land now stands above the clouds, and distant terrain fades into them instead of into black"]
+    changes: ["Unexplored territory now shows as drifting grey storm clouds with rain streaks, in both the 3D map and the 2D map", "The clouds lie level with the land, with a soft edge where they meet your explored territory", "Faint tile outlines show through the clouds so you can still see the grid you haven't explored", "Distant terrain fades into the clouds instead of into black"]
   },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

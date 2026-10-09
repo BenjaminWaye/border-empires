@@ -88,6 +88,9 @@ export const buildUnexploredStormPixels = (sizePx: number = UNEXPLORED_STORM_TEX
   return out;
 };
 
+export const UNEXPLORED_STORM_EDGE_COLOR = "rgba(40, 44, 46, 0.35)";
+const UNEXPLORED_STORM_EDGE_MIN_TILE_PX = 8;
+
 let cachedPattern: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
 
 const stormPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefined => {
@@ -125,4 +128,12 @@ export const drawUnexploredStormTile = (
     ctx.fillStyle = UNEXPLORED_STORM_MID;
   }
   ctx.fillRect(px, py, size, size);
+  // Faint tile edges under the cloud (top + left, so each shared edge is
+  // drawn once), matching the 3D layer's hinted grid. Skipped once tiles
+  // are too small for a line to read as anything but noise.
+  if (size >= UNEXPLORED_STORM_EDGE_MIN_TILE_PX) {
+    ctx.fillStyle = UNEXPLORED_STORM_EDGE_COLOR;
+    ctx.fillRect(px, py, size, 1);
+    ctx.fillRect(px, py + 1, 1, size - 1);
+  }
 };
