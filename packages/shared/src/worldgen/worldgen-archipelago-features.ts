@@ -43,13 +43,13 @@ const distToNearestContinentalPlate = (x: number, y: number): number => {
 // plates, clear of the polar bands. If no attempt qualifies, it is skipped.
 const OPEN_OCEAN_RING_SAMPLES = 12;
 const POLAR_CLEARANCE = 12;
-const isOpenOceanSite = (x: number, y: number, radius: number): boolean => {
+const isOpenOceanSite = (x: number, y: number, radius: number, deepOnly = false): boolean => {
   if (y - radius < POLAR_BAND + POLAR_CLEARANCE || y + radius >= WORLD_HEIGHT - POLAR_BAND - POLAR_CLEARANCE) return false;
-  if (!isOceanicPlateAt(x, y)) return false;
+  if (!isOceanicPlateAt(x, y, deepOnly)) return false;
   for (let i = 0; i < OPEN_OCEAN_RING_SAMPLES; i += 1) {
     const a = (i / OPEN_OCEAN_RING_SAMPLES) * Math.PI * 2;
     const sx = (Math.round(x + Math.cos(a) * radius) + WORLD_WIDTH) % WORLD_WIDTH;
-    if (!isOceanicPlateAt(sx, Math.round(y + Math.sin(a) * radius))) return false;
+    if (!isOceanicPlateAt(sx, Math.round(y + Math.sin(a) * radius), deepOnly)) return false;
   }
   return true;
 };
@@ -161,12 +161,18 @@ export const archipelagoBumpAt = (wx: number, wy: number): number => {
 
 const ATOLL_COUNT = Math.max(1, Math.round(1.5 * (WORLD_WIDTH / WORLD_HEIGHT)));
 const ATOLL_PLACEMENT_ATTEMPTS = 60;
+// v10's open-water rule rejects most random sites, so it gets more tries.
+const ATOLL_PLACEMENT_ATTEMPTS_V10 = 400;
 const ATOLL_MIN_SPACING = Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.2;
 const ATOLL_OUTER_RADIUS_MIN = 9;
 const ATOLL_OUTER_RADIUS_MAX = 15;
 const ATOLL_RING_WIDTH = 3.5;
 const ATOLL_RING_BUMP_HEIGHT = 0.5;
 const ATOLL_RING_BUMP_HEIGHT_V10 = 0.85;
+// Open water required beyond the ring. v10 coasts can reach right up to a
+// continental plate's boundary (shelf + coast detail), so the plate check
+// must look well past the ring or the atoll fuses with a nearby coast.
+const ATOLL_OPEN_WATER_MARGIN = 14;
 // Actively pushed down, not just left at ambient ocean elevation, so the
 // lagoon reads as real open water even if this exact ocean point happened to
 // sample a locally high plate/uplift score.
@@ -194,7 +200,8 @@ const buildAtolls = (): Atoll[] => {
     let placed = false;
     const outerRadius =
       ATOLL_OUTER_RADIUS_MIN + seeded01(i, 0, seed + 380088) * (ATOLL_OUTER_RADIUS_MAX - ATOLL_OUTER_RADIUS_MIN);
-    for (let attempt = 0; attempt < ATOLL_PLACEMENT_ATTEMPTS; attempt += 1) {
+    const attempts = openOceanOnly ? ATOLL_PLACEMENT_ATTEMPTS_V10 : ATOLL_PLACEMENT_ATTEMPTS;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 360066) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 370077) * WORLD_HEIGHT);
       const farFromZones = zones.every((z) => distTo(candX, candY, z.cx, z.cy) >= ARCHIPELAGO_ZONE_RADIUS * 1.3);
@@ -202,8 +209,12 @@ const buildAtolls = (): Atoll[] => {
       cx = candX;
       cy = candY;
       if (openOceanOnly) {
-        // A clear margin of open water beyond the ring, so it reads as a remote atoll.
-        if (farFromZones && farFromOtherAtolls && isOpenOceanSite(candX, candY, outerRadius + 8)) {
+        // A clear margin of open water beyond the ring, so it reads as a remote
+        // atoll -- including clear of a zone's outermost islands, which the
+        // legacy 1.3-zone-radius spacing left only a few tiles away.
+        const zoneClearance = ARCHIPELAGO_ZONE_RADIUS + ISLAND_MAX_RADIUS + outerRadius + 10;
+        const clearOfZones = zones.every((z) => distTo(candX, candY, z.cx, z.cy) >= zoneClearance);
+        if (clearOfZones && farFromOtherAtolls && isOpenOceanSite(candX, candY, outerRadius + ATOLL_OPEN_WATER_MARGIN, true)) {
           placed = true;
           break;
         }

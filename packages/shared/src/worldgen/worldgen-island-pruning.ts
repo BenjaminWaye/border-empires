@@ -37,6 +37,17 @@ const CA_SMOOTHING_PASSES = 2;
 const CA_DEATH_NEIGHBOR_THRESHOLD = 4; // land tile with < 4 of 8 neighbors land -> becomes sea
 const CA_BIRTH_NEIGHBOR_THRESHOLD = 5; // sea tile with >= 5 of 8 neighbors land -> becomes land
 
+export type CellularSmoothingRule = { passes: number; deathBelow: number; birthAtLeast: number };
+// v10+: two passes of the 4/5 rule round off every 1-2 tile notch, which is
+// most of what makes a real coastline read as rough at small scales. One
+// gentler pass still removes lone specks and single-tile threads.
+export const NOTCH_PRESERVING_CELLULAR_SMOOTHING: CellularSmoothingRule = { passes: 1, deathBelow: 3, birthAtLeast: 6 };
+export const DEFAULT_CELLULAR_SMOOTHING: CellularSmoothingRule = {
+  passes: CA_SMOOTHING_PASSES,
+  deathBelow: CA_DEATH_NEIGHBOR_THRESHOLD,
+  birthAtLeast: CA_BIRTH_NEIGHBOR_THRESHOLD,
+};
+
 const NEIGHBOR_OFFSETS = [
   [-1, -1], [0, -1], [1, -1],
   [-1, 0], [1, 0],
@@ -45,11 +56,16 @@ const NEIGHBOR_OFFSETS = [
 
 // Runs in-place over a Uint8Array land/sea grid (1 = land-like, 0 = sea),
 // toroidal in x, not in y (matches findTinyIslandMask's wrap convention).
-export const smoothLandMaskWithCellularAutomata = (width: number, height: number, landMask: Uint8Array): void => {
+export const smoothLandMaskWithCellularAutomata = (
+  width: number,
+  height: number,
+  landMask: Uint8Array,
+  rule: CellularSmoothingRule = DEFAULT_CELLULAR_SMOOTHING
+): void => {
   const idx = (x: number, y: number): number => y * width + x;
   let current: Uint8Array = landMask;
   let scratch: Uint8Array = new Uint8Array(width * height);
-  for (let pass = 0; pass < CA_SMOOTHING_PASSES; pass += 1) {
+  for (let pass = 0; pass < rule.passes; pass += 1) {
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         let landNeighbors = 0;
@@ -61,8 +77,8 @@ export const smoothLandMaskWithCellularAutomata = (width: number, height: number
         }
         const wasLand = current[idx(x, y)] === 1;
         scratch[idx(x, y)] = wasLand
-          ? (landNeighbors >= CA_DEATH_NEIGHBOR_THRESHOLD ? 1 : 0)
-          : (landNeighbors >= CA_BIRTH_NEIGHBOR_THRESHOLD ? 1 : 0);
+          ? (landNeighbors >= rule.deathBelow ? 1 : 0)
+          : (landNeighbors >= rule.birthAtLeast ? 1 : 0);
       }
     }
     const swap = current;
@@ -107,7 +123,8 @@ export type CoastalCleanupMasks = {
 export const computeCoastalCleanupMasks = (
   width: number,
   height: number,
-  isLandLike: (x: number, y: number) => boolean
+  isLandLike: (x: number, y: number) => boolean,
+  smoothing: CellularSmoothingRule = DEFAULT_CELLULAR_SMOOTHING
 ): CoastalCleanupMasks => {
   const rawLandMask = new Uint8Array(width * height);
   for (let y = 0; y < height; y += 1) {
@@ -116,7 +133,7 @@ export const computeCoastalCleanupMasks = (
     }
   }
   const smoothedLandMask = rawLandMask.slice();
-  smoothLandMaskWithCellularAutomata(width, height, smoothedLandMask);
+  smoothLandMaskWithCellularAutomata(width, height, smoothedLandMask, smoothing);
   const prunedFromSmoothed = findTinyIslandMask(width, height, (x, y) => smoothedLandMask[y * width + x] === 1);
   const tinyIslandMask = new Uint8Array(width * height);
   const coastalInfillMask = new Uint8Array(width * height);
