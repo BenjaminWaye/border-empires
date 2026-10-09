@@ -80,7 +80,7 @@ describe("Launch Attack effort sheet", () => {
   it("shows one presets-only sheet for several targets and applies the multiplier to each settled target's own floor", () => {
     const { state, deps, queueSpecificTargets } = setup([
       { x: 1, y: 0, ownershipState: "SETTLED" },
-      { x: 2, y: 0, ownershipState: "SETTLED", fort: { status: "active", variant: "FORT" } as Tile["fort"] },
+      { x: 2, y: 0, ownershipState: "SETTLED", fort: { status: "active", variant: "FORT" } as NonNullable<Tile["fort"]> },
       { x: 3, y: 0, ownershipState: "FRONTIER" }
     ]);
     launchAttacksWithEffort(state, { targetKeys: ["1,0", "2,0", "3,0"], scope: "region", selected: state.tiles.get("1,0") }, deps);

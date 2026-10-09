@@ -279,6 +279,7 @@ describe("renderCaptureProgress", () => {
         pendingCombatReveal: undefined,
         pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
         musterAmountRateByTile: new Map(),
+        attackCommitByTargetKey: new Map(),
         manpower: 100_000
       } as any,
       {
@@ -354,6 +355,7 @@ describe("renderCaptureProgress", () => {
       pendingCombatReveal: undefined,
       pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
       musterAmountRateByTile,
+      attackCommitByTargetKey: new Map(),
       manpower: 100_000
     };
 
