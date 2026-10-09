@@ -160,8 +160,9 @@ export const drawUnexploredStormTile = (
 // (client-map-3d-unexplored-storm-shader.ts). Drawn over an UNEXPLORED
 // tile's storm, on each side that faces an explored tile -- explored tiles
 // themselves are never drawn on:
-//   1. a hatched parchment band from that edge to a wavy line ~0.1-0.3 tile in;
-//   2. a pale foam rim along the wavy line.
+//   1. a hatched parchment band from that edge to a wavy line ~0.6-0.8 tile
+//      in -- the first ring of fog tiles is the fog's "coast";
+//   2. a pale foam rim along the wavy line, with the storm beyond it.
 // A fog tile touching explored land only diagonally gets a small parchment
 // corner. The waves are keyed to world coordinates along the edge, so they
 // run continuously from one tile to the next.
@@ -196,7 +197,7 @@ const rgba = (hex: string, alpha: number): string =>
 
 /** Parchment band depth in tiles at world position `a` along a fog edge on line `l`. */
 export const unexploredBandDepth = (a: number, l: number): number =>
-  0.2 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
+  0.72 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
 
 let hatchCache: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
 const HATCH_PX = 32;
@@ -258,24 +259,17 @@ export const drawUnexploredStormEdge2D = (
   const foam = rgba(UNEXPLORED_FOAM, 0.9);
   const foamWidth = Math.max(1, size * 0.045);
 
+  // Every band and corner outline, as a path builder. Foam is stroked along
+  // all of them first and parchment filled over all of them after, so a
+  // rim only survives on the band's outer edge -- never as a line crossing
+  // another side's band where two sides meet.
+  const shapes: Array<() => void> = [];
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
     const cy = py + (oy > 0 ? size : 0);
-    const r = size * 0.24;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = parchmentFill;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = foam;
-    ctx.lineWidth = foamWidth;
-    ctx.stroke();
+    const r = size * 0.72;
+    shapes.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
   }
-
-  // Bands first, then every foam line, so a second side's band can't cover
-  // the first side's rim where they meet in a corner.
-  const rims: Array<Array<readonly [number, number]>> = [];
   for (const side of sides) {
     const a0 = side.along(wx, wy);
     const l = side.line(wx, wy);
@@ -283,25 +277,30 @@ export const drawUnexploredStormEdge2D = (
     const wave: Array<readonly [number, number]> = [];
     for (let k = 0; k <= steps; k += 1) {
       const t = k / steps;
-      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.2)));
+      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.72)));
     }
-    ctx.beginPath();
     const [sx, sy] = side.at(px, py, size, 0, 0);
-    ctx.moveTo(sx, sy);
-    for (const [ex, ey] of wave) ctx.lineTo(ex, ey);
     const [tx, ty] = side.at(px, py, size, 1, 0);
-    ctx.lineTo(tx, ty);
-    ctx.closePath();
-    ctx.fillStyle = parchmentFill;
-    ctx.fill();
-    rims.push(wave);
+    shapes.push(() => {
+      ctx.moveTo(sx, sy);
+      for (const [ex, ey] of wave) ctx.lineTo(ex, ey);
+      ctx.lineTo(tx, ty);
+      ctx.closePath();
+    });
   }
+  // Doubled: the parchment fill covers the inner half of the stroke.
   ctx.strokeStyle = foam;
-  ctx.lineWidth = foamWidth;
-  for (const wave of rims) {
+  ctx.lineWidth = foamWidth * 2;
+  for (const shape of shapes) {
     ctx.beginPath();
-    wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey)));
+    shape();
     ctx.stroke();
+  }
+  ctx.fillStyle = parchmentFill;
+  for (const shape of shapes) {
+    ctx.beginPath();
+    shape();
+    ctx.fill();
   }
   ctx.restore();
 };

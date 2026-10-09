@@ -1,14 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
+const at = (mask: ReturnType<typeof buildUnexploredStormMask>, i: number, j: number) => ({
+  unexplored: mask.data[(j * mask.width + i) * 2]!,
+  field: mask.data[(j * mask.width + i) * 2 + 1]! / 255
+});
+
 describe("buildUnexploredStormMask", () => {
-  it("covers the window plus a one-tile ring, 255 = unexplored", () => {
-    // Window 9x9 tiles + ring = 11x11; explored = the left half (wx < 50).
-    const mask = buildUnexploredStormMask({ camX: 50, camY: 50, halfW: 4, halfH: 4 }, 1000, 1000, (wx) => wx < 50);
+  // Window 9x9 tiles + ring = 11x11; explored = wx < 50. Texel i holds
+  // wx = camX + i - halfW - 1, so i <= 4 is explored, i = 5 is the first
+  // fog ring, i >= 6 is deep fog.
+  const mask = buildUnexploredStormMask({ camX: 50, camY: 50, halfW: 4, halfH: 4 }, 1000, 1000, (wx) => wx < 50);
+  const row = 5;
+
+  it("flags unexplored tiles in R", () => {
     expect([mask.width, mask.height]).toEqual([11, 11]);
-    // Texel i holds wx = camX + i - halfW - 1, so i = 5 is wx 50 (fog), i = 4 is wx 49 (explored).
-    expect(mask.data[5 * 11 + 5]).toBe(255);
-    expect(mask.data[5 * 11 + 4]).toBe(0);
+    expect(at(mask, 4, row).unexplored).toBe(0);
+    expect(at(mask, 5, row).unexplored).toBe(255);
+  });
+
+  it("puts the coast field's ramp across the first fog ring, not on explored land", () => {
+    // Deep fog saturates; the ring tile sits partway; explored tiles next to
+    // the ring see no deep fog at all.
+    expect(at(mask, 6, row).field).toBe(1);
+    expect(at(mask, 5, row).field).toBeCloseTo(0.25, 2);
+    expect(at(mask, 4, row).field).toBe(0);
+  });
+
+  it("treats a lone fog tile inside explored land as ring, not deep", () => {
+    const pocket = buildUnexploredStormMask({ camX: 10, camY: 10, halfW: 2, halfH: 2 }, 100, 100, (wx, wy) => !(wx === 10 && wy === 10));
+    const centre = (pocket.height >> 1) * pocket.width + (pocket.width >> 1);
+    expect(pocket.data[centre * 2]).toBe(255);
+    expect(pocket.data[centre * 2 + 1]).toBeLessThan(255);
   });
 
   it("wraps world coordinates across the seam", () => {

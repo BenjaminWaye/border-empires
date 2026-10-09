@@ -24,9 +24,9 @@ describe("unexplored storm layer (3D)", () => {
     const mask = storm.material.uniforms.uMask!.value as DataTexture;
     const { width, height, data } = mask.image as { width: number; height: number; data: Uint8Array };
     expect([width, height]).toEqual([7, 5]);
-    // Centre texel (i = halfW + 1, j = halfH + 1) is the only explored one.
-    expect(data[2 * width + 3]).toBe(0);
-    expect(Array.from(data).filter((v) => v === 255)).toHaveLength(width * height - 1);
+    // Centre texel (i = halfW + 1, j = halfH + 1) is the only explored (R = 0) one.
+    expect(data[(2 * width + 3) * 2]).toBe(0);
+    expect(Array.from(data).filter((v, k) => k % 2 === 0 && v === 255)).toHaveLength(width * height - 1);
     expect(vec(storm, "uMaskMin")).toEqual([-3, -2]);
     expect(vec(storm, "uMaskSize")).toEqual([7, 5]);
     expect(vec(storm, "uWorldOrigin")).toEqual([100, 200]);
@@ -71,14 +71,12 @@ describe("unexplored storm layer (3D)", () => {
     expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
   });
 
-  it("sizes the border band by distance to explored land, not by how much explored land is nearby", () => {
-    // A lone fog tile inside explored land must keep storm in its middle:
-    // the band is BAND_DEPTH (~0.2 tile) from the nearest explored edge.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/const float BAND_DEPTH = 0\.2;/);
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float s = BAND_DEPTH \+ \(edgeNoise - 0\.5\) \* 0\.12 - dist;/);
-    // dist jumps between tiles with and without explored neighbours; an
-    // unclamped fwidth there drew stray foam lines across the storm.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float sw = clamp\(fwidth\(dist\), 0\.004, 0\.04\);/);
+  it("cuts the coastline from the deep-fog field and keeps deep fog solid storm", () => {
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float stormCover = max\(deep, /);
+    // Foam never draws inside deep fog; its derivative-based width is clamped
+    // so tile-to-tile jumps can't balloon it into stray lines.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float rim = \(1\.0 - deep\)/);
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float sw = clamp\(fwidth\(s\), 0\.004, 0\.04\);/);
   });
 
   it("keeps backticks out of the GLSL template (they would end the string)", () => {

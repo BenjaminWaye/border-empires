@@ -83,11 +83,11 @@ describe("unexplored storm 2D texture", () => {
     expect(tiny.ops).toEqual([]);
   });
 
-  it("keeps the wavy band within ~0.1-0.3 tile of the explored edge", () => {
+  it("puts the foam ~0.6-0.85 of the way across the first fog tile", () => {
     for (let a = 0; a < 4; a += 0.05) {
       const d = unexploredBandDepth(a, 7);
-      expect(d).toBeGreaterThan(0.06);
-      expect(d).toBeLessThan(0.3);
+      expect(d).toBeGreaterThan(0.6);
+      expect(d).toBeLessThan(0.85);
     }
   });
 });

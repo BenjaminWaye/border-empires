@@ -3,8 +3,8 @@ import {
   DataTexture,
   Mesh,
   PlaneGeometry,
-  NearestFilter,
-  RedFormat,
+  LinearFilter,
+  RGFormat,
   ShaderMaterial,
   UnsignedByteType,
   Vector2,
@@ -30,10 +30,11 @@ import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 // explored world doesn't sit in a void or above a pit -- the fog is on the
 // same plane as the ground it hides. A per-tile explored mask (rebuilt with
 // the terrain window) restricts it to unexplored tiles only: explored tiles
-// are never drawn over. Along a border with explored land, the unexplored
-// tile shows a parchment band and a foam rim before the storm; faint
-// tile-edge lines show through the cloud so the hidden grid is still
-// hinted. Look and layering: client-map-3d-unexplored-storm-shader.ts.
+// are never drawn over. The first ring of unexplored tiles is the fog's
+// "coast": mostly parchment, with a rounded foam rim and the storm's edge
+// running through its outer part. Faint tile-edge lines show through the
+// cloud so the hidden grid is still hinted. Look and layering:
+// client-map-3d-unexplored-storm-shader.ts.
 // 2D counterpart: client-unexplored-storm-2d.ts.
 export const UNEXPLORED_STORM_Y = 0.2;
 // Well past the farthest ground point the fixed-tilt camera can see at max
@@ -56,11 +57,12 @@ export type UnexploredStormLayer = {
 };
 
 const createMaskTexture = (width: number, height: number, data: Uint8Array): DataTexture => {
-  const texture = new DataTexture(data, width, height, RedFormat, UnsignedByteType);
-  // Always read at texel centres; nearest keeps tile cells exact.
-  texture.magFilter = NearestFilter;
-  texture.minFilter = NearestFilter;
-  texture.unpackAlignment = 1; // R8 rows of odd width are not 4-byte aligned
+  const texture = new DataTexture(data, width, height, RGFormat, UnsignedByteType);
+  // Linear for the G field's smooth contour; R is only read at texel
+  // centres, where linear filtering returns the exact value.
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
+  texture.unpackAlignment = 1; // RG8 rows of odd width are not 4-byte aligned
   texture.needsUpdate = true;
   return texture;
 };
@@ -68,7 +70,7 @@ const createMaskTexture = (width: number, height: number, data: Uint8Array): Dat
 export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = () => performance.now()): UnexploredStormLayer => {
   const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
-  let mask = createMaskTexture(1, 1, new Uint8Array([255]));
+  let mask = createMaskTexture(1, 1, new Uint8Array([255, 255]));
   const material = new ShaderMaterial({
     toneMapped: false,
     fog: false,

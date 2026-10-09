@@ -1,16 +1,18 @@
 // GLSL for client-map-3d-unexplored-storm.ts. Draws ONLY on unexplored
 // tiles -- explored tiles are discarded outright, so revealed land is never
-// tinted, hatched or overlapped. Inside an unexplored tile, from a border
-// with explored land inward:
-//   1. A hatched parchment band ("charted coast, not yet surveyed"), from the
-//      tile edge to a noise-wobbled line ~0.14-0.26 tile in -- measured as
-//      exact distance to the nearest explored edge/corner, so the band stays
-//      a thin strip even on a lone fog tile surrounded by explored land.
+// tinted, hatched or overlapped. The fog's coastline lives in the first ring
+// of unexplored tiles (those touching explored land, diagonals included):
+//   1. A hatched parchment band ("charted coast, not yet surveyed") from the
+//      explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
+//      the way across the ring tile.
 //   2. A pale foam rim on that contour, with a lit lip on the cloud behind it.
-//   3. The storm: drifting cloud masses under straight engraved hatching,
-//      with the hidden tile grid faintly showing through.
-// The tile's own edge against explored land is anti-aliased inward only.
-// All derivatives and texture reads happen before the single `discard`.
+//   3. The storm beyond: drifting cloud masses under straight engraved
+//      hatching, with the hidden tile grid faintly showing through.
+// The contour is cut from a blurred field of "deep fog" (unexplored tiles
+// with no explored neighbour), so it rounds corners instead of following
+// tile squares. Tiles' own edges against explored land are anti-aliased
+// inward only. All derivatives and texture reads happen before the single
+// `discard`.
 
 export const STORM_VERTEX_SHADER = `
 varying vec2 vSceneXZ;
@@ -61,8 +63,7 @@ float lines(float x, float halfWidth) {
   return l * clamp(1.6 - fw * 5.0, 0.0, 1.0);
 }
 
-// Band depth into the fog tile, in tiles (wobbled +-0.06 by noise).
-const float BAND_DEPTH = 0.2;
+const float EDGE = 0.47;
 
 float maskR(vec2 tile) {
   vec2 uv = (tile + 0.5 - uMaskMin) / uMaskSize;
@@ -76,7 +77,7 @@ void main() {
   float mass = fbm(w * 0.08 - drift * 0.05 + body * 0.6);
   float edgeNoise = fbm(w * 0.9 + drift * 0.3);
 
-  // Hard mask (1 = unexplored) for this tile and its 8 neighbours.
+  // R: 1 = unexplored, for this tile and its 4 edge neighbours.
   vec2 tile = floor(vSceneXZ);
   vec2 f = vSceneXZ - tile;
   float hard = maskR(tile);
@@ -84,26 +85,6 @@ void main() {
   float r = maskR(tile + vec2(1.0, 0.0));
   float u = maskR(tile + vec2(0.0, -1.0));
   float d = maskR(tile + vec2(0.0, 1.0));
-  float lu = maskR(tile + vec2(-1.0, -1.0));
-  float ru = maskR(tile + vec2(1.0, -1.0));
-  float ld = maskR(tile + vec2(-1.0, 1.0));
-  float rd = maskR(tile + vec2(1.0, 1.0));
-
-  // Exact distance (in tiles) from this point to the nearest edge or corner
-  // shared with an explored tile. Measured per tile, so a lone fog tile
-  // inside explored land gets a thin band all round and storm in its
-  // middle, never a solid band. Capped at 2.0 (well beyond the band) where
-  // no neighbour is explored.
-  float dist = 2.0;
-  if (l < 0.5) dist = min(dist, f.x);
-  if (r < 0.5) dist = min(dist, 1.0 - f.x);
-  if (u < 0.5) dist = min(dist, f.y);
-  if (d < 0.5) dist = min(dist, 1.0 - f.y);
-  if (lu < 0.5) dist = min(dist, length(f));
-  if (ru < 0.5) dist = min(dist, length(vec2(1.0 - f.x, f.y)));
-  if (ld < 0.5) dist = min(dist, length(vec2(f.x, 1.0 - f.y)));
-  if (rd < 0.5) dist = min(dist, length(1.0 - f));
-
   // Inward-only anti-aliasing along edges shared with explored tiles.
   vec2 fwScene = fwidth(vSceneXZ);
   float edgeAa = min(
@@ -111,12 +92,19 @@ void main() {
     min(u > 0.5 ? 1.0 : smoothstep(0.0, fwScene.y, f.y), d > 0.5 ? 1.0 : smoothstep(0.0, fwScene.y, 1.0 - f.y))
   );
 
-  // Positive inside the band, negative beyond it.
-  float s = BAND_DEPTH + (edgeNoise - 0.5) * 0.12 - dist;
-  // Clamped: dist jumps where a tile with explored neighbours meets one
-  // without, and an unclamped derivative there would balloon the foam rim
-  // into stray lines across the storm.
-  float sw = clamp(fwidth(dist), 0.004, 0.04);
+  // G: deep-fog field. Exactly 1 at a deep tile's centre (it's always
+  // storm), lower across the ring; bilinear + a 5-tap average rounds the
+  // contour instead of notching or pinching it at tile corners.
+  vec2 uv = (vSceneXZ - uMaskMin) / uMaskSize;
+  vec2 uvTile = (tile + 0.5 - uMaskMin) / uMaskSize;
+  bool outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
+  float deep = outside ? 1.0 : step(0.99, texture2D(uMask, uvTile).g);
+  vec2 tap = 0.32 / uMaskSize;
+  float soft = outside ? 1.0 : (texture2D(uMask, uv).g * 2.0
+    + texture2D(uMask, uv + vec2(tap.x, tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, tap.y)).g
+    + texture2D(uMask, uv + vec2(tap.x, -tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, -tap.y)).g) / 6.0;
+  float s = soft + edgeNoise * 0.1;
+  float sw = clamp(fwidth(s), 0.004, 0.04);
 
   // --- storm ---
   float density = smoothstep(0.32, 0.72, (body + mass) * 0.5);
@@ -132,19 +120,21 @@ void main() {
   float hatchCoord = (w.x - w.y) * 2.8 - uTime * 0.25;
   float hatch = lines(hatchCoord, 0.06 + density * 0.14);
   storm = mix(storm, uInk, hatch * (0.06 + smoothstep(0.25, 0.85, density) * 0.6));
-  // Lit lip just behind the foam, so the bank reads as having a top.
-  float lip = smoothstep(-0.14, 0.0, s);
+  // Lit lip just inside the cloud's edge, so the bank reads as having a top.
+  float lip = 1.0 - smoothstep(EDGE, EDGE + 0.14, s);
   storm = mix(storm, uLight * 1.2, lip * 0.6);
 
-  // --- parchment band, nearest the explored land ---
+  // --- parchment band, across the ring tile from the explored edge ---
   float parchHatch = lines((w.x - w.y) * 2.8, 0.09);
   vec3 parch = mix(uParchment, uParchmentInk, parchHatch * 0.7);
-  float parchCover = smoothstep(-sw, sw, s);
-  vec3 col = mix(storm, parch, parchCover);
+  // Slight shadow under the cloud's leading edge.
+  parch *= 1.0 - smoothstep(EDGE - 0.08, EDGE, s) * 0.25;
+  float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
+  vec3 col = mix(parch, storm, stormCover);
 
-  // --- foam rim between them ---
+  // --- foam rim on the cloud's edge ---
   float rimHalf = max(0.012, sw * 1.5);
-  float rim = 1.0 - smoothstep(rimHalf, rimHalf + sw, abs(s));
+  float rim = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(s - EDGE - 0.012)));
   col = mix(col, uFoam, rim * 0.9);
 
   // Explored tiles are never drawn on.
