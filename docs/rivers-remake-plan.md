@@ -492,7 +492,9 @@ effect" in practice:
 ## Phase 3 -- optional
 
 Lake outlets, bridges where roads cross rivers (road network exists),
-rapids where a river leaves high ground, reeds/rocks along banks, relaxing
+rapids where a river leaves high ground (planned in
+[`river-mountains-plan.md`](river-mountains-plan.md), which also adds a
+headwater rule to Phase 2), reeds/rocks along banks, relaxing
 the no-hills rule now that the patch mesh is gone.
 
 ## Risks and trade-offs
