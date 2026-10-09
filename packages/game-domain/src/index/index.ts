@@ -21,6 +21,7 @@ export * from "../server-worldgen-waystations.js";
 export * from "../structure-modifier-catalog/structure-modifier-catalog.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
+export * from "../victory-resource-tally.js";
 
 import {
   ATTACK_MANPOWER_COST,

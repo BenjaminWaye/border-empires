@@ -1,4 +1,4 @@
-import type { DomainPlayer } from "@border-empires/game-domain";
+import { resourceRevealCategory, resourceRevealedByTechs, type DomainPlayer } from "@border-empires/game-domain";
 import { techEntryById } from "./tech-domain-bridge.js";
 
 /**
@@ -9,40 +9,20 @@ import { techEntryById } from "./tech-domain-bridge.js";
  * baked into the tile itself, since the same tile's resource type is
  * revealed/hidden independently for every player based on their own tech.
  */
-// tile.resource (FARM/FISH/TITANIUM/GEMS/UMBRITE) is a raw terrain-resource
-// type, not the strategic category tech-tree.json's revealResource values
-// use (food/iron/crystal/supply) — mirrors client-map-display.ts's
-// strategicResourceKeyForTile. UMBRITE feeds UMBRITE; GEMS feeds
-// CRYSTAL. Without this mapping, comparing the raw tile type directly
-// against revealResource only ever happened to match for TITANIUM (whose raw
-// type and category name are spelled the same) — UMBRITE and CRYSTAL tiles
-// stayed masked forever, tech or no tech.
-const REVEAL_CATEGORY_BY_TILE_RESOURCE: Record<string, string> = {
-  farm: "food",
-  fish: "food",
-  titanium: "titanium",
-  gems: "crystal",
-  umbrite: "umbrite"
-};
-
+// The raw-tile-type -> revealResource-category mapping and the reveal check
+// itself live in game-domain (resourceRevealedByTechs) so the gateway's
+// season-victory fallback applies the identical rule with its own catalog.
 export const hasRevealedResourceForPlayer = (
   player: Pick<DomainPlayer, "techIds">,
   resource: string
-): boolean => {
-  const category = REVEAL_CATEGORY_BY_TILE_RESOURCE[resource.toLowerCase()] ?? resource.toLowerCase();
-  if (category === "food") return true;
-  for (const techId of player.techIds) {
-    if (techEntryById.get(techId)?.effects?.revealResource === category) return true;
-  }
-  return false;
-};
+): boolean => resourceRevealedByTechs(resource, player.techIds, revealResourceCategoryForTech);
 
 /**
  * The `revealResource` category (e.g. "crystal") a tech grants, if any —
  * used by handleChooseTechCommand to know which already-visible tiles need
  * their stale (still-masked) resource delta re-sent once the tech lands. See
- * REVEAL_CATEGORY_BY_TILE_RESOURCE for the raw-tile-type -> category mapping
- * that inverts this on the tile side.
+ * resourceRevealCategory (game-domain) for the raw-tile-type -> category
+ * mapping that inverts this on the tile side.
  */
 export const revealResourceCategoryForTech = (techId: string): string | undefined => {
   const category = techEntryById.get(techId)?.effects?.revealResource;
@@ -51,7 +31,7 @@ export const revealResourceCategoryForTech = (techId: string): string | undefine
 
 /** True if `resource` (a raw tile.resource type, e.g. "GEMS") belongs to `category` (a revealResource value, e.g. "crystal"). */
 export const tileResourceMatchesRevealCategory = (resource: string, category: string): boolean =>
-  (REVEAL_CATEGORY_BY_TILE_RESOURCE[resource.toLowerCase()] ?? resource.toLowerCase()) === category;
+  resourceRevealCategory(resource) === category;
 
 // Single source of truth for "what resource value (if any) should this tile
 // projection show this viewer" — every tile-wire-delta builder (streaming,

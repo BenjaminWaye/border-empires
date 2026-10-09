@@ -10,6 +10,7 @@ import {
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS,
   VICTORY_RESOURCE_TYPES,
+  createVictoryResourceTally,
   diplomaticDominanceProgressLabel,
   diplomaticDominanceThresholdLabel,
   maritimeSupremacyProgressLabel,
@@ -17,11 +18,12 @@ import {
   resourceMonopolyConditionMet,
   resourceMonopolyLeader,
   resourceMonopolyProgressLabel,
-  resourceMonopolyThresholdLabel
+  resourceMonopolyThresholdLabel,
+  tallyVictoryResourceTile
 } from "@border-empires/game-domain";
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
 import { objectiveSelfProgress, objectiveSelfProgressLabel } from "./season-victory-self-progress.js";
-import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { revealResourceCategoryForTech } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 type WorldTile = RuntimeState["tiles"][number];
@@ -212,19 +214,18 @@ const buildSeasonVictoryContext = (
 ): SeasonVictoryContext => {
   const competitivePlayerIds = new Set(leaderboardOverall.map((entry) => entry.id));
   const playerAlliesById = new Map<string, ReadonlySet<string>>();
-  const techIdsByPlayerId = new Map<string, { techIds: Set<string> }>();
+  const techIdsByPlayerId = new Map<string, readonly string[]>();
   for (const player of players) {
     if (!competitivePlayerIds.has(player.id)) continue;
     playerAlliesById.set(player.id, new Set(player.allies ?? []));
-    techIdsByPlayerId.set(player.id, { techIds: new Set(player.techIds ?? []) });
+    techIdsByPlayerId.set(player.id, player.techIds ?? []);
   }
   const townCountByPlayerId = new Map<string, number>();
   const settledCountByPlayerId = new Map<string, number>();
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
-  const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
-  const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
+  const resourceTally = createVictoryResourceTally();
 
   for (const tile of worldTiles) {
     if (tile.ownerId && tile.ownershipState === "SETTLED" && tile.townType && competitivePlayerIds.has(tile.ownerId)) {
@@ -241,25 +242,10 @@ const buildSeasonVictoryContext = (
       settledCountByPlayerId.set(tile.ownerId, (settledCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
       if (tile.dockId) dockCountByPlayerId.set(tile.ownerId, (dockCountByPlayerId.get(tile.ownerId) ?? 0) + 1);
     }
-    if (tile.resource) {
-      const resource = tile.resource as ResourceType;
-      totalResourceCounts[resource] += 1;
-      // Monopoly control means settled resource tiles the owner can actually
-      // see: frontier claims don't count, and neither do tiles whose resource
-      // is still masked because the owner hasn't researched its reveal tech.
-      const ownerTech = tile.ownerId ? techIdsByPlayerId.get(tile.ownerId) : undefined;
-      if (
-        tile.ownerId &&
-        tile.ownershipState === "SETTLED" &&
-        competitivePlayerIds.has(tile.ownerId) &&
-        ownerTech &&
-        hasRevealedResourceForPlayer(ownerTech, resource)
-      ) {
-        const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
-        owned[resource] = (owned[resource] ?? 0) + 1;
-        ownedResourceCountsByPlayerId.set(tile.ownerId, owned);
-      }
-    }
+    // Settled + revealed only (see tallyVictoryResourceTile); techIdsByPlayerId
+    // only holds competitive players, so other owners count toward totals only.
+    const ownerTechIds = tile.ownerId ? techIdsByPlayerId.get(tile.ownerId) : undefined;
+    tallyVictoryResourceTile(resourceTally, tile, ownerTechIds, revealResourceCategoryForTech);
   }
 
   for (const entry of leaderboardOverall) {
@@ -284,8 +270,8 @@ const buildSeasonVictoryContext = (
     competitivePlayerIds,
     playerAlliesById,
     metricsByPlayerId,
-    totalResourceCounts,
-    ownedResourceCountsByPlayerId,
+    totalResourceCounts: resourceTally.totalResourceCounts,
+    ownedResourceCountsByPlayerId: resourceTally.ownedResourceCountsByPlayerId,
     townTarget,
     maritimeDockTarget,
     diplomaticControlTarget
