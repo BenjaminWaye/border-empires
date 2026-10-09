@@ -354,6 +354,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791579529000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Top ribbon hover highlight no longer blinks",
+    why: "The gold hover border on the top-bar chips flickered because the bar redraws often and each redraw restarted the fade-in.",
+    changes: [
+      "Hovering a top-bar chip now keeps a steady highlight"
+    ]
+  },
+  {
     createdAt: 1791579131298, // Date.now() frozen for this entry
     introducedIn: "2026.10.09.1",
     title: "Separate continents, natural coasts and mountain ranges on new worlds",

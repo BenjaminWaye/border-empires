@@ -1,0 +1,18 @@
+/* While the sign-in overlay is busy, pin #auth-card to the viewport so the
+   centered #auth-busy-modal lands in view instead of mid-way down a card that
+   the login form has stretched past the fold. The modal itself scrolls if the
+   busy card is taller than a very short viewport. */
+#auth-overlay[data-busy="true"] {
+  overflow: hidden;
+}
+
+#auth-overlay[data-busy="true"] #auth-card {
+  height: calc(100dvh - 48px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+#auth-overlay[data-busy="true"] #auth-busy-modal {
+  overflow-y: auto;
+  place-items: safe center;
+}
