@@ -1,10 +1,10 @@
 import {
   Color,
   DataTexture,
-  LinearFilter,
   Mesh,
   PlaneGeometry,
-  RGFormat,
+  NearestFilter,
+  RedFormat,
   ShaderMaterial,
   UnsignedByteType,
   Vector2,
@@ -56,10 +56,11 @@ export type UnexploredStormLayer = {
 };
 
 const createMaskTexture = (width: number, height: number, data: Uint8Array): DataTexture => {
-  const texture = new DataTexture(data, width, height, RGFormat, UnsignedByteType);
-  texture.magFilter = LinearFilter;
-  texture.minFilter = LinearFilter;
-  texture.unpackAlignment = 1; // RG8 rows of odd width are not 4-byte aligned
+  const texture = new DataTexture(data, width, height, RedFormat, UnsignedByteType);
+  // Always read at texel centres; nearest keeps tile cells exact.
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.unpackAlignment = 1; // R8 rows of odd width are not 4-byte aligned
   texture.needsUpdate = true;
   return texture;
 };
@@ -67,7 +68,7 @@ const createMaskTexture = (width: number, height: number, data: Uint8Array): Dat
 export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = () => performance.now()): UnexploredStormLayer => {
   const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
-  let mask = createMaskTexture(1, 1, new Uint8Array([255, 255]));
+  let mask = createMaskTexture(1, 1, new Uint8Array([255]));
   const material = new ShaderMaterial({
     toneMapped: false,
     fog: false,
