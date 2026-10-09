@@ -60,6 +60,9 @@ export type DomainPlayer = {
   points: number;
   manpower: number;
   manpowerUpdatedAt?: number;
+  // Regen accrued in the current refill window, paid out at the next refill
+  // boundary (apps/simulation/src/runtime-manpower.ts accrueManpower).
+  manpowerBanked?: number;
   manpowerCapSnapshot?: number;
   wonderVisionRadiusBonus?: number;
   wonderDockGoldMultiplier?: number;

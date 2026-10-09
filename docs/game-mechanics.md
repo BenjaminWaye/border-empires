@@ -52,7 +52,7 @@ of executable rules.
 
 - **Resource model**: tile resource kinds and player-economy resources are distinct. FOOD, TITANIUM, CRYSTAL, and UMBRITE power global resource-slot pools rather than being stockpiled currencies; SHARD does not use slots. See the focused economy reference for supply, demand, and converter rules. `packages/shared/src/structure-slots/structure-slots.ts`
 - **Coin and support**: coin is passive per-minute income and is rescaled by `GOLD_RESCALE_DIVISOR = 288`; town/network and structure modifiers apply in the simulation economy module. An unfed town produces no coin until its separate support system recovers. Coin above a town-linked cap is lost. `packages/game-domain/src/server-game-constants/server-game-constants.ts`, `apps/simulation/src/player-update-economy/`
-- **Manpower**: cap and regeneration come from the starting capital, towns, terrain, and qualifying structures/networks. The current tier values, diminishing town weighting, and action costs are in the focused economy reference and `packages/shared/src/config.ts`.
+- **Manpower**: cap and regeneration come from the starting capital, towns, terrain, and qualifying structures/networks. Regeneration is credited in one refill every 4 hours (staggered per player), not continuously. The current tier values, diminishing town weighting, and action costs are in the focused economy reference and `packages/shared/src/config.ts`.
 - **Slots and dormancy**: structures occupy resource slots from build start through removal. A shortfall automatically makes the newest relevant consumers dormant first; this is not periodic resource drain. `apps/simulation/src/resource-slot-view/resource-slot-view.ts`
 
 ## 4. Units (intentionally absent)
