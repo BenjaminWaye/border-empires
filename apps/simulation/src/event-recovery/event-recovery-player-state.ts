@@ -20,6 +20,8 @@ export type RecoveredPlayerState = {
   points?: number;
   manpower?: number;
   manpowerUpdatedAt?: number;
+  // Regen banked toward the next refill; must round-trip or a restart wipes up to a window of regen.
+  manpowerBanked?: number;
   manpowerCapSnapshot?: number;
   techIds?: string[];
   domainIds?: string[];

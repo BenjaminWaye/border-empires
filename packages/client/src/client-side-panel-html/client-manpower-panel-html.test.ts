@@ -12,6 +12,15 @@ const baseArgs = {
   formatDuration: (ms: number) => `${Math.round(ms / 60_000)}m`
 };
 
+describe("renderManpowerPanelHtml refill summary", () => {
+  it("shows what one refill pays instead of a per-minute rate, and labels the per-minute breakdown", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpowerRegenPerMinute: 0.4, musterFlags: [] });
+    expect(html).toContain("+96 per refill");
+    expect(html).not.toContain("/m<");
+    expect(html).toContain("Regen modifiers (per minute)");
+  });
+});
+
 describe("renderManpowerPanelHtml muster flags section", () => {
   it("shows an empty state when there are no active muster flags", () => {
     const html = renderManpowerPanelHtml({ ...baseArgs, musterFlags: [] });

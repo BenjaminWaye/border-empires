@@ -48,7 +48,7 @@ export const isMobileViewport = (): boolean => window.matchMedia("(max-width: 90
 
 const formatAmount = (value: number): string => Math.round(value).toString();
 
-export const manpowerChip = (args: HudChipsArgs, mobile: boolean): string =>
+export const manpowerChip = (args: HudChipsArgs): string =>
   manpowerGaugeChipHtml({
     manpower: args.manpower,
     manpowerCap: args.manpowerCap,
@@ -57,7 +57,6 @@ export const manpowerChip = (args: HudChipsArgs, mobile: boolean): string =>
     logisticsPerMinute: 0,
     nextRefillAtMs: NOW + MANPOWER_REFILL_WINDOW_MS - args.minutesIntoWindow * 60_000,
     nowMs: NOW,
-    mobile,
     formatAmount
   });
 
@@ -83,7 +82,7 @@ export const topStripHtml = (args: HudChipsArgs, mobile: boolean): string => {
     <div id="stats-chips">
       ${mobile ? "" : selfPlayerChipHtml("normal", "Aurelian", {})}
       <button class="stat-chip stat-chip-gold" type="button" data-economy-open="GOLD"><span>Coin</span><strong>1204.50 <em class="stat-chip-rate positive">${mobile ? "+86/day" : "+86.4/day"}</em></strong></button>
-      ${manpowerChip(args, mobile)}
+      ${manpowerChip(args)}
       <div class="stat-chip-def-wrap">
         <button class="stat-chip stat-chip-def${args.warnings ? " warning" : ""}" type="button"><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${args.warnings ? "82%" : "94%"}</strong></button>
       </div>

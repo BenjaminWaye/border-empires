@@ -103,6 +103,10 @@
 }
 
 #stats-chips .mp-gauge-refill.is-quiet { color: var(--sp-parchment-muted); }
+#stats-chips .mp-gauge-refill-long,
+#stats-chips .mp-gauge-refill-short { font-style: normal; }
+#stats-chips .mp-gauge-refill-short,
+#stats-chips .mp-gauge-label-short { display: none; }
 #stats-chips .mp-gauge.is-overflow .mp-gauge-refill { color: var(--sp-brass-100); }
 
 #stats-chips .mp-gauge-value {
@@ -257,6 +261,29 @@
   #stats-chips .mp-gauge .mp-gauge-fill { animation: none !important; }
 }
 
+/* ---- Compact manpower gauge: narrow desktops and phones ----
+   The full chip (countdown beside the label, gauge beside the value) is
+   ~60px wider than the old text chip, which pushed the resource ribbon under
+   the panel buttons at common laptop widths (1280px). Below 1440px the gauge
+   becomes a thin strip along the chip's bottom edge and the countdown drops
+   its "Refill in" prefix and the label shortens to "MP"; the mono readings also step down a size (Space Mono
+   runs wider than the old serif), so the row fits wherever it fitted before. */
+
+@media (max-width: 1440px) {
+  #stats-chips .stat-chip > strong,
+  #stats-chips .mp-gauge-value { font-size: 13px; }
+  #stats-chips .stat-chip-rate { font-size: 10px; }
+  #stats-chips .mp-gauge { min-width: 0; padding-bottom: 10px; }
+  #stats-chips .mp-gauge-refill-long,
+  #stats-chips .mp-gauge-label-long { display: none; }
+  #stats-chips .mp-gauge-refill-short,
+  #stats-chips .mp-gauge-label-short { display: inline; }
+  #stats-chips .mp-gauge-track { position: absolute; left: 3px; right: 3px; bottom: 3px; min-width: 0; padding: 0 5px; }
+  #stats-chips .mp-gauge-track::before,
+  #stats-chips .mp-gauge-track::after { width: 4px; height: 4px; margin-top: -2px; }
+  #stats-chips .mp-gauge-bar { height: 5px; }
+}
+
 /* ---- Mobile (same breakpoint as style.css's HUD grid) ---- */
 
 @media (max-width: 900px) {
@@ -282,13 +309,13 @@
   #stats-chips .stat-chip-def > strong,
   #stats-chips .stat-chip-dev > strong { font-size: 10.5px; line-height: 1.15; }
 
-  /* Manpower: the gauge becomes a thin strip along the chip's bottom edge. */
-  #stats-chips .mp-gauge { min-width: 0; padding: 4px 4px 9px; gap: 0; }
+  /* Manpower: smaller type on top of the compact layout above. */
+  #stats-chips .mp-gauge { padding: 4px 4px 9px; gap: 0; }
   #stats-chips .mp-gauge-label { font-size: 8px; letter-spacing: 0.06em; }
   #stats-chips .mp-gauge-refill { font-size: 8.5px; }
   #stats-chips .mp-gauge-value { font-size: 10.5px; }
   #stats-chips .mp-gauge-value small { font-size: 9px; }
-  #stats-chips .mp-gauge-track { position: absolute; left: 3px; right: 3px; bottom: 2px; min-width: 0; padding: 0 4px; }
+  #stats-chips .mp-gauge-track { bottom: 2px; padding: 0 4px; }
   #stats-chips .mp-gauge-track::before,
   #stats-chips .mp-gauge-track::after { width: 3px; height: 3px; margin-top: -1.5px; }
   #stats-chips .mp-gauge-bar { height: 4px; border-radius: 1px; }

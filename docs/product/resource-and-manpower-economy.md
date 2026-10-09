@@ -25,22 +25,24 @@ code and update this document in the same branch when the rule changes.
 
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
-- **Regeneration is paid out in refills, not continuously.** The per-minute rates
-  below still define how much manpower accrues, but it is credited in whole
-  `MANPOWER_REFILL_WINDOW_MS` windows (**4 hours**): at each refill a player
-  receives rate × time since the previous refill, capped at their cap. Each
+- **Regeneration is paid out in refills, not continuously.** Regen accrues at
+  the per-minute rates below into a bank (`manpowerBanked`) that is settled at
+  the current rate on every settle (every command and the 15s player-update
+  tick), exactly like the old continuous model, but banked manpower only becomes
+  spendable at the player's refill boundaries, every `MANPOWER_REFILL_WINDOW_MS`
+  (**4 hours**). Because the bank is settled as it goes, a rate change (a
+  captured or lost town, a new structure, the Iron Levy's regen freeze) applies
+  only from when it happened, never to the whole window. Nothing accrues at or
+  above the cap, and the bank never exceeds the room left under the cap. Each
   player's refill moments are offset by a stable hash of their player id
-  (`manpowerRefillOffsetMs`), so refills are staggered across players. The
-  accrual anchor (`manpowerUpdatedAt`) only advances to the last refill
-  boundary while below the cap, so settling mid-window loses nothing; the
-  pending part of the window is recomputed at the current rate on every read.
-  While at or above the cap nothing accrues (the anchor moves to now), so time
-  spent full never becomes regen after manpower is spent. No new state or wire
-  field is involved: the client derives the schedule from the player id and
-  receives the payout through the normal periodic `PLAYER_UPDATE`.
+  (`manpowerRefillOffsetMs`), so refills are staggered across players.
+  `manpowerBanked` round-trips through snapshots; the client derives the
+  schedule from the player id and receives the payout through the normal
+  periodic `PLAYER_UPDATE`. The schedule is computable by anyone who knows a
+  player id; defending costs no manpower, so this is accepted.
 - The HUD shows manpower as a gauge (spendable now, manpower staged in muster
   flags, countdown to the next refill; ember below an ordinary attack, green at
-  the cap) and the Development chip as one gear per slot (busy slots spin).
+  the cap; below 1440px wide the gauge is a strip along the chip's bottom edge) and the Development chip as one gear per slot (busy slots spin).
 - Town cap / regeneration by tier: Settlement 150 / 150÷720 per minute, Town
   300 / 300÷720, City 450 / 450÷720, Great City 750 / 750÷720, Metropolis
   1,350 / 1,350÷720. Terrain can adjust these values at runtime.

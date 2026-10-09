@@ -34,7 +34,7 @@ const render = (): HTMLElement => {
   // The chip stylesheet is scoped under #stats-chips, so the gallery is one such container.
   root.innerHTML = `<div id="stats-chips" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px;align-items:start;">
     ${GALLERY.map(
-      (item) => `<div style="${caseStyle}"><h3 style="${titleStyle}">${item.title}</h3>${manpowerChip({ ...DEFAULT_HUD_CHIPS_ARGS, ...item.args }, false)}<p style="${noteStyle}">${item.note}</p></div>`
+      (item) => `<div style="${caseStyle}"><h3 style="${titleStyle}">${item.title}</h3>${manpowerChip({ ...DEFAULT_HUD_CHIPS_ARGS, ...item.args })}<p style="${noteStyle}">${item.note}</p></div>`
     ).join("")}
   </div>`;
   return root;

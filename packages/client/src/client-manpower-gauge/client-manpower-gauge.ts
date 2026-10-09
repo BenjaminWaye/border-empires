@@ -19,7 +19,6 @@ export type ManpowerGaugeInput = {
   logisticsPerMinute: number;
   nextRefillAtMs: number | undefined;
   nowMs: number;
-  mobile: boolean;
   formatAmount: (value: number) => string;
 };
 
@@ -28,23 +27,29 @@ const percent = (value: number, cap: number): number => (cap <= 0 ? 0 : Math.max
 const stateClass = (manpower: number, cap: number): string =>
   manpower > cap + 0.001 ? "is-overflow" : manpower + 0.001 >= cap ? "is-full" : manpower < ATTACK_MANPOWER_MIN ? "is-low" : "";
 
-const refillText = (input: ManpowerGaugeInput): { text: string; quiet: boolean } => {
-  const { manpower, manpowerCap, mobile } = input;
+// Long form for wide desktops, short form where the chip is compact (narrow
+// desktops and phones); both are rendered and CSS shows one (same for the
+// label), so the choice follows the real viewport width rather than a
+// render-time guess.
+type RefillText = { long: string; short: string; quiet: boolean };
+
+const refillText = (input: ManpowerGaugeInput): RefillText => {
+  const { manpower, manpowerCap } = input;
   if (manpower > manpowerCap + 0.001) {
-    const over = input.formatAmount(manpower - manpowerCap);
-    return { text: mobile ? `+${over}` : `+${over} over cap`, quiet: false };
+    const over = `+${input.formatAmount(manpower - manpowerCap)}`;
+    return { long: `${over} over cap`, short: over, quiet: false };
   }
-  if (manpower + 0.001 >= manpowerCap) return { text: "Full", quiet: true };
-  if (input.regenPerMinute <= 0) return { text: "Paused", quiet: true };
-  if (input.nextRefillAtMs === undefined) return { text: "", quiet: true };
+  if (manpower + 0.001 >= manpowerCap) return { long: "Full", short: "Full", quiet: true };
+  if (input.regenPerMinute <= 0) return { long: "Paused", short: "Paused", quiet: true };
+  if (input.nextRefillAtMs === undefined) return { long: "", short: "", quiet: true };
   const remaining = input.nextRefillAtMs - input.nowMs;
-  if (remaining <= 0) return { text: mobile ? "now" : "Refilling…", quiet: false };
+  if (remaining <= 0) return { long: "Refilling…", short: "now", quiet: false };
   const eta = formatRefillCountdown(remaining);
-  return { text: mobile ? eta : `Refill in ${eta}`, quiet: false };
+  return { long: `Refill in ${eta}`, short: eta, quiet: false };
 };
 
 export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {
-  const { manpower, manpowerCap, mobile, formatAmount } = input;
+  const { manpower, manpowerCap, formatAmount } = input;
   const availablePct = percent(Math.min(manpower, manpowerCap), manpowerCap);
   const stagedPct = Math.min(percent(input.staged, manpowerCap), 100 - availablePct);
   const refill = refillText(input);
@@ -53,7 +58,7 @@ export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {
   const staged = input.staged > 0 ? ` ${formatAmount(input.staged)} is staged in muster flags.` : "";
   const title = `Manpower gates attacks and refills every ${windowHours}h.${staged}${logistics} Tap for cap and regen breakdown.`;
   return `<button class="stat-chip stat-chip-manpower mp-gauge ${stateClass(manpower, manpowerCap)}" type="button" data-panel="manpower" title="${title}">
-      <b class="mp-gauge-row"><b class="mp-gauge-label">${mobile ? "MP" : "Manpower"}</b><i class="mp-gauge-refill${refill.quiet ? " is-quiet" : ""}">${refill.text}</i></b>
+      <b class="mp-gauge-row"><b class="mp-gauge-label"><b class="mp-gauge-label-long">Manpower</b><b class="mp-gauge-label-short">MP</b></b><i class="mp-gauge-refill${refill.quiet ? " is-quiet" : ""}"><i class="mp-gauge-refill-long">${refill.long}</i><i class="mp-gauge-refill-short">${refill.short}</i></i></b>
       <b class="mp-gauge-row">
         <b class="mp-gauge-value">${formatAmount(manpower)}<small>/${formatAmount(manpowerCap)}</small></b>
         <i class="mp-gauge-track"><i class="mp-gauge-bar" role="meter" aria-label="Manpower" aria-valuemin="0" aria-valuemax="${Math.round(manpowerCap)}" aria-valuenow="${Math.round(manpower)}">

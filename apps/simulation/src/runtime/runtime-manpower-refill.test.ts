@@ -3,6 +3,7 @@ import { lastManpowerRefillAtMs, MANPOWER_REFILL_WINDOW_MS } from "@border-empir
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
+import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
 type PlayerUpdateEvent = Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }>;
@@ -113,5 +114,14 @@ describe("periodic manpower refill (runtime)", () => {
     collect("collect-2", 2);
     await Promise.resolve();
     expect(latestUpdate().manpower - before.manpower).toBeCloseTo(regen, 10); // the one minute before the boundary
+  });
+
+  it("keeps banked regen across a snapshot round trip (a restart must not wipe the window)", () => {
+    const boundary = lastManpowerRefillAtMs("player-1", NOW);
+    const runtime = runtimeAt(() => boundary + 60 * MINUTE, { manpower: 0, manpowerUpdatedAt: boundary });
+    runtime.exportState(); // settles: one hour banked, nothing spendable yet
+    const recovered = createPlayersFromRecoveredState(runtime.exportSnapshotSections().initialState)?.get("player-1");
+    expect(recovered?.manpowerBanked).toBeCloseTo(STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE * 60, 9);
+    expect(recovered?.manpower).toBe(0);
   });
 });

@@ -137,7 +137,8 @@ export const renderManpowerPanelHtml = (args: {
   const current = args.formatManpowerAmount(args.manpower);
   const cap = args.formatManpowerAmount(args.manpowerCap);
   const regen = args.manpowerRegenPerMinute;
-  const regenText = `${regen >= 0 ? "+" : ""}${regen.toFixed(1)}/m`;
+  // Regen lands once per refill, so show what a refill pays rather than a per-minute rate that never visibly ticks.
+  const regenText = `+${Math.round(Math.max(0, regen) * (MANPOWER_REFILL_WINDOW_MS / 60_000))} per refill`;
   const fullStatusText = manpowerFullStatusText(args.manpower, args.manpowerCap, args.manpowerRegenPerMinute, args.formatDuration, args.nextRefillAtMs);
   const nextRefillText = args.nextRefillAtMs !== undefined && args.manpower < args.manpowerCap && regen > 0 ? `Next refill in ${formatRefillCountdown(args.nextRefillAtMs - Date.now())}.` : "";
   const sectionHtml = (
@@ -168,7 +169,7 @@ export const renderManpowerPanelHtml = (args: {
         <div class="economy-footnote">Manpower gates attacks. Regeneration is paid out in one refill every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
-      ${sectionHtml("Regen modifiers", args.manpowerBreakdown.regen)}
+      ${sectionHtml("Regen modifiers (per minute)", args.manpowerBreakdown.regen)}
       ${musterFlagsSectionHtml(args.musterFlags)}
     </div>
   `;
