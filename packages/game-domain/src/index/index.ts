@@ -21,6 +21,7 @@ export * from "../server-worldgen-waystations.js";
 export * from "../structure-modifier-catalog/structure-modifier-catalog.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
+export * from "../victory-resource-tally.js";
 
 import {
   ATTACK_MANPOWER_COST,
@@ -60,6 +61,9 @@ export type DomainPlayer = {
   points: number;
   manpower: number;
   manpowerUpdatedAt?: number;
+  // Regen accrued in the current refill window, paid out at the next refill
+  // boundary (apps/simulation/src/runtime-manpower.ts accrueManpower).
+  manpowerBanked?: number;
   manpowerCapSnapshot?: number;
   wonderVisionRadiusBonus?: number;
   wonderDockGoldMultiplier?: number;
