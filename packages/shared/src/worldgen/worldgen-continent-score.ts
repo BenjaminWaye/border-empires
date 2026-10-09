@@ -24,7 +24,15 @@ import { buildPlates, type Plate } from "./worldgen-plates.js";
 import { POLAR_BAND, type WorldStyle, worldIndex, worldSeed, worldStyle } from "./worldgen.js";
 import { amplitudeFromNearCoastSpread, setCoastNoiseAmplitude, shorelineRoughnessAt } from "./worldgen-coastline-style.js";
 import { archipelagoBumpAt, atollBumpAt } from "./worldgen-archipelago-features.js";
-import { coastDetailAt, isSeparateContinentPair, SHELF_WIDTH, shelvedBaseAndRift } from "./worldgen-continent-shelf.js";
+import { coastDetailAt, coastDisplacementAt, v10PlateElevation } from "./worldgen-continent-shelf.js";
+import {
+  boundaryStrengthOf,
+  convergentStressOf,
+  nearestPlates,
+  plateDistances,
+  UPLIFT_SCALE,
+  upliftMultiplierFor,
+} from "./worldgen-plate-boundary.js";
 import { continentSeparationActive, naturalRangeShapeActive, worldgenVersion } from "./worldgen-version.js";
 
 const UNSET_I16 = -2;
@@ -137,48 +145,6 @@ const computeEllipseContinentScore = (wx: number, wy: number): { index: number; 
   return { index: bestIdx, score: best };
 };
 
-// Distorts a tile's distance to ONE plate by noise unique to that plate (its
-// own seed offset), not a shared global warp -- this is the actual technique
-// LeatherBee's "Terrain Generation 4" describes as "noised faultlines":
-// perturbing the fault/boundary itself, not just globally translating the
-// sample point before a clean distance calculation. A shared coordinate warp
-// (see warpedCoords) moves whole regions together and still leaves the
-// underlying Voronoi partition mathematically clean/geometric; distorting
-// each plate's own pull independently is what actually breaks the boundary
-// into a fractal, organic line instead of a warped-but-still-smooth curve.
-const plateDistortionSeed = (plate: Plate): number => Math.floor(plate.cx * 7919 + plate.cy * 104729);
-const distortedDistanceTo = (wx: number, wy: number, plate: Plate, rawDist: number): number => {
-  const macro = valueNoise(wx, wy, 70, plateDistortionSeed(plate) + 11);
-  const factor = 1 + (macro - 0.5) * 1.1;
-  return rawDist * Math.max(0.25, factor);
-};
-
-// The two nearest plates to (wx, wy), toroidal-aware in x (matches
-// buildPlates' toroidal spacing check) but not in y -- the map's poles
-// (POLAR_BAND rows) are real edges, not a wraparound seam.
-const nearestPlates = (wx: number, wy: number, plates: Plate[]): { near: Plate; nearDist: number; far: Plate; farDist: number } => {
-  let nearIdx = 0;
-  let nearDist = Infinity;
-  let farIdx = 0;
-  let farDist = Infinity;
-  for (let i = 0; i < plates.length; i += 1) {
-    const p = plates[i]!;
-    const dx = toroidalDx(wx, p.cx);
-    const dy = wy - p.cy;
-    const dist = distortedDistanceTo(wx, wy, p, Math.hypot(dx, dy));
-    if (dist < nearDist) {
-      farDist = nearDist;
-      farIdx = nearIdx;
-      nearDist = dist;
-      nearIdx = i;
-    } else if (dist < farDist) {
-      farDist = dist;
-      farIdx = i;
-    }
-  }
-  return { near: plates[nearIdx]!, nearDist, far: plates[farIdx]!, farDist };
-};
-
 // Whether (x, y) -- a raw tile coordinate -- falls in a deep OCEANIC plate's
 // cell, using the same domain warp and per-plate distortion as the score
 // field. Lets open-ocean features (atolls, archipelago zones) check where
@@ -194,103 +160,39 @@ export const isOceanicPlateAt = (x: number, y: number, deepOnly = false): boolea
   return !near.isContinental && (!deepOnly || near.baseElevation < DEEP_OCEAN_MAX_BASE);
 };
 
-// How far into a convergent/divergent boundary's influence zone (wx, wy)
-// sits: ~1 right at the boundary (near and far plate equidistant), decaying
-// to 0 deep inside a single plate's territory. The Red Blob Games trick for
-// deriving boundary proximity from a Voronoi diagram without ever building
-// its actual polygon edges. Narrow: at 0.09 this bled uplift/mountains 30-40+
-// tiles deep into every plate's territory, chewing huge gray blobs out of
-// every landmass instead of a clean range tracing the boundary.
-const BOUNDARY_BLEND_WIDTH = Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.02;
-const boundaryStrengthOf = (nearDist: number, farDist: number): number =>
-  Math.max(0, 1 - (farDist - nearDist) / BOUNDARY_BLEND_WIDTH);
-
-// Positive = convergent (plates closing the gap between their centers along
-// the line joining them -- colliding), negative = divergent (separating).
-const convergentStressOf = (near: Plate, far: Plate): number => {
-  const dx = toroidalDx(far.cx, near.cx) * (far.cx >= near.cx ? 1 : -1);
-  const dy = far.cy - near.cy;
-  const dist = Math.hypot(dx, dy) || 1;
-  const nx = dx / dist;
-  const ny = dy / dist;
-  const nearVx = Math.cos(near.driftAngle) * near.driftSpeed;
-  const nearVy = Math.sin(near.driftAngle) * near.driftSpeed;
-  const farVx = Math.cos(far.driftAngle) * far.driftSpeed;
-  const farVy = Math.sin(far.driftAngle) * far.driftSpeed;
-  const relVx = nearVx - farVx;
-  const relVy = nearVy - farVy;
-  return -(relVx * nx + relVy * ny);
-};
-
-// How much a given (nearPlate type, farPlate type, stress sign) combination
-// raises or lowers elevation at the boundary. Continental-continental
-// collisions produce the tallest ranges (real orogeny, e.g. the Himalayas);
-// continental-oceanic collisions uplift the continental side into a coastal
-// range (Andes-style) while deepening a trench on the oceanic side;
-// oceanic-oceanic collisions form milder island-arc uplift. Divergent
-// boundaries only get a subtle depression -- rift valleys/mid-ocean ridges
-// are real but not the focus here, so they shouldn't just read as more
-// ordinary coastline.
-// Oceanic-oceanic convergence returns 0, not a mild positive island-arc
-// bump: with the narrow boundary blend width needed to keep mountain ranges
-// thin (see BOUNDARY_BLEND_WIDTH), even a small uplift there was enough to
-// push a THIN THREAD of open ocean above the land threshold exactly along
-// the boundary -- since Voronoi boundaries meet in a branching graph, this
-// showed up as bizarre root/lightning-bolt-shaped slivers of land isolated
-// in open water, connected to no real continent. Real volcanic island arcs
-// exist, but aren't worth the risk of reintroducing that artifact here.
-const upliftMultiplierFor = (nearContinental: boolean, farContinental: boolean, stress: number): number => {
-  if (stress >= 0) {
-    if (nearContinental && farContinental) return 1.5;
-    if (nearContinental) return 0.9;
-    if (farContinental) return -0.6;
-    return 0;
-  }
-  return nearContinental && farContinental ? -0.3 : -0.15;
-};
-const UPLIFT_SCALE = 0.9;
-// The continental side's multiplier from upliftMultiplierFor (continental near, oceanic far).
-const CONTINENTAL_MARGIN_UPLIFT = 0.9;
-
 // Computes elevation score AND raw convergent boundary stress together from
 // a single nearestPlates lookup -- these used to be two separate functions
 // that each ran their own (expensive, now-distorted-per-plate) nearestPlates
 // search for the same tile, doubling the cost of a full-map generation for
 // no reason since isMountainRange always queries both for the same tile.
+let plateDistanceScratch = new Float64Array(0);
 const computePlateContinentScore = (wx: number, wy: number, x: number, y: number): { index: number; score: number; stress: number } => {
   const plates = buildPlates();
-  const { near, nearDist, far, farDist } = nearestPlates(wx, wy, plates);
   const separation = continentSeparationActive();
-  const rifted = separation && isSeparateContinentPair(near, far);
-  const boundaryStrength = boundaryStrengthOf(nearDist, farDist);
-  const stress = rifted ? 0 : convergentStressOf(near, far);
-  const { base, riftDepth, nearWeight, offset } = separation
-    ? shelvedBaseAndRift(wx, wy, near, nearDist, far, farDist, plates.indexOf(near) < plates.indexOf(far))
-    : { base: near.baseElevation, riftDepth: 0, nearWeight: 1, offset: 0 };
-  // v10+: at a continent-ocean boundary the shelf puts the boundary itself
-  // offshore, so the collision belt (uplift, and the stress mountain ranges
-  // follow) moves to the top of the shelf inside the continent -- Andes-style
-  // coastal ranges just inland of the coast, rather than drowned at sea. The
-  // belt is twice the boundary blend wide so a range keeps a foothill band.
-  const shelfTopBelt = separation && near.isContinental !== far.isContinental;
-  const beltStrength = shelfTopBelt
-    ? Math.max(0, 1 - Math.abs((near.isContinental ? offset : -offset) - SHELF_WIDTH) / (BOUNDARY_BLEND_WIDTH * 2))
-    : boundaryStrength;
-  // v10+: the continental side of a collision is uplifted and the oceanic
-  // side trenched, which pre-v10 applied as a hard step at the boundary --
-  // a cliff the coastline snapped to. Blending the two sides' multipliers
-  // with the shelf weight keeps the uplift but makes it continuous (stress
-  // is symmetric in near/far, so both sides agree at the boundary).
-  const upliftMultiplier = shelfTopBelt
-    ? (stress >= 0 ? CONTINENTAL_MARGIN_UPLIFT : -0.15)
-    : separation
-    ? upliftMultiplierFor(near.isContinental, far.isContinental, stress) * nearWeight +
-      upliftMultiplierFor(far.isContinental, near.isContinental, stress) * (1 - nearWeight)
-    : upliftMultiplierFor(near.isContinental, far.isContinental, stress);
+  let index: number;
+  let plateElevation: number;
+  let rawStress: number;
+  if (separation) {
+    // v10+: shelf, rift and coastal collision belts -- see worldgen-continent-shelf.ts.
+    if (plateDistanceScratch.length < plates.length) plateDistanceScratch = new Float64Array(plates.length);
+    const { dx, dy } = coastDisplacementAt(x, y);
+    const { nearIdx, farIdx } = plateDistances(wx + dx, wy + dy, plates, plateDistanceScratch);
+    const v10 = v10PlateElevation(wx + dx, wy + dy, plates, plateDistanceScratch, nearIdx, farIdx);
+    index = nearIdx;
+    plateElevation = v10.elevation;
+    rawStress = v10.stress;
+  } else {
+    const { near, nearDist, far, farDist } = nearestPlates(wx, wy, plates);
+    const boundaryStrength = boundaryStrengthOf(nearDist, farDist);
+    const stress = convergentStressOf(near, far);
+    index = plates.indexOf(near);
+    plateElevation =
+      near.baseElevation +
+      boundaryStrength * stress * upliftMultiplierFor(near.isContinental, far.isContinental, stress) * UPLIFT_SCALE;
+    rawStress = stress > 0 ? boundaryStrength * stress : 0;
+  }
   const elevation =
-    base -
-    riftDepth +
-    beltStrength * stress * upliftMultiplier * UPLIFT_SCALE +
+    plateElevation +
     // Deliberate open-ocean features (Indonesia-style island chains, ring-
     // shaped atolls) that don't fall out of plate elevation on its own --
     // see worldgen-archipelago-features.ts. Additive here (before the
@@ -304,11 +206,10 @@ const computePlateContinentScore = (wx: number, wy: number, x: number, y: number
   // v10+: one continuous roughness field for the whole world. Seeding it per
   // plate made the noise itself jump at every plate edge -- a straight seam
   // exactly where v10 coasts sit.
+  const near = plates[index]!;
   const roughness = separation
     ? shorelineRoughnessAt(wx, wy, 0, 0, worldSeed() + 5501)
     : shorelineRoughnessAt(wx, wy, near.cx, near.cy, Math.floor(near.cx * 7919 + near.cy * 104729));
-  const index = plates.indexOf(near);
-  const rawStress = stress > 0 ? beltStrength * stress : 0;
   const detail = separation ? coastDetailAt(x, y) : 0;
   return { index, score: elevation * roughness + detail, stress: rawStress };
 };

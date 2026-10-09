@@ -311,6 +311,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
       "Coastlines are more natural: capes, coves and offshore islands, with craggier coasts toward the poles, instead of long smooth or ruler-straight shores",
       "Coastal mountain ranges now sit just inland of the coast, like the Andes",
+      "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
       "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
       "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
       "Atoll islands now stay round and sit out in open ocean instead of being stretched into ovals or placed on a continent",
