@@ -220,9 +220,9 @@ const computePlateContinentScore = (wx: number, wy: number, x: number, y: number
     // v10+ island chains are sampled on the raw tile, like atolls, so the
     // domain warp can't stretch them.
     (separation ? archipelagoBumpAt(x, y) : archipelagoBumpAt(wx, wy)) +
-    // v10+: atolls are circles by definition, so sample them at the raw
-    // (unwarped) tile -- the domain warp's ~58-tile amplitude stretched a
-    // 9-15 tile radius ring into a 15x30 oval.
+    // v10+: atolls carry their own seeded shape (worldgen-atoll-shape.ts), so
+    // sample them at the raw (unwarped) tile -- the domain warp's ~58-tile
+    // amplitude would smear a 4-6 tile reef ring into a shapeless streak.
     (naturalRangeShapeActive() ? atollBumpAt(x, y) : atollBumpAt(wx, wy));
   // v10+: one continuous roughness field for the whole world. Seeding it per
   // plate made the noise itself jump at every plate edge -- a straight seam

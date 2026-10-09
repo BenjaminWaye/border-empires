@@ -17,7 +17,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { boundaryConvergentStressCachedAt, continentField, getInlandThresholds } from "./worldgen-continent-score.js";
 import { valueNoise } from "./worldgen-noise.js";
-import { worldIndex, worldSeed } from "./worldgen.js";
+import { worldIndex, worldSeed, worldStyle } from "./worldgen.js";
 import { worldgenVersion } from "./worldgen-version.js";
 
 const JITTER_CELL = 30;
@@ -37,14 +37,17 @@ const UNSET = -2;
 const clearanceCache = new Int8Array(WORLD_WIDTH * WORLD_HEIGHT);
 let cacheSeed: number | undefined;
 let cacheVersion: number | undefined;
+let cacheStyle: string | undefined;
 
 const syncCache = (): void => {
   const seed = worldSeed();
   const version = worldgenVersion();
-  if (cacheSeed === seed && cacheVersion === version) return;
+  const style = worldStyle();
+  if (cacheSeed === seed && cacheVersion === version && cacheStyle === style) return;
   clearanceCache.fill(UNSET);
   cacheSeed = seed;
   cacheVersion = version;
+  cacheStyle = style;
 };
 
 const stressAt = (x: number, y: number): number => {
@@ -61,10 +64,12 @@ const coreThresholdAt = (x: number, y: number): number =>
 
 const isInland = (x: number, y: number): boolean => continentField(x, y) > getInlandThresholds().mountainRangeInland;
 
+// The world wraps east-west only: past the top or bottom edge is outside the
+// zone, never the opposite pole.
 const inCoreZone = (x: number, y: number): boolean => {
+  if (y < 0 || y >= WORLD_HEIGHT) return false;
   const wx = wrapX(x, WORLD_WIDTH);
-  const wy = wrapY(y, WORLD_HEIGHT);
-  return isInland(wx, wy) && stressAt(wx, wy) >= coreThresholdAt(wx, wy);
+  return isInland(wx, y) && stressAt(wx, y) >= coreThresholdAt(wx, y);
 };
 
 // Chebyshev distance to the nearest tile outside the core zone, capped at

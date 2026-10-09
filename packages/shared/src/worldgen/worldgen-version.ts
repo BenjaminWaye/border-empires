@@ -7,7 +7,17 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 10; // v10: separate continents get a rift seaway between them instead of fusing into one supercontinent, continents-style mountain ranges wander/segment instead of running ruler-straight along plate boundaries, and atolls stay round instead of being stretched by the domain warp (worldgen-mountain-ranges.ts, worldgen-continent-score.ts). v9: v8 + rivers along tile edges (worldgen-rivers-edge.ts), GRASSLAND/bright PLAINS split, lake-only MARSH (worldgen-visual-biome.ts)
+export const CURRENT_WORLDGEN_VERSION = 10;
+// v10 (continents maps; see the gates below): several separate continents
+// chosen by area target with a rift seaway between them (worldgen-plates.ts,
+// worldgen-continent-shelf.ts); natural coastlines from coast detail, fine
+// sample displacement and gentler smoothing (worldgen-continent-score.ts,
+// worldgen-island-pruning.ts); thin wandering mountain ranges with hill
+// foothills (worldgen-natural-ranges.ts, worldgen-hills.ts); small irregular
+// atolls in deep ocean (worldgen-atoll-shape.ts) and coastal island chains
+// (worldgen-island-chain.ts).
+// v9: v8 + rivers along tile edges (worldgen-rivers-edge.ts), GRASSLAND/bright
+// PLAINS split, lake-only MARSH (worldgen-visual-biome.ts)
 
 let state = 1; // default = pre-versioning legacy behavior (matches setWorldSeed's own default)
 

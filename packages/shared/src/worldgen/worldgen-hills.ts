@@ -26,6 +26,7 @@ let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheSeed: number | undefined;
 let hillsCacheVersion: number | undefined;
+let hillsCacheStyle: string | undefined;
 
 // How far out (Chebyshev distance, in tiles) a mountain's foothill effect
 // reaches, and the chance a LAND tile at each distance becomes hills purely
@@ -91,16 +92,19 @@ const isHighlandsClusterAt = (x: number, y: number, seed: number): boolean => {
 //   3. discrete diamond-shaped "highlands" clusters (see
 //      isHighlandsClusterAt above) as recognizable standalone formations.
 // All three, plus the clearing pass below, are pure functions of the tile's
-// own coordinate/terrain with no dependency on WorldStyle, so the same rules
-// apply unchanged on continents and islands maps.
+// own coordinate/terrain, so the same rules apply on continents and islands
+// maps. The v10+ range foothills are continents-only, hence the cache is keyed
+// on WorldStyle too.
 export const isHillsRegionAt = (x: number, y: number): boolean => {
   const seed = worldSeed();
   const version = worldgenVersion();
-  if (hillsCacheSeed !== seed || hillsCacheVersion !== version) {
+  const style = worldStyle();
+  if (hillsCacheSeed !== seed || hillsCacheVersion !== version || hillsCacheStyle !== style) {
     hillsCache = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheSeed = seed;
     hillsCacheVersion = version;
+    hillsCacheStyle = style;
   }
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);

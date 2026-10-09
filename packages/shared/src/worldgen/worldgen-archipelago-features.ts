@@ -133,33 +133,23 @@ const buildArchipelagoZones = (): ArchipelagoZone[] => {
   cachedZonesSeed = seed;
   cachedZonesVersion = version;
 
-  const openOceanOnly = continentSeparationActive();
-  if (openOceanOnly) {
+  if (continentSeparationActive()) {
     cachedZones = buildIslandChainZones(seed);
     return cachedZones;
   }
   const zoneCenters: { cx: number; cy: number }[] = [];
   for (let i = 0; i < ARCHIPELAGO_ZONE_COUNT; i += 1) {
     let cx = 0, cy = 0;
-    let placed = false;
     for (let attempt = 0; attempt < ZONE_PLACEMENT_ATTEMPTS; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 310011) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 320022) * WORLD_HEIGHT);
       const farFromOtherZones = zoneCenters.every((z) => distTo(candX, candY, z.cx, z.cy) >= ZONE_MIN_SPACING);
       cx = candX;
       cy = candY;
-      if (openOceanOnly) {
-        if (farFromOtherZones && isOpenOceanSite(candX, candY, ARCHIPELAGO_ZONE_RADIUS * 0.5)) {
-          placed = true;
-          break;
-        }
-        continue;
-      }
       const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
-      placed = true;
       if ((farFromContinents && farFromOtherZones) || attempt === ZONE_PLACEMENT_ATTEMPTS - 1) break;
     }
-    if (placed) zoneCenters.push({ cx, cy });
+    zoneCenters.push({ cx, cy });
   }
 
   cachedZones = zoneCenters.map((zone, zi) => {
@@ -211,7 +201,7 @@ export const archipelagoBumpAt = (wx: number, wy: number): number => {
       const d = distTo(wx, wy, island.cx, island.cy);
       if (d >= island.radius) continue;
       const t = 1 - d / island.radius; // 0 at the edge, 1 at the center
-      const contribution = (continentSeparationActive() ? ISLAND_BUMP_HEIGHT_V10 : ISLAND_BUMP_HEIGHT) * t * t;
+      const contribution = ISLAND_BUMP_HEIGHT * t * t;
       if (contribution > bump) bump = contribution;
     }
   }
