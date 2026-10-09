@@ -26,6 +26,7 @@ import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
+import { isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
 import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
@@ -746,7 +747,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const { halfW, halfH } = window;
 
     heightfield.mesh.position.set(0, 0, 0);
-    const visibilityAt = (wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)));
+    // The fog's first ring reads as "fogged" so its ground draws (dimmed) under the unexplored storm's see-through coast band.
+    const visibilityAt = withUnexploredCoastRingAsFogged((wx: number, wy: number): TileVisibilityState => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy))), deps.wrapX, deps.wrapY);
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
       if (revealWholeMapInTrue3DMode) return true;
       const visibility = visibilityAt(wx, wy);
@@ -867,7 +869,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const wy = deps.wrapY(window.camY + dy);
         const tileKey = deps.keyFor(wx, wy);
         const tile = deps.state.tiles.get(tileKey);
-        const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
+        const visibility = visibilityAt(wx, wy); // coast-ring aware, see its definition
         logOwnershipRenderChange(lastRenderedOwnerIdByTile, tileKey, {
           x: wx, y: wy, visibility, revealWholeMapInTrue3DMode,
           ownerId: tile?.ownerId, ownershipState: tile?.ownershipState, fogged: tile?.fogged,
@@ -928,17 +930,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // solid improvement over a black hole and isn't worth a bigger
           // change to add that distinction.
           if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-            let shallow = false;
-            for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
-              for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
-                if (nx === 0 && nz === 0) continue;
-                const nwx = deps.wrapX(wx + nx);
-                const nwy = deps.wrapY(wy + nz);
-                const nt = terrainForWorldTile(nwx, nwy);
-                if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
-              }
-            }
-            waterSurface.addTile(x, z, shallow, wx, wy);
+            waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy);
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
@@ -989,17 +981,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // module — pass shallow=true if any tile within Chebyshev
         // radius 2 is land/mountain.
         if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-          let shallow = false;
-          for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
-            for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
-              if (nx === 0 && nz === 0) continue;
-              const nwx = deps.wrapX(wx + nx);
-              const nwy = deps.wrapY(wy + nz);
-              const nt = terrainForWorldTile(nwx, nwy);
-              if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
-            }
-          }
-          waterSurface.addTile(x, z, shallow, wx, wy);
+          waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy);
           continue;
         }
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { UNEXPLORED_STORM_EDGE_COLOR, buildUnexploredStormPixels, drawUnexploredStormEdge2D, drawUnexploredStormTile, unexploredBandDepth } from "./client-unexplored-storm-2d.js";
+import {
+  UNEXPLORED_STORM_EDGE_COLOR,
+  buildUnexploredStormPixels,
+  drawUnexploredStormEdge2D,
+  drawUnexploredStormTile,
+  isUnexploredCoastRing,
+  unexploredBandDepth,
+  unexploredCoastVisibleAt
+} from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
 
 const SIZE = 256;
@@ -66,21 +74,28 @@ describe("unexplored storm 2D texture", () => {
     return { ctx, ops };
   };
 
-  it("draws nothing on a fog tile with no explored neighbour", () => {
-    const { ctx, ops } = recordingCtx();
-    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, () => false);
-    expect(ops).toEqual([]);
+  it("classifies the fog's first ring from all 8 neighbours, diagonals included", () => {
+    expect(isUnexploredCoastRing(() => false)).toBe(false);
+    expect(isUnexploredCoastRing((ox, oy) => ox === 1 && oy === 1)).toBe(true);
+    expect(isUnexploredCoastRing((ox, oy) => ox === 0 && oy === -1)).toBe(true);
+    expect(unexploredCoastVisibleAt(4)).toBe(false);
+    expect(unexploredCoastVisibleAt(40)).toBe(true);
   });
 
-  it("draws the parchment band and foam rim inside a fog tile facing explored land, and skips tiny tiles", () => {
+  it("draws a see-through parchment wash, then storm and foam only beyond the wavy line", () => {
     const { ctx, ops } = recordingCtx();
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 0 && oy === -1);
-    expect(ops).toContain("clip");
-    expect(ops).toContain("fill");
-    expect(ops).toContain("stroke");
-    const tiny = recordingCtx();
-    drawUnexploredStormEdge2D(tiny.ctx, 5, 5, 0, 0, 4, () => true);
-    expect(tiny.ops).toEqual([]);
+    // tile clip + one "beyond this side's wave" clip
+    expect(ops.filter((op) => op === "clip")).toHaveLength(2);
+    expect(ops.filter((op) => op === "fillRect")).toHaveLength(2); // parchment wash, storm
+    expect(ops.indexOf("stroke")).toBeGreaterThan(ops.lastIndexOf("fillRect"));
+  });
+
+  it("clips the storm outside a corner arc for diagonal-only contact", () => {
+    const { ctx, ops } = recordingCtx();
+    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 1 && oy === 1);
+    expect(ops).toContain("arc");
+    expect(ops.filter((op) => op === "clip")).toHaveLength(2);
   });
 
   it("puts the foam ~0.6-0.85 of the way across the first fog tile", () => {

@@ -60,11 +60,12 @@ describe("unexplored storm layer (3D)", () => {
     expect(scene.children).not.toContain(atmosphere.unexploredStorm.mesh);
   });
 
-  it("only ever draws on unexplored tiles, at full cover (bar inward edge AA)", () => {
-    // Alpha is the hard per-tile mask times inward-only edge anti-aliasing:
-    // explored tiles (hard 0) are never drawn on, unexplored tiles never
-    // show the void.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa;/);
+  it("only ever draws on unexplored tiles; only the coast band is see-through", () => {
+    // Alpha is the hard per-tile mask (explored tiles are never drawn on)
+    // times inward edge AA times cover: storm is opaque, the parchment band
+    // over the ring's dimmed ground is translucent.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa \* coverAlpha;/);
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float coverAlpha = mix\(parchAlpha, 1\.0, stormCover\);/);
     const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
     const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
     expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D|maskR\(/);

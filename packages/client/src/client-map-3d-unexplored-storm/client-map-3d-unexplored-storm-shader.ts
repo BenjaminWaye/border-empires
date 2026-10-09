@@ -2,7 +2,8 @@
 // tiles -- explored tiles are discarded outright, so revealed land is never
 // tinted, hatched or overlapped. The fog's coastline lives in the first ring
 // of unexplored tiles (those touching explored land, diagonals included):
-//   1. A hatched parchment band ("charted coast, not yet surveyed") from the
+//   1. A see-through hatched parchment band ("charted coast, not yet
+//      surveyed") over the ring tile's dimmed ground, fading in from the
 //      explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
 //      the way across the ring tile.
 //   2. A pale foam rim on that contour, with a lit lip on the cloud behind it.
@@ -131,14 +132,20 @@ void main() {
   parch *= 1.0 - smoothstep(EDGE - 0.08, EDGE, s) * 0.25;
   float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
   vec3 col = mix(parch, storm, stormCover);
+  // The band is see-through: the ring tile's own ground is drawn (dimmed)
+  // underneath (client-map-3d-terrain-tile-rules.ts), so it reads as a
+  // glimpse of uncharted coast, fading in from the explored edge.
+  float parchAlpha = smoothstep(0.08, 0.36, s) * 0.8;
+  float coverAlpha = mix(parchAlpha, 1.0, stormCover);
 
   // --- foam rim on the cloud's edge ---
   float rimHalf = max(0.012, sw * 1.5);
   float rim = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(s - EDGE - 0.012)));
   col = mix(col, uFoam, rim * 0.9);
+  coverAlpha = max(coverAlpha, rim * 0.9);
 
   // Explored tiles are never drawn on.
-  float alpha = hard * edgeAa;
+  float alpha = hard * edgeAa * coverAlpha;
   if (alpha < 0.01) discard;
   gl_FragColor = vec4(col, alpha);
   #include <colorspace_fragment>
