@@ -1,0 +1,9 @@
+# Pinned SSH host keys for the Hetzner servers, used by scripts/ops/backend-logs.sh
+# (StrictHostKeyChecking=yes). Fingerprints must match the Hetzner console output of
+# `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`; update this file if a server is rebuilt.
+# staging    SHA256:5aiSI135BoSJaluC18s4e46cYASvQjTceCKN1QvaG0Y
+# 178.105.133.33:22 SSH-2.0-OpenSSH_10.2p1 Ubuntu-2ubuntu3.6
+178.105.133.33 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINEvduLQsxpI2J+NrMulfVU6ZHx0FYp0yzpOIOOgvXHP
+# production SHA256:Iu+6ETFNXmXWhd4dpB4GPkFvrwxSyq9K9R6zrUzWBtg
+# 188.245.240.42:22 SSH-2.0-OpenSSH_10.2p1 Ubuntu-2ubuntu3.6
+188.245.240.42 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOiWVrmL55KImI3MFcM3xkzYD7XuN3auIqfRfG9stdY1

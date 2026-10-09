@@ -13,10 +13,12 @@
 # Required: BE_ENV (staging|production), BE_HOSTNAME, ADMIN_PUBKEY, CI_PUBKEY.
 # Optional: BACKUP_BUCKET (enables B2 upload; also place rclone.conf, see below),
 #           GITHUB_REPO (default BenjaminWaye/border-empires),
-#           IMAGE_REPO (default ghcr.io/benjaminwaye/border-empires-combined).
+#           IMAGE_REPO (default ghcr.io/benjaminwaye/border-empires-combined),
+#           LOGS_PUBKEY (read-only key for scripts/ops/backend-logs.sh).
 #
 # The CI key is restricted with `command=` to /opt/border-empires/bin/deploy
-# (`<sha>` | `rollback` | `snapshot`). The admin key is a normal shell key for
+# (`<sha>` | `rollback` | `snapshot` | `logs`). LOGS_PUBKEY, if set, is forced to
+# `deploy --logs-only`, which refuses everything but `logs`. The admin key is a normal shell key for
 # the `deploy` user (docker group). Does NOT start the app; the first deploy does.
 set -euo pipefail
 
@@ -51,6 +53,7 @@ cat > /home/deploy/.ssh/authorized_keys <<KEYEOF
 ${ADMIN_PUBKEY}
 command="/opt/border-empires/bin/deploy",restrict ${CI_PUBKEY}
 KEYEOF
+[ -z "${LOGS_PUBKEY:-}" ] || echo "command=\"/opt/border-empires/bin/deploy --logs-only\",restrict ${LOGS_PUBKEY}" >> /home/deploy/.ssh/authorized_keys
 chown deploy:deploy /home/deploy/.ssh/authorized_keys
 chmod 600 /home/deploy/.ssh/authorized_keys
 
