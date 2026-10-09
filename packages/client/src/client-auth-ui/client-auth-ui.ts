@@ -142,6 +142,8 @@ export const syncAuthOverlay = (
   const busy = state.authBusy || mapPrepView !== null;
   deps.authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired && !mapPrepView ? "none" : "grid";
   deps.authOverlayEl.dataset.busy = busy ? "true" : "false";
+  // The busy modal is centered in a viewport-tall card; scroll back so it is not left below the fold.
+  if (busy) deps.authOverlayEl.scrollTop = 0;
   deps.authBusyModalEl.setAttribute("aria-hidden", busy ? "false" : "true");
   deps.authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
