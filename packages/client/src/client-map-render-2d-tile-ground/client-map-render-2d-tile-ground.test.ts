@@ -24,6 +24,7 @@ const input = (over: Partial<TileGround2DInput>): TileGround2DInput => ({
   terrainWhenMissing: undefined,
   terrainAt: () => "SEA",
   drawTerrainTile: vi.fn(),
+  drawTerrainDetail: vi.fn(),
   isUnexploredAt: () => false,
   ...over
 });
@@ -60,7 +61,13 @@ describe("drawTileGround2D", () => {
     const args = input({ tile: undefined, vis: "unexplored", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) });
     drawTileGround2D(ring.ctx, args);
     expect(args.drawTerrainTile).toHaveBeenCalledWith(3, 4, "SEA", 0, 0, 40);
-    expect(ring.fills).toContain("rgba(7, 20, 34, 0.34)");
+    expect(ring.fills).toContain("rgba(7, 20, 34, 0.25)");
+    expect(args.drawTerrainDetail).not.toHaveBeenCalled(); // sea has no forest/hills
+
+    const landRing = makeCtx();
+    const landArgs = input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) });
+    drawTileGround2D(landRing.ctx, landArgs);
+    expect(landArgs.drawTerrainDetail).toHaveBeenCalledWith(3, 4, 0, 0, 40);
     expect(ring.raw.stroke).toHaveBeenCalled();
   });
 
@@ -70,5 +77,6 @@ describe("drawTileGround2D", () => {
     drawTileGround2D(deep.ctx, args);
     expect(args.drawTerrainTile).not.toHaveBeenCalled();
     expect(deep.raw.stroke).not.toHaveBeenCalled();
+    expect(args.drawTerrainDetail).not.toHaveBeenCalled();
   });
 });

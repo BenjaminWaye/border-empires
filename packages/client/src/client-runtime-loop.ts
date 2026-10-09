@@ -793,7 +793,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (!isTrue3DRendererActive()) {
           const terrainWhenMissing = !t && (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) ? terrainAt(wx, wy) : undefined;
           const isUnexploredAt = (ox: number, oy: number): boolean => deps.tileVisibilityStateAt(deps.wrapX(wx + ox), deps.wrapY(wy + oy)) === "unexplored";
-          drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, isUnexploredAt });
+          const drawTerrainDetail = (dwx: number, dwy: number, dpx: number, dpy: number, dsize: number): void => { deps.drawForestOverlay(dwx, dwy, dpx, dpy, dsize); deps.drawHillsOverlay(dwx, dwy, dpx, dpy, dsize); };
+          drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, isUnexploredAt });
         }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }

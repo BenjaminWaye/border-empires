@@ -26,6 +26,8 @@ export type TileGround2DInput = {
   /** Terrain of any world tile -- used for the fog's first ring, which has no tile data. */
   readonly terrainAt: (wx: number, wy: number) => Tile["terrain"];
   readonly drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
+  /** Natural terrain detail (forest, hills) for a land tile -- drawn on the fog's first ring too. */
+  readonly drawTerrainDetail: (wx: number, wy: number, px: number, py: number, size: number) => void;
   /** Whether the tile at offset (ox, oy) from this one is unexplored. */
   readonly isUnexploredAt: (ox: number, oy: number) => boolean;
 };
@@ -43,7 +45,10 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
     }
     const terrain = input.terrainAt(wx, wy);
     input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
-    ctx.fillStyle = fogDim(terrain);
+    if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
+    // Lighter than remembered-tile fog: the parchment wash on top already
+    // mutes it, and the full fog dim would bury the trees and hills.
+    ctx.fillStyle = isWater(terrain) ? "rgba(7, 20, 34, 0.25)" : "rgba(2, 5, 10, 0.35)";
     ctx.fillRect(px, py, size, size);
     drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, isExploredAt);
     return;

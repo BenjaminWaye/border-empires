@@ -967,6 +967,12 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
               );
             }
           }
+          // The fog's first ring (withUnexploredCoastRingAsFogged) has no live data to hide -- load its natural terrain too.
+          if (deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored") {
+            if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY);
+            else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
+            else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
+          }
           continue;
         }
         if (terrain === "LAND") {
