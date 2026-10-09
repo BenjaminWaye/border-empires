@@ -22,7 +22,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Economy
 
-- **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates over time from an empire-wide pool sized by town population tier; a depleted empire cannot afford sustained expansion or warfare.
+- **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
 - **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or settle. Passive coin income comes from settled tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.

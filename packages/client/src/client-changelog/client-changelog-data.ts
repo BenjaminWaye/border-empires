@@ -25,6 +25,19 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791527749820, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Manpower refills every 4 hours, shown as a gauge",
+    why: "Manpower crept up a few points a minute, so \"can I afford this attack yet?\" meant watching a number tick, and a short wait for one more attack felt like a constant chore.",
+    changes: [
+      "Manpower is now paid out in one refill every 4 hours instead of ticking up continuously. Your total regeneration is unchanged, it just lands in chunks; each player's refill moment is staggered, so yours is not the same as everyone else's",
+      "The Manpower chip is now a brass gauge: the fill shows what you can spend right now (ember when below an ordinary attack, green when full, shimmering above the cap), copper plating shows manpower already staged in muster flags, and a countdown shows when the next refill lands",
+      "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
+      "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
+      "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
+    ]
+  },
+  {
     createdAt: 1791311818491, // Date.now() frozen for this entry
     introducedIn: "2026.10.06.1",
     title: "Relay Beacons and forts are built piece by piece",
