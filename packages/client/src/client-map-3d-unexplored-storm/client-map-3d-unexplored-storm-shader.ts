@@ -5,7 +5,8 @@
 //   1. A see-through hatched parchment band ("charted coast, not yet
 //      surveyed") over the ring tile's ground, from the explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
 //      the way across the ring tile.
-//   2. A pale foam rim on that contour, with a lit lip on the cloud behind it.
+//   2. A brass survey edge on that contour (bright line, darker storm-side
+//      edge, rivets at tile edges), with a lit lip on the cloud behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
 //      hatching, with the hidden tile grid faintly showing through.
 // The contour is cut from a blurred field of "deep fog" (unexplored tiles
@@ -36,7 +37,9 @@ uniform vec3 uLight;
 uniform vec3 uInk;
 uniform vec3 uParchment;
 uniform vec3 uParchmentInk;
-uniform vec3 uFoam;
+uniform vec3 uBrass;
+uniform vec3 uBrassDark;
+uniform vec3 uRivet;
 uniform sampler2D uMask;
 uniform vec2 uMaskMin;
 uniform vec2 uMaskSize;
@@ -138,11 +141,20 @@ void main() {
   float parchAlpha = mix(0.55, 0.7, smoothstep(0.1, 0.4, s));
   float coverAlpha = mix(parchAlpha, 1.0, stormCover);
 
-  // --- foam rim on the cloud's edge ---
+  // --- brass survey edge on the cloud's edge ---
+  // A bright brass line on the contour, a darker brass edge just on the
+  // storm side, and rivets where the line crosses a tile edge.
+  float dRim = s - EDGE;
   float rimHalf = max(0.012, sw * 1.5);
-  float rim = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(s - EDGE - 0.012)));
-  col = mix(col, uFoam, rim * 0.9);
-  coverAlpha = max(coverAlpha, rim * 0.9);
+  float brass = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(dRim)));
+  float brassEdge = (1.0 - deep) * (1.0 - smoothstep(rimHalf * 0.6, rimHalf * 0.6 + sw, abs(dRim - rimHalf * 1.6)));
+  vec2 gridDist = abs(fract(w + 0.5) - 0.5);
+  float onGrid = 1.0 - smoothstep(0.035, 0.035 + max(fwScene.x, fwScene.y), min(gridDist.x, gridDist.y));
+  float rivet = (1.0 - deep) * onGrid * (1.0 - smoothstep(rimHalf * 1.8, rimHalf * 1.8 + sw, abs(dRim)));
+  col = mix(col, uBrassDark, brassEdge * 0.9);
+  col = mix(col, uBrass, brass);
+  col = mix(col, uRivet, rivet);
+  coverAlpha = max(coverAlpha, max(max(brass, brassEdge * 0.9), rivet));
 
   // Explored tiles are never drawn on.
   float alpha = hard * edgeAa * coverAlpha;

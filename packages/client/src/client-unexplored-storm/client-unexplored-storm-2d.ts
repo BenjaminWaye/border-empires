@@ -1,7 +1,9 @@
 import {
-  UNEXPLORED_FOAM,
+  UNEXPLORED_BRASS,
+  UNEXPLORED_BRASS_DARK,
   UNEXPLORED_PARCHMENT,
   UNEXPLORED_PARCHMENT_INK,
+  UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
   UNEXPLORED_STORM_LIGHT,
@@ -163,7 +165,8 @@ export const drawUnexploredStormTile = (
 //   1. a see-through hatched parchment wash over the whole tile;
 //   2. the storm, only beyond a wavy line ~0.6-0.8 tile in from every side
 //      (or corner) that touches explored land;
-//   3. a pale foam rim along that line.
+//   3. a brass survey edge along that line (bright brass, a darker storm-side
+//      edge) with rivets where it meets the tile's edges.
 // Explored tiles themselves are never drawn on. The waves are keyed to world
 // coordinates along the edge, so they run continuously between tiles.
 
@@ -271,7 +274,9 @@ export const drawUnexploredStormEdge2D = (
 
   // 2. Storm beyond every band: clip to the intersection of "past this
   // side's wave" / "outside this corner's arc" for each one.
+  ctx.save();
   const edges: Array<() => void> = [];
+  const rivets: Array<readonly [number, number]> = [];
   for (const side of sides) {
     const a0 = side.along(wx, wy);
     const l = side.line(wx, wy);
@@ -290,6 +295,7 @@ export const drawUnexploredStormEdge2D = (
     ctx.closePath();
     ctx.clip();
     edges.push(() => wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey))));
+    rivets.push(wave[0]!, wave[wave.length - 1]!);
   }
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
@@ -300,19 +306,34 @@ export const drawUnexploredStormEdge2D = (
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip("evenodd");
     edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
+    rivets.push([cx - Math.sign(ox) * r, cy], [cx, cy - Math.sign(oy) * r]);
   }
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
 
-  // 3. Foam, still clipped to the storm region: doubled width so the half
-  // on the storm side shows at full weight, and a rim never crosses
-  // another side's band.
-  ctx.strokeStyle = rgba(UNEXPLORED_FOAM, 0.9);
-  ctx.lineWidth = Math.max(1, size * 0.045) * 2;
-  for (const edge of edges) {
-    ctx.beginPath();
-    edge();
-    ctx.stroke();
+  // 3. Brass edge, still clipped to the storm region so each stroke shows
+  // only its storm-side half (and never crosses another side's band): a
+  // wide dark-brass stroke under a narrower bright one.
+  const rimWidth = Math.max(1, size * 0.04);
+  for (const [style, width] of [[UNEXPLORED_BRASS_DARK, rimWidth * 3.4], [UNEXPLORED_BRASS, rimWidth * 2]] as const) {
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    for (const edge of edges) {
+      ctx.beginPath();
+      edge();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Rivets where the edge meets the tile's own edges (tile clip only).
+  if (detailed) {
+    ctx.fillStyle = UNEXPLORED_RIVET;
+    for (const [rx, ry] of rivets) {
+      ctx.beginPath();
+      ctx.arc(rx, ry, rimWidth * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.restore();
 };

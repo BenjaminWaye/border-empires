@@ -1,4 +1,5 @@
 import {
+  type Color,
   ConeGeometry,
   CylinderGeometry,
   IcosahedronGeometry,
@@ -8,6 +9,7 @@ import {
   Scene
 } from "three";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
+import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
 
 // Upper bound on trees per forest tile (the per-tile instance budget). The
 // layouts below hold 7-9 trees each so adjacent tiles vary in density too.
@@ -86,13 +88,14 @@ export const tileHash = (worldX: number, worldZ: number, salt: number, mod: numb
 
 export type Forest = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
+  /** `tint`: optional per-instance colour multiply (remembered tiles), see client-map-3d-instance-tint.ts. */
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   // Decorative-only single sapling (leaf species, smaller scale) for light-
   // grass "scatter" tiles -- see isLightGrassScatterTile in
   // client-constants.ts. Shares the same leaf canopy/trunk instance pools as
   // addInstance; a tile is only ever real forest or scatter, never both, so
   // this never grows the meshes' total instance budget beyond maxTiles.
-  readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
+  readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -149,7 +152,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     trunkCount = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
     // Hash on the tile's absolute WORLD position, not its scene-relative
     // placement (sceneX/sceneZ) -- the scene anchor (sceneOrigin in
     // client-map-3d.ts) only updates when a terrain rebuild commits, so the
@@ -171,6 +174,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + tree.ox, surfaceY + TRUNK_CENTER_Y * tree.scale, sceneZ + tree.oz + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
+      setInstanceTint(trunkMesh, trunkCount, tint);
       trunkCount += 1;
 
       const canopyIdx = species === 1 ? spruceCount : species === 2 ? leafCount : pineCount;
@@ -178,13 +182,14 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + tree.ox, surfaceY + canopyY * tree.scale, sceneZ + tree.oz);
       canopyMesh.setMatrixAt(canopyIdx, tempMatrix);
+      setInstanceTint(canopyMesh, canopyIdx, tint);
       if (species === 1) spruceCount += 1;
       else if (species === 2) leafCount += 1;
       else pineCount += 1;
     }
   };
 
-  const addSparseLeafInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+  const addSparseLeafInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
     // A single, smaller leaf sapling -- deliberately not a full layout entry
     // (those are sized/spaced for a dense forest tile) -- with a bit of
     // jitter so a run of scatter tiles doesn't look like a stamped grid.
@@ -201,11 +206,13 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + jitterX, surfaceY + TRUNK_CENTER_Y * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
+      setInstanceTint(trunkMesh, trunkCount, tint);
       trunkCount += 1;
       scaleMatrix.makeScale(scale, scale, scale);
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + jitterX, surfaceY + LEAF_CANOPY_Y * scale, sceneZ + jitterZ);
       leafCanopyMesh.setMatrixAt(leafCount, tempMatrix);
+      setInstanceTint(leafCanopyMesh, leafCount, tint);
       leafCount += 1;
     }
   };
@@ -227,6 +234,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     trunkMesh.instanceMatrix.clearUpdateRanges();
     trunkMesh.instanceMatrix.addUpdateRange(0, trunkMesh.count * 16);
     trunkMesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of [pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh, trunkMesh]) commitInstanceTint(mesh);
   };
 
   const dispose = (): void => {

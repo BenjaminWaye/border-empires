@@ -25,14 +25,24 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     expect(source).toContain("} else if (!isFogRing) {\n            fogDarkenOverlay.addTile(");
   });
 
-  it("adds mountains, forests and grass scatter for ring tiles inside the fogged branch", () => {
+  it("keeps natural terrain (mountains, forests, grass scatter) on every fogged tile, ring included", () => {
     const fogBranchStart = source.indexOf('if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {');
-    const carveOut = source.indexOf("if (isFogRing) {", fogBranchStart);
-    expect(fogBranchStart).toBeGreaterThan(-1);
-    expect(carveOut).toBeGreaterThan(fogBranchStart);
-    const block = source.slice(carveOut, source.indexOf("continue;", carveOut));
+    const features = source.indexOf("// Natural terrain is not live data, so it stays", fogBranchStart);
+    expect(features).toBeGreaterThan(fogBranchStart);
+    const block = source.slice(features, source.indexOf("continue;", features));
     expect(block).toContain("mountainMassifs.addInstance(");
     expect(block).toContain("shouldDrawForestInstance(forestTile, tile)");
     expect(block).toContain("shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)");
+    expect(block).not.toContain("if (isFogRing)"); // every fogged tile, not just the ring
+  });
+
+  it("prints remembered land, features and (non-ring) sea in sepia", () => {
+    expect(source).toContain("const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT);");
+    // A normal-blend wash, not a multiply: a multiply can only darken, which left remembered grass dark olive.
+    expect(source).toContain('{ settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
+    expect(source).toContain("const featureTint = isFogRing ? undefined : fogFeatureTint;");
+    expect(source).toContain("mountainMassifs.addInstance(x, z, surfaceY, featureTint)");
+    expect(source).not.toContain("tmpBlack");
+    expect(source).toContain("deps.wrapX, deps.wrapY), wx, wy, !isFogRing);");
   });
 });

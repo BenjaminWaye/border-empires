@@ -15,6 +15,7 @@ import {
 import { RENDER_ORDER } from "./client-map-3d-render-order.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { computeShoreCalm, createShoreFoamLayer, FOAM_LIFT_Y } from "./client-map-3d-shore/client-map-3d-shore.js";
+import { fillWaterVertexColors, WATER_DEEP_COLOR, WATER_SHALLOW_COLOR, type WaterTileState } from "./client-map-3d-water-surface-colors.js";
 
 export const WATER_SURFACE_Y = -0.06;
 
@@ -49,8 +50,8 @@ export const UV_WORLD_SCALE = 6.0;
 
 // Deep dark navy — reads as opaque depth.
 // Shallow is washed-out light blue — combined with lower opacity lets terrain show through.
-const DEEP_COLOR = new Color(0x0a2e42);
-const SHALLOW_COLOR = new Color(0x6abbc8);
+const DEEP_COLOR = WATER_DEEP_COLOR;
+const SHALLOW_COLOR = WATER_SHALLOW_COLOR;
 
 // Generate a seamless tangent-space normal map from overlapping sine waves.
 // `freq` controls wave frequency; `amp` controls slope steepness.
@@ -96,7 +97,8 @@ export type WaterSurface = {
   // by the v9 river water (client-map-3d-rivers.ts) so rivers shimmer too.
   readonly material: MeshPhysicalMaterial;
   readonly clear: () => void;
-  readonly addTile: (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number) => void;
+  /** `fogged`: remembered (explored, not in sight) -- tinted toward the print tone. */
+  readonly addTile: (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number, fogged?: boolean) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -127,7 +129,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
   // _maxTiles kept for API compatibility — merged geometry sizes itself.
 
   let tiles: TileEntry[] = [];
-  const tileMap = new Map<string, boolean>(); // grid-coord key → shallow
+  const tileMap = new Map<string, WaterTileState>(); // grid-coord key → shallow / fogged
 
   // Low-freq swell + high-freq chop scrolled independently for a
   // two-wave-system look.
@@ -192,7 +194,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     tileMap.clear();
   };
 
-  const addTile = (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number): void => {
+  const addTile = (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number, fogged = false): void => {
     // Tile centers arrive as dx+0.5, dy+0.5. Floor gives the integer
     // grid column/row (top-left corner of each tile in world space).
     const gc = Math.floor(centerX);
@@ -200,7 +202,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     const key = tileKey(gc, gr);
     if (tileMap.has(key)) return; // guard against double-add within one rebuild cycle
     tiles.push({ gc, gr, shallow, worldGc: Math.floor(worldX), worldGr: Math.floor(worldZ) });
-    tileMap.set(key, shallow);
+    tileMap.set(key, { shallow, fogged });
   };
 
   const commit = (): void => {
@@ -294,32 +296,7 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       if (calm >= 1) mouthsInScene.push({ x: sx, z: sz }); // full calm sits only on a river mouth corner
     }
 
-    // Vertex color: blend deep/shallow based on how many of the up-to-4
-    // surrounding tiles are shallow. This gives a gradient at coastlines.
-    for (let vr = 0; vr < vRows; vr++) {
-      for (let vc = 0; vc < vCols; vc++) {
-        const adj: [number, number][] = [
-          [minGC + vc - 1, minGR + vr - 1],
-          [minGC + vc,     minGR + vr - 1],
-          [minGC + vc - 1, minGR + vr    ],
-          [minGC + vc,     minGR + vr    ]
-        ];
-        let waterCount = 0;
-        let shallowCount = 0;
-        for (const [agc, agr] of adj) {
-          const sh = tileMap.get(tileKey(agc, agr));
-          if (sh !== undefined) {
-            waterCount++;
-            if (sh) shallowCount++;
-          }
-        }
-        const t = waterCount > 0 ? shallowCount / waterCount : 0;
-        const ci = (vr * vCols + vc) * 3;
-        colors[ci]     = DEEP_COLOR.r + t * (SHALLOW_COLOR.r - DEEP_COLOR.r);
-        colors[ci + 1] = DEEP_COLOR.g + t * (SHALLOW_COLOR.g - DEEP_COLOR.g);
-        colors[ci + 2] = DEEP_COLOR.b + t * (SHALLOW_COLOR.b - DEEP_COLOR.b);
-      }
-    }
+    fillWaterVertexColors(colors, vRows, vCols, minGC, minGR, (gc, gr) => tileMap.get(tileKey(gc, gr)));
 
     // Index buffer: one quad (2 triangles) per tile.
     let ii = 0;

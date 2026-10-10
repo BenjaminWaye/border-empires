@@ -1,4 +1,5 @@
 import type { Tile, TileVisibilityState } from "../client-types.js";
+import { FOGGED_PRINT_LAND_AGE, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_AGE } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
@@ -8,7 +9,8 @@ import {
 
 // The 2D canvas renderer's base layer for one tile (extracted from
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
-// unexplored storm. The fog's first ring (unexplored tiles touching explored
+// unexplored storm. Remembered (fogged) tiles keep their terrain and natural
+// detail as a sepia survey print. The fog's first ring (unexplored tiles touching explored
 // land) shows its own ground under a see-through parchment coast,
 // with the storm beyond. Explored tiles get only their own terrain -- the
 // fog never draws on them. Overlays (forest, ownership tint, structures...)
@@ -33,7 +35,23 @@ export type TileGround2DInput = {
 };
 
 const isWater = (terrain: Tile["terrain"]): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
-const fogDim = (terrain: Tile["terrain"]): string => (isWater(terrain) ? "rgba(7, 20, 34, 0.34)" : "rgba(2, 5, 10, 0.72)");
+// Remembered (fogged) tiles as an aged survey print, matching the 3D fog
+// overlay: a "color" blend takes the print's hue while keeping the terrain's
+// own light and dark, then a warm multiply ages it. Canvases without blend
+// modes just get a translucent wash of the same tone.
+const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
+  ctx.save();
+  ctx.globalCompositeOperation = "color";
+  ctx.globalAlpha = isWater(terrain) ? 0.75 : 0.9;
+  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER : FOGGED_PRINT_SEPIA;
+  ctx.fillRect(px, py, size, size);
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER_AGE : FOGGED_PRINT_LAND_AGE;
+  ctx.fillRect(px, py, size, size);
+  ctx.restore();
+};
+
 
 export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput): void => {
   const { wx, wy, px, py, size, tile, vis } = input;
@@ -56,8 +74,8 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
     else input.drawTerrainTile(wx, wy, input.terrainWhenMissing, px, py, size);
   } else if (vis === "fogged") {
     input.drawTerrainTile(wx, wy, tile.terrain, px, py, size);
-    ctx.fillStyle = fogDim(tile.terrain);
-    ctx.fillRect(px, py, size, size);
+    if (tile.terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size); // natural terrain isn't live data
+    drawFoggedPrint(ctx, tile.terrain, px, py, size);
   } else {
     input.drawTerrainTile(wx, wy, isWater(tile.terrain) || tile.terrain === "MOUNTAIN" ? tile.terrain : "LAND", px, py, size);
   }

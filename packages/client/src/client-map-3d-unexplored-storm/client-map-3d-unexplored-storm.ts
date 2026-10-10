@@ -14,9 +14,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import {
-  UNEXPLORED_FOAM,
+  UNEXPLORED_BRASS,
+  UNEXPLORED_BRASS_DARK,
   UNEXPLORED_PARCHMENT,
   UNEXPLORED_PARCHMENT_INK,
+  UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
   UNEXPLORED_STORM_LIGHT,
@@ -31,7 +33,7 @@ import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 // same plane as the ground it hides. A per-tile explored mask (rebuilt with
 // the terrain window) restricts it to unexplored tiles only: explored tiles
 // are never drawn over. The first ring of unexplored tiles is the fog's
-// "coast": mostly parchment, with a rounded foam rim and the storm's edge
+// "coast": mostly parchment, with a rounded brass survey edge and the storm's edge
 // running through its outer part. Faint tile-edge lines show through the
 // cloud so the hidden grid is still hinted. Look and layering:
 // client-map-3d-unexplored-storm-shader.ts.
@@ -85,7 +87,9 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       uInk: { value: new Color(UNEXPLORED_STORM_INK) },
       uParchment: { value: new Color(UNEXPLORED_PARCHMENT) },
       uParchmentInk: { value: new Color(UNEXPLORED_PARCHMENT_INK) },
-      uFoam: { value: new Color(UNEXPLORED_FOAM) },
+      uBrass: { value: new Color(UNEXPLORED_BRASS) },
+      uBrassDark: { value: new Color(UNEXPLORED_BRASS_DARK) },
+      uRivet: { value: new Color(UNEXPLORED_RIVET) },
       uMask: { value: mask },
       uMaskMin: { value: new Vector2(-1e6, -1e6) },
       uMaskSize: { value: new Vector2(2e6, 2e6) }

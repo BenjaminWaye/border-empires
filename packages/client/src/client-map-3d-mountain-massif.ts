@@ -1,4 +1,5 @@
 import {
+  type Color,
   ConeGeometry,
   CylinderGeometry,
   InstancedMesh,
@@ -6,6 +7,7 @@ import {
   MeshStandardMaterial,
   Scene
 } from "three";
+import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
 
 const ROCK_BASE_HEIGHT = 0.62;
 const ROCK_BASE_RADIUS_TOP = 0.42;
@@ -28,7 +30,8 @@ export type MountainMassif = {
   readonly peakMesh: InstancedMesh;
   readonly snowCapMesh: InstancedMesh;
   readonly clear: () => void;
-  readonly addInstance: (worldX: number, worldZ: number, surfaceY: number) => void;
+  /** `tint`: optional per-instance colour multiply (remembered tiles), see client-map-3d-instance-tint.ts. */
+  readonly addInstance: (worldX: number, worldZ: number, surfaceY: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -89,7 +92,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
     count = 0;
   };
 
-  const addInstance = (worldX: number, worldZ: number, surfaceY: number): void => {
+  const addInstance = (worldX: number, worldZ: number, surfaceY: number, tint?: Color): void => {
     if (count >= maxInstances) return;
     tempMatrix.makeTranslation(worldX, surfaceY + ROCK_BASE_RISE, worldZ);
     rockBaseMesh.setMatrixAt(count, tempMatrix);
@@ -99,6 +102,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
     tempMatrix.copy(peakRotation);
     tempMatrix.setPosition(worldX, surfaceY + SNOW_CAP_RISE, worldZ);
     snowCapMesh.setMatrixAt(count, tempMatrix);
+    for (const mesh of [rockBaseMesh, peakMesh, snowCapMesh]) setInstanceTint(mesh, count, tint);
     count += 1;
   };
 
@@ -115,6 +119,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
     snowCapMesh.instanceMatrix.clearUpdateRanges();
     snowCapMesh.instanceMatrix.addUpdateRange(0, snowCapMesh.count * 16);
     snowCapMesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of [rockBaseMesh, peakMesh, snowCapMesh]) commitInstanceTint(mesh);
   };
 
   const dispose = (): void => {

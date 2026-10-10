@@ -27,6 +27,7 @@ import { createHillTerrain } from "../client-map-3d-hills.js";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
 import { isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
+import { FOGGED_PRINT_FEATURE_TINT, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
@@ -161,7 +162,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
   // SETTLED_OPACITY (0.85) constant is never touched. Explicit multiply blend, unlike ownershipOverlay's own default -- alpha blend read washed-out.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // sepia wash: remembered land as a faded print
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
   await deps.onStage?.("structures");
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
@@ -739,7 +740,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
-  const tmpBlack = new Color("#000000");
+  const fogPrintSepia = new Color(FOGGED_PRINT_SEPIA), fogFeatureTint = new Color(FOGGED_PRINT_FEATURE_TINT); // remembered land wash / trees + peaks multiply
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (window: TerrainWindow): void => {
@@ -911,26 +912,19 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt });
         addProspectTile({ overlay: prospectOverlay, tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
-          // Fogged tiles show only a darkened terrain quad plus a dim tint
-          // of their last-witnessed owner -- no roads, structures, units,
-          // or FX, since we no longer have live data for any of that. This
-          // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
-          //
-          // SEA/COASTAL_SEA is a special case: sea tiles are never part of
-          // the heightfield mesh (client-map-3d-heightfield.ts skips them,
-          // leaving a hole for the live water plane to sit over), so unlike
-          // LAND there is no "frozen remembered terrain" underneath for the
-          // darken overlay below to tint -- it would just paint a black quad
-          // over an empty hole, on top of the scene's own black background
-          // (FOG_COLOR), reading as a solid black void. Draw the same live
-          // water quad visible sea gets instead, so fogged sea reads as
-          // remembered ocean rather than a hole. Not dimmed relative to
-          // live-visible water (the water-surface module has no "dimmed"
-          // vertex-color variant to plumb through) -- undimmed water is a
-          // solid improvement over a black hole and isn't worth a bigger
-          // change to add that distinction.
+          // Fogged (remembered) tiles show their terrain as an aged survey
+          // print -- land under fogDarkenOverlay's sepia wash, water
+          // tinted toward the print tone, natural features (trees, mountain
+          // massifs) kept -- plus a dim tint of their last-witnessed owner.
+          // No roads, structures, units or FX: we no longer have live data
+          // for any of that. Mirrors the 2D renderer (client-map-render-2d-tile-ground).
+          // Sea tiles are holes in the heightfield, so they draw the water
+          // quad instead of the overlay. The fog's first ring
+          // (withUnexploredCoastRingAsFogged) also lands here, but stays
+          // untinted: the storm's parchment band mutes it instead.
+          const isFogRing = deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored";
           if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-            waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy);
+            waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy, !isFogRing);
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
@@ -943,12 +937,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const fx1 = x + 0.5;
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
-          // The fog's first ring (withUnexploredCoastRingAsFogged) skips the darken -- the storm's parchment band mutes it instead.
-          const isFogRing = deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored";
           if (fogIsHill && !isFogRing) {
-            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors, wx, wy, fogRoadDirs);
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, fogPrintSepia, false, fogHillNeighbors, wx, wy, fogRoadDirs);
           } else if (!isFogRing) {
-            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
+            fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, fogPrintSepia, false);
           }
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") { // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the black darken tint above it just read as a dark disconnected box
             const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));
@@ -969,12 +961,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
               );
             }
           }
-          // ...and, having no live data to hide, it loads its natural terrain too.
-          if (isFogRing) {
-            if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY);
-            else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
-            else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
-          }
+          // Natural terrain is not live data, so it stays -- printed in sepia like its ground (the ring stays untinted).
+          const featureTint = isFogRing ? undefined : fogFeatureTint;
+          if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, featureTint);
+          else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
+          else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, featureTint);
           continue;
         }
         if (terrain === "LAND") {

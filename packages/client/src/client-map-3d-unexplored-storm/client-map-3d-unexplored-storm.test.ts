@@ -74,9 +74,11 @@ describe("unexplored storm layer (3D)", () => {
 
   it("cuts the coastline from the deep-fog field and keeps deep fog solid storm", () => {
     expect(STORM_FRAGMENT_SHADER).toMatch(/float stormCover = max\(deep, /);
-    // Foam never draws inside deep fog; its derivative-based width is clamped
-    // so tile-to-tile jumps can't balloon it into stray lines.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float rim = \(1\.0 - deep\)/);
+    // The brass edge and its rivets never draw inside deep fog; the
+    // derivative-based width is clamped so tile-to-tile jumps can't balloon
+    // it into stray lines.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float brass = \(1\.0 - deep\)/);
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float rivet = \(1\.0 - deep\) \* onGrid/);
     expect(STORM_FRAGMENT_SHADER).toMatch(/float sw = clamp\(fwidth\(s\), 0\.004, 0\.04\);/);
   });
 

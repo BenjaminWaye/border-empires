@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
+import { FOGGED_PRINT_LAND_AGE, FOGGED_PRINT_SEPIA } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { drawTileGround2D, type TileGround2DInput } from "./client-map-render-2d-tile-ground.js";
 
 const makeCtx = () => {
@@ -39,14 +40,18 @@ describe("drawTileGround2D", () => {
     expect(hidden.drawTerrainTile).not.toHaveBeenCalled();
   });
 
-  it("dims fogged tiles and draws visible land as LAND", () => {
+  it("prints fogged tiles in sepia with their natural detail, and draws visible land as LAND", () => {
     const fogged = makeCtx();
     const foggedArgs = input({ vis: "fogged" });
     drawTileGround2D(fogged.ctx, foggedArgs);
-    expect(fogged.fills).toContain("rgba(2, 5, 10, 0.72)");
+    expect(foggedArgs.drawTerrainDetail).toHaveBeenCalledWith(3, 4, 0, 0, 40);
+    expect(fogged.fills).toContain(FOGGED_PRINT_SEPIA);
+    expect(fogged.fills).toContain(FOGGED_PRINT_LAND_AGE);
+    expect(fogged.fills.some((f) => f.startsWith("rgba(2, 5, 10"))).toBe(false); // no black dim any more
     const visibleArgs = input({ tile: { x: 3, y: 4, terrain: "MOUNTAIN" } as Tile });
     drawTileGround2D(makeCtx().ctx, visibleArgs);
     expect(visibleArgs.drawTerrainTile).toHaveBeenCalledWith(3, 4, "MOUNTAIN", 0, 0, 40);
+    expect(visibleArgs.drawTerrainDetail).not.toHaveBeenCalled(); // live tiles get it from the main loop
   });
 
   it("never draws the fog on explored tiles, only on the fog tile facing them", () => {
