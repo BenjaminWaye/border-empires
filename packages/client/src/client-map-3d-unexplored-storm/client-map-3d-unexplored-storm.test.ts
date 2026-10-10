@@ -61,21 +61,20 @@ describe("unexplored storm layer (3D)", () => {
     expect(scene.children).not.toContain(atmosphere.unexploredStorm.mesh);
   });
 
-  it("only ever draws on unexplored tiles; only the coast band is see-through", () => {
+  it("only ever draws on unexplored tiles, and leaves the ring's ground clear up to the storm", () => {
     // Alpha is the hard per-tile mask (explored tiles are never drawn on)
-    // times inward edge AA times cover: storm opaque, the parchment band over
-    // the ring's ground translucent.
+    // times inward edge AA times cover: the storm and brass edge are drawn,
+    // the ring's ground before them is left untouched -- no wash.
     expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa \* coverAlpha;/);
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float coverAlpha = mix\(parchAlpha, 1\.0, stormCover\);/);
+    expect(STORM_FRAGMENT_SHADER).toContain("float coverAlpha = stormCover;");
     const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
     const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
     expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D|maskR\(/);
     expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
   });
 
-  it("leaves the parchment band plain (no hatch lines)", () => {
-    expect(STORM_FRAGMENT_SHADER).toContain("vec3 parch = uParchment;");
-    expect(STORM_FRAGMENT_SHADER).not.toContain("parchHatch");
+  it("has no parchment wash or hatching over the ring", () => {
+    expect(STORM_FRAGMENT_SHADER).not.toMatch(/uParchment|parchHatch|parchAlpha/);
   });
 
   it("cuts the coastline from the deep-fog field and keeps deep fog solid storm", () => {

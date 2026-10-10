@@ -11,8 +11,8 @@ import {
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
 // unexplored storm. Remembered (fogged) tiles keep their terrain and natural
 // detail as a faded survey print. The fog's first ring (unexplored tiles touching explored
-// land) shows its own ground under a see-through parchment coast (printed
-// like the remembered land it borders unless it touches land in sight),
+// land) shows its own ground (printed like the remembered land it borders
+// unless it touches land in sight) up to a brass edge,
 // with the storm beyond. Explored tiles get only their own terrain -- the
 // fog never draws on them. Overlays (forest, ownership tint, structures...)
 // draw on top of this.

@@ -82,13 +82,13 @@ describe("unexplored storm 2D texture", () => {
     expect(unexploredCoastVisibleAt(40)).toBe(true);
   });
 
-  it("draws a plain see-through parchment wash, then storm and brass edge only beyond the wavy line", () => {
+  it("leaves the ring's ground clear, drawing storm and brass edge only beyond the wavy line", () => {
     const { ctx, ops } = recordingCtx();
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 0 && oy === -1);
     // tile clip + one "beyond this side's wave" clip
     expect(ops.filter((op) => op === "clip")).toHaveLength(2);
-    expect(ops.filter((op) => op === "fillRect")).toHaveLength(2); // parchment wash, storm
-    expect(ops.indexOf("stroke")).toBeGreaterThan(ops.lastIndexOf("fillRect"));
+    expect(ops.filter((op) => op === "fillRect")).toHaveLength(1); // the storm only -- no wash
+    expect(ops.indexOf("stroke")).toBeGreaterThan(ops.indexOf("fillRect"));
   });
 
   it("clips the storm outside a corner arc for diagonal-only contact", () => {

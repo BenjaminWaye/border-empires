@@ -1,8 +1,6 @@
 import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
-  UNEXPLORED_PARCHMENT,
-  UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
   UNEXPLORED_STORM_LIGHT,
@@ -160,12 +158,12 @@ export const drawUnexploredStormTile = (
 // 2D counterpart of the 3D storm shader's fog coast
 // (client-map-3d-unexplored-storm-shader.ts), for the first ring of fog:
 // unexplored tiles with an explored tile among their 8 neighbours. The
-// caller draws the ring tile's own ground (dimmed) first; this then lays
-//   1. a see-through parchment wash over the whole tile;
-//   2. the storm, only beyond a wavy line ~0.6-0.8 tile in from every side
+// caller draws the ring tile's own ground first (left clear); this then lays
+//   1. the storm, only beyond a wavy line ~0.6-0.8 tile in from every side
 //      (or corner) that touches explored land;
-//   3. a brass survey edge along that line (bright brass, a darker storm-side
-//      edge) with rivets where it meets the tile's edges.
+//   2. a brass survey edge along that line (bright brass, a darker storm-side
+//      edge). No rivets in 2D: at corners where two sides meet they landed
+//      off the visible line.
 // Explored tiles themselves are never drawn on. The waves are keyed to world
 // coordinates along the edge, so they run continuously between tiles.
 
@@ -197,7 +195,7 @@ const EDGE_DETAIL_MIN_TILE_PX = 12;
 const rgba = (hex: string, alpha: number): string =>
   `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
 
-/** Parchment band depth in tiles at world position `a` along a fog edge on line `l`. */
+/** Depth of the clear ground before the storm, in tiles, at world position `a` along a fog edge on line `l`. */
 export const unexploredBandDepth = (a: number, l: number): number =>
   0.72 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
 
@@ -233,17 +231,10 @@ export const drawUnexploredStormEdge2D = (
   ctx.rect(px, py, size, size);
   ctx.clip();
 
-  // 1. See-through parchment wash.
-  ctx.globalAlpha = 0.6;
-  ctx.fillStyle = UNEXPLORED_PARCHMENT;
-  ctx.fillRect(px, py, size, size);
-  ctx.globalAlpha = 1;
-
-  // 2. Storm beyond every band: clip to the intersection of "past this
+  // 1. Storm beyond every band: clip to the intersection of "past this
   // side's wave" / "outside this corner's arc" for each one.
   ctx.save();
   const edges: Array<() => void> = [];
-  const rivets: Array<readonly [number, number]> = [];
   for (const side of sides) {
     const a0 = side.along(wx, wy);
     const l = side.line(wx, wy);
@@ -262,7 +253,6 @@ export const drawUnexploredStormEdge2D = (
     ctx.closePath();
     ctx.clip();
     edges.push(() => wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey))));
-    rivets.push(wave[0]!, wave[wave.length - 1]!);
   }
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
@@ -273,12 +263,11 @@ export const drawUnexploredStormEdge2D = (
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip("evenodd");
     edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
-    rivets.push([cx - Math.sign(ox) * r, cy], [cx, cy - Math.sign(oy) * r]);
   }
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
 
-  // 3. Brass edge, still clipped to the storm region so each stroke shows
+  // 2. Brass edge, still clipped to the storm region so each stroke shows
   // only its storm-side half (and never crosses another side's band): a
   // wide dark-brass stroke under a narrower bright one.
   const rimWidth = Math.max(1, size * 0.04);
@@ -292,15 +281,5 @@ export const drawUnexploredStormEdge2D = (
     }
   }
   ctx.restore();
-
-  // Rivets where the edge meets the tile's own edges (tile clip only).
-  if (detailed) {
-    ctx.fillStyle = UNEXPLORED_RIVET;
-    for (const [rx, ry] of rivets) {
-      ctx.beginPath();
-      ctx.arc(rx, ry, rimWidth * 1.3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
   ctx.restore();
 };

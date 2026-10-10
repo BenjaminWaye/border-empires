@@ -2,9 +2,9 @@
 // tiles -- tiles in sight and remembered tiles are discarded outright. The
 // fog's coastline lives in the first ring of unexplored tiles (those
 // touching explored land, diagonals included):
-//   1. A see-through parchment band ("charted coast, not yet surveyed") over
-//      the ring tile's ground, from the explored edge out to a rounded,
-//      noise-wobbled contour ~0.7-0.85 of the way across the ring tile.
+//   1. The ring tile's own ground, left clear (no wash) from the explored
+//      edge out to a rounded, noise-wobbled contour ~0.7-0.85 of the way
+//      across the ring tile.
 //   2. A brass survey edge on that contour (bright line, darker storm-side
 //      edge, rivets at tile edges), with a lit lip on the cloud behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
@@ -35,7 +35,6 @@ uniform vec3 uDark;
 uniform vec3 uMid;
 uniform vec3 uLight;
 uniform vec3 uInk;
-uniform vec3 uParchment;
 uniform vec3 uBrass;
 uniform vec3 uBrassDark;
 uniform vec3 uRivet;
@@ -126,18 +125,13 @@ void main() {
   float lip = 1.0 - smoothstep(EDGE, EDGE + 0.14, s);
   storm = mix(storm, uLight * 1.2, lip * 0.6);
 
-  // --- parchment band, across the ring tile from the explored edge ---
-  vec3 parch = uParchment;
-  // Slight shadow under the cloud's leading edge.
-  parch *= 1.0 - smoothstep(EDGE - 0.08, EDGE, s) * 0.25;
+  // --- the ring tile's own ground, left clear up to the cloud's edge ---
+  // Its terrain is drawn underneath (client-map-3d-terrain-tile-rules.ts),
+  // printed like the remembered land it borders, so the ring simply
+  // continues that land until the brass edge -- no wash over it.
   float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
-  vec3 col = mix(parch, storm, stormCover);
-  // The band is see-through: the ring tile's own ground is drawn underneath
-  // (client-map-3d-terrain-tile-rules.ts), so it reads as a glimpse of
-  // uncharted coast. Even, not faded in from the explored edge -- a clear
-  // edge let the ring's ground read as a hole beside explored land.
-  float parchAlpha = mix(0.55, 0.7, smoothstep(0.1, 0.4, s));
-  float coverAlpha = mix(parchAlpha, 1.0, stormCover);
+  vec3 col = storm;
+  float coverAlpha = stormCover;
 
   // --- brass survey edge on the cloud's edge ---
   // A bright brass line on the contour, a darker brass edge just on the
