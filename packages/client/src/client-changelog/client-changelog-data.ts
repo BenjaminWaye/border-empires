@@ -28,6 +28,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+  {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
     title: "Better starter sites and accurate checklist goals",
