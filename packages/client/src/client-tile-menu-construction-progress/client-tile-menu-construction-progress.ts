@@ -3,19 +3,17 @@
 // independently. Re-exported from client-tile-menu-view.ts so existing
 // importers of that path don't need to change.
 import {
-  ECONOMIC_STRUCTURE_BUILD_MS,
-  FORT_BUILD_MS,
   FORT_TIER_LADDER,
   FORT_VARIANT_LABELS,
-  OBSERVATORY_BUILD_MS,
-  RELAY_BEACON_BUILD_MS,
   RELAY_BEACON_FIRST_TIER_COUNT,
-  SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   economicStructureBuildDurationMs,
+  fortRemovalDurationMs,
+  siegeOutpostRemovalDurationMs,
   structureBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildManpowerCost,
+  structureRemovalDurationMs,
   type EconomicStructureType
 } from "@border-empires/shared";
 import { rushBuyLabel, type QuickforgeRushBuyContext } from "../client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
@@ -24,17 +22,14 @@ import { constructionSiteForTile } from "../client-construction-phase/client-con
 import type { Tile, TileMenuProgressView } from "../client-types.js";
 import { constructionClockMs } from "../client-construction-remaining-ms/client-construction-remaining-ms.js";
 
-// D9 covers build time only -- removal keeps the flat pre-replenishment
-// per-type duration (see runtime-structure-lifecycle-command-handlers.ts,
-// which actually sets the completesAt this progress ring reads), not
-// economicStructureBuildMs's new manpower-cost-derived one, which is
-// meaningless for a removal already in progress (it depends on the exact
-// count a fresh BUILD would pay right now, not what's being torn down, and
-// can be 0 for a free Relay Beacon -- an instant removal was never the intent).
-const economicStructureRemoveDurationMs = (type: EconomicStructureType): number => {
-  if (type === "RELAY_BEACON") return RELAY_BEACON_BUILD_MS;
-  return ECONOMIC_STRUCTURE_BUILD_MS;
-};
+// Fallback windows for records that predate startedAt: build time is 1s per
+// manpower point of the tier being built, removal 0.5s per point of what's
+// being torn down (the same shared helpers the simulation stamps
+// completesAt with in runtime-structure-*-command-handlers.ts).
+const fortBuildEstimateMs = (tile: Tile): number =>
+  structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[tile.fort?.variant ?? "FORT"].manpower);
+const siegeBuildEstimateMs = (tile: Tile): number =>
+  structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[tile.siegeOutpost?.variant ?? "SIEGE_OUTPOST"].manpower);
 
 // The server stamps the real construction window (startedAt..completesAt), which
 // depends on tier upgrades, build-speed effects and manpower cost; use it when
@@ -46,8 +41,8 @@ const exactProgress = (tile: Tile, field: ConstructionField, nowMs: number): num
 
 // Rush-buy is priced on the fraction of the build still remaining, so it needs the
 // real build window: the server-stamped startedAt..completesAt when present, else a
-// manpower-derived estimate. The flat *_BUILD_MS constants are pre-D9 and far too
-// short (a 1h build measured against them always priced as "just started").
+// manpower-derived estimate. The flat *_BUILD_MS constants are pre-D9 and don't
+// match real build times (rushes measured against them were mispriced).
 const rushWindowMs = (structure: { startedAt?: number | undefined; completesAt?: number | undefined }, estimateMs: number): number =>
   typeof structure.startedAt === "number" && typeof structure.completesAt === "number" && structure.completesAt > structure.startedAt
     ? structure.completesAt - structure.startedAt
@@ -107,12 +102,12 @@ const activeConstructionProgressForTile = (
         ? `The current ${FORT_VARIANT_LABELS[standing]} keeps defending this tile until the upgrade completes.`
         : "This tile will gain fortified defense when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "fort", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
+      progress: exactProgress(tile, "fort", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, fortBuildEstimateMs(tile)))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
       rushBuyLabel: rushBuyLabel(
         remaining,
-        rushWindowMs(tile.fort, structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower)),
+        rushWindowMs(tile.fort, fortBuildEstimateMs(tile)),
         FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower,
         quickforge
       ),
@@ -125,10 +120,7 @@ const activeConstructionProgressForTile = (
       title: "Removing Fort",
       detail: "This fortification is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
-      // D9 covers build time only -- removal keeps the flat pre-
-      // replenishment reference duration (see runtime-structure-lifecycle-
-      // command-handlers.ts, which actually sets this completesAt).
-      progress: exactProgress(tile, "fort", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
+      progress: exactProgress(tile, "fort", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, fortRemovalDurationMs(tile.fort.variant)))),
       note: "Defense from this fort is disabled while removal is underway.",
       cancelLabel: "Cancel removal"
     };
@@ -139,7 +131,7 @@ const activeConstructionProgressForTile = (
       title: "Aether Tower under construction",
       detail: "This tile will extend vision and aether tower protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "observatory", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
+      progress: exactProgress(tile, "observatory", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
       rushBuyLabel: rushBuyLabel(remaining, rushWindowMs(tile.observatory, structureBuildDurationMs("OBSERVATORY")), structureBuildManpowerCost("OBSERVATORY"), quickforge),
@@ -152,7 +144,7 @@ const activeConstructionProgressForTile = (
       title: "Removing Aether Tower",
       detail: "This aether tower is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "observatory", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
+      progress: exactProgress(tile, "observatory", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureRemovalDurationMs("OBSERVATORY")))),
       note: "Vision, aether tower protection, and crystal-casting effects are disabled while removal is underway.",
       cancelLabel: "Cancel removal"
     };
@@ -163,12 +155,12 @@ const activeConstructionProgressForTile = (
       title: "Siege camp under construction",
       detail: "This tile will gain an offensive staging structure when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
+      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeBuildEstimateMs(tile)))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
       rushBuyLabel: rushBuyLabel(
         remaining,
-        rushWindowMs(tile.siegeOutpost, structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower)),
+        rushWindowMs(tile.siegeOutpost, siegeBuildEstimateMs(tile)),
         SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower,
         quickforge
       ),
@@ -181,7 +173,7 @@ const activeConstructionProgressForTile = (
       title: "Removing Siege Battery",
       detail: "This outpost is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
+      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant)))),
       note: "Attack bonuses from this outpost are disabled while removal is underway.",
       cancelLabel: "Cancel removal"
     };
@@ -206,7 +198,7 @@ const activeConstructionProgressForTile = (
       title: `Removing ${economicStructureName(tile.economicStructure.type)}`,
       detail: "This building is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "economicStructure", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureRemoveDurationMs(tile.economicStructure.type)))),
+      progress: exactProgress(tile, "economicStructure", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureRemovalDurationMs(tile.economicStructure.type)))),
       note: "Income, upkeep, and structure effects are paused while removal is underway.",
       cancelLabel: "Cancel removal"
     };

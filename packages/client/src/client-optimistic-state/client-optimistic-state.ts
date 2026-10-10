@@ -1,4 +1,4 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { fortRemovalDurationMs, siegeOutpostRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -168,25 +168,29 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
     if (!enabled) return;
+    // Mirrors the server's removal window (0.5s per manpower point of the
+    // structure being torn down) so the progress bar doesn't jump on confirm.
+    const startedAt = Date.now();
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";
       if (tile.fort) {
-        tile.fort = { ...tile.fort, status: "removing", completesAt: Date.now() + structureBuildDurationMs("FORT") };
+        tile.fort = { ...tile.fort, status: "removing", startedAt, completesAt: startedAt + fortRemovalDurationMs(tile.fort.variant) };
         return;
       }
       if (tile.observatory) {
-        tile.observatory = { ...tile.observatory, status: "removing", completesAt: Date.now() + structureBuildDurationMs("OBSERVATORY") };
+        tile.observatory = { ...tile.observatory, status: "removing", startedAt, completesAt: startedAt + structureRemovalDurationMs("OBSERVATORY") };
         return;
       }
       if (tile.siegeOutpost) {
-        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", completesAt: Date.now() + structureBuildDurationMs("SIEGE_OUTPOST") };
+        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", startedAt, completesAt: startedAt + siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant) };
         return;
       }
       if (tile.economicStructure) {
         tile.economicStructure = {
           ...tile.economicStructure,
           status: "removing",
-          completesAt: Date.now() + structureBuildDurationMs(tile.economicStructure.type)
+          startedAt,
+          completesAt: startedAt + structureRemovalDurationMs(tile.economicStructure.type)
         };
       }
     });
