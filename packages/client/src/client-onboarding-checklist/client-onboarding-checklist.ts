@@ -12,13 +12,13 @@
 //      known to exist somewhere (almost always one of the neutral towns
 //      world gen pre-seeded, since zero towns are player-founded -- see
 //      docs/game-mechanics.md §2), regardless of whether it's in reach yet.
-//   2. Expand To the town — actually own a TOWN-tier tile. Also satisfied
+//   2. Expand To the town — garrison a TOWN-or-higher tile. Also satisfied
 //      if the player's own starting SETTLEMENT-tier tile (every new empire
 //      spawns with one, free) happens to have grown to TOWN tier on its
 //      own in the meantime.
 //   3. Find food tiles — enough known FARM/FISH tiles (owned or not, in
 //      reach or not) to reach the food-slot target once claimed.
-//   4. Expand To food tiles — actually own enough FARM/FISH tiles to hit
+//   4. Expand To food tiles — garrison enough FARM/FISH tiles to hit
 //      ONBOARDING_FOOD_SLOTS_TARGET food *slots* (not tiles: a FISH tile is
 //      worth 2 slots, a FARM tile 1 -- see structure-slots.ts's
 //      RESOURCE_SLOT_SPEC, `FARM: baseSlots: 1` / `FISH: baseSlots: 2` --
@@ -35,14 +35,13 @@
 // Reappears as many times as needed -- once reach grows to cover a target,
 // the checklist resumes whichever goal was blocked.
 //
-// The checklist is for brand-new empires only (gated by `me` owning no
-// TOWN-tier tile before goal 1 starts -- CITY/GREAT_CITY/METROPOLIS aren't
-// checked for since the checklist has already moved past goal 2 by the
-// time a town could grow that far) and, once fully done, is marked
-// complete in storage and never shown again.
+// TOWN, CITY, GREAT_CITY and METROPOLIS satisfy the garrisoned-town goal.
+// Once fully done, the checklist is marked complete in account-scoped
+// storage and never shown again. Highlights point at objectives, not paths.
 
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { townIdentityForTile } from "../client-town-identity.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
 
@@ -54,7 +53,7 @@ export type OnboardingChecklistState = {
   step: OnboardingChecklistStep;
   /** True once a town tile that isn't the player's own is known to exist (or the player already owns one -- see townExpanded). */
   townFound: boolean;
-  /** True once the player owns a TOWN-tier tile. */
+  /** True once the player has garrisoned a TOWN-or-higher tile. */
   townExpanded: boolean;
   /** True once `foodSlotsFound >= foodSlotsTarget`. */
   foodFound: boolean;
@@ -62,7 +61,7 @@ export type OnboardingChecklistState = {
   foodExpanded: boolean;
   /** Weighted food slots known to exist (owned FARM/FISH tiles plus unclaimed candidates, capped at foodSlotsTarget for display) -- the "Find food tiles" goal's progress counter. */
   foodSlotsFound: number;
-  /** Weighted food slots the player currently owns (FARM = 1 slot, FISH = 2 -- see structure-slots.ts's RESOURCE_SLOT_SPEC), not a tile count. */
+  /** Weighted food slots the player has garrisoned (FARM = 1 slot, FISH = 2 -- see structure-slots.ts's RESOURCE_SLOT_SPEC), not a tile count. */
   foodSlotsClaimed: number;
   foodSlotsTarget: number;
   /** Tile coordinates the map should highlight for the current step. Empty once step is DONE. */
@@ -74,14 +73,14 @@ const FOOD_SLOTS_BY_RESOURCE: Record<string, number> = { FARM: 1, FISH: 2 };
 const foodSlotsForResource = (resource: string | undefined): number => (resource ? (FOOD_SLOTS_BY_RESOURCE[resource] ?? 0) : 0);
 
 /**
- * Weighted food slots this player owns — the live "food slots claimed"
+ * Weighted garrisoned food slots this player owns — the live "food slots claimed"
  * total for the food goals. A FISH tile is worth 2 slots, a FARM tile 1
  * (structure-slots.ts's RESOURCE_SLOT_SPEC), not a flat 1 per tile.
  */
-export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" | "ownerId">>, playerId: string): number => {
+export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" | "ownerId" | "ownershipState" | "optimisticPending">>, playerId: string): number => {
   let slots = 0;
   for (const tile of tiles) {
-    if (tile.ownerId === playerId) slots += foodSlotsForResource(tile.resource);
+    if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) slots += foodSlotsForResource(tile.resource);
   }
   return slots;
 };
@@ -130,26 +129,19 @@ export const onboardingChecklistState = (
   let hasTownTierTown = false;
 
   for (const tile of tiles.values()) {
-    if (tile.town) {
-      if (tile.ownerId === playerId) {
-        // Only TOWN itself satisfies the town-expanded goal, not
-        // CITY/GREAT_CITY/METROPOLIS, since that goal is done and dusted
-        // the moment the player reaches TOWN and the checklist never
-        // re-checks it once the food goals have started.
-        if (tile.town.populationTier === "TOWN") hasTownTierTown = true;
-        if (tile.town.populationTier !== "SETTLEMENT") ownTownTierAnchors.push({ x: tile.x, y: tile.y });
-      } else {
-        // A neutral or enemy town -- an EXPAND_TOWN target, not something to
-        // "claim" like a bare resource tile. Zero towns are player-founded
-        // (docs/game-mechanics.md §2), so this is effectively "every town
-        // the player doesn't already own."
+    const town = townIdentityForTile(tile);
+    if (town && town.populationTier !== "SETTLEMENT") {
+      if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
+        hasTownTierTown = true;
+        ownTownTierAnchors.push({ x: tile.x, y: tile.y });
+      } else if (!tile.ownerId || tile.ownerId === playerId) {
         captureTownCandidates.push({ x: tile.x, y: tile.y });
       }
     }
     const slots = foodSlotsForResource(tile.resource);
     if (slots > 0) {
-      if (tile.ownerId === playerId) foodSlotsClaimed += slots;
-      else if (!tile.ownerId) foodCandidates.push({ x: tile.x, y: tile.y, slots });
+      if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) foodSlotsClaimed += slots;
+      else if (!tile.ownerId || tile.ownerId === playerId) foodCandidates.push({ x: tile.x, y: tile.y, slots });
     }
   }
 
@@ -160,7 +152,14 @@ export const onboardingChecklistState = (
   const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
 
   const reach = computeLocalReachSet(tiles, playerId);
-  const inReach = (t: { x: number; y: number }): boolean => reach.has(tileKey(t.x, t.y));
+  const withinReach = (t: { x: number; y: number }): boolean => {
+    const key = tileKey(t.x, t.y);
+    const tile = tiles.get(key);
+    return Boolean(tile && reach.has(key) && (!tile.reachOwnerId || tile.reachOwnerId === playerId));
+  };
+  const inReach = (t: { x: number; y: number }): boolean => withinReach(t) && !tiles.get(tileKey(t.x, t.y))?.optimisticPending;
+  const pendingInReach = (candidates: readonly { x: number; y: number }[]): boolean =>
+    candidates.some((t) => withinReach(t) && Boolean(tiles.get(tileKey(t.x, t.y))?.optimisticPending));
 
   if (!hasTownTierTown) {
     const reachableTownCandidates = captureTownCandidates.filter(inReach);
@@ -183,7 +182,7 @@ export const onboardingChecklistState = (
     // OUTPOST_STRUCTURE_TYPES) from the player's own anchor instead, which
     // extends reach outward until a town falls inside it.
     return {
-      step: "EXPAND_RELAY_BEACON",
+      step: pendingInReach(captureTownCandidates) ? "EXPAND_TOWN" : "EXPAND_RELAY_BEACON",
       townFound,
       townExpanded: false,
       foodFound,
@@ -200,7 +199,7 @@ export const onboardingChecklistState = (
     if (reachableFoodCandidates.length === 0) {
       // Same "nothing actually reachable yet" case as above, now for food.
       return {
-        step: "EXPAND_RELAY_BEACON",
+        step: pendingInReach(foodCandidates) ? "EXPAND_FOOD" : "EXPAND_RELAY_BEACON",
         townFound: true,
         townExpanded: true,
         foodFound,

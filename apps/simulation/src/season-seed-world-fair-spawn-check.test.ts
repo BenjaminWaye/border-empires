@@ -15,7 +15,7 @@ describe("countFairSpawnSitesForWorldgenCheck", () => {
       for (let x = 5; x < size; x += 10) {
         townsByTile.set(key(x, y), {});
         const clusterId = `cluster-${x}-${y}`;
-        clusterByTile.set(key(x + 2, y), clusterId);
+        for (let dx = 1; dx <= 4; dx += 1) clusterByTile.set(key(x + dx, y), clusterId);
         clustersById.set(clusterId, { resourceType: "FARM" } as ClusterDefinition);
       }
     }
@@ -34,7 +34,7 @@ describe("countFairSpawnSitesForWorldgenCheck", () => {
     expect(count).toBe(FAIR_SPAWN_SITE_WORLDGEN_MINIMUM);
   });
 
-  it("still reaches the worldgen minimum from tier-4 (no amenities) land alone, when there's enough of it", () => {
+  it("rejects a map with abundant open land but no opening economy", () => {
     const size = 20; // 400 open LAND tiles, no towns or resources anywhere
     const terrainAt = (): Tile["terrain"] => "LAND";
 
@@ -48,7 +48,7 @@ describe("countFairSpawnSitesForWorldgenCheck", () => {
       townsByTile: new Map()
     });
 
-    expect(count).toBe(FAIR_SPAWN_SITE_WORLDGEN_MINIMUM);
+    expect(count).toBe(0);
   });
 
   it("returns 0 when the map has no land at all", () => {

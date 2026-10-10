@@ -27,6 +27,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.1",
+    title: "Better starter sites and accurate checklist goals",
+    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
+    changes: [
+      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
+      "The existing town-first checklist still highlights town and food tiles directly in both map renderers; only garrisoned food counts as usable food slots",
+      "Your AFC's reach is included in local target selection, and pending targets stop highlighting until their action resolves",
+      "Upgraded towns and lightweight town data count correctly, and enemy towns are not suggested as neutral expansion goals"
+    ]
+  },
+  {
     createdAt: 1791527749820, // frozen Date.now() value for this release
     introducedIn: "2026.10.09.1",
     title: "Manpower refills every 4 hours, shown as a gauge",
