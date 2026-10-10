@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   UNEXPLORED_STORM_EDGE_COLOR,
   buildUnexploredStormPixels,
+  drawNotInSightHatch2D,
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
   isUnexploredCoastRing,
@@ -103,6 +104,34 @@ describe("unexplored storm 2D texture", () => {
       const d = unexploredBandDepth(a, 7);
       expect(d).toBeGreaterThan(0.6);
       expect(d).toBeLessThan(0.85);
+    }
+  });
+
+  it("hatches a remembered tile with world-anchored ink lines, skipping tiny tiles", () => {
+    vi.stubGlobal("document", {
+      createElement: () => ({ width: 0, height: 0, getContext: () => ({ beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} }) })
+    });
+    vi.stubGlobal("DOMMatrix", class { constructor(readonly init: number[]) {} });
+    try {
+      const transforms: Array<{ init: number[] }> = [];
+      const fills: number[][] = [];
+      const ctx = {
+        globalAlpha: 1,
+        fillStyle: "",
+        save() {},
+        restore() {},
+        createPattern: () => ({ setTransform: (m: { init: number[] }) => transforms.push(m) }),
+        fillRect: (...r: number[]) => fills.push(r)
+      } as unknown as CanvasRenderingContext2D;
+      drawNotInSightHatch2D(ctx, 7, 3, 100, 60, 40);
+      expect(fills).toEqual([[100, 60, 40, 40]]);
+      // Anchored to the world: pattern origin = tile's screen pos minus world pos * size.
+      expect(transforms[0]!.init.slice(4)).toEqual([100 - 7 * 40, 60 - 3 * 40]);
+      fills.length = 0;
+      drawNotInSightHatch2D(ctx, 7, 3, 100, 60, 8);
+      expect(fills).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 });

@@ -1,6 +1,6 @@
-// GLSL for client-map-3d-unexplored-storm.ts. Draws ONLY on unexplored
-// tiles -- explored tiles are discarded outright, so revealed land is never
-// tinted, hatched or overlapped. The fog's coastline lives in the first ring
+// GLSL for client-map-3d-unexplored-storm.ts. Draws on unexplored tiles,
+// plus hatching alone on remembered (fogged) tiles -- hatching means "not in
+// sight". Tiles in sight are discarded outright, never touched. The fog's coastline lives in the first ring
 // of unexplored tiles (those touching explored land, diagonals included):
 //   1. A see-through hatched parchment band ("charted coast, not yet
 //      surveyed") over the ring tile's ground, from the explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
@@ -84,6 +84,8 @@ void main() {
   vec2 tile = floor(vSceneXZ);
   vec2 f = vSceneXZ - tile;
   float hard = maskR(tile);
+  vec2 tileUv = (tile + 0.5 - uMaskMin) / uMaskSize;
+  float remembered = (tileUv.x < 0.0 || tileUv.y < 0.0 || tileUv.x > 1.0 || tileUv.y > 1.0) ? 0.0 : texture2D(uMask, tileUv).b;
   float l = maskR(tile + vec2(-1.0, 0.0));
   float r = maskR(tile + vec2(1.0, 0.0));
   float u = maskR(tile + vec2(0.0, -1.0));
@@ -156,8 +158,11 @@ void main() {
   col = mix(col, uRivet, rivet);
   coverAlpha = max(coverAlpha, max(max(brass, brassEdge * 0.9), rivet));
 
-  // Explored tiles are never drawn on.
-  float alpha = hard * edgeAa * coverAlpha;
+  // Explored tiles get nothing but, when remembered (fogged), the same
+  // hatching as the ring: hatching means "not in sight".
+  float rememberedHatch = (1.0 - hard) * remembered * parchHatch * 0.55;
+  col = mix(uParchmentInk, col, hard);
+  float alpha = max(hard * edgeAa * coverAlpha, rememberedHatch);
   if (alpha < 0.01) discard;
   gl_FragColor = vec4(col, alpha);
   #include <colorspace_fragment>

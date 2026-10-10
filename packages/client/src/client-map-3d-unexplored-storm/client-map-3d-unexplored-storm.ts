@@ -4,7 +4,7 @@ import {
   Mesh,
   PlaneGeometry,
   LinearFilter,
-  RGFormat,
+  RGBAFormat,
   ShaderMaterial,
   UnsignedByteType,
   Vector2,
@@ -13,6 +13,7 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import type { TileVisibilityState } from "../client-types.js";
 import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
@@ -28,17 +29,22 @@ import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unex
 import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
-// lying level with the land (grass/plains/tundra sit at ~0.18-0.2), so the
+// lying level with the land (flat ground tops out at ~0.26), so the
 // explored world doesn't sit in a void or above a pit -- the fog is on the
 // same plane as the ground it hides. A per-tile explored mask (rebuilt with
-// the terrain window) restricts it to unexplored tiles only: explored tiles
-// are never drawn over. The first ring of unexplored tiles is the fog's
+// the terrain window) restricts the storm to unexplored tiles: tiles in
+// sight are never drawn over. The first ring of unexplored tiles is the fog's
 // "coast": mostly parchment, with a rounded brass survey edge and the storm's edge
 // running through its outer part. Faint tile-edge lines show through the
-// cloud so the hidden grid is still hinted. Look and layering:
+// cloud so the hidden grid is still hinted. Remembered (fogged) tiles get
+// the same hatching as the ring -- hatching means "not in sight" -- and
+// nothing else. Look and layering:
 // client-map-3d-unexplored-storm-shader.ts.
 // 2D counterpart: client-unexplored-storm-2d.ts.
-export const UNEXPLORED_STORM_Y = 0.2;
+// Just above the highest flat land (tundra 0.2 + jitter and rolling wave,
+// ~0.26), so the hatching and coast band on ring and remembered tiles are
+// never buried in patches by bumpy ground; hills and mountains poke through.
+export const UNEXPLORED_STORM_Y = 0.27;
 // Well past the farthest ground point the fixed-tilt camera can see at max
 // zoom-out, but inside PERSPECTIVE_FAR (4000).
 const STORM_PLANE_SIZE = 3600;
@@ -54,17 +60,16 @@ export type UnexploredStormLayer = {
    * Re-anchors the clouds to the new scene origin (the window's camX/camY)
    * and rebuilds the explored mask over the window plus a one-tile ring.
    */
-  readonly rebuild: (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean) => void;
+  readonly rebuild: (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => void;
   readonly dispose: () => void;
 };
 
 const createMaskTexture = (width: number, height: number, data: Uint8Array): DataTexture => {
-  const texture = new DataTexture(data, width, height, RGFormat, UnsignedByteType);
+  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType);
   // Linear for the G field's smooth contour; R is only read at texel
   // centres, where linear filtering returns the exact value.
   texture.magFilter = LinearFilter;
   texture.minFilter = LinearFilter;
-  texture.unpackAlignment = 1; // RG8 rows of odd width are not 4-byte aligned
   texture.needsUpdate = true;
   return texture;
 };
@@ -72,7 +77,7 @@ const createMaskTexture = (width: number, height: number, data: Uint8Array): Dat
 export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = () => performance.now()): UnexploredStormLayer => {
   const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
-  let mask = createMaskTexture(1, 1, new Uint8Array([255, 255]));
+  let mask = createMaskTexture(1, 1, new Uint8Array([255, 255, 0, 255]));
   const material = new ShaderMaterial({
     toneMapped: false,
     fog: false,
@@ -106,10 +111,10 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   };
   scene.add(mesh);
 
-  const rebuild = (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean): void => {
+  const rebuild = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     (material.uniforms.uWorldOrigin!.value as Vector2).set(window.camX, window.camY);
     // Tile (dx, dy) spans scene [dx, dx + 1] x [dy, dy + 1].
-    const { width, height, data } = buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, isExploredAt);
+    const { width, height, data } = buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt);
     mask.dispose();
     mask = createMaskTexture(width, height, data);
     material.uniforms.uMask!.value = mask;

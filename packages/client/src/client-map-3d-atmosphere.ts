@@ -17,6 +17,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { setBuildingEnvIntensity } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createUnexploredStormLayer, type UnexploredStormLayer } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm.js";
 import type { TerrainWindow } from "./client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import type { TileVisibilityState } from "./client-types.js";
 import { UNEXPLORED_STORM_DARK, UNEXPLORED_STORM_MID } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   SUN_DISTANCE,
@@ -101,8 +102,8 @@ export type AtmosphereResources = {
   readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
   readonly unexploredStorm: UnexploredStormLayer;
   // Called once per terrain rebuild with the new built window (whose camX/camY
-  // is the new sceneOrigin in client-map-3d.ts) and its explored test.
-  readonly onTerrainRebuilt: (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean) => void;
+  // is the new sceneOrigin in client-map-3d.ts) and its raw visibility lookup.
+  readonly onTerrainRebuilt: (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => void;
   readonly dispose: () => void;
 };
 
@@ -287,9 +288,9 @@ export const createAtmosphere = (
     sun.position.set(sceneX + sunOffset.x, sunOffset.y, sceneZ + sunOffset.z);
   };
   updateShadowFrame(0);
-  const onTerrainRebuilt = (window: TerrainWindow, isExploredAt: (wx: number, wy: number) => boolean): void => {
+  const onTerrainRebuilt = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     updateShadowFrame(Math.max(window.halfW, window.halfH));
-    unexploredStorm.rebuild(window, isExploredAt);
+    unexploredStorm.rebuild(window, visibilityAt);
   };
 
   // Single place every tunable light value is applied, both at startup (the

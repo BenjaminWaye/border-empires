@@ -1455,7 +1455,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       lastRebuild.frontierAttackClaimKeysSnapshot = frontierAttackClaimKeysNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
-      sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => revealWholeMapInTrue3DMode || deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy))) !== "unexplored"); // resizes the sun's shadow frustum + rebuilds the unexplored storm's explored mask at the new origin
+      sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's explored mask at the new origin
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the
