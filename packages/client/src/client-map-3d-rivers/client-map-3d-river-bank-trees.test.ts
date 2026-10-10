@@ -35,4 +35,14 @@ describe("trees stay out of river banks", () => {
     expect(inCove!(0.36, 0.36)).toBe(true); // near that corner
     expect(inCove!(-0.36, -0.36)).toBe(false); // far corner
   });
+  it("keeps trees out of the spring pool at a river head, even on a tile with no river border", () => {
+    // Regression: the tile behind a river's first edge has no river border,
+    // so its trees stood in the new spring pool.
+    const edges = new Set([riverEdgeKey(40, 40, "V")]);
+    const heads = new Set([20 * WORLD_WIDTH + 10]); // head at tile (10, 20)'s top-left corner
+    const inPool = riverBankTreeFilter(10, 20, edges, new Set(), heads);
+    expect(inPool).not.toBeNull();
+    expect(inPool!(-0.36, -0.36)).toBe(true); // by that corner
+    expect(inPool!(0.36, 0.36)).toBe(false); // far corner
+  });
 });

@@ -55,16 +55,7 @@ export const appendBank = (
       // ending square at the coast.
       const descent = cur.descent ?? 0;
       const bankFade = 1 - descent * descent;
-      const inner = riverWaterHalfWidth(cur.halfWidth) * INNER_OVERLAP;
-      const outer = cur.halfWidth + BANK_WIDTH;
-      for (const [d, color] of [[inner, BANK_WET], [(inner + outer) / 2, BANK_MID], [outer, BANK_TOP]] as const) {
-        const x = cur.x + nx * d;
-        const z = cur.z + nz * d;
-        const surface = surfaceYAt(x, z);
-        const y = surface - riverTrenchDepth(d, cur.halfWidth) * riverDescentScale(surface, cur.descent ?? 0) + BANK_LIFT_Y;
-        buffers.positions.push(x, y, z);
-        buffers.colors.push(color[0], color[1], color[2], drawn ? color[3] * bankFade : 0);
-      }
+      pushBankColumns(buffers, cur, nx, nz, surfaceYAt, drawn ? bankFade : 0);
     });
     for (let i = 0; i + 1 < samples.length; i += 1) {
       for (let k = 0; k < 2; k += 1) {
@@ -74,6 +65,63 @@ export const appendBank = (
         const d = c + 1;
         buffers.indices.push(a, c, b, b, c, d);
       }
+    }
+  }
+  appendBankSourceCap(buffers, samples, sides[indices[0]!], surfaceYAt);
+};
+
+/** The bank's three columns (wet, mid, top) at `cur`, out along unit (nx, nz), conforming to the carved trench. */
+const pushBankColumns = (
+  buffers: WaterBuffers,
+  cur: ChannelPathPoint,
+  nx: number,
+  nz: number,
+  surfaceYAt: (sceneX: number, sceneZ: number) => number,
+  alpha: number
+): void => {
+  const inner = riverWaterHalfWidth(cur.halfWidth) * INNER_OVERLAP;
+  const outer = cur.halfWidth + BANK_WIDTH;
+  for (const [d, color] of [[inner, BANK_WET], [(inner + outer) / 2, BANK_MID], [outer, BANK_TOP]] as const) {
+    const x = cur.x + nx * d;
+    const z = cur.z + nz * d;
+    const surface = surfaceYAt(x, z);
+    const y = surface - riverTrenchDepth(d, cur.halfWidth) * riverDescentScale(surface, cur.descent ?? 0) + BANK_LIFT_Y;
+    buffers.positions.push(x, y, z);
+    buffers.colors.push(color[0], color[1], color[2], color[3] * alpha);
+  }
+};
+
+const CAP_SEGMENTS = 10;
+
+/**
+ * Rings the spring pool at a river's head (`samples[0].source`) with bank:
+ * the two side strips' columns swept round the back of the first sample, so
+ * the wet bank closes round the pool instead of ending square.
+ */
+const appendBankSourceCap = (
+  buffers: WaterBuffers,
+  samples: readonly ChannelPathPoint[],
+  side: WaterSides | undefined,
+  surfaceYAt: (sceneX: number, sceneZ: number) => number
+): void => {
+  const head = samples[0]!;
+  const next = samples[1]!;
+  if (!head.source || (side && (!side.left || !side.right))) return;
+  const tlen = Math.hypot(next.x - head.x, next.z - head.z) || 1;
+  const tx = (next.x - head.x) / tlen;
+  const tz = (next.z - head.z) / tlen;
+  const base = buffers.positions.length / 3;
+  for (let k = 0; k <= CAP_SEGMENTS; k += 1) {
+    const a = (k / CAP_SEGMENTS) * Math.PI;
+    pushBankColumns(buffers, head, -tz * Math.cos(a) - tx * Math.sin(a), tx * Math.cos(a) - tz * Math.sin(a), surfaceYAt, 1);
+  }
+  for (let k = 0; k < CAP_SEGMENTS; k += 1) {
+    for (let c = 0; c < 2; c += 1) {
+      const a = base + k * 3 + c;
+      const b = a + 1;
+      const d = a + 3;
+      const e = d + 1;
+      buffers.indices.push(a, d, b, b, d, e);
     }
   }
 };

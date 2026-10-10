@@ -31,6 +31,7 @@ export * from "./worldgen/worldgen.js";
 export * from "./worldgen/worldgen-version.js";
 export * from "./worldgen/worldgen-mountain-rings.js";
 export * from "./worldgen/worldgen-rivers.js";
+export { headwaterMountainAt, riverHeadsForCurrentSeed, type RiverHead } from "./worldgen/worldgen-river-heads.js";
 export { riverEdgeKey, riverEdgeKeyBetween, tilesAlongRiverEdge, type RiverEdgeDirection } from "./worldgen/worldgen-rivers-edge.js";
 export * from "./worldgen/worldgen-grass-tone.js";
 export * from "./prospect-signatures.js";
