@@ -15,7 +15,8 @@ export const CURRENT_WORLDGEN_VERSION = 10;
 // worldgen-island-pruning.ts); thin wandering mountain ranges with hill
 // foothills (worldgen-natural-ranges.ts, worldgen-hills.ts); small irregular
 // atolls in deep ocean (worldgen-atoll-shape.ts) and coastal island chains
-// (worldgen-island-chain.ts).
+// (worldgen-island-chain.ts). All styles: edge rivers start at headwater
+// corners beside a mountain where they can (worldgen-rivers-edge.ts).
 // v9: v8 + rivers along tile edges (worldgen-rivers-edge.ts), GRASSLAND/bright
 // PLAINS split, lake-only MARSH (worldgen-visual-biome.ts)
 

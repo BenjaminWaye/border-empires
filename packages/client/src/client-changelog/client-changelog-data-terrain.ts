@@ -14,5 +14,15 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
       "Trees no longer stand in the pool",
       "Shown on both the 3D map and the 2D map"
     ]
+  },
+  {
+    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.5",
+    title: "Rivers rise in the mountains (new seasons)",
+    why: "Rivers began wherever the generator happened to start them, often on open plains.",
+    changes: [
+      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
+      "Running seasons keep their rivers, towns and resources exactly as they are"
+    ]
   }
 ];
