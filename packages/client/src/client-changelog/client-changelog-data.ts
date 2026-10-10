@@ -27,6 +27,19 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "New-look mountains",
+    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
+    changes: [
+      "3D mountains are now sculpted rocky peaks with ridges, gullies and sub-peaks, with snow that follows the ridges",
+      "Mountains differ in shape, height, width, angle and rock colour, and some have a second, smaller peak",
+      "Neighbouring mountains join into ridges, and the middle of a range stands taller",
+      "Snow caps only tall peaks and mountains in cold country",
+      "Both the 3D map and the 2D map show the same variety"
+    ]
+  },
+  {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
     title: "Better starter sites and accurate checklist goals",
