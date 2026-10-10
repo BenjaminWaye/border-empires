@@ -10,7 +10,11 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { seeded01 } from "./worldgen-noise.js";
 import { buildPlates } from "./worldgen-plates.js";
-import { worldSeed } from "./worldgen.js";
+import { naturalAtollBump, naturalAtollShape, type AtollShape } from "./worldgen-atoll-shape.js";
+import { isOceanicPlateAt, offshoreMarginAt } from "./worldgen-continent-score.js";
+import { chainIslandBump, CHAIN_REACH, layOutIslandChain, type ChainIsland } from "./worldgen-island-chain.js";
+import { POLAR_BAND, worldSeed } from "./worldgen.js";
+import { continentSeparationActive, worldgenVersion } from "./worldgen-version.js";
 
 const toroidalDx = (a: number, b: number): number => {
   const d = Math.abs(a - b);
@@ -33,6 +37,25 @@ const distToNearestContinentalPlate = (x: number, y: number): number => {
   return best;
 };
 
+// v10+: continental plates cover most of the map (see worldgen-plates.ts),
+// so "far from every continental plate CENTRE" is rarely satisfiable and
+// placement fell back to its last random attempt -- dropping atoll rings and
+// lagoons into the middle of continents. Instead a feature must sit wholly in
+// open ocean: its centre and a ring of points around it all on oceanic
+// plates, clear of the polar bands. If no attempt qualifies, it is skipped.
+const OPEN_OCEAN_RING_SAMPLES = 12;
+const POLAR_CLEARANCE = 12;
+const isOpenOceanSite = (x: number, y: number, radius: number, deepOnly = false): boolean => {
+  if (y - radius < POLAR_BAND + POLAR_CLEARANCE || y + radius >= WORLD_HEIGHT - POLAR_BAND - POLAR_CLEARANCE) return false;
+  if (!isOceanicPlateAt(x, y, deepOnly)) return false;
+  for (let i = 0; i < OPEN_OCEAN_RING_SAMPLES; i += 1) {
+    const a = (i / OPEN_OCEAN_RING_SAMPLES) * Math.PI * 2;
+    const sx = (Math.round(x + Math.cos(a) * radius) + WORLD_WIDTH) % WORLD_WIDTH;
+    if (!isOceanicPlateAt(sx, Math.round(y + Math.sin(a) * radius), deepOnly)) return false;
+  }
+  return true;
+};
+
 // --- Archipelago zones (Indonesia-style dense island chains) --------------
 
 const ARCHIPELAGO_ZONE_COUNT = Math.max(1, Math.round(2 * (WORLD_WIDTH / WORLD_HEIGHT)));
@@ -46,28 +69,84 @@ const ISLAND_PLACEMENT_ATTEMPTS = 40;
 const ISLAND_MIN_RADIUS = 3;
 const ISLAND_MAX_RADIUS = 10;
 const ISLAND_BUMP_HEIGHT = 0.45;
+// v10+: continental plates cover more of the map, so the calibrated sea
+// threshold sits higher (~0.4-0.63 vs ~0.25-0.3) and the old bumps no longer
+// lift these features above water. Island/atoll land must clear it.
+const ISLAND_BUMP_HEIGHT_V10 = 0.8;
 
 type IslandSeed = { cx: number; cy: number; radius: number };
-type ArchipelagoZone = { cx: number; cy: number; islands: IslandSeed[] };
+type ArchipelagoZone = { cx: number; cy: number; islands: IslandSeed[]; chain?: ChainIsland[] };
+
+// v10+: island chains sit in the offshore seas along a continent -- between
+// these offshore margins (plate-distance units, ~5-35 tiles off the plate
+// boundary) -- never in mid-ocean, and each island stays off the continent
+// itself. See worldgen-island-chain.ts.
+const CHAIN_MARGIN_MIN = 12;
+const CHAIN_MARGIN_MAX = 60;
+const CHAIN_ISLAND_MIN_MARGIN = 6;
+const CHAIN_MIN_ISLANDS = 4;
+const CHAIN_PLACEMENT_ATTEMPTS = 300;
+
+// The chain runs parallel to the nearby coast: perpendicular to the
+// direction in which the offshore margin grows.
+const coastParallelDirection = (x: number, y: number, fallback: number): number => {
+  const m = (dx: number, dy: number): number => offshoreMarginAt((x + dx + WORLD_WIDTH) % WORLD_WIDTH, y + dy);
+  const gx = m(4, 0) - m(-4, 0);
+  const gy = m(0, 4) - m(0, -4);
+  if (Math.hypot(gx, gy) < 1e-6) return fallback;
+  return Math.atan2(gy, gx) + Math.PI / 2;
+};
+
+const buildIslandChainZones = (seed: number): ArchipelagoZone[] => {
+  const zones: ArchipelagoZone[] = [];
+  for (let i = 0; i < ARCHIPELAGO_ZONE_COUNT; i += 1) {
+    for (let attempt = 0; attempt < CHAIN_PLACEMENT_ATTEMPTS; attempt += 1) {
+      const cx = Math.floor(seeded01(i, attempt, seed + 310011) * WORLD_WIDTH);
+      const cy = Math.floor(seeded01(i, attempt, seed + 320022) * WORLD_HEIGHT);
+      if (zones.some((z) => distTo(cx, cy, z.cx, z.cy) < ZONE_MIN_SPACING)) continue;
+      const margin = offshoreMarginAt(cx, cy);
+      if (margin < CHAIN_MARGIN_MIN || margin > CHAIN_MARGIN_MAX) continue;
+      const direction = coastParallelDirection(cx, cy, seeded01(i, attempt, seed + 330033) * Math.PI);
+      const chain = layOutIslandChain(i * 1000 + attempt, seed, cx, cy, direction).filter(
+        (isl) =>
+          isl.cy > POLAR_BAND + 6 &&
+          isl.cy < WORLD_HEIGHT - POLAR_BAND - 6 &&
+          offshoreMarginAt((Math.round(isl.cx) + WORLD_WIDTH) % WORLD_WIDTH, Math.round(isl.cy)) >= CHAIN_ISLAND_MIN_MARGIN
+      );
+      if (chain.length < CHAIN_MIN_ISLANDS) continue;
+      zones.push({ cx, cy, islands: [], chain });
+      break;
+    }
+  }
+  return zones;
+};
 
 let cachedZonesSeed = Number.NaN;
+// Keyed on version too: placement avoids continental plates, which v10 changes.
+let cachedZonesVersion: number | undefined;
 let cachedZones: ArchipelagoZone[] = [];
 
 const buildArchipelagoZones = (): ArchipelagoZone[] => {
   const seed = worldSeed();
-  if (seed === cachedZonesSeed && cachedZones.length > 0) return cachedZones;
+  const version = worldgenVersion();
+  if (seed === cachedZonesSeed && version === cachedZonesVersion) return cachedZones;
   cachedZonesSeed = seed;
+  cachedZonesVersion = version;
 
+  if (continentSeparationActive()) {
+    cachedZones = buildIslandChainZones(seed);
+    return cachedZones;
+  }
   const zoneCenters: { cx: number; cy: number }[] = [];
   for (let i = 0; i < ARCHIPELAGO_ZONE_COUNT; i += 1) {
     let cx = 0, cy = 0;
     for (let attempt = 0; attempt < ZONE_PLACEMENT_ATTEMPTS; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 310011) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 320022) * WORLD_HEIGHT);
-      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
       const farFromOtherZones = zoneCenters.every((z) => distTo(candX, candY, z.cx, z.cy) >= ZONE_MIN_SPACING);
       cx = candX;
       cy = candY;
+      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
       if ((farFromContinents && farFromOtherZones) || attempt === ZONE_PLACEMENT_ATTEMPTS - 1) break;
     }
     zoneCenters.push({ cx, cy });
@@ -106,6 +185,17 @@ const buildArchipelagoZones = (): ArchipelagoZone[] => {
 export const archipelagoBumpAt = (wx: number, wy: number): number => {
   let bump = 0;
   for (const zone of buildArchipelagoZones()) {
+    if (zone.chain) {
+      // v10+: island chain, sampled on the raw tile -- see worldgen-island-chain.ts.
+      const zdx = ((wx - zone.cx + WORLD_WIDTH * 1.5) % WORLD_WIDTH) - WORLD_WIDTH / 2;
+      if (Math.abs(zdx) > CHAIN_REACH || Math.abs(wy - zone.cy) > CHAIN_REACH) continue;
+      for (const island of zone.chain) {
+        const dx = ((wx - island.cx + WORLD_WIDTH * 1.5) % WORLD_WIDTH) - WORLD_WIDTH / 2;
+        const contribution = chainIslandBump(dx, wy - island.cy, island, ISLAND_BUMP_HEIGHT_V10);
+        if (contribution > bump) bump = contribution;
+      }
+      continue;
+    }
     if (distTo(wx, wy, zone.cx, zone.cy) > ARCHIPELAGO_ZONE_RADIUS + ISLAND_MAX_RADIUS) continue;
     for (const island of zone.islands) {
       const d = distTo(wx, wy, island.cx, island.cy);
@@ -122,47 +212,118 @@ export const archipelagoBumpAt = (wx: number, wy: number): number => {
 
 const ATOLL_COUNT = Math.max(1, Math.round(1.5 * (WORLD_WIDTH / WORLD_HEIGHT)));
 const ATOLL_PLACEMENT_ATTEMPTS = 60;
+// v10's open-water rule rejects most random sites, so it gets more tries.
+const ATOLL_PLACEMENT_ATTEMPTS_V10 = 400;
 const ATOLL_MIN_SPACING = Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.2;
 const ATOLL_OUTER_RADIUS_MIN = 9;
 const ATOLL_OUTER_RADIUS_MAX = 15;
 const ATOLL_RING_WIDTH = 3.5;
 const ATOLL_RING_BUMP_HEIGHT = 0.5;
+const ATOLL_RING_BUMP_HEIGHT_V10 = 0.85;
+// Open water required beyond the ring. v10 coasts can reach right up to a
+// continental plate's boundary (shelf + coast detail), so the plate check
+// must look well past the ring or the atoll fuses with a nearby coast --
+// including the fine coast displacement (up to ~8.5 tiles, see
+// coastDisplacementAt) the plate check itself doesn't apply.
+const ATOLL_OPEN_WATER_MARGIN = 22;
+const COMPANION_OPEN_WATER_MARGIN = 14;
 // Actively pushed down, not just left at ambient ocean elevation, so the
 // lagoon reads as real open water even if this exact ocean point happened to
 // sample a locally high plate/uplift score.
 const ATOLL_LAGOON_DEPRESSION = -0.5;
+// v10+: realistic scale. A tile is ~60 km at Earth scale (640 tiles round),
+// so the legacy 9-15 tile radius made every atoll ~1,100-1,900 km across --
+// the size of a small continent. Real atolls are 5-30 km (the largest ~100
+// km); a few tiles across is the smallest that still reads as a ring with a
+// lagoon. Companions make the small Maldives/Tuamotu-style clusters real
+// atolls come in.
+const ATOLL_OUTER_RADIUS_MIN_V10 = 4;
+const ATOLL_OUTER_RADIUS_MAX_V10 = 6;
+const COMPANION_RADIUS_MIN = 2.5;
+const COMPANION_RADIUS_MAX = 3.5;
+const COMPANION_MAX = 2;
 
-type Atoll = { cx: number; cy: number; outerRadius: number };
+type Atoll = { cx: number; cy: number; outerRadius: number; shape?: AtollShape };
 
 let cachedAtollsSeed = Number.NaN;
+// Keyed on version too: placement avoids continental plates, which v10 changes.
+let cachedAtollsVersion: number | undefined;
 let cachedAtolls: Atoll[] = [];
+
+// 0-2 smaller atolls a short way off a v10 atoll, each only where it still
+// sits in deep open water and clear of every other atoll.
+const placeCompanions = (atolls: Atoll[], i: number, cx: number, cy: number, outerRadius: number, seed: number): void => {
+  const count = Math.floor(seeded01(i, 50, seed + 392002) * (COMPANION_MAX + 1));
+  for (let c = 1; c <= count; c += 1) {
+    const r = (salt: number): number => seeded01(i * 10 + c, salt, seed + 393003);
+    const radius = COMPANION_RADIUS_MIN + r(1) * (COMPANION_RADIUS_MAX - COMPANION_RADIUS_MIN);
+    const angle = r(2) * Math.PI * 2;
+    const dist = outerRadius + radius + 4 + r(3) * 6;
+    const x = (Math.round(cx + Math.cos(angle) * dist) + WORLD_WIDTH) % WORLD_WIDTH;
+    const y = Math.round(cy + Math.sin(angle) * dist);
+    const clear = atolls.every((a) => distTo(x, y, a.cx, a.cy) >= a.outerRadius * 1.5 + radius + 3);
+    if (clear && isOpenOceanSite(x, y, radius + COMPANION_OPEN_WATER_MARGIN, true)) {
+      atolls.push({ cx: x, cy: y, outerRadius: radius, shape: naturalAtollShape(i * 10 + c, seed) });
+    }
+  }
+};
 
 const buildAtolls = (): Atoll[] => {
   const seed = worldSeed();
-  if (seed === cachedAtollsSeed && cachedAtolls.length > 0) return cachedAtolls;
+  const version = worldgenVersion();
+  if (seed === cachedAtollsSeed && version === cachedAtollsVersion) return cachedAtolls;
   cachedAtollsSeed = seed;
+  cachedAtollsVersion = version;
 
   const zones = buildArchipelagoZones();
+  const openOceanOnly = continentSeparationActive();
   const atolls: Atoll[] = [];
   for (let i = 0; i < ATOLL_COUNT; i += 1) {
     let cx = 0, cy = 0;
-    for (let attempt = 0; attempt < ATOLL_PLACEMENT_ATTEMPTS; attempt += 1) {
+    let placed = false;
+    const sizeRoll = seeded01(i, 0, seed + 380088);
+    const outerRadius = openOceanOnly
+      ? ATOLL_OUTER_RADIUS_MIN_V10 + sizeRoll * (ATOLL_OUTER_RADIUS_MAX_V10 - ATOLL_OUTER_RADIUS_MIN_V10)
+      : ATOLL_OUTER_RADIUS_MIN + sizeRoll * (ATOLL_OUTER_RADIUS_MAX - ATOLL_OUTER_RADIUS_MIN);
+    const attempts = openOceanOnly ? ATOLL_PLACEMENT_ATTEMPTS_V10 : ATOLL_PLACEMENT_ATTEMPTS;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 360066) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 370077) * WORLD_HEIGHT);
-      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
       const farFromZones = zones.every((z) => distTo(candX, candY, z.cx, z.cy) >= ARCHIPELAGO_ZONE_RADIUS * 1.3);
       const farFromOtherAtolls = atolls.every((a) => distTo(candX, candY, a.cx, a.cy) >= ATOLL_MIN_SPACING);
       cx = candX;
       cy = candY;
+      if (openOceanOnly) {
+        // A clear margin of open water beyond the ring, so it reads as a remote
+        // atoll -- including clear of a zone's outermost islands, which the
+        // legacy 1.3-zone-radius spacing left only a few tiles away.
+        const zoneClearance = ARCHIPELAGO_ZONE_RADIUS + ISLAND_MAX_RADIUS + outerRadius + 10;
+        const clearOfZones = zones.every((z) => distTo(candX, candY, z.cx, z.cy) >= zoneClearance);
+        if (clearOfZones && farFromOtherAtolls && isOpenOceanSite(candX, candY, outerRadius + ATOLL_OPEN_WATER_MARGIN, true)) {
+          placed = true;
+          break;
+        }
+        continue;
+      }
+      const farFromContinents = distToNearestContinentalPlate(candX, candY) >= MIN_DIST_FROM_CONTINENT;
+      placed = true;
       if ((farFromContinents && farFromZones && farFromOtherAtolls) || attempt === ATOLL_PLACEMENT_ATTEMPTS - 1) break;
     }
-    const outerRadius =
-      ATOLL_OUTER_RADIUS_MIN + seeded01(i, 0, seed + 380088) * (ATOLL_OUTER_RADIUS_MAX - ATOLL_OUTER_RADIUS_MIN);
-    atolls.push({ cx, cy, outerRadius });
+    if (!placed) continue;
+    if (!openOceanOnly) {
+      atolls.push({ cx, cy, outerRadius });
+      continue;
+    }
+    atolls.push({ cx, cy, outerRadius, shape: naturalAtollShape(i * 10, seed) });
+    placeCompanions(atolls, i, cx, cy, outerRadius, seed);
   }
   cachedAtolls = atolls;
   return cachedAtolls;
 };
+
+// Read-only listing of this world's atolls (centres and radii), for tests
+// and tools that need to measure each one separately.
+export const atollSites = (): ReadonlyArray<{ cx: number; cy: number; outerRadius: number }> => buildAtolls();
 
 // Additive elevation contribution shaped like a ring: strongly positive in
 // an annulus near outerRadius (the reef/land ring), strongly negative inside
@@ -170,6 +331,12 @@ const buildAtolls = (): Atoll[] => {
 export const atollBumpAt = (wx: number, wy: number): number => {
   let bump = 0;
   for (const atoll of buildAtolls()) {
+    if (atoll.shape) {
+      // v10+: natural shape -- see worldgen-atoll-shape.ts.
+      const dx = ((wx - atoll.cx + WORLD_WIDTH * 1.5) % WORLD_WIDTH) - WORLD_WIDTH / 2;
+      bump += naturalAtollBump(dx, wy - atoll.cy, atoll.outerRadius, atoll.shape, ATOLL_RING_BUMP_HEIGHT_V10, ATOLL_LAGOON_DEPRESSION);
+      continue;
+    }
     const d = distTo(wx, wy, atoll.cx, atoll.cy);
     if (d > atoll.outerRadius + 1) continue;
     const innerRadius = atoll.outerRadius - ATOLL_RING_WIDTH;
@@ -181,7 +348,7 @@ export const atollBumpAt = (wx: number, wy: number): number => {
       const ringMid = (innerRadius + atoll.outerRadius) / 2;
       const ringHalfWidth = (atoll.outerRadius - innerRadius) / 2;
       const t = Math.max(0, 1 - Math.abs(d - ringMid) / ringHalfWidth);
-      bump += ATOLL_RING_BUMP_HEIGHT * t;
+      bump += (continentSeparationActive() ? ATOLL_RING_BUMP_HEIGHT_V10 : ATOLL_RING_BUMP_HEIGHT) * t;
     }
   }
   return bump;

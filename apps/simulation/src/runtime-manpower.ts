@@ -11,7 +11,7 @@ import {
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
-import { terrainAdjustedTownManpower } from "@border-empires/shared";
+import { lastManpowerRefillAtMs, terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
@@ -197,19 +197,52 @@ export const playerManpowerBreakdownFromSummary = (
   };
 };
 
+/** Spendable manpower plus regen accrued in the current refill window but not yet paid out. */
+export type ManpowerAccrual = { manpower: number; banked: number };
+
+/**
+ * Settles manpower at `nowMs`. Regeneration accrues continuously into a bank
+ * (`manpowerBanked`) at the rate in force since the last settle, exactly like
+ * the old continuous model, but it only becomes spendable at the player's
+ * refill boundaries (see MANPOWER_REFILL_WINDOW_MS in shared): crossing a
+ * boundary releases everything banked through it. Because the bank is settled
+ * at the current rate on every settle (every command and the 15s player-update
+ * tick), a rate change (a captured town, a new structure, the Iron Levy's regen
+ * freeze) only applies from when it happened, never retroactively to the whole
+ * window. Nothing accrues while at or above the cap, and the bank never grows
+ * past the room left under the cap.
+ */
+export const accrueManpower = (
+  player: RuntimePlayer,
+  cap: number,
+  regenPerMinute: number,
+  nowMs: number
+): ManpowerAccrual => {
+  const banked = Math.max(0, player.manpowerBanked ?? 0);
+  if (!Number.isFinite(player.manpower)) return { manpower: cap, banked: 0 };
+  const ceiling = manpowerCeiling(player, cap);
+  if (!Number.isFinite(player.manpowerUpdatedAt)) return { manpower: Math.min(ceiling, Math.max(0, player.manpower)), banked };
+  // Waystation overflow above the cap: held as-is (up to the ceiling), no regen until spent back under the cap.
+  if (player.manpower >= cap) return { manpower: Math.min(ceiling, player.manpower), banked: 0 };
+  const rate = Math.max(0, regenPerMinute);
+  const updatedAt = player.manpowerUpdatedAt!;
+  const boundary = lastManpowerRefillAtMs(player.id, nowMs);
+  let manpower = Math.max(0, player.manpower);
+  let pending = banked;
+  let accrueFrom = updatedAt;
+  if (boundary > updatedAt) {
+    manpower = Math.min(cap, manpower + pending + (rate * (boundary - updatedAt)) / 60_000);
+    pending = 0;
+    accrueFrom = boundary;
+  }
+  pending += (rate * Math.max(0, nowMs - accrueFrom)) / 60_000;
+  return { manpower, banked: Math.min(pending, Math.max(0, cap - manpower)) };
+};
+
+/** Manpower available to spend at `nowMs` (see {@link accrueManpower}). */
 export const effectiveManpowerAt = (
   player: RuntimePlayer,
   cap: number,
   regenPerMinute: number,
   nowMs: number
-): number => {
-  if (!Number.isFinite(player.manpower)) return cap;
-  const ceiling = manpowerCeiling(player, cap);
-  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(ceiling, Math.max(0, player.manpower));
-  // Waystation overflow above the cap: held as-is (up to the ceiling), no regen until spent back under the cap.
-  if (player.manpower >= cap) return Math.min(ceiling, player.manpower);
-  const updatedAt = player.manpowerUpdatedAt ?? nowMs;
-  const elapsedMinutes = Math.max(0, (nowMs - updatedAt) / 60_000);
-  const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
-  return Math.max(0, Math.min(cap, nextManpower));
-};
+): number => accrueManpower(player, cap, regenPerMinute, nowMs).manpower;

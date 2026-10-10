@@ -120,7 +120,7 @@ const rankRowHtml = (
       <span class="se-rank-name">${crown}${playerBadge(entry.id, options.self ? "You" : entry.name, colors)}</span>
       <span class="se-rank-stats">
         <span class="se-gauge" title="Final score"><em>${num(entry.score, 1)}</em><span>score</span></span>
-        <span class="se-gauge" title="Settled tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>
+        <span class="se-gauge" title="Garrisoned tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>
         <span class="se-gauge" title="Income / day"><em>${num(entry.incomePerMinute * 1440, 1)}</em><span>gold/day</span></span>
         <span class="se-gauge" title="Technologies"><em>${num(entry.techs)}</em><span>tech</span></span>
       </span>

@@ -18,7 +18,7 @@ describe("deriveDevelopmentPanelData", () => {
     expect(data.busy).toBe(1);
     expect(data.limit).toBe(3);
     expect(data.activeSlots).toHaveLength(1);
-    expect(data.activeSlots[0]).toMatchObject({ label: "Settlement", x: 5, y: 5, totalMs: 4_000 });
+    expect(data.activeSlots[0]).toMatchObject({ label: "Garrisoning", x: 5, y: 5, totalMs: 4_000 });
   });
 
   it("includes owned tiles with structures that are under construction or being removed", () => {
@@ -91,12 +91,12 @@ describe("deriveDevelopmentPanelData", () => {
 
   it("maps queued development actions with a 1-based position", () => {
     const data = deriveDevelopmentPanelData(new Map(), "me", new Map(), [
-      { kind: "SETTLE", tileKey: keyFor(9, 9), label: "Settlement at (9, 9)", x: 9, y: 9 },
+      { kind: "SETTLE", tileKey: keyFor(9, 9), label: "Garrison at (9, 9)", x: 9, y: 9 },
       { kind: "BUILD", tileKey: keyFor(3, 3), label: "Fort at (3, 3)", x: 3, y: 3 }
     ], 3, 3);
 
     expect(data.queue).toEqual([
-      { label: "Settlement at (9, 9)", tileKey: "9,9", position: 1, x: 9, y: 9 },
+      { label: "Garrison at (9, 9)", tileKey: "9,9", position: 1, x: 9, y: 9 },
       { label: "Fort at (3, 3)", tileKey: "3,3", position: 2, x: 3, y: 3 }
     ]);
   });
@@ -115,12 +115,12 @@ describe("renderDevelopmentPanelHtml", () => {
     const html = renderDevelopmentPanelHtml({
       busy: 1,
       limit: 3,
-      activeSlots: [{ tileKey: "5,5", x: 5, y: 5, label: "Settlement", remainingMs: 30_000, totalMs: 60_000 }],
+      activeSlots: [{ tileKey: "5,5", x: 5, y: 5, label: "Garrisoning", remainingMs: 30_000, totalMs: 60_000 }],
       queue: []
     });
 
     expect(html).toContain("1/3 slots used");
-    expect(html).toContain("Settlement at (5, 5)");
+    expect(html).toContain("Garrisoning at (5, 5)");
     expect(html).toContain("30s");
   });
 
@@ -140,7 +140,7 @@ describe("renderDevelopmentPanelHtml", () => {
     const html = renderDevelopmentPanelHtml({
       busy: 1,
       limit: 3,
-      activeSlots: [{ tileKey: "5,5", x: 5, y: 5, label: "Settlement", remainingMs: 30_000, totalMs: 60_000 }],
+      activeSlots: [{ tileKey: "5,5", x: 5, y: 5, label: "Garrisoning", remainingMs: 30_000, totalMs: 60_000 }],
       queue: []
     });
 

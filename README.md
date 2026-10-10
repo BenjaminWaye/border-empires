@@ -22,17 +22,17 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Economy
 
-- **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates over time from an empire-wide pool sized by town population tier; a depleted empire cannot afford sustained expansion or warfare.
-- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or settle. Passive coin income comes from settled tiles, scaled by town tier and structure modifiers.
+- **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
+- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
-- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
+- **Towns** are the economic backbone. Each town has a population tier (Town → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
 
 ### Territory and Combat
 
-- **Expand**: claim an adjacent neutral tile after a short frontier lock (`FRONTIER_CLAIM_MS`), spending manpower. An unsettled frontier claim has zero defense until settled.
+- **Expand**: claim an adjacent neutral tile after a short frontier lock (`FRONTIER_CLAIM_MS`), spending manpower. An ungarrisoned frontier claim has zero defense until garrisoned (the player-facing name for the SETTLE action).
 - **Attack**: target an adjacent enemy tile; combat resolves after a 3-second lock, spending manpower. The origin tile risks counter-capture on a failed assault.
 - **Defense** scales with exposure — how surrounded a tile is by friendly tiles. Forts multiply the manpower cost to crack a tile by 5×–20×.
 - **Mustering** (combat advance): stage manpower on a frontier, then execute a coordinated multi-tile push rather than a single-tile click.
@@ -40,7 +40,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Structures
 
-- One structure per tile, placed on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on unsettled (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
+- One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
 - **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
 - **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.

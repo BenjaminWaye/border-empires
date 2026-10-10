@@ -441,7 +441,7 @@ describe("buildInitMessage", () => {
         expect.objectContaining({
           id: "MARITIME_SUPREMACY",
           progressLabel: "0/3 docks",
-          thresholdLabel: "Need 3 settled docks (55% of world docks)"
+          thresholdLabel: "Need 3 garrisoned docks (55% of world docks)"
         })
       ])
     );

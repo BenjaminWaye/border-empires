@@ -242,7 +242,7 @@ describe("crystal core actions regression", () => {
     expect(lance).toBeDefined();
     expect(lance).toMatchObject({
       disabled: true,
-      disabledReason: "Target enemy settled or frontier land"
+      disabledReason: "Target enemy garrisoned or frontier land"
     });
   });
 

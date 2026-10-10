@@ -18,7 +18,7 @@ export type TileMenuHeaderStatus = {
   helpText?: string;
 };
 
-const INSIDE_REACH_HELP_TEXT = "Can't settle inside another empire's reach.";
+const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
