@@ -18,16 +18,17 @@ export const UNEXPLORED_BRASS_DARK = "#6e4e1e";
 export const UNEXPLORED_RIVET = "#f6dc94";
 
 // Remembered ("fogged") tiles -- explored but not currently in sight -- read
-// as an aged survey print rather than a dark hole. In 3D, land gets a
+// as a pale, faded survey print rather than a dark hole -- light enough to
+// sit between live colour and the parchment fog ring, so brightness steps
+// down outward instead of dipping and coming back up. Land gets a
 // normal-blend wash of FOGGED_PRINT_SEPIA (pulling every colour toward one
 // tan compresses saturation and contrast, like a faded print; a multiply
 // could only darken), trees and peaks are multiplied by
-// FOGGED_PRINT_FEATURE_TINT, and water is pulled toward FOGGED_PRINT_WATER.
-export const FOGGED_PRINT_SEPIA = "#8a7458";
-export const FOGGED_PRINT_WASH_OPACITY = 0.6;
-export const FOGGED_PRINT_FEATURE_TINT = "#d8b48a";
-export const FOGGED_PRINT_WATER = "#5d6e70";
-// 2D only: the warm multiply that ages a remembered tile after its "color"
-// blend (client-map-render-2d-tile-ground.ts).
-export const FOGGED_PRINT_LAND_AGE = "#cbb391";
-export const FOGGED_PRINT_WATER_AGE = "#c2c4bd";
+// FOGGED_PRINT_FEATURE_TINT (3D), and water is pulled toward
+// FOGGED_PRINT_WATER. The 2D renderer uses the same wash and water blend.
+export const FOGGED_PRINT_SEPIA = "#c2ad87";
+export const FOGGED_PRINT_WASH_OPACITY = 0.62;
+export const FOGGED_PRINT_FEATURE_TINT = "#e6d2b4";
+export const FOGGED_PRINT_WATER = "#8fa3a6";
+// How far remembered water is pulled toward FOGGED_PRINT_WATER.
+export const FOGGED_PRINT_WATER_BLEND = 0.6;

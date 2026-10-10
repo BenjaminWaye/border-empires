@@ -328,7 +328,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Unexplored territory is now a hatched storm-cloud bank, drawn like weather on an old map, in both the 3D map and the 2D map",
       "Unexplored tiles bordering your land give a glimpse of their terrain (ground, forests, hills and mountains) through a see-through parchment band, edged in riveted brass where the storm begins, while every tile you've explored stays completely clear",
-      "Land you've explored but can't currently see now looks like an old sepia survey print, keeping its forests and mountains, instead of turning near-black",
+      "Land you've explored but can't currently see now looks like a pale, faded survey print, keeping its forests and mountains, instead of turning near-black",
       "The clouds lie level with the land, and faint tile outlines show through them so you can still see the grid you haven't explored",
       "Distant terrain fades into the clouds instead of into black"
     ]

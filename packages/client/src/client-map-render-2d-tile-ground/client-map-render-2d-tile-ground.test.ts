@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
-import { FOGGED_PRINT_LAND_AGE, FOGGED_PRINT_SEPIA } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_SEPIA } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { drawTileGround2D, type TileGround2DInput } from "./client-map-render-2d-tile-ground.js";
 
 const makeCtx = () => {
@@ -46,7 +46,6 @@ describe("drawTileGround2D", () => {
     drawTileGround2D(fogged.ctx, foggedArgs);
     expect(foggedArgs.drawTerrainDetail).toHaveBeenCalledWith(3, 4, 0, 0, 40);
     expect(fogged.fills).toContain(FOGGED_PRINT_SEPIA);
-    expect(fogged.fills).toContain(FOGGED_PRINT_LAND_AGE);
     expect(fogged.fills.some((f) => f.startsWith("rgba(2, 5, 10"))).toBe(false); // no black dim any more
     const visibleArgs = input({ tile: { x: 3, y: 4, terrain: "MOUNTAIN" } as Tile });
     drawTileGround2D(makeCtx().ctx, visibleArgs);

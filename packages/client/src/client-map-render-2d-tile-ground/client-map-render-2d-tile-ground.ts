@@ -1,5 +1,5 @@
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { FOGGED_PRINT_LAND_AGE, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_AGE } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
@@ -35,23 +35,15 @@ export type TileGround2DInput = {
 };
 
 const isWater = (terrain: Tile["terrain"]): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
-// Remembered (fogged) tiles as an aged survey print, matching the 3D fog
-// overlay: a "color" blend takes the print's hue while keeping the terrain's
-// own light and dark, then a warm multiply ages it. Canvases without blend
-// modes just get a translucent wash of the same tone.
+// Remembered (fogged) tiles as a faded survey print, matching the 3D fog
+// overlay exactly: a see-through wash of the print tone over the terrain.
 const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
   ctx.save();
-  ctx.globalCompositeOperation = "color";
-  ctx.globalAlpha = isWater(terrain) ? 0.75 : 0.9;
+  ctx.globalAlpha = isWater(terrain) ? FOGGED_PRINT_WATER_BLEND : FOGGED_PRINT_WASH_OPACITY;
   ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER : FOGGED_PRINT_SEPIA;
-  ctx.fillRect(px, py, size, size);
-  ctx.globalCompositeOperation = "multiply";
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = isWater(terrain) ? FOGGED_PRINT_WATER_AGE : FOGGED_PRINT_LAND_AGE;
   ctx.fillRect(px, py, size, size);
   ctx.restore();
 };
-
 
 export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput): void => {
   const { wx, wy, px, py, size, tile, vis } = input;

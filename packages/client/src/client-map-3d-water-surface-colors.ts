@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { FOGGED_PRINT_WATER } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "./client-unexplored-storm/client-unexplored-storm-palette.js";
 
 // Per-vertex colours for the merged water sheet (client-map-3d-water-surface.ts),
 // extracted from its commit(). Each vertex blends the up-to-4 water tiles
@@ -11,8 +11,6 @@ import { FOGGED_PRINT_WATER } from "./client-unexplored-storm/client-unexplored-
 export const WATER_DEEP_COLOR = new Color(0x0a2e42);
 export const WATER_SHALLOW_COLOR = new Color(0x6abbc8);
 const FOGGED_WATER_COLOR = new Color(FOGGED_PRINT_WATER);
-// How far a fully fogged vertex moves toward FOGGED_WATER_COLOR.
-const FOGGED_WATER_BLEND = 0.75;
 
 export type WaterTileState = { readonly shallow: boolean; readonly fogged: boolean };
 
@@ -37,7 +35,7 @@ export const fillWaterVertexColors = (
         if (tile.fogged) foggedCount++;
       }
       const t = waterCount > 0 ? shallowCount / waterCount : 0;
-      const f = waterCount > 0 ? (foggedCount / waterCount) * FOGGED_WATER_BLEND : 0;
+      const f = waterCount > 0 ? (foggedCount / waterCount) * FOGGED_PRINT_WATER_BLEND : 0;
       const ci = (vr * vCols + vc) * 3;
       const r = WATER_DEEP_COLOR.r + t * (WATER_SHALLOW_COLOR.r - WATER_DEEP_COLOR.r);
       const g = WATER_DEEP_COLOR.g + t * (WATER_SHALLOW_COLOR.g - WATER_DEEP_COLOR.g);
