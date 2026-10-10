@@ -23,7 +23,6 @@ const setup = (afc: Tile | null = afcTile("p1", ACTIVATED_AT)) => {
   state.authSessionReady = true;
   state.profileSetupRequired = false;
   state.changelog.open = false;
-  state.guide.open = false;
   state.activityDashboard.open = false;
   state.needsSeasonJoin = false;
   state.joinSeasonOverlayOpen = false;
@@ -129,7 +128,6 @@ describe("tickAfcJoinDrop arming", () => {
 describe("tickAfcJoinDrop gate", () => {
   it.each([
     ["changelog open", (s: ReturnType<typeof setup>["state"]) => { s.changelog.open = true; }],
-    ["tutorial open", (s: ReturnType<typeof setup>["state"]) => { s.guide.open = true; }],
     ["profile setup pending", (s: ReturnType<typeof setup>["state"]) => { s.profileSetupRequired = true; }],
     ["activity dashboard open", (s: ReturnType<typeof setup>["state"]) => { s.activityDashboard.open = true; }],
     ["first tiles not loaded", (s: ReturnType<typeof setup>["state"]) => { s.firstChunkAt = 0; }],

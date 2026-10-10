@@ -34,7 +34,6 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
       authSessionReady: state.authSessionReady,
       profileSetupRequired: state.profileSetupRequired,
       changelogOpen: state.changelog.open,
-      guideOpen: state.guide.open,
       activityDashboardOpen: state.activityDashboard.open
     })
   ) {
@@ -49,7 +48,6 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
     changelogOpen: state.changelog.open,
-    guideOpen: state.guide.open,
     activityDashboardOpen: state.activityDashboard.open
   });
   overlayEl.style.display = canShowRendererPrompt ? "grid" : "none";

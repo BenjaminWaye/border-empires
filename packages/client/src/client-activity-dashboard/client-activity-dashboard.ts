@@ -1,5 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { type GuideCompletionState, changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogSeen, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
+import { changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogSeen, sortedClientChangelogEntries, unseenClientChangelogEntries } from "../client-changelog/client-changelog.js";
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
@@ -11,8 +11,7 @@ type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
     "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail"
-  > &
-    GuideCompletionState;
+  >;
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   renderHud: () => void;

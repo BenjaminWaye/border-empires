@@ -7,7 +7,6 @@ const clearState = () => {
   state.authSessionReady = true;
   state.profileSetupRequired = false;
   state.changelog.open = false;
-  state.guide.open = false;
   state.activityDashboard.open = false;
   state.needsSeasonJoin = false;
   state.joinSeasonOverlayOpen = false;
@@ -25,7 +24,6 @@ describe("isMapUnobstructed", () => {
     ["signed out", (s: ReturnType<typeof clearState>) => { s.authSessionReady = false; }],
     ["profile setup pending", (s: ReturnType<typeof clearState>) => { s.profileSetupRequired = true; }],
     ["changelog open", (s: ReturnType<typeof clearState>) => { s.changelog.open = true; }],
-    ["tutorial open", (s: ReturnType<typeof clearState>) => { s.guide.open = true; }],
     ["activity dashboard open", (s: ReturnType<typeof clearState>) => { s.activityDashboard.open = true; }],
     ["join-season lobby full-screen", (s: ReturnType<typeof clearState>) => { s.needsSeasonJoin = true; s.joinSeasonOverlayOpen = true; }],
     ["respawn notice open", (s: ReturnType<typeof clearState>) => { s.respawnOverlayOpen = true; }]

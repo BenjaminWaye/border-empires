@@ -17,13 +17,10 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import {
-  GUIDE_AUTO_OPEN_STORAGE_KEY,
-  GUIDE_STORAGE_KEY,
   canAffordCost,
   formatGoldAmount,
   frontierClaimCostLabelForTile,
-  frontierClaimDurationMsForTile,
-  guideSteps
+  frontierClaimDurationMsForTile
 } from "./client-constants.js";
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
 import { exposedSidesForTile } from "./client-defensibility-tile.js";

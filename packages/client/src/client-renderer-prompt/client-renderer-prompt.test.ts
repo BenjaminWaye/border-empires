@@ -21,8 +21,7 @@ describe("client renderer prompt", () => {
         connectionInitialized: true,
         authSessionReady: true,
         profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        changelogOpen: false
       })
     ).toBe(true);
   });
@@ -36,8 +35,7 @@ describe("client renderer prompt", () => {
         connectionInitialized: true,
         authSessionReady: true,
         profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        changelogOpen: false
       })
     ).toBe(false);
   });
@@ -51,8 +49,7 @@ describe("client renderer prompt", () => {
         connectionInitialized: false,
         authSessionReady: true,
         profileSetupRequired: false,
-        changelogOpen: false,
-        guideOpen: false
+        changelogOpen: false
       })
     ).toBe(false);
   });
@@ -67,7 +64,6 @@ describe("client renderer prompt", () => {
         authSessionReady: true,
         profileSetupRequired: false,
         changelogOpen: false,
-        guideOpen: false,
         activityDashboardOpen: true
       })
     ).toBe(false);
@@ -80,8 +76,7 @@ describe("two-dimensional mode notice visibility", () => {
     connectionInitialized: true,
     authSessionReady: true,
     profileSetupRequired: false,
-    changelogOpen: false,
-    guideOpen: false
+    changelogOpen: false
   };
 
   it("shows for a chosen-2D session once the gameplay HUD is ready", () => {
@@ -94,7 +89,6 @@ describe("two-dimensional mode notice visibility", () => {
     expect(shouldShowTwoDimensionalNotice({ ...ready, authSessionReady: false })).toBe(false);
     expect(shouldShowTwoDimensionalNotice({ ...ready, connectionInitialized: false })).toBe(false);
     expect(shouldShowTwoDimensionalNotice({ ...ready, profileSetupRequired: true })).toBe(false);
-    expect(shouldShowTwoDimensionalNotice({ ...ready, guideOpen: true })).toBe(false);
     expect(shouldShowTwoDimensionalNotice({ ...ready, changelogOpen: true })).toBe(false);
     expect(shouldShowTwoDimensionalNotice({ ...ready, activityDashboardOpen: true })).toBe(false);
   });

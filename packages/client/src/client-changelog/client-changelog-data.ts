@@ -379,6 +379,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Seasons already in progress keep their current map"
     ]
   },
+  {
+    createdAt: 1791638755721,
+    introducedIn: "2026.10.10.1",
+    title: "No more intro slides",
+    why: "The step-by-step welcome guide popped up on your first login and covered the map before you could look around.",
+    changes: [
+      "The onboarding slides (Welcome, Expand, Manpower, Slots, Build, Research, Towns, Win the Season) are gone, so you go straight to the map",
+      "The New empire checklist and the discovery tips still guide your first moves"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

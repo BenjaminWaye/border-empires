@@ -8,7 +8,7 @@ const clearState = () => {
   state.authSessionReady = true;
   state.profileSetupRequired = false;
   state.changelog.open = false;
-  state.guide.open = false;
+  state.changelog.open = false;
   state.activityDashboard.open = false;
   state.needsSeasonJoin = false;
   state.joinSeasonOverlayOpen = false;
@@ -22,9 +22,9 @@ describe("isOnboardingUiDeferred", () => {
     expect(isOnboardingUiDeferred(clearState())).toBe(false);
   });
 
-  it("is true while the tutorial covers the map", () => {
+  it("is true while a dialog covers the map", () => {
     const state = clearState();
-    state.guide.open = true;
+    state.changelog.open = true;
     expect(isOnboardingUiDeferred(state)).toBe(true);
   });
 
@@ -45,14 +45,14 @@ describe("createOnboardingUiGateTicker", () => {
     const tick = createOnboardingUiGateTicker();
     const onChange = vi.fn();
     const state = clearState();
-    state.guide.open = true;
+    state.changelog.open = true;
 
     tick(state, onChange);
     tick(state, onChange);
     expect(onChange).not.toHaveBeenCalled();
 
-    // Tutorial closes -> the drop arms and plays: still deferred, no change.
-    state.guide.open = false;
+    // Dialog closes -> the drop arms and plays: still deferred, no change.
+    state.changelog.open = false;
     state.afcJoinDrop.phase = "waiting";
     tick(state, onChange);
     state.afcJoinDrop.phase = "playing";
@@ -66,8 +66,8 @@ describe("createOnboardingUiGateTicker", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith(false);
 
-    // Reopening the tutorial hides the corner UI again.
-    state.guide.open = true;
+    // Reopening a dialog hides the corner UI again.
+    state.changelog.open = true;
     tick(state, onChange);
     expect(onChange).toHaveBeenCalledTimes(2);
     expect(onChange).toHaveBeenLastCalledWith(true);

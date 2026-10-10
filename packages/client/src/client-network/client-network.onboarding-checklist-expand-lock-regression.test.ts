@@ -101,7 +101,6 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
     // Signed in with the tutorial closed, so the onboarding UI gate
     // (client-onboarding-ui-gate.ts) isn't holding the checklist back.
     state.authSessionReady = true;
-    state.guide.open = false;
     // A neutral TOWN-tier tile the checklist is currently highlighting as
     // the EXPAND_TOWN target.
     state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } });

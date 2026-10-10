@@ -814,8 +814,7 @@ combat, or checkpoint/export behavior.
 - `packages/client/src/client-activity-dashboard/` and
   `client-activity-dashboard-style.css` — current Yours-only modal and the
   isolated, mobile-safe style home to extend for tabs and World at a glance.
-- `packages/client/src/client-guide-overlay.ts` — functional overlay priority
-  check; pair it with an explicit lower stacking layer than the dashboard.
+- (`client-guide-overlay.ts`, the old intro tutorial, has since been removed.)
 - `docs/agents/state-and-persistence-discipline.md` — mandatory constraints
   for every log, persistence, and snapshot decision in this work.
 - `packages/game-domain/src/personal-activity-timeline-types.ts` — Phase 0

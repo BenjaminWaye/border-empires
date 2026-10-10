@@ -18,7 +18,6 @@ import {
   worldSeed
 } from "@border-empires/shared";
 
-import type { GuideStep } from "./client-types.js";
 
 export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
@@ -33,8 +32,6 @@ export const DEFAULT_ZOOM = 22;
 export const MOBILE_LOGIN_ZOOM = 58;
 export const DOUBLE_TAP_ZOOM_STEP = 32;
 export const GOLD_COST_EPSILON = 1e-6;
-export const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
-export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
 export const RENDERER_PROMPT_STORAGE_KEY = "border-empires-renderer-prompt-v1";
 export const CAMERA_LOCATION_STORAGE_KEY = "border-empires-camera-location-v1";
 export const DISCOVERED_TILES_STORAGE_KEY = "border-empires-discovered-tiles-v1";
@@ -56,41 +53,6 @@ export const AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS = 8_000;
 // that overlay until a disconnect has actually outlasted a normal in-place
 // reconnect — see state.disconnectedSince in client-state.ts.
 export const RECONNECT_OVERLAY_GRACE_MS = 1_200;
-
-export const guideSteps: GuideStep[] = [
-  {
-    title: "Welcome to Border Empires",
-    body: "Expand, defend, and outmaneuver rival empires. Win the season by holding any victory condition continuously for 24 hours."
-  },
-  {
-    title: "Expand Your Territory",
-    body: `Tap a neutral tile next to your border to claim it as frontier (${EXPAND_MANPOWER_COST} manpower). Settle it (${SETTLE_MANPOWER_COST} manpower, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once.`
-  },
-  {
-    title: "Manpower Is Your Real Currency",
-    body: "Manpower — regenerated from your settlements and towns — is what expansion, settling, and building actually cost. Run low and growth stalls, so watch your manpower bar before your coin. Coin is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
-  },
-  {
-    title: "Resource Slots, Not Stockpiles",
-    body: "Food, Titanium, Crystal, and Umbrite aren't stockpiled anymore — each resource tile grants a fixed number of slots, and every structure that needs that resource permanently occupies one. Run out of free slots and the newest structure of that type goes dormant (no bonus, but it stays standing) until you free up or claim more slots of that type."
-  },
-  {
-    title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Batteries near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
-  },
-  {
-    title: "Research & Abilities",
-    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost coin (plus Shard at higher tiers), not Food/Titanium/Crystal/Umbrite. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
-  },
-  {
-    title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
-  },
-  {
-    title: "Win the Season",
-    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead the field by a wide margin once your income clears a minimum bar), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, World Engine, Aegis Dome, Astral Dock) for powerful end-game abilities — only one of each exists per season, so the first empire to finish one claims it for good."
-  }
-];
 
 export { MUSTER_TRANSIT_MS_PER_TILE };
 export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 20;

@@ -2,7 +2,7 @@
    view). Kept out of the shared style.css overlay selector groups (which are
    already over the repo's 500-line cap and may not grow) -- self-contained
    instead, following the same convention as client-bug-report-style.css and
-   friends. Reuses the same visual language as #guide-overlay/#changelog-overlay
+   friends. Reuses the same visual language as #changelog-overlay
    (position/z-index/backdrop/modal shape) without editing their shared rules. */
 
 #hud #activity-dashboard-overlay {

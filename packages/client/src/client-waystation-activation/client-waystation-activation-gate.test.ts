@@ -8,14 +8,13 @@ import {
 } from "./client-waystation-activation-gate.js";
 import type { WaystationActivationInfo } from "./client-waystation-activation.js";
 
-// A returning player (guide completed) logging in: the personal-activity
+// A returning player logging in: the personal-activity
 // request that opens the dashboard / What's New is still in flight.
 const returningPlayerState = (): WaystationPopupGateState =>
   ({
     authSessionReady: true,
     profileSetupRequired: false,
     changelog: { open: false },
-    guide: { open: false, completed: true },
     needsSeasonJoin: false,
     joinSeasonOverlayOpen: false,
     respawnOverlayOpen: false,
@@ -67,14 +66,6 @@ describe("showWaystationActivationOverlayWhenClear", () => {
     state.activityDashboard.loading = false;
     showWaystationActivationOverlayWhenClear(info, state);
     expect(popup()).not.toBeNull();
-  });
-
-  it("holds the popup while the tutorial is open", () => {
-    const state = returningPlayerState();
-    state.activityDashboard.loading = false;
-    state.guide.open = true;
-    showWaystationActivationOverlayWhenClear(info, state);
-    expect(popup()).toBeNull();
   });
 
   it("gives up waiting on a dropped activity request after the grace period", () => {

@@ -35,7 +35,6 @@ const makeState = () => ({
   },
   activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" },
   changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },
-  guide: { completed: true },
   authSessionReady: true,
   profileSetupRequired: false,
   bridgeDebugSeasonId: "season-1",
@@ -76,7 +75,7 @@ describe("requestPersonalActivity", () => {
 describe("the dashboard on the first login of a season", () => {
   const firstLoginState = () => {
     const state = makeState();
-    state.changelog.seenAt = 0; // returning player with release notes they have not read
+    state.changelog.seenAt = 1; // returning player with release notes they have not read
     state.activityDashboard.quietedSeasonId = ""; // server has not recorded this season yet
     return state;
   };
@@ -146,9 +145,8 @@ describe("applyPersonalActivityTimelineMessage", () => {
     expect(state.activityDashboard.autoOpenedThisSession).toBe(true);
   });
 
-  it("never auto-opens for a new player who hasn't finished the tutorial (activity or release notes)", () => {
+  it("never auto-opens for a first-time visitor (activity or release notes)", () => {
     const state = makeState();
-    state.guide.completed = false;
     state.changelog.seenAt = 0;
     const timeline = timelineWith({ cards: [{ kind: "COMBAT", occurredAt: 900 }] });
     const renderHud = vi.fn();

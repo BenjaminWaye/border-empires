@@ -11,7 +11,6 @@ const stateWithWhatsNewOpen = (): ShardAlertState =>
     authSessionReady: true,
     profileSetupRequired: false,
     changelog: { open: false },
-    guide: { open: false, completed: true },
     needsSeasonJoin: false,
     joinSeasonOverlayOpen: false,
     respawnOverlayOpen: false,

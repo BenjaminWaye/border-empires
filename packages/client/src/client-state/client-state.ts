@@ -6,7 +6,6 @@ import { createInitialShardRainState } from "./client-state-shard-rain-defaults.
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -553,7 +552,6 @@ export const createInitialState = () => ({
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
-  ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),
   changelog: {
     open: false,

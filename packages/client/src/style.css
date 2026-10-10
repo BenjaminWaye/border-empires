@@ -804,7 +804,6 @@ body {
 #hud #auth-overlay,
 #hud #tile-action-menu,
 #hud #targeting-overlay,
-#hud #guide-overlay,
 #hud #respawn-overlay,
 #hud #intel-overlay, #hud #player-profile-overlay,
 #hud #season-end-overlay, #hud #join-season-overlay,
@@ -1493,7 +1492,6 @@ body {
   z-index: 27;
 }
 
-#guide-overlay,
 #respawn-overlay,
 #intel-overlay, #player-profile-overlay,
 #season-end-overlay, #join-season-overlay {
@@ -2232,7 +2230,6 @@ body {
 }
 
 @media (min-width: 901px) {
-  #guide-overlay,
   #respawn-overlay {
     padding: 32px;
   }
@@ -5591,7 +5588,6 @@ button:disabled,
     width: auto;
   }
 
-  #guide-overlay,
   #respawn-overlay,
   #intel-overlay, #player-profile-overlay {
     align-items: end;
