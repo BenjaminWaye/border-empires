@@ -80,30 +80,7 @@ export const initTerrainTextures = (): void => {
   terrainTextures.set("JUNGLE", makeTerrainTexture([46, 100, 45], { grain: 12, grass: true, mottle: true }));
   terrainTextures.set("MARSH", makeTerrainTexture([90, 108, 72], { grain: 8, mottle: true, waveA: 0.2, waveB: 0.16 }));
   terrainTextures.set("SNOW", makeTerrainTexture([235, 240, 245], { grain: 6, waveA: 0.08, waveB: 0.06 }));
-  const mountain = makeTerrainTexture([126, 126, 129], { grain: 9, crack: 8, rock: true });
-  const mctx = mountain.getContext("2d");
-  if (mctx) {
-    mctx.fillStyle = "rgba(78, 79, 82, 0.82)";
-    mctx.beginPath();
-    mctx.moveTo(8, 50);
-    mctx.lineTo(28, 20);
-    mctx.lineTo(46, 50);
-    mctx.closePath();
-    mctx.fill();
-    mctx.fillStyle = "rgba(97, 99, 103, 0.85)";
-    mctx.beginPath();
-    mctx.moveTo(20, 50);
-    mctx.lineTo(41, 26);
-    mctx.lineTo(56, 50);
-    mctx.closePath();
-    mctx.fill();
-    mctx.fillStyle = "rgba(225, 228, 232, 0.75)";
-    mctx.beginPath();
-    mctx.moveTo(27, 23);
-    mctx.lineTo(32, 31);
-    mctx.lineTo(37, 23);
-    mctx.closePath();
-    mctx.fill();
-  }
-  terrainTextures.set("MOUNTAIN", mountain);
+  // Plain rock ground only: the peaks are drawn per tile on top
+  // (client-map-render-mountain-peaks.ts) so every mountain can differ.
+  terrainTextures.set("MOUNTAIN", makeTerrainTexture([126, 126, 129], { grain: 9, crack: 8, rock: true }));
 };

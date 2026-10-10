@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createForest, tileHash } from "@client/client-map-3d-forest.js";
-import { createMountainMassifs } from "@client/client-map-3d-mountain-massif.js";
+import { createMountainMassifs, type MountainMassifDeps } from "@client/client-map-3d-mountain-massif.js";
 import { createTropicalForest } from "@client/client-map-3d-tropical-forest.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
+
+const LONE_MOUNTAINS: MountainMassifDeps = { isMountainAt: () => false, isColdAt: () => false, wrapX: (x) => x, wrapY: (y) => y };
 
 // Scale check: every tree type the 3D map draws, standing in front of a
 // mountain range, so tree height reads directly against mountain height.
@@ -60,8 +62,8 @@ const render = (args: Args): HTMLElement => {
   const ground = createGrassGround(6);
   stage.scene.add(ground.group);
 
-  const massifs = createMountainMassifs(stage.scene, MOUNTAIN_XS.length);
-  for (const x of MOUNTAIN_XS) massifs.addInstance(x, MOUNTAIN_ROW_Z, 0);
+  const massifs = createMountainMassifs(stage.scene, MOUNTAIN_XS.length, LONE_MOUNTAINS);
+  for (const x of MOUNTAIN_XS) massifs.addInstance(x, MOUNTAIN_ROW_Z, 0, x, MOUNTAIN_ROW_Z);
   massifs.commit();
 
   const forest = createForest(stage.scene, 64);

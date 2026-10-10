@@ -14,5 +14,17 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
       "Trees no longer stand in the pool",
       "Shown on both the 3D map and the 2D map"
     ]
+  },
+  {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "More varied mountains",
+    why: "Every mountain was the same identical peak, so ranges read as a row of copies.",
+    changes: [
+      "Mountains now differ in height, width, angle and rock colour, and some have a second, smaller peak",
+      "Neighbouring mountains join into ridges, and the middle of a range stands taller",
+      "Snow caps only tall peaks and mountains in cold country",
+      "Both the 3D map and the 2D map show the same variety"
+    ]
   }
 ];
