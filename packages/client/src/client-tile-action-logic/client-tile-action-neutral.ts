@@ -11,7 +11,7 @@ import {
   structureBuildManpowerCost
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
-import { economicStructureBuildMs } from "../client-map-display.js";
+import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
@@ -186,7 +186,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("FOUNDRY")
               ? `Need ${deps.structureGoldCost("FOUNDRY")} coin`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${buildTimeLabel(economicStructureBuildMs("FOUNDRY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
+      `${deps.structureCostText("FOUNDRY")} • ${buildTimeLabel(economicBuildMsForState(state, "FOUNDRY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
       deps.developmentSlotSummary(),
       deps
     )

@@ -7,6 +7,8 @@ import {
   nextSiegeTierForUpgrade,
   relayBeaconBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
+  structureBuildSpeedEffectKey,
+  buildDurationWithSpeedMult,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -405,13 +407,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   const structureDurationMs = structureType === "RELAY_BEACON"
     ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
     : structureBuildDurationMsForManpowerCost(manpowerCost);
-  const buildMs = spec.kind === "FORT"
-    ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
-    : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"
-      ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
-      : spec.kind === "ECONOMIC"
-        ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
-        : structureDurationMs;
+  // Shared with the client's build menus (structureBuildSpeedEffectKey) so
+  // the time a menu shows is the time this stamps.
+  const speedEffectKey = structureBuildSpeedEffectKey(structureType);
+  const buildMs = speedEffectKey
+    ? buildDurationWithSpeedMult(structureDurationMs, multiplicativeEffectForPlayer(actor, speedEffectKey))
+    : structureDurationMs;
   const startedAt = context.now();
   const completesAt = startedAt + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
