@@ -145,7 +145,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   scene.add(heightfield.skirtMesh);
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
-  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
   const villageEffects = createVillageEffects(scene);
@@ -1026,7 +1026,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "MOUNTAIN") {
-          mountainMassifs.addInstance(x, z, surfaceY);
+          mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
