@@ -390,7 +390,7 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!target || target.terrain !== "LAND" || target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
-    rejectCommand(context, command, "STRUCTURE_REMOVE_INVALID", "structure requires settled owned tile");
+    rejectCommand(context, command, "STRUCTURE_REMOVE_INVALID", "structure requires a garrisoned owned tile");
     return;
   }
   const fort = target.fort?.ownerId === command.playerId ? target.fort : undefined;

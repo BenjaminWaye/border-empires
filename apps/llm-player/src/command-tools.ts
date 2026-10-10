@@ -53,7 +53,7 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "settle",
-    description: "Found a settlement on a tile you own that isn't settled yet, to develop it.",
+    description: "Garrison a frontier tile you own (station troops) so it can be defended, built on and start producing. Nothing is built.",
     input_schema: {
       type: "object",
       properties: {

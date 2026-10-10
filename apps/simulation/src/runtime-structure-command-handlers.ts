@@ -272,7 +272,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {
-    rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
+    rejectCommand(context, command, "BUILD_INVALID", "tile must be garrisoned");
     return;
   }
   // Development on a tile is frozen while an attack on it is unresolved (attack-development-hold.ts).

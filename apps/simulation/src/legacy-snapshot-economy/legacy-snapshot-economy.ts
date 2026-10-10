@@ -566,8 +566,8 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     }
 
     goldIncome = townIncome + dockIncome;
-    if (townIncome > 0) addBucket(sourceBuckets.GOLD, "Towns", townIncome, { count: ownedTowns.length, note: `${ownedTowns.length} settled towns` });
-    if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} settled docks` });
+    if (townIncome > 0) addBucket(sourceBuckets.GOLD, "Towns", townIncome, { count: ownedTowns.length, note: `${ownedTowns.length} garrisoned towns` });
+    if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} garrisoned docks` });
 
     // §6 (docs/manpower-economy-rewrite-plan.md): gold's only remaining
     // jobs post-rewrite are tech/rush-buys/synthesizer upkeep — a flat

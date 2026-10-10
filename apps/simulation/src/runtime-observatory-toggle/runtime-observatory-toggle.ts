@@ -53,7 +53,7 @@ export function handleSetObservatoryEnabledCommand(
     context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "the Watchtower Engine's tower cannot be switched off"); return;
   }
   if (payload.enabled && target.ownershipState !== "SETTLED") {
-    context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "Aether Tower requires settled owned tile"); return;
+    context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "Aether Tower requires a garrisoned owned tile"); return;
   }
   if ((observatory.status === "active") === payload.enabled) {
     // Already in the requested state — resolve without emitting a tile delta.

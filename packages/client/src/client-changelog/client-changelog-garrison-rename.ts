@@ -9,7 +9,7 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
     changes: [
       "The Settle Land and Settle Connected buttons are now Garrison and Garrison Connected, and auto-settle is now auto-garrison",
       "Settled land is now called garrisoned land everywhere: tile menus, building placement hints, alerts, the leaderboard and player profiles",
-      "Garrisoning works exactly as settling did: same manpower and coin cost, same timer, and the tile becomes defendable, buildable and counts toward victory"
+      "Garrisoning works exactly as settling did: same manpower cost, same timer, and the tile becomes defendable, buildable and counts toward victory"
     ]
   }
 ];
