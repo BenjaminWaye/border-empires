@@ -33,7 +33,7 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
     title: "Rivers fall from the mountains",
     why: "A river that starts next to a mountain now looks like it comes from it.",
     changes: [
-      "Where a river starts beside a mountain, the mountain turns a cleft toward it and a waterfall runs down into the river's spring pool",
+      "Where a river starts beside a mountain, a gully runs down the mountain and a waterfall falls down it into the river's spring pool",
       "The waterfall foams on the steep part and flows, with a few boulders round the pool",
       "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
     ]

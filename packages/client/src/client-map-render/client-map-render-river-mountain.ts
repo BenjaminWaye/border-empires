@@ -1,5 +1,5 @@
 // 2D half of the river mountain (docs/river-mountains-plan.md, PR C; the 3D
-// massif cleft + cascade live in client-map-3d-mountain-massif.ts and
+// massif's gully + cascade live in client-map-3d-mountain-massif.ts and
 // client-map-3d-river-cascade.ts): a dark notch in the peak on the river's
 // side and a falling stream from it to the mountain's corner nearest the
 // river head. The land tiles on the cascade's edge draw the rest of it as a

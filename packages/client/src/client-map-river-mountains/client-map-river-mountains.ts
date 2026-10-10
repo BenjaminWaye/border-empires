@@ -1,7 +1,7 @@
 // River mountains (docs/river-mountains-plan.md, PR C): a mountain one tile
 // ring out from a river's head is drawn with the river falling out of it --
-// a cleft in the face that turns toward the river, and a cascade from the
-// cleft down to the spring pool. Shared by both renderers so they agree on
+// a gully cut down the side that turns toward the river, and a cascade down
+// the gully to the spring pool. Shared by both renderers so they agree on
 // which mountains carry a cascade and which way it runs.
 //
 // Purely visual: the tile stays MOUNTAIN for gameplay. The river paths say

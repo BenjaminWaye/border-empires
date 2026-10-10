@@ -19,7 +19,7 @@ describe("river mountain cascade", () => {
     const samples = cascadeCenterline(face, 0, 0, flatDeps());
     const first = samples[0]!;
     const last = samples[samples.length - 1]!;
-    // Starts up on the peak face, well above the ground.
+    // Starts up in the gully, well above the ground.
     expect(first.y).toBeGreaterThan(GROUND + 0.4);
     // Ends at the head corner, on the pool's water.
     expect(last.x).toBeCloseTo(10);
@@ -35,21 +35,22 @@ describe("river mountain cascade", () => {
     expect(cascadeSideTiles(face)).toEqual([[9, 9], [10, 9]]);
   });
 
-  it("starts where the massif's cleft is: the peak turns a face toward the river", () => {
+  it("draws the river mountain with its gully turned toward the river, and no second peak", () => {
     const scene = new Scene();
     const massifs = createMountainMassifs(scene, 2, { ...LONE_MOUNTAIN_LOOKUP, riverFaceAt: () => ({ dirX: face.dirX, dirY: face.dirY }) });
     massifs.addInstance(10.5, 8.5, GROUND, 10, 8);
     massifs.commit();
-    expect(massifs.cleftMesh.count).toBe(1);
-    expect(massifs.peakMesh.count).toBe(1); // no secondary peak on a river mountain
+    expect(massifs.riverMountainCount()).toBe(1);
+    expect(massifs.instanceCount()).toBe(1);
+    const riverMesh = massifs.meshes.find((m) => m.count > 0)!;
     const m = new Matrix4();
-    massifs.peakMesh.getMatrixAt(0, m);
+    riverMesh.getMatrixAt(0, m);
     const q = new Quaternion();
     m.decompose(new Vector3(), q, new Vector3());
-    // The cone's face normal (local, between its +x and +z corners) ends up along the river direction.
-    const normal = new Vector3(Math.SQRT1_2, 0, Math.SQRT1_2).applyQuaternion(q);
-    expect(normal.x).toBeCloseTo(face.dirX);
-    expect(normal.z).toBeCloseTo(face.dirY);
+    // The gully runs down the shape's local +z.
+    const gully = new Vector3(0, 0, 1).applyQuaternion(q);
+    expect(gully.x).toBeCloseTo(face.dirX);
+    expect(gully.z).toBeCloseTo(face.dirY);
     massifs.dispose();
   });
 

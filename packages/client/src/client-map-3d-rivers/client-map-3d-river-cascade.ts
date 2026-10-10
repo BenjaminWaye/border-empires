@@ -1,6 +1,6 @@
 // River mountain cascades (docs/river-mountains-plan.md, PR C): water falls
-// from the cleft in a river mountain's face (client-map-3d-mountain-massif.ts),
-// down the peak and rock base, then runs along the one tile edge from the
+// down the gully of a river mountain (client-map-3d-mountain-massif.ts,
+// RIVER_MOUNTAIN_SHAPE), then runs along the one tile edge from the
 // mountain's corner to the river's spring pool (client-map-3d-rivers-channel.ts
 // SPRING_HALF_WIDTH). Foam on the steep part, river water lower down, with
 // streaks scrolling downstream; a splash ring where it lands and a few
@@ -21,7 +21,8 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
-import { CLEFT_FROM, riverFacePeakRho, riverFaceProfileY } from "../client-map-3d-mountain-massif.js";
+import { RIVER_MOUNTAIN_SHAPE } from "../client-map-3d-mountain-massif.js";
+import { MOUNTAIN_RADIUS, mountainShapeHeight } from "../client-map-3d-mountain-shape.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { mountainNeighbourhoodAt, mountainVariationAt, type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
 import { riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
@@ -32,9 +33,9 @@ import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-wat
 // (OVERLAY_RISE_ABOVE_HEIGHTFIELD), so the cascade starts on the same rock.
 const MASSIF_RISE = 0.012;
 const SURFACE_LIFT = 0.014;
-// Where on the peak face (fraction of its height) the water leaves the
-// cleft: just inside its lower end.
-const SOURCE_FRACTION = CLEFT_FROM + 0.03;
+// Where the water starts down the gully, as a fraction of the mountain's
+// radius from its summit (the gully is cut from ~0.12 of the radius out).
+const SOURCE_RHO = 0.22;
 const FACE_STEP = 0.035;
 const EDGE_STEPS = 12;
 const TOP_HALF_WIDTH = 0.03;
@@ -94,7 +95,7 @@ const wrapH = (y: number): number => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD
 
 /**
  * The cascade's centreline for one river mountain, in scene coords relative
- * to (camX, camY): down the face from the cleft, then along the edge from
+ * to (camX, camY): down the mountain's gully, then along the edge from
  * the mountain's exit corner into the pool at the head, ending at the pool's
  * water level.
  */
@@ -127,14 +128,18 @@ export const cascadeCenterline = (
   const poolY = groundAt(headX, headZ) - RIVER_WATER_DEPTH;
   // Ground (carved into the pool's bowl near the head) or the massif's rock, whichever is higher.
   const surfaceAt = (x: number, z: number): number => {
-    const rock = massifY + riverFaceProfileY(Math.hypot(x - centreX, z - centreZ), variation.heightScale, variation.footprintScale);
+    // The river mountain is turned so its gully (local +z) points along (dirX, dirY).
+    const dx = x - centreX;
+    const dz = z - centreZ;
+    const fs = variation.footprintScale;
+    const rock = massifY + variation.heightScale * mountainShapeHeight(RIVER_MOUNTAIN_SHAPE, (dx * face.dirY - dz * face.dirX) / fs, (dx * face.dirX + dz * face.dirY) / fs);
     const toHead = Math.hypot(x - headX, z - headZ);
     const ground = Math.max(groundAt(x, z) - riverTrenchDepth(toHead, SPRING_HALF_WIDTH), poolY);
     return Math.max(rock, ground) + SURFACE_LIFT;
   };
 
   const points: { x: number; z: number; y: number }[] = [];
-  const startRho = riverFacePeakRho(SOURCE_FRACTION, variation.footprintScale);
+  const startRho = SOURCE_RHO * MOUNTAIN_RADIUS * variation.footprintScale;
   const exitRho = Math.hypot(exitX - centreX, exitZ - centreZ);
   for (let rho = startRho; rho < exitRho; rho += FACE_STEP) {
     const x = centreX + face.dirX * rho;
