@@ -1,18 +1,16 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  ECONOMIC_STRUCTURE_BUILD_MS,
-  FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  fortRemovalDurationMs,
   musterMarchDistanceTiles,
   musterMarchTooFarAdvice,
-  OBSERVATORY_BUILD_MS,
-  RELAY_BEACON_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
+  siegeOutpostRemovalDurationMs,
   STRUCTURE_REGISTRY,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
+  structureRemovalDurationMs,
   type BuildableStructureType,
   type FortVariant,
   type SiegeOutpostVariant
@@ -420,24 +418,22 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   const now = context.now();
   let removeDurationMs: number;
   let updatedTile: DomainTileState;
+  // Removal takes 0.5s per manpower point of what's actually being torn down
+  // (structureRemovalDurationMs*, shared/structure-costs) -- the fort/siege's
+  // own tier, the full non-discounted Relay Beacon price -- so it is never
+  // instant and the client's optimistic removal predicts the same window.
   if (fort) {
-    // docs/replenishment-update-plan.md D9 only covers BUILD time -- removal
-    // keeps the pre-replenishment flat per-type duration rather than
-    // structureBuildDurationMs's new manpower-cost-derived one, which is
-    // meaningless here (it depends on the exact tier/count a fresh BUILD
-    // would pay, not on what's actually being torn down, and can be 0 for a
-    // free Relay Beacon -- an instant removal was never the intent).
-    removeDurationMs = FORT_BUILD_MS;
+    removeDurationMs = fortRemovalDurationMs(fort.variant);
     updatedTile = { ...target, fort: { ...fort, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else if (observatory) {
-    removeDurationMs = OBSERVATORY_BUILD_MS;
+    removeDurationMs = structureRemovalDurationMs("OBSERVATORY");
     updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else if (siegeOutpost) {
-    removeDurationMs = SIEGE_OUTPOST_BUILD_MS;
+    removeDurationMs = siegeOutpostRemovalDurationMs(siegeOutpost.variant);
     updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
-    removeDurationMs = structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
+    removeDurationMs = structureRemovalDurationMs(structure.type);
     updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", startedAt: now, completesAt: now + removeDurationMs } };
   }
   context.replaceTileState(targetKey, updatedTile);

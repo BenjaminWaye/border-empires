@@ -18,6 +18,7 @@ import { SETTLE_COST, SETTLE_MANPOWER_COST, structureBuildDurationMs, structureB
 
 import { createInitialState } from "../client-state/client-state.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
+import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { splitTileActionsIntoTabs } from "../client-tile-action-support/client-tile-action-support.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
@@ -88,7 +89,7 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   const totalGold = SETTLE_COST + 500;
   const totalManpower = SETTLE_MANPOWER_COST + structureBuildManpowerCost(type);
   const totalMs = settleDurationMsForState(state, tile) + structureBuildDurationMs(type);
-  return `${totalGold} coin, ${totalManpower} m.p. • garrison + build • ${Math.round(totalMs / 60000)}m total`;
+  return `${totalGold} coin, ${totalManpower} m.p. • garrison + build • ${buildTimeLabel(totalMs)} total`;
 };
 
 describe("settle + build — resource-gated building (FARMSTEAD)", () => {
@@ -171,8 +172,8 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     // A player's first beacons cost the discounted 50 MP and place instantly (D12), so
     // the chain total is settle + 50 MP and the settle time alone -- matching what the
     // server charges, not the flat 100 MP / stale 1m build time this used to show.
-    const settleMinutes = Math.round(settleDurationMsForState(state, frontier) / 60000);
-    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • garrison + build • ${settleMinutes}m total`);
+    const settleLabel = buildTimeLabel(settleDurationMsForState(state, frontier));
+    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • garrison + build • ${settleLabel} total`);
   });
 
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {

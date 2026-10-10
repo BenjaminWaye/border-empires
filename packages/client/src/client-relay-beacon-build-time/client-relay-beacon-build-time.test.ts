@@ -25,8 +25,8 @@ describe("relay beacon build time in the build menu", () => {
     expect(relayBeaconBuildTimeLabel(stateWithBeacons(4))).toBe("instant");
   });
 
-  it("shows 2m (100 MP = 100s) from the sixth beacon on, not the stale 1m constant", () => {
-    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("2m");
+  it("shows 1m 40s (100 MP = 100s) from the sixth beacon on, not the stale 1m constant", () => {
+    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("1m 40s");
   });
 
   it("prices the settle-then-build chain with the owned-count-aware beacon cost", () => {

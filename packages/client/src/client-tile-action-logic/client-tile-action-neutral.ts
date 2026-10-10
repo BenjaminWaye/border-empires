@@ -14,7 +14,7 @@ import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constant
 import { economicStructureBuildMs } from "../client-map-display.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
+import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -161,7 +161,7 @@ export const neutralTileActions = (
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} coin`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + garrison + build • ${Math.round(totalExploreMs / 60000)}m total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + garrison + build • ${buildTimeLabel(totalExploreMs)} total`
       )
     });
   }
@@ -186,7 +186,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("FOUNDRY")
               ? `Need ${deps.structureGoldCost("FOUNDRY")} coin`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
+      `${deps.structureCostText("FOUNDRY")} • ${buildTimeLabel(economicStructureBuildMs("FOUNDRY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
       deps.developmentSlotSummary(),
       deps
     )

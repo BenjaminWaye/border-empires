@@ -92,8 +92,8 @@ describe("constructionSiteForTile with types this client does not know", () => {
 
   it("still produces a usable window when the record also lacks startedAt", () => {
     const economic = unknown({ economicStructure: { ownerId: "me", type: "SOMETHING_NEW", status: "under_construction", completesAt: 10 * HOUR } });
-    const site = constructionSiteForTile(economic, 9.75 * HOUR)!;
-    expect(site.fraction).toBeCloseTo(0.75, 5); // the 1h fallback window ending at completesAt
+    const site = constructionSiteForTile(economic, 10 * HOUR - 75_000)!;
+    expect(site.fraction).toBeCloseTo(0.75, 5); // the 5-minute fallback window ending at completesAt
     expect(site.fraction).toBeLessThanOrEqual(1);
   });
 });

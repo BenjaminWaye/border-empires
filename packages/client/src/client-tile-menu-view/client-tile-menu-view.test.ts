@@ -960,7 +960,7 @@ describe("menuOverviewForTile", () => {
     expect(progress?.remainingLabel).toBe("0:45");
     expect(progress?.cancelLabel).toBe("Cancel removal");
     expect(progress?.note).toContain("Income, upkeep, and structure effects are paused");
-    expect(progress?.progress).toBeCloseTo(0.25, 2);
+    expect(progress?.progress).toBeCloseTo(0.1, 2); // no startedAt: beacon removal window, 0.5s x 100 MP = 50s
   });
 
   it("shows fort removal progress with disabled-defense copy", () => {

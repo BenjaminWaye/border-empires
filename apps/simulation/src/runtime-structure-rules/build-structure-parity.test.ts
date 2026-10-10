@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { DEFAULT_AUTO_SETTLE_PREFS, FORT_BUILD_MS, structureBuildDurationMs } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, fortRemovalDurationMs, structureBuildDurationMs } from "@border-empires/shared";
 import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 /**
@@ -441,9 +441,13 @@ describe("BUILD_STRUCTURE parity — resource slots free on removal", () => {
         payloadJson: JSON.stringify({ x: 10, y: 10 }),
       });
       await Promise.resolve();
-      // Removal runs on the flat FORT_BUILD_MS timer, not the manpower-scaled
-      // build duration (which is shorter since build time became 1s per MP).
-      vi.advanceTimersByTime(FORT_BUILD_MS);
+      // Removal takes 0.5s per manpower point of the Fort being torn down.
+      const removingFort = JSON.parse(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson ?? "{}");
+      expect(removingFort.completesAt - removingFort.startedAt).toBe(fortRemovalDurationMs("FORT"));
+      vi.advanceTimersByTime(fortRemovalDurationMs("FORT") - 1);
+      await Promise.resolve();
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toContain('"status":"removing"');
+      vi.advanceTimersByTime(1);
       await Promise.resolve();
       expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.fortJson).toBeUndefined();
 

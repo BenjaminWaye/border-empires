@@ -1,8 +1,8 @@
 import {
   OBSERVATORY_UPKEEP_PER_MIN, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  economicStructureBuildDurationMs, structureBuildDurationMs,
-  type SlotStructureType
+  economicStructureBuildDurationMs, type SlotStructureType
 } from "@border-empires/shared";
+import { structureInfoBuildMs } from "./client-structure-time-labels/client-structure-time-labels.js";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import {
@@ -208,7 +208,7 @@ export const structureInfoForKey = (
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined }
 ): StructureInfoView => {
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
-    deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key), deps.ownedCountOfType ?? 0));
+    deps.formatCooldownShort(structureInfoBuildMs(key, deps.ownedCountOfType ?? 0));
   // Single shared source of truth for "what does this cost to keep running"
   // (client-structure-upkeep-text.ts) -- also used by the build-menu action
   // list and the dormant-structure warning line, so all three can never

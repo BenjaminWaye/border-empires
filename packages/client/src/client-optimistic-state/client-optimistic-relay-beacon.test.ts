@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { structureRemovalDurationMs } from "@border-empires/shared";
 import { createClientOptimisticStateController } from "./client-optimistic-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -56,5 +57,27 @@ describe("optimistic Relay Beacon build time", () => {
   it("shows the full 100 MP build time for the 6th beacon", () => {
     const { completesAt, now } = completesAtFor(5);
     expect(completesAt - now).toBeGreaterThanOrEqual(100_000);
+  });
+});
+
+describe("optimistic structure removal window", () => {
+  it("predicts the server's 0.5s-per-manpower removal window, starting now", () => {
+    const tiles = new Map<string, Tile>([["12,18", baseTile({
+      ownerId: "me", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" }
+    })]]);
+    const state = {
+      me: "me", selected: undefined, techIds: [], tiles, tilesRevision: 0,
+      tilesRevisionChangedKeys: new Set<string>(), tilesRevisionOverflowed: false, discoveredTiles: new Set<string>(),
+      settleProgressByTile: new Map<string, unknown>(), optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+    const { applyOptimisticStructureRemoval } = createClientOptimisticStateController({
+      state, keyFor: (x, y) => `${x},${y}`, terrainAt: () => "LAND", tileVisibilityStateAt: () => "visible", optimisticEnabled: true
+    });
+    applyOptimisticStructureRemoval(12, 18);
+    const removing = state.tiles.get("12,18").economicStructure;
+    expect(removing.status).toBe("removing");
+    expect(removing.completesAt - removing.startedAt).toBe(structureRemovalDurationMs("MINTWORKS"));
   });
 });
