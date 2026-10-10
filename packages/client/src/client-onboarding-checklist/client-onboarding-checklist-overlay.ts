@@ -34,6 +34,7 @@
 // above the nav, up to ~248px).
 
 import type { Tile } from "../client-types.js";
+import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
 import { hasOnboardingChecklistAutoOpened, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 
@@ -55,16 +56,14 @@ let hasCheckedInitialAutoOpen = false;
 let autoCollapsed = false;
 let lastRemaining: number | null = null;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
+let completionAcknowledged = false;
+let activeIdentity: string | null = null;
 
 // 4 checkbox rows -- "find" (a target is known to exist) split out from
 // "expand to" (actually claimed) for both the town goal and the food goal.
 // See OnboardingChecklistState's doc comment for what each boolean means.
 const remainingSteps = (state: OnboardingChecklistState): number =>
   [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
-
-/** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the 4 real goals instead of a 5th checkbox row. */
-const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
-  state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand your reach" : null;
 
 const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
   `<li class="onb-goal${done ? " onb-goal-done" : ""}${opts.indent ? " onb-goal-indent" : ""}">
@@ -93,14 +92,15 @@ const forceOpenForNewPlayer = (authEmail: string | null | undefined): void => {
 };
 
 /**
- * Collapses the panel the first time any goal step completes, so it doesn't
+ * Collapses after the first secured food/town milestone, not merely finding
+ * a destination, so the route guidance stays visible while learning. It doesn't
  * sit open over the map for the rest of onboarding. Only fires once
  * (autoCollapsed guard) -- after that the player's own clicks on the
  * launcher are the only thing that opens/closes it, so it can't get stuck
  * in either state.
  */
 const autoCollapseAfterFirstProgress = (state: OnboardingChecklistState): void => {
-  const remaining = remainingSteps(state);
+  const remaining = [state.townExpanded, state.foodExpanded].filter((done) => !done).length;
   if (!autoCollapsed && lastRemaining !== null && remaining < lastRemaining) {
     expanded = false;
     autoCollapsed = true;
@@ -153,28 +153,33 @@ const render = (state: OnboardingChecklistState): void => {
   // of this custom property (see the styles block below).
   root.style.setProperty("--onb-bottom", `${bottomOffsetClearingCenterButton()}px`);
   const remaining = remainingSteps(state);
-  const note = relayBeaconNote(state);
+  const note = state.guidance;
   root.innerHTML = `
     <div id="${PANEL_ID}" class="onb-panel" ${expanded ? "" : "hidden"}>
-      <div class="onb-panel-title">New empire checklist</div>
-      <ul class="onb-goal-list">
-        ${goalRow("Find a town", state.townFound)}
-        ${goalRow("Expand To it", state.townExpanded, { indent: true })}
+      <div class="onb-panel-title">${state.step === "DONE" ? "Opening secured" : "New empire checklist"}</div>
+      <ul class="onb-goal-list" ${state.step === "DONE" ? "hidden" : ""}>
         ${goalRow(`Find food tiles (${state.foodSlotsFound}/${state.foodSlotsTarget})`, state.foodFound)}
-        ${goalRow(`Expand To food tiles (${state.foodSlotsClaimed}/${state.foodSlotsTarget})`, state.foodExpanded, {
+        ${goalRow(`Garrison food tiles (${state.foodSlotsClaimed}/${state.foodSlotsTarget})`, state.foodExpanded, {
           indent: true,
           extraLabelClass: "onb-panel-step"
         })}
+        ${goalRow("Find a town", state.townFound)}
+        ${goalRow("Garrison it to grow your empire", state.townExpanded, { indent: true })}
       </ul>
-      ${note ? `<div class="onb-goal-note">${escapeHtml(note)}</div>` : ""}
+      <div class="onb-goal-note" aria-live="polite">${escapeHtml(note)}</div>
     </div>
-    <button id="onb-launcher" type="button" class="onb-launcher" aria-label="New empire checklist" aria-expanded="${expanded}">
+    <button id="onb-launcher" type="button" class="onb-launcher" aria-label="${state.step === "DONE" ? "Continue exploring" : "New empire checklist"}" aria-expanded="${expanded}">
       <span class="onb-launcher-icon">&#9873;</span>
-      <span class="onb-badge">${remaining}</span>
+      <span class="onb-badge">${state.step === "DONE" ? "✓" : remaining}</span>
     </button>`;
   document.body.appendChild(root);
 
   root.querySelector("#onb-launcher")?.addEventListener("click", () => {
+    if (state.step === "DONE") {
+      completionAcknowledged = true;
+      removeOnboardingChecklistOverlay();
+      return;
+    }
     expanded = !expanded;
     render(state);
   });
@@ -200,12 +205,21 @@ export const renderOnboardingChecklistOverlay = (
   authEmail: string | null | undefined,
   deferred = false
 ): Array<{ x: number; y: number }> => {
+  const identity = debugAuthIdentityKeyForEmail(authEmail);
+  if (identity !== activeIdentity) {
+    resetChecklistSession();
+    activeIdentity = identity;
+  }
   const state = onboardingChecklistState(tiles, playerId, authEmail);
 
   if (state.step === "DONE") {
+    const justCompleted = lastCompletedStep !== null && lastCompletedStep !== "DONE";
     if (lastCompletedStep !== "DONE") completeOnboardingChecklist(state, authEmail);
     lastCompletedStep = "DONE";
-    removeOnboardingChecklistOverlay();
+    if (justCompleted && !deferred && typeof document !== "undefined") {
+      expanded = true;
+      render(state);
+    } else if (completionAcknowledged || deferred || typeof document === "undefined" || document.querySelector(".onb-panel-title")?.textContent !== "Opening secured") removeOnboardingChecklistOverlay();
     return state.highlightTiles;
   }
   if (deferred) {
@@ -219,13 +233,19 @@ export const renderOnboardingChecklistOverlay = (
   return state.highlightTiles;
 };
 
-/** Test-only: resets the module-level expanded/auto-collapse state that persists across renders (and, without this, across tests). */
-export const resetOnboardingChecklistOverlayForTests = (): void => {
+/** Session-local UI state must not carry across account changes. */
+const resetChecklistSession = (): void => {
   expanded = false;
   hasCheckedInitialAutoOpen = false;
   autoCollapsed = false;
   lastRemaining = null;
   lastCompletedStep = null;
+  completionAcknowledged = false;
+};
+
+export const resetOnboardingChecklistOverlayForTests = (): void => {
+  resetChecklistSession();
+  activeIdentity = null;
 };
 
 const escapeHtml = (value: string): string =>

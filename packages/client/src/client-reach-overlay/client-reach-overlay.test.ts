@@ -24,6 +24,12 @@ const rect = (x0: number, y0: number, x1: number, y1: number): TileCoord[] => {
 const toReach = (coords: TileCoord[]): Set<string> => new Set(coords.map((c) => keyFor(c.x, c.y)));
 
 describe("computeLocalReachSet", () => {
+  it("projects starting reach from an active settled AFC, without a town payload", () => {
+    const tiles = new Map<string, Tile>([["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", afc: { ownerId: "me", status: "active" } } as Tile]]);
+    expect(computeLocalReachSet(tiles, "me").has("13,10")).toBe(true);
+    tiles.get("10,10")!.afc!.status = "inactive";
+    expect(computeLocalReachSet(tiles, "me").has("13,10")).toBe(false);
+  });
   it("projects a DOCK_REACH_RADIUS bubble around an owned dock tile using only dockId, not the heavy dock detail payload", () => {
     // Mirrors the server's gatherReachAnchors (runtime.ts), which only ever
     // checks that the tile is an owned dock-registry tile -- it has no

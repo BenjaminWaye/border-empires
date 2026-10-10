@@ -26,6 +26,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.1",
+    title: "A clearer, food-first opening",
+    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
+    changes: [
+      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
+      "Your opening checklist now guides you to garrison food before a town, names the destination and distance, and highlights one next tile in both the 2D and 3D maps",
+      "If you need more reach, the checklist explains the Relay Beacon step; your AFC's reach is now included in the local guidance",
+      "Upgraded towns count, enemy towns are not tutorial goals, and securing your opening shows the benefits and a next exploration suggestion"
+    ]
+  },
+  {
     createdAt: 1791527749820, // frozen Date.now() value for this release
     introducedIn: "2026.10.09.1",
     title: "Manpower refills every 4 hours, shown as a gauge",

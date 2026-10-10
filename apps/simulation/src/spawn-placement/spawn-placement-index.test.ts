@@ -13,6 +13,13 @@ const buildLandGrid = (size: number): DomainTileState[] => {
   return tiles;
 };
 
+const addStarterEconomy = (tiles: Map<string, DomainTileState>): void => {
+  for (let y = 10; y < 60; y += 20) for (let x = 10; x < 60; x += 20) {
+    tiles.get(`${x},${y}`)!.town = { type: "MARKET", populationTier: "TOWN" };
+    for (let dx = 1; dx <= 4; dx += 1) tiles.get(`${x + dx},${y}`)!.resource = "FARM";
+  }
+};
+
 describe("SpawnPlacementIndex", () => {
   it("hasNearbySettled matches a Chebyshev distance < radius scan, kept in sync via refreshForTileChange", () => {
     const index = new SpawnPlacementIndex();
@@ -103,6 +110,7 @@ describe("SpawnPlacementIndex", () => {
     for (let y = 0; y < 60; y += 1) {
       for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
     }
+    addStarterEconomy(tiles);
     const index = new SpawnPlacementIndex();
     const sites = index.fairSpawnSites(tiles);
     expect(sites.length).toBeGreaterThan(0);
@@ -129,6 +137,7 @@ describe("SpawnPlacementIndex", () => {
     for (let y = 0; y < 60; y += 1) {
       for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
     }
+    addStarterEconomy(tiles);
     const index = new SpawnPlacementIndex();
     const sites = index.fairSpawnSites(tiles);
     expect(sites.length).toBeGreaterThan(1);
@@ -162,6 +171,7 @@ describe("SpawnPlacementIndex", () => {
     for (let y = 0; y < 60; y += 1) {
       for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
     }
+    addStarterEconomy(tiles);
     const index = new SpawnPlacementIndex();
     const sites = index.fairSpawnSites(tiles);
     expect(sites.length).toBeGreaterThan(0);
@@ -170,5 +180,14 @@ describe("SpawnPlacementIndex", () => {
     const isAvailable = (): boolean => false;
     expect(index.claimFairSpawnSite(tiles, isAvailable)).toBeUndefined();
     expect(takenKeys.size).toBe(sites.length);
+  });
+
+  it("rechecks cached sites after their food is captured", () => {
+    const tiles = new Map(buildLandGrid(60).map((tile) => [simulationTileKey(tile.x, tile.y), tile]));
+    addStarterEconomy(tiles);
+    const index = new SpawnPlacementIndex();
+    expect(index.fairSpawnSites(tiles).length).toBeGreaterThan(0);
+    for (const tile of tiles.values()) if (tile.resource === "FARM") tile.ownerId = "rival";
+    expect(index.claimFairSpawnSite(tiles, () => true)).toBeUndefined();
   });
 });

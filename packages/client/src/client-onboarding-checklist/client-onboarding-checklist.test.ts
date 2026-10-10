@@ -1,280 +1,114 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { tileKey } from "@border-empires/shared";
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
-import {
-  ONBOARDING_FOOD_SLOTS_TARGET,
-  completeOnboardingChecklist,
-  foodSlotsClaimedByPlayer,
-  onboardingChecklistState
-} from "./client-onboarding-checklist.js";
-
-const stubWindowStorage = (): Map<string, string> => {
-  const storage = new Map<string, string>();
-  vi.stubGlobal("window", {
-    localStorage: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-      removeItem: (key: string) => storage.delete(key)
-    }
-  });
-  return storage;
-};
+import { completeOnboardingChecklist, foodSlotsClaimedByPlayer, onboardingChecklistState } from "./client-onboarding-checklist.js";
 
 const ME = "player-1";
-
-type TestTile = Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town" | "terrain" | "ownershipState">;
-
-// exactOptionalPropertyTypes forbids `field: undefined` on optional Tile
-// properties, so tests build tiles piece by piece instead of a literal
-// with explicit undefineds. Defaults to LAND terrain so every tile
-// participates in the reach-disk BFS (computeLocalReachSet) the same way a
-// real loaded tile would.
-const tile = (x: number, y: number, extra: Partial<TestTile> = {}): TestTile => ({ x, y, terrain: "LAND", ...extra });
-
-// An owned town anchor needs ownershipState: "SETTLED" to count as a live
-// reach anchor (computeLocalReachSet's isSettled gate) -- a bare
-// `{ ownerId, town }` tile (as a real FRONTIER-not-yet-settled tile would
-// look) contributes no reach at all.
-const ownTown = (x: number, y: number, populationTier: NonNullable<Tile["town"]>["populationTier"] = "TOWN"): TestTile =>
-  tile(x, y, { ownerId: ME, ownershipState: "SETTLED", town: { type: "FARMING", populationTier } as never });
-
-const tilesMap = (tiles: TestTile[]): ReadonlyMap<string, Tile> => {
-  const map = new Map<string, Tile>();
-  for (const t of tiles) map.set(tileKey(t.x, t.y), t as Tile);
-  return map;
+const world = (): Map<string, Tile> => {
+  const tiles = new Map<string, Tile>();
+  for (let y = 0; y <= 12; y += 1) for (let x = 0; x <= 12; x += 1) tiles.set(`${x},${y}`, { x, y, terrain: "LAND" } as Tile);
+  Object.assign(tiles.get("5,5")!, { ownerId: ME, ownershipState: "SETTLED", afc: { ownerId: ME, status: "active" } });
+  tiles.get("7,5")!.resource = "FISH";
+  tiles.get("8,5")!.resource = "FISH";
+  Object.assign(tiles.get("10,5")!, { townType: "MARKET", townName: "Emberwatch", townPopulationTier: "TOWN" });
+  return tiles;
 };
+const settleFood = (tiles: Map<string, Tile>): void => {
+  for (const key of ["7,5", "8,5"]) Object.assign(tiles.get(key)!, { ownerId: ME, ownershipState: "SETTLED" });
+};
+beforeEach(() => window.localStorage.clear());
 
-describe("foodSlotsClaimedByPlayer", () => {
-  it("weights owned FARM as 1 slot and FISH as 2 slots (structure-slots.ts's RESOURCE_SLOT_SPEC), ignoring other resources and other owners", () => {
-    const tiles = [
-      { resource: "FARM", ownerId: ME }, // 1 slot
-      { resource: "FISH", ownerId: ME }, // 2 slots
-      { resource: "TITANIUM", ownerId: ME },
-      { resource: "FARM", ownerId: "player-2" },
-      { resource: "FARM" }
-    ];
-    expect(foodSlotsClaimedByPlayer(tiles, ME)).toBe(3);
-  });
-});
-
-describe("onboardingChecklistState", () => {
-  beforeEach(() => {
-    stubWindowStorage();
-  });
-
-  it("falls back to EXPAND_RELAY_BEACON with no highlights when the player owns nothing at all yet (no reach anchor)", () => {
-    const tiles = tilesMap([tile(1, 1, { resource: "FARM" })]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_RELAY_BEACON");
+describe("opening expedition", () => {
+  it("uses the AFC's reach and directs the player to one food route before the town", () => {
+    const state = onboardingChecklistState(world(), ME);
+    expect(state.step).toBe("EXPAND_FOOD");
+    expect(state.highlightTiles).toEqual([{ x: 6, y: 5 }]);
+    expect(state.guidance).toContain("fishing grounds (7, 5) — 2 land steps away");
+    expect(state.foodFound).toBe(true);
+    expect(state.townFound).toBe(true);
     expect(state.foodSlotsClaimed).toBe(0);
-    expect(state.highlightTiles).toEqual([]);
+  });
+  it("changes to a named town route when four settled food slots are secured", () => {
+    const tiles = world();
+    settleFood(tiles);
+    // Ordinary ownership does not extend reach. A beacon connects the
+    // second objective once food is secured.
+    expect(onboardingChecklistState(tiles, ME).step).toBe("EXPAND_RELAY_BEACON");
+    Object.assign(tiles.get("8,6")!, { ownerId: ME, ownershipState: "SETTLED", economicStructure: { ownerId: ME, type: "RELAY_BEACON", status: "active" } });
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_TOWN");
+    expect(state.foodSlotsClaimed).toBe(4);
+    expect(state.guidance).toContain("Emberwatch (10, 5)");
+    expect(state.highlightTiles).toEqual([{ x: 9, y: 5 }]);
+  });
+  it("does not treat frontier food as usable supply and instructs settling it", () => {
+    const tiles = world();
+    Object.assign(tiles.get("7,5")!, { ownerId: ME, ownershipState: "FRONTIER" });
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.foodSlotsClaimed).toBe(0);
+    expect(state.guidance).toMatch(/^Garrison/);
+    expect(state.highlightTiles).toEqual([{ x: 7, y: 5 }]);
+  });
+  it("does not direct actions through a still-resolving expansion", () => {
+    const tiles = world();
+    Object.assign(tiles.get("6,5")!, { ownerId: ME, ownershipState: "FRONTIER", optimisticPending: "expand" });
+    const pending = onboardingChecklistState(tiles, ME);
+    expect(pending.highlightTiles).toEqual([]);
+    expect(pending.foodFound).toBe(true);
+    expect(pending.guidance).toContain("Wait for it to finish");
+    settleFood(tiles);
+    tiles.get("7,5")!.optimisticPending = "settle";
+    expect(foodSlotsClaimedByPlayer(tiles.values(), ME)).toBe(2);
+  });
+  it.each(["CITY", "GREAT_CITY", "METROPOLIS"] as const)("recognizes a settled %s from its lightweight identity", (tier) => {
+    const tiles = world();
+    settleFood(tiles);
+    Object.assign(tiles.get("10,5")!, { ownerId: ME, ownershipState: "SETTLED", townPopulationTier: tier });
+    expect(onboardingChecklistState(tiles, ME).step).toBe("DONE");
+  });
+  it("does not complete the town goal before settlement finishes", () => {
+    const tiles = world();
+    settleFood(tiles);
+    Object.assign(tiles.get("10,5")!, { ownerId: ME, ownershipState: "FRONTIER", reachOwnerId: ME });
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.townExpanded).toBe(false);
+  });
+  it("never labels an enemy town as an easy expansion objective", () => {
+    const tiles = world();
+    settleFood(tiles);
+    tiles.get("10,5")!.ownerId = "enemy";
+    const state = onboardingChecklistState(tiles, ME);
     expect(state.townFound).toBe(false);
-    expect(state.townExpanded).toBe(false);
-  });
-
-  it("stays on EXPAND_TOWN, highlighting a reachable neutral town, until the player owns a TOWN-tier town", () => {
-    const tiles = tilesMap([
-      // Player's own starting SETTLEMENT (settled, so it's a live reach
-      // anchor) plus a neutral town just inside its radius-3 reach.
-      ownTown(0, 0, "SETTLEMENT"),
-      tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_TOWN");
-    expect(state.foodSlotsClaimed).toBe(0);
-    expect(state.highlightTiles).toEqual([{ x: 2, y: 0 }]);
-    // "Find a town" is done (a candidate is known) even though "Expand To
-    // it" isn't yet -- the two are tracked separately.
-    expect(state.townFound).toBe(true);
-    expect(state.townExpanded).toBe(false);
-  });
-
-  it("reports the real foodSlotsClaimed total even while still on EXPAND_TOWN, not a hardcoded 0", () => {
-    // A player can end up owning food tiles (e.g. captured via ATTACK)
-    // before finishing the town goal -- foodSlotsClaimed must reflect that,
-    // not silently read 0 while foodExpanded/foodFound reflect the real
-    // total (which would make the panel show a checked food-expanded box
-    // next to "0/4 food slots" text).
-    const tiles = tilesMap([
-      ownTown(0, 0, "SETTLEMENT"),
-      tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }),
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
-      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_TOWN");
-    expect(state.foodSlotsClaimed).toBe(4);
-    expect(state.foodExpanded).toBe(true);
-  });
-
-  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach, without highlighting the player's own SETTLEMENT-tier spawn", () => {
-    const tiles = tilesMap([
-      ownTown(0, 0, "SETTLEMENT"),
-      // Radius-3 reach from (0,0) tops out at 3 tiles away; this one is 10.
-      tile(10, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
-    // The player owns nothing TOWN-tier-or-up yet -- only their starting
-    // SETTLEMENT -- so there's no valid anchor to highlight. Highlighting
-    // the player's own low-tier spawn tile as if it were a target reads as
-    // a bug, not an anchor.
-    expect(state.highlightTiles).toEqual([]);
-    // Still "found" (known to exist) even though it's out of reach to expand to.
-    expect(state.townFound).toBe(true);
-    expect(state.townExpanded).toBe(false);
   });
-
-  it("reports the real foodSlotsClaimed total on the out-of-reach EXPAND_RELAY_BEACON branch too, not a hardcoded 0", () => {
-    // Same as the reachable-town regression test above, but for the
-    // out-of-reach-town branch specifically (a second, differently-indented
-    // hardcoded `foodSlotsClaimed: 0` slipped through the first fix here).
-    const tiles = tilesMap([
-      ownTown(0, 0, "SETTLEMENT"),
-      tile(10, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }), // out of reach
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
-      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
-    ]);
+  it.each(["SEA", "MOUNTAIN"] as const)("does not direct a player to food across %s", (terrain) => {
+    const tiles = world();
+    for (let y = 0; y <= 12; y += 1) tiles.get(`6,${y}`)!.terrain = terrain;
     const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_RELAY_BEACON");
-    expect(state.foodSlotsClaimed).toBe(4);
-    expect(state.foodExpanded).toBe(true);
-  });
-
-  it("moves to EXPAND_FOOD once a TOWN-tier town is owned, highlighting the town plus reachable unclaimed food tiles", () => {
-    const tiles = tilesMap([
-      ownTown(5, 5),
-      tile(6, 5, { resource: "FARM" }), // 1 slot
-      tile(7, 5, { resource: "FISH" }), // 2 slots -- combined with the FARM tile, 3 known slots is still short of the 4 target
-      tile(8, 5, { resource: "TITANIUM" })
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_FOOD");
-    expect(state.foodSlotsClaimed).toBe(0);
-    expect(state.foodSlotsTarget).toBe(ONBOARDING_FOOD_SLOTS_TARGET);
-    expect(state.highlightTiles).toEqual([
-      { x: 5, y: 5 },
-      { x: 6, y: 5 },
-      { x: 7, y: 5 }
-    ]);
-    expect(state.townFound).toBe(true);
-    expect(state.townExpanded).toBe(true);
-    // Only 1 (FARM) + 2 (FISH) = 3 known slots, short of the 4-slot target.
     expect(state.foodFound).toBe(false);
-    expect(state.foodExpanded).toBe(false);
-  });
-
-  it("never highlights the player's own SETTLEMENT-tier spawn once a real TOWN is also owned", () => {
-    const tiles = tilesMap([
-      // The player still owns their original starting SETTLEMENT (very
-      // common -- it's free and there's no reason to ever give it up)
-      // alongside a captured TOWN. Only the TOWN should ever light up.
-      ownTown(0, 0, "SETTLEMENT"),
-      ownTown(5, 5, "TOWN"),
-      tile(6, 5, { resource: "FARM" })
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("EXPAND_FOOD");
-    expect(state.highlightTiles).not.toContainEqual({ x: 0, y: 0 });
-    expect(state.highlightTiles).toEqual([
-      { x: 5, y: 5 },
-      { x: 6, y: 5 }
-    ]);
-  });
-
-  it("marks food as found once enough known food tiles (weighted) reach the target, even before any are claimed", () => {
-    const tiles = tilesMap([
-      ownTown(5, 5),
-      tile(6, 5, { resource: "FISH" }), // 2 slots
-      tile(7, 5, { resource: "FISH" }) // 2 slots -- 4 known slots total, meets the target
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.foodFound).toBe(true);
-    expect(state.foodExpanded).toBe(false);
-  });
-
-  it("only TOWN tier satisfies the town-expanded goal -- CITY tier does not count", () => {
-    const tiles = tilesMap([ownTown(9, 9, "CITY")]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).not.toBe("EXPAND_FOOD");
-    expect(state.townExpanded).toBe(false);
-  });
-
-  it("reaches DONE once 4+ weighted food slots are claimed (any mix of grain/fish)", () => {
-    const tiles = tilesMap([
-      ownTown(0, 0),
-      tile(1, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(3, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(4, 0, { resource: "FISH", ownerId: ME }) // 2 -- 5 slots total, past the 4 target
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("DONE");
-    expect(state.foodSlotsClaimed).toBe(5);
     expect(state.highlightTiles).toEqual([]);
-    expect(state.foodFound).toBe(true);
-    expect(state.foodExpanded).toBe(true);
-  });
-
-  it("a single owned FISH tile (2 slots) plus 2 owned FARM tiles (1 each) reaches the 4-slot target exactly", () => {
-    const tiles = tilesMap([
-      ownTown(0, 0),
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2
-      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(3, 0, { resource: "FARM", ownerId: ME }) // 1 -- 4 total
-    ]);
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.foodSlotsClaimed).toBe(4);
-    expect(state.foodExpanded).toBe(true);
-    expect(state.step).toBe("DONE");
-  });
-
-  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_FOOD when no unclaimed food tile is reachable, highlighting the town as a beacon-siting anchor", () => {
-    const tiles = tilesMap([ownTown(5, 5), tile(8, 5, { resource: "TITANIUM" })]);
-    const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
-    expect(state.foodSlotsClaimed).toBe(0);
-    expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }]);
-    // The town goals stay done even though `step` reads EXPAND_RELAY_BEACON
-    // -- it's blocking the food goals here, not the (already-done) town
-    // ones. A checklist UI rendering all 4 goals as checkboxes needs this
-    // to tell them apart (see OnboardingChecklistState's doc comment).
-    expect(state.townFound).toBe(true);
-    expect(state.townExpanded).toBe(true);
   });
-
-  it("stays DONE (no highlights) once completion has been persisted, even if the underlying tiles regress", () => {
-    const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({
-      step: "DONE",
-      townFound: true,
-      townExpanded: true,
-      foodFound: true,
-      foodSlotsFound: 4,
-      foodExpanded: true,
-      foodSlotsClaimed: 4,
-      foodSlotsTarget: 4,
-      highlightTiles: []
-    });
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).toBe("DONE");
-    expect(state.highlightTiles).toEqual([]);
+  it("does not recommend a next tile claimed by rival reach", () => {
+    const tiles = world();
+    for (let y = 0; y <= 12; y += 1) tiles.get(`6,${y}`)!.reachOwnerId = "enemy";
+    expect(onboardingChecklistState(tiles, ME).highlightTiles).toEqual([]);
   });
-
-  it("completeOnboardingChecklist is a no-op when the step isn't DONE", () => {
-    const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({
-      step: "EXPAND_TOWN",
-      townFound: false,
-      townExpanded: false,
-      foodFound: false,
-      foodSlotsFound: 0,
-      foodExpanded: false,
-      foodSlotsClaimed: 0,
-      foodSlotsTarget: 4,
-      highlightTiles: []
-    });
-    const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).not.toBe("DONE");
+  it("weights settled fish and farms and ignores frontier, enemy and non-food resources", () => {
+    const tiles = world();
+    settleFood(tiles);
+    Object.assign(tiles.get("4,5")!, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" });
+    Object.assign(tiles.get("4,6")!, { resource: "FARM", ownerId: ME, ownershipState: "FRONTIER" });
+    expect(foodSlotsClaimedByPlayer(tiles.values(), ME)).toBe(5);
+  });
+  it("persists completion only when food and a settled town are both secured", () => {
+    const tiles = world();
+    completeOnboardingChecklist(onboardingChecklistState(tiles, ME), "a@example.com");
+    expect(onboardingChecklistState(tiles, ME, "a@example.com").step).not.toBe("DONE");
+    settleFood(tiles);
+    Object.assign(tiles.get("10,5")!, { ownerId: ME, ownershipState: "SETTLED" });
+    completeOnboardingChecklist(onboardingChecklistState(tiles, ME), "a@example.com");
+    expect(onboardingChecklistState(new Map(), ME, "a@example.com").step).toBe("DONE");
+    expect(onboardingChecklistState(new Map(), ME, "b@example.com").step).not.toBe("DONE");
   });
 });

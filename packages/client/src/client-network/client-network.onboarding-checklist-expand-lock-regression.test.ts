@@ -9,29 +9,39 @@
 // already met.
 import { describe, expect, it, vi } from "vitest";
 import { bindClientNetwork } from "./client-network.js";
-import { createInitialState } from "../client-state/client-state.js";
+import { createInitialState, type ClientState } from "../client-state/client-state.js";
+import type { Tile } from "../client-types.js";
+import type { RealtimeSocket, RealtimeSocketEventMap } from "../client-socket-types.js";
+import { onboardingChecklistState } from "../client-onboarding-checklist/client-onboarding-checklist.js";
 
-class FakeWebSocket {
+class FakeWebSocket implements RealtimeSocket {
   static readonly OPEN = 1;
   readyState = FakeWebSocket.OPEN;
   readonly OPEN = FakeWebSocket.OPEN;
-  private readonly listeners = new Map<string, Array<(event: any) => void>>();
-  addEventListener(type: string, listener: (event: any) => void): void {
-    const existing = this.listeners.get(type) ?? [];
-    existing.push(listener);
-    this.listeners.set(type, existing);
+  readonly CONNECTING = 0;
+  readonly CLOSING = 2;
+  readonly CLOSED = 3;
+  send = vi.fn<(data: string) => void>();
+  close = vi.fn<() => void>();
+  reconnect = vi.fn<() => void>();
+  private listeners: Array<(event: MessageEvent<string>) => void> = [];
+  addEventListener<K extends keyof RealtimeSocketEventMap>(type: K, listener: (event: RealtimeSocketEventMap[K]) => void): void {
+    if (type === "message") this.listeners.push(listener as (event: MessageEvent<string>) => void);
   }
-  emit(type: string, event: any): void {
-    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  removeEventListener<K extends keyof RealtimeSocketEventMap>(type: K, listener: (event: RealtimeSocketEventMap[K]) => void): void {
+    if (type === "message") this.listeners = this.listeners.filter((entry) => entry !== listener);
+  }
+  emit(_type: "message", event: { data: string }): void {
+    for (const listener of this.listeners) listener(new MessageEvent<string>("message", event));
   }
 }
 
-const createState = () => ({ ...createInitialState(), playerVisualStyles: new Map<string, unknown>() }) as any;
+const createState = (): ClientState => createInitialState();
 
 /** Mirrors client-optimistic-state.ts's applyOptimisticTileState closely enough for this test: mutates state.tiles in place. */
 const makeApplyOptimisticTileState =
-  (state: any) =>
-  (x: number, y: number, mutate: (tile: any) => void): void => {
+  (state: ClientState) =>
+  (x: number, y: number, mutate: (tile: Tile) => void): void => {
     const key = `${x},${y}`;
     const current = state.tiles.get(key) ?? { x, y, terrain: "LAND" };
     const next = { ...current };
@@ -39,10 +49,10 @@ const makeApplyOptimisticTileState =
     state.tiles.set(key, next);
   };
 
-const bind = (state: any, ws: FakeWebSocket) => {
+const bind = (state: ClientState, ws: FakeWebSocket) => {
   bindClientNetwork({
     state,
-    ws: ws as unknown as WebSocket,
+    ws,
     wsUrl: "ws://localhost:3101/ws",
     keyFor: (x: number, y: number) => `${x},${y}`,
     renderHud: vi.fn(),
@@ -91,27 +101,24 @@ const bind = (state: any, ws: FakeWebSocket) => {
     clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     applyOptimisticTileState: makeApplyOptimisticTileState(state)
-  } as any);
+  });
 };
 
 describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
-  it("stops highlighting a neutral town as soon as ACTION_ACCEPTED lands, without waiting for a tile-delta batch", () => {
+  it("stops highlighting pending food as soon as ACTION_ACCEPTED lands, without waiting for a tile-delta batch", () => {
     const state = createState();
     state.me = "player-1";
     // Signed in with the tutorial closed, so the onboarding UI gate
     // (client-onboarding-ui-gate.ts) isn't holding the checklist back.
     state.authSessionReady = true;
     state.guide.open = false;
-    // A neutral TOWN-tier tile the checklist is currently highlighting as
-    // the EXPAND_TOWN target.
-    state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", town: { type: "MARKET", populationTier: "TOWN" } });
-    // Deliberately stale/wrong highlight, standing in for "whatever the
-    // checklist last computed before this ACTION_ACCEPTED arrived" -- the
-    // real bug was that nothing recomputed it at all until some later,
-    // unrelated tile-delta batch happened to fire, so this array could sit
-    // arbitrarily wrong (not just "not yet updated to the new correct
-    // value") for the whole multi-second EXPAND resolution window.
-    state.onboardingHighlightTiles = [{ x: 99, y: 99 }];
+    // Food first: the AFC supplies reach to a neutral fishing tile.
+    state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } });
+    state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", resource: "FISH" });
+    expect(onboardingChecklistState(state.tiles, state.me).highlightTiles).toEqual([{ x: 10, y: 11 }]);
+    expect(onboardingChecklistState(state.tiles, state.me).guidance).toContain("1 land step away");
+    // Without recomputing, this old target survives throughout the EXPAND.
+    state.onboardingHighlightTiles = [{ x: 10, y: 11 }];
     state.actionCurrent = { x: 10, y: 11, retries: 0, clientSeq: 7, commandId: "cmd-7", actionType: "EXPAND" };
     state.actionTargetKey = "10,11";
 
@@ -131,10 +138,8 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
 
     // The optimistic ownerId flip landed...
     expect(state.tiles.get("10,11")?.ownerId).toBe("player-1");
-    // ...and the checklist recomputed right along with it, replacing the
-    // stale highlight with the correct one: the town is now the player's
-    // own TOWN-tier tile, so it re-appears as the food-goal anchor (a
-    // different, legitimate reason -- not "still needs to be captured").
-    expect(state.onboardingHighlightTiles).toEqual([{ x: 10, y: 11 }]);
+    // ...and the checklist recomputed right along with it.
+    // This food is not actionable while the expansion is still resolving.
+    expect(state.onboardingHighlightTiles).toEqual([]);
   });
 });

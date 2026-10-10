@@ -1,5 +1,5 @@
-import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
-import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, type DomainTileState } from "@border-empires/game-domain";
+import { TOWN_REACH_RADIUS, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, type PlayerRespawnNotice, type PlayerRespawnReasonCode } from "@border-empires/shared";
+import { hasWaterNeighbor, isAfcSiteClear, tileBlocksAfcSite, starterSiteQuality, type DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement, RALLY_SPAWN_RADIUS, type LegacySpawnPlacementInput } from "./spawn-placement/spawn-placement.js";
@@ -43,12 +43,9 @@ export type RuntimeRespawnContext = SpawnSearchLookups & {
   incrementAuthRecoveryRespawnGuarded: () => void;
 };
 
-// Same minSpawnDistance as chooseLegacySpawnPlacement's strictest search
-// pass (LEGACY_SPAWN_SEARCH_ORDER's first tier) — a precomputed site too
-// close to an already-settled empire is rejected here rather than handed
-// out, so it falls through to the legacy random search's own relaxation
-// passes instead of placing a new player right on someone's doorstep.
-const FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE = 50;
+// Keep an opening buffer without rejecting good food/town routes merely
+// because an empire exists somewhere in a 100-tile-wide square.
+const FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE = 10;
 
 const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySet<string>) => (x: number, y: number): boolean => {
   const tile = ctx.tiles.get(simulationTileKey(x, y));
@@ -60,7 +57,12 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
   // Same for towns/docks/resources on or around the site -- re-checked against
   // live tiles, since the roster was computed from worldgen-time tiles.
   if (!isAfcSiteClear((nx, ny) => tileBlocksAfcSite(ctx.tiles.get(simulationTileKey(nx, ny))), x, y)) return false;
-  return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE);
+  // A neutral tile can already belong to a rival's reach. The AFC's opening
+  // disk must be uncontested, otherwise nearby neutral goals cannot be claimed.
+  for (let dy = -TOWN_REACH_RADIUS; dy <= TOWN_REACH_RADIUS; dy += 1) {
+    for (let dx = -TOWN_REACH_RADIUS; dx <= TOWN_REACH_RADIUS; dx += 1) if (ctx.reachOwnerAt(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT))) return false;
+  }
+  return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE) && Boolean(starterSiteQuality(ctx.tiles, x, y, WORLD_WIDTH, WORLD_HEIGHT, (nx, ny) => !blockedTileKeys.has(simulationTileKey(nx, ny)) && !ctx.reachOwnerAt(nx, ny)));
 };
 
 const terrainLookup = (ctx: RuntimeRespawnContext) => (x: number, y: number): DomainTileState["terrain"] | undefined =>
@@ -90,6 +92,18 @@ const legacySpawnSearchInput = (
     ),
   ...(rallyAnchor ? { rallyAnchor } : {})
 });
+
+const chooseStarterSpawn = (
+  ctx: RuntimeRespawnContext, playerId: string, blockedTileKeys: ReadonlySet<string>, rallyAnchor?: { x: number; y: number }
+): { x: number; y: number } | undefined => {
+  const fair = ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor);
+  const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
+  if (spawn) {
+    const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !blockedTileKeys.has(simulationTileKey(x, y)) && !ctx.reachOwnerAt(x, y));
+    ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
+  }
+  return spawn;
+};
 
 export const preparePlayerRespawnNotice = (
   ctx: RuntimeRespawnContext,
@@ -186,9 +200,7 @@ export const ensurePlayerHasSpawnTerritory = (
   }
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-  const spawn =
-    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor) ??
-    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
+  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys, rallyAnchor);
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
@@ -321,9 +333,7 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   if (!actor) return false;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", commandId, { wasOnline: true });
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn =
-    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
-    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys));
+  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys);
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -381,9 +391,7 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   );
 
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn =
-    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
-    chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys));
+  const spawn = chooseStarterSpawn(ctx, playerId, blockedTileKeys);
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);

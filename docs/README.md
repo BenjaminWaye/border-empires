@@ -23,6 +23,7 @@ remain authoritative for runtime behavior.
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake (renderer + worldgen v10) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
+| Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
 
 ## Document lifecycle
