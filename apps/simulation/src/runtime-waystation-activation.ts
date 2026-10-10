@@ -345,6 +345,12 @@ export const activateWaystationAt = (
       waystationResult.grantedTownX = grantedTown.x;
       waystationResult.grantedTownY = grantedTown.y;
       populationBurst = grantedTown.populationBurst;
+    } else {
+      // No owned town to receive settlers: pay out GOLD instead (same
+      // fallback as an exhausted TECH roll) so the tile, event log and popup
+      // describe what the player actually got -- not a population burst that
+      // never landed.
+      grantGoldInto(waystationResult, player, random);
     }
   }
 

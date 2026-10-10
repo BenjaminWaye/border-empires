@@ -335,6 +335,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
   {
+    createdAt: 1791488967000,
+    introducedIn: "2026.10.08.7",
+    title: "Waystations no longer promise population without a town",
+    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
+    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",
