@@ -1,103 +1,202 @@
-// Food first, then a settled town. FRONTIER food does not supply slots,
-// and enemy towns are not EXPAND targets.
+// Existing town-first checklist: highlight objectives directly, never route tiles.
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { townIdentityForTile } from "../client-town-identity.js";
-import { onboardingRoutes, type OnboardingRoute } from "./client-onboarding-route.js";
+import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
 
 export const ONBOARDING_FOOD_SLOTS_TARGET = 4;
+
 export type OnboardingChecklistStep = "EXPAND_TOWN" | "EXPAND_FOOD" | "EXPAND_RELAY_BEACON" | "DONE";
+
 export type OnboardingChecklistState = {
   step: OnboardingChecklistStep;
+  /** True once a town tile that isn't the player's own is known to exist (or the player already owns one -- see townExpanded). */
   townFound: boolean;
+  /** True once the player has garrisoned a TOWN-or-higher tile. */
   townExpanded: boolean;
+  /** True once `foodSlotsFound >= foodSlotsTarget`. */
   foodFound: boolean;
+  /** True once `foodSlotsClaimed >= foodSlotsTarget`. */
   foodExpanded: boolean;
+  /** Weighted food slots known to exist (owned FARM/FISH tiles plus unclaimed candidates, capped at foodSlotsTarget for display) -- the "Find food tiles" goal's progress counter. */
   foodSlotsFound: number;
+  /** Weighted food slots the player has garrisoned (FARM = 1 slot, FISH = 2 -- see structure-slots.ts's RESOURCE_SLOT_SPEC), not a tile count. */
   foodSlotsClaimed: number;
   foodSlotsTarget: number;
+  /** Tile coordinates the map should highlight for the current step. Empty once step is DONE. */
   highlightTiles: Array<{ x: number; y: number }>;
-  guidance: string;
 };
 
-const foodSlots = (resource: string | undefined): number => resource === "FARM" ? 1 : resource === "FISH" ? 2 : 0;
+const FOOD_SLOTS_BY_RESOURCE: Record<string, number> = { FARM: 1, FISH: 2 };
 
-export const foodSlotsClaimedByPlayer = (
-  tiles: Iterable<Pick<Tile, "resource" | "ownerId" | "ownershipState" | "optimisticPending">>, playerId: string
-): number => {
+const foodSlotsForResource = (resource: string | undefined): number => (resource ? (FOOD_SLOTS_BY_RESOURCE[resource] ?? 0) : 0);
+
+/**
+ * Weighted garrisoned food slots this player owns — the live "food slots claimed"
+ * total for the food goals. A FISH tile is worth 2 slots, a FARM tile 1
+ * (structure-slots.ts's RESOURCE_SLOT_SPEC), not a flat 1 per tile.
+ */
+export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" | "ownerId" | "ownershipState" | "optimisticPending">>, playerId: string): number => {
   let slots = 0;
-  for (const tile of tiles) if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.optimisticPending !== "settle") slots += foodSlots(tile.resource);
+  for (const tile of tiles) {
+    if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) slots += foodSlotsForResource(tile.resource);
+  }
   return slots;
 };
 
+/**
+ * Derives the current onboarding checklist state from the client's tiles.
+ * Takes the full tiles map (not just an iterable of values) because
+ * highlighting an EXPAND_TOWN/EXPAND_FOOD target requires knowing it's
+ * actually within the player's current reach -- computeLocalReachSet needs
+ * keyed lookups, same as the map's own reach-boundary overlay.
+ *
+ * Returns step "DONE" (no highlights) once the checklist has been
+ * completed and persisted, or once all 4 goals are actually satisfied this
+ * session (callers should then call `completeOnboardingChecklist`).
+ */
 export const onboardingChecklistState = (
-  tiles: ReadonlyMap<string, Tile>, playerId: string, authEmail?: string | null
+  tiles: ReadonlyMap<string, Tile>,
+  playerId: string,
+  authEmail?: string | null
 ): OnboardingChecklistState => {
-  const completed: OnboardingChecklistState = {
-    step: "DONE", townFound: true, townExpanded: true, foodFound: true, foodExpanded: true,
-    foodSlotsFound: ONBOARDING_FOOD_SLOTS_TARGET, foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET,
-    foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: [], guidance: "Four food slots secured. Your town adds manpower and reach. Explore for a waystation, dock or strategic resource next. Click the flag to continue."
-  };
-  if (isOnboardingChecklistCompleted(authEmail)) return completed;
-  const routes = onboardingRoutes(tiles, playerId);
-  const reach = computeLocalReachSet(tiles, playerId);
-  const canAct = (tile: Tile): boolean => tile.optimisticPending !== "expand" && tile.optimisticPending !== "settle" && reach.has(tileKey(tile.x, tile.y)) && (!tile.reachOwnerId || tile.reachOwnerId === playerId);
-  let townExpanded = false;
-  let townFound = false;
-  let pendingTown = false;
-  let pendingFood = false;
-  const towns: OnboardingRoute[] = [];
-  const foods: OnboardingRoute[] = [];
-  let knownFood = 0;
-  const claimedFood = foodSlotsClaimedByPlayer(tiles.values(), playerId);
+  if (isOnboardingChecklistCompleted(authEmail)) {
+    return {
+      step: "DONE",
+      townFound: true,
+      townExpanded: true,
+      foodFound: true,
+      foodSlotsFound: ONBOARDING_FOOD_SLOTS_TARGET,
+      foodExpanded: true,
+      foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET,
+      foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+      highlightTiles: []
+    };
+  }
+
+  // Anchor tiles used to highlight "build/expand near here" -- deliberately
+  // excludes the player's free starting SETTLEMENT-tier tile (townPopulationTier
+  // "SETTLEMENT", see season-seed-world.ts's townPopulationTier: only the
+  // player's own spawn tile, marked isSettlement, ever gets that tier --
+  // every world-gen-placed town starts well above POPULATION_TOWN_MIN and
+  // is never SETTLEMENT tier). Highlighting the player's own spawn point as
+  // if it were a target read as a bug, not an anchor.
+  const ownTownTierAnchors: Array<{ x: number; y: number }> = [];
+  const foodCandidates: Array<{ x: number; y: number; slots: number }> = [];
+  const captureTownCandidates: Array<{ x: number; y: number }> = [];
+  let foodSlotsClaimed = 0;
+  let hasTownTierTown = false;
+
   for (const tile of tiles.values()) {
     const town = townIdentityForTile(tile);
-    if (town && tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.optimisticPending !== "expand" && tile.optimisticPending !== "settle" && town.populationTier !== "SETTLEMENT") townExpanded = true;
-    const route = routes.get(tileKey(tile.x, tile.y));
-    if (!route) continue;
-    const actionable = canAct(route.next ?? tile);
-    const pending = [route.next, tile].some((part) => part?.optimisticPending === "expand" || part?.optimisticPending === "settle");
-    if (town && (!tile.ownerId || (tile.ownerId === playerId && tile.ownershipState === "FRONTIER"))) {
-      townFound = true;
-      pendingTown ||= pending;
-      if (actionable) towns.push(route);
+    if (town && town.populationTier !== "SETTLEMENT") {
+      if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
+        hasTownTierTown = true;
+        ownTownTierAnchors.push({ x: tile.x, y: tile.y });
+      } else if (!tile.ownerId || tile.ownerId === playerId) {
+        captureTownCandidates.push({ x: tile.x, y: tile.y });
+      }
     }
-    const slots = foodSlots(tile.resource);
-    if (slots && !(tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.optimisticPending !== "settle") && (!tile.ownerId || tile.ownerId === playerId)) {
-      knownFood += slots;
-      pendingFood ||= pending;
-      if (actionable) foods.push(route);
+    const slots = foodSlotsForResource(tile.resource);
+    if (slots > 0) {
+      if (tile.ownerId === playerId && tile.ownershipState === "SETTLED" && !tile.optimisticPending) foodSlotsClaimed += slots;
+      else if (!tile.ownerId || tile.ownerId === playerId) foodCandidates.push({ x: tile.x, y: tile.y, slots });
     }
   }
-  const foodExpanded = claimedFood >= ONBOARDING_FOOD_SLOTS_TARGET;
-  const foodSlotsFound = Math.min(ONBOARDING_FOOD_SLOTS_TARGET, claimedFood + knownFood);
-  const state: OnboardingChecklistState = {
-    step: "EXPAND_RELAY_BEACON", townFound: townExpanded || townFound, townExpanded,
-    foodFound: foodSlotsFound >= ONBOARDING_FOOD_SLOTS_TARGET, foodExpanded,
-    foodSlotsFound, foodSlotsClaimed: claimedFood, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-    highlightTiles: [], guidance: "Expand and garrison land near your border, then build a Relay Beacon to reveal the next goal. Your first five beacons need no food slots."
+
+  const townFound = hasTownTierTown || captureTownCandidates.length > 0;
+  const foodKnownSlots = foodSlotsClaimed + foodCandidates.reduce((sum, c) => sum + c.slots, 0);
+  const foodSlotsFound = Math.min(foodKnownSlots, ONBOARDING_FOOD_SLOTS_TARGET);
+  const foodFound = foodKnownSlots >= ONBOARDING_FOOD_SLOTS_TARGET;
+  const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
+
+  const reach = computeLocalReachSet(tiles, playerId);
+  const inReach = (t: { x: number; y: number }): boolean => {
+    const key = tileKey(t.x, t.y);
+    const tile = tiles.get(key);
+    return Boolean(tile && !tile.optimisticPending && reach.has(key) && (!tile.reachOwnerId || tile.reachOwnerId === playerId));
   };
-  if (townExpanded && foodExpanded) return { ...completed, foodSlotsClaimed: claimedFood };
-  const candidates = !foodExpanded ? foods : towns;
-  candidates.sort((a, b) => a.steps - b.steps || a.target.y - b.target.y || a.target.x - b.target.x);
-  const target = candidates[0];
-  if (!target) return (foodExpanded ? pendingTown : pendingFood)
-    ? { ...state, step: foodExpanded ? "EXPAND_TOWN" : "EXPAND_FOOD", guidance: "Your expansion or garrison is underway. Wait for it to finish; the next step will update automatically." }
-    : state;
-  const next = target.next ?? target.target;
-  if (!canAct(next)) return state;
-  const name = foodExpanded ? (townIdentityForTile(target.target)?.name ?? "the town") : (target.target.resource === "FISH" ? "fishing grounds" : "farmland");
-  const steps = target.steps;
-  const action = next.ownerId === playerId ? "Garrison" : "Expand To";
+
+  if (!hasTownTierTown) {
+    const reachableTownCandidates = captureTownCandidates.filter(inReach);
+    if (reachableTownCandidates.length > 0) {
+      return {
+        step: "EXPAND_TOWN",
+        townFound,
+        townExpanded: false,
+        foodFound,
+        foodSlotsFound,
+        foodExpanded,
+        foodSlotsClaimed,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: reachableTownCandidates
+      };
+    }
+    // No town within actual reach (not just "none known") -- Expand To has
+    // nothing to target yet. Point at building a RELAY_BEACON (an
+    // outpost-family structure -- see client-reach-overlay.ts's
+    // OUTPOST_STRUCTURE_TYPES) from the player's own anchor instead, which
+    // extends reach outward until a town falls inside it.
+    return {
+      step: "EXPAND_RELAY_BEACON",
+      townFound,
+      townExpanded: false,
+      foodFound,
+      foodSlotsFound,
+      foodExpanded,
+      foodSlotsClaimed,
+      foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+      highlightTiles: ownTownTierAnchors
+    };
+  }
+
+  if (!foodExpanded) {
+    const reachableFoodCandidates = foodCandidates.filter(inReach);
+    if (reachableFoodCandidates.length === 0) {
+      // Same "nothing actually reachable yet" case as above, now for food.
+      return {
+        step: "EXPAND_RELAY_BEACON",
+        townFound: true,
+        townExpanded: true,
+        foodFound,
+        foodSlotsFound,
+        foodExpanded,
+        foodSlotsClaimed,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: ownTownTierAnchors
+      };
+    }
+    // Keep the town highlighted alongside the food candidates: it's the
+    // player's anchor point for "expand to food tiles near here" until
+    // the food goals are satisfied too.
+    return {
+      step: "EXPAND_FOOD",
+      townFound: true,
+      townExpanded: true,
+      foodFound,
+      foodSlotsFound,
+      foodExpanded,
+      foodSlotsClaimed,
+      foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+      highlightTiles: [...ownTownTierAnchors, ...reachableFoodCandidates.map(({ x, y }) => ({ x, y }))]
+    };
+  }
+
   return {
-    ...state, step: foodExpanded ? "EXPAND_TOWN" : "EXPAND_FOOD",
-    highlightTiles: [{ x: next.x, y: next.y }],
-    guidance: `${action} the highlighted tile toward ${name} (${target.target.x}, ${target.target.y})${steps ? ` — ${steps} land ${steps === 1 ? "step" : "steps"} away` : ""}. ${foodExpanded ? "Garrison the town to grow your manpower and reach." : "Garrison food tiles to supply building and town growth."}`
+    step: "DONE",
+    townFound: true,
+    townExpanded: true,
+    foodFound: true,
+    foodSlotsFound: ONBOARDING_FOOD_SLOTS_TARGET,
+    foodExpanded: true,
+    foodSlotsClaimed,
+    foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+    highlightTiles: []
   };
 };
 
+/** Persists checklist completion once all 4 goals are satisfied, so it stays gone for this account. */
 export const completeOnboardingChecklist = (state: OnboardingChecklistState, authEmail?: string | null): void => {
   if (state.step === "DONE") markOnboardingChecklistCompleted(authEmail);
 };

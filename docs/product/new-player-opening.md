@@ -4,11 +4,10 @@ Status: canonical
 
 ## Design contract
 
-The opening teaches a useful, self-directed loop: discover food → expand and
-garrison four food slots → extend reach with a Relay Beacon when necessary →
-garrison a town → choose the next exploration goal. Existing economic rewards
-provide the payoff; there are no new payouts, compulsory PvP encounters,
-countdowns, or mandatory special landmarks.
+Keep the existing town-first checklist and direct town/resource highlights.
+The main improvement is qualified spawn placement, not a redesigned tutorial.
+Existing economic rewards provide the payoff; there are no new payouts,
+compulsory PvP encounters, countdowns, or mandatory special landmarks.
 
 Newly generated worlds must offer at least 50 qualified starting sites:
 
@@ -23,7 +22,7 @@ Newly generated worlds must offer at least 50 qualified starting sites:
 "A resource or town within five tiles" was too weak: it could mean a useless
 non-food resource, an enemy-held town, or something across an impassable bay.
 The first food target tightens the requested five-tile limit to three, so the
-first useful action requires no beacon. The town deliberately allows a short
+first food garrison requires no beacon, regardless of checklist order. The town deliberately allows a short
 five-to-eight-step opening rather than crowding the capital.
 
 The six-step supply limit also avoids a manpower stall. At current base costs,
@@ -49,20 +48,25 @@ not a perpetual safety or food guarantee for every late joiner.
 Only settled/garrisoned food supplies slots; FRONTIER food does not count.
 Owned settled TOWN, CITY, GREAT_CITY and METROPOLIS tiers satisfy the town goal.
 Lightweight town identity is sufficient: no detail-fetch dependency. Enemy
-towns and routes through enemy ownership/reach are excluded.
+towns are excluded from neutral expansion goals, and actionable objectives
+must be inside uncontested reach.
 
-The checklist names the destination, coordinates, land-step distance and
-benefit, highlighting only the next actionable tile. Both the 2D canvas and
-true-3D maps consume the same target. If no actionable known route exists, it
-explains building a Relay Beacon instead of highlighting an owned anchor.
-Ordinary expansion does not increase reach. The first five beacons retain
-their existing instant-build/no-food treatment; manpower costs still apply.
+Keep the existing four rows: find a town, Expand To it, find food, Expand To
+four food slots. Highlight the actual in-reach town or resource, never an
+intermediate route tile. Keep the existing town-anchor highlights, Relay
+Beacon note, collapse behavior and automatic dismissal on completion.
+Both the 2D canvas and true-3D maps consume the same objective list.
 
-Finding a destination does not collapse the guidance. Securing food or a town
-can collapse it, and finishing presents an acknowledgement and an optional
-next exploration goal. Completion remains account-scoped.
-Pending expansions and garrisons keep discovered goals checked but do not
-count as secured supply or invite another action before resolution.
+Land routes are a world-generation quality check, not a sequence of required
+garrisons. Reach automatically claims neutral ground as FRONTIER. Plain-land
+garrisons do not extend reach. The first five beacons retain their existing
+instant-build/no-food treatment; manpower costs still apply.
+
+The narrow checklist fixes count only garrisoned food and towns, use
+lightweight town identity (including upgraded tiers), exclude enemy town
+targets, include AFC reach, and suppress actions on pending targets.
+Pending food remains discovered but is not usable supply. Completion keeps
+the existing account-scoped persistence; no new acknowledgement UI is added.
 
 ## Implementation and verification
 
@@ -71,10 +75,10 @@ count as secured supply or invite another action before resolution.
    roster selection and the worldgen lab preview. Reject exhausted worldgen
    retries only when the required starter roster is missing; island-style
    preferences remain best-effort.
-3. Update food-first client guidance, AFC local reach and completion feedback
-   without changing resource balance or the established checklist styling.
+3. Preserve the original checklist flow/UI and direct objective highlights.
+   Apply only verified counting, identity, target and AFC-reach fixes.
 4. Cover barriers, wrap seams, captured amenities, frontier food, upgraded
-   towns, next-tile guidance and completion with regressions. The real
+   towns, direct objective highlights and pending actions with regressions. The real
    world-generation coverage suite also verifies 50 qualified sites after AI
    placement across seeds and both styles. Run `pnpm ci:local`.
 

@@ -112,11 +112,11 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
     // (client-onboarding-ui-gate.ts) isn't holding the checklist back.
     state.authSessionReady = true;
     state.guide.open = false;
-    // Food first: the AFC supplies reach to a neutral fishing tile.
+    // An owned town satisfies the first goal; the AFC also supplies reach.
     state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } });
+    state.tiles.set("20,20", { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "MARKET", townPopulationTier: "TOWN" });
     state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", resource: "FISH" });
-    expect(onboardingChecklistState(state.tiles, state.me).highlightTiles).toEqual([{ x: 10, y: 11 }]);
-    expect(onboardingChecklistState(state.tiles, state.me).guidance).toContain("1 land step away");
+    expect(onboardingChecklistState(state.tiles, state.me).highlightTiles).toContainEqual({ x: 10, y: 11 });
     // Without recomputing, this old target survives throughout the EXPAND.
     state.onboardingHighlightTiles = [{ x: 10, y: 11 }];
     state.actionCurrent = { x: 10, y: 11, retries: 0, clientSeq: 7, commandId: "cmd-7", actionType: "EXPAND" };
@@ -140,6 +140,6 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
     expect(state.tiles.get("10,11")?.ownerId).toBe("player-1");
     // ...and the checklist recomputed right along with it.
     // This food is not actionable while the expansion is still resolving.
-    expect(state.onboardingHighlightTiles).toEqual([]);
+    expect(state.onboardingHighlightTiles).not.toContainEqual({ x: 10, y: 11 });
   });
 });

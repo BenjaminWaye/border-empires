@@ -490,11 +490,11 @@ As implemented in `client-onboarding-checklist.ts` and `guideSteps`
 
 1. An 8-step guide modal covers the fantasy, expanding, manpower, slots,
    building and fighting, research, towns, and winning.
-2. A checklist with 4 goals: **find food → garrison 4 food slots → find a town
-   → garrison it**. It names a reachable destination and highlights one next
-   actionable land tile. FRONTIER food does not count. When the known route
-   cannot continue within reach, it explains building a Relay Beacon: ordinary
-   expansion does not extend reach. Finding a target keeps the panel open.
+2. The existing checklist has 4 goals: **find a town → Expand To it → find
+   food → Expand To 4 food slots**. It highlights town and food objectives
+   directly, not intermediate land. Only garrisoned food supplies slots.
+   When no objective is in reach, it retains the Relay Beacon note:
+   ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
    session is long enough to finish the checklist without stalling.
