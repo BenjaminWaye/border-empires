@@ -82,3 +82,7 @@ time. Either direction reads to the player as "this bonus doesn't work."
 - For client interaction bugs, inspect the full event sequence (`mousedown`, `mouseup`, `click`, drag state, suppression flags) before changing gameplay logic.
 - For client/server action bugs, confirm whether the client actually sends the message and whether the server receives it before changing validation rules.
 - Remove or narrow noisy debug logs after the issue is understood, but keep regression tests for the branch that failed.
+
+## Main-thread stalls on the rewrite stack
+
+The event-loop watchdog (`apps/realtime-gateway/src/event-loop-watchdog.ts`) captures the gateway main thread's JavaScript stack once it has been silent for `WATCHDOG_STACK_CAPTURE_MS` (default 10s, `0` disables), up to three times per stall, by pausing it through the inspector from the watchdog worker (`main-thread-stack-capture/`). Look for `event_loop_stall_stack` and `event_loop_stall_recovered` in the server logs (`scripts/ops/backend-logs.sh`), or `stallStacks` in the kill log and in `previous_death_forensics` after a watchdog kill. `ok: false, reason: "pause_timeout"` means the thread was inside native code (e.g. a synchronous SQLite call) rather than JS.

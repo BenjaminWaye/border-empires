@@ -32,23 +32,38 @@
 // and intervenes rather than burning through Fly's max_retries cap.
 // Manually reset by deleting the file (`rm /data/.watchdog-last-kill`).
 //
+// Stall stacks: once the main thread has been silent for `stackCaptureMs`
+// (default 10s; WATCHDOG_STACK_CAPTURE_MS=0 disables), the worker pauses it via
+// the inspector and records its JS stack (main-thread-stack-capture.ts), up to
+// three times per stall. Stacks are logged as `event_loop_stall_stack`, again
+// with the stall length in `event_loop_stall_recovered` if the thread comes
+// back, and included in the kill log and death forensics if it doesn't.
+//
+// The worker writes its logs straight to fd 2: `process.stderr` in a worker is
+// relayed through the main thread, so anything written during a stall was
+// lost when the kill landed.
+//
 // Disable entirely with WATCHDOG_ENABLED=0.
 
 import { Worker } from "node:worker_threads";
 
 import { DEATH_FORENSICS_PATH } from "./death-forensics.js";
+import { MAIN_THREAD_STACK_CAPTURE_SOURCE } from "./main-thread-stack-capture/main-thread-stack-capture.js";
 
 const DEFAULT_HEARTBEAT_MS = 1000;
 const DEFAULT_STALL_MS = 30_000;
 const DEFAULT_BOOT_GRACE_MS = 300_000;
 const DEFAULT_MIN_KILL_INTERVAL_MS = 1_800_000; // 30 min
 const DEFAULT_KILL_STATE_PATH = "/data/.watchdog-last-kill";
+const DEFAULT_STACK_CAPTURE_MS = 10_000;
 
 type WatchdogOptions = {
   heartbeatIntervalMs?: number;
   stallThresholdMs?: number;
   bootGraceMs?: number;
   minKillIntervalMs?: number;
+  /** Stall length at which to capture the main thread's JS stack; 0 disables. */
+  stackCaptureMs?: number;
   killStatePath?: string;
   deathForensicsPath?: string;
   enabled?: boolean;
@@ -67,12 +82,21 @@ const buildWorkerSource = (params: {
   stallThresholdMs: number;
   bootGraceMs: number;
   minKillIntervalMs: number;
+  stackCaptureMs: number;
   killStatePath: string;
   label: string;
   deathForensicsPath: string;
 }): string => `
   const { parentPort } = require("node:worker_threads");
   const fs = require("node:fs");
+  ${MAIN_THREAD_STACK_CAPTURE_SOURCE}
+  const writeStderr = (line) => {
+    try { fs.writeSync(2, line); } catch (err) { /* nowhere left to report */ }
+  };
+  const STACK_CAPTURE_MS = ${params.stackCaptureMs};
+  const MAX_STACKS_PER_STALL = 3;
+  let stallStacks = [];
+  let nextStackCaptureAtMs = STACK_CAPTURE_MS;
   const STALL_MS = ${params.stallThresholdMs};
   const BOOT_GRACE_MS = ${params.bootGraceMs};
   const MIN_KILL_INTERVAL_MS = ${params.minKillIntervalMs};
@@ -85,7 +109,7 @@ const buildWorkerSource = (params: {
     try {
       fs.writeFileSync(DEATH_FORENSICS_PATH, JSON.stringify(blob), "utf8");
     } catch (err) {
-      process.stderr.write(JSON.stringify({
+      writeStderr(JSON.stringify({
         level: 50,
         time: Date.now(),
         msg: "death_forensics_write_failed",
@@ -115,7 +139,7 @@ const buildWorkerSource = (params: {
       fs.writeFileSync(KILL_STATE_PATH, String(at), "utf8");
       return true;
     } catch (err) {
-      process.stderr.write(JSON.stringify({
+      writeStderr(JSON.stringify({
         level: 50,
         time: Date.now(),
         msg: "event_loop_watchdog_state_write_failed",
@@ -132,7 +156,7 @@ const buildWorkerSource = (params: {
     armed = true;
     armReason = reason;
     lastPingAt = Date.now();
-    process.stderr.write(JSON.stringify({
+    writeStderr(JSON.stringify({
       level: 30,
       time: Date.now(),
       msg: "event_loop_watchdog_armed",
@@ -144,6 +168,18 @@ const buildWorkerSource = (params: {
   parentPort.on("message", (msg) => {
     if (!msg) return;
     if (msg.type === "ping" && typeof msg.at === "number") {
+      if (stallStacks.length > 0) {
+        writeStderr(JSON.stringify({
+          level: 40,
+          time: Date.now(),
+          msg: "event_loop_stall_recovered",
+          label: LABEL,
+          stalledMs: msg.at - lastPingAt,
+          stallStacks
+        }) + "\\n");
+      }
+      stallStacks = [];
+      nextStackCaptureAtMs = STACK_CAPTURE_MS;
       lastPingAt = msg.at;
       if (msg.diag && typeof msg.diag === "object") lastDiag = msg.diag;
     } else if (msg.type === "arm") {
@@ -160,6 +196,21 @@ const buildWorkerSource = (params: {
       return;
     }
     const stalledMs = Date.now() - lastPingAt;
+    if (STACK_CAPTURE_MS > 0 && stalledMs >= nextStackCaptureAtMs && stallStacks.length < MAX_STACKS_PER_STALL) {
+      nextStackCaptureAtMs += STACK_CAPTURE_MS;
+      captureMainThreadStack(2000, 25, (result) => {
+        const entry = Object.assign({ atStalledMs: stalledMs }, result);
+        stallStacks.push(entry);
+        writeStderr(JSON.stringify({
+          level: 40,
+          time: Date.now(),
+          msg: "event_loop_stall_stack",
+          label: LABEL,
+          lastDiag,
+          stack: entry
+        }) + "\\n");
+      });
+    }
     if (stalledMs <= STALL_MS) return;
 
     const now = Date.now();
@@ -168,7 +219,7 @@ const buildWorkerSource = (params: {
     if (sinceLastKillMs < MIN_KILL_INTERVAL_MS) {
       // Rate-limited: don't restart-loop on a sustained regression. Log once
       // per probe so admins can see the watchdog is intentionally holding back.
-      process.stderr.write(JSON.stringify({
+      writeStderr(JSON.stringify({
         level: 50,
         time: now,
         msg: "event_loop_watchdog_rate_limited",
@@ -178,13 +229,14 @@ const buildWorkerSource = (params: {
         stallThresholdMs: STALL_MS,
         sinceLastKillMs,
         minKillIntervalMs: MIN_KILL_INTERVAL_MS,
-        lastDiag
+        lastDiag,
+        stallStacks
       }) + "\\n");
       return;
     }
 
     writeLastKillAt(now);
-    process.stderr.write(JSON.stringify({
+    writeStderr(JSON.stringify({
       level: 60,
       time: now,
       msg: "event_loop_watchdog_kill",
@@ -193,7 +245,8 @@ const buildWorkerSource = (params: {
       stalledMs,
       stallThresholdMs: STALL_MS,
       sinceLastKillMs: lastKillAt > 0 ? sinceLastKillMs : null,
-      lastDiag
+      lastDiag,
+      stallStacks
     }) + "\\n");
     // Persist forensics before we kill — survives the restart so the next
     // boot can name the stall's cause (lastDiag carries simDiagnostics).
@@ -201,7 +254,8 @@ const buildWorkerSource = (params: {
       deathKind: "watchdog_kill",
       at: now,
       stalledMs,
-      lastDiag
+      lastDiag,
+      stallStacks
     });
     // Force-kill the whole process; the main thread is unresponsive so
     // a graceful signal can't be acknowledged.
@@ -224,6 +278,12 @@ const parseNumber = (raw: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const parseNonNegativeNumber = (raw: string | undefined, fallback: number): number => {
+  if (raw === undefined) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
 const parseString = (raw: string | undefined, fallback: string): string => {
   if (raw === undefined) return fallback;
   const trimmed = raw.trim();
@@ -243,13 +303,14 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
     options.bootGraceMs ?? parseNumber(process.env.WATCHDOG_BOOT_GRACE_MS, DEFAULT_BOOT_GRACE_MS);
   const minKillIntervalMs =
     options.minKillIntervalMs ?? parseNumber(process.env.WATCHDOG_MIN_KILL_INTERVAL_MS, DEFAULT_MIN_KILL_INTERVAL_MS);
+  const stackCaptureMs = options.stackCaptureMs ?? parseNonNegativeNumber(process.env.WATCHDOG_STACK_CAPTURE_MS, DEFAULT_STACK_CAPTURE_MS);
   const killStatePath =
     options.killStatePath ?? parseString(process.env.WATCHDOG_KILL_STATE_PATH, DEFAULT_KILL_STATE_PATH);
   const deathForensicsPath = options.deathForensicsPath ?? DEATH_FORENSICS_PATH;
   const label = options.label ?? "combined";
 
   const worker = new Worker(
-    buildWorkerSource({ stallThresholdMs, bootGraceMs, minKillIntervalMs, killStatePath, label, deathForensicsPath }),
+    buildWorkerSource({ stallThresholdMs, bootGraceMs, minKillIntervalMs, stackCaptureMs, killStatePath, label, deathForensicsPath }),
     { eval: true }
   );
   worker.unref();
@@ -277,6 +338,7 @@ export const startEventLoopWatchdog = (options: WatchdogOptions = {}): WatchdogH
       stallThresholdMs,
       bootGraceMs,
       minKillIntervalMs,
+      stackCaptureMs,
       killStatePath
     })}\n`
   );
