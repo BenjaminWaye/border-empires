@@ -1,7 +1,9 @@
 # River mountains and mountain variety plan
 
-Status: accepted (2026-10-10); owner decisions recorded at the end. In
-progress: PR A. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
+Status: accepted (2026-10-10); owner decisions recorded at the end.
+Implemented on branches `agent/mountain-variety` (A),
+`agent/river-springs` (B), `agent/river-mountain` (C, stacked on A+B) and
+`agent/river-headwaters-v10` (D, stacked on B); see "As built" below. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
 (it delivers that plan's Phase 3 "rapids where a river leaves high ground"
 and adds a headwater rule to its Phase 2). Replaces no document; when it
 ships, fold the durable facts into the rivers plan and delete this file.
@@ -314,11 +316,33 @@ heightfield river mask, the clear-corner rule can relax (rivers plan Phase 3).
 Then a head can sit on the river mountain's own corner and the cascade
 shortens to just the massif face. Lake outlets could reuse the spring pool.
 
+## As built (2026-10-10)
+
+Where the implementation differs from the plan above:
+
+- **A -- full mountain remake.** After review ("current mountains look very
+  pixel graphics"), the 3D massif is not the old cone with variation but
+  four procedurally sculpted, flat-shaded mountain shapes
+  (`client-map-3d-mountain-shape.ts`): summit plus sub-peaks, ridges and
+  creases, a lobed foot. Snow is a shader effect above a per-instance snow
+  line on gentle slopes. The variation rules (height, yaw, tint, twin peak,
+  saddles, spine, snow rule) are as planned. 2D draws per-tile peaks over a
+  plain rock texture.
+- **C -- gully, not cleft.** River mountains use a fifth shape with a gully
+  cut down one side, turned toward the river; the cascade lies on the gully
+  floor. No cleft mesh, no boulder-free rule changes.
+- **D -- v10 already existed.** `develop` had already bumped to v10 for the
+  continents/ranges rework, so the headwater rule is gated on
+  `HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 10` rather than a separate bump.
+  This is only safe if no season has been created on v10 yet; otherwise set
+  it to 11 and bump `CURRENT_WORLDGEN_VERSION`. On sample seeds 9-10 of 10
+  v10 rivers start beside a mountain (5-7 without the rule); v9 paths are
+  pinned unchanged.
+
 ## Decisions (owner, 2026-10-10)
 
-1. **v10 scope:** the headwater rule ships on its own as worldgen v10 (PR D,
-   "standalone v10" path). The rivers plan Phase 2 network rework moves to
-   v11.
+1. **v10 scope:** the headwater rule ships as part of worldgen v10 (PR D).
+   The rivers plan Phase 2 network rework moves to v11.
 2. **Snow rule:** both -- tall peaks and cold-biome peaks get snow; low peaks
    elsewhere stay bare.
 3. **Prod v8:** left as is. Prod gets PR A now and river mountains with its
