@@ -330,7 +330,7 @@ Where the implementation differs from the plan above:
   plain rock texture.
 - **C -- gully, not cleft.** River mountains use a fifth shape with a gully
   cut down one side, turned toward the river; the cascade lies on the gully
-  floor. No cleft mesh, no boulder-free rule changes.
+  floor; there is no separate cleft mesh.
 - **D -- v10 already existed.** `develop` had already bumped to v10 for the
   continents/ranges rework, so the headwater rule is gated on
   `HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 10` rather than a separate bump.
