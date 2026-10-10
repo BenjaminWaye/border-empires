@@ -235,7 +235,7 @@ growing your economy *means* taking the land around you.
 
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
-| **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | 30 MP, 60s, uses a development slot | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
+| **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 60m, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Farmstead 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
@@ -263,8 +263,8 @@ a victory hold.
 
 1. Look at the reach overlay. Where is the edge of my reach, and what is just
    past it: a town, a dock, food, resources?
-2. Pick a SETTLED tile near that edge and build a **Relay Beacon** (30 MP,
-   60s).
+2. Pick a garrisoned tile near that edge and build a **Relay Beacon** (50 MP
+   and instant for the first five owned; 100 MP and 60m after that).
 3. When it activates, every neutral land tile within radius 5 becomes your
    FRONTIER at once. **FRONTIER has zero defense**, so any adjacent enemy takes
    it without a roll (`frontier-combat.ts`).
@@ -337,7 +337,7 @@ the player arc:
 
 | Phase | Player focus | Typical actions |
 |---|---|---|
-| **Opening** (day 0–2) | Grab a town and 4 food slots, and push reach outward | Relay Beacons, Expand To a nearby town, first techs (Agrarian Works) |
+| **Opening** (day 0–2) | Garrison 4 food slots, then a town, and push reach outward | Nearby food, Relay Beacons, a reachable town, first techs (Agrarian Works) |
 | **Build-up** | Grow town tiers, fill slots, pick domains | Structures, town upgrades, docks, clearing barbarians |
 | **Contact / war** | Borders meet. Take towns, docks and resource tiles from rivals | Muster, siege outposts, forts, truces and alliances |
 | **Victory race** | Reach a threshold and hold it for 24h while everyone else turns on the leader | Defend the path you're on, or pivot to another |
@@ -365,7 +365,7 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
 | **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Customs House adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
@@ -514,7 +514,7 @@ town-engine loop at small scale.
 | World | 640×320, toroidal | `config.ts` |
 | Expand | 10 MP, 7.5s (11.25s forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
-| Relay Beacon | 30 MP, 60s. Radius 5; claims every neutral tile in it as FRONTIER, free | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
+| Relay Beacon | First five: 50 MP, instant, no food slots; later: 100 MP, 60m, one food slot. Radius 5; claims neutral tiles as FRONTIER, free | `relayBeaconManpowerCost`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 10–960 MP depending on target (§7), 30s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |

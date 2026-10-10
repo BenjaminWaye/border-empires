@@ -62,7 +62,7 @@ const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySe
   for (let dy = -TOWN_REACH_RADIUS; dy <= TOWN_REACH_RADIUS; dy += 1) {
     for (let dx = -TOWN_REACH_RADIUS; dx <= TOWN_REACH_RADIUS; dx += 1) if (ctx.reachOwnerAt(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT))) return false;
   }
-  return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE) && Boolean(starterSiteQuality(ctx.tiles, x, y, WORLD_WIDTH, WORLD_HEIGHT, (nx, ny) => !ctx.reachOwnerAt(nx, ny)));
+  return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE) && Boolean(starterSiteQuality(ctx.tiles, x, y, WORLD_WIDTH, WORLD_HEIGHT, (nx, ny) => !blockedTileKeys.has(simulationTileKey(nx, ny)) && !ctx.reachOwnerAt(nx, ny)));
 };
 
 const terrainLookup = (ctx: RuntimeRespawnContext) => (x: number, y: number): DomainTileState["terrain"] | undefined =>
@@ -99,7 +99,7 @@ const chooseStarterSpawn = (
   const fair = ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor);
   const spawn = fair ?? chooseLegacySpawnPlacement(legacySpawnSearchInput(ctx, playerId, blockedTileKeys, rallyAnchor));
   if (spawn) {
-    const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !ctx.reachOwnerAt(x, y));
+    const quality = starterSiteQuality(ctx.tiles, spawn.x, spawn.y, WORLD_WIDTH, WORLD_HEIGHT, (x, y) => !blockedTileKeys.has(simulationTileKey(x, y)) && !ctx.reachOwnerAt(x, y));
     ctx.runtimeLogInfo({ type: "starter_spawn_placed", playerId, source: fair ? "qualified_roster" : "fallback", x: spawn.x, y: spawn.y, qualified: Boolean(quality), ...quality }, "starter spawn quality");
   }
   return spawn;

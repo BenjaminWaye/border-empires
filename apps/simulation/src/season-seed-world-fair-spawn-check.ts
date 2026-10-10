@@ -45,7 +45,7 @@ export const starterTilesForWorldgen = (deps: FairSpawnWorldgenCheckDeps): Domai
         x,
         y,
         terrain,
-        ...(deps.townsByTile.has(tileKeyValue) ? { town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } } : {}),
+        ...(deps.townsByTile.has(tileKeyValue) ? { town: { type: "MARKET" as const, populationTier: "TOWN" as const } } : {}),
         ...(deps.docksByTile?.has(tileKeyValue) ? { dockId: tileKeyValue } : {}),
         ...(resourceType ? { resource: resourceType } : {})
       });

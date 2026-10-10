@@ -33,7 +33,8 @@ beacons (200): 670 MP
 against 720 starting MP. A radius-five beacon on a route's third tile covers
 the remaining five land steps. Shared routes and fishing usually cost less;
 optional actions or later competition can still spend or disrupt that budget.
-The early beacon cost is 50 MP, not the older gameplay doc's 30.
+The early beacon cost is 50 MP; the reviewed plan's older 30-MP assumption is
+not used. Automatic frontier claims make the bound conservative.
 
 Fifty sites are fifty opening opportunities, not fifty private copies of every
 resource. Their routes and objectives can overlap. Runtime placement rechecks

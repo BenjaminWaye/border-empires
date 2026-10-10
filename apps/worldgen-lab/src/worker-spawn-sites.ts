@@ -28,7 +28,7 @@ export const computeSpawnSiteIndices = (terrain: Uint8Array, resourceLayer: Uint
       const resource = resCode === 2 ? "FARM" : resCode === 5 ? "FISH" : undefined;
       tiles.push({
         x, y, terrain: tileTerrain,
-        ...(townSet.has(idx) ? { town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } } : {}),
+        ...(townSet.has(idx) ? { town: { type: "MARKET" as const, populationTier: "TOWN" as const } } : {}),
         ...(resource ? { resource } : {})
       });
     }

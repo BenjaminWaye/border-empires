@@ -94,7 +94,7 @@ export const onboardingChecklistState = (
   return {
     ...state, step: foodExpanded ? "EXPAND_TOWN" : "EXPAND_FOOD",
     highlightTiles: [{ x: next.x, y: next.y }],
-    guidance: `${action} the highlighted tile toward ${name} (${target.target.x}, ${target.target.y})${steps ? ` — ${steps} land steps away` : ""}. ${foodExpanded ? "Garrison the town to grow your manpower and reach." : "Garrison food tiles to supply building and town growth."}`
+    guidance: `${action} the highlighted tile toward ${name} (${target.target.x}, ${target.target.y})${steps ? ` — ${steps} land ${steps === 1 ? "step" : "steps"} away` : ""}. ${foodExpanded ? "Garrison the town to grow your manpower and reach." : "Garrison food tiles to supply building and town growth."}`
   };
 };
 
