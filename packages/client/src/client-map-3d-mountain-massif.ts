@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -15,6 +16,7 @@ import {
   type MountainNeighbourhoodLookup,
   type MountainVariation
 } from "./client-map-mountain-variation/client-map-mountain-variation.js";
+import { riverMountainFaceAt } from "./client-map-river-mountains/client-map-river-mountains.js";
 
 const ROCK_BASE_HEIGHT = 0.62;
 const ROCK_BASE_RADIUS_TOP = 0.42;
@@ -53,12 +55,56 @@ const PEAKS_PER_TILE = 4;
 // Main snow cap + secondary snow cap.
 const SNOW_CAPS_PER_TILE = 2;
 
-export type MountainMassifDeps = MountainNeighbourhoodLookup;
+export type MountainMassifDeps = MountainNeighbourhoodLookup & {
+  /**
+   * Unit direction (world x/y) a river mountain's face turns toward -- where
+   * its cascade leaves it (client-map-river-mountains.ts); null for ordinary
+   * mountains. Defaults to the current seed's river heads
+   * (riverMountainFaceAt) against `isMountainAt`.
+   */
+  readonly riverFaceAt?: (wx: number, wy: number) => { readonly dirX: number; readonly dirY: number } | null;
+};
+
+// River mountain cleft: a dark slot set into the face above the cascade.
+const CLEFT_WIDTH = 0.07;
+const CLEFT_DEPTH = 0.04;
+// Fractions of the peak face's height (from its base) the cleft spans.
+const CLEFT_FROM = 0.33;
+const CLEFT_TO = 0.68;
+
+/**
+ * Height above the massif's ground (its surfaceY) of the rock straight out
+ * from the centre along a face the river mountain turned toward the river
+ * (peak face and rock base face, both met flat-on), at horizontal distance
+ * `rho`; -Infinity past the rock base. The cascade lies on this profile.
+ */
+export const riverFaceProfileY = (rho: number, heightScale: number, footprint: number): number => {
+  const faceInset = Math.cos(Math.PI / PEAK_SIDES); // flat face vs corner radius
+  const peakReach = PEAK_RADIUS * footprint * faceInset;
+  const peakHeight = PEAK_HEIGHT * heightScale;
+  const peakY = rho <= peakReach ? PEAK_BASE_Y + peakHeight * (1 - rho / peakReach) : -Infinity;
+  const rockInset = Math.cos(Math.PI / ROCK_BASE_SIDES);
+  const rockTop = ROCK_BASE_RADIUS_TOP * footprint * rockInset;
+  const rockBottom = ROCK_BASE_RADIUS_BOTTOM * footprint * rockInset;
+  const rockTopY = ROCK_BASE_RISE + ROCK_BASE_HEIGHT / 2;
+  const rockY = rho <= rockTop ? rockTopY : rho <= rockBottom ? rockTopY - ROCK_BASE_HEIGHT * ((rho - rockTop) / (rockBottom - rockTop)) : -Infinity;
+  return Math.max(peakY, rockY);
+};
+
+/** Horizontal distance from the centre where the peak face is `fraction` of the way up its height. */
+export const riverFacePeakRho = (fraction: number, footprint: number): number =>
+  PEAK_RADIUS * footprint * Math.cos(Math.PI / PEAK_SIDES) * (1 - fraction);
+
+/** Height above ground of the peak face `fraction` of the way up. */
+export const riverFacePeakY = (fraction: number, heightScale: number): number => PEAK_BASE_Y + PEAK_HEIGHT * heightScale * fraction;
 
 export type MountainMassif = {
   readonly rockBaseMesh: InstancedMesh;
   readonly peakMesh: InstancedMesh;
   readonly snowCapMesh: InstancedMesh;
+  readonly cleftMesh: InstancedMesh;
+  /** The neighbourhood lookup this massif was built with (the river cascade shapes itself to the same peaks). */
+  readonly lookup: MountainMassifDeps;
   readonly clear: () => void;
   /** (x, z) scene position of the tile centre, (wx, wy) its world tile -- the look is keyed on the latter. */
   readonly addInstance: (x: number, z: number, surfaceY: number, wx: number, wy: number) => void;
@@ -112,6 +158,14 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     polygonOffsetUnits: -2
   });
 
+  const riverFaceAt = deps.riverFaceAt ?? ((wx: number, wy: number) => riverMountainFaceAt(wx, wy, deps.isMountainAt));
+  const cleftGeometry = new BoxGeometry(1, 1, 1);
+  const cleftMaterial = new MeshStandardMaterial({ color: "#26262b", roughness: 1, metalness: 0, flatShading: true });
+  const cleftMesh = new InstancedMesh(cleftGeometry, cleftMaterial, maxInstances);
+  cleftMesh.frustumCulled = false;
+  cleftMesh.count = 0;
+  scene.add(cleftMesh);
+
   const peakCapacity = maxInstances * PEAKS_PER_TILE;
   const snowCapacity = maxInstances * SNOW_CAPS_PER_TILE;
   const rockBaseMesh = new InstancedMesh(rockBaseGeometry, rockBaseMaterial, maxInstances);
@@ -137,11 +191,33 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
   let rockCount = 0;
   let peakCount = 0;
   let snowCount = 0;
+  let cleftCount = 0;
+  const tiltQuaternion = new Quaternion();
+  const xAxis = new Vector3(1, 0, 0);
 
   const clear = (): void => {
     rockCount = 0;
     peakCount = 0;
     snowCount = 0;
+    cleftCount = 0;
+  };
+
+  // A dark slot down the middle of the face pointing along `faceAngle`
+  // (radians, x = sin, z = cos), lying on the face's slope.
+  const addCleft = (x: number, z: number, surfaceY: number, faceAngle: number, heightScale: number, footprint: number): void => {
+    if (cleftCount >= maxInstances) return;
+    const reach = riverFacePeakRho(0, footprint);
+    const height = PEAK_HEIGHT * heightScale;
+    const mid = (CLEFT_FROM + CLEFT_TO) / 2;
+    const rho = riverFacePeakRho(mid, footprint) + CLEFT_DEPTH * 0.3;
+    // Box Y runs up the face: tilt it back toward the axis, then turn to the face.
+    tiltQuaternion.setFromAxisAngle(xAxis, -Math.atan2(reach, height));
+    tempQuaternion.setFromAxisAngle(yAxis, faceAngle).multiply(tiltQuaternion);
+    tempScale.set(CLEFT_WIDTH * footprint, Math.hypot(reach, height) * (CLEFT_TO - CLEFT_FROM), CLEFT_DEPTH);
+    tempPosition.set(x + Math.sin(faceAngle) * rho, surfaceY + riverFacePeakY(mid, heightScale), z + Math.cos(faceAngle) * rho);
+    tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+    cleftMesh.setMatrixAt(cleftCount, tempMatrix);
+    cleftCount += 1;
   };
 
   const rockColor = (variation: MountainVariation): Color => {
@@ -173,8 +249,12 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     const variation = mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, deps));
     const color = rockColor(variation);
     const footprint = variation.footprintScale;
+    // A river mountain turns a flat face (rock base and peak) toward its
+    // river and carries a cleft there; no second peak to hide the cascade.
+    const riverFace = riverFaceAt(wx, wy);
+    const faceAngle = riverFace ? Math.atan2(riverFace.dirX, riverFace.dirY) : 0;
 
-    tempQuaternion.setFromAxisAngle(yAxis, variation.yaw);
+    tempQuaternion.setFromAxisAngle(yAxis, riverFace ? faceAngle - Math.PI / ROCK_BASE_SIDES : variation.yaw);
     tempScale.set(footprint, 1, footprint);
     tempPosition.set(x, surfaceY + ROCK_BASE_RISE, z);
     tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
@@ -182,9 +262,10 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     rockBaseMesh.setColorAt(rockCount, color);
     rockCount += 1;
 
-    const yaw = PEAK_ROTATION_RADIANS + variation.yaw;
+    const yaw = riverFace ? faceAngle - Math.PI / PEAK_SIDES : PEAK_ROTATION_RADIANS + variation.yaw;
     addPeak(x, z, surfaceY, yaw, footprint, variation.heightScale, footprint, color, variation.snow);
-    const second = variation.secondary;
+    if (riverFace) addCleft(x, z, surfaceY, faceAngle, variation.heightScale, footprint);
+    const second = riverFace ? null : variation.secondary;
     if (second) {
       const s = second.scale;
       addPeak(
@@ -214,10 +295,13 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     commitInstances(rockBaseMesh, rockCount);
     commitInstances(peakMesh, peakCount);
     commitInstances(snowCapMesh, snowCount);
+    commitInstances(cleftMesh, cleftCount);
   };
 
   const dispose = (): void => {
-    scene.remove(rockBaseMesh, peakMesh, snowCapMesh);
+    scene.remove(rockBaseMesh, peakMesh, snowCapMesh, cleftMesh);
+    cleftGeometry.dispose();
+    cleftMaterial.dispose();
     rockBaseGeometry.dispose();
     peakGeometry.dispose();
     snowCapGeometry.dispose();
@@ -226,5 +310,5 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     snowCapMaterial.dispose();
   };
 
-  return { rockBaseMesh, peakMesh, snowCapMesh, clear, addInstance, commit, dispose };
+  return { rockBaseMesh, peakMesh, snowCapMesh, cleftMesh, lookup: deps, clear, addInstance, commit, dispose };
 };

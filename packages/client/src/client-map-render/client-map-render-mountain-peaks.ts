@@ -11,6 +11,8 @@ import {
   type MountainNeighbourhoodLookup,
   type MountainVariation
 } from "../client-map-mountain-variation/client-map-mountain-variation.js";
+import { riverMountainFaceAt } from "../client-map-river-mountains/client-map-river-mountains.js";
+import { drawRiverMountainStream, riverMountainStream } from "./client-map-render-river-mountain.js";
 
 type Point = { readonly x: number; readonly y: number };
 
@@ -59,7 +61,11 @@ const WORLD_LOOKUP: MountainNeighbourhoodLookup = {
 export const mountainVariationForWorldTile = (wx: number, wy: number): MountainVariation =>
   mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP));
 
-export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: MountainNeighbourhood): MountainPeaksLayout => {
+/**
+ * `riverMountain`: the tile is a river mountain (client-map-river-mountains.ts)
+ * -- no second peak, so the stream down its face stays clear.
+ */
+export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: MountainNeighbourhood, riverMountain = false): MountainPeaksLayout => {
   const v = mountainVariationAt(wx, wy, neighbourhood);
   const lean = (v.yaw / (Math.PI / 2) - 0.5) * APEX_LEAN;
   const peak = (cx: number, baseY: number, halfWidth: number, height: number, snow: boolean): PeakShape => ({
@@ -70,7 +76,7 @@ export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: Mount
   });
   const peaks: PeakShape[] = [];
   const halfWidth = MAIN_HALF_WIDTH * v.footprintScale;
-  if (v.secondary) {
+  if (v.secondary && !riverMountain) {
     const s = v.secondary.scale;
     peaks.push(
       peak(
@@ -182,5 +188,9 @@ export const drawMountainPeaksLayout = (ctx: CanvasRenderingContext2D, layout: M
 
 export const drawMountainPeaks2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   if (size < 8) return;
-  drawMountainPeaksLayout(ctx, mountainPeaksLayout(wx, wy, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP)), px, py, size);
+  const face = riverMountainFaceAt(wx, wy, WORLD_LOOKUP.isMountainAt);
+  const layout = mountainPeaksLayout(wx, wy, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP), face !== null);
+  drawMountainPeaksLayout(ctx, layout, px, py, size);
+  const main = layout.peaks[layout.peaks.length - 1];
+  if (face && main) drawRiverMountainStream(ctx, riverMountainStream(face, wx, wy, main), px, py, size);
 };

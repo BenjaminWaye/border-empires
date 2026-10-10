@@ -26,5 +26,16 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
       "Snow caps only tall peaks and mountains in cold country",
       "Both the 3D map and the 2D map show the same variety"
     ]
+  },
+  {
+    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.4",
+    title: "Rivers fall from the mountains",
+    why: "A river that starts next to a mountain now looks like it comes from it.",
+    changes: [
+      "Where a river starts beside a mountain, the mountain turns a cleft toward it and a waterfall runs down into the river's spring pool",
+      "The waterfall foams on the steep part and flows, with a few boulders round the pool",
+      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+    ]
   }
 ];
