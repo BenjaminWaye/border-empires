@@ -499,7 +499,8 @@ As implemented in `client-onboarding-checklist.ts` and `guideSteps`
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
    session is long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
-   within five land steps, four slots within eight, and a town within eight.
+   within three land steps (already in AFC reach), four slots within six,
+   and a town within eight.
    Live placement revalidates amenities; exhausted mature worlds can still use
    a logged fallback. See [the opening contract](product/new-player-opening.md).
 

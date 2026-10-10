@@ -31,7 +31,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "A clearer, food-first opening",
     why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
     changes: [
-      "New worlds require 50 spaced starter sites with food within five land steps, four food slots and a town within eight; live joins recheck neutral routes and amenities before using those sites",
+      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
       "Your opening checklist now guides you to garrison food before a town, names the destination and distance, and highlights one next tile in both the 2D and 3D maps",
       "If you need more reach, the checklist explains the Relay Beacon step; your AFC's reach is now included in the local guidance",
       "Upgraded towns count, enemy towns are not tutorial goals, and securing your opening shows the benefits and a next exploration suggestion"

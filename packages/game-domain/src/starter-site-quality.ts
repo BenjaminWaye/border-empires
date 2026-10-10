@@ -1,7 +1,9 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { TOWN_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState } from "./index/index.js";
 
-export const STARTER_FOOD_DISTANCE = 5;
+// The first useful target must be claimable before building a beacon.
+export const STARTER_FOOD_DISTANCE = TOWN_REACH_RADIUS;
+export const STARTER_FOOD_SUPPLY_DISTANCE = 6;
 export const STARTER_ECONOMY_DISTANCE = 8;
 export const STARTER_FOOD_SLOTS = 4;
 export const STARTER_TOWN_CLEARANCE = 5;
@@ -41,7 +43,7 @@ export const starterSiteQuality = (
     const slots = tile.resource === "FARM" ? 1 : tile.resource === "FISH" ? 2 : 0;
     if (slots > 0) {
       foodDistance = Math.min(foodDistance, current.distance);
-      foodSlots += slots;
+      if (current.distance <= STARTER_FOOD_SUPPLY_DISTANCE) foodSlots += slots;
     }
     if (current.distance === STARTER_ECONOMY_DISTANCE) continue;
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {

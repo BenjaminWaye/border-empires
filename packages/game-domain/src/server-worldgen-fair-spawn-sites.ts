@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, isSeaTerrain, wrapX, wrapY, type Terrain } from "@border-empires/shared";
 import { key } from "./server-game-constants/server-game-constants.js";
 import type { DomainTileState } from "./index/index.js";
-import { starterSiteQuality } from "./starter-site-quality.js";
+import { STARTER_ECONOMY_DISTANCE, STARTER_FOOD_DISTANCE, starterSiteQuality } from "./starter-site-quality.js";
 
 /**
  * Pure, dependency-light spawn-site selection shared by apps/simulation's
@@ -288,7 +288,7 @@ export const computeFairSpawnSites = (
       return dx + dy <= radius;
     });
     const qualified = baseCandidates.filter((tile) =>
-      nearby(tile, townCoords, 8) && nearby(tile, foodCoords, 5) &&
+      nearby(tile, townCoords, STARTER_ECONOMY_DISTANCE) && nearby(tile, foodCoords, STARTER_FOOD_DISTANCE) &&
       [-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => {
         const neighbor = tiles.get(key(wrapX(tile.x + dx, width), wrapY(tile.y + dy, height)));
         return neighbor && !isSeaTerrain(neighbor.terrain) && !neighbor.ownerId && !tileBlocksAfcSite(neighbor);
