@@ -21,7 +21,7 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
-import { riverFacePeakRho, riverFaceProfileY } from "../client-map-3d-mountain-massif.js";
+import { CLEFT_FROM, riverFacePeakRho, riverFaceProfileY } from "../client-map-3d-mountain-massif.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { mountainNeighbourhoodAt, mountainVariationAt, type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
 import { riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
@@ -32,11 +32,12 @@ import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-wat
 // (OVERLAY_RISE_ABOVE_HEIGHTFIELD), so the cascade starts on the same rock.
 const MASSIF_RISE = 0.012;
 const SURFACE_LIFT = 0.014;
-// Where on the peak face (fraction of its height) the water leaves the cleft.
-const SOURCE_FRACTION = 0.4;
+// Where on the peak face (fraction of its height) the water leaves the
+// cleft: just inside its lower end.
+const SOURCE_FRACTION = CLEFT_FROM + 0.03;
 const FACE_STEP = 0.035;
 const EDGE_STEPS = 12;
-const TOP_HALF_WIDTH = 0.022;
+const TOP_HALF_WIDTH = 0.03;
 const BOTTOM_HALF_WIDTH = 0.045;
 // Steeper than this (rise over run) reads as falling water: foam colour.
 const FALL_SLOPE = 0.6;

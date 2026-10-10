@@ -66,11 +66,12 @@ export type MountainMassifDeps = MountainNeighbourhoodLookup & {
 };
 
 // River mountain cleft: a dark slot set into the face above the cascade.
-const CLEFT_WIDTH = 0.07;
-const CLEFT_DEPTH = 0.04;
-// Fractions of the peak face's height (from its base) the cleft spans.
-const CLEFT_FROM = 0.33;
-const CLEFT_TO = 0.68;
+const CLEFT_WIDTH = 0.12;
+const CLEFT_DEPTH = 0.02;
+// Fractions of the peak face's height (from its base) the cleft spans: the
+// cascade (client-map-3d-river-cascade.ts) leaves from its lower end.
+export const CLEFT_FROM = 0.38;
+const CLEFT_TO = 0.6;
 
 /**
  * Height above the massif's ground (its surfaceY) of the rock straight out
@@ -160,7 +161,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
 
   const riverFaceAt = deps.riverFaceAt ?? ((wx: number, wy: number) => riverMountainFaceAt(wx, wy, deps.isMountainAt));
   const cleftGeometry = new BoxGeometry(1, 1, 1);
-  const cleftMaterial = new MeshStandardMaterial({ color: "#26262b", roughness: 1, metalness: 0, flatShading: true });
+  const cleftMaterial = new MeshStandardMaterial({ color: "#3a3a41", roughness: 1, metalness: 0, flatShading: true });
   const cleftMesh = new InstancedMesh(cleftGeometry, cleftMaterial, maxInstances);
   cleftMesh.frustumCulled = false;
   cleftMesh.count = 0;
@@ -209,7 +210,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     const reach = riverFacePeakRho(0, footprint);
     const height = PEAK_HEIGHT * heightScale;
     const mid = (CLEFT_FROM + CLEFT_TO) / 2;
-    const rho = riverFacePeakRho(mid, footprint) + CLEFT_DEPTH * 0.3;
+    const rho = riverFacePeakRho(mid, footprint);
     // Box Y runs up the face: tilt it back toward the axis, then turn to the face.
     tiltQuaternion.setFromAxisAngle(xAxis, -Math.atan2(reach, height));
     tempQuaternion.setFromAxisAngle(yAxis, faceAngle).multiply(tiltQuaternion);
