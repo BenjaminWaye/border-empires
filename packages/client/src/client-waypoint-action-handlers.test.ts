@@ -3,6 +3,7 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 
 import { createInitialState } from "./client-state/client-state.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
+import { hideEffortConfirmSheet, isEffortConfirmSheetOpen } from "./client-effort-confirm-sheet/client-effort-confirm-sheet.js";
 
 const stubWindowStorage = (): void => {
   const storage = new Map<string, string>();
@@ -181,5 +182,54 @@ describe("cancel_all_waypoints clears the entire queue from any tile", () => {
 
     expect(handled).toBe(true);
     expect(state.waypoint).toHaveLength(0);
+  });
+});
+
+/**
+ * Expand To & Attack on an enemy SETTLED destination opens the same effort
+ * sheet as Launch Attack; the chosen effort is stored on the waypoint and
+ * mirrored to the server for the offline drain's final ATTACK leg.
+ */
+describe("expand_here on a settled enemy target asks for an effort level", () => {
+  afterEach(() => {
+    hideEffortConfirmSheet();
+    vi.unstubAllGlobals();
+  });
+
+  it("only sets the waypoint once confirmed, carrying the chosen commitment on the waypoint and the wire", () => {
+    stubWindowStorage();
+    const state = createInitialState();
+    state.me = "me";
+    state.manpowerCap = 1_000;
+    state.tiles.set("0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "me" } as never);
+    state.tiles.set("1,0", { x: 1, y: 0, terrain: "LAND" } as never);
+    state.tiles.set("2,0", { x: 2, y: 0, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" } as never);
+    state.serverReach = new Set<string>(["0,0", "1,0", "2,0"]);
+    state.serverReachRevision = 1;
+    const sendGameMessage = vi.fn(() => true);
+
+    const handled = handleWaypointAction({
+      state,
+      selected: { x: 2, y: 0 },
+      actionId: "expand_here",
+      keyFor,
+      pushFeed: noop,
+      renderHud: noop,
+      hideTileActionMenu: noop,
+      showCaptureAlert: noop,
+      processActionQueue: () => false,
+      sendGameMessage
+    });
+    expect(handled).toBe(true);
+    expect(isEffortConfirmSheetOpen()).toBe(true);
+    expect(state.waypoint).toHaveLength(0);
+
+    document.querySelector<HTMLButtonElement>('[data-effort-preset="double"]')!.click();
+    document.querySelector<HTMLButtonElement>("[data-effort-go]")!.click();
+
+    expect(state.waypoint).toHaveLength(1);
+    const commit = state.waypoint[0]!.commitManpower;
+    expect(commit).toBeGreaterThan(0);
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "WAYPOINT_ENQUEUE", x: 2, y: 0, commitManpower: commit }));
   });
 });

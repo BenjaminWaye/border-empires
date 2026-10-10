@@ -9,6 +9,7 @@ import {
   WAYPOINT_QUEUE_CLIENT_CAP
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
+import { promptAttackEffortForTarget } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
@@ -38,7 +39,8 @@ const setWaypointForSelected = (
     renderHud: () => void;
     sendGameMessage?: (payload: unknown) => boolean;
   },
-  feedPrefix?: string
+  feedPrefix?: string,
+  commitManpower?: number
 ): boolean => {
   const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, sendGameMessage } = params;
   if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
@@ -76,14 +78,16 @@ const setWaypointForSelected = (
     plan,
     trackBarbarian,
     planId,
-    plannedAt
+    plannedAt,
+    ...(commitManpower != null ? { commitManpower } : {})
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
   sendGameMessage?.(
     waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, trackBarbarian, {
       planId,
       plannedAt,
-      steps: wireStepsForPlan(plan.steps)
+      steps: wireStepsForPlan(plan.steps),
+      ...(commitManpower != null ? { commitManpower } : {})
     })
   );
   const summary = plan.attackCount > 0
@@ -153,7 +157,24 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "expand_here" && selected) {
-    return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) });
+    const params = { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) };
+    // An enemy SETTLED destination gets the same effort sheet as Launch
+    // Attack; the choice rides the waypoint to its final ATTACK leg.
+    const prompted = promptAttackEffortForTarget(
+      state,
+      state.tiles.get(keyFor(selected.x, selected.y)),
+      {
+        title: `Expand to & attack (${selected.x}, ${selected.y})`,
+        confirmLabel: "Set waypoint",
+        onConfirm: (commitManpower) => setWaypointForSelected(params, undefined, commitManpower)
+      },
+      { keyFor, pickOriginForTarget: () => undefined }
+    );
+    if (prompted) {
+      hideTileActionMenu();
+      return true;
+    }
+    return setWaypointForSelected(params);
   }
 
   return false;

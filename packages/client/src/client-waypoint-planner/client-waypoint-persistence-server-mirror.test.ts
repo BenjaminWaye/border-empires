@@ -194,3 +194,26 @@ describe("restorePersistedWaypointQueueForPlayer: server merge", () => {
     expect(sendGameMessage).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("Expand To & Attack effort survives the server mirror and reconnects", () => {
+  it("is sent on enqueue/resync and restored from both the server entry and sessionStorage", () => {
+    installSessionStorageMock();
+    expect(waypointEnqueueWirePayload({ x: 3, y: 0 }, false, { steps: [], commitManpower: 150 })).toMatchObject({ commitManpower: 150 });
+
+    const sendGameMessage = vi.fn(() => true);
+    syncWaypointQueueToServer(
+      { waypoint: [{ target: { x: 3, y: 0 }, plan: { reachable: false } as never, commitManpower: 150 }] },
+      sendGameMessage
+    );
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "WAYPOINT_ENQUEUE", commitManpower: 150 }));
+
+    const state = stateWithTiles([tile(0, 0, { ownerId: "me" }), tile(3, 0, { ownerId: "enemy", ownershipState: "SETTLED" })]);
+    const fromServer = restorePersistedWaypointQueueForPlayer("me", { state, keyFor }, [{ x: 3, y: 0, queuedAt: 1, commitManpower: 150 }]);
+    expect(fromServer[0]?.commitManpower).toBe(150);
+
+    persistWaypointQueueForPlayer("me", fromServer);
+    const fromSession = restorePersistedWaypointQueueForPlayer("me", { state, keyFor });
+    expect(fromSession[0]?.commitManpower).toBe(150);
+    vi.unstubAllGlobals();
+  });
+});
