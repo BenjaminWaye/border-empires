@@ -12,8 +12,8 @@ countdowns, or mandatory special landmarks.
 
 Newly generated worlds must offer at least 50 qualified starting sites:
 
-- First neutral FARM/FISH within five cardinal land steps.
-- At least four food slots within eight land steps (FARM = 1, FISH = 2).
+- First neutral FARM/FISH within three cardinal land steps, inside AFC reach.
+- At least four food slots within six land steps (FARM = 1, FISH = 2).
 - A neutral town reachable within eight steps, with at least five tiles of
   straight-line Manhattan clearance from the starting capital.
 - Dry, town/dock/resource-free 3×3 AFC footprint and at least ten tiles of wrapped
@@ -22,8 +22,18 @@ Newly generated worlds must offer at least 50 qualified starting sites:
 
 "A resource or town within five tiles" was too weak: it could mean a useless
 non-food resource, an enemy-held town, or something across an impassable bay.
-The food target uses a five-step limit; the town deliberately allows a short
+The first food target tightens the requested five-tile limit to three, so the
+first useful action requires no beacon. The town deliberately allows a short
 five-to-eight-step opening rather than crowding the capital.
+
+The six-step supply limit also avoids a manpower stall. At current base costs,
+the conservative opening uses at most 29 neutral claims (290 MP), five
+food/town garrisons (100), four beacon-site garrisons (80), and four early
+beacons (200): 670 MP
+against 720 starting MP. A radius-five beacon on a route's third tile covers
+the remaining five land steps. Shared routes and fishing usually cost less;
+optional actions or later competition can still spend or disrupt that budget.
+The early beacon cost is 50 MP, not the older gameplay doc's 30.
 
 Fifty sites are fifty opening opportunities, not fifty private copies of every
 resource. Their routes and objectives can overlap. Runtime placement rechecks

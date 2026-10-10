@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "./index/index.js";
 import { starterSiteQuality } from "./starter-site-quality.js";
 import { computeFairSpawnSites } from "./server-worldgen-fair-spawn-sites.js";
+import { EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST, STARTING_CAPITAL_MANPOWER_CAP, TOWN_REACH_RADIUS, OUTPOST_REACH_RADIUS, relayBeaconManpowerCost } from "@border-empires/shared";
+import { STARTER_FOOD_DISTANCE, STARTER_FOOD_SUPPLY_DISTANCE, STARTER_ECONOMY_DISTANCE } from "./starter-site-quality.js";
 
 const world = (): Map<string, DomainTileState> => {
   const tiles = new Map<string, DomainTileState>();
@@ -12,7 +14,7 @@ const world = (): Map<string, DomainTileState> => {
 };
 
 describe("starter site opening economy", () => {
-  it("requires four slots, a first food target within five steps and a town within eight", () => {
+  it("requires four slots, an immediately reachable food target and a town within eight", () => {
     expect(starterSiteQuality(world(), 10, 10, 30, 30)).toEqual({ foodDistance: 3, townDistance: 8, foodSlots: 4 });
     const tiles = world();
     delete tiles.get("16,10")!.resource;
@@ -23,6 +25,26 @@ describe("starter site opening economy", () => {
     for (const key of ["15,10", "16,10"]) delete tiles.get(key)!.resource;
     for (const key of ["13,10", "14,10"]) tiles.get(key)!.resource = "FISH";
     expect(starterSiteQuality(tiles, 10, 10, 30, 30)?.foodSlots).toBe(4);
+  });
+  it("rejects food spread beyond the six-step opening supply budget", () => {
+    const tiles = world();
+    delete tiles.get("16,10")!.resource;
+    tiles.get("17,10")!.resource = "FARM";
+    expect(starterSiteQuality(tiles, 10, 10, 30, 30)).toBeUndefined();
+  });
+  it("keeps the conservative opening inside the starting manpower budget", () => {
+    expect(STARTER_FOOD_DISTANCE).toBeLessThanOrEqual(TOWN_REACH_RADIUS);
+    expect(STARTER_ECONOMY_DISTANCE).toBeLessThanOrEqual(TOWN_REACH_RADIUS + OUTPOST_REACH_RADIUS);
+    const claims = STARTER_FOOD_DISTANCE + 3 * STARTER_FOOD_SUPPLY_DISTANCE + STARTER_ECONOMY_DISTANCE;
+    const beaconCosts = [0, 1, 2, 3].reduce((sum, count) => sum + relayBeaconManpowerCost(count), 0);
+    // Four FARMs + a town, with at most three food beacons and one town beacon.
+    expect(claims * EXPAND_MANPOWER_COST + 9 * SETTLE_MANPOWER_COST + beaconCosts).toBeLessThanOrEqual(STARTING_CAPITAL_MANPOWER_CAP);
+  });
+  it("rejects a first food goal outside the AFC's starting reach", () => {
+    const tiles = world();
+    delete tiles.get("13,10")!.resource;
+    tiles.get("16,11")!.resource = "FARM";
+    expect(starterSiteQuality(tiles, 10, 10, 30, 30)).toBeUndefined();
   });
   it.each(["SEA", "MOUNTAIN"] as const)("rejects a nearby town behind a %s wall", (terrain) => {
     const tiles = world();
