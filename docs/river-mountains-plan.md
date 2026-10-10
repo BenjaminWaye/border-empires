@@ -1,7 +1,7 @@
 # River mountains and mountain variety plan
 
-Status: proposed (2026-10-09). Active proposal; the owner decides the open
-questions at the end. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
+Status: accepted (2026-10-10); owner decisions recorded at the end. In
+progress: PR A. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
 (it delivers that plan's Phase 3 "rapids where a river leaves high ground"
 and adds a headwater rule to its Phase 2). Replaces no document; when it
 ships, fold the durable facts into the rivers plan and delete this file.
@@ -314,13 +314,12 @@ heightfield river mask, the clear-corner rule can relax (rivers plan Phase 3).
 Then a head can sit on the river mountain's own corner and the cascade
 shortens to just the massif face. Lake outlets could reuse the spring pool.
 
-## Open decisions (owner)
+## Decisions (owner, 2026-10-10)
 
-1. **v10 scope.** Fold the headwater rule into rivers Phase 2 (one v10), or
-   ship it alone as v10 now and push Phase 2 to v11? Recommendation: fold it in
-   if Phase 2 is ready before the next season starts; otherwise ship alone.
-2. **Snow rule.** Height-based, cold-biome-based, or both? Recommendation:
-   both (tall peaks always, cold biomes always, low peaks elsewhere bare).
-3. **Prod v8.** Prod's tile-centre rivers get none of B-D (A still ships to
-   prod). Recommendation: leave v8 as is; prod gets river mountains with its
+1. **v10 scope:** the headwater rule ships on its own as worldgen v10 (PR D,
+   "standalone v10" path). The rivers plan Phase 2 network rework moves to
+   v11.
+2. **Snow rule:** both -- tall peaks and cold-biome peaks get snow; low peaks
+   elsewhere stay bare.
+3. **Prod v8:** left as is. Prod gets PR A now and river mountains with its
    next season.

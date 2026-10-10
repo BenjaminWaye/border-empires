@@ -13,7 +13,7 @@ off tile borders. Rev 2 replaces it with a draped ribbon (below).
 | Phase 0 -- reproduce, versions, overlay heights, look target | Done (findings below) |
 | Phase 1a -- water fix on existing meshes (v8 prod + v9 staging) | Implemented (PR #2262); verified locally on v9, needs review on staging/prod |
 | Phase 1b -- draped ribbon rebuild (1.0-1.8) | After 1a is reviewed in game |
-| Phase 2 -- worldgen v10 river networks + FARM bias | Next season |
+| Phase 2 -- worldgen v11 river networks + FARM bias (v10 is the headwater rule, `river-mountains-plan.md`) | After v10 |
 | Phase 3 -- optional extras | Unscheduled |
 
 Separate from this plan: the local seed-profile season `worldgenVersion`
