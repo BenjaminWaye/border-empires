@@ -66,8 +66,8 @@ const SECONDARY_DISTANCE_RANGE = 0.08;
 const SECONDARY_MIN_SCALE = 0.5;
 const SECONDARY_SCALE_RANGE = 0.2;
 export const MOUNTAIN_SHAPE_COUNT = 4;
-const COLD_SNOW_LINE = 0.4;
-const TALL_SNOW_LINE = 0.6;
+const COLD_SNOW_LINE = 0.45;
+const TALL_SNOW_LINE = 0.7;
 
 /**
  * Deterministic 0..1 value for a world tile and a salt (one salt per

@@ -110,9 +110,9 @@ const shapeHeight = (p: ShapeParams, x: number, z: number): number => {
 };
 
 // Rock colours (sRGB), crease to ridge, and the wet dark rock of a gully.
-const CREASE = new Color("#4a474c");
-const RIDGE = new Color("#8a8389");
-const FOOT = new Color("#6b6152");
+const CREASE = new Color("#5f5b61");
+const RIDGE = new Color("#a19aa0");
+const FOOT = new Color("#7a6f5e");
 const GULLY = new Color("#353438");
 
 /**
