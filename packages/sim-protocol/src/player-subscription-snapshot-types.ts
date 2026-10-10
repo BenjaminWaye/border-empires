@@ -61,7 +61,8 @@ export type PlayerSubscriptionSnapshot = {
     // and ServerWaypointQueueWireEntry (packages/client's client-waypoint-
     // persistence.ts) -- steps/cursor/planId/plannedAt/stalled carry the
     // client-planned route and offline-replay position (see
-    // docs/waypoint-client-planning-plan.md). Keep all three in sync.
+    // docs/waypoint-client-planning-plan.md); commitManpower is the final
+    // ATTACK leg's chosen effort (runtime-waypoint-drain.ts). Keep all three in sync.
     waypointQueue?: Array<{
       x: number;
       y: number;
@@ -72,6 +73,7 @@ export type PlayerSubscriptionSnapshot = {
       steps?: WaypointWireStep[];
       cursor?: number;
       stalled?: boolean;
+      commitManpower?: number;
     }>;
     techIds: string[];
     domainIds: string[];

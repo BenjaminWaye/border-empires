@@ -250,3 +250,43 @@ describe("tryDrainWaypointQueue -- legacy target-only entries", () => {
     expect(summary.waypointQueue).toHaveLength(0);
   });
 });
+
+describe("tryDrainWaypointQueue -- Expand To & Attack effort (commitManpower)", () => {
+  const plan = (targetTile: DomainTileState, commitManpower: number | undefined) => {
+    const tiles = new Map([
+      ["1,1", tile(1, 1, { ownerId: PLAYER_ID })],
+      ["2,1", tile(2, 1)],
+      ["3,1", targetTile]
+    ]);
+    const entry: ServerWaypointQueueEntry = {
+      target: { x: 3, y: 1 },
+      queuedAt: 0,
+      steps: [step(1, 1, 2, 1), step(2, 1, 3, 1, "ATTACK")],
+      cursor: 0,
+      ...(commitManpower != null ? { commitManpower } : {})
+    };
+    return { tiles, entry };
+  };
+
+  it("sends the chosen commitment on the final ATTACK leg against a SETTLED enemy target, and not on earlier legs", () => {
+    const { tiles, entry } = plan(tile(3, 1, { ownerId: "enemy", ownershipState: "SETTLED" }), 150);
+    const { context, dispatched } = makeContext([entry], { tiles });
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+    expect(JSON.parse(dispatched[0]!.command.payloadJson)).not.toHaveProperty("commitManpower");
+
+    tiles.set("2,1", tile(2, 1, { ownerId: PLAYER_ID }));
+    tryDrainWaypointQueue(context, PLAYER_ID);
+    expect(dispatched[1]!.actionType).toBe("ATTACK");
+    expect(JSON.parse(dispatched[1]!.command.payloadJson)).toMatchObject({ toX: 3, toY: 1, commitManpower: 150 });
+  });
+
+  it("omits the commitment when the target is only FRONTIER (extra manpower would buy no odds there)", () => {
+    const { tiles, entry } = plan(tile(3, 1, { ownerId: "enemy", ownershipState: "FRONTIER" }), 150);
+    tiles.set("2,1", tile(2, 1, { ownerId: PLAYER_ID }));
+    const { context, dispatched } = makeContext([{ ...entry, cursor: 1 }], { tiles });
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+    expect(JSON.parse(dispatched[0]!.command.payloadJson)).not.toHaveProperty("commitManpower");
+  });
+});

@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, requiredMusterForTarget, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -12,6 +12,8 @@ import {
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
 import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin, parkOrReuseMusterFlagForAttack } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
+import { requiredMusterWithCommit, noteWaypointStepEnqueued } from "../client-attack-commit/client-attack-commit.js";
+import { enqueueTarget } from "./client-queue-enqueue-target.js"; export { enqueueTarget };
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -618,31 +620,8 @@ export const topUpFromWaypoint = (
   }
   waypoint.consecutiveRetries = 0;
   const enqueued = enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor, { fromWaypoint: true });
-  if (enqueued) waypoint.lastEnqueuedKey = stepKey;
+  if (enqueued) noteWaypointStepEnqueued(state, waypoint, firstStep, stepKey);
   return enqueued;
-};
-
-export const enqueueTarget = (
-  state: ClientState,
-  x: number,
-  y: number,
-  keyFor: (x: number, y: number) => string,
-  options: { fromWaypoint?: boolean } = {}
-): boolean => {
-  const targetKey = keyFor(x, y);
-  const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
-  if (frontierSyncWaitUntil > Date.now()) return false;
-  if (state.queuedTargetKeys.has(targetKey)) {
-    const stillQueued = state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === targetKey);
-    const currentlyExecuting = state.actionInFlight && state.actionTargetKey === targetKey;
-    if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(targetKey);
-  }
-  if (state.queuedTargetKeys.has(targetKey)) return false;
-  const entry: { x: number; y: number; retries: number; fromWaypoint?: boolean } = { x, y, retries: 0 };
-  if (options.fromWaypoint) entry.fromWaypoint = true;
-  state.actionQueue.push(entry);
-  state.queuedTargetKeys.add(targetKey);
-  return true;
 };
 
 export const buildFrontierQueue = (
@@ -845,7 +824,7 @@ export const processPendingMusterAttacks = (
         isDockCrossingBetween(state, closest.tile.x, closest.tile.y, entry.targetX, entry.targetY));
 
     const musterTile = state.tiles.get(entry.musterTileKey);
-    const required = requiredMusterForTarget(target);
+    const required = requiredMusterWithCommit(state, target);
 
     // Hard backstop: no matter which sub-condition below is failing, an
     // entry parked for this long has clearly stalled — drop it with visible
@@ -1275,7 +1254,7 @@ export const processActionQueue = (
             isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
           // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see findFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
-          const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterForTarget(to));
+          const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterWithCommit(state, to));
           if (funded) {
             // Real travel time: the company doesn't march until it reaches
             // the target, so the ATTACK itself isn't even sent (let alone
