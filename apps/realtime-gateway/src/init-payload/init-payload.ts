@@ -19,7 +19,7 @@ import {
 } from "@border-empires/shared";
 import { reconnectPassthroughFields, type LeaderboardMetricEntry, type LeaderboardOverallEntry, type ManpowerBreakdown, type PlayerSubscriptionSnapshot, type ReconnectPassthroughFields } from "@border-empires/sim-protocol";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { createSeedWorld, simulationWorldSeedForProfile, type SimulationSeedProfile } from "../../../simulation/src/seed-state/seed-state.js";
+import { readSeedWorldTemplate, simulationWorldSeedForProfile, type SimulationSeedProfile } from "../../../simulation/src/seed-state/seed-state.js";
 import type { TechCatalogEntry, DomainCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
 type ModKey = "attack" | "defense" | "income" | "vision";
@@ -363,7 +363,7 @@ export const buildGatewayInitPayload = (
   snapshotBootstrap?: LegacySnapshotBootstrap,
   dukeAuthUids?: ReadonlySet<string> // Duke title: authUids resolved via resolveDukeAuthUids (galaxy-holdings.ts); playerId IS the authUid here.
 ): GatewayInitPayload => {
-  const seedWorld = createSeedWorld(seedProfile);
+  const seedWorld = readSeedWorldTemplate(seedProfile); // shared + read-only; warmed at boot (seed-world-warmup.ts)
   const bootstrapProfile = snapshotBootstrap?.playerProfiles.get(playerIdentity.playerId);
   const liveSnapshotPlayer = initialState?.player;
   const bootstrapPlayer = snapshotBootstrap?.players.get(playerIdentity.playerId);

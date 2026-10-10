@@ -24,6 +24,7 @@ import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
+import { warmGatewaySeedWorld } from "./seed-world-warmup/seed-world-warmup.js";
 
 // Replay any forensics persisted by a prior death before we arm the watchdog.
 replayDeathForensicsOnBoot();
@@ -144,6 +145,11 @@ simWorker.on("message", (raw: unknown) => {
   }
 });
 
+const gatewayEnv = parseRealtimeGatewayRuntimeEnv(process.env);
+// Build the login fallback world now, while the sim worker replays in
+// parallel and before the watchdog arms -- never on the first login.
+warmGatewaySeedWorld(gatewayEnv.simulationSeedProfile);
+
 const simReady = await new Promise<SimWorkerReadyMessage>((resolve, reject) => {
   const onMessage = (raw: unknown): void => {
     if (!raw || typeof raw !== "object") return;
@@ -169,7 +175,6 @@ console.log(`[merged] simulation metrics bound at ${simReady.metricsHost}:${simR
 // loopback gRPC. We never expose the sim port externally.
 process.env.SIMULATION_ADDRESS = `${simHost}:${simPort}`;
 process.env.GATEWAY_SIMULATION_WAKE_ADDRESS = `${simHost}:${simPort}`;
-const gatewayEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 
 const gateway = await createRealtimeGatewayApp({
   host: gatewayEnv.host,

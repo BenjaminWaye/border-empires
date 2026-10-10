@@ -3,6 +3,7 @@ import { CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_ATTACK } from "./client-changelo
 import { CLIENT_CHANGELOG_ENTRIES_ENEMY_CONSTRUCTION_ACTIONS } from "./client-changelog-enemy-construction-actions.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
 import { CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING } from "./client-changelog-join-season-loading.js";
+import { CLIENT_CHANGELOG_ENTRIES_LOGIN_AFTER_UPDATE } from "./client-changelog-login-after-update.js";
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_STAND } from "./client-changelog-muster-stand.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
@@ -43,6 +44,7 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_LINGERING_FIX,
   ...CLIENT_CHANGELOG_ENTRIES_ARROW_GESTURE_MAC_SHIELD_WASH,
   ...CLIENT_CHANGELOG_ENTRIES_JOIN_SEASON_LOADING,
+  ...CLIENT_CHANGELOG_ENTRIES_LOGIN_AFTER_UPDATE,
   ...CLIENT_CHANGELOG_ENTRIES_RENDERER_SWITCH,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_JOIN_DROP,
   ...CLIENT_CHANGELOG_ENTRIES_TWITCH_SIGN_IN,
