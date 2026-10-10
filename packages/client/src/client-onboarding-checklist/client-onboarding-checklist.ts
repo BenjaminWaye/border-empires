@@ -1,4 +1,44 @@
-// Existing town-first checklist: highlight objectives directly, never route tiles.
+// New-player onboarding checklist: a goal shown until a fresh empire is
+// food-secure. The whole checklist is EXPAND-driven -- see
+// docs/game-mechanics.md §4: SETTLE only ever finalizes a tile the player
+// already owns as FRONTIER (from a prior EXPAND), and the client's "Expand
+// To" action (client-tile-action-neutral.ts's "settle_land") auto-settles
+// once ownership lands, so from the player's point of view there's exactly
+// one verb here: find a target tile in reach, then Expand To it.
+//
+// The panel shows 4 goal checkboxes, "find" split out from "expand to" for
+// both the town and the food targets:
+//   1. Find a town — a town tile that isn't already the player's own is
+//      known to exist somewhere (almost always one of the neutral towns
+//      world gen pre-seeded, since zero towns are player-founded -- see
+//      docs/game-mechanics.md §2), regardless of whether it's in reach yet.
+//   2. Expand To the town — garrison a TOWN-or-higher tile. Also satisfied
+//      if the player's own starting SETTLEMENT-tier tile (every new empire
+//      spawns with one, free) happens to have grown to TOWN tier on its
+//      own in the meantime.
+//   3. Find food tiles — enough known FARM/FISH tiles (owned or not, in
+//      reach or not) to reach the food-slot target once claimed.
+//   4. Expand To food tiles — garrison enough FARM/FISH tiles to hit
+//      ONBOARDING_FOOD_SLOTS_TARGET food *slots* (not tiles: a FISH tile is
+//      worth 2 slots, a FARM tile 1 -- see structure-slots.ts's
+//      RESOURCE_SLOT_SPEC, `FARM: baseSlots: 1` / `FISH: baseSlots: 2` --
+//      so "4 slots" is any weighted mix, e.g. 4 grain, 2 fish, or 1 fish +
+//      2 grain).
+//
+// `step`/`highlightTiles` drive the single actionable "do this next" the
+// map highlights, separate from the 4 checkboxes above: EXPAND_TOWN or
+// EXPAND_FOOD when there's an in-*reach* target to point at (this actually
+// computes the player's local reach set, the same math
+// client-reach-overlay.ts's map overlay uses -- not just "known to the
+// client at all"), or EXPAND_RELAY_BEACON when there isn't one yet, which
+// points the player at building a RELAY_BEACON to push reach out instead.
+// Reappears as many times as needed -- once reach grows to cover a target,
+// the checklist resumes whichever goal was blocked.
+//
+// TOWN, CITY, GREAT_CITY and METROPOLIS satisfy the garrisoned-town goal.
+// Once fully done, the checklist is marked complete in account-scoped
+// storage and never shown again. Highlights point at objectives, not paths.
+
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townIdentityForTile } from "../client-town-identity.js";
