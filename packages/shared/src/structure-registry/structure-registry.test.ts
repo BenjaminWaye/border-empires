@@ -152,7 +152,7 @@ describe("economic structure cost parity against structureCostDefinition", () =>
 
 // ── Build duration parity ─────────────────────────────────────────
 // docs/replenishment-update-plan.md D9: build time now follows manpower
-// cost (100 MP = 1 hour) instead of each spec's static buildMs. Retired the
+// cost (100 MP = 100 seconds) instead of each spec's static buildMs. Retired the
 // old "spec.buildMs === structureBuildDurationMs(type)" parity check below
 // this comment used to enforce -- that invariant can no longer hold by
 // construction: a StructureSpec's buildMs is a single static number set

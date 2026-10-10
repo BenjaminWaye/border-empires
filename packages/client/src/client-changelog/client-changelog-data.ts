@@ -16,6 +16,7 @@ import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changel
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
 import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
+import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -396,7 +397,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
-  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
+  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
+  ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -393,7 +393,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
 
   // docs/replenishment-update-plan.md D9: build time follows manpower cost
-  // (100 MP = 1 hour) instead of spec's old flat per-type buildMs -- reuses
+  // (100 MP = 100 seconds) instead of spec's old flat per-type buildMs -- reuses
   // manpowerCost, already resolved above for the exact tier/count this build
   // actually charges, so a Fort-family upgrade or a scaling structure's Nth
   // copy gets a duration that matches what it paid, not a flat per-type

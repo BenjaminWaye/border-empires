@@ -6,8 +6,9 @@ canonical rules now live in `docs/game-mechanics.md` §5.
 
 ## Goal
 
-Structures take roughly 1 hour to many hours to build (`structureBuildDurationMs`:
-manpower cost × 36 s). A smooth "rising" animation would look frozen at that
+Structures took roughly 1 hour to many hours to build when this was written
+(`structureBuildDurationMs`: manpower cost × 36 s; since 2026-10-10 it is × 1 s,
+so builds now take about 1–20 minutes). A smooth "rising" animation would look frozen at that
 scale, so construction is shown as **discrete build phases** plus **ambient life**
 at the site, tied to the existing lore: every structure is fabricated by the AFC
 and assembled on site by ancillaries (bodies run by one AI).

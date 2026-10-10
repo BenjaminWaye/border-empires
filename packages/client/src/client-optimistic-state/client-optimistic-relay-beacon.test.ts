@@ -53,8 +53,8 @@ describe("optimistic Relay Beacon build time", () => {
     expect(completesAt - now).toBeLessThan(1_000);
   });
 
-  it("shows the full hour for the 6th beacon", () => {
+  it("shows the full 100 MP build time for the 6th beacon", () => {
     const { completesAt, now } = completesAtFor(5);
-    expect(completesAt - now).toBeGreaterThanOrEqual(3_600_000);
+    expect(completesAt - now).toBeGreaterThanOrEqual(100_000);
   });
 });

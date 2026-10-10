@@ -1,7 +1,7 @@
 // Relay Beacon build time for the build menu. The first RELAY_BEACON_FIRST_TIER_COUNT
-// beacons a player owns are placed instantly; the rest follow D9 (manpower cost x 36s,
-// so 100 MP = 1h). Reading the old flat RELAY_BEACON_BUILD_MS (60s, still used for
-// removal) here advertised "1m" for a beacon that actually takes an hour.
+// beacons a player owns are placed instantly; the rest follow D9 (manpower cost x 1s,
+// so 100 MP = 100s). Reading the old flat RELAY_BEACON_BUILD_MS (60s, still used for
+// removal) here advertised "1m" for a beacon that actually takes longer.
 import {
   relayBeaconBuildDurationMs,
   relayBeaconManpowerCost,
