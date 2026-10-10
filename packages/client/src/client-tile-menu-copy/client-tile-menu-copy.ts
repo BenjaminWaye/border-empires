@@ -27,12 +27,12 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
     if (input.isDockEndpoint) {
       return [
         ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
-        "Unclaimed dock. Claim and settle this tile to plug it into your trade routes."
+        "Unclaimed dock. Claim and garrison this tile to plug it into your trade routes."
       ];
     }
     if (input.resourceLabel) {
       return [
-        `Resource node: ${input.resourceLabel}. Claim and settle this tile to start producing ${input.productionLabel ?? input.resourceLabel.toLowerCase()}.`
+        `Resource node: ${input.resourceLabel}. Claim and garrison this tile to start producing ${input.productionLabel ?? input.resourceLabel.toLowerCase()}.`
       ];
     }
     return [];
@@ -44,13 +44,13 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
     return input.productionLabel
       ? [
           ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
-          `Needs settlement to produce ${input.productionLabel}.`
+          `Needs a garrison to produce ${input.productionLabel}.`
         ]
       : [];
   }
   if (input.ownerKind === "ally" || input.ownerKind === "enemy") {
-    if (input.ownershipState === "SETTLED") return ["Settled territory."];
-    if (input.ownershipState === "FRONTIER") return ["Frontier territory — not yet settled."];
+    if (input.ownershipState === "SETTLED") return ["Garrisoned territory."];
+    if (input.ownershipState === "FRONTIER") return ["Frontier territory — not yet garrisoned."];
   }
   // Generic "what is frontier / settled land" copy lives in the header's
   // expandable ownership help (client-tile-menu-ownership-help), not here.
@@ -60,7 +60,7 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
 
 export const foreignTileOwnershipLabel = (tile: Pick<Tile, "ownerId" | "ownershipState" | "terrain">, viewerId: string): string | undefined => {
   if (!tile.ownerId || tile.ownerId === viewerId || tile.terrain !== "LAND") return undefined;
-  if (tile.ownershipState === "SETTLED") return "Settled territory";
+  if (tile.ownershipState === "SETTLED") return "Garrisoned territory";
   if (tile.ownershipState === "FRONTIER") return "Frontier territory";
   return undefined;
 };

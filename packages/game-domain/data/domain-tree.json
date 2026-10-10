@@ -5,7 +5,7 @@
       "id": "frontier-doctrine",
       "tier": 1,
       "name": "Frontier Doctrine",
-      "description": "Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
+      "description": "Garrisons move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
       "requiresTechId": "organized-supply",
       "cost": { "gold": 40 },
       "effects": {
@@ -221,7 +221,7 @@
       "id": "treasury-state",
       "tier": 4,
       "name": "Treasury State",
-      "description": "Your first three settled towns and their support buildings require no food, and every town's gold income rises 20%.",
+      "description": "Your first three garrisoned towns and their support buildings require no food, and every town's gold income rises 20%.",
       "requiresTechId": "coinage",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {

@@ -17,7 +17,7 @@ export const cancelQueuedAutoSettle = (
   if (!state.autoSettleTargets.has(tileKey)) return false;
   state.autoSettleTargets.delete(tileKey);
   state.autoBuildTargets.delete(tileKey);
-  deps.pushFeed(`Queued settle at ${tileKey} cancelled.`, "combat", "info");
+  deps.pushFeed(`Queued garrison at ${tileKey} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
 };

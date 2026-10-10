@@ -367,7 +367,7 @@ export const chainedBuildAvailabilityFromModule = (
           : state.manpower < totalManpower
             ? `Need ${totalManpower} manpower`
             : "",
-      `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType)) / 60000)}m total`
+      `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. • garrison + build • ${Math.round((settleDurationMsForState(state, tile) + buildDurationMsForState(state, structureType)) / 60000)}m total`
     ];
   }
   return [
@@ -384,7 +384,7 @@ export const chainedBuildAvailabilityFromModule = (
 };
 
 const frontierBuildDetailSuffix = (tile: Tile): string =>
-  tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
+  tile.ownershipState === "FRONTIER" ? " • garrisons this tile first" : "";
 
 // Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
@@ -524,7 +524,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           : isOwnOrAllyTile
             ? "Cannot purge your own or allied tiles"
             : isUnclaimed || !targetHasPurgeableOwnership
-              ? "Target enemy settled or frontier land"
+              ? "Target enemy garrisoned or frontier land"
               : observatoryProtection
                 ? "Blocked by observatory field"
                 : lanceCooldown > 0
@@ -866,7 +866,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         detail: deps.buildDetailTextForAction("remove_structure", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           tile.ownershipState === "SETTLED",
-          "Requires settled owned tile",
+          "Requires garrisoned owned tile",
           `${Math.round(removableStructure.durationMs / 60000)}m • disables structure effects during removal`,
           slots,
           deps

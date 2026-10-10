@@ -20,7 +20,7 @@ export function handleSetAutoSettlePrefsCommand(context: RuntimeMapCommandContex
     parsed = undefined;
   }
   if (!isAutoSettlePrefsValue(parsed)) {
-    rejectCommand(context, command, "BAD_COMMAND", "invalid auto-settle preferences");
+    rejectCommand(context, command, "BAD_COMMAND", "invalid auto-garrison preferences");
     return;
   }
   actor.autoSettle = { answered: true, towns: parsed.towns, food: parsed.food, resources: parsed.resources };

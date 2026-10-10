@@ -12,7 +12,7 @@ describe("queuedSettlementProgressForTile: queue state", () => {
       queuedSettlementIndexForTile: () => 1,
       queuedEntryIndexForTile: () => 1
     });
-    expect(progress?.title).toBe("Settlement queued");
+    expect(progress?.title).toBe("Garrison queued");
     expect(progress?.queueState).toBe("queued");
     expect(progress?.remainingLabel).toBe("Queue #2");
   });
@@ -25,7 +25,7 @@ describe("queuedSettlementProgressForTile: queue state", () => {
       queuedEntryIndexForTile: () => 5,
       devQueueStateForTile: () => "planned"
     });
-    expect(progress?.title).toBe("Settlement planned");
+    expect(progress?.title).toBe("Garrison planned");
     expect(progress?.queueState).toBe("planned");
     expect(progress?.remainingLabel).toBe("Planned #1");
     expect(progress?.cancelLabel).toBe("Remove from plan");
