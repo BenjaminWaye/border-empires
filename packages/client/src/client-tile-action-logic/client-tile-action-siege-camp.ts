@@ -11,7 +11,7 @@
 // one's reach covers at all is blocked) and never appends the generic
 // " • garrisons this tile first" detail suffix or combined settle+build cost
 // every other frontier build action gets.
-import { siegeOutpostBuildDurationMs } from "@border-empires/shared";
+import { siegeBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -66,7 +66,7 @@ export const siegeCampAction = (
           : !canUseTile
             ? "Tile already has structure"
             : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
-        `${siegeVariant.summary} • ${buildTimeLabel(siegeOutpostBuildDurationMs(siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}`,
+        `${siegeVariant.summary} • ${buildTimeLabel(siegeBuildMsForState(state, siegeVariant.variant))} • atk x${siegeVariant.attackMult.toFixed(2)}${siegeVariant.upkeepSuffix}`,
         siegeVariant.gold
       )),
       slots,

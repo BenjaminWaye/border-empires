@@ -108,6 +108,18 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     expect(action?.cost).toContain("FOOD slot");
   });
 
+  it("shows the build time shortened by the player's economic build-speed effect", () => {
+    const state = richState();
+    state.techIds = ["agriculture", "fast-econ"];
+    state.techCatalog = [{ id: "fast-econ", name: "Fast", tier: 1, description: "", mods: {}, effects: { economicStructureBuildSpeedMult: 1.25 }, requirements: { gold: 0, resources: {} } }];
+    const garrisoned: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), garrisoned);
+
+    const action = findAction(menuActionsForSingleTile(state, garrisoned, baseDeps as never), "build_farmstead");
+    expect(action?.cost).toContain(` • ${buildTimeLabel(Math.round(structureBuildDurationMs("FARMSTEAD") / 1.25))} • `);
+    expect(action?.cost).not.toContain(` • ${buildTimeLabel(structureBuildDurationMs("FARMSTEAD"))} • `);
+  });
+
   it("shows build_farmstead on a FRONTIER owned FARM tile with a garrison + build total and suffix", () => {
     const state = richState();
     state.techIds = ["agriculture"];

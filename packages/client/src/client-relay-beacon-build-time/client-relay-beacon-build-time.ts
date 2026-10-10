@@ -11,6 +11,7 @@ import {
 } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { formatCooldownShort } from "../client-app-runtime-utils.js";
+import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
 import { ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 
 export const relayBeaconBuildDurationMsForState = (state: ClientState): number => relayBeaconBuildDurationMs(ownedRelayBeaconCount(state));
@@ -29,4 +30,4 @@ export const buildManpowerCostForState = (state: ClientState, type: BuildableStr
   type === "RELAY_BEACON" ? relayBeaconManpowerCostForState(state) : structureBuildManpowerCost(type);
 
 export const buildDurationMsForState = (state: ClientState, type: BuildableStructureType): number =>
-  type === "RELAY_BEACON" ? relayBeaconBuildDurationMsForState(state) : structureBuildDurationMs(type);
+  type === "RELAY_BEACON" ? relayBeaconBuildDurationMsForState(state) : buildMsWithSpeedForState(state, type, structureBuildDurationMs(type));
