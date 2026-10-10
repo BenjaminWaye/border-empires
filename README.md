@@ -91,6 +91,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
+- New-player guidance teaches garrisoned food before a town, with one next-tile highlight in both map renderers. New worlds require 50 food-and-town-qualified starter sites; see [the opening contract](docs/product/new-player-opening.md) for distances and late-join limits.
 
 ---
 

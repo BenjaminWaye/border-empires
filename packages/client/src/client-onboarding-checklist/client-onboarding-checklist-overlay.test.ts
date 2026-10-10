@@ -10,13 +10,14 @@ type PartialTile = Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town" | "ter
 // exactOptionalPropertyTypes forbids `field: undefined` on optional Tile
 // properties, so tiles are built piece by piece instead of a literal with
 // explicit undefineds (mirrors client-onboarding-checklist.test.ts).
-const tile = (x: number, y: number, extra: Partial<PartialTile> = {}): PartialTile => ({ x, y, terrain: "LAND", ...extra });
+const tile = (x: number, y: number, extra: Partial<PartialTile> = {}): PartialTile => ({ x, y, terrain: "LAND", ...(extra.ownerId ? { ownershipState: "SETTLED" as const } : {}), ...extra });
 
 const ownTown = (x: number, y: number, ownerId: string): PartialTile =>
   tile(x, y, { ownerId, ownershipState: "SETTLED", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never });
 
 const tilesMap = (tiles: PartialTile[]): ReadonlyMap<string, Tile> => {
   const map = new Map<string, Tile>();
+  for (let x = 0; x <= 20; x += 1) for (let y = 0; y <= 20; y += 1) map.set(tileKey(x, y), tile(x, y) as Tile);
   for (const t of tiles) map.set(tileKey(t.x, t.y), t as Tile);
   return map;
 };
@@ -35,10 +36,10 @@ describe("renderOnboardingChecklistOverlay", () => {
     expect(document.getElementById("onboarding-checklist-bubble")).not.toBeNull();
     const goals = document.querySelectorAll(".onb-goal");
     expect(goals).toHaveLength(4);
-    expect(goals[0]?.textContent).toContain("Find a town");
-    expect(goals[1]?.textContent).toContain("Expand To it");
-    expect(goals[2]?.textContent).toContain("Find food tiles");
-    expect(goals[3]?.textContent).toContain("Expand To");
+    expect(goals[0]?.textContent).toContain("Find food tiles");
+    expect(goals[1]?.textContent).toContain("Garrison food tiles");
+    expect(goals[2]?.textContent).toContain("Find a town");
+    expect(goals[3]?.textContent).toContain("Garrison it");
     // Nothing owned at all -- all 4 goals still open.
     expect(document.querySelector(".onb-badge")?.textContent).toBe("4");
   });
@@ -53,9 +54,9 @@ describe("renderOnboardingChecklistOverlay", () => {
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
 
     const goals = document.querySelectorAll(".onb-goal");
-    expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true); // Find a town
-    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(false); // Expand To it
-    expect(highlights).toEqual([{ x: 2, y: 0 }]);
+    expect(goals[2]?.classList.contains("onb-goal-done")).toBe(true); // Find a town
+    expect(goals[3]?.classList.contains("onb-goal-done")).toBe(false); // Settle it
+    expect(highlights).toEqual([]); // Food first; no food has been found here.
   });
 
   it("shows food-slot progress and checks off the food goals once the weighted target is met", () => {
@@ -68,16 +69,13 @@ describe("renderOnboardingChecklistOverlay", () => {
 
     const goals = document.querySelectorAll(".onb-goal");
     // "Find food tiles (X/4)": X is the weighted known total (1 claimed FARM + 2-slot FISH candidate = 3), not a tile count.
-    expect(goals[2]?.textContent).toContain("Find food tiles (3/4)");
-    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("Expand To food tiles (1/4)");
-    expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true); // town found
-    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(true); // town expanded
-    expect(goals[2]?.classList.contains("onb-goal-done")).toBe(false); // food found: 1 + 2 known = 3, short of 4
-    expect(goals[3]?.classList.contains("onb-goal-done")).toBe(false); // food expanded: only 1 claimed
-    expect(highlights).toEqual([
-      { x: 5, y: 5 },
-      { x: 7, y: 5 }
-    ]);
+    expect(goals[0]?.textContent).toContain("Find food tiles (3/4)");
+    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("Garrison food tiles (1/4)");
+    expect(goals[2]?.classList.contains("onb-goal-done")).toBe(true);
+    expect(goals[3]?.classList.contains("onb-goal-done")).toBe(true);
+    expect(goals[0]?.classList.contains("onb-goal-done")).toBe(false);
+    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(false);
+    expect(highlights).toEqual([{ x: 7, y: 5 }]);
   });
 
   it("shows a Relay Beacon note (no 5th checkbox) when nothing is in reach", () => {
@@ -117,12 +115,15 @@ describe("renderOnboardingChecklistOverlay", () => {
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
 
-    // First goal completes (town found) -- auto-collapses once.
+    // Discovering a target keeps the instructions open; securing a town
+    // is actual progress and auto-collapses once.
     const progressedTiles = tilesMap([
       tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } as never }),
       tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
     ]);
     renderOnboardingChecklistOverlay(progressedTiles, "p1", "a@example.com");
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
+    renderOnboardingChecklistOverlay(tilesMap([ownTown(2, 0, "p1")]), "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
 
     (document.getElementById("onb-launcher") as HTMLButtonElement).click();
@@ -202,5 +203,29 @@ describe("renderOnboardingChecklistOverlay", () => {
     expect(highlights).toEqual([]);
     expect(document.getElementById("onboarding-checklist-bubble")).toBeNull();
     expect(isOnboardingChecklistCompleted("done@example.com")).toBe(true);
+  });
+
+  it("acknowledges a live completion and lets the player dismiss it permanently", () => {
+    const tiles = tilesMap([ownTown(5, 5, "p1"), tile(6, 5, { resource: "FARM" })]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "live@example.com");
+    const completed = tilesMap([ownTown(5, 5, "p1"), tile(6, 5, { resource: "FISH", ownerId: "p1" }), tile(7, 5, { resource: "FISH", ownerId: "p1" })]);
+    renderOnboardingChecklistOverlay(completed, "p1", "live@example.com");
+    expect(document.querySelector(".onb-panel-title")?.textContent).toBe("Opening secured");
+    expect(document.querySelector(".onb-goal-note")?.textContent).toContain("waystation");
+    (document.getElementById("onb-launcher") as HTMLButtonElement).click();
+    renderOnboardingChecklistOverlay(completed, "p1", "live@example.com");
+    expect(document.getElementById("onboarding-checklist-bubble")).toBeNull();
+  });
+  it("does not carry a dismissed completion into another account's opening", () => {
+    const opening = tilesMap([ownTown(5, 5, "p1"), tile(6, 5, { resource: "FARM" })]);
+    const completed = tilesMap([ownTown(5, 5, "p1"), tile(6, 5, { resource: "FISH", ownerId: "p1" }), tile(7, 5, { resource: "FISH", ownerId: "p1" })]);
+    renderOnboardingChecklistOverlay(opening, "p1", "first@example.com");
+    renderOnboardingChecklistOverlay(completed, "p1", "first@example.com");
+    document.getElementById("onb-launcher")!.click();
+    renderOnboardingChecklistOverlay(opening, "p1", "second@example.com");
+    expect(document.querySelector(".onb-panel")?.hasAttribute("hidden")).toBe(false);
+    renderOnboardingChecklistOverlay(completed, "p1", "second@example.com");
+    renderOnboardingChecklistOverlay(completed, "p1", "second@example.com");
+    expect(document.querySelector(".onb-panel-title")?.textContent).toBe("Opening secured");
   });
 });

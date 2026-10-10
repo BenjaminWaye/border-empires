@@ -72,5 +72,6 @@ describe("mountain ring interior coverage", () => {
         expect(result.covered).toBe(result.total);
       }
     }
-  }, 60_000);
+  // Full generation now includes bounded route qualification and seed retries.
+  }, 240_000);
 });

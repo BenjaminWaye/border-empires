@@ -52,6 +52,31 @@ const buildContext = (tiles: Map<string, DomainTileState>) => {
 };
 
 describe("respawnPlayerOnUnownedLand", () => {
+  it("accepts qualified-site spacing at ten tiles but rejects rival opening reach", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y <= 20; y += 1) for (let x = 0; x <= 20; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    for (const x of [13, 14, 15, 16]) tiles.get(`${x},10`)!.resource = "FARM";
+    tiles.get("18,10")!.town = { type: "MARKET", populationTier: "TOWN" };
+    const { ctx } = buildContext(tiles);
+    const radii: number[] = [];
+    ctx.hasNearbySettled = (_x, _y, radius) => { radii.push(radius); return radius > 10; };
+    ctx.reachOwnerAt = (x, y) => x === 13 && y === 10 ? "rival" : undefined;
+    let checked = false;
+    ctx.claimFairSpawnSite = (isAvailable) => {
+      expect(isAvailable(10, 10)).toBe(false);
+      ctx.reachOwnerAt = () => undefined;
+      expect(isAvailable(10, 10)).toBe(true);
+      // A rival can contest the economy beyond the AFC's starting disk too.
+      ctx.reachOwnerAt = (x) => x >= 14 ? "rival" : undefined;
+      expect(isAvailable(10, 10)).toBe(false);
+      ctx.reachOwnerAt = () => undefined;
+      checked = true;
+      return { x: 10, y: 10 };
+    };
+    expect(respawnPlayerOnUnownedLand(ctx, "ai-1", "qualified-spawn")).toBe(true);
+    expect(checked).toBe(true);
+    expect(radii).toContain(10);
+  });
   it("releases barbarian tiles inside the new AFC's reach and reports them in the spawn's tile batch", () => {
     // A land square with one open tile in the middle; everything else is barbarian-held.
     const tiles = new Map<string, DomainTileState>();

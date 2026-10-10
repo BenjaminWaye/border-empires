@@ -33,6 +33,6 @@ export const computeSpawnSiteIndices = (terrain: Uint8Array, resourceLayer: Uint
       });
     }
   }
-  const sites = computeFairSpawnSites(tiles, FAIR_SPAWN_SITE_TARGET);
+  const sites = computeFairSpawnSites(tiles, FAIR_SPAWN_SITE_TARGET, { requireStarterEconomy: true });
   return new Uint32Array(sites.map((site) => site.y * WORLD_WIDTH + site.x));
 };

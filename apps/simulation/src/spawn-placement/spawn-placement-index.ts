@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { starterSiteQuality } from "@border-empires/game-domain";
 import { computeCoastalLandKeys, computeFairSpawnSites, computeLandRegions, type FairSpawnSite } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
@@ -254,7 +255,7 @@ export class SpawnPlacementIndex {
   // of each player running their own random search from scratch.
   fairSpawnSites(tiles: ReadonlyMap<string, DomainTileState>): readonly FairSpawnSite[] {
     if (tiles.size === 0) return this.fairSpawnSitesCache ?? [];
-    if (!this.fairSpawnSitesCache) this.fairSpawnSitesCache = computeFairSpawnSites([...tiles.values()]);
+    if (!this.fairSpawnSitesCache) this.fairSpawnSitesCache = computeFairSpawnSites([...tiles.values()], 50, { requireStarterEconomy: true });
     return this.fairSpawnSitesCache;
   }
 
@@ -273,7 +274,7 @@ export class SpawnPlacementIndex {
     rallyAnchor?: SpawnPlacementCoord
   ): FairSpawnSite | undefined {
     const sites = this.fairSpawnSites(tiles);
-    const available = sites.filter((site) => isAvailable(site.x, site.y));
+    const available = sites.filter((site) => isAvailable(site.x, site.y) && starterSiteQuality(tiles, site.x, site.y));
     if (available.length === 0) return undefined;
     if (rallyAnchor) {
       let best: FairSpawnSite | undefined;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH, WORLD_HEIGHT, isSeaTerrain, wrapX, wrapY, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
 import { parseTestShard, valuesForTestShard } from "./season-seed-world-coverage-shard.test-support.js";
+import { computeFairSpawnSites, starterSiteQuality } from "@border-empires/game-domain";
 
 const noopPlayer = (id: string, isAi: boolean) => ({
   id,
@@ -63,8 +64,17 @@ describe("real-pipeline dock coverage", () => {
     let anyUncovered = 0;
     for (const style of ["continents", "islands"] as WorldStyle[]) {
       for (const seed of seeds) {
-        const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 0, aiPlayerCount: 4, style });
+        const world = createSeasonSeedWorld(seed, noopPlayer, { humanPlayerCount: 1, aiPlayerCount: 4, style });
         const uncovered = countUncoveredSeaAdjacentComponents(world.tiles);
+        // Exercise the complete pipeline, including AI placement and wonders,
+        // rather than accepting fifty legal but amenity-free grass tiles.
+        const starterSites = computeFairSpawnSites([...world.tiles.values()], 50, { requireStarterEconomy: true });
+        expect(starterSites, `style=${style} seed=${seed}`).toHaveLength(50);
+        for (const site of starterSites) expect(starterSiteQuality(world.tiles, site.x, site.y)).toBeDefined();
+        const capital = [...world.tiles.values()].find((tile) => tile.ownerId === "player-1")!;
+        const opening = new Map(world.tiles);
+        opening.set(`${capital.x},${capital.y}`, { x: capital.x, y: capital.y, terrain: capital.terrain });
+        expect(starterSiteQuality(opening, capital.x, capital.y), `human spawn style=${style} seed=${seed}`).toBeDefined();
         anyUncovered += uncovered;
         results.push(`style=${style} seed=${seed} uncoveredSeaAdjacentComponents=${uncovered}`);
       }
@@ -73,5 +83,6 @@ describe("real-pipeline dock coverage", () => {
     console.log(`shard=${shard.index}/${shard.total}\n${results.join("\n")}`);
     expect(seeds).not.toHaveLength(0);
     expect(anyUncovered).toBe(0);
-  }, 120_000);
+  // Full generation now includes bounded route qualification and seed retries.
+  }, 480_000);
 });
