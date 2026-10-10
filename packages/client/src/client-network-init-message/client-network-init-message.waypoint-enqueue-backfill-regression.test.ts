@@ -133,3 +133,21 @@ describe("INIT waypoint backfill (re-sends a locally-held waypoint the server ne
     expect(sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "WAYPOINT_ENQUEUE" }));
   });
 });
+
+describe("INIT waypoint backfill keeps the Expand To & Attack effort", () => {
+  // Regression: the backfill re-sent the waypoint without its commitManpower,
+  // so a waypoint whose first WAYPOINT_ENQUEUE was dropped pre-auth would be
+  // replayed by the server's offline drain at the floor instead of the
+  // player's chosen Extra/Double effort.
+  it("re-sends the waypoint's commitManpower", () => {
+    const state = createState();
+    state.waypoint = [{ target: { x: 9, y: 9 }, commitManpower: 150, plan: { reachable: true, path: [], expandCount: 0, attackCount: 1 } as any }];
+    const ws = new FakeWebSocket();
+    const sendGameMessage = vi.fn(() => true);
+    bind(state, ws, sendGameMessage);
+
+    sendInit(ws, { waypointQueue: [] });
+
+    expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "WAYPOINT_ENQUEUE", x: 9, y: 9, commitManpower: 150 }));
+  });
+});
