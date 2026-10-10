@@ -153,7 +153,7 @@ function estimateDevQueueSettleReservation(context: RuntimeStructureCommandConte
     return { ok: false, code: "UNKNOWN_STRUCTURE", message: "unknown player" };
   }
   if (actor.manpower < SETTLE_MANPOWER_COST) {
-    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to settle` };
+    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to annex` };
   }
   return { ok: true, manpowerCost: SETTLE_MANPOWER_COST, slotRequirements: [] };
 }

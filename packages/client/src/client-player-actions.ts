@@ -205,7 +205,7 @@ export const explainActionFailureFromServer = (
   opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
 ): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
-  if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
+  if (code === "SETTLE_INVALID") return `Cannot annex: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
   if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;

@@ -226,7 +226,7 @@ export const structureInfoForKey = (
   // Modifier line (mechanic descriptions, "requires power", limits, etc).
   const effectsFor = (key: StructureInfoKey): string[] => {
     if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];
-    if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% settled defense from Bastion Walls"];
+    if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% annexed defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
@@ -339,7 +339,7 @@ export const structureInfoForKey = (
       title: "Fort",
       detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails.",
       glyph: "🛡",
-      placement: "Build on a settled border tile or dock you own.",
+      placement: "Build on an annexed border tile or dock you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -347,7 +347,7 @@ export const structureInfoForKey = (
   if (type === "TITANIUM_BASTION") {
     return structure({
       title: "Titanium Bastion",
-      detail: "Titanium Bastions upgrade standard Forts and raise their defense from 2.5x to 4x while Bastion Walls also adds +10% settled defense.",
+      detail: "Titanium Bastions upgrade standard Forts and raise their defense from 2.5x to 4x while Bastion Walls also adds +10% annexed defense.",
       glyph: "🛡",
       placement: "Upgrade an existing Fort on its current tile.",
       costBits: costBitsFor(type),
@@ -369,7 +369,7 @@ export const structureInfoForKey = (
       title: "Aether Tower",
       detail: "Aether Towers add local vision, protect your own nearby tiles (never unclaimed or other players' land) against hostile Aether abilities, and let you cast crystal abilities inside their radius.",
       glyph: "◉",
-      placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
+      placement: "Build on empty annexed land only. Not on towns, docks, or resource tiles.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -379,7 +379,7 @@ export const structureInfoForKey = (
       title: "Palisade",
       detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
       glyph: "🪵",
-      placement: "Build on a settled tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange.",
+      placement: "Build on an annexed tile you own. Like a Fort, it can share its tile with a Relay Beacon or Harbor Exchange.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -389,7 +389,7 @@ export const structureInfoForKey = (
       title: "Hydrogarden",
       detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slots on grain resource tiles. No effect on fish tiles.`,
       glyph: "🌾",
-      placement: "Build on a settled farm resource tile you own.",
+      placement: "Build on an annexed farm resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -399,7 +399,7 @@ export const structureInfoForKey = (
       title: "Umbrite Rig",
       detail: "Umbrite Rigs add +1 UMBRITE slot on the tile.",
       glyph: "🦊",
-      placement: "Build on a settled umbrite resource tile you own.",
+      placement: "Build on an annexed umbrite resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -409,7 +409,7 @@ export const structureInfoForKey = (
       title: "Mine",
       detail: "Mines add +1 slot of titanium or crystal (whichever this tile produces).",
       glyph: "⛏",
-      placement: "Build on a settled titanium or crystal resource tile you own.",
+      placement: "Build on an annexed titanium or crystal resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -419,7 +419,7 @@ export const structureInfoForKey = (
       title: "Mintworks",
       detail: `Mintworks are built on a town support tile. Each grants +10 coin instantly on completion, +1 coin/day, and increases that town's coin production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
       glyph: "◌",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -429,7 +429,7 @@ export const structureInfoForKey = (
       title: "Incubation Engine",
       detail: "Granaries are built on a town support tile. They strengthen nearby farmsteads within 10 tiles and reduce the supported town's food upkeep.",
       glyph: "🍞",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -439,7 +439,7 @@ export const structureInfoForKey = (
       title: "Census Hall",
       detail: "Census Halls are built on a town support tile. They add +25% local population growth.",
       glyph: "⌘",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -449,7 +449,7 @@ export const structureInfoForKey = (
       title: "Clearing House",
       detail: `Clearing Houses are built on a town support tile. One active clearing house raises the coin bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
       glyph: "⌂",
-      placement: "Build on an open settled support tile for a town with a connected city network.",
+      placement: "Build on an open annexed support tile for a town with a connected city network.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -459,7 +459,7 @@ export const structureInfoForKey = (
       title: "Trade Nexus",
       detail: "Trade Nexuses are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Trade Nexus.",
       glyph: "⚖",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -503,7 +503,7 @@ export const structureInfoForKey = (
       title: "Ore Refinery",
       detail: "Ore Refineries double active Mine slot output within 5 tiles.",
       glyph: "🏭",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -513,7 +513,7 @@ export const structureInfoForKey = (
       title: "Harbor Exchange",
       detail: "Harbor exchanges are built beside a dock and add +5 coin per day for each connected owned dock.",
       glyph: "⚓",
-      placement: "Build on a settled dock tile you own.",
+      placement: "Build on an annexed dock tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -553,7 +553,7 @@ export const structureInfoForKey = (
       title: "Astral Dock",
       detail: "The Astral Dock is a unique world monument. Placing it consumes all 3 Astral Dock Parts. Once assembled and powered, it can launch one satellite, free, that reveals the full map for 24 hours.",
       glyph: "✶",
-      placement: "Place on any settled tile you own after finishing 3 Astral Dock Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Astral Dock Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -563,7 +563,7 @@ export const structureInfoForKey = (
       title: "Neural Works",
       detail: "Neural Works are mustering hubs that amplify every Ancillary Factory in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Neural Works is allowed per connected-town network.",
       glyph: "🚉",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -573,7 +573,7 @@ export const structureInfoForKey = (
       title: "Hydroworks",
       detail: `A network of irrigation canals. Every Hydrogarden within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
       glyph: "💧",
-      placement: "Build on any settled land tile. Does not need a resource tile.",
+      placement: "Build on any annexed land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -583,7 +583,7 @@ export const structureInfoForKey = (
       title: "Ministry Hall",
       detail: "Ministry halls reduce a nearby town's FOOD slot demand by its own tier step (e.g. -1 for City, -2 for Great City) within 10 tiles.",
       glyph: "🏛",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -593,7 +593,7 @@ export const structureInfoForKey = (
       title: "Ancillary Depot",
       detail: "Ancillary Depots add +150 manpower cap to this town, plus +300 manpower cap if a Reserve Lattice is in this town's connected network.",
       glyph: "🪖",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -603,7 +603,7 @@ export const structureInfoForKey = (
       title: "Weapons Workshop",
       detail: "Weapons Workshops forge Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
       glyph: "🗡",
-      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
+      placement: "Build on an open annexed support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -613,7 +613,7 @@ export const structureInfoForKey = (
       title: "Titanium Weapons Factory",
       detail: "Titanium Weapons Factories forge armor plating from Titanium — armor doctrine: +1.5% attack / +3% defense per copy, empire-wide (like Weapons Workshop). No per-town limit, but each additional copy costs more manpower than the last. Owning zero Titanium or zero Umbrite Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🛡",
-      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
+      placement: "Build on an open annexed support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -623,7 +623,7 @@ export const structureInfoForKey = (
       title: "Umbrite Weapons Factory",
       detail: "Umbrite Weapons Factories outfit raiders from Umbrite — raiding doctrine: +3% attack / +1.5% defense per copy, empire-wide (like Weapons Workshop). No per-town limit, but each additional copy costs more manpower than the last. Owning zero Umbrite or zero Titanium Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🗡",
-      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
+      placement: "Build on an open annexed support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -633,7 +633,7 @@ export const structureInfoForKey = (
       title: "Sky Dock",
       detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
       glyph: "✈",
-      placement: "Build on settled land you own.",
+      placement: "Build on annexed land you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -643,7 +643,7 @@ export const structureInfoForKey = (
       title: "Ambaric Transformer",
       detail: "Ambaric Transformers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
       glyph: "⚡",
-      placement: "Build on settled land you own.",
+      placement: "Build on annexed land you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -653,7 +653,7 @@ export const structureInfoForKey = (
       title: "Resonance Grid",
       detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Transformer power.",
       glyph: "📡",
-      placement: "Build on settled land you own.",
+      placement: "Build on annexed land you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -721,9 +721,9 @@ export const structureInfoForKey = (
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
       title: "Imperial Exchange",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's coin.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any annexed tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's coin.",
       glyph: "✶",
-      placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Imperial Exchange Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -731,9 +731,9 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE") {
     return structure({
       title: "Sovereign Siege Engine",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Sovereign Siege Engine Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any annexed tile you own — this consumes all 3 Sovereign Siege Engine Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
       glyph: "✸",
-      placement: "Place on any settled tile you own after finishing 3 Sovereign Siege Engine Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Sovereign Siege Engine Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -771,9 +771,9 @@ export const structureInfoForKey = (
   if (type === "AEGIS_DOME") {
     return structure({
       title: "Aegis Dome",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Aegis Dome Parts — to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any annexed tile you own — this consumes all 3 Aegis Dome Parts — to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
       glyph: "⬡",
-      placement: "Place on any settled tile you own after finishing 3 Aegis Dome Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Aegis Dome Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -783,7 +783,7 @@ export const structureInfoForKey = (
       title: "Quartermaster's Office",
       detail: "Quartermaster's Offices reduce the manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.",
       glyph: "🎖",
-      placement: "Build on settled land you own.",
+      placement: "Build on annexed land you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -793,7 +793,7 @@ export const structureInfoForKey = (
       title: "Ancillary Factory",
       detail: "Ancillary Factories add +0.05 manpower/min empire-wide, standalone. A Neural Works in this town's connected network amplifies each one to +0.1/min.",
       glyph: "📦",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -803,7 +803,7 @@ export const structureInfoForKey = (
       title: "Reserve Lattice",
       detail: "Reserve Lattices change every connected Ancillary Depot to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Reserve Lattice is allowed per connected-town network.",
       glyph: "🏗",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open annexed support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -841,9 +841,9 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU") {
     return structure({
       title: "Census Directorate",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Census Directorate Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any annexed tile you own — this consumes all 3 Census Directorate Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
       glyph: "◈",
-      placement: "Place on any settled tile you own after finishing 3 Census Directorate Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Census Directorate Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -881,9 +881,9 @@ export const structureInfoForKey = (
   if (type === "TITANIUM_LEVY") {
     return structure({
       title: "The Titanium Levy",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Transformer power.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any annexed tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Transformer power.",
       glyph: "⬢",
-      placement: "Place on any settled tile you own after finishing 3 Titanium Levy Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any annexed tile you own after finishing 3 Titanium Levy Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -892,7 +892,7 @@ export const structureInfoForKey = (
     title: "Siege Battery",
     detail: "Siege outposts are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
     glyph: "⚔",
-    placement: "Build on a settled border tile you own.",
+    placement: "Build on an annexed border tile you own.",
     costBits: costBitsFor(type),
     buildTimeLabel: buildTimeLabelFor(type)
   });

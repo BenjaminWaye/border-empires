@@ -6,7 +6,7 @@ import { AUTO_SETTLE_CATEGORIES, type AutoSettleCategory } from "@border-empires
 import type { ClientAutoSettleState } from "./client-auto-settle-prefs.js";
 
 const ROWS: Record<AutoSettleCategory, { label: string; hint: string }> = {
-  towns: { label: "Towns & docks", hint: "Also settles the plain tiles around a grown town." },
+  towns: { label: "Towns & docks", hint: "Also annexes the plain tiles around a grown town." },
   food: { label: "Food (farms, fish)", hint: "Keeps your towns fed." },
   resources: { label: "Other resources", hint: "Titanium, gems, umbrite." }
 };
@@ -16,14 +16,14 @@ export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): 
     return `
     <div class="settings-auto-settle-field">
       <p>Auto-settle</p>
-      <p class="settings-field-hint">Loading your auto-settle choices…</p>
+      <p class="settings-field-hint">Loading your auto-annex choices…</p>
     </div>`;
   }
   const current = autoSettle.prefs;
   return `
     <div class="settings-auto-settle-field">
       <p>Auto-settle</p>
-      <p class="settings-field-hint">Spends manpower to settle these tiles as soon as they're yours. Off means nothing settles until you click.</p>
+      <p class="settings-field-hint">Spends manpower to annex these tiles as soon as they're yours. Off means nothing annexes until you click.</p>
       ${AUTO_SETTLE_CATEGORIES.map(
         (category) => `
       <label class="row"><input type="checkbox" data-settings-auto-settle="${category}" ${current[category] ? "checked" : ""} /> ${ROWS[category].label}<span class="settings-field-hint"> ${ROWS[category].hint}</span></label>`

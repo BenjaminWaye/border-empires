@@ -313,7 +313,7 @@ const sourceLabelForTile = (args: {
   const resourceLabel = resourceSourceLabel(tileResource);
   if (resourceLabel) return resourceLabel;
   if (args.strategicKey === "SHARD") return "Shard sites";
-  return "Settled land";
+  return "Annexed land";
 };
 
 const supportedStructureAtTown = (

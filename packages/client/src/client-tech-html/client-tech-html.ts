@@ -114,14 +114,14 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
     const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }
-  if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "settlementSpeedMult" && typeof value === "number") return `Annex speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "developmentProcessCapacityAdd" && typeof value === "number") return `Development slots +${value}`;
   if (key === "abilityCooldownMult" && typeof value === "number")
     return `All ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "sabotageCooldownMult" && typeof value === "number")
     return `Sabotage cooldown ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "newSettlementDefenseMult" && typeof value === "number")
-    return `New settlement defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+    return `Newly annexed tile defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "allTownsFoodSlotWaiverPerTown" && typeof value === "number") return `Every town needs ${value} fewer FOOD slot${value === 1 ? "" : "s"}`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town coin output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -149,7 +149,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortTitaniumSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no TITANIUM slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
-    return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+    return `Annexed defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs Planetary Defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Batteries need no UMBRITE slot`;
@@ -165,8 +165,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "observatoryRangeBonus" && typeof value === "number") return `Aether Tower range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Aether Tower protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Aether Tower cast radius +${value}`;
-  if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "settledDefenseMult" && typeof value === "number") return `Annexed defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs annexed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;

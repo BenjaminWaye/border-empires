@@ -168,7 +168,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Coin production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
   });
-  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
+  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Annex this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
   // prose) was removed — it duplicated the unified Modifiers section
   // word-for-word. A clicked Clearing House's own Mintworks gold-bonus
@@ -218,7 +218,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Settlement is producing"))).toBe(false);
   });
 
-  it("renders Production/Support/Upkeep loading rows when own settled town arrives without owner-economy fields", () => {
+  it("renders Production/Support/Upkeep loading rows when own annexed town arrives without owner-economy fields", () => {
     const startedAt = 1_700_000_000_000;
     const lines = menuOverviewForTile(
       {
@@ -301,7 +301,7 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html.includes("Neutral town. Claim and settle this tile to start its economy."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Neutral town. Claim and annex this tile to start its economy."))).toBe(true);
     expect(lines.some((line) => line.html.includes("Population 18,400"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Growth 0/m"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Next size: never."))).toBe(false);
@@ -312,7 +312,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("0.10/m"))).toBe(false);
   });
 
-  it("hides post-settle town stats and prompts settle on a frontier-claimed town", () => {
+  it("hides post-settle town stats and prompts annex on a frontier-claimed town", () => {
     const lines = menuOverviewForTile(
       {
         x: 51,
@@ -348,7 +348,7 @@ describe("menuOverviewForTile", () => {
       }
     );
 
-    expect(lines.some((line) => line.html.includes("Settle this tile to activate the town's economy"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Annex this tile to activate the town's economy"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Population 16,000"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Support 0/0"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
@@ -358,7 +358,7 @@ describe("menuOverviewForTile", () => {
     // Frontier-with-town should NOT also show the generic "Frontier land is visible control..."
     // intro — the town-specific Settle prompt covers it.
     expect(lines.some((line) => line.html.includes("Frontier land is visible control"))).toBe(false);
-    expect(lines.some((line) => line.html.includes("Needs settlement to produce"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Needs annexing to produce"))).toBe(false);
     // No Production / Upkeep / Stored yield rows for non-settled.
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(false);
@@ -652,7 +652,7 @@ describe("menuOverviewForTile", () => {
           granaryActive: false,
         },
         upkeepEntries: [
-          { label: "Settled land", perMinute: { GOLD: 0.04 } },
+          { label: "Annexed land", perMinute: { GOLD: 0.04 } },
           { label: "Town", perMinute: { FOOD: 1 } },
           { label: "Fort", perMinute: { GOLD: 1, TITANIUM: 0.025 } }
         ],
@@ -668,7 +668,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("57.6/day"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Annexed land:") && line.html.includes("57.6/day"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1440.0/day"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1440.0/day") && line.html.includes("36.0/day"))).toBe(true);
     expect(lines.some((line) => line.html.startsWith("Upkeep:"))).toBe(false);

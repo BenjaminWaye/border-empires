@@ -43,9 +43,9 @@ describe("foreign ownership headers", () => {
       }
     );
 
-    expect(menu.subtitle).toBe("Ancient Rival · Settled territory · ANCIENT_HEARTLAND");
+    expect(menu.subtitle).toBe("Ancient Rival · Annexed territory · ANCIENT_HEARTLAND");
     // Any foreign owner's name is clickable (opens their profile card), ally or not.
-    expect(menu.subtitleHtml).toEqual('<span class="tile-owner-label" data-player-name-id="enemy-1"><span class="player-name-text">Ancient Rival</span></span> · Settled territory · ANCIENT_HEARTLAND');
+    expect(menu.subtitleHtml).toEqual('<span class="tile-owner-label" data-player-name-id="enemy-1"><span class="player-name-text">Ancient Rival</span></span> · Annexed territory · ANCIENT_HEARTLAND');
   });
   it("renders allied owner names with the ally subtitle accent", () => {
     const menu = tileMenuViewForTile(
@@ -94,7 +94,7 @@ describe("foreign ownership headers", () => {
       }
     );
 
-    expect(menu.subtitle).toBe("Green Banner · Settled territory · ANCIENT_HEARTLAND");
+    expect(menu.subtitle).toBe("Green Banner · Annexed territory · ANCIENT_HEARTLAND");
   });
 
 });

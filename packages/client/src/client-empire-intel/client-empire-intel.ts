@@ -18,7 +18,7 @@ export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | und
   return [
     `Intel: ${stats.playerName}`,
     `Economy ${(stats.incomePerMinute * 1440).toFixed(1)}/day • Coin ${formatInt(stats.gold)}`,
-    `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`,
+    `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} annexed • ${formatInt(stats.frontierTiles)} frontier`,
     `Towns ${formatInt(stats.controlledTowns)} • Tech ${formatInt(stats.techCount)}`,
     `Manpower ${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`,
     `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} T ${formatInt(stats.strategicResources.TITANIUM)} C ${formatInt(stats.strategicResources.CRYSTAL)} U ${formatInt(stats.strategicResources.UMBRITE)} Sh ${formatInt(stats.strategicResources.SHARD)}`
@@ -43,7 +43,7 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
       </div>
       <div class="intel-stat-grid">
         ${statCardHtml("Economy", `${(stats.incomePerMinute * 1440).toFixed(1)}/day`, `${formatInt(stats.gold)} coin held`)}
-        ${statCardHtml("Territory", formatInt(stats.tiles), `${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`)}
+        ${statCardHtml("Territory", formatInt(stats.tiles), `${formatInt(stats.settledTiles)} annexed • ${formatInt(stats.frontierTiles)} frontier`)}
         ${statCardHtml("Towns", formatInt(stats.controlledTowns), `${formatInt(stats.techCount)} techs known`)}
         ${statCardHtml("Manpower", `${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`)}
       </div>

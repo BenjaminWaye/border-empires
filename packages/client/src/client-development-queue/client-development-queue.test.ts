@@ -36,7 +36,7 @@ describe("development queue helpers", () => {
   it("persists and restores queued settlements for the same player session", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
-    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
 
     const restored = restorePersistedDevelopmentQueueForPlayer(
       "me",
@@ -51,7 +51,7 @@ describe("development queue helpers", () => {
       ])
     );
 
-    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
   });
 
   it("does not wipe the persisted queue when restored before any tile snapshot has arrived (fresh page load)", () => {
@@ -62,23 +62,23 @@ describe("development queue helpers", () => {
     // immediately re-persist an empty queue, permanently losing it.
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
-    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
 
     const restored = restorePersistedDevelopmentQueueForPlayer("me", new Map());
 
-    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
     // And it must not have overwritten storage with an empty queue.
     const restoredAgainWithRealTiles = restorePersistedDevelopmentQueueForPlayer(
       "me",
       new Map([["2,2", { ownerId: "me", ownershipState: "FRONTIER" }]])
     );
-    expect(restoredAgainWithRealTiles).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(restoredAgainWithRealTiles).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
   });
 
   it("drops persisted settlements that are already pending on the server", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
-    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
 
     const restored = restorePersistedDevelopmentQueueForPlayer(
       "me",
@@ -139,7 +139,7 @@ describe("development queue helpers", () => {
     const state = createInitialState();
     state.me = "me";
     state.autoSettlementQueue = [{ x: 9, y: 10 }];
-    state.developmentQueue = [{ kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }];
+    state.developmentQueue = [{ kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Annex at (9, 10)" }];
 
     const cancelled = cancelQueuedSettlement(state, "9,10", {
       pushFeed: () => {},
@@ -151,14 +151,14 @@ describe("development queue helpers", () => {
     expect(restoreSkippedAutoSettlementTileKeysForPlayer("me").has("9,10")).toBe(true);
   });
 
-  it("manual settlement queueing clears a persisted auto-settle skip after refresh", () => {
+  it("manual settlement queueing clears a persisted auto-annex skip after refresh", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     persistSkippedAutoSettlementTileKeysForPlayer("me", new Set(["9,10"]));
     const state = createInitialState();
     state.me = "me";
 
-    const queued = queueDevelopmentAction(state, { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }, {
+    const queued = queueDevelopmentAction(state, { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Annex at (9, 10)" }, {
       pushFeed: () => {},
       renderHud: () => {}
     });
@@ -168,11 +168,11 @@ describe("development queue helpers", () => {
     expect(restoreSkippedAutoSettlementTileKeysForPlayer("me").has("9,10")).toBe(false);
   });
 
-  it("prunes expired auto-settle visible holds even when the tile is not first in queue", () => {
+  it("prunes expired auto-annex visible holds even when the tile is not first in queue", () => {
     const state = createInitialState();
     state.developmentQueue = [
       { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build at (1, 1)", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "FORT" }, optimisticKind: "FORT" },
-      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }
+      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Annex at (9, 10)" }
     ];
     state.autoSettlementQueueVisibleUntilByTile.set("9,10", 9_000);
 
@@ -236,8 +236,8 @@ describe("development queue helpers", () => {
     state.developmentProcessLimit = 4;
     state.activeDevelopmentProcessCount = 0;
     state.developmentQueue = [
-      { kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" },
-      { kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }
+      { kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" },
+      { kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Annex at (3, 3)" }
     ];
 
     const requestSettlement = vi.fn(() => {
@@ -262,7 +262,7 @@ describe("development queue helpers", () => {
       })
     ).toBe(true);
     expect(requestSettlement).toHaveBeenCalledTimes(1);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Annex at (3, 3)" }]);
 
     expect(
       processDevelopmentQueue(state, {
@@ -278,7 +278,7 @@ describe("development queue helpers", () => {
       })
     ).toBe(false);
     expect(requestSettlement).toHaveBeenCalledTimes(1);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Annex at (3, 3)" }]);
   });
 
   it("queues a settlement instead of sending it while the target tile is still in flight", () => {
@@ -313,7 +313,7 @@ describe("development queue helpers", () => {
     });
 
     expect(queued).toBe(true);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
     expect(state.settleProgressByTile.size).toBe(0);
   });
 
@@ -321,7 +321,7 @@ describe("development queue helpers", () => {
     const state = createInitialState();
     state.me = "me";
     state.gold = 999;
-    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }];
+    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Annex at (1, 1)" }];
     state.tiles.set("2,2", { x: 2, y: 2, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as any);
     const sendGameMessage = vi.fn(() => true);
 
@@ -378,7 +378,7 @@ describe("development queue helpers", () => {
   it("queues a granary behind existing queue entries even when a slot is free", () => {
     const state = createInitialState();
     state.me = "me";
-    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }];
+    state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Annex at (1, 1)" }];
     const sendGameMessage = vi.fn(() => true);
     const optimistic = vi.fn();
 
@@ -524,7 +524,7 @@ describe("development queue helpers", () => {
     state.activeDevelopmentProcessCount = 0;
     state.actionInFlight = true;
     state.actionTargetKey = "2,2";
-    state.developmentQueue = [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }];
+    state.developmentQueue = [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }];
     const requestSettlementSpy = vi.fn(() => true);
     const ws = { readyState: 1, OPEN: 1 } as unknown as import("../client-socket-types.js").RealtimeSocket;
 
@@ -542,7 +542,7 @@ describe("development queue helpers", () => {
       })
     ).toBe(false);
     expect(requestSettlementSpy).not.toHaveBeenCalled();
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Annex at (2, 2)" }]);
   });
 
   it("round-trips a fresh BUILD_STRUCTURE entry preserving structureType after reload", () => {

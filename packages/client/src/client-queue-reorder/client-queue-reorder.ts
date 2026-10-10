@@ -51,7 +51,7 @@ export const cancelQueuedSettlement = (
   }
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.sendGameMessage?.(devQueueCancelWirePayload(tileKey));
-  deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
+  deps.pushFeed(`Queued annex at ${tileKey} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
 };

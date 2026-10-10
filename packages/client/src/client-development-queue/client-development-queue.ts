@@ -91,7 +91,7 @@ export const applyAutoSettlementQueueFromServer = (
       x: entry.x,
       y: entry.y,
       tileKey,
-      label: `Settlement at (${entry.x}, ${entry.y})`
+      label: `Annex at (${entry.x}, ${entry.y})`
     });
     state.autoSettlementQueueVisibleUntilByTile.set(tileKey, Date.now() + AUTO_SETTLEMENT_QUEUE_VISIBLE_MS);
     queuedSettlementTileKeys.add(tileKey);
@@ -440,7 +440,7 @@ export type ServerDevQueueWireEntry = {
  * tryDrainDevQueue actually needs to dispatch, not full UI copy. */
 const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEntry): PersistedDevelopmentAction => {
   if (entry.kind === "SETTLE") {
-    return { kind: "SETTLE", x: entry.x, y: entry.y, tileKey: entry.tileKey, label: `Settlement at (${entry.x}, ${entry.y})` };
+    return { kind: "SETTLE", x: entry.x, y: entry.y, tileKey: entry.tileKey, label: `Annex at (${entry.x}, ${entry.y})` };
   }
   const isRemoval = entry.structureType === "REMOVE_STRUCTURE";
   return {

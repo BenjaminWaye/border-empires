@@ -33,7 +33,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN: {
     id: "TOWN",
     title: "First Town Discovered!",
-    body: "Towns generate Coin, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and settle towns to expand your empire."
+    body: "Towns generate Coin, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and annex towns to expand your empire."
   },
   TOWN_TERRAIN_PROFILE: {
     id: "TOWN_TERRAIN_PROFILE",
@@ -73,7 +73,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   FIRST_MUSTER: {
     id: "FIRST_MUSTER",
     title: "First Muster Flag Placed!",
-    body: "Muster Flags gather manpower to attack from. Distance to your target sets how long the strike takes. Cracking a settled tile takes 60 manpower; a fort takes far more."
+    body: "Muster Flags gather manpower to attack from. Distance to your target sets how long the strike takes. Cracking an annexed tile takes 60 manpower; a fort takes far more."
   },
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",

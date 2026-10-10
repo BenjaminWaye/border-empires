@@ -35,16 +35,16 @@ export const queuedSettlementProgressForTile = (
   const queueState = deps.devQueueStateForTile?.(entry.tileKey) ?? "queued";
   const isPlanned = queueState === "planned";
   return {
-    title: isPlanned ? "Settlement planned" : "Settlement queued",
+    title: isPlanned ? "Annex planned" : "Annex queued",
     detail: isPlanned
       ? "Waiting locally for coin/manpower and a free server queue slot before this is submitted."
-      : "This frontier tile is confirmed by the server and will settle automatically -- even if you log off.",
+      : "This frontier tile is confirmed by the server and will annex automatically -- even if you log off.",
     remainingLabel: remainingLabelFor(queueState, index),
     progress: 0,
     note: isPlanned
       ? "Planned actions live only on this device -- they are not durable and can be lost if you close the game before a server slot frees up. Jumping the queue will bump whichever tile is currently last in line back to Planned."
       : "Queued settlements reserve a durable server slot (max 20 per player) and can be cancelled before they start.",
-    cancelLabel: isPlanned ? "Remove from plan" : "Cancel queued settlement",
+    cancelLabel: isPlanned ? "Remove from plan" : "Cancel queued annex",
     cancelActionId: "cancel_queued_settlement",
     queueState,
     ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
@@ -138,11 +138,11 @@ export const queuedAutoSettleNextForTile = (
   const buildLabel = deps.autoBuildStructureLabelForTile(tileKey);
   return [
     {
-      title: buildLabel ? `Then: settle + build ${buildLabel}` : "Then: settle",
+      title: buildLabel ? `Then: annex + build ${buildLabel}` : "Then: annex",
       detail: buildLabel
-        ? "Once this tile is owned, it will automatically settle and start this build."
-        : "Once this tile is owned, it will automatically settle.",
-      cancelLabel: "Cancel queued settle",
+        ? "Once this tile is owned, it will automatically annex and start this build."
+        : "Once this tile is owned, it will automatically annex.",
+      cancelLabel: "Cancel queued annex",
       cancelActionId: "cancel_queued_auto_settle"
     }
   ];

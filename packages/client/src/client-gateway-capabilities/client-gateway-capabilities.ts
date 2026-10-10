@@ -30,7 +30,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
     SET_CONVERTER_STRUCTURE_ENABLED: "Converter structure toggles",
     SET_CONVERTER_STRUCTURE_MODE: "Converter mode flips",
   SET_OBSERVATORY_ENABLED: "Aether Tower toggles",
-  SETTLE: "Settlement",
+  SETTLE: "Annex",
   SIPHON_TILE: "Siphon",
   TRUCE_ACCEPT: "Truce acceptance",
   TRUCE_BREAK: "Truce changes",

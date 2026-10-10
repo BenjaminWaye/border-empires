@@ -361,7 +361,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (state.settlementRepairDiagnosticKey === diagnosticKey) return;
     state.settlementRepairDiagnosticKey = diagnosticKey;
-    showCaptureAlertSafely("Settlement Missing", diagnosticDetail, "error");
+    showCaptureAlertSafely("Annex Missing", diagnosticDetail, "error");
     pushFeedSafely(diagnosticDetail, "error", "error");
   };
 
@@ -534,7 +534,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.queuedDevelopmentDispatchPending = false;
       return queueDevelopmentActionFromModule(
         state,
-        { kind: "SETTLE", x: tile.x, y: tile.y, tileKey: errorTileKey, label: `Settlement at (${tile.x}, ${tile.y})` },
+        { kind: "SETTLE", x: tile.x, y: tile.y, tileKey: errorTileKey, label: `Annex at (${tile.x}, ${tile.y})` },
         {
           pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
           renderHud: typeof renderHud === "function" ? renderHud : () => {},
@@ -691,7 +691,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
         if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
-          pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+          pushFeed(`Auto-annex started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
       }
       state.autoSettleTargets.delete(targetKey);

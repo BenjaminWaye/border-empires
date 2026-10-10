@@ -88,26 +88,26 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   const totalGold = SETTLE_COST + 500;
   const totalManpower = SETTLE_MANPOWER_COST + structureBuildManpowerCost(type);
   const totalMs = settleDurationMsForState(state, tile) + structureBuildDurationMs(type);
-  return `${totalGold} coin, ${totalManpower} m.p. • settle + build • ${Math.round(totalMs / 60000)}m total`;
+  return `${totalGold} coin, ${totalManpower} m.p. • annex + build • ${Math.round(totalMs / 60000)}m total`;
 };
 
 describe("settle + build — resource-gated building (FARMSTEAD)", () => {
-  it("shows build_farmstead on a SETTLED owned FARM tile with the plain cost and no settle suffix", () => {
+  it("shows build_farmstead on a SETTLED owned FARM tile with the plain cost and no annex suffix", () => {
     const state = richState();
     state.techIds = ["agriculture"];
-    const settled: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
-    state.tiles.set(keyFor(3, 3), settled);
+    const annexed: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), annexed);
 
-    const actions = menuActionsForSingleTile(state, settled, baseDeps as never);
+    const actions = menuActionsForSingleTile(state, annexed, baseDeps as never);
     const action = findAction(actions, "build_farmstead");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe("");
-    expect(action?.cost).not.toContain("settle + build");
+    expect(action?.cost).not.toContain("annex + build");
     expect(action?.cost).toContain("FOOD slot");
   });
 
-  it("shows build_farmstead on a FRONTIER owned FARM tile with a settle + build total and suffix", () => {
+  it("shows build_farmstead on a FRONTIER owned FARM tile with a annex + build total and suffix", () => {
     const state = richState();
     state.techIds = ["agriculture"];
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
@@ -117,7 +117,7 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     const action = findAction(actions, "build_farmstead");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "FARMSTEAD"));
   });
 
@@ -152,7 +152,7 @@ describe("settle + build — town-support building (MINTWORKS)", () => {
     const action = findAction(actions, "build_mintworks");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "MINTWORKS"));
   });
 });
@@ -167,12 +167,12 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     const action = findAction(actions, "build_relay_beacon");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
     // A player's first beacons cost the discounted 50 MP and place instantly (D12), so
     // the chain total is settle + 50 MP and the settle time alone -- matching what the
     // server charges, not the flat 100 MP / stale 1m build time this used to show.
     const settleMinutes = Math.round(settleDurationMsForState(state, frontier) / 60000);
-    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • settle + build • ${settleMinutes}m total`);
+    expect(action?.cost).toBe(`${SETTLE_COST + 500} coin, ${SETTLE_MANPOWER_COST + 50} m.p. • annex + build • ${settleMinutes}m total`);
   });
 
   it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {
@@ -183,16 +183,16 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     expect(frontierTabs.actions.some((a) => a.id === "build_relay_beacon")).toBe(true);
     expect(frontierTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(true);
 
-    const settled: Tile = { x: 4, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
-    state.tiles.set(keyFor(4, 3), settled);
-    const settledTabs = splitTileActionsIntoTabs(menuActionsForSingleTile(state, settled, baseDeps as never), state);
+    const annexed: Tile = { x: 4, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(4, 3), annexed);
+    const settledTabs = splitTileActionsIntoTabs(menuActionsForSingleTile(state, annexed, baseDeps as never), state);
     expect(settledTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(true);
     expect(settledTabs.actions.some((a) => a.id === "build_relay_beacon")).toBe(false);
   });
 });
 
 describe("settle + build — placement-overlay building (FOUNDRY)", () => {
-  it("shows build_foundry on a FRONTIER owned TITANIUM tile with a settle + build total", () => {
+  it("shows build_foundry on a FRONTIER owned TITANIUM tile with a annex + build total", () => {
     const state = richState();
     state.techIds = ["industrial-extraction"];
     state.resourceSlots.supply.FOOD = 1;
@@ -204,7 +204,7 @@ describe("settle + build — placement-overlay building (FOUNDRY)", () => {
     const action = findAction(actions, "build_foundry");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "FOUNDRY"));
   });
 });
@@ -228,7 +228,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
     const action = findAction(actions, "build_wooden_fort");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
   });
 
   it("shows build_observatory on the same bare FRONTIER owned LAND tile", () => {
@@ -240,7 +240,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
     const action = findAction(actions, "build_observatory");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.detail).toBe(" • settles this tile first");
+    expect(action?.detail).toBe(" • annexes this tile first");
   });
 
   it("a 2nd Observatory needs 2 free CRYSTAL slots, not the flat 1 the 1st one needed", () => {
@@ -254,10 +254,10 @@ describe("settle + build — settled-only building with no resource/town/dock su
     // 2nd copy's 2-slot cost.
     state.resourceSlots.supply.CRYSTAL = 2;
 
-    const settled: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
-    state.tiles.set(keyFor(3, 3), settled);
+    const annexed: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    state.tiles.set(keyFor(3, 3), annexed);
 
-    const actionsOneFree = menuActionsForSingleTile(state, settled, baseDeps as never);
+    const actionsOneFree = menuActionsForSingleTile(state, annexed, baseDeps as never);
     const disabled = findAction(actionsOneFree, "build_observatory");
     expect(disabled?.disabled).toBe(true);
     // Names the actual count required (2) and how many are free (1) --
@@ -268,7 +268,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
 
     // With a 2nd free CRYSTAL slot (now 2 total free), the 2nd Observatory becomes buildable.
     state.resourceSlots.supply.CRYSTAL = 3;
-    const actionsTwoFree = menuActionsForSingleTile(state, settled, baseDeps as never);
+    const actionsTwoFree = menuActionsForSingleTile(state, annexed, baseDeps as never);
     const enabled = findAction(actionsTwoFree, "build_observatory");
     expect(enabled?.disabled).not.toBe(true);
   });
