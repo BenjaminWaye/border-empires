@@ -123,7 +123,7 @@ export const crystalAbilityInfoForKey = (
       title: "Aether Purge",
       detail: "Purge enemy control from a tile, turning it neutral.",
       glyph: "✦",
-      target: "Enemy annexed or frontier tile within observatory range.",
+      target: "Enemy garrisoned or frontier tile within observatory range.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
     };
@@ -131,9 +131,9 @@ export const crystalAbilityInfoForKey = (
   if (key === "aether_bridge") {
     return {
       title: "Aether Bridge",
-      detail: "Opens a temporary assault route from one of your annexed coastal tiles to a coastal land target across up to 4 sea tiles.",
+      detail: "Opens a temporary assault route from one of your garrisoned coastal tiles to a coastal land target across up to 4 sea tiles.",
       glyph: "⟷",
-      target: "Target coastal land reachable from one of your annexed coastal tiles.",
+      target: "Target coastal land reachable from one of your garrisoned coastal tiles.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_BRIDGE_DURATION_MS)
@@ -164,7 +164,7 @@ export const crystalAbilityInfoForKey = (
       title: "Aether Wall",
       detail: "Projects a temporary crystal wall along up to 3 border edges. Nothing can cross those edges in either direction until it expires.",
       glyph: "║",
-      target: "Select one of your annexed border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
+      target: "Select one of your garrisoned border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_WALL_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_WALL_DURATION_MS)

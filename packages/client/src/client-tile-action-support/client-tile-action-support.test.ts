@@ -112,7 +112,7 @@ describe("splitTileActionsIntoTabs", () => {
     });
 
     const frontierRelayBeacon: TileActionDef[] = [
-      { id: "build_relay_beacon", label: "Build Relay Beacon", detail: " • annexes this tile first", disabled: false }
+      { id: "build_relay_beacon", label: "Build Relay Beacon", detail: " • garrisons this tile first", disabled: false }
     ];
     expect(splitTileActionsIntoTabs(frontierRelayBeacon, state)).toEqual({
       actions: frontierRelayBeacon,

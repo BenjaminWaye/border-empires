@@ -366,7 +366,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="targeting-card tone-amber">
         <div class="targeting-kicker">Crystal Action Armed</div>
         <div class="targeting-title">Aether Wall</div>
-        <div class="targeting-detail">Select one of your annexed border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
+        <div class="targeting-detail">Select one of your garrisoned border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
         <div class="targeting-status">${status}</div>
         <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
       </div>
@@ -387,7 +387,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
       ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest annexed coast and opens a temporary sea lane."
+        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane."
         : ability === "siphon"
           ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";

@@ -53,7 +53,7 @@ const trainWidthPx = (limit: number, mobile: boolean): number => {
 export const devGearsChipHtml = ({ busy, limit, mobile }: DevGearsInput): string => {
   const full = limit > 0 && busy >= limit;
   const label = `Development: ${busy} of ${limit} slots busy`;
-  const title = `${label}. Development slots limit how many annexes and constructions can run at once. Tap for breakdown.`;
+  const title = `${label}. Development slots limit how many garrisons and constructions can run at once. Tap for breakdown.`;
   if (limit <= 0 || limit > MAX_DEV_GEARS) {
     return `<button class="stat-chip stat-chip-dev${full ? " is-full" : ""}" type="button" data-panel="development" title="${title}"><span>${mobile ? "Dev" : "Development"}</span><strong>${busy}/${limit}</strong></button>`;
   }

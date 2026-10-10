@@ -56,13 +56,13 @@ export const settleSelected = (
 ): void => {
   const selected = state.selected;
   if (!selected) {
-    notifySelectedActionBlocked(deps, "Annex blocked", "Select a frontier tile first.");
+    notifySelectedActionBlocked(deps, "Garrison blocked", "Select a frontier tile first.");
     deps.renderHud();
     return;
   }
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
   if (!tile || tile.fogged || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    notifySelectedActionBlocked(deps, "Annex blocked", "Selected tile is not one of your frontier tiles.");
+    notifySelectedActionBlocked(deps, "Garrison blocked", "Selected tile is not one of your frontier tiles.");
     deps.renderHud();
     return;
   }

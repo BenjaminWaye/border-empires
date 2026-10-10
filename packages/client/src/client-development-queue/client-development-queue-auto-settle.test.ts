@@ -45,8 +45,8 @@ describe("auto-settled development queue entries", () => {
 
     expect(added).toBe(2);
     expect(state.developmentQueue).toEqual([
-      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Annex at (9, 10)" },
-      { kind: "SETTLE", x: 30, y: 30, tileKey: "30,30", label: "Annex at (30, 30)" }
+      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Garrison at (9, 10)" },
+      { kind: "SETTLE", x: 30, y: 30, tileKey: "30,30", label: "Garrison at (30, 30)" }
     ]);
     expect(state.autoSettlementQueueVisibleUntilByTile.get("9,10")).toBeGreaterThan(Date.now());
   });

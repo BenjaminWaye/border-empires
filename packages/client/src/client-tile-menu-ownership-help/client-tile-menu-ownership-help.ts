@@ -2,8 +2,8 @@ export type OwnershipHelpKind = "unclaimed" | "frontier" | "settled";
 
 const HELP: Array<{ kind: OwnershipHelpKind; name: string; text: string }> = [
   { kind: "unclaimed", name: "Unclaimed", text: "Nobody owns it. Claim it to turn it into frontier." },
-  { kind: "frontier", name: "Frontier", text: "Yours, but it has no real defense yet and produces nothing. Annex it to gain defense and full ownership strength." },
-  { kind: "settled", name: "Annexed", text: "Fully part of your empire: defended, and its town, resource or buildings work for you." }
+  { kind: "frontier", name: "Frontier", text: "Yours, but it has no real defense yet and produces nothing. Garrison it to gain defense and full ownership strength." },
+  { kind: "settled", name: "Garrisoned", text: "Fully part of your empire: defended, and its town, resource or buildings work for you." }
 ];
 
 /**

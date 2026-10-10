@@ -112,7 +112,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is annexed; support tiles and structures can then improve the coin rate further.</div>`;
+        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is garrisoned; support tiles and structures can then improve the coin rate further.</div>`;
       })();
   const surveyHtml = !info.destroyed && surveyReports.length > 0
     ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`

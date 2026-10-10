@@ -86,8 +86,8 @@ describe("battle state in the overview tab", () => {
     expect(menu.statusText).toBe(title);
     expect(menu.progress).toEqual(progress);
     expect(menu.overviewLines).toContainEqual({ html: title });
-    expect(menu.subtitle).toContain("Annexed territory");
-    expect(menu.subtitleHtml).toContain("Annexed territory");
+    expect(menu.subtitle).toContain("Garrisoned territory");
+    expect(menu.subtitleHtml).toContain("Garrisoned territory");
     expect(menu.overviewLines).toContainEqual({ html: "Combat (0:02)" });
     expect(tileActionMenuHtml(menu, "overview", false)).toContain(title);
     expect(tileActionMenuHtml(menu, "overview", true)).toContain("Combat (0:02)");

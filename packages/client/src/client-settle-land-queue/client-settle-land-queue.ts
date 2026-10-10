@@ -21,10 +21,10 @@ export const queueSettleForExpandingTile = (
   }
 ): void => {
   if (state.autoSettleTargets.has(tileKey)) {
-    deps.showVisibleActionWarning("Annex already queued", "Annexing this tile is already queued -- it will fire automatically once the expansion completes.");
+    deps.showVisibleActionWarning("Garrison already queued", "Garrisoning this tile is already queued -- it will fire automatically once the expansion completes.");
     return;
   }
   state.autoSettleTargets.add(tileKey);
-  deps.pushFeed(`Queued annex at (${x}, ${y}) -- will fire once the expansion completes.`, "info", "info");
+  deps.pushFeed(`Queued garrison at (${x}, ${y}) -- will fire once the expansion completes.`, "info", "info");
   deps.renderHud();
 };

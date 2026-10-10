@@ -28,7 +28,7 @@ export const settleOutcomeText = (state: Pick<ClientState, "resourceSlots">, til
     const demand = townFoodSlotDemandForTier(tile.town.populationTier);
     if (demand > 0) {
       const short = state.resourceSlots.demand.FOOD + demand - state.resourceSlots.supply.FOOD;
-      upkeep.push(`${plural(demand, "food slot")}${short > 0 ? ` (${short} short – idle until you annex more food)` : ""}`);
+      upkeep.push(`${plural(demand, "food slot")}${short > 0 ? ` (${short} short – idle until you garrison more food)` : ""}`);
     }
   } else if (tile.dockId) {
     gains.push("+ Coin");

@@ -92,7 +92,7 @@ export const deriveDevelopmentPanelData = (
       tileKey: `${progress.target.x},${progress.target.y}`,
       x: progress.target.x,
       y: progress.target.y,
-      label: "Annexing",
+      label: "Garrisoning",
       remainingMs,
       totalMs
     });
@@ -146,7 +146,7 @@ export const renderDevelopmentPanelHtml = (args: DevelopmentPanelArgs): string =
             <strong>${args.busy}/${args.limit} slots used</strong>
           </div>
         </div>
-        <div class="economy-footnote">Development slots limit how many annexes and constructions can run at once.</div>
+        <div class="economy-footnote">Development slots limit how many garrisons and constructions can run at once.</div>
       </section>
       <section class="card manpower-detail-card">
         <h4>Active Slots</h4>

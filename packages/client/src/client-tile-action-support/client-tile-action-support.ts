@@ -64,14 +64,14 @@ export const knownTerrainAt =
 
 // build_relay_beacon on an owned FRONTIER tile is a settle-then-build chain
 // (client-tile-action-logic.ts tags its detail with the same
-// " • annexes this tile first" suffix every other frontier chained-build
+// " • garrisons this tile first" suffix every other frontier chained-build
 // action gets) -- surface it in both tabs there: Actions, next to Settle
 // Land, so a player never has to go looking for it (matching
 // build_relay_beacon_frontier's parity on a neutral tile), and Buildings
 // too, since it's still a real building and that's where a player used to
 // browsing the Buildings tab will look for it.
 const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
-  action.id === "build_relay_beacon" && Boolean(action.detail?.includes("annexes this tile first"));
+  action.id === "build_relay_beacon" && Boolean(action.detail?.includes("garrisons this tile first"));
 
 // Farmstead is a build_* action, so it's normally Buildings-tab-only. But
 // it's also the single most commonly reached-for build on a settled FARM

@@ -542,8 +542,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
       skipsSettle || isActiveCaptureTarget
-        ? `Queued ${skipsSettle ? "build" : "annex + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
-        : `Annexing (${selected.x}, ${selected.y}) — annex + build ${structureDisplayLabel(structureType)}.`,
+        ? `Queued ${skipsSettle ? "build" : "garrison + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
+        : `Garrisoning (${selected.x}, ${selected.y}) — garrison + build ${structureDisplayLabel(structureType)}.`,
       "info", "info"
     );
     // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
@@ -715,7 +715,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (!resolveMyReachCached(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
         else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
-          pushFeed(`Auto-annex started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+          pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
       }
       state.autoSettleTargets.delete(targetKey);
@@ -1009,23 +1009,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const remainingMs = Math.max(0, progress.resolvesAt - Date.now());
         const totalMs = Math.max(1, progress.resolvesAt - progress.startAt);
         return {
-          title: "Annexation in progress",
+          title: "Garrison moving in",
           detail: progress.awaitingServerConfirm
-            ? "Annex timer finished locally. Waiting for server confirmation."
-            : "Annexing makes this tile part of your empire: it can be defended and built on, and its town or resource starts producing. Nothing is built here.",
+            ? "Garrison timer finished locally. Waiting for server confirmation."
+            : "Troops are moving in. Once garrisoned, this tile can be defended and built on, and its town or resource starts producing. Nothing is built here.",
           remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(remainingMs),
           progress: progress.awaitingServerConfirm
             ? 1
             : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / totalMs)),
           note: progress.awaitingServerConfirm
-            ? "Keeping the tile annexed client-side until the server responds."
-            : "This tile is being annexed.",
+            ? "Keeping the tile garrisoned client-side until the server responds."
+            : "Troops are moving in to garrison this tile.",
           // §6.3 rush-buy: hidden once the timer's already elapsed locally
           // (awaitingServerConfirm) — nothing left to pay to speed up.
           ...(progress.awaitingServerConfirm
             ? {}
             : {
-                cancelLabel: "Cancel annex",
+                cancelLabel: "Cancel garrison",
                 cancelActionId: "cancel_settle" as const,
                 rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
@@ -1252,11 +1252,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Annex blocked", "No annexes queued. Check coin and development slots.", "warn");
+      if (queued <= 0) showCaptureAlert("Garrison blocked", "No garrisons queued. Check coin and development slots.", "warn");
       pushFeed(
         queued > 0
-          ? `Queued ${queued} annexes across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No annexes queued — check coin / slots.",
+          ? `Queued ${queued} garrisons across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
+          : "No garrisons queued — check coin / slots.",
         "combat",
         queued > 0 ? "info" : "warn"
       );
@@ -1502,7 +1502,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selectedDirections.length > 1) {
         beginCrystalTargeting("aether_wall");
       } else {
-        pushFeed("Select one of your annexed border tiles before casting Aether Wall.", "combat", "warn");
+        pushFeed("Select one of your garrisoned border tiles before casting Aether Wall.", "combat", "warn");
       }
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
@@ -1573,7 +1573,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (clicked) {
         const clickedKey = keyFor(wx, wy);
         if (!state.aetherWallTargeting.validOrigins.has(clickedKey)) {
-          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible annexed border tiles.", "combat", "warn");
+          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible garrisoned border tiles.", "combat", "warn");
           renderHud();
           return;
         }

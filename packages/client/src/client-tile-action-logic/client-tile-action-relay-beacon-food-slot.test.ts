@@ -148,10 +148,10 @@ describe("Relay Beacon FOOD-slot gate — build_relay_beacon (direct build on an
   it(`stays enabled with zero FOOD supply while the player owns fewer than ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
     const state = richState();
     addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1);
-    const annexed: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
-    state.tiles.set(keyFor(3, 3), annexed);
+    const garrisoned: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    state.tiles.set(keyFor(3, 3), garrisoned);
 
-    const actions = menuActionsForSingleTile(state, annexed, baseDeps as never);
+    const actions = menuActionsForSingleTile(state, garrisoned, baseDeps as never);
     const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
@@ -160,10 +160,10 @@ describe("Relay Beacon FOOD-slot gate — build_relay_beacon (direct build on an
   it(`disables with "Need a free FOOD slot" once the player already owns ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts and has no free FOOD slot`, () => {
     const state = richState();
     addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
-    const annexed: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
-    state.tiles.set(keyFor(3, 3), annexed);
+    const garrisoned: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    state.tiles.set(keyFor(3, 3), garrisoned);
 
-    const actions = menuActionsForSingleTile(state, annexed, baseDeps as never);
+    const actions = menuActionsForSingleTile(state, garrisoned, baseDeps as never);
     const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
@@ -182,7 +182,7 @@ describe("Relay Beacon FOOD-slot gate — build_relay_beacon on an owned FRONTIE
     const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
-    expect(action?.cost).toContain("annex + build");
+    expect(action?.cost).toContain("garrison + build");
   });
 
   it(`still bites with "Need a free FOOD slot" past ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {

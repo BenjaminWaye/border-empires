@@ -46,7 +46,7 @@ export const dormantStructureLineHtml = (
     );
   if (needed.length === 0) return undefined;
   const parts = needed.map(
-    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (annex or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
+    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (garrison or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
   );
   return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
 };

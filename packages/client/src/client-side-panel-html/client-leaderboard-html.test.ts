@@ -49,7 +49,7 @@ describe("leaderboard and season victory rendering", () => {
           leaderName: "Ivan",
           progressLabel: "4/6 docks",
           selfProgressLabel: "1/6 docks",
-          thresholdLabel: "Need 6 annexed docks (55% of world docks)",
+          thresholdLabel: "Need 6 garrisoned docks (55% of world docks)",
           holdDurationSeconds: 86400,
           statusLabel: "Pressure building",
           conditionMet: false
@@ -66,7 +66,7 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 docks");
-    expect(html).toContain("44. <span class=\"lb-player-name\" data-player-name-id=\"me\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span class=\"player-name-text\">You</span></span> | score 1.0 | annexed 1 | income 1440.0/day | tech 1 | manpower cap 100");
+    expect(html).toContain("44. <span class=\"lb-player-name\" data-player-name-id=\"me\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span class=\"player-name-text\">You</span></span> | score 1.0 | garrisoned 1 | income 1440.0/day | tech 1 | manpower cap 100");
     expect(html).toContain("11. <span class=\"lb-player-name\" data-player-name-id=\"me\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span class=\"player-name-text\">You</span></span> (7.0)");
     expect(html).toContain("8. <span class=\"lb-player-name\" data-player-name-id=\"me\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span class=\"player-name-text\">You</span></span> (3.5)");
     expect(html).toContain("13. <span class=\"lb-player-name\" data-player-name-id=\"me\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span class=\"player-name-text\">You</span></span> (2.0)");
@@ -175,9 +175,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name" data-player-name-id="me"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Nauticus</span></span> | score 4.0 | annexed 1 | income 1440.0/day | tech 0 | manpower cap 150'
+      '11. <span class="lb-player-name" data-player-name-id="me"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Nauticus</span></span> | score 4.0 | garrisoned 1 | income 1440.0/day | tech 0 | manpower cap 150'
     );
-    expect(html).not.toContain("11. You | score 4.0 | annexed 1 | income 1440.0/day | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | garrisoned 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("11. You (1.0)");
     expect(html).not.toContain("11. You (0.0)");
   });
@@ -211,9 +211,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name" data-player-name-id="p1"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Test Player</span></span> | score 4.0 | annexed 1 | income 1440.0/day | tech 0 | manpower cap 150'
+      '11. <span class="lb-player-name" data-player-name-id="p1"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Test Player</span></span> | score 4.0 | garrisoned 1 | income 1440.0/day | tech 0 | manpower cap 150'
     );
-    expect(html).not.toContain("11. You | score 4.0 | annexed 1 | income 1440.0/day | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | garrisoned 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("12. You (1.0)");
     expect(html).not.toContain("9. You (1.0)");
     expect(html).not.toContain("5. You (0.0)");
@@ -236,9 +236,9 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name" data-player-name-id="p1"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Test Player</span></span> | score 4.0 | annexed 1 | income 1497.6/day | tech 0 | manpower cap 150'
+      '11. <span class="lb-player-name" data-player-name-id="p1"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span class="player-name-text">Test Player</span></span> | score 4.0 | garrisoned 1 | income 1497.6/day | tech 0 | manpower cap 150'
     );
-    expect(html).not.toContain("11. You | score 4.0 | annexed 1 | income 1497.6/day | tech 0");
+    expect(html).not.toContain("11. You | score 4.0 | garrisoned 1 | income 1497.6/day | tech 0");
     expect(html).not.toContain("9. You (1.0)");
     expect(html).not.toContain("5. You (0.0)");
   });

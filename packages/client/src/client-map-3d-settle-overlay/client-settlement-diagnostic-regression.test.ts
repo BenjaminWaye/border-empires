@@ -127,7 +127,7 @@ describe("settlement diagnostic regression", () => {
     const { pushFeed } = bind(state, ws);
     const diagnostic = {
       key: "missing-settlement:eligible:405,192",
-      detail: "Your empire has no active settlement. Eligible annexed tile: 405,192."
+      detail: "Your empire has no active settlement. Eligible garrisoned tile: 405,192."
     };
 
     ws.emit("message", {
@@ -153,7 +153,7 @@ describe("settlement diagnostic regression", () => {
 
     expect(state.captureAlert).toEqual(
       expect.objectContaining({
-        title: "Annex Missing",
+        title: "Garrison Missing",
         detail: diagnostic.detail,
         tone: "error"
       })
@@ -170,7 +170,7 @@ describe("settlement diagnostic regression", () => {
     expect(pushFeed.mock.calls.filter((call) => call[0] === diagnostic.detail && call[1] === "error" && call[2] === "error")).toHaveLength(2);
     expect(state.captureAlert).toEqual(
       expect.objectContaining({
-        title: "Annex Missing",
+        title: "Garrison Missing",
         detail: diagnostic.detail,
         tone: "error"
       })
@@ -183,7 +183,7 @@ describe("settlement diagnostic regression", () => {
     const { pushFeed } = bind(state, ws);
     const diagnostic = {
       key: "missing-settlement:blocked:405,192(has a resource)",
-      detail: "Your empire has no active settlement, and no annexed tile can host one. Blocked annexed tiles: 405,192 (has a resource)."
+      detail: "Your empire has no active settlement, and no garrisoned tile can host one. Blocked garrisoned tiles: 405,192 (has a resource)."
     };
 
     emitPlayerUpdate(ws, diagnostic);

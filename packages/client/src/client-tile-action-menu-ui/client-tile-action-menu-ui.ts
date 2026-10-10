@@ -461,7 +461,7 @@ export const openBulkTileActionMenu = (
   if (neutralCount > 0) {
     actions.push({
       id: "settle_land",
-      label: `Annex Land (${neutralCount})`,
+      label: `Garrison (${neutralCount})`,
       cost: `${FRONTIER_CLAIM_COST} coin, ${EXPAND_MANPOWER_COST} manpower each`
     });
   }

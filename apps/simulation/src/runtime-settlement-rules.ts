@@ -13,10 +13,10 @@ export type SettleRejection = { code: "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_GO
 // rejection, even though the (now-nominal) gold cost still applies too.
 export const settleRejectionForActor = (actor: SettleActorLike): SettleRejection | null => {
   if (actor.manpower < SETTLE_MANPOWER_COST) {
-    return { code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to annex` };
+    return { code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to garrison` };
   }
   if (actor.points < SETTLE_COST) {
-    return { code: "INSUFFICIENT_GOLD", message: "insufficient coin to annex" };
+    return { code: "INSUFFICIENT_GOLD", message: "insufficient coin to garrison" };
   }
   return null;
 };

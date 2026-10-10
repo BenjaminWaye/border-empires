@@ -50,7 +50,7 @@ export const settleActionsForFrontierTile = (
   const out: TileActionDef[] = [
     {
       id: "settle_land",
-      label: "Annex Land",
+      label: "Garrison",
       detail: [deps.buildDetailTextForAction("settle_land", tile), settleOutcomeText(state, tile)].filter(Boolean).join(" "),
       autoSettleOption: autoSettleOptionForTile(state, tile),
       ...(hasPayoff ? { recommended: true } : {}),
@@ -74,7 +74,7 @@ export const settleActionsForFrontierTile = (
     const totalCost = SETTLE_COST * actionableKeys.length;
     out.push({
       id: "settle_connected_frontier",
-      label: `Annex Connected (${actionableKeys.length})`,
+      label: `Garrison Connected (${actionableKeys.length})`,
       detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
       ...tileActionAvailabilityWithDevelopmentSlot(
         ...withReachGate([

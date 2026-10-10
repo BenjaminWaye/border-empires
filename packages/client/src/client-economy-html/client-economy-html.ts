@@ -261,7 +261,7 @@ const economySourceLabelForTile = (
     if (tile.town) return "Towns";
     if (tile.dockId) return "Docks";
     if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
-    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Annexed land";
+    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Garrisoned land";
   }
   if (tile.resource) return prettyToken(resourceLabel(tile.resource));
   if (tile.town && resource === "FOOD") return "Town support";

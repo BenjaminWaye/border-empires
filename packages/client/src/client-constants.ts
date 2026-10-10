@@ -64,11 +64,11 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Expand Your Territory",
-    body: `Tap a neutral tile next to your border to claim it as frontier (${EXPAND_MANPOWER_COST} manpower). Annex it (${SETTLE_MANPOWER_COST} manpower, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once.`
+    body: `Tap a neutral tile next to your border to claim it as frontier (${EXPAND_MANPOWER_COST} manpower). Garrison it (${SETTLE_MANPOWER_COST} manpower, ~60s) to produce income and support buildings. Forest tiles take longer. You can develop up to 3 tiles at once.`
   },
   {
     title: "Manpower Is Your Real Currency",
-    body: "Manpower — regenerated from your towns — is what expansion, annexing, and building actually cost. Run low and growth stalls, so watch your manpower bar before your coin. Coin is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
+    body: "Manpower — regenerated from your towns — is what expansion, garrisoning, and building actually cost. Run low and growth stalls, so watch your manpower bar before your coin. Coin is now a support currency: it funds research, a handful of end-game abilities, and Synthesizer upkeep — spend it there, not on land."
   },
   {
     title: "Resource Slots, Not Stockpiles",
@@ -76,7 +76,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on annexed tiles. Siege Batteries near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on garrisoned tiles. Siege Batteries near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",
@@ -84,7 +84,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with annexed land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
+    body: "Towns grow in size with increasing population (Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with garrisoned land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
   },
   {
     title: "Win the Season",

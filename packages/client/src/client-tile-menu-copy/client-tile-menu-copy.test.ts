@@ -25,19 +25,19 @@ describe("tile menu copy ownership", () => {
         resourceLabel: "Titanium"
       })
     ).toEqual([
-      "Resource node: Titanium. Claim and annex this tile to start producing titanium."
+      "Resource node: Titanium. Claim and garrison this tile to start producing titanium."
     ]);
   });
 
-  it("adds no generic copy for annexed or frontier land without a resource", () => {
+  it("adds no generic copy for garrisoned or frontier land without a resource", () => {
     expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-settled" })).toEqual([]);
     expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-frontier" })).toEqual([]);
   });
 
-  it("keeps the tile-specific annex hint for a frontier resource node", () => {
+  it("keeps the tile-specific garrison hint for a frontier resource node", () => {
     expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-frontier", productionLabel: "titanium", resourceLabel: "Titanium" })).toEqual([
       "Resource node: Titanium.",
-      "Needs annexing to produce titanium."
+      "Needs a garrison to produce titanium."
     ]);
   });
 
@@ -45,7 +45,7 @@ describe("tile menu copy ownership", () => {
   // intro) already says everything "settled land is defended and fully
   // part of your empire" would — the generic line was showing as redundant
   // filler above a town's actual numbers.
-  it("omits the generic settled-land line for an annexed town", () => {
+  it("omits the generic settled-land line for a garrisoned town", () => {
     expect(
       tileMenuOverviewIntroLines({
         terrain: "LAND",

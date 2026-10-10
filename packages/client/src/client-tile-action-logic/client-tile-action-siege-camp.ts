@@ -9,7 +9,7 @@
 // own reach gate (weaker than settle_land/build_relay_beacon's: a tile
 // currently sitting in ANOTHER player's reach is fair game, only a tile no
 // one's reach covers at all is blocked) and never appends the generic
-// " • annexes this tile first" detail suffix or combined settle+build cost
+// " • garrisons this tile first" detail suffix or combined settle+build cost
 // every other frontier build action gets.
 import { SIEGE_OUTPOST_BUILD_MS } from "@border-empires/shared";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";

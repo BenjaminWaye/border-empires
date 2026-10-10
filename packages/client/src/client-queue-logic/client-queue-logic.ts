@@ -316,17 +316,17 @@ export const requestSettlement = (
   const tileKey = deps.keyFor(x, y);
   const tile = state.tiles.get(tileKey);
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Annex blocked", "Cannot annex: tile is not one of your frontier tiles.");
+    if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", "Cannot garrison: tile is not one of your frontier tiles.");
     deps.renderHud();
     return false;
   }
-  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Annex blocked", `Need ${SETTLE_MANPOWER_COST} manpower to annex this tile.`); deps.renderHud(); return false; }
-  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Annex blocked", `Need ${SETTLE_COST} coin to annex this tile.`); deps.renderHud(); return false; }
+  if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`); deps.renderHud(); return false; }
+  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
-      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Annex at (${x}, ${y})` });
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` });
     }
-    if (!deps.opts?.suppressWarnings) deps.pushFeed("Annex queued: waiting for combat and tile sync to finish.", "combat", "info");
+    if (!deps.opts?.suppressWarnings) deps.pushFeed("Garrison queued: waiting for combat and tile sync to finish.", "combat", "info");
     deps.renderHud();
     return false;
   }
@@ -338,17 +338,17 @@ export const requestSettlement = (
   // dispatcher paces them one slot at a time, instead of firing N SETTLEs at once
   // against a server slot count that hasn't yet caught up with the in-flight sends.
   if (canQueue && (deps.opts?.forceQueue || state.developmentQueue.length > 0)) {
-    return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Annex at (${x}, ${y})` });
+    return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` });
   }
   if (slots.available <= 0) {
     if (canQueue) {
-      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Annex at (${x}, ${y})` });
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` });
     }
     if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Development slots full", deps.developmentSlotReason(slots));
     deps.renderHud();
     return false;
   }
-  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey, label: `Annex at (${x}, ${y})` };
+  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey, label: `Garrison at (${x}, ${y})` };
   if (!deps.sendGameMessage({ type: "SETTLE", x, y })) {
     state.lastDevelopmentAttempt = undefined;
     return false;
