@@ -11,7 +11,8 @@ import {
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
 // unexplored storm. Remembered (fogged) tiles keep their terrain and natural
 // detail as a sepia survey print. The fog's first ring (unexplored tiles touching explored
-// land) shows its own ground under a see-through parchment coast,
+// land) shows its own ground under a see-through parchment coast (printed
+// like the remembered land it borders unless it touches land in sight),
 // with the storm beyond. Explored tiles get only their own terrain -- the
 // fog never draws on them. Overlays (forest, ownership tint, structures...)
 // draw on top of this.
@@ -30,8 +31,8 @@ export type TileGround2DInput = {
   readonly drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
   /** Natural terrain detail (forest, hills) for a land tile -- drawn on the fog's first ring too. */
   readonly drawTerrainDetail: (wx: number, wy: number, px: number, py: number, size: number) => void;
-  /** Whether the tile at offset (ox, oy) from this one is unexplored. */
-  readonly isUnexploredAt: (ox: number, oy: number) => boolean;
+  /** Visibility of the tile at offset (ox, oy) from this one. */
+  readonly neighbourVisibility: (ox: number, oy: number) => TileVisibilityState;
 };
 
 const isWater = (terrain: Tile["terrain"]): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
@@ -45,10 +46,15 @@ const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"]
   ctx.restore();
 };
 
+const touchesLandInSight = (neighbourVisibility: (ox: number, oy: number) => TileVisibilityState): boolean => {
+  for (let k = 0; k < 9; k += 1) if (k !== 4 && neighbourVisibility((k % 3) - 1, Math.floor(k / 3) - 1) === "visible") return true;
+  return false;
+};
+
 export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput): void => {
   const { wx, wy, px, py, size, tile, vis } = input;
   if (vis === "unexplored") {
-    const isExploredAt = (ox: number, oy: number): boolean => !input.isUnexploredAt(ox, oy);
+    const isExploredAt = (ox: number, oy: number): boolean => input.neighbourVisibility(ox, oy) !== "unexplored";
     if (!unexploredCoastVisibleAt(size) || !isUnexploredCoastRing(isExploredAt)) {
       drawUnexploredStormTile(ctx, wx, wy, px, py, size);
       return;
@@ -56,8 +62,9 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
     const terrain = input.terrainAt(wx, wy);
     input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
     if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
-    // No fog dim: the parchment wash on top mutes it, and a darkened ring
-    // read as a hole beside explored land.
+    // Prints like the remembered land it borders, unless it touches land in
+    // sight -- so the ring never shows a full-colour strip against faded tiles.
+    if (!touchesLandInSight(input.neighbourVisibility)) drawFoggedPrint(ctx, terrain, px, py, size);
     drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, isExploredAt);
     return;
   }

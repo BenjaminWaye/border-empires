@@ -26,7 +26,7 @@ import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
 import { createMapWater, riverFoggedAt } from "./client-map-3d-water-wiring.js";
-import { isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
+import { hasLiveNeighbour, isShallowSeaTile, withUnexploredCoastRingAsFogged } from "./client-map-3d-terrain-tile-rules.js";
 import { FOGGED_PRINT_FEATURE_TINT, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
@@ -920,11 +920,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           // for any of that. Mirrors the 2D renderer (client-map-render-2d-tile-ground).
           // Sea tiles are holes in the heightfield, so they draw the water
           // quad instead of the overlay. The fog's first ring
-          // (withUnexploredCoastRingAsFogged) also lands here, but stays
-          // untinted: the storm's parchment band mutes it instead.
-          const isFogRing = deps.tileVisibilityStateAt(wx, wy, tile) === "unexplored";
+          // (withUnexploredCoastRingAsFogged) also lands here: it prints like
+          // the remembered land it borders, but stays live-coloured beside land in sight.
+          const printAsFogged = deps.tileVisibilityStateAt(wx, wy, tile) !== "unexplored" || !hasLiveNeighbour((nx, ny) => deps.tileVisibilityStateAt(nx, ny, deps.state.tiles.get(deps.keyFor(nx, ny))), wx, wy, deps.wrapX, deps.wrapY);
           if (terrain === "SEA" || terrain === "COASTAL_SEA") {
-            waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy, !isFogRing);
+            waterSurface.addTile(x, z, isShallowSeaTile(wx, wy, terrainForWorldTile, deps.wrapX, deps.wrapY), wx, wy, printAsFogged);
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
@@ -937,9 +937,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           const fx1 = x + 0.5;
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
-          if (fogIsHill && !isFogRing) {
+          if (fogIsHill && printAsFogged) {
             fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, fogPrintSepia, false, fogHillNeighbors, wx, wy, fogRoadDirs);
-          } else if (!isFogRing) {
+          } else if (printAsFogged) {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, fogPrintSepia, false);
           }
           if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") { // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the black darken tint above it just read as a dark disconnected box
@@ -961,8 +961,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
               );
             }
           }
-          // Natural terrain is not live data, so it stays -- printed in sepia like its ground (the ring stays untinted).
-          const featureTint = isFogRing ? undefined : fogFeatureTint;
+          // Natural terrain is not live data, so it stays -- printed like its ground.
+          const featureTint = printAsFogged ? fogFeatureTint : undefined;
           if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, featureTint);
           else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
           else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, featureTint);

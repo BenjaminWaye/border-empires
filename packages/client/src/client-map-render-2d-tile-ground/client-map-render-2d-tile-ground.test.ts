@@ -26,7 +26,7 @@ const input = (over: Partial<TileGround2DInput>): TileGround2DInput => ({
   terrainAt: () => "SEA",
   drawTerrainTile: vi.fn(),
   drawTerrainDetail: vi.fn(),
-  isUnexploredAt: () => false,
+  neighbourVisibility: () => "visible",
   ...over
 });
 
@@ -55,14 +55,14 @@ describe("drawTileGround2D", () => {
 
   it("never draws the fog on explored tiles, only on the fog tile facing them", () => {
     const explored = makeCtx();
-    drawTileGround2D(explored.ctx, input({ isUnexploredAt: () => true }));
+    drawTileGround2D(explored.ctx, input({ neighbourVisibility: () => "unexplored" }));
     expect(explored.raw.clip).not.toHaveBeenCalled();
     expect(explored.raw.stroke).not.toHaveBeenCalled();
   });
 
   it("draws a first-ring fog tile's own ground, undimmed, under the coast", () => {
     const ring = makeCtx();
-    const args = input({ tile: undefined, vis: "unexplored", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) });
+    const args = input({ tile: undefined, vis: "unexplored", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "visible" : "unexplored") });
     drawTileGround2D(ring.ctx, args);
     expect(args.drawTerrainTile).toHaveBeenCalledWith(3, 4, "SEA", 0, 0, 40);
     expect(ring.fills.some((f) => f.startsWith("rgba(7, 20, 34") || f.startsWith("rgba(2, 5, 10"))).toBe(false); // no fog dim
@@ -70,15 +70,25 @@ describe("drawTileGround2D", () => {
     expect(args.drawTerrainDetail).not.toHaveBeenCalled(); // sea has no forest/hills
 
     const landRing = makeCtx();
-    const landArgs = input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", isUnexploredAt: (ox, oy) => !(ox === 1 && oy === 0) });
+    const landArgs = input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "visible" : "unexplored") });
     drawTileGround2D(landRing.ctx, landArgs);
     expect(landArgs.drawTerrainDetail).toHaveBeenCalledWith(3, 4, 0, 0, 40);
     expect(ring.raw.stroke).toHaveBeenCalled();
   });
 
+  it("prints a ring tile like the remembered land it borders, but not beside land in sight", () => {
+    const besideFogged = makeCtx();
+    drawTileGround2D(besideFogged.ctx, input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "fogged" : "unexplored") }));
+    expect(besideFogged.fills).toContain(FOGGED_PRINT_SEPIA);
+
+    const besideLive = makeCtx();
+    drawTileGround2D(besideLive.ctx, input({ tile: undefined, vis: "unexplored", terrainAt: () => "LAND", neighbourVisibility: (ox, oy) => (ox === 1 && oy === 0 ? "visible" : ox === -1 && oy === 0 ? "fogged" : "unexplored") }));
+    expect(besideLive.fills).not.toContain(FOGGED_PRINT_SEPIA);
+  });
+
   it("draws deep fog as plain storm, with no ground underneath", () => {
     const deep = makeCtx();
-    const args = input({ tile: undefined, vis: "unexplored", isUnexploredAt: () => true });
+    const args = input({ tile: undefined, vis: "unexplored", neighbourVisibility: () => "unexplored" });
     drawTileGround2D(deep.ctx, args);
     expect(args.drawTerrainTile).not.toHaveBeenCalled();
     expect(deep.raw.stroke).not.toHaveBeenCalled();
