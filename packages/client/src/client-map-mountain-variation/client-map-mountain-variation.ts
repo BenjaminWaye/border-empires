@@ -39,6 +39,13 @@ export type MountainVariation = {
   readonly warmth: number;
   /** Snow cap on the main peak: naturally tall peaks and cold-country peaks only. */
   readonly snow: boolean;
+  /**
+   * Where the 3D shader's snow starts, as a fraction of the peak's height
+   * (lower in cold country); 0 when the peak is bare.
+   */
+  readonly snowLine: number;
+  /** Which of the 3D mountain shapes this tile uses (client-map-3d-mountain-shape.ts). */
+  readonly shape: number;
   readonly secondary: SecondaryPeak | null;
   /** Low ridge saddle toward the east / south neighbour (each adjacent pair drawn once). */
   readonly saddleEast: boolean;
@@ -58,6 +65,9 @@ const SECONDARY_MIN_DISTANCE = 0.22;
 const SECONDARY_DISTANCE_RANGE = 0.08;
 const SECONDARY_MIN_SCALE = 0.5;
 const SECONDARY_SCALE_RANGE = 0.2;
+export const MOUNTAIN_SHAPE_COUNT = 4;
+const COLD_SNOW_LINE = 0.4;
+const TALL_SNOW_LINE = 0.6;
 
 /**
  * Deterministic 0..1 value for a world tile and a salt (one salt per
@@ -123,6 +133,8 @@ export const mountainVariationAt = (wx: number, wy: number, neighbourhood: Mount
     // Judged on the peak's own height, before the range spine bonus --
     // otherwise nearly every peak inside a range would be snow-capped.
     snow: neighbourhood.cold || ownHeight >= SNOW_HEIGHT_SCALE,
+    snowLine: neighbourhood.cold ? COLD_SNOW_LINE : ownHeight >= SNOW_HEIGHT_SCALE ? TALL_SNOW_LINE : 0,
+    shape: Math.floor(mountainHash01(wx, wy, 10) * MOUNTAIN_SHAPE_COUNT),
     secondary,
     saddleEast: neighbourhood.east,
     saddleSouth: neighbourhood.south
