@@ -9,7 +9,7 @@ const vec = (storm: { material: { uniforms: Record<string, { value: unknown }> }
   (storm.material.uniforms[name]!.value as Vector2).toArray();
 
 describe("unexplored storm layer (3D)", () => {
-  it("lies just above the highest flat land, so bumpy ground never buries the hatching", () => {
+  it("lies just above the highest flat land, so bumpy ground never buries the coast band", () => {
     expect(UNEXPLORED_STORM_Y).toBeGreaterThanOrEqual(HEIGHTFIELD_GRASS_ELEVATION);
     expect(UNEXPLORED_STORM_Y).toBeGreaterThanOrEqual(HEIGHTFIELD_TUNDRA_ELEVATION + 0.025 + 0.035); // + max jitter + rolling wave
     expect(UNEXPLORED_STORM_Y).toBeLessThan(0.5);
@@ -24,13 +24,10 @@ describe("unexplored storm layer (3D)", () => {
     const mask = storm.material.uniforms.uMask!.value as DataTexture;
     const { width, height, data } = mask.image as { width: number; height: number; data: Uint8Array };
     expect([width, height]).toEqual([7, 5]);
-    // Centre texel (i = halfW + 1, j = halfH + 1) is the only explored (R = 0)
-    // one, and the only remembered (B = 255) one.
+    // Centre texel (i = halfW + 1, j = halfH + 1) is the only explored (R = 0) one.
     const centre = (2 * width + 3) * 4;
     expect(data[centre]).toBe(0);
-    expect(data[centre + 2]).toBe(255);
     expect(Array.from(data).filter((v, k) => k % 4 === 0 && v === 255)).toHaveLength(width * height - 1);
-    expect(Array.from(data).filter((v, k) => k % 4 === 2 && v === 255)).toHaveLength(1);
     expect(vec(storm, "uMaskMin")).toEqual([-3, -2]);
     expect(vec(storm, "uMaskSize")).toEqual([7, 5]);
     expect(vec(storm, "uWorldOrigin")).toEqual([100, 200]);
@@ -64,11 +61,11 @@ describe("unexplored storm layer (3D)", () => {
     expect(scene.children).not.toContain(atmosphere.unexploredStorm.mesh);
   });
 
-  it("draws storm and coast only on unexplored tiles; only the coast band is see-through", () => {
-    // On unexplored tiles alpha is the hard mask times inward edge AA times
-    // cover: storm opaque, parchment band over the ring's ground translucent.
-    // Explored tiles only ever get the remembered-tile hatching (next test).
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = max\(hard \* edgeAa \* coverAlpha, rememberedHatch\);/);
+  it("only ever draws on unexplored tiles; only the coast band is see-through", () => {
+    // Alpha is the hard per-tile mask (explored tiles are never drawn on)
+    // times inward edge AA times cover: storm opaque, the parchment band over
+    // the ring's ground translucent.
+    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa \* coverAlpha;/);
     expect(STORM_FRAGMENT_SHADER).toMatch(/float coverAlpha = mix\(parchAlpha, 1\.0, stormCover\);/);
     const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
     const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
@@ -76,9 +73,9 @@ describe("unexplored storm layer (3D)", () => {
     expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
   });
 
-  it("hatches remembered tiles (and nothing else on explored tiles)", () => {
-    expect(STORM_FRAGMENT_SHADER).toContain("float rememberedHatch = (1.0 - hard) * remembered * parchHatch * 0.55;");
-    expect(STORM_FRAGMENT_SHADER).toContain("float alpha = max(hard * edgeAa * coverAlpha, rememberedHatch);");
+  it("leaves the parchment band plain (no hatch lines)", () => {
+    expect(STORM_FRAGMENT_SHADER).toContain("vec3 parch = uParchment;");
+    expect(STORM_FRAGMENT_SHADER).not.toContain("parchHatch");
   });
 
   it("cuts the coastline from the deep-fog field and keeps deep fog solid storm", () => {

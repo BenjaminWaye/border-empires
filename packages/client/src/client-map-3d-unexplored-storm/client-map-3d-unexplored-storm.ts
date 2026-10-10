@@ -18,7 +18,6 @@ import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
   UNEXPLORED_PARCHMENT,
-  UNEXPLORED_PARCHMENT_INK,
   UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
@@ -36,14 +35,12 @@ import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 // sight are never drawn over. The first ring of unexplored tiles is the fog's
 // "coast": mostly parchment, with a rounded brass survey edge and the storm's edge
 // running through its outer part. Faint tile-edge lines show through the
-// cloud so the hidden grid is still hinted. Remembered (fogged) tiles get
-// the same hatching as the ring -- hatching means "not in sight" -- and
-// nothing else. Look and layering:
+// cloud so the hidden grid is still hinted. Look and layering:
 // client-map-3d-unexplored-storm-shader.ts.
 // 2D counterpart: client-unexplored-storm-2d.ts.
 // Just above the highest flat land (tundra 0.2 + jitter and rolling wave,
-// ~0.26), so the hatching and coast band on ring and remembered tiles are
-// never buried in patches by bumpy ground; hills and mountains poke through.
+// ~0.26), so the coast band over the ring's ground is never buried in
+// patches by bumpy ground; hills and mountains poke through.
 export const UNEXPLORED_STORM_Y = 0.27;
 // Well past the farthest ground point the fixed-tilt camera can see at max
 // zoom-out, but inside PERSPECTIVE_FAR (4000).
@@ -91,7 +88,6 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       uLight: { value: new Color(UNEXPLORED_STORM_LIGHT) },
       uInk: { value: new Color(UNEXPLORED_STORM_INK) },
       uParchment: { value: new Color(UNEXPLORED_PARCHMENT) },
-      uParchmentInk: { value: new Color(UNEXPLORED_PARCHMENT_INK) },
       uBrass: { value: new Color(UNEXPLORED_BRASS) },
       uBrassDark: { value: new Color(UNEXPLORED_BRASS_DARK) },
       uRivet: { value: new Color(UNEXPLORED_RIVET) },

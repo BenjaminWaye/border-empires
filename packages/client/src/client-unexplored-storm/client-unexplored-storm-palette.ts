@@ -1,4 +1,4 @@
-// Unexplored territory reads as a hatched storm-cloud bank, like weather
+// Unexplored territory reads as a streaked storm-cloud bank, like weather
 // drawn on an old map, instead of a black void; remembered tiles read as an
 // old survey print (see FOGGED_PRINT_* below). Explored tiles bordering it
 // fade through a parchment band (the "sketched but not yet surveyed" edge)
@@ -9,7 +9,6 @@ export const UNEXPLORED_STORM_MID = "#545b5f";
 export const UNEXPLORED_STORM_LIGHT = "#6f777b";
 export const UNEXPLORED_STORM_INK = "#2a2f31";
 export const UNEXPLORED_PARCHMENT = "#dccfa4";
-export const UNEXPLORED_PARCHMENT_INK = "#9d8f66";
 // Brass survey edge where the parchment coast meets the storm (replaced a
 // pale foam rim): a bright brass line, a darker brass edge on the storm
 // side, and rivet dots where it crosses tile edges.

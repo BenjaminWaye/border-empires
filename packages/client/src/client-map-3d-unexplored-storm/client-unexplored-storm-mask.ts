@@ -12,9 +12,7 @@ import type { TileVisibilityState } from "../client-types.js";
 //        Bilinearly filtered in the shader, the fog's coastline is cut from
 //        it, so it runs through the first ring of unexplored tiles and never
 //        onto explored land.
-//   B -- 255 = remembered ("fogged": explored, not in sight). These get the
-//        same hatching as the fog ring -- hatching means "not in sight".
-//   A -- unused (255); RGBA keeps rows 4-byte aligned.
+//   B, A -- unused (0, 255); RGBA keeps rows 4-byte aligned.
 export type UnexploredStormMask = { readonly width: number; readonly height: number; readonly data: Uint8Array };
 
 const TENT = [1, 2, 1, 2, 4, 2, 1, 2, 1] as const;
@@ -28,14 +26,11 @@ export const buildUnexploredStormMask = (
   const width = window.halfW * 2 + 3;
   const height = window.halfH * 2 + 3;
   const explored = new Uint8Array(width * height);
-  const fogged = new Uint8Array(width * height);
   for (let j = 0; j < height; j += 1) {
     const wy = (((window.camY + j - window.halfH - 1) % worldHeight) + worldHeight) % worldHeight;
     for (let i = 0; i < width; i += 1) {
       const wx = (((window.camX + i - window.halfW - 1) % worldWidth) + worldWidth) % worldWidth;
-      const visibility = visibilityAt(wx, wy);
-      explored[j * width + i] = visibility === "unexplored" ? 0 : 1;
-      fogged[j * width + i] = visibility === "fogged" ? 1 : 0;
+      explored[j * width + i] = visibilityAt(wx, wy) === "unexplored" ? 0 : 1;
     }
   }
   const exploredAt = (i: number, j: number): number => (i < 0 || j < 0 || i >= width || j >= height ? 0 : explored[j * width + i]!);
@@ -53,7 +48,6 @@ export const buildUnexploredStormMask = (
     for (let i = 0; i < width; i += 1) {
       const at = (j * width + i) * 4;
       data[at] = explored[j * width + i] ? 0 : 255;
-      data[at + 2] = fogged[j * width + i] ? 255 : 0;
       data[at + 3] = 255;
       if (deep[j * width + i]) {
         data[at + 1] = 255;

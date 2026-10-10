@@ -1,14 +1,14 @@
-// GLSL for client-map-3d-unexplored-storm.ts. Draws on unexplored tiles,
-// plus hatching alone on remembered (fogged) tiles -- hatching means "not in
-// sight". Tiles in sight are discarded outright, never touched. The fog's coastline lives in the first ring
-// of unexplored tiles (those touching explored land, diagonals included):
-//   1. A see-through hatched parchment band ("charted coast, not yet
-//      surveyed") over the ring tile's ground, from the explored edge out to a rounded, noise-wobbled contour ~0.7-0.85 of
-//      the way across the ring tile.
+// GLSL for client-map-3d-unexplored-storm.ts. Draws ONLY on unexplored
+// tiles -- tiles in sight and remembered tiles are discarded outright. The
+// fog's coastline lives in the first ring of unexplored tiles (those
+// touching explored land, diagonals included):
+//   1. A see-through parchment band ("charted coast, not yet surveyed") over
+//      the ring tile's ground, from the explored edge out to a rounded,
+//      noise-wobbled contour ~0.7-0.85 of the way across the ring tile.
 //   2. A brass survey edge on that contour (bright line, darker storm-side
 //      edge, rivets at tile edges), with a lit lip on the cloud behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
-//      hatching, with the hidden tile grid faintly showing through.
+//      rain streaks, with the hidden tile grid faintly showing through.
 // The contour is cut from a blurred field of "deep fog" (unexplored tiles
 // with no explored neighbour), so it rounds corners instead of following
 // tile squares. Tiles' own edges against explored land are anti-aliased
@@ -36,7 +36,6 @@ uniform vec3 uMid;
 uniform vec3 uLight;
 uniform vec3 uInk;
 uniform vec3 uParchment;
-uniform vec3 uParchmentInk;
 uniform vec3 uBrass;
 uniform vec3 uBrassDark;
 uniform vec3 uRivet;
@@ -84,8 +83,6 @@ void main() {
   vec2 tile = floor(vSceneXZ);
   vec2 f = vSceneXZ - tile;
   float hard = maskR(tile);
-  vec2 tileUv = (tile + 0.5 - uMaskMin) / uMaskSize;
-  float remembered = (tileUv.x < 0.0 || tileUv.y < 0.0 || tileUv.x > 1.0 || tileUv.y > 1.0) ? 0.0 : texture2D(uMask, tileUv).b;
   float l = maskR(tile + vec2(-1.0, 0.0));
   float r = maskR(tile + vec2(1.0, 0.0));
   float u = maskR(tile + vec2(0.0, -1.0));
@@ -130,8 +127,7 @@ void main() {
   storm = mix(storm, uLight * 1.2, lip * 0.6);
 
   // --- parchment band, across the ring tile from the explored edge ---
-  float parchHatch = lines((w.x - w.y) * 2.8, 0.09);
-  vec3 parch = mix(uParchment, uParchmentInk, parchHatch * 0.7);
+  vec3 parch = uParchment;
   // Slight shadow under the cloud's leading edge.
   parch *= 1.0 - smoothstep(EDGE - 0.08, EDGE, s) * 0.25;
   float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
@@ -158,11 +154,8 @@ void main() {
   col = mix(col, uRivet, rivet);
   coverAlpha = max(coverAlpha, max(max(brass, brassEdge * 0.9), rivet));
 
-  // Explored tiles get nothing but, when remembered (fogged), the same
-  // hatching as the ring: hatching means "not in sight".
-  float rememberedHatch = (1.0 - hard) * remembered * parchHatch * 0.55;
-  col = mix(uParchmentInk, col, hard);
-  float alpha = max(hard * edgeAa * coverAlpha, rememberedHatch);
+  // Explored tiles are never drawn on.
+  float alpha = hard * edgeAa * coverAlpha;
   if (alpha < 0.01) discard;
   gl_FragColor = vec4(col, alpha);
   #include <colorspace_fragment>

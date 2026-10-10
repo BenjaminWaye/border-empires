@@ -2,7 +2,6 @@ import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
   UNEXPLORED_PARCHMENT,
-  UNEXPLORED_PARCHMENT_INK,
   UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
@@ -162,7 +161,7 @@ export const drawUnexploredStormTile = (
 // (client-map-3d-unexplored-storm-shader.ts), for the first ring of fog:
 // unexplored tiles with an explored tile among their 8 neighbours. The
 // caller draws the ring tile's own ground (dimmed) first; this then lays
-//   1. a see-through hatched parchment wash over the whole tile;
+//   1. a see-through parchment wash over the whole tile;
 //   2. the storm, only beyond a wavy line ~0.6-0.8 tile in from every side
 //      (or corner) that touches explored land;
 //   3. a brass survey edge along that line (bright brass, a darker storm-side
@@ -202,75 +201,6 @@ const rgba = (hex: string, alpha: number): string =>
 export const unexploredBandDepth = (a: number, l: number): number =>
   0.72 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
 
-let hatchCache: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
-const HATCH_PX = 32;
-const hatchPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefined => {
-  if (hatchCache?.ctx === ctx) return hatchCache.pattern;
-  if (typeof document === "undefined" || typeof ctx.createPattern !== "function") return undefined;
-  const source = document.createElement("canvas");
-  source.width = HATCH_PX;
-  source.height = HATCH_PX;
-  const sctx = source.getContext("2d");
-  if (!sctx) return undefined;
-  sctx.fillStyle = UNEXPLORED_PARCHMENT;
-  sctx.fillRect(0, 0, HATCH_PX, HATCH_PX);
-  sctx.strokeStyle = rgba(UNEXPLORED_PARCHMENT_INK, 0.7);
-  sctx.lineWidth = 5;
-  for (const shift of [-HATCH_PX, 0, HATCH_PX]) {
-    sctx.beginPath();
-    sctx.moveTo(shift, 0);
-    sctx.lineTo(shift + HATCH_PX, HATCH_PX);
-    sctx.stroke();
-  }
-  const pattern = ctx.createPattern(source, "repeat");
-  if (!pattern) return undefined;
-  hatchCache = { ctx, pattern };
-  return pattern;
-};
-
-let inkHatchCache: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
-// Ink lines only (transparent between them), same geometry as the ring's
-// parchment hatch so the two run on as one pattern.
-const inkHatchPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefined => {
-  if (inkHatchCache?.ctx === ctx) return inkHatchCache.pattern;
-  if (typeof document === "undefined" || typeof ctx.createPattern !== "function") return undefined;
-  const source = document.createElement("canvas");
-  source.width = HATCH_PX;
-  source.height = HATCH_PX;
-  const sctx = source.getContext("2d");
-  if (!sctx) return undefined;
-  sctx.strokeStyle = UNEXPLORED_PARCHMENT_INK;
-  sctx.lineWidth = 5;
-  for (const shift of [-HATCH_PX, 0, HATCH_PX]) {
-    sctx.beginPath();
-    sctx.moveTo(shift, 0);
-    sctx.lineTo(shift + HATCH_PX, HATCH_PX);
-    sctx.stroke();
-  }
-  const pattern = ctx.createPattern(source, "repeat");
-  if (!pattern) return undefined;
-  inkHatchCache = { ctx, pattern };
-  return pattern;
-};
-
-/**
- * Hatching alone over a remembered (fogged) tile -- the same lines the fog
- * ring carries, since hatching means "not in sight". Skipped on tiles too
- * small for the lines to read.
- */
-export const drawNotInSightHatch2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
-  if (size < EDGE_DETAIL_MIN_TILE_PX) return;
-  const pattern = inkHatchPatternFor(ctx);
-  if (!pattern || typeof pattern.setTransform !== "function" || typeof DOMMatrix === "undefined") return;
-  const scale = size / (2.8 * HATCH_PX);
-  pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
-  ctx.save();
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = pattern;
-  ctx.fillRect(px, py, size, size);
-  ctx.restore();
-};
-
 /** Whether (from the 8 neighbours) a fog tile is on the fog's first ring. */
 export const isUnexploredCoastRing = (isExploredAt: (ox: number, oy: number) => boolean): boolean => {
   for (let k = 0; k < 9; k += 1) if (k !== 4 && isExploredAt((k % 3) - 1, Math.floor(k / 3) - 1)) return true;
@@ -304,14 +234,8 @@ export const drawUnexploredStormEdge2D = (
   ctx.clip();
 
   // 1. See-through parchment wash.
-  const hatch = detailed ? hatchPatternFor(ctx) : undefined;
-  if (hatch && typeof hatch.setTransform === "function" && typeof DOMMatrix !== "undefined") {
-    // 2.8 hatch lines per tile, anchored to the world like the storm.
-    const scale = size / (2.8 * HATCH_PX);
-    hatch.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
-  }
   ctx.globalAlpha = 0.6;
-  ctx.fillStyle = hatch ?? UNEXPLORED_PARCHMENT;
+  ctx.fillStyle = UNEXPLORED_PARCHMENT;
   ctx.fillRect(px, py, size, size);
   ctx.globalAlpha = 1;
 

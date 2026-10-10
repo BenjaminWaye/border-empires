@@ -3,8 +3,7 @@ import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 const at = (mask: ReturnType<typeof buildUnexploredStormMask>, i: number, j: number) => ({
   unexplored: mask.data[(j * mask.width + i) * 4]!,
-  field: mask.data[(j * mask.width + i) * 4 + 1]! / 255,
-  remembered: mask.data[(j * mask.width + i) * 4 + 2]!
+  field: mask.data[(j * mask.width + i) * 4 + 1]! / 255
 });
 
 describe("buildUnexploredStormMask", () => {
@@ -19,13 +18,6 @@ describe("buildUnexploredStormMask", () => {
     expect([mask.width, mask.height]).toEqual([11, 11]);
     expect(at(mask, 4, row).unexplored).toBe(0);
     expect(at(mask, 5, row).unexplored).toBe(255);
-  });
-
-  it("flags remembered tiles in B, and only those", () => {
-    expect(at(mask, 3, row).remembered).toBe(255); // wx 48
-    expect(at(mask, 4, row).remembered).toBe(255); // wx 49
-    expect(at(mask, 2, row).remembered).toBe(0); // wx 47, in sight
-    expect(at(mask, 5, row).remembered).toBe(0); // wx 50, unexplored
   });
 
   it("puts the coast field's ramp across the first fog ring, not on explored land", () => {

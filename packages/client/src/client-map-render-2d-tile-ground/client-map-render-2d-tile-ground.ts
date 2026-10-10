@@ -1,7 +1,6 @@
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
-  drawNotInSightHatch2D,
   drawUnexploredStormEdge2D,
   drawUnexploredStormTile,
   isUnexploredCoastRing,
@@ -11,7 +10,7 @@ import {
 // The 2D canvas renderer's base layer for one tile (extracted from
 // client-runtime-loop.ts's per-tile loop): terrain, fogged dimming, or the
 // unexplored storm. Remembered (fogged) tiles keep their terrain and natural
-// detail as a faded survey print, hatched like the fog ring. The fog's first ring (unexplored tiles touching explored
+// detail as a faded survey print. The fog's first ring (unexplored tiles touching explored
 // land) shows its own ground under a see-through parchment coast (printed
 // like the remembered land it borders unless it touches land in sight),
 // with the storm beyond. Explored tiles get only their own terrain -- the
@@ -76,7 +75,6 @@ export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGroun
     input.drawTerrainTile(wx, wy, tile.terrain, px, py, size);
     if (tile.terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size); // natural terrain isn't live data
     drawFoggedPrint(ctx, tile.terrain, px, py, size);
-    drawNotInSightHatch2D(ctx, wx, wy, px, py, size); // hatching means "not in sight", like the fog ring
   } else {
     input.drawTerrainTile(wx, wy, isWater(tile.terrain) || tile.terrain === "MOUNTAIN" ? tile.terrain : "LAND", px, py, size);
   }
