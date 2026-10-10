@@ -16,12 +16,12 @@ export type FairSpawnWorldgenCheckDeps = {
   clusterByTile: ReadonlyMap<TileKey, string>;
   clustersById: ReadonlyMap<string, ClusterDefinition>;
   townsByTile: ReadonlyMap<TileKey, unknown>;
+  docksByTile?: ReadonlyMap<TileKey, unknown>;
 };
 
 /**
- * Cheap lightweight tile snapshot (terrain / town-presence / food-presence
- * only — no ownership, docks, or wonders, none of which exist yet at this
- * point in worldgen) fed into computeFairSpawnSites purely to COUNT how many
+ * Lightweight terrain / town / resource / dock snapshot, before ownership
+ * or wonders are placed, fed into computeFairSpawnSites purely to COUNT how many
  * equal-opportunity spawn sites this candidate map can offer. Lets the
  * existing seed-refinement retry loop in season-seed-world(.ts|-async.ts)
  * reject a map that can't secure FAIR_SPAWN_SITE_WORLDGEN_MINIMUM of them —
@@ -29,7 +29,7 @@ export type FairSpawnWorldgenCheckDeps = {
  * and regenerate with a new seed instead of shipping a world where some
  * future joiners are stuck on the random-search fallback from the start.
  */
-export const countFairSpawnSitesForWorldgenCheck = (deps: FairSpawnWorldgenCheckDeps): number => {
+export const starterTilesForWorldgen = (deps: FairSpawnWorldgenCheckDeps): DomainTileState[] => {
   const tiles: DomainTileState[] = [];
   for (let y = 0; y < deps.WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < deps.WORLD_WIDTH; x += 1) {
@@ -46,9 +46,15 @@ export const countFairSpawnSitesForWorldgenCheck = (deps: FairSpawnWorldgenCheck
         y,
         terrain,
         ...(deps.townsByTile.has(tileKeyValue) ? { town: { type: "MARKET" as const, populationTier: "SETTLEMENT" as const } } : {}),
-        ...(resourceType === "FARM" || resourceType === "FISH" ? { resource: resourceType } : {})
+        ...(deps.docksByTile?.has(tileKeyValue) ? { dockId: tileKeyValue } : {}),
+        ...(resourceType ? { resource: resourceType } : {})
       });
     }
   }
-  return computeFairSpawnSites(tiles, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM).length;
+  return tiles;
 };
+
+export const countFairSpawnSitesForWorldgenCheck = (deps: FairSpawnWorldgenCheckDeps): number =>
+  computeFairSpawnSites(starterTilesForWorldgen(deps), FAIR_SPAWN_SITE_WORLDGEN_MINIMUM, {
+    requireStarterEconomy: true, width: deps.WORLD_WIDTH, height: deps.WORLD_HEIGHT
+  }).length;

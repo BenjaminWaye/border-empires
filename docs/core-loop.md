@@ -490,16 +490,18 @@ As implemented in `client-onboarding-checklist.ts` and `guideSteps`
 
 1. An 8-step guide modal covers the fantasy, expanding, manpower, slots,
    building and fighting, research, towns, and winning.
-2. A checklist with 4 goals, all driven by Expand To: **find a town → expand
-   to it → find food → expand to 4 food slots**. The map highlights the next
-   tile in reach. If nothing is in reach, it points you at building a Relay
-   Beacon. (See §12: this teaches Expand To as the main verb, but in practice
-   beacons are what move reach, and Expand To mostly matters beyond reach.)
+2. A checklist with 4 goals: **find food → garrison 4 food slots → find a town
+   → garrison it**. It names a reachable destination and highlights one next
+   actionable land tile. FRONTIER food does not count. When the known route
+   cannot continue within reach, it explains building a Relay Beacon: ordinary
+   expansion does not extend reach. Finding a target keeps the panel open.
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
    session is long enough to finish the checklist without stalling.
-4. New players spawn a safe distance from the nearest town. The first town is
-   a short trip that teaches reach.
+4. Newly generated worlds require 50 spaced starting sites with first food
+   within five land steps, four slots within eight, and a town within eight.
+   Live placement revalidates amenities; exhausted mature worlds can still use
+   a logged fallback. See [the opening contract](product/new-player-opening.md).
 
 At the end, the player is food-secure with a second town, which is the full
 town-engine loop at small scale.

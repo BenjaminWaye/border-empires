@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, isSeaTerrain, wrapX, wrapY, type Terrain } from "@border-empires/shared";
 import { key } from "./server-game-constants/server-game-constants.js";
 import type { DomainTileState } from "./index/index.js";
+import { starterSiteQuality } from "./starter-site-quality.js";
 
 /**
  * Pure, dependency-light spawn-site selection shared by apps/simulation's
@@ -172,7 +173,7 @@ const MIN_TOWN_SPAWN_DISTANCE = 5;
 // candidate closest to this bucket's centroid (not a map corner/edge tile) so
 // the roster spreads outward evenly in every direction. Order-independent and
 // deterministic given the same inputs (ties broken by lowest y, then x).
-const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainTileState[], targetCount: number): void => {
+const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainTileState[], targetCount: number, minSeparation = 0, dimensions?: { width: number; height: number }): void => {
   if (candidates.length === 0 || chosen.length >= targetCount) return;
   const remaining = [...candidates].sort((left, right) => left.y - right.y || left.x - right.x);
   if (chosen.length === 0) {
@@ -198,7 +199,11 @@ const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainT
       const candidate = remaining[index]!;
       let minDistance = Infinity;
       for (const site of chosen) {
-        const distance = chebyshevDistance(candidate.x, candidate.y, site.x, site.y);
+        const dx = Math.abs(candidate.x - site.x);
+        const dy = Math.abs(candidate.y - site.y);
+        const distance = dimensions
+          ? Math.max(Math.min(dx, dimensions.width - dx), Math.min(dy, dimensions.height - dy))
+          : chebyshevDistance(candidate.x, candidate.y, site.x, site.y);
         if (distance < minDistance) minDistance = distance;
       }
       if (minDistance > bestMinDistance) {
@@ -206,6 +211,7 @@ const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainT
         bestIndex = index;
       }
     }
+    if (bestMinDistance < minSeparation) break;
     const picked = remaining[bestIndex]!;
     chosen.push({ x: picked.x, y: picked.y });
     remaining.splice(bestIndex, 1);
@@ -215,7 +221,10 @@ const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainT
 /**
  * Precomputes a roster of spawn sites at worldgen time, instead of only
  * searching for one candidate per player as a per-player random search does.
- * Two properties that search doesn't guarantee on its own:
+ * Production passes requireStarterEconomy: true: no amenity-free fill-ins,
+ * cardinal neutral-land routes to food and a town, and ten-tile spacing.
+ * The default permissive mode is retained for fallback tools and fixtures.
+ * Two properties that its tiered search doesn't guarantee on its own:
  *
  * - Equal opportunity, prioritized: candidates are bucketed into four
  *   mutually exclusive amenity tiers (town+food, town-only, food-only,
@@ -235,7 +244,8 @@ const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainT
  */
 export const computeFairSpawnSites = (
   tileList: readonly DomainTileState[],
-  targetCount: number = FAIR_SPAWN_SITE_TARGET_COUNT
+  targetCount: number = FAIR_SPAWN_SITE_TARGET_COUNT,
+  options: { requireStarterEconomy?: boolean; width?: number; height?: number } = {}
 ): FairSpawnSite[] => {
   if (tileList.length === 0) return [];
 
@@ -267,6 +277,27 @@ export const computeFairSpawnSites = (
     return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKeyValue);
   }), (x, y) => terrainByKey.get(key(x, y)));
   if (baseCandidates.length === 0) return [];
+
+  if (options.requireStarterEconomy) {
+    const tiles = new Map(tileList.map((tile) => [key(tile.x, tile.y), tile]));
+    const width = options.width ?? WORLD_WIDTH;
+    const height = options.height ?? WORLD_HEIGHT;
+    const nearby = (tile: DomainTileState, coords: readonly FairSpawnSite[], radius: number): boolean => coords.some((coord) => {
+      const dx = Math.min(Math.abs(coord.x - tile.x), width - Math.abs(coord.x - tile.x));
+      const dy = Math.min(Math.abs(coord.y - tile.y), height - Math.abs(coord.y - tile.y));
+      return dx + dy <= radius;
+    });
+    const qualified = baseCandidates.filter((tile) =>
+      nearby(tile, townCoords, 8) && nearby(tile, foodCoords, 5) &&
+      [-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => {
+        const neighbor = tiles.get(key(wrapX(tile.x + dx, width), wrapY(tile.y + dy, height)));
+        return neighbor && !isSeaTerrain(neighbor.terrain) && !neighbor.ownerId && !tileBlocksAfcSite(neighbor);
+      })) &&
+      starterSiteQuality(tiles, tile.x, tile.y, width, height));
+    const chosen: FairSpawnSite[] = [];
+    farthestPointFill(chosen, qualified, targetCount, 10, { width, height });
+    return chosen;
+  }
 
   // Mutually exclusive, in priority order — every candidate falls into
   // exactly one bucket, so filling tier by tier below never reconsiders a
