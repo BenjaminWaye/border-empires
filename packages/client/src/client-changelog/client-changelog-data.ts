@@ -28,6 +28,27 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+  {
+    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.5",
+    title: "Rivers rise in the mountains (new seasons)",
+    why: "Rivers began wherever the generator happened to start them, often on open plains.",
+    changes: [
+      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
+      "Running seasons keep their rivers, towns and resources exactly as they are"
+    ]
+  },
+  {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
     title: "Better starter sites and accurate checklist goals",
