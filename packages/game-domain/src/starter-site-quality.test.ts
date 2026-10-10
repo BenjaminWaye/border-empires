@@ -61,6 +61,11 @@ describe("starter site opening economy", () => {
     tiles.get("18,10")!.ownerId = "enemy";
     expect(starterSiteQuality(tiles, 10, 10, 30, 30)).toBeUndefined();
   });
+  it("does not substitute a neutral settlement for the town milestone", () => {
+    const tiles = world();
+    tiles.get("18,10")!.town!.populationTier = "SETTLEMENT";
+    expect(starterSiteQuality(tiles, 10, 10, 30, 30)).toBeUndefined();
+  });
   it("can exclude neutral goals and paths already inside rival reach", () => {
     expect(starterSiteQuality(world(), 10, 10, 30, 30, (x) => x < 14)).toBeUndefined();
   });

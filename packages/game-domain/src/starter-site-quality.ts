@@ -38,7 +38,8 @@ export const starterSiteQuality = (
       const dx = Math.min(Math.abs(current.x - x), width - Math.abs(current.x - x));
       const dy = Math.min(Math.abs(current.y - y), height - Math.abs(current.y - y));
       if (dx + dy < STARTER_TOWN_CLEARANCE) return undefined;
-      townDistance = Math.min(townDistance, current.distance);
+      // Match the client milestone: a village/starting settlement is not a town.
+      if (tile.town.populationTier !== "SETTLEMENT") townDistance = Math.min(townDistance, current.distance);
     }
     const slots = tile.resource === "FARM" ? 1 : tile.resource === "FISH" ? 2 : 0;
     if (slots > 0) {

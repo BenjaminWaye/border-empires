@@ -52,6 +52,21 @@ const buildContext = (tiles: Map<string, DomainTileState>) => {
 };
 
 describe("respawnPlayerOnUnownedLand", () => {
+  it("rejects a roster opening whose only town is reserved by another action", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y <= 20; y += 1) for (let x = 0; x <= 20; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    for (const x of [13, 14, 15, 16]) tiles.get(`${x},10`)!.resource = "FARM";
+    tiles.get("18,10")!.town = { type: "MARKET", populationTier: "TOWN" };
+    const { ctx } = buildContext(tiles);
+    ctx.pendingSettlementsByTile = new Map([["18,10", {}]]);
+    let rejected = false;
+    ctx.claimFairSpawnSite = (isAvailable) => {
+      rejected = !isAvailable(10, 10);
+      return undefined;
+    };
+    expect(respawnPlayerOnUnownedLand(ctx, "ai-1", "reserved-goal")).toBe(true);
+    expect(rejected).toBe(true);
+  });
   it("accepts qualified-site spacing at ten tiles but rejects rival opening reach", () => {
     const tiles = new Map<string, DomainTileState>();
     for (let y = 0; y <= 20; y += 1) for (let x = 0; x <= 20; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });

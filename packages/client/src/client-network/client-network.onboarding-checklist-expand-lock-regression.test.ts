@@ -116,6 +116,7 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
     state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } });
     state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", resource: "FISH" });
     expect(onboardingChecklistState(state.tiles, state.me).highlightTiles).toEqual([{ x: 10, y: 11 }]);
+    expect(onboardingChecklistState(state.tiles, state.me).guidance).toContain("1 land step away");
     // Without recomputing, this old target survives throughout the EXPAND.
     state.onboardingHighlightTiles = [{ x: 10, y: 11 }];
     state.actionCurrent = { x: 10, y: 11, retries: 0, clientSeq: 7, commandId: "cmd-7", actionType: "EXPAND" };
