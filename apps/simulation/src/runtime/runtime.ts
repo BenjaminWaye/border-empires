@@ -3436,7 +3436,7 @@ export class SimulationRuntime {
     // disconnected tile would let a player convert an encircled pocket into
     // permanent territory, defeating the encirclement mechanic. Natural
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
-    if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
+    if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be garrisoned"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
     // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce

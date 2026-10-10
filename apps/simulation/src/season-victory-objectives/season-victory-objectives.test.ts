@@ -92,8 +92,8 @@ describe("objective progress (docs/galactic-campaign-design.md §3 Outpost/Stipe
   it("computes RESOURCE_MONOPOLY progress as the leader's best resource share over the 80% target", () => {
     // 5 GEMS tiles total, player-1 owns 2 -> share = 0.4, progress = 0.4/0.8 = 0.5.
     const worldTiles: WorldTileFixture[] = [
-      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", resource: "GEMS" },
-      { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", resource: "GEMS" },
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 2, y: 0, terrain: "LAND", resource: "GEMS" },
       { x: 3, y: 0, terrain: "LAND", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", resource: "GEMS" }
@@ -101,11 +101,47 @@ describe("objective progress (docs/galactic-campaign-design.md §3 Outpost/Stipe
     const leaderboardOverall: LeaderboardFixture = [
       { id: "player-1", name: "Leader", tiles: 2, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
     ];
-    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+    const players: PlayersFixture = [{ id: "player-1", allies: [], techIds: ["crystal-lattices"] }] as PlayersFixture;
 
     const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
     const resourceMonopoly = objectives.find((o) => o.id === "RESOURCE_MONOPOLY");
     expect(resourceMonopoly?.progress).toBeCloseTo(0.5, 5);
+  });
+
+  it("counts only settled, revealed resource tiles toward RESOURCE_MONOPOLY", () => {
+    // Regression: the monopoly counter used to include frontier tiles and
+    // resources still masked by the owner's missing reveal tech, so a player
+    // with no settled (and no visible) UMBRITE saw "You: 7/306 UMBRITE".
+    const worldTiles: WorldTileFixture[] = [
+      // player-1: two settled UMBRITE but no leatherworking -> hidden, not counted.
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+      // player-1: one frontier FARM (always revealed) -> not settled, not counted.
+      { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "FARM" },
+      // player-2: has leatherworking; one settled + one frontier UMBRITE -> counts 1.
+      { x: 3, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "UMBRITE" },
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "UMBRITE" },
+      { x: 5, y: 0, terrain: "LAND", resource: "FARM" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-2", name: "Leader", tiles: 2, incomePerMinute: 10, techs: 1, score: 10, rank: 1 },
+      { id: "player-1", name: "Runner Up", tiles: 3, incomePerMinute: 4, techs: 0, score: 4, rank: 2 }
+    ];
+    const players: PlayersFixture = [
+      { id: "player-1", allies: [], techIds: [] },
+      { id: "player-2", allies: [], techIds: ["leatherworking"] }
+    ] as PlayersFixture;
+
+    const { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId } = computeSeasonVictory(
+      worldTiles,
+      leaderboardOverall,
+      players
+    );
+    const resourceMonopoly = objectives.find((o) => o.id === "RESOURCE_MONOPOLY");
+    expect(resourceMonopoly?.leaderPlayerId).toBe("player-2");
+    expect(resourceMonopoly?.progressLabel).toBe("1/4 UMBRITE");
+    expect(selfProgressLabelsByPlayerId.get("player-1")?.get("RESOURCE_MONOPOLY")).toBe("No resource control");
+    expect(selfProgressByPlayerId.get("player-1")?.get("RESOURCE_MONOPOLY")).toBe(0);
   });
 
   it("computes MARITIME_SUPREMACY progress as leader docks over the dock target", () => {

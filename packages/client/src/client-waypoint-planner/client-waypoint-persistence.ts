@@ -33,6 +33,7 @@ const WAYPOINT_QUEUE_SESSION_KEY = "border-empires-waypoint-queue-v1";
 type PersistedWaypointEntry = {
   target: { x: number; y: number };
   trackBarbarian?: boolean;
+  commitManpower?: number;
 };
 
 const readSessionStorage = (key: string): string | null => {
@@ -117,6 +118,7 @@ const planFromServerSteps = (
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+const isPositiveNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
 
 const parsePersistedWaypointEntry = (value: unknown): PersistedWaypointEntry | undefined => {
   if (!isRecord(value) || !isRecord(value.target)) return undefined;
@@ -124,7 +126,8 @@ const parsePersistedWaypointEntry = (value: unknown): PersistedWaypointEntry | u
   if (typeof x !== "number" || typeof y !== "number") return undefined;
   return {
     target: { x, y },
-    ...(typeof value.trackBarbarian === "boolean" ? { trackBarbarian: value.trackBarbarian } : {})
+    ...(typeof value.trackBarbarian === "boolean" ? { trackBarbarian: value.trackBarbarian } : {}),
+    ...(isPositiveNumber(value.commitManpower) ? { commitManpower: value.commitManpower } : {})
   };
 };
 
@@ -138,6 +141,7 @@ export type ServerWaypointQueueWireEntry = {
   steps?: WaypointWireStep[];
   cursor?: number;
   stalled?: boolean;
+  commitManpower?: number;
 };
 
 // Wire payloads for the server-durable waypoint-queue tail (see
@@ -152,11 +156,13 @@ export type ServerWaypointQueueWireEntry = {
 // route. Bounded at WAYPOINT_MAX_WIRE_STEPS -- an over-cap plan is sent
 // target-only (steps omitted) rather than dropped outright, degrading
 // gracefully to today's single-leg server drain for that one waypoint
-// rather than having the whole enqueue rejected.
+// rather than having the whole enqueue rejected. commitManpower is the
+// Expand To & Attack effort choice for the final ATTACK leg (see
+// client-attack-commit.ts), so the server's offline drain fires it the same.
 export const waypointEnqueueWirePayload = (
   target: { x: number; y: number },
   trackBarbarian?: boolean,
-  plan?: { planId?: string; plannedAt?: number; steps: WaypointWireStep[] }
+  plan?: { planId?: string; plannedAt?: number; steps: WaypointWireStep[]; commitManpower?: number }
 ): Record<string, unknown> => ({
   type: "WAYPOINT_ENQUEUE",
   x: target.x,
@@ -164,7 +170,8 @@ export const waypointEnqueueWirePayload = (
   ...(trackBarbarian ? { trackBarbarian: true } : {}),
   ...(plan && plan.planId ? { planId: plan.planId } : {}),
   ...(plan && plan.plannedAt !== undefined ? { plannedAt: plan.plannedAt } : {}),
-  ...(plan && plan.steps.length > 0 && plan.steps.length <= WAYPOINT_MAX_WIRE_STEPS ? { steps: plan.steps } : {})
+  ...(plan && plan.steps.length > 0 && plan.steps.length <= WAYPOINT_MAX_WIRE_STEPS ? { steps: plan.steps } : {}),
+  ...(plan && plan.commitManpower != null ? { commitManpower: plan.commitManpower } : {})
 });
 
 export const waypointCancelWirePayload = (target: { x: number; y: number }): Record<string, unknown> => ({
@@ -195,7 +202,8 @@ export const syncWaypointQueueToServer = (
       waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian, {
         ...(waypoint.planId ? { planId: waypoint.planId } : {}),
         ...(waypoint.plannedAt !== undefined ? { plannedAt: waypoint.plannedAt } : {}),
-        steps: waypoint.plan.reachable ? wireStepsForPlan(waypoint.plan.steps ?? []) : []
+        steps: waypoint.plan.reachable ? wireStepsForPlan(waypoint.plan.steps ?? []) : [],
+        ...(waypoint.commitManpower != null ? { commitManpower: waypoint.commitManpower } : {})
       })
     );
   }
@@ -208,7 +216,8 @@ export const persistWaypointQueueForPlayer = (playerId: string, queue: readonly 
   }
   const entries: PersistedWaypointEntry[] = queue.map((w) => ({
     target: w.target,
-    ...(w.trackBarbarian ? { trackBarbarian: true } : {})
+    ...(w.trackBarbarian ? { trackBarbarian: true } : {}),
+    ...(w.commitManpower != null ? { commitManpower: w.commitManpower } : {})
   }));
   writeSessionStorage(WAYPOINT_QUEUE_SESSION_KEY, JSON.stringify({ playerId, queue: entries }));
 };
@@ -274,6 +283,7 @@ export const restorePersistedWaypointQueueForPlayer = (
     ...(serverWaypointQueue ?? []).map((entry) => ({
       target: { x: entry.x, y: entry.y },
       ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
+      ...(isPositiveNumber(entry.commitManpower) ? { commitManpower: entry.commitManpower } : {}),
       serverEntry: entry
     })),
     ...sessionEntries.filter((entry) => !serverTargetKeys.has(sessionKeyFor(entry.target.x, entry.target.y)))
@@ -297,7 +307,8 @@ export const restorePersistedWaypointQueueForPlayer = (
       plan: resumedPlan ?? planWaypoint(entry.target, { state: deps.state, keyFor: deps.keyFor, isInReach }),
       ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
       ...(serverEntry?.planId ? { planId: serverEntry.planId } : {}),
-      ...(serverEntry?.plannedAt !== undefined ? { plannedAt: serverEntry.plannedAt } : {})
+      ...(serverEntry?.plannedAt !== undefined ? { plannedAt: serverEntry.plannedAt } : {}),
+      ...(entry.commitManpower != null ? { commitManpower: entry.commitManpower } : {})
     });
     if (restored.length >= WAYPOINT_QUEUE_CLIENT_CAP) break;
   }

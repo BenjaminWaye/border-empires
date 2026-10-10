@@ -123,7 +123,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
       </div>
       <div class="intel-stat-grid">
         ${statCardHtml("Score", entry ? entry.score.toFixed(0) : "?")}
-        ${statCardHtml("Settled Tiles", entry ? formatInt(entry.tiles) : "?")}
+        ${statCardHtml("Garrisoned Tiles", entry ? formatInt(entry.tiles) : "?")}
         ${statCardHtml("Income", entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?")}
         ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
       </div>

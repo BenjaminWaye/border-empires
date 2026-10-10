@@ -20,7 +20,9 @@ export const writeOptimisticStructureBuild = (
   completesAt: number,
   // When the build starts (the sim stamps the same). Without it the construction renderers
   // would have to guess the window from a per-type duration and could show a fresh build part-done.
-  startedAt: number
+  startedAt: number,
+  // Applies the player's build-speed effects to a fort tier's base duration (client-build-speed).
+  adjustBuildMs: (structureType: string, baseMs: number) => number = (_type, baseMs) => baseMs
 ): void => {
   if (kind === "FORT" || kind === "WOODEN_FORT") {
     // Don't write a construction the sim will reject (max tier, or a Palisade on a fortified tile).
@@ -33,7 +35,7 @@ export const writeOptimisticStructureBuild = (
       status: "under_construction",
       variant: tier.variant,
       // The sim times a fort build from the resolved tier's own manpower cost, not the requested kind's.
-      completesAt: startedAt + structureBuildDurationMsForManpowerCost(tier.manpower),
+      completesAt: startedAt + adjustBuildMs(tier.variant, structureBuildDurationMsForManpowerCost(tier.manpower)),
       startedAt,
       ...(standing ? { upgradingFrom: standing } : {}),
       ...(standing && tile.fort?.disabledUntil !== undefined ? { disabledUntil: tile.fort.disabledUntil } : {})

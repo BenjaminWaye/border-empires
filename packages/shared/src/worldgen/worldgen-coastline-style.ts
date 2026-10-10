@@ -9,6 +9,7 @@
 // style) after sampling the actual score distribution.
 import { valueNoise, valueNoiseFaceted } from "./worldgen-noise.js";
 import { worldSeed } from "./worldgen.js";
+import { continentSeparationActive } from "./worldgen-version.js";
 
 // Calibrated once per (seed, style) by calibrateThresholds in
 // worldgen-continent-score.ts, off the actual score distribution near the
@@ -111,10 +112,17 @@ const regionalComplexityAt = (wx: number, wy: number): number =>
 // instead of a regular bump pattern.
 const ROUGHNESS_WARP_CELL = 90;
 const ROUGHNESS_WARP_AMPLITUDE = 60;
-const warpedRoughnessCoords = (wx: number, wy: number, coastSeed: number): { rx: number; ry: number } => ({
-  rx: wx + (valueNoise(wx, wy, ROUGHNESS_WARP_CELL, coastSeed + 811) - 0.5) * 2 * ROUGHNESS_WARP_AMPLITUDE,
-  ry: wy + (valueNoise(wx, wy, ROUGHNESS_WARP_CELL, coastSeed + 823) - 0.5) * 2 * ROUGHNESS_WARP_AMPLITUDE,
-});
+// v10+: a 60-tile warp over a 90-tile cell bends sample coordinates steeply
+// enough to stretch the 4-8 tile octaves into long parallel streaks (the
+// "brush stroke" sliver fields). A gentler warp still breaks up the noise grid.
+const ROUGHNESS_WARP_AMPLITUDE_V10 = 18;
+const warpedRoughnessCoords = (wx: number, wy: number, coastSeed: number): { rx: number; ry: number } => {
+  const amplitude = continentSeparationActive() ? ROUGHNESS_WARP_AMPLITUDE_V10 : ROUGHNESS_WARP_AMPLITUDE;
+  return {
+    rx: wx + (valueNoise(wx, wy, ROUGHNESS_WARP_CELL, coastSeed + 811) - 0.5) * 2 * amplitude,
+    ry: wy + (valueNoise(wx, wy, ROUGHNESS_WARP_CELL, coastSeed + 823) - 0.5) * 2 * amplitude,
+  };
+};
 
 // Six octaves spanning a wide range of scales (280 down to 7 tiles) with a
 // consistent ~0.55 persistence (gain) per octave -- true fBm self-similarity,

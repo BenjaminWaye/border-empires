@@ -120,7 +120,7 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
 
   if (payload.enabled) {
     if (target.ownershipState !== "SETTLED") {
-      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure requires settled owned tile"); return;
+      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure requires a garrisoned owned tile"); return;
     }
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, structure.converterMode ?? "SYNTHESIZE");
     if (actor.points < upkeep) {

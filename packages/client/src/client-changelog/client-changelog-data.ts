@@ -14,7 +14,10 @@ import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-muster-save-up.js";
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
+import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
+import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
+import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -24,6 +27,31 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.1",
+    title: "Better starter sites and accurate checklist goals",
+    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
+    changes: [
+      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
+      "The existing town-first checklist still highlights town and food tiles directly in both map renderers; only garrisoned food counts as usable food slots",
+      "Your AFC's reach is included in local target selection, and pending targets stop highlighting until their action resolves",
+      "Upgraded towns and lightweight town data count correctly, and enemy towns are not suggested as neutral expansion goals"
+    ]
+  },
+  {
+    createdAt: 1791527749820, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Manpower refills every 4 hours, shown as a gauge",
+    why: "Manpower crept up a few points a minute, so \"can I afford this attack yet?\" meant watching a number tick, and a short wait for one more attack felt like a constant chore.",
+    changes: [
+      "Manpower is now paid out in one refill every 4 hours instead of ticking up continuously. Your total regeneration is unchanged, it just lands in chunks; each player's refill moment is staggered, so yours is not the same as everyone else's",
+      "The Manpower chip is now a brass gauge: the fill shows what you can spend right now (ember when below an ordinary attack, green when full, shimmering above the cap), copper plating shows manpower already staged in muster flags, and a countdown shows when the next refill lands",
+      "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
+      "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
+      "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
+    ]
+  },
   {
     createdAt: 1791311818491, // Date.now() frozen for this entry
     introducedIn: "2026.10.06.1",
@@ -313,7 +341,80 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
     ]
   },
+  {
+    createdAt: 1791469348919,
+    introducedIn: "2026.10.08.6",
+    title: "Quieter AFC landing",
+    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
+    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
+  },
+  {
+    createdAt: 1791488967000,
+    introducedIn: "2026.10.08.7",
+    title: "Waystations no longer promise population without a town",
+    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
+    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
+  {
+    createdAt: 1791489815345,
+    introducedIn: "2026.10.08.7",
+    title: "Relay Beacon build time and rush price fixed",
+    why: "The build menu said a Relay Beacon takes 1 minute when it really takes an hour, and its rush-buy button showed 0 coin.",
+    changes: [
+      "The build menu shows the real Relay Beacon build time: instant for your first five, 60m after that",
+      "Rush-buy prices for buildings now match how much of the build is actually left, so a half-built structure costs about half"
+    ]
+  },
+  {
+    createdAt: 1791489790895, // Date.now() frozen for this entry
+    introducedIn: "2026.10.08.1",
+    title: "Resource Monopoly counts only settled, revealed resources",
+    why: "Resource Monopoly progress was counting frontier tiles and resources you hadn't revealed yet, so it could show you holding Umbrite you didn't actually control.",
+    changes: [
+      "Only settled resource tiles now count toward Resource Monopoly",
+      "A resource only counts once you've researched the tech that reveals it"
+    ]
+  },
+  {
+    createdAt: 1791579529000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Top ribbon hover highlight no longer blinks",
+    why: "The gold hover border on the top-bar chips flickered because the bar redraws often and each redraw restarted the fade-in.",
+    changes: [
+      "Hovering a top-bar chip now keeps a steady highlight"
+    ]
+  },
+  {
+    createdAt: 1791579131298, // Date.now() frozen for this entry
+    introducedIn: "2026.10.09.1",
+    title: "Separate continents, natural coasts and mountain ranges on new worlds",
+    why: "Continent maps often fused into one supercontinent holding most of the land, mountain ranges ran in ruler-straight lines or filled wide gray wedges, and atolls were stretched into ovals or dropped onto continents.",
+    changes: [
+      "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
+      "Coastlines are more natural: capes, coves and offshore islands, with craggier coasts toward the poles, instead of long smooth or ruler-straight shores",
+      "Coastal mountain ranges now sit just inland of the coast, like the Andes",
+      "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
+      "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
+      "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
+      "Atolls are now small, irregular rings of reef islets out in open ocean, sometimes with a smaller atoll nearby, instead of continent-sized perfect circles",
+      "Island chains now run along coasts as strings of small, elongated islands, instead of clusters of large round islands in the middle of the ocean",
+      "Seasons already in progress keep their current map"
+    ]
+  },
+  {
+    createdAt: 1791581686000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.2",
+    title: "Choose your effort when launching an attack",
+    why: "Committing extra manpower to a fight was only possible through March To. Launch Attack always sent the minimum.",
+    changes: [
+      "Launch Attack on a settled enemy tile now opens the Normal / Extra / Double effort picker March To uses, with a live win chance",
+      "Attacks on several tiles (box-select or Attack Connected Region) get one picker that applies to each settled target",
+      "Expand To & Attack asks for an effort level too; the waypoint's final attack uses it, even while you're offline",
+      "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
+  ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
@@ -321,7 +422,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
-  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
+  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
+  ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

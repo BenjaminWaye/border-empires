@@ -119,7 +119,7 @@ describe("buildWorldStatusSnapshot", () => {
           points: 76,
           incomePerMinute: 2.4,
           settledTileCount: 8,
-          techIds: [],
+          techIds: ["masonry"],
           domainIds: [],
           strategicResources: {},
           allies: [],
@@ -146,7 +146,7 @@ describe("buildWorldStatusSnapshot", () => {
     expect(maritimeSupremacy).toEqual(
       expect.objectContaining({
         progressLabel: "5/3 docks",
-        thresholdLabel: "Need 3 settled docks (55% of world docks)",
+        thresholdLabel: "Need 3 garrisoned docks (55% of world docks)",
         conditionMet: true
       })
     );

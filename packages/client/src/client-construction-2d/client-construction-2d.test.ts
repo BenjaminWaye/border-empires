@@ -97,9 +97,13 @@ describe("drawConstructionStructure2D", () => {
   });
 
   it("freezes the crew of a stalled build", () => {
+    // Build the site once: site() stamps completesAtMs from Date.now(), and a stalled
+    // crew's clock IS completesAtMs, so rebuilding it per sample let the clock drift a
+    // few ms between samples and occasionally nudge a dot across a pixel (CI flake).
+    const stalledSite = site({ crew: 8, stalled: true });
     const dotsAt = (nowMs: number): string => {
       const { ctx, raw } = fakeCtx();
-      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, site({ crew: 8, stalled: true }), nowMs);
+      drawConstructionStructure2D(ctx, image, 0, 0, 40, 1, stalledSite, nowMs);
       return JSON.stringify(raw.fillRect.mock.calls.filter((c) => (c as unknown as number[])[2] === 2));
     };
     expect(dotsAt(0)).toBe(dotsAt(1_700));

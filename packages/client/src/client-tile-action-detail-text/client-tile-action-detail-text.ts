@@ -30,8 +30,8 @@ const structureNameForTile = (tile: Tile): string | undefined => {
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-  if (actionId === "settle_land") return "Makes this tile defendable.";
-  if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
+  if (actionId === "settle_land") return "Station troops here so the tile can be defended and built on, and its town or resource starts producing.";
+  if (actionId === "settle_connected_frontier") return "Queues a garrison on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
     // Only show upgrade text when a fort already exists on the tile.
     // Without this guard, a tile.fort === undefined falls through the
@@ -85,7 +85,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;
   }
-  if (actionId === "build_airport") return "Build a Sky Dock on empty settled land. Bombard enemy tiles within 30 tiles for crystal.";
+  if (actionId === "build_airport") return "Build a Sky Dock on empty garrisoned land. Bombard enemy tiles within 30 tiles for crystal.";
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
@@ -110,7 +110,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege outposts and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
   if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 coin / day per connected owned dock.";
+  if (actionId === "build_customs_house") return "Build on a garrisoned dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
   if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Ancillary Factory.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales coin and growth with the local support network.";

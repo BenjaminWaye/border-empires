@@ -158,9 +158,9 @@ export const menuOverviewForTile = (
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
     const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
-      pushLine("Neutral town. Claim and settle this tile to start its economy.");
+      pushLine("Neutral town. Claim and garrison this tile to start its economy.");
     } else if (!isSettled) {
-      pushLine("Settle this tile to activate the town's economy and start coin income.");
+      pushLine("Garrison this tile to activate the town's economy and start coin income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       // No prose income line — the unified `Production: X/m` row below shows the same value.
     } else if (
@@ -170,7 +170,7 @@ export const menuOverviewForTile = (
       (tile.town.goldPerMinute ?? 0) <= 0.001 &&
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
-      pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
+      pushLine("Town is unfed. Add more FOOD upkeep coverage or garrison nearby fish or grain.");
     }
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus coin production.");
@@ -473,7 +473,7 @@ export const tileMenuViewForTile = (
         : tile.ownerId === deps.state.me
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
-            : "Your settled land"
+            : "Your garrisoned land"
           : (foreignOwnerLabel ?? "Unknown empire");
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);

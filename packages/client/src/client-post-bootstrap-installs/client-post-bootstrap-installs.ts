@@ -15,6 +15,6 @@ type PostBootstrapDeps = {
 
 export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage }: PostBootstrapDeps): void => {
   installDebugSeasonEndOverlay(state, renderHud);
-  installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-settle."));
-  installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-settle."));
+  installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
+  installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
 };

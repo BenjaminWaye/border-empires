@@ -956,7 +956,7 @@ describe("client network regression guards", () => {
 
   it("requeues a settlement when the server rejects it only because development slots are full", () => {
     const state = createState();
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.gold = 10;
     state.tiles.set("12,18", {
       x: 12,
@@ -978,13 +978,13 @@ describe("client network regression guards", () => {
 
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
     expect(deps.clearSettlementProgressByKey).toHaveBeenCalledWith("12,18");
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 
-  it("requeues a busy settlement from the server tile when latest settle state still matches", () => {
+  it("requeues a busy settlement from the server tile when latest garrison state still matches", () => {
     const state = createState();
     state.lastDevelopmentAttempt = undefined;
     state.latestSettleTargetKey = "12,18";
@@ -1008,13 +1008,13 @@ describe("client network regression guards", () => {
     });
 
     expect(state.activeDevelopmentProcessCount).toBe(3);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 
-  it("does not invent a queued settlement from a busy error with no local settle evidence", () => {
+  it("does not invent a queued settlement from a busy error with no local garrison evidence", () => {
     const state = createState();
     state.lastDevelopmentAttempt = undefined;
     state.latestSettleTargetKey = "";
@@ -1048,7 +1048,7 @@ describe("client network regression guards", () => {
 
   it("requeues a settlement without crashing when settlement clear wiring is missing", () => {
     const state = createState();
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1074,12 +1074,12 @@ describe("client network regression guards", () => {
     ).not.toThrow();
 
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" }]);
   });
 
   it("handles non-busy settlement failures without crashing when settlement clear wiring is missing", () => {
     const state = createState();
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1112,7 +1112,7 @@ describe("client network regression guards", () => {
     const state = createState();
     state.actionInFlight = true;
     state.actionTargetKey = "12,18";
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1137,13 +1137,13 @@ describe("client network regression guards", () => {
     });
 
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
   });
 
   it("does not crash on settlement errors when alert and queue callbacks are missing", () => {
     const state = createState();
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1293,7 +1293,7 @@ describe("client network regression guards", () => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     state.capture = undefined;
-    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Garrison at (12, 18)" };
     state.tiles.set("12,18", {
       x: 12,
       y: 18,

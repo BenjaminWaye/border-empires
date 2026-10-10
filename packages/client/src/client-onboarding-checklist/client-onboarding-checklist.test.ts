@@ -47,9 +47,9 @@ const tilesMap = (tiles: TestTile[]): ReadonlyMap<string, Tile> => {
 describe("foodSlotsClaimedByPlayer", () => {
   it("weights owned FARM as 1 slot and FISH as 2 slots (structure-slots.ts's RESOURCE_SLOT_SPEC), ignoring other resources and other owners", () => {
     const tiles = [
-      { resource: "FARM", ownerId: ME }, // 1 slot
-      { resource: "FISH", ownerId: ME }, // 2 slots
-      { resource: "TITANIUM", ownerId: ME },
+      { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }, // 1 slot
+      { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }, // 2 slots
+      { resource: "TITANIUM", ownerId: ME, ownershipState: "SETTLED" as const },
       { resource: "FARM", ownerId: "player-2" },
       { resource: "FARM" }
     ];
@@ -98,8 +98,8 @@ describe("onboardingChecklistState", () => {
     const tiles = tilesMap([
       ownTown(0, 0, "SETTLEMENT"),
       tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }),
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
-      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
+      tile(1, 0, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }), // 2 slots, already owned
+      tile(1, 1, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }) // 2 slots, already owned -- 4 total
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_TOWN");
@@ -132,8 +132,8 @@ describe("onboardingChecklistState", () => {
     const tiles = tilesMap([
       ownTown(0, 0, "SETTLEMENT"),
       tile(10, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }), // out of reach
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
-      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
+      tile(1, 0, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }), // 2 slots, already owned
+      tile(1, 1, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }) // 2 slots, already owned -- 4 total
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
@@ -193,20 +193,20 @@ describe("onboardingChecklistState", () => {
     expect(state.foodExpanded).toBe(false);
   });
 
-  it("only TOWN tier satisfies the town-expanded goal -- CITY tier does not count", () => {
+  it("CITY tier also satisfies the town-expanded goal", () => {
     const tiles = tilesMap([ownTown(9, 9, "CITY")]);
     const state = onboardingChecklistState(tiles, ME);
-    expect(state.step).not.toBe("EXPAND_FOOD");
-    expect(state.townExpanded).toBe(false);
+    expect(state.step).toBe("EXPAND_RELAY_BEACON");
+    expect(state.townExpanded).toBe(true);
   });
 
   it("reaches DONE once 4+ weighted food slots are claimed (any mix of grain/fish)", () => {
     const tiles = tilesMap([
       ownTown(0, 0),
-      tile(1, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(3, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(4, 0, { resource: "FISH", ownerId: ME }) // 2 -- 5 slots total, past the 4 target
+      tile(1, 0, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }), // 1
+      tile(2, 0, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }), // 1
+      tile(3, 0, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }), // 1
+      tile(4, 0, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }) // 2 -- 5 slots total, past the 4 target
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("DONE");
@@ -219,9 +219,9 @@ describe("onboardingChecklistState", () => {
   it("a single owned FISH tile (2 slots) plus 2 owned FARM tiles (1 each) reaches the 4-slot target exactly", () => {
     const tiles = tilesMap([
       ownTown(0, 0),
-      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2
-      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
-      tile(3, 0, { resource: "FARM", ownerId: ME }) // 1 -- 4 total
+      tile(1, 0, { resource: "FISH", ownerId: ME, ownershipState: "SETTLED" as const }), // 2
+      tile(2, 0, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }), // 1
+      tile(3, 0, { resource: "FARM", ownerId: ME, ownershipState: "SETTLED" as const }) // 1 -- 4 total
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.foodSlotsClaimed).toBe(4);

@@ -11,7 +11,9 @@ const sourceOf = (relativePath: string): string => {
 describe("development panel wiring regression guard", () => {
   it("exposes the development stat-chip as a clickable data-panel button", () => {
     const source = sourceOf("../client-hud/client-hud.ts");
-    expect(source).toContain('data-panel="development"');
+    // The chip's markup lives in the gear-train module; the HUD must render it.
+    expect(source).toContain("devGearsChipHtml(");
+    expect(sourceOf("../client-dev-gears/client-dev-gears.ts")).toContain('data-panel="development"');
     expect(source).toContain("renderDevelopmentPanelHtml(deriveDevelopmentPanelData(");
     expect(source).toContain("dom.panelDevelopmentEl.innerHTML = dom.mobilePanelDevelopmentEl.innerHTML");
   });

@@ -61,7 +61,7 @@ describe("renderOnboardingChecklistOverlay", () => {
   it("shows food-slot progress and checks off the food goals once the weighted target is met", () => {
     const tiles = tilesMap([
       ownTown(5, 5, "p1"),
-      tile(6, 5, { resource: "FARM", ownerId: "p1" }), // 1 slot claimed
+      tile(6, 5, { resource: "FARM", ownerId: "p1", ownershipState: "SETTLED" }), // 1 usable slot
       tile(7, 5, { resource: "FISH" }) // 2-slot candidate, unclaimed
     ]);
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
@@ -194,7 +194,7 @@ describe("renderOnboardingChecklistOverlay", () => {
   it("removes the bubble and persists completion exactly once when the checklist finishes", () => {
     const tiles = tilesMap([
       ownTown(5, 5, "p1"),
-      ...Array.from({ length: 4 }, (_, i) => tile(10 + i, 5, { resource: "FARM", ownerId: "p1" }))
+      ...Array.from({ length: 4 }, (_, i) => tile(10 + i, 5, { resource: "FARM", ownerId: "p1", ownershipState: "SETTLED" }))
     ]);
 
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "done@example.com");

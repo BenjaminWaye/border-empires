@@ -48,7 +48,8 @@ export type GameInitState = {
   manpower: number;
   manpowerCap: number;
   // Base is MANPOWER_BASE_REGEN_PER_MINUTE (packages/shared/src/config.ts) --
-  // ~0.2/min, i.e. ~12h to refill an empty pool from scratch. Town
+  // ~0.2/min, i.e. ~12h to refill an empty pool from scratch, credited in one
+  // refill every 4h (MANPOWER_REFILL_WINDOW_MS) rather than continuously. Town
   // population growth raises this (and the cap), so read the live value
   // here rather than assuming the base rate.
   manpowerRegenPerMinute: number;

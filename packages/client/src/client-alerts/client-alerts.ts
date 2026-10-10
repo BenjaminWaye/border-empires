@@ -382,8 +382,8 @@ export const combatResolutionAlert = (
     const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
     const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
     return {
-      title: "Settlement Complete",
-      detail: `${settledTileLabel(settledTarget, deps)} was settled.`,
+      title: "Garrison Established",
+      detail: `${settledTileLabel(settledTarget, deps)} was garrisoned.`,
       tone: "success",
       ...(settledTarget ? { focusX: settledTarget.x, focusY: settledTarget.y, actionLabel: "Center" } : {})
     };

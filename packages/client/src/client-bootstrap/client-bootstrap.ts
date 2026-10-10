@@ -583,8 +583,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
     reconcileActionQueue: actionFlow.reconcileActionQueue, processPendingMusterAttacks: actionFlow.processPendingMusterAttacks,
-    sendDeferredAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-      ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+    sendDeferredAttack: actionFlow.sendDeferredAttack,
     isPlacementValidForTile: actionFlow.isPlacementValidForTile
   });
   startAttackPreviewKeepaliveTicker(state, {

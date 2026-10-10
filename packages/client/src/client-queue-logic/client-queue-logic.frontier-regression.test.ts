@@ -39,8 +39,8 @@ describe("frontier queue regressions", () => {
     });
 
     expect(started).toBe(false);
-    expect(showCaptureAlert).toHaveBeenCalledWith("Settlement blocked", `Need ${SETTLE_COST} coin to settle this tile.`, "warn");
-    expect(pushFeed).toHaveBeenCalledWith(`Need ${SETTLE_COST} coin to settle this tile.`, "combat", "warn");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Garrison blocked", `Need ${SETTLE_COST} coin to garrison this tile.`, "warn");
+    expect(pushFeed).toHaveBeenCalledWith(`Need ${SETTLE_COST} coin to garrison this tile.`, "combat", "warn");
   });
 
   it("shows a visible settlement warning when a frontier tile's manpower cannot be afforded, even with plenty of gold", () => {
@@ -69,7 +69,7 @@ describe("frontier queue regressions", () => {
     });
 
     expect(started).toBe(false);
-    expect(showCaptureAlert).toHaveBeenCalledWith("Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`, "warn");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Garrison blocked", `Need ${SETTLE_MANPOWER_COST} manpower to garrison this tile.`, "warn");
   });
 
   it("deducts both gold and manpower optimistically when a settlement is dispatched", () => {

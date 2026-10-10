@@ -406,4 +406,22 @@ describe("client-audio", () => {
     fresh.playAfcDropSound();
     expect((audios[1] as FakeAudio).playCount).toBe(0);
   });
+
+  it("plays the AFC drop rocket 10 dB under the player's music volume, and keeps it there when they change volume", async () => {
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+    fresh.setAmbientAudioMuted(false);
+    fresh.setAmbientAudioVolume(0.5);
+
+    fresh.startAmbientAudio();
+    fresh.playAfcDropSound();
+    const dropEl = audios[1] as FakeAudio;
+    expect(fresh.AFC_DROP_GAIN).toBeCloseTo(10 ** (-10 / 20), 2);
+    expect(dropEl.volume).toBeCloseTo(0.5 * fresh.AFC_DROP_GAIN, 6);
+    expect((audios[0] as FakeAudio).volume).toBeCloseTo(0.5, 6);
+
+    fresh.setAmbientAudioVolume(0.8);
+    expect(dropEl.volume).toBeCloseTo(0.8 * fresh.AFC_DROP_GAIN, 6);
+  });
 });

@@ -83,6 +83,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           points: player.points,
           manpower: player.manpower,
           ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
+          ...(typeof player.manpowerBanked === "number" && player.manpowerBanked > 0 ? { manpowerBanked: player.manpowerBanked } : {}),
           ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
           techIds: [...player.techIds].sort(),
           domainIds: [...(player.domainIds ?? [])].sort(),

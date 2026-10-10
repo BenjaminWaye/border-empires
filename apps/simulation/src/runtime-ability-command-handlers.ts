@@ -296,7 +296,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   }
   const origin = context.closestAetherBridgeOrigin(actor.id, target.x, target.y);
   if (!origin) {
-    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no settled coastal tile can reach this target");
+    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no garrisoned coastal tile can reach this target");
     return;
   }
   const bridgeNow = context.now();
@@ -366,7 +366,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     const base = context.tiles.get(simulationTileKey(segment.baseX, segment.baseY));
     const outward = context.tiles.get(simulationTileKey(segment.toX, segment.toY));
     if (!base || base.terrain !== "LAND" || base.ownerId !== actor.id || base.ownershipState !== "SETTLED") {
-      rejectCommand(context, command, "AETHER_WALL_INVALID", "wall must anchor on your settled land");
+      rejectCommand(context, command, "AETHER_WALL_INVALID", "wall must anchor on your garrisoned land");
       return;
     }
     if (!outward || outward.terrain !== "LAND" || outward.ownerId === actor.id) {

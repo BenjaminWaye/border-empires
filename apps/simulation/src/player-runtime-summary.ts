@@ -83,6 +83,8 @@ export type ServerWaypointQueueEntry = {
   /** Index into `steps` of the next unattempted step. Undefined/0 == start. */
   cursor?: number;
   stalled?: boolean;
+  /** Expand To & Attack effort for the final ATTACK leg -- see runtime-waypoint-drain.ts commitManpowerForStep. */
+  commitManpower?: number;
 };
 
 /**
@@ -260,7 +262,7 @@ export const createPlayerRuntimeSummaryFromRecovered = (
  *  point (exportState, exportVisibleStateForPlayer(Async), the live
  *  PLAYER_UPDATE stream) so a field added to ServerWaypointQueueEntry's wire
  *  projection only has to be added once. See docs/waypoint-client-planning-plan.md §2. */
-export type WaypointQueueWireEntry = { x: number; y: number; trackBarbarian?: boolean; queuedAt: number; planId?: string; plannedAt?: number; steps?: WaypointWireStep[]; cursor?: number; stalled?: boolean };
+export type WaypointQueueWireEntry = { x: number; y: number; trackBarbarian?: boolean; queuedAt: number; planId?: string; plannedAt?: number; steps?: WaypointWireStep[]; cursor?: number; stalled?: boolean; commitManpower?: number };
 
 export const waypointQueueWireEntries = (queue: readonly ServerWaypointQueueEntry[]): WaypointQueueWireEntry[] =>
   queue.map((entry) => ({
@@ -271,7 +273,8 @@ export const waypointQueueWireEntries = (queue: readonly ServerWaypointQueueEntr
     ...(entry.planId ? { planId: entry.planId } : {}),
     ...(entry.plannedAt !== undefined ? { plannedAt: entry.plannedAt } : {}),
     ...(entry.steps ? { steps: entry.steps, cursor: entry.cursor ?? 0 } : {}),
-    ...(entry.stalled ? { stalled: true } : {})
+    ...(entry.stalled ? { stalled: true } : {}),
+    ...(entry.commitManpower != null ? { commitManpower: entry.commitManpower } : {})
   }));
 
 export const cloneStrategicProduction = (

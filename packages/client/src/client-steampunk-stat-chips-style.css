@@ -1,0 +1,329 @@
+/*
+ * Steampunk reskin: the top-HUD stat chips (Player, Coin, Manpower, Empire
+ * Integrity, Development). client-steampunk-theme-style.css re-themed
+ * #top-strip and .resource-pill but never .stat-chip, so the chips kept the old
+ * translucent-white box and plain serif numbers. This restyles them with the
+ * same --sp-* tokens as the resource pills, plus the manpower gauge
+ * (.mp-gauge, client-manpower-gauge.ts) and the Development gear train
+ * (.dev-gears, client-dev-gears.ts).
+ *
+ * Imported after client-steampunk-theme-style.css in main.ts so it can reuse
+ * its tokens. Selectors are prefixed with #stats-chips so they win over
+ * style.css (including its mobile overrides) by specificity, not file order.
+ */
+
+#stats-chips .stat-chip {
+  border-radius: 4px;
+  border: 1px solid var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.85), rgba(28, 20, 12, 0.85));
+  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.08);
+  color: var(--sp-parchment-100);
+  /* No transition: the HUD re-renders #stats-chips via innerHTML, so every fresh
+     chip would fade in from the non-hover state and the hover border blinks. */
+}
+
+#stats-chips button.stat-chip:hover {
+  border-color: var(--sp-brass-300);
+  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.14), 0 0 10px rgba(217, 173, 82, 0.18);
+}
+
+#stats-chips .stat-chip > span {
+  font-family: var(--sp-font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--sp-brass-300);
+}
+
+#stats-chips .stat-chip > strong {
+  font-family: var(--sp-font-mono);
+  font-weight: 700;
+  color: var(--sp-brass-100);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* A player name is a name, not a reading: keep it in the body serif. */
+#stats-chips .stat-chip-player > strong {
+  font-family: var(--sp-font-body);
+  font-weight: 600;
+  color: var(--sp-parchment-100);
+}
+
+#stats-chips .stat-chip-rate {
+  font-family: var(--sp-font-mono);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#stats-chips .stat-chip-rate.positive { color: var(--sp-verdigris-300); }
+#stats-chips .stat-chip-rate.negative { color: var(--sp-ember-400); }
+#stats-chips .stat-chip-rate.neutral { color: var(--sp-parchment-muted); }
+
+#stats-chips .stat-chip.warning {
+  border-color: var(--sp-ember-600);
+  background: linear-gradient(180deg, rgba(120, 44, 7, 0.6), rgba(60, 22, 6, 0.8));
+}
+
+#stats-chips .stat-chip.warning > strong { color: var(--sp-ember-400); }
+#stats-chips .stat-chip-weak-def { border-color: var(--sp-ember-600); }
+
+#stats-chips .stat-chip-dev.is-full {
+  border-color: var(--sp-copper-400);
+  background: linear-gradient(180deg, rgba(110, 52, 22, 0.6), rgba(40, 22, 10, 0.85));
+}
+
+/* ---- Manpower gauge: glass tube in a brass collar with rivet end caps ---- */
+
+#stats-chips .mp-gauge { position: relative; gap: 2px; min-width: 196px; cursor: pointer; }
+#stats-chips .mp-gauge.is-low { border-color: var(--sp-copper-600); }
+#stats-chips .mp-gauge.is-overflow { border-color: var(--sp-brass-300); }
+
+#stats-chips .mp-gauge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+#stats-chips .mp-gauge-label {
+  font-family: var(--sp-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sp-brass-300);
+}
+
+#stats-chips .mp-gauge-refill {
+  font-family: var(--sp-font-mono);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--sp-verdigris-300);
+}
+
+#stats-chips .mp-gauge-refill.is-quiet { color: var(--sp-parchment-muted); }
+#stats-chips .mp-gauge-refill-long,
+#stats-chips .mp-gauge-refill-short { font-style: normal; }
+#stats-chips .mp-gauge-refill-short,
+#stats-chips .mp-gauge-label-short { display: none; }
+#stats-chips .mp-gauge.is-overflow .mp-gauge-refill { color: var(--sp-brass-100); }
+
+#stats-chips .mp-gauge-value {
+  flex: 0 0 auto;
+  font-family: var(--sp-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sp-brass-100);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+#stats-chips .mp-gauge-value small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--sp-parchment-muted);
+}
+
+#stats-chips .mp-gauge-track {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 40px;
+  padding: 0 6px;
+}
+
+#stats-chips .mp-gauge-track::before,
+#stats-chips .mp-gauge-track::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--sp-brass-100), var(--sp-brass-500) 55%, var(--sp-brass-700));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+#stats-chips .mp-gauge-track::before { left: 0; }
+#stats-chips .mp-gauge-track::after { right: 0; }
+
+#stats-chips .mp-gauge-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  border: 1px solid var(--sp-walnut-600);
+  background: rgba(12, 9, 6, 0.9);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(138, 97, 31, 0.35);
+}
+
+/* Glass sheen over every fill layer. */
+#stats-chips .mp-gauge-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.25));
+}
+
+#stats-chips .mp-gauge-fill,
+#stats-chips .mp-gauge-staged {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: block;
+}
+
+#stats-chips .mp-gauge-fill {
+  left: 0;
+  background: linear-gradient(90deg, var(--sp-copper-600), var(--sp-brass-300) 60%, var(--sp-brass-100));
+  box-shadow: 0 0 8px rgba(217, 173, 82, 0.55);
+  transition: width 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Manpower already pulled into muster flags: riveted copper plating. */
+#stats-chips .mp-gauge-staged {
+  background: repeating-linear-gradient(135deg, var(--sp-copper-400) 0 3px, var(--sp-copper-600) 3px 6px);
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+#stats-chips .mp-gauge.is-low .mp-gauge-fill {
+  background: linear-gradient(90deg, #7a2d10, var(--sp-ember-600), var(--sp-ember-400));
+  box-shadow: 0 0 8px rgba(226, 121, 58, 0.55);
+}
+
+#stats-chips .mp-gauge.is-full .mp-gauge-fill {
+  background: linear-gradient(90deg, #2c5a4a, var(--sp-verdigris-500) 55%, var(--sp-verdigris-300));
+  box-shadow: 0 0 8px rgba(127, 184, 164, 0.5);
+}
+
+#stats-chips .mp-gauge.is-overflow .mp-gauge-fill {
+  background: linear-gradient(90deg, var(--sp-brass-500), var(--sp-brass-100) 50%, var(--sp-brass-500));
+  background-size: 200% 100%;
+  animation: mpGaugeOverflow 2.2s linear infinite;
+  box-shadow: 0 0 12px rgba(244, 223, 166, 0.7);
+}
+
+@keyframes mpGaugeOverflow {
+  from { background-position: 0 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ---- Development gear train ---- */
+
+#stats-chips .dev-gears { gap: 2px; justify-items: start; min-width: 0; width: max-content; }
+
+#stats-chips .dev-gear-train {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding-left: 1px;
+}
+
+#stats-chips .dev-gear {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+}
+
+/* Pull neighbours in so their teeth interlock. */
+#stats-chips .dev-gear + .dev-gear { margin-left: -3px; }
+#stats-chips .dev-gear:nth-child(even) { transform: translateY(2px) rotate(22.5deg); }
+
+#stats-chips .dev-gear-body { fill: #3d3024; stroke: var(--sp-brass-700); stroke-width: 1; opacity: 0.85; }
+#stats-chips .dev-gear-rim { fill: none; stroke: rgba(0, 0, 0, 0.55); stroke-width: 1.2; }
+#stats-chips .dev-gear-hub { fill: var(--sp-iron-950); stroke: var(--sp-brass-700); stroke-width: 0.8; }
+
+#stats-chips .dev-gear.is-busy { filter: drop-shadow(0 0 3px rgba(217, 173, 82, 0.55)); }
+#stats-chips .dev-gear.is-busy .dev-gear-body { fill: url(#dev-gear-brass); opacity: 1; }
+
+#stats-chips .dev-gear.is-busy .dev-gear-body,
+#stats-chips .dev-gear.is-busy .dev-gear-rim {
+  transform-origin: 0 0;
+  animation: devGearSpin 2.4s linear infinite;
+}
+
+#stats-chips .dev-gear.is-busy.is-ccw .dev-gear-body,
+#stats-chips .dev-gear.is-busy.is-ccw .dev-gear-rim { animation-direction: reverse; }
+
+@keyframes devGearSpin { to { transform: rotate(360deg); } }
+
+#stats-chips .dev-gears.is-full .dev-gear.is-busy { filter: drop-shadow(0 0 4px rgba(201, 113, 63, 0.75)); }
+#stats-chips .dev-gears.is-full .dev-gear.is-busy .dev-gear-body { fill: url(#dev-gear-copper); }
+
+@media (prefers-reduced-motion: reduce) {
+  #stats-chips .dev-gear .dev-gear-body,
+  #stats-chips .dev-gear .dev-gear-rim,
+  #stats-chips .mp-gauge .mp-gauge-fill { animation: none !important; }
+}
+
+/* ---- Compact manpower gauge: narrow desktops and phones ----
+   The full chip (countdown beside the label, gauge beside the value) is
+   ~60px wider than the old text chip, which pushed the resource ribbon under
+   the panel buttons at common laptop widths (1280px). Below 1440px the gauge
+   becomes a thin strip along the chip's bottom edge and the countdown drops
+   its "Refill in" prefix and the label shortens to "MP"; the mono readings also step down a size (Space Mono
+   runs wider than the old serif), so the row fits wherever it fitted before. */
+
+@media (max-width: 1440px) {
+  #stats-chips .stat-chip > strong,
+  #stats-chips .mp-gauge-value { font-size: 13px; }
+  #stats-chips .stat-chip-rate { font-size: 10px; }
+  #stats-chips .mp-gauge { min-width: 0; padding-bottom: 10px; }
+  #stats-chips .mp-gauge-refill-long,
+  #stats-chips .mp-gauge-label-long { display: none; }
+  #stats-chips .mp-gauge-refill-short,
+  #stats-chips .mp-gauge-label-short { display: inline; }
+  #stats-chips .mp-gauge-track { position: absolute; left: 3px; right: 3px; bottom: 3px; min-width: 0; padding: 0 5px; }
+  #stats-chips .mp-gauge-track::before,
+  #stats-chips .mp-gauge-track::after { width: 4px; height: 4px; margin-top: -2px; }
+  #stats-chips .mp-gauge-bar { height: 5px; }
+}
+
+/* ---- Mobile (same breakpoint as style.css's HUD grid) ---- */
+
+@media (max-width: 900px) {
+  /* Dev shrinks to its gears; Manpower takes the slack. */
+  #stats-chips {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  }
+
+  #stats-chips .stat-chip { border-radius: 4px; align-self: stretch; }
+
+  /* Integrity/Dev used smaller boxes and 6px labels; even the row out so the
+     four chips share one height and type scale. */
+  #stats-chips .stat-chip-def-wrap { align-self: stretch; justify-self: stretch; display: grid; min-width: 0; }
+  #stats-chips .stat-chip-def-wrap > .stat-chip-def { grid-area: auto; width: 100%; }
+  #stats-chips .stat-chip-def,
+  #stats-chips .stat-chip-dev { padding: 4px; align-content: start; }
+
+  #stats-chips .stat-chip > span,
+  #stats-chips .stat-chip-def > span,
+  #stats-chips .stat-chip-dev > span { font-size: 8px; letter-spacing: 0.06em; }
+
+  #stats-chips .stat-chip > strong,
+  #stats-chips .stat-chip-def > strong,
+  #stats-chips .stat-chip-dev > strong { font-size: 10.5px; line-height: 1.15; }
+
+  /* Manpower: smaller type on top of the compact layout above. */
+  #stats-chips .mp-gauge { padding: 4px 4px 9px; gap: 0; }
+  #stats-chips .mp-gauge-label { font-size: 8px; letter-spacing: 0.06em; }
+  #stats-chips .mp-gauge-refill { font-size: 8.5px; }
+  #stats-chips .mp-gauge-value { font-size: 10.5px; }
+  #stats-chips .mp-gauge-value small { font-size: 9px; }
+  #stats-chips .mp-gauge-track { bottom: 2px; padding: 0 4px; }
+  #stats-chips .mp-gauge-track::before,
+  #stats-chips .mp-gauge-track::after { width: 3px; height: 3px; margin-top: -1.5px; }
+  #stats-chips .mp-gauge-bar { height: 4px; border-radius: 1px; }
+
+  /* Development gears: smaller and centred in their shrunken column. */
+  #stats-chips .dev-gears { justify-items: center; justify-self: stretch; width: auto; }
+  #stats-chips .dev-gear-train { height: 16px; }
+  #stats-chips .dev-gear { width: 15px; height: 15px; }
+  #stats-chips .dev-gear + .dev-gear { margin-left: -2px; }
+}

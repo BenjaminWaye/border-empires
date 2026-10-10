@@ -29,6 +29,7 @@ export const localAnchorsForTile = (tile: Tile): LocalAnchor[] => {
   // already uses) -- gating on `tile.town` alone silently zeroed out the
   // single most common reach anchor for smaller empires.
   if (isSettled && tileHasTownIdentity(tile)) anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
+  if (isSettled && tile.afc?.ownerId === tile.ownerId && tile.afc.status === "active") anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
   // Server-side (runtime.ts's gatherReachAnchors) a dock anchor only ever
   // needs the tile to be an owned dock tile (from the docks registry) --
   // it doesn't require the tile's full economic-detail payload. `tile.dock`

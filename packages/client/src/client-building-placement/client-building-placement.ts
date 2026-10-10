@@ -52,7 +52,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     if (structureType === "AFC") {
       const tile = state.tiles.get(deps.keyFor(x, y));
       if (!isPlacementValidForTile(tile)) {
-        deps.pushFeed(afcFreeRebuild ? "Your new AFC needs empty land you control." : "AFCs need empty settled land you control.", "combat", "warn");
+        deps.pushFeed(afcFreeRebuild ? "Your new AFC needs empty land you control." : "AFCs need empty garrisoned land you control.", "combat", "warn");
         cancelBuildingPlacement();
         return;
       }

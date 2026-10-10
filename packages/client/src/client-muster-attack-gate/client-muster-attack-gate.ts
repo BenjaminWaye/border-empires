@@ -1,4 +1,5 @@
-import { requiredMusterForTarget, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { requiredMusterWithCommit } from "../client-attack-commit/client-attack-commit.js";
 import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -53,11 +54,11 @@ export const isDockCrossingBetween = (
 };
 
 // Find the muster tile owned by the player closest to (targetX, targetY)
-// that has at least requiredMusterForTarget(target) staged — the real
+// that has at least requiredMusterWithCommit(target) staged — the real
 // per-target requirement (garrisoned forts need more than the flat base
-// cost), not just the flat base cost itself. No distance cap — any owned
-// flag qualifies. A flag on a dock tile that is dock-linked to the target
-// (a sea crossing) is scored as a short fixed hop rather than raw grid
+// cost, and a chosen Extra/Double effort more still), not just the flat
+// base cost itself. No distance cap — any owned flag qualifies. A flag on a
+// dock tile that is dock-linked to the target (a sea crossing) is scored as a short fixed hop rather than raw grid
 // distance, since a dock crossing has no meaningful tile distance.
 export const findClosestMuster = (
   state: ClientState,
@@ -65,7 +66,7 @@ export const findClosestMuster = (
   targetY: number
 ): { tile: Tile; dist: number } | undefined => {
   const target = state.tiles.get(`${targetX},${targetY}`);
-  const required = requiredMusterForTarget(target);
+  const required = requiredMusterWithCommit(state, target);
   let bestTile: Tile | undefined;
   let bestDist = Infinity;
   for (const tile of state.tiles.values()) {

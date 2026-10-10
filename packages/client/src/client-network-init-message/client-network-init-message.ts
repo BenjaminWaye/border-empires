@@ -288,7 +288,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const serverWaypointTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => keyFor(entry.x, entry.y)));
   for (const waypoint of state.waypoint) {
     if (serverWaypointTargetKeys.has(keyFor(waypoint.target.x, waypoint.target.y))) continue;
-    deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian, { ...(waypoint.planId ? { planId: waypoint.planId } : {}), ...(waypoint.plannedAt !== undefined ? { plannedAt: waypoint.plannedAt } : {}), steps: waypoint.plan.reachable ? wireStepsForPlan(waypoint.plan.steps ?? []) : [] }));
+    deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian, { ...(waypoint.planId ? { planId: waypoint.planId } : {}), ...(waypoint.plannedAt !== undefined ? { plannedAt: waypoint.plannedAt } : {}), steps: waypoint.plan.reachable ? wireStepsForPlan(waypoint.plan.steps ?? []) : [], ...(waypoint.commitManpower != null ? { commitManpower: waypoint.commitManpower } : {}) }));
   }
   applyAutoSettlementQueueFromServer(
     state,

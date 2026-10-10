@@ -18,7 +18,7 @@ describe("encirclementRemainingMsForTile", () => {
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBe(30_000);
   });
 
-  it("returns undefined for settled tiles", () => {
+  it("returns undefined for garrisoned tiles", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     expect(encirclementRemainingMsForTile(tile, nowMs)).toBeUndefined();
@@ -113,7 +113,7 @@ describe("outOfReachDecayRemainingMsForTile", () => {
     expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
   });
 
-  it("returns undefined for settled tiles", () => {
+  it("returns undefined for garrisoned tiles", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
     expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
@@ -174,7 +174,7 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     const tile = makeFrontierTile();
     const status = tileMenuHeaderStatusForTile(tile, 1_000, () => false, () => ["<b>Evil</b>"]);
     expect(status?.text).toBe("Inside &lt;b&gt;Evil&lt;/b&gt; Reach");
-    expect(status?.helpText).toBe("Can't settle inside another empire's reach.");
+    expect(status?.helpText).toBe("Can't garrison inside another empire's reach.");
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });
 });
