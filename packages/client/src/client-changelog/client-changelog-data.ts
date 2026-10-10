@@ -28,6 +28,41 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+  {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "New-look mountains",
+    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
+    changes: [
+      "3D mountains are now sculpted rocky peaks with ridges, gullies and sub-peaks, with snow that follows the ridges",
+      "Mountains differ in shape, height, width, angle and rock colour, and some have a second, smaller peak",
+      "Neighbouring mountains join into ridges, and the middle of a range stands taller",
+      "Snow caps only tall peaks and mountains in cold country",
+      "Both the 3D map and the 2D map show the same variety"
+    ]
+  },
+  {
+    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.4",
+    title: "Rivers fall from the mountains",
+    why: "A river that starts next to a mountain now looks like it comes from it.",
+    changes: [
+      "Where a river starts beside a mountain, a gully runs down the mountain and a waterfall falls down it into the river's spring pool",
+      "The waterfall foams on the steep part and flows, with a few boulders round the pool",
+      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+    ]
+  },
+  {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
     title: "Better starter sites and accurate checklist goals",
