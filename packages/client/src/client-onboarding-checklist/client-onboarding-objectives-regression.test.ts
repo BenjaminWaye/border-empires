@@ -68,7 +68,19 @@ it("does not finish the town objective or highlight it while its garrison is pen
   const state = onboardingChecklistState(tiles, "me");
   expect(state.townFound).toBe(true);
   expect(state.townExpanded).toBe(false);
+  expect(state.step).toBe("EXPAND_TOWN");
   expect(state.highlightTiles).toEqual([]);
+});
+
+it("does not advise a beacon when the only in-reach food is already being garrisoned", () => {
+  const tiles = world();
+  ownTown(tiles);
+  tiles.get("8,5")!.resource = "TITANIUM";
+  tiles.get("7,5")!.optimisticPending = "settle";
+  const state = onboardingChecklistState(tiles, "me");
+  expect(state.step).toBe("EXPAND_FOOD");
+  expect(state.highlightTiles).toEqual([{ x: 5, y: 6 }]);
+  expect(state.foodSlotsClaimed).toBe(0);
 });
 
 it("does not highlight food controlled by rival reach", () => {

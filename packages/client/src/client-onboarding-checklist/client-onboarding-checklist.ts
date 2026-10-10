@@ -152,11 +152,14 @@ export const onboardingChecklistState = (
   const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
 
   const reach = computeLocalReachSet(tiles, playerId);
-  const inReach = (t: { x: number; y: number }): boolean => {
+  const withinReach = (t: { x: number; y: number }): boolean => {
     const key = tileKey(t.x, t.y);
     const tile = tiles.get(key);
-    return Boolean(tile && !tile.optimisticPending && reach.has(key) && (!tile.reachOwnerId || tile.reachOwnerId === playerId));
+    return Boolean(tile && reach.has(key) && (!tile.reachOwnerId || tile.reachOwnerId === playerId));
   };
+  const inReach = (t: { x: number; y: number }): boolean => withinReach(t) && !tiles.get(tileKey(t.x, t.y))?.optimisticPending;
+  const pendingInReach = (candidates: readonly { x: number; y: number }[]): boolean =>
+    candidates.some((t) => withinReach(t) && Boolean(tiles.get(tileKey(t.x, t.y))?.optimisticPending));
 
   if (!hasTownTierTown) {
     const reachableTownCandidates = captureTownCandidates.filter(inReach);
@@ -179,7 +182,7 @@ export const onboardingChecklistState = (
     // OUTPOST_STRUCTURE_TYPES) from the player's own anchor instead, which
     // extends reach outward until a town falls inside it.
     return {
-      step: "EXPAND_RELAY_BEACON",
+      step: pendingInReach(captureTownCandidates) ? "EXPAND_TOWN" : "EXPAND_RELAY_BEACON",
       townFound,
       townExpanded: false,
       foodFound,
@@ -196,7 +199,7 @@ export const onboardingChecklistState = (
     if (reachableFoodCandidates.length === 0) {
       // Same "nothing actually reachable yet" case as above, now for food.
       return {
-        step: "EXPAND_RELAY_BEACON",
+        step: pendingInReach(foodCandidates) ? "EXPAND_FOOD" : "EXPAND_RELAY_BEACON",
         townFound: true,
         townExpanded: true,
         foodFound,
