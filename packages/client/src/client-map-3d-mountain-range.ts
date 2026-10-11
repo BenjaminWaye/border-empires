@@ -1,6 +1,6 @@
 // Mountain ranges in the true-3D map, in a chunky low-poly style: touching
 // mountain tiles are drawn as one continuous surface -- the union of a
-// terraced, slightly irregular rock cone per tile -- instead of a separate
+// slightly irregular rock cone per tile -- instead of a separate
 // peak per tile (whose overlapping cones read as a buggy jumble) or a strip
 // extruded from the tile squares (which read as boxes). Summit tiles are
 // tall, the rest lower shoulders, so a range reads as distinct mountains
@@ -11,11 +11,12 @@
 // lattice shared by neighbouring tiles, so the surface has no seams. It sinks
 // just under the ground where no cone reaches, so it rises out of the terrain.
 // Quads split along the diagonal joining their higher corners (crisp ridges);
-// each facet has one flat colour (client-map-3d-mountain-palette.ts).
+// each facet has one flat colour (client-map-3d-mountain-palette.ts), the same
+// per mountain, so light and shade come only from which way a facet faces.
 //
 // Lone mountains (no orthogonal mountain neighbour) keep their single
 // instanced peak (client-map-3d-mountain-massif.ts).
-import { BufferAttribute, BufferGeometry, Color, Mesh, MeshStandardMaterial, Scene } from "three";
+import { BufferAttribute, BufferGeometry, Color, Mesh, MeshLambertMaterial, Scene } from "three";
 import {
   mountainHash01,
   mountainNeighbourhoodAt,
@@ -23,7 +24,7 @@ import {
   type MountainNeighbourhoodLookup
 } from "./client-map-mountain-variation/client-map-mountain-variation.js";
 import { MOUNTAIN_HEIGHT } from "./client-map-3d-mountain-shape.js";
-import { mountainFacetColor, terraceHeight } from "./client-map-3d-mountain-palette.js";
+import { mountainFacetColor } from "./client-map-3d-mountain-palette.js";
 
 export type MountainRangeDeps = MountainNeighbourhoodLookup & {
   /** Rendered terrain height at a world corner; ranges rise from it. Defaults to 0. */
@@ -33,6 +34,8 @@ export type MountainRangeDeps = MountainNeighbourhoodLookup & {
 };
 
 /** Quads per tile edge. */
+// Even, so each tile's centre (its peak) is a lattice point; kept low --
+// big clean planes read better than many small facets.
 const Q = 4;
 // Where no cone reaches, the surface sits this far under the ground.
 const SINK = 0.06;
@@ -57,9 +60,7 @@ const APRON_HEIGHT = 0.22;
 const APRON_EXTRA_REACH = 0.4;
 // Irregular cones: the reach varies with direction (ridges and hollows).
 const LOBES = 5;
-const LOBE_DEPTH = 0.18;
-// Ledge height of the terracing (stratified rock, grass on the ledges).
-const TERRACE_STEP = 0.2;
+const LOBE_DEPTH = 0.12;
 // Ground already raised under a range (the heightfield ridges shared
 // mountain corners up toward HEIGHTFIELD_MOUNTAIN_ELEVATION) eats into the
 // added height, so deep range interiors don't tower twice as high.
@@ -77,6 +78,8 @@ type TileInfo = {
   readonly tint: number;
   readonly warmth: number;
   readonly lobePhase: number;
+  /** One rock / grass shade per mountain, so facets differ only by how they face the light. */
+  readonly shade: number;
   readonly reach: number;
   /** Flat top height (mesas), or Infinity for a pointed peak. */
   readonly cap: number;
@@ -84,7 +87,7 @@ type TileInfo = {
   readonly gully: { readonly sx: number; readonly sy: number } | null;
 };
 
-const NOT_MOUNTAIN: TileInfo = { mountain: false, peak: 0, heightScale: 0, snowLine: 0, tint: 0, warmth: 0, lobePhase: 0, reach: 0, cap: Infinity, gully: null };
+const NOT_MOUNTAIN: TileInfo = { mountain: false, peak: 0, heightScale: 0, snowLine: 0, tint: 0, warmth: 0, lobePhase: 0, shade: 0, reach: 0, cap: Infinity, gully: null };
 
 /** True when (wx, wy) is a mountain with at least one orthogonal mountain neighbour: drawn as part of a range. */
 export const isRangeTile = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): boolean => {
@@ -138,6 +141,7 @@ const createSampler = (deps: MountainRangeDeps, cache: Map<number, TileInfo> | n
         tint: v.tint,
         warmth: v.warmth,
         lobePhase: mountainHash01(wx, wy, 23) * Math.PI * 2,
+        shade: mountainHash01(wx, wy, 27),
         gully: face ? { sx: Math.sign(face.dirX) || 1, sy: Math.sign(face.dirY) || 1 } : null
       };
     }
@@ -188,8 +192,8 @@ const createSampler = (deps: MountainRangeDeps, cache: Map<number, TileInfo> | n
       }
     }
     if (crest <= 0) return { h: -SINK, owner };
-    const jitter = (mountainHash01(gx, gy, 31) - 0.5) * 0.08;
-    return { h: terraceHeight(crest * (1 + jitter), TERRACE_STEP) - gullyCut - SINK, owner };
+    const jitter = (mountainHash01(gx, gy, 31) - 0.5) * 0.04;
+    return { h: crest * (1 + jitter) - gullyCut - SINK, owner };
   };
   return { points: cache ? new Map<number, LatticePoint>() : null, tileInfo, pointHeight, groundAt };
 };
@@ -208,8 +212,8 @@ const latticePoint = (s: RangeSampler, gx: number, gy: number): LatticePoint => 
 
 const computeLatticePoint = (s: RangeSampler, gx: number, gy: number): LatticePoint => {
   const { h, owner } = s.pointHeight(gx, gy);
-  // Raised points jitter sideways (breaks up the lattice); ones at or under the ground never do.
-  const spread = h > 0 ? 0.08 : 0;
+  // Raised points jitter a little sideways (breaks up the lattice); ones at or under the ground never do.
+  const spread = h > 0 ? 0.04 : 0;
   const x = gx / Q + (mountainHash01(gx, gy, 41) - 0.5) * spread;
   const z = gy / Q + (mountainHash01(gx, gy, 43) - 0.5) * spread;
   const ground = s.groundAt(x, z);
@@ -291,7 +295,8 @@ export type MountainRange = {
 };
 
 export const createMountainRange = (scene: Scene, deps: MountainRangeDeps): MountainRange => {
-  const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, flatShading: true });
+  // Matte (Lambert: no specular highlights at all) and flat-shaded.
+  const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const cache = new Map<number, TileInfo>();
   let sampler = createSampler(deps, cache);
   // Tiles to draw this pass (range tiles and the land around them), keyed by world tile.
@@ -352,7 +357,7 @@ export const createMountainRange = (scene: Scene, deps: MountainRangeDeps): Moun
         top: Math.max(a.h, b.h, c.h),
         heightFraction: mid / (MOUNTAIN_HEIGHT * owner.heightScale || 1),
         snowLine: owner.snowLine,
-        shade: mountainHash01(wx * 64 + f, wy, 51)
+        shade: owner.shade
       });
       const light = 1 + TINT_LIGHTNESS * owner.tint;
       const warm = TINT_WARMTH * owner.warmth;
@@ -409,8 +414,10 @@ export const createMountainRange = (scene: Scene, deps: MountainRangeDeps): Moun
     // facet itself), and this mesh is rebuilt on every terrain pass.
     mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
+    // Casts onto the ground, but doesn't receive: self-shadowing across the
+    // facets broke the clean planes up into speckle.
     mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = false;
     scene.add(mesh);
   };
 
