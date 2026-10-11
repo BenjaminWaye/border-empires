@@ -56,25 +56,22 @@ describe("mountain massif", () => {
     expect(shapes.size).toBeGreaterThan(2);
   });
 
-  it("adds second peaks and saddles for a range, never more snow than peaks", () => {
+  it("draws touching mountains as one range surface, lone ones as instanced peaks", () => {
     const mountains = new Set<string>();
     for (let x = 0; x < 6; x += 1) for (let y = 0; y < 3; y += 1) mountains.add(`${x},${y}`);
+    mountains.add("20,20"); // lone
     const lookup = rangeLookup(mountains);
     const scene = new Scene();
     const massifs = createMountainMassifs(scene, mountains.size, lookup);
-    let expected = 0;
     for (const key of mountains) {
       const [x, y] = key.split(",").map(Number) as [number, number];
-      massifs.addInstance(x, y, 0, x, y);
-      const v = mountainVariationAt(x, y, mountainNeighbourhoodAt(x, y, lookup));
-      expected += 1 + Number(v.secondary !== null) + Number(v.saddleEast) + Number(v.saddleSouth);
+      massifs.addInstance(x + 0.5, y + 0.5, 0, x, y);
     }
     massifs.commit();
-    // 5 east-west pairs per row x 3 rows + 6 columns x 2 north-south pairs.
-    expect(expected).toBeGreaterThanOrEqual(mountains.size + 15 + 12);
-    expect(massifs.instanceCount()).toBeLessThanOrEqual(expected);
-    expect(massifs.instanceCount()).toBeGreaterThan(mountains.size + 20);
-    expect(massifs.snowyInstanceCount()).toBeLessThanOrEqual(massifs.instanceCount());
+    expect(massifs.range.tileCount()).toBe(18);
+    expect(massifs.range.mesh()).not.toBeNull();
+    const lone = mountainVariationAt(20, 20, mountainNeighbourhoodAt(20, 20, lookup));
+    expect(massifs.instanceCount()).toBe(1 + Number(lone.secondary !== null));
     massifs.dispose();
   });
 

@@ -22,10 +22,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
 import { RIVER_MOUNTAIN_SHAPE } from "../client-map-3d-mountain-massif.js";
+import { isRangeTile, mountainRangeSurfaceY, type MountainRangeDeps } from "../client-map-3d-mountain-range.js";
 import { MOUNTAIN_RADIUS, mountainShapeHeight } from "../client-map-3d-mountain-shape.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { mountainNeighbourhoodAt, mountainVariationAt, type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
-import { riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
+import { riverMountainFaceAt, riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
 import { heightfieldSurfaceY, RIVER_WATER_DEPTH, riverTrenchDepth, SPRING_HALF_WIDTH } from "./client-map-3d-rivers-channel.js";
 import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-water-material.js";
 
@@ -36,6 +37,8 @@ const SURFACE_LIFT = 0.014;
 // Where the water starts down the gully, as a fraction of the mountain's
 // radius from its summit (the gully is cut from ~0.12 of the radius out).
 const SOURCE_RHO = 0.22;
+// In a range the gully starts this far (tiles) from the river mountain's centre.
+const RANGE_SOURCE_RHO = 0.15;
 const FACE_STEP = 0.035;
 const EDGE_STEPS = 12;
 const TOP_HALF_WIDTH = 0.03;
@@ -126,20 +129,30 @@ export const cascadeCenterline = (
   const exitZ = toroidDelta(camY, face.exit.y, WORLD_HEIGHT);
   const groundAt = (x: number, z: number): number => heightfieldSurfaceY(x, z, camX, camY, heightfield.cornerYAt);
   const poolY = groundAt(headX, headZ) - RIVER_WATER_DEPTH;
-  // Ground (carved into the pool's bowl near the head) or the massif's rock, whichever is higher.
+  // A river mountain inside a range is part of the range surface (its gully
+  // cut by the range); a lone one is the instanced gully shape.
+  const rangeDeps: MountainRangeDeps = {
+    ...deps.mountainLookup,
+    cornerYAt: heightfield.cornerYAt,
+    riverFaceAt: (wx, wy) => riverMountainFaceAt(wx, wy, deps.mountainLookup.isMountainAt)
+  };
+  const inRange = isRangeTile(mx, my, deps.mountainLookup);
+  // Ground (carved into the pool's bowl near the head) or the mountain's rock, whichever is higher.
   const surfaceAt = (x: number, z: number): number => {
-    // The river mountain is turned so its gully (local +z) points along (dirX, dirY).
     const dx = x - centreX;
     const dz = z - centreZ;
     const fs = variation.footprintScale;
-    const rock = massifY + variation.heightScale * mountainShapeHeight(RIVER_MOUNTAIN_SHAPE, (dx * face.dirY - dz * face.dirX) / fs, (dx * face.dirX + dz * face.dirY) / fs);
+    // The lone river mountain is turned so its gully (local +z) points along (dirX, dirY).
+    const rock = inRange
+      ? mountainRangeSurfaceY(camX + x, camY + z, rangeDeps)
+      : massifY + variation.heightScale * mountainShapeHeight(RIVER_MOUNTAIN_SHAPE, (dx * face.dirY - dz * face.dirX) / fs, (dx * face.dirX + dz * face.dirY) / fs);
     const toHead = Math.hypot(x - headX, z - headZ);
     const ground = Math.max(groundAt(x, z) - riverTrenchDepth(toHead, SPRING_HALF_WIDTH), poolY);
     return Math.max(rock, ground) + SURFACE_LIFT;
   };
 
   const points: { x: number; z: number; y: number }[] = [];
-  const startRho = SOURCE_RHO * MOUNTAIN_RADIUS * variation.footprintScale;
+  const startRho = inRange ? RANGE_SOURCE_RHO : SOURCE_RHO * MOUNTAIN_RADIUS * variation.footprintScale;
   const exitRho = Math.hypot(exitX - centreX, exitZ - centreZ);
   for (let rho = startRho; rho < exitRho; rho += FACE_STEP) {
     const x = centreX + face.dirX * rho;
@@ -152,6 +165,8 @@ export const cascadeCenterline = (
     const z = exitZ + (headZ - exitZ) * t;
     points.push({ x, z, y: s === EDGE_STEPS ? poolY + SURFACE_LIFT : surfaceAt(x, z) });
   }
+  // Water never runs uphill: where terraces or jitter rise ahead, it keeps its level.
+  for (let i = 1; i < points.length; i += 1) points[i]!.y = Math.min(points[i]!.y, points[i - 1]!.y);
 
   const samples: CascadeSample[] = [];
   let flow = 0;
@@ -162,7 +177,8 @@ export const cascadeCenterline = (
     const slope = (prev.y - next.y) / run;
     if (i > 0) flow += Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
     const t = i / Math.max(1, points.length - 1);
-    const foam = Math.min(1, Math.max(0, slope / FALL_SLOPE));
+    // Foamy where steep, but settling into river water as it enters the pool.
+    const foam = Math.min(1, Math.max(0, slope / FALL_SLOPE)) * Math.min(1, Math.max(0, (0.95 - t) / 0.2));
     const water = t > 0.85 ? RIVER_WATER_CORE : RIVER_WATER_SHALLOW;
     const color: [number, number, number, number] = [0, 1, 2, 3].map((k) => water[k]! + (FOAM[k]! - water[k]!) * foam) as [number, number, number, number];
     samples.push({ ...p, halfWidth: TOP_HALF_WIDTH + (BOTTOM_HALF_WIDTH - TOP_HALF_WIDTH) * t, color, flow });

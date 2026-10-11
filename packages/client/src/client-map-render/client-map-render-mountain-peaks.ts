@@ -105,9 +105,10 @@ const shade = (base: readonly [number, number, number], tint: number, alpha: num
   return `rgba(${c(base[0])}, ${c(base[1])}, ${c(base[2])}, ${alpha})`;
 };
 
-const LIT_ROCK: readonly [number, number, number] = [104, 106, 110];
-const SHADED_ROCK: readonly [number, number, number] = [74, 75, 79];
-const RIDGE_ROCK: readonly [number, number, number] = [88, 89, 93];
+// Warm brown rock, matching the 3D mountains (client-map-3d-mountain-palette.ts).
+const LIT_ROCK: readonly [number, number, number] = [150, 114, 84];
+const SHADED_ROCK: readonly [number, number, number] = [108, 80, 60];
+const RIDGE_ROCK: readonly [number, number, number] = [128, 96, 70];
 
 // East/west ridge: a sloped shoulder from the main peak's flank down to a
 // low crest at the tile edge, where the neighbour's mirrored shoulder meets it.

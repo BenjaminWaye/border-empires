@@ -44,7 +44,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "New-look mountains",
     why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
     changes: [
-      "3D mountains are now sculpted rocky peaks with ridges, gullies and sub-peaks, with snow that follows the ridges",
+      "Mountains are now chunky low-poly brown rock with grassy ledges and feet, and snow only on the tallest tips",
+      "Neighbouring mountains merge into one range with distinct peaks and flat-topped mesas, instead of a row of identical cones",
       "Mountains differ in shape, height, width, angle and rock colour, and some have a second, smaller peak",
       "Neighbouring mountains join into ridges, and the middle of a range stands taller",
       "Snow caps only tall peaks and mountains in cold country",
