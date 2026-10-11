@@ -1,6 +1,7 @@
 // Low-poly mountains for the true-3D map, in the style of the owner's
-// reference: each mountain is a cluster of faceted grey rocks -- one big
-// rounded peak with two or three smaller rocks huddled round its foot --
+// reference: each mountain is a crowd of sharp, faceted slate-grey peaks --
+// one or two tall points with smaller ones packed round their feet, so
+// neighbouring tiles mass into one jagged range --
 // built from an irregular faceted cone-dome (a subdivided icosahedron, flat at
 // the base and tapering steadily upward -- always broadest at the base, or it
 // reads as a boulder -- jittered so the facets read as broken stone). No ledges, no grass on the rock: one neutral stone colour,
@@ -35,64 +36,69 @@ export type MountainModel = {
 
 export const MOUNTAIN_MODELS: readonly MountainModel[] = [
   {
-    name: "peak",
+    name: "spire",
     role: "summit",
     weight: 3,
     rocks: [
-      { x: 0, z: 0, r: 0.56, h: 1.28, seed: 1 },
-      { x: 0.38, z: 0.24, r: 0.2, h: 0.36, seed: 2 },
-      { x: -0.34, z: 0.3, r: 0.15, h: 0.24, seed: 3 }
+      { x: 0, z: 0, r: 0.54, h: 1.3, seed: 1 },
+      { x: 0.34, z: 0.18, r: 0.32, h: 0.69, seed: 2 },
+      { x: -0.3, z: 0.24, r: 0.3, h: 0.56, seed: 3 },
+      { x: 0.04, z: -0.36, r: 0.28, h: 0.5, seed: 20 }
     ]
   },
   {
-    name: "twin",
+    name: "crown",
     role: "summit",
     weight: 2,
     rocks: [
-      { x: -0.14, z: -0.04, r: 0.48, h: 1.2, seed: 4 },
-      { x: 0.26, z: 0.08, r: 0.36, h: 0.78, seed: 5 },
-      { x: 0.02, z: 0.4, r: 0.16, h: 0.26, seed: 6 }
+      { x: -0.18, z: -0.06, r: 0.45, h: 1.2, seed: 4 },
+      { x: 0.22, z: 0.08, r: 0.41, h: 0.9, seed: 5 },
+      { x: 0.0, z: 0.36, r: 0.28, h: 0.51, seed: 6 },
+      { x: 0.32, z: -0.3, r: 0.24, h: 0.42, seed: 21 }
     ]
   },
   {
-    name: "broad",
+    name: "ridge",
     role: "summit",
     weight: 2,
     rocks: [
-      { x: 0.04, z: 0, r: 0.6, h: 1.12, seed: 7 },
-      { x: -0.4, z: -0.2, r: 0.22, h: 0.4, seed: 8 },
-      { x: 0.42, z: -0.26, r: 0.17, h: 0.28, seed: 9 },
-      { x: -0.22, z: 0.4, r: 0.14, h: 0.2, seed: 10 }
+      { x: -0.32, z: 0, r: 0.39, h: 0.82, seed: 7 },
+      { x: 0.04, z: 0.02, r: 0.45, h: 1.22, seed: 8 },
+      { x: 0.36, z: -0.04, r: 0.35, h: 0.74, seed: 9 },
+      { x: 0.1, z: 0.36, r: 0.22, h: 0.34, seed: 10 }
     ]
   },
   {
-    name: "knoll",
+    name: "tooth",
     role: "filler",
     weight: 3,
     rocks: [
-      { x: 0, z: 0.02, r: 0.44, h: 0.66, seed: 11 },
-      { x: 0.32, z: -0.22, r: 0.17, h: 0.26, seed: 12 }
+      { x: 0, z: 0, r: 0.43, h: 0.77, seed: 11 },
+      { x: 0.3, z: 0.2, r: 0.3, h: 0.5, seed: 12 },
+      { x: -0.3, z: 0.18, r: 0.26, h: 0.42, seed: 22 },
+      { x: 0.0, z: -0.34, r: 0.24, h: 0.37, seed: 23 }
+    ]
+  },
+  {
+    name: "saw",
+    role: "filler",
+    weight: 3,
+    rocks: [
+      { x: -0.26, z: -0.08, r: 0.37, h: 0.66, seed: 13 },
+      { x: 0.12, z: 0.04, r: 0.37, h: 0.78, seed: 14 },
+      { x: 0.38, z: -0.14, r: 0.26, h: 0.45, seed: 15 },
+      { x: -0.08, z: 0.34, r: 0.24, h: 0.37, seed: 24 }
     ]
   },
   {
     name: "pair",
     role: "filler",
-    weight: 3,
-    rocks: [
-      { x: -0.16, z: 0.06, r: 0.38, h: 0.58, seed: 13 },
-      { x: 0.22, z: -0.1, r: 0.27, h: 0.44, seed: 14 },
-      { x: 0.1, z: 0.34, r: 0.13, h: 0.18, seed: 15 }
-    ]
-  },
-  {
-    name: "rubble",
-    role: "filler",
     weight: 2,
     rocks: [
-      { x: -0.1, z: -0.12, r: 0.28, h: 0.42, seed: 16 },
-      { x: 0.26, z: 0.12, r: 0.22, h: 0.34, seed: 17 },
-      { x: -0.24, z: 0.28, r: 0.18, h: 0.26, seed: 18 },
-      { x: 0.3, z: -0.3, r: 0.12, h: 0.16, seed: 19 }
+      { x: -0.16, z: 0.06, r: 0.41, h: 0.7, seed: 16 },
+      { x: 0.22, z: -0.1, r: 0.35, h: 0.58, seed: 17 },
+      { x: 0.14, z: 0.34, r: 0.22, h: 0.3, seed: 18 },
+      { x: -0.34, z: -0.26, r: 0.19, h: 0.26, seed: 19 }
     ]
   }
 ];
@@ -119,10 +125,10 @@ const jitter = (seed: number, x: number, y: number, z: number, salt: number): nu
 // just under the ground).
 const BASE_CUT = -0.25;
 const SINK = 0.05;
-// Width falls off with height as (1 - t)^PROFILE_POWER: under 1 bulges the
-// slopes out a little (a solid shoulder), but the base is always the widest
-// part -- a rock wider anywhere above its base reads as a boulder.
-const PROFILE_POWER = 0.8;
+// Width falls off with height as (1 - t)^PROFILE_POWER: 1 is a straight-sided
+// pyramid with a sharp point, and the base is always the widest part -- a rock
+// wider anywhere above its base reads as a boulder.
+const PROFILE_POWER = 1;
 // Facet jitter: the base ring stays close to its footprint; above it, the
 // rock may wobble more but never out past this fraction of the base.
 const BASE_WOBBLE = 0.06;
@@ -198,15 +204,14 @@ export const mountainModelHeight = (model: MountainModel, x: number, z: number):
   return best;
 };
 
-// Neutral stone: a touch lighter on facets that face up, so the tops catch
-// the light the way the reference's do. Cold-country stone is a little
-// cooler and paler.
+// Dark blue-grey slate: lighter on facets that face up, so the tops catch
+// the light the way the reference's do. Cold-country stone is a little paler.
 const PALETTES = {
-  temperate: { side: new Color("#9d9ca2"), top: new Color("#bdbcc1") },
-  alpine: { side: new Color("#a0a3aa"), top: new Color("#c4c8ce") }
+  temperate: { side: new Color("#6a7482"), top: new Color("#8a94a2") },
+  alpine: { side: new Color("#76808e"), top: new Color("#9aa4b1") }
 } as const;
 // Facets this flat (normal's upward component) count as top facets.
-const TOP_FLATNESS = 0.7;
+const TOP_FLATNESS = 0.75;
 // Snow (cold country) covers facets at least this high, as a fraction of their rock's height.
 const SNOW_FROM = 0.62;
 
@@ -237,7 +242,7 @@ export const createMountainModelGeometry = (model: MountainModel, climate: "temp
     color.copy(flat >= TOP_FLATNESS ? palette.top : palette.side);
     for (let j = 0; j < 3; j += 1) {
       colors.set([color.r, color.g, color.b], i * 9 + j * 3);
-      caps[i * 3 + j] = cap && flat >= 0.35 ? 1 : 0;
+      caps[i * 3 + j] = cap && flat >= 0.2 ? 1 : 0;
     }
   });
   const geometry = new BufferGeometry();

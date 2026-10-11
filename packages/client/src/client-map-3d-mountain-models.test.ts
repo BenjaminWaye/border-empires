@@ -24,7 +24,7 @@ describe("low-poly rock-cluster mountain models", () => {
   }
 
   it("marks where snow can settle on the summit models, and colours the stone by climate", () => {
-    const spire = MOUNTAIN_MODELS.find((m) => m.name === "peak")!;
+    const spire = MOUNTAIN_MODELS.find((m) => m.name === "spire")!;
     const temperate = createMountainModelGeometry(spire, "temperate");
     const alpine = createMountainModelGeometry(spire, "alpine");
     const caps = temperate.getAttribute("aCap");

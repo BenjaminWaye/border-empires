@@ -44,8 +44,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "New-look mountains",
     why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
     changes: [
-      "Mountains are now low-poly clusters of faceted grey rock: a big peak with smaller rocks round its foot",
-      "In a range, the highest tiles get the big peaks and the rest smaller rock clusters, so ranges read as distinct mountains",
+      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
+      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
       "Mountains in cold country are paler and snow-capped",
       "Mountains are matte, with clean facets"
     ]
