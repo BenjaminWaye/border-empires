@@ -11,5 +11,15 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
       "Settled land is now called garrisoned land everywhere: tile menus, building placement hints, alerts, the leaderboard and player profiles",
       "Garrisoning works exactly as settling did: same manpower cost, same timer, and the tile becomes defendable, buildable and counts toward victory"
     ]
+  },
+  {
+    createdAt: 1791748183000, // frozen at authoring time
+    introducedIn: "2026.10.11.1",
+    title: "Leftover \"Settle\" wording is now \"Garrison\"",
+    why: "A few places still said \"settle\" or \"settled\" after the rename to Garrison, which made the buttons and the messages disagree.",
+    changes: [
+      "The auto-garrison checkboxes under the Garrison button and in Settings now say Garrison and Auto-garrison",
+      "Disabled-action reasons, attack sheets, tile overview notes, queue help and a few error messages now say garrisoned instead of settled"
+    ]
   }
 ];
