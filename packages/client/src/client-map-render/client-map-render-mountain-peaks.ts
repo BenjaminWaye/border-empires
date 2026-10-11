@@ -101,7 +101,7 @@ const shade = (base: readonly [number, number, number], tint: number, alpha: num
   return `rgba(${c(base[0])}, ${c(base[1])}, ${c(base[2])}, ${alpha})`;
 };
 
-// Warm brown rock, matching the 3D mountains (client-map-3d-mountain-palette.ts).
+// Warm brown rock, matching the 3D mountains (client-map-3d-mountain-models.ts).
 type Rgb = readonly [number, number, number];
 type RockPalette = { readonly lit: Rgb; readonly shaded: Rgb; readonly ridge: Rgb };
 const TEMPERATE_ROCK: RockPalette = { lit: [150, 114, 84], shaded: [108, 80, 60], ridge: [128, 96, 70] };
