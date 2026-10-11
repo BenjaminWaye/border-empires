@@ -18,7 +18,7 @@ const rangeLookup = (mountains: ReadonlySet<string>, cold = false): MountainMass
   wrapY: (y) => y
 });
 
-describe("mountain massif (one hand-designed model per tile)", () => {
+describe("mountain massif (one rock cluster per tile)", () => {
   it("keys the look on the world tile, so panning the camera never reshapes a mountain", () => {
     const shapeAt = (sceneX: number, sceneZ: number): number[][] => {
       const scene = new Scene();
@@ -60,7 +60,7 @@ describe("mountain massif (one hand-designed model per tile)", () => {
     expect(isSummitTile(5, 5, LONE_MOUNTAIN_LOOKUP)).toBe(true);
   });
 
-  it("snows on every mountain in cold country, only tall ones elsewhere", () => {
+  it("snows on every mountain in cold country and on none elsewhere", () => {
     const count = (cold: boolean): number => {
       const scene = new Scene();
       const massifs = createMountainMassifs(scene, 60, rangeLookup(new Set(), cold));
@@ -71,7 +71,7 @@ describe("mountain massif (one hand-designed model per tile)", () => {
       return n;
     };
     expect(count(true)).toBe(30);
-    expect(count(false)).toBeLessThan(30);
+    expect(count(false)).toBe(0);
   });
 
   it("clears back to zero instances", () => {

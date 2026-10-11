@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createMountainModelGeometry, FILLER_MODELS, MOUNTAIN_MODELS, mountainModelHeight, SUMMIT_MODELS } from "./client-map-3d-mountain-models.js";
 
-describe("hand-designed mountain models", () => {
+describe("low-poly rock-cluster mountain models", () => {
   it("has summit and filler models", () => {
     expect(SUMMIT_MODELS.length).toBeGreaterThanOrEqual(3);
     expect(FILLER_MODELS.length).toBeGreaterThanOrEqual(2);
   });
 
   for (const model of MOUNTAIN_MODELS) {
-    it(`${model.name}: stands on its footprint, sinks just under the ground at the edge, and stays tile-sized`, () => {
-      // Measured under each peak (some sit off-centre on purpose).
-      const centreHeight = Math.max(...model.parts.map((p) => mountainModelHeight(model, p.x + (p.apex?.x ?? 0), p.z + (p.apex?.z ?? 0))));
-      expect(centreHeight).toBeGreaterThan(model.role === "summit" ? 0.9 : 0.4);
+    it(`${model.name}: a rock cluster standing on its footprint, sunk just under the ground, tile-sized`, () => {
+      // Measured over each rock's centre.
+      const centreHeight = Math.max(...model.rocks.map((r) => mountainModelHeight(model, r.x, r.z)));
+      expect(centreHeight).toBeGreaterThan(model.role === "summit" ? 0.85 : 0.35);
       expect(centreHeight).toBeLessThan(1.5);
       const geometry = createMountainModelGeometry(model, "temperate");
       geometry.computeBoundingBox();
@@ -22,8 +22,8 @@ describe("hand-designed mountain models", () => {
     });
   }
 
-  it("marks a snow cap on the pointed summit models, colours ledges differently by climate", () => {
-    const spire = MOUNTAIN_MODELS.find((m) => m.name === "spire")!;
+  it("marks where snow can settle on the summit models, and colours the stone by climate", () => {
+    const spire = MOUNTAIN_MODELS.find((m) => m.name === "peak")!;
     const temperate = createMountainModelGeometry(spire, "temperate");
     const alpine = createMountainModelGeometry(spire, "alpine");
     const caps = temperate.getAttribute("aCap");
