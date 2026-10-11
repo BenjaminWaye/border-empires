@@ -3465,7 +3465,7 @@ export class SimulationRuntime {
     const targetKey = simulationTileKey(payload.x, payload.y);
     const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
     if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
-      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no settlement in progress on tile");
+      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no garrisoning in progress on tile");
       return;
     }
     this.removePendingSettlement(targetKey);

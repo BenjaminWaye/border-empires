@@ -57,7 +57,7 @@ export const promptAttackEffortForTarget = (
   const floor = attackEffortFloorForTarget(tile);
   const handle = showEffortConfirmSheet({
     title: options.title,
-    subtitle: "Settled tile — committing more manpower improves your odds.",
+    subtitle: "Garrisoned tile — committing more manpower improves your odds.",
     floor,
     cap: Math.max(floor, state.manpowerCap),
     mode: "slider",
@@ -111,12 +111,12 @@ const promptBulkEffort = (
     eligible.reduce((sum, tile) => sum + musterCommitPresetAmount(preset, attackEffortFloorForTarget(tile)), 0);
   const handle = showEffortConfirmSheet({
     title,
-    subtitle: `${eligible.length} settled target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
+    subtitle: `${eligible.length} garrisoned target${eligible.length === 1 ? "" : "s"} — effort applies to each of them.`,
     floor: minFloor,
     cap: Math.max(minFloor, state.manpowerCap),
     mode: "presets",
     confirmLabel: "Attack",
-    describe: (_commit, preset) => `About ${totalFor(preset ?? "normal")} manpower across the settled targets`,
+    describe: (_commit, preset) => `About ${totalFor(preset ?? "normal")} manpower across the garrisoned targets`,
     onConfirm: (_commit, preset) => onConfirm(preset ?? "normal")
   });
   return handle !== undefined;
