@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
+import { Scene } from "three";
+import { createFabricationComplexOverlay } from "../client-map-3d-fabrication-complex.js";
 import { afcModuleTabForTile, bindAfcModulePicker } from "./client-afc-module-tab.js";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -25,6 +27,23 @@ const stateFor = () => {
 const viewFor = (tile = target): TileMenuView => ({ title: "AFC", subtitle: "", tabs: ["modules", "overview"], overviewLines: [], actions: [], buildings: [], crystal: [], modules: afcModuleTabForTile(tile, catalog, afcModuleActionsForTile(stateFor(), tile, availability), "me", 1000)! });
 
 describe("graphical AFC modules tab", () => {
+  it("matches every socket position to the actual 3D attachment ring", () => {
+    const overlay = createFabricationComplexOverlay(new Scene(), 1);
+    overlay.addInstance(0, 0, 0, target.x, target.y);
+    const root = document.createElement("div");
+    root.innerHTML = tileActionMenuHtml(viewFor(), "modules", false);
+    const sockets = Array.from(root.querySelectorAll<HTMLElement>(".afc-socket"));
+    const gridOffset = (coordinate: number): number => Math.abs(coordinate) < 0.000001 ? 0 : Math.sign(coordinate);
+    try {
+      overlay.moduleSocketAttachments(0).forEach((attachment, index) => {
+        expect(sockets[index]?.style.gridColumn).toBe(String(3 + gridOffset(attachment.x)));
+        expect(sockets[index]?.style.gridRow).toBe(String(3 + gridOffset(attachment.z)));
+      });
+    } finally {
+      overlay.dispose();
+    }
+  });
+
   it("emits the tab and named module state through the real tile-menu view builder", () => {
     const view = tileMenuViewForTile(target, {
       state: stateFor(),
