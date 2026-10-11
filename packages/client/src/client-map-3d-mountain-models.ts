@@ -1,9 +1,9 @@
 // Low-poly mountains for the true-3D map, in the style of the owner's
 // reference: each mountain is a cluster of faceted grey rocks -- one big
 // rounded peak with two or three smaller rocks huddled round its foot --
-// built from an irregular faceted dome (a subdivided icosahedron, flattened
-// at the base, tapered toward a blunt top and jittered so the facets read as
-// broken stone). No ledges, no grass on the rock: one neutral stone colour,
+// built from an irregular faceted cone-dome (a subdivided icosahedron, flat at
+// the base and tapering steadily upward -- always broadest at the base, or it
+// reads as a boulder -- jittered so the facets read as broken stone). No ledges, no grass on the rock: one neutral stone colour,
 // lit by the sun, with snow on the upper facets only in cold country.
 //
 // One cluster is placed per mountain tile (client-map-3d-mountain-massif.ts),
@@ -116,12 +116,22 @@ const jitter = (seed: number, x: number, y: number, z: number, salt: number): nu
   fract(Math.sin(seed * 91.7 + Math.round(x * 1000) * 12.9898 + Math.round(y * 1000) * 78.233 + Math.round(z * 1000) * 37.719 + salt * 3.1) * 43758.5453) - 0.5;
 
 // Below this height on the unit sphere the rock is cut flat (its base, sunk
-// just under the ground); above, it tapers toward a blunt top.
+// just under the ground).
 const BASE_CUT = -0.25;
 const SINK = 0.05;
-const TOP_TAPER = 0.78;
+// Width falls off with height as (1 - t)^PROFILE_POWER: under 1 bulges the
+// slopes out a little (a solid shoulder), but the base is always the widest
+// part -- a rock wider anywhere above its base reads as a boulder.
+const PROFILE_POWER = 0.8;
+// Facet jitter: the base ring stays close to its footprint; above it, the
+// rock may wobble more but never out past this fraction of the base.
+const BASE_WOBBLE = 0.06;
+const SLOPE_WOBBLE = 0.24;
+// The summit leans off-centre by up to this fraction of the footprint (asymmetric peaks).
+const LEAN = 0.22;
+const MAX_ABOVE_BASE = 1 - BASE_WOBBLE - 0.02;
 
-/** A rock's facets: an irregular faceted dome on its footprint. */
+/** A rock's facets: an irregular faceted cone-dome, broadest at its base. */
 const rockFacets = (rock: Rock): Facet[] => {
   const sphere = new IcosahedronGeometry(1, 1).getAttribute("position");
   const shape = (i: number): V => {
@@ -130,13 +140,29 @@ const rockFacets = (rock: Rock): Facet[] => {
     const uz = sphere.getZ(i);
     // 0 at the base, 1 at the top.
     const t = (uy - BASE_CUT) / (1 - BASE_CUT);
-    const taper = 1 - TOP_TAPER * t * t;
-    const wobble = 1 + 0.18 * jitter(rock.seed, ux, uy, uz, 1);
-    const lift = t > 0 ? 1 + 0.12 * jitter(rock.seed, ux, uy, uz, 2) : 1;
+    // Radius depends on height only (along this vertex's compass direction).
+    const flat = Math.hypot(ux, uz) || 1;
+    const profile = (1 - t) ** PROFILE_POWER;
+    const radius =
+      t <= 0
+        ? 1 + BASE_WOBBLE * 2 * jitter(rock.seed, ux, uy, uz, 1)
+        : Math.min(MAX_ABOVE_BASE, profile * (1 + SLOPE_WOBBLE * 2 * jitter(rock.seed, ux, uy, uz, 1)));
+    const lift = t > 0 ? 1 + 0.16 * jitter(rock.seed, ux, uy, uz, 2) : 1;
+    // Higher up, the rock drifts toward its lean: an off-centre, asymmetric summit.
+    const leanX = LEAN * rock.r * jitter(rock.seed, 0, 0, 0, 3) * 2 * t;
+    const leanZ = LEAN * rock.r * jitter(rock.seed, 0, 0, 0, 4) * 2 * t;
+    let ox = (ux / flat) * rock.r * radius + leanX;
+    let oz = (uz / flat) * rock.r * radius + leanZ;
+    // Above the base nothing may reach out past it (lean included).
+    const reach = Math.hypot(ox, oz);
+    if (t > 0 && reach > MAX_ABOVE_BASE * rock.r) {
+      ox *= (MAX_ABOVE_BASE * rock.r) / reach;
+      oz *= (MAX_ABOVE_BASE * rock.r) / reach;
+    }
     return {
-      x: rock.x + ux * rock.r * taper * wobble,
-      y: t > 0 ? t * rock.h * lift - SINK : -SINK,
-      z: rock.z + uz * rock.r * taper * wobble
+      x: rock.x + ox,
+      y: t > 0 ? Math.min(1, t * lift) * rock.h - SINK : -SINK,
+      z: rock.z + oz
     };
   };
   const facets: Facet[] = [];
