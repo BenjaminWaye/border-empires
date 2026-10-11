@@ -434,7 +434,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
-  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
+  {
+    createdAt: 1791753144590, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.2",
+    title: "Graphical AFC module sockets",
+    why: "Managing modules across multiple AFCs needed a clear view of what each complex contains.",
+    changes: ["A new Modules tab maps all eight sockets, including captured copies and incoming deliveries", "Empty sockets link to call-down controls for unlocked modules missing here, including your copies on other AFCs"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
