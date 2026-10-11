@@ -34,9 +34,10 @@ import {
 // Per-instance rock colour shift (multiplies the vertex colours).
 const TINT_LIGHTNESS = 0.06;
 const TINT_WARMTH = 0.02;
-// Footprint scale: a little over 1 so neighbouring models overlap at their feet.
-const SUMMIT_FOOTPRINT = 1.1;
-const FILLER_FOOTPRINT = 1.05;
+// Footprint scale: broad (well over 1), so mountains read wide rather than tall
+// from the high game camera and neighbouring models overlap at their feet.
+const SUMMIT_FOOTPRINT = 1.35;
+const FILLER_FOOTPRINT = 1.25;
 // How much the per-tile footprint variation (0.9..1.1) widens or narrows a model.
 const FOOTPRINT_SPREAD = 0.6;
 const SUMMIT_SALT = 21;
