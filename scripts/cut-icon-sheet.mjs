@@ -3,14 +3,16 @@
 // <name>-<px>.png. Used for packages/client/public/icons/resources/.
 // Pure Node (zlib only), so it needs no image library.
 //
-// Usage: node scripts/cut-icon-sheet.mjs <sheet.png> <outDir> <rows> <cols> name1,name2,...
+// Usage:
+//   node scripts/cut-icon-sheet.mjs <sheet.png> <outDir> <rows> <cols> name1,name2,...   regular grid
+//   node scripts/cut-icon-sheet.mjs <sheet.png> --list                                    print icon boxes
+//   node scripts/cut-icon-sheet.mjs <sheet.png> <outDir> --boxes "name=x0,y0,x1,y1;..."   explicit boxes
 //   WHITEN=name1,name2  recolour those icons to cool white (keeps outlines/shading)
 //
 // Background removal flood-fills from each crop's border, so dark interiors
 // enclosed by the icon's outline stay opaque. Sheets must be 8-bit RGB/RGBA PNG.
 import fs from "node:fs"; import zlib from "node:zlib"; import path from "node:path";
 const [,, src, outDir, rowsArg, colsArg, namesArg] = process.argv;
-const ROWS = +rowsArg, COLS = +colsArg, NAMES = namesArg.split(",");
 
 function decodePng(buf){
   let p = 8, w, h, bitDepth, colorType; const idat = [];
@@ -63,6 +65,19 @@ const corners=[px(4,4),px(w-5,4),px(4,h-5),px(w-5,h-5)];
 const bgAt=(x,y)=>{const u=x/w,v=y/h; return [0,1,2].map(c=>(corners[0][c]*(1-u)+corners[1][c]*u)*(1-v)+(corners[2][c]*(1-u)+corners[3][c]*u)*v);};
 const dist=(x,y)=>{const o=(y*w+x)*4,b=bgAt(x,y); return Math.hypot(d[o]-b[0],d[o+1]-b[1],d[o+2]-b[2]);};
 const T=34;
+// --list: coarse 8px-cell connected components of foreground, printed in reading order.
+if (outDir === "--list"){
+  const C=8, gw=Math.ceil(w/C), gh=Math.ceil(h/C), g=new Uint8Array(gw*gh);
+  for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2) if(dist(x,y)>T) g[((y/C)|0)*gw+((x/C)|0)]=1;
+  const seen=new Uint8Array(gw*gh), boxes=[];
+  for(let i=0;i<g.length;i++){ if(!g[i]||seen[i]) continue; const st=[i]; seen[i]=1; let a=gw,b=gh,c=0,e=0,n=0;
+    while(st.length){ const j=st.pop(), x=j%gw, y=(j/gw)|0; n++; a=Math.min(a,x); b=Math.min(b,y); c=Math.max(c,x); e=Math.max(e,y);
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const nx=x+dx, ny=y+dy; if(nx<0||ny<0||nx>=gw||ny>=gh) continue; const k=ny*gw+nx; if(g[k]&&!seen[k]){seen[k]=1; st.push(k);} } }
+    if(n>=12) boxes.push([a*C,b*C,Math.min(w-1,(c+1)*C),Math.min(h-1,(e+1)*C)]); }
+  boxes.sort((p,q)=>Math.abs(p[1]-q[1])>C*12 ? p[1]-q[1] : p[0]-q[0]);
+  for (const b of boxes) console.log(b.join(","));
+  process.exit(0);
+}
 function segments(count, len, activeAt){
   const cnt=new Array(len).fill(0); for (let i=0;i<len;i++) cnt[i]=activeAt(i);
   let runs=[], s=-1; for (let i=0;i<=len;i++){ const a=i<len&&cnt[i]>3; if(a&&s<0)s=i; if(!a&&s>=0){runs.push([s,i-1]);s=-1;} }
@@ -72,37 +87,46 @@ function segments(count, len, activeAt){
     for(let i=a+Math.round((b-a)*.3);i<=a+Math.round((b-a)*.7);i++) if(cnt[i]<min){min=cnt[i];cut=i;} runs.splice(wi,1,[a,cut-1],[cut+1,b]); }
   return runs;
 }
-const rowBands = segments(ROWS, h, y=>{let n=0; for(let x=0;x<w;x+=2) if(dist(x,y)>T) n++; return n;});
-fs.mkdirSync(outDir,{recursive:true}); let k=0;
-for (const [ry0,ry1] of rowBands){
-  const cols = segments(COLS, w, x=>{let n=0; for(let y=ry0;y<=ry1;y+=2) if(dist(x,y)>T) n++; return n;});
-  for (const [x0,x1] of cols){
-    let y0=ry1,y1=ry0; for(let y=ry0;y<=ry1;y++) for(let x=x0;x<=x1;x++) if(dist(x,y)>T){ if(y<y0)y0=y; if(y>y1)y1=y; }
-    const cw=x1-x0+1, ch=y1-y0+1, side=Math.max(cw,ch)+8, ox=Math.floor((side-cw)/2), oy=Math.floor((side-ch)/2);
-    // Flood-fill background inward from the crop border; enclosed dark pixels (rock, shadows) stay opaque.
-    const M=6, bx0=Math.max(0,x0-M), by0=Math.max(0,y0-M), bw=Math.min(w-1,x1+M)-bx0+1, bh=Math.min(h-1,y1+M)-by0+1;
-    const outside=new Uint8Array(bw*bh), q=[];
-    const push=(x,y)=>{ const i=y*bw+x; if(outside[i]) return; if(dist(bx0+x,by0+y)>=T*1.4) return; outside[i]=1; q.push(i); };
-    for(let x=0;x<bw;x++){ push(x,0); push(x,bh-1); } for(let y=0;y<bh;y++){ push(0,y); push(bw-1,y); }
-    while(q.length){ const i=q.pop(), x=i%bw, y=(i/bw)|0; if(x>0)push(x-1,y); if(x<bw-1)push(x+1,y); if(y>0)push(x,y-1); if(y<bh-1)push(x,y+1); }
-    const out=Buffer.alloc(side*side*4);
-    for(let y=0;y<ch;y++) for(let x=0;x<cw;x++){
-      const sx=x0+x, sy=y0+y, so=(sy*w+sx)*4, to=((oy+y)*side+(ox+x))*4, dd=dist(sx,sy);
-      const isOut=outside[(sy-by0)*bw+(sx-bx0)];
-      const a = !isOut ? 255 : dd<T*0.55?0 : Math.round(255*(dd-T*0.55)/(T*0.85));
-      out[to]=d[so]; out[to+1]=d[so+1]; out[to+2]=d[so+2]; out[to+3]=a;
+fs.mkdirSync(outDir,{recursive:true});
+function cutBox(name, bx0, by0, bx1, by1){
+  let x0=bx1,x1=bx0,y0=by1,y1=by0;
+  for(let y=by0;y<=by1;y++) for(let x=bx0;x<=bx1;x++) if(dist(x,y)>T){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  const cw=x1-x0+1, ch=y1-y0+1, side=Math.max(cw,ch)+8, ox=Math.floor((side-cw)/2), oy=Math.floor((side-ch)/2);
+  // Flood-fill background inward from the crop border; enclosed dark pixels (rock, shadows) stay opaque.
+  const M=6, fx0=Math.max(0,x0-M), fy0=Math.max(0,y0-M), fw=Math.min(w-1,x1+M)-fx0+1, fh=Math.min(h-1,y1+M)-fy0+1;
+  const outside=new Uint8Array(fw*fh), q=[];
+  const push=(x,y)=>{ const i=y*fw+x; if(outside[i]) return; if(dist(fx0+x,fy0+y)>=T*1.4) return; outside[i]=1; q.push(i); };
+  for(let x=0;x<fw;x++){ push(x,0); push(x,fh-1); } for(let y=0;y<fh;y++){ push(0,y); push(fw-1,y); }
+  while(q.length){ const i=q.pop(), x=i%fw, y=(i/fw)|0; if(x>0)push(x-1,y); if(x<fw-1)push(x+1,y); if(y>0)push(x,y-1); if(y<fh-1)push(x,y+1); }
+  const out=Buffer.alloc(side*side*4);
+  for(let y=0;y<ch;y++) for(let x=0;x<cw;x++){
+    const sx=x0+x, sy=y0+y, so=(sy*w+sx)*4, to=((oy+y)*side+(ox+x))*4, dd=dist(sx,sy);
+    const isOut=outside[(sy-fy0)*fw+(sx-fx0)];
+    const a = !isOut ? 255 : dd<T*0.55?0 : Math.round(255*(dd-T*0.55)/(T*0.85));
+    out[to]=d[so]; out[to+1]=d[so+1]; out[to+2]=d[so+2]; out[to+3]=a;
+  }
+  if ((process.env.WHITEN||"").split(",").includes(name)){
+    // Desaturate to a cool white, keep the dark outline dark and lift the mid-tones.
+    for (let i=0;i<out.length;i+=4){
+      const L=(0.299*out[i]+0.587*out[i+1]+0.114*out[i+2])/255, v=Math.min(1,Math.pow(L,0.5)*1.08);
+      out[i]=Math.round(255*Math.min(1,v*0.97)); out[i+1]=Math.round(255*Math.min(1,v*0.99)); out[i+2]=Math.round(255*Math.min(1,v*1.04+0.02));
     }
-    const name=NAMES[k++];
-    if ((process.env.WHITEN||"").split(",").includes(name)){
-      // Desaturate to a cool white, keep the dark outline dark and lift the mid-tones.
-      for (let i=0;i<out.length;i+=4){
-        const L=(0.299*out[i]+0.587*out[i+1]+0.114*out[i+2])/255, v=Math.min(1,Math.pow(L,0.5)*1.08);
-        out[i]=Math.round(255*Math.min(1,v*0.97)); out[i+1]=Math.round(255*Math.min(1,v*0.99)); out[i+2]=Math.round(255*Math.min(1,v*1.04+0.02));
-      }
-    }
-    const master={w:side,h:side,data:out};
-    fs.writeFileSync(path.join(outDir,`${name}-256.png`), encodePng(resize(master,256)));
-    for (const s of [96,72,48]) fs.writeFileSync(path.join(outDir,`${name}-${s}.png`), encodePng(resize(master,s)));
-    console.log(name, `${cw}x${ch} at ${x0},${y0}`);
+  }
+  const master={w:side,h:side,data:out};
+  fs.writeFileSync(path.join(outDir,`${name}-256.png`), encodePng(resize(master,256)));
+  for (const s of [96,72,48]) fs.writeFileSync(path.join(outDir,`${name}-${s}.png`), encodePng(resize(master,s)));
+  console.log(name, `${cw}x${ch} at ${x0},${y0}`);
+}
+if (rowsArg === "--boxes"){
+  for (const spec of colsArg.split(";").filter(Boolean)){
+    const [name, coords] = spec.split("="); const [a,b,c,e] = coords.split(",").map(Number);
+    cutBox(name.trim(), Math.max(0,a), Math.max(0,b), Math.min(w-1,c), Math.min(h-1,e));
+  }
+} else {
+  const ROWS = +rowsArg, COLS = +colsArg, NAMES = namesArg.split(","); let k=0;
+  const rowBands = segments(ROWS, h, y=>{let n=0; for(let x=0;x<w;x+=2) if(dist(x,y)>T) n++; return n;});
+  for (const [ry0,ry1] of rowBands){
+    const cols = segments(COLS, w, x=>{let n=0; for(let y=ry0;y<=ry1;y+=2) if(dist(x,y)>T) n++; return n;});
+    for (const [x0,x1] of cols) cutBox(NAMES[k++], x0, ry0, x1, ry1);
   }
 }

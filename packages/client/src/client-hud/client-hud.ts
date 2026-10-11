@@ -44,6 +44,7 @@ import { refreshLiveTechRequirements } from "../client-tech-live-requirements/cl
 import type { StructureInfoKey } from "../client-map-display.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
+import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -326,34 +327,34 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.panelActionButtons.forEach((btn: HTMLButtonElement) => {
     btn.classList.toggle("feed-attention-pulse", btn.dataset.panel === "feed" && feedAttentionActive);
     if (btn.dataset.panel === "tech") {
-      btn.innerHTML = techReady
-        ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-        : '<span class="tab-icon">⚡</span>';
+      setTabButtonHtml(btn, techReady
+        ? navTabIconHtml("tech") + '<span class="tech-ready-dot" aria-label="upgrade available"></span>'
+        : navTabIconHtml("tech"));
       return;
     }
     if (btn.dataset.panel === "feed") {
-      btn.innerHTML = attackAlertUnread || feedUnreadCount > 0
-        ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${attackAlertUnread ? "under attack" : "new activity"}">${attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
-        : '<span class="tab-icon">🔔</span>';
+      setTabButtonHtml(btn, attackAlertUnread || feedUnreadCount > 0
+        ? `${navTabIconHtml("feed")}<span class="feed-alert-dot" aria-label="${attackAlertUnread ? "under attack" : "new activity"}">${attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
+        : navTabIconHtml("feed"));
     }
   });
   applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
   const coreMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='core']") as HTMLButtonElement | null;
-  if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
+  if (coreMobileBtn) setTabButtonHtml(coreMobileBtn, mobileNavLabelHtml("core"));
   const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
-  if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
+  if (techMobileBtn) setTabButtonHtml(techMobileBtn, mobileNavLabelHtml("tech", { techReady }));
   applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
   if (feedMobileBtn) {
-    feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
+    setTabButtonHtml(feedMobileBtn, mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount }));
     feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
   }
   const activityUnread = activityDashboardUnreadCount(state);
   const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
   activityButtons.forEach((btn: HTMLButtonElement) => {
-    btn.innerHTML = activityUnread > 0
-      ? `<span class="tab-icon">📜</span><span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
-      : '<span class="tab-icon">📜</span>';
+    setTabButtonHtml(btn, activityUnread > 0
+      ? `${navTabIconHtml("activity")}<span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
+      : navTabIconHtml("activity"));
     btn.onclick = () => toggleActivityDashboard({
       state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
       renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
