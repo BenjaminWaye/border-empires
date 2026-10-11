@@ -141,7 +141,7 @@ describe("recommended actions", () => {
       tabs: ["actions"],
       actions: [
         { id: "build_relay_beacon", label: "Relay Beacon" },
-        { id: "settle_land", label: "Settle Land", recommended: true, autoSettleOption: { category: "food", checked: false, label: "Garrison farms and fish automatically from now on" } }
+        { id: "settle_land", label: "Garrison", recommended: true, autoSettleOption: { category: "food", checked: false, label: "Garrison farms and fish automatically from now on" } }
       ]
     };
     const html = tileActionMenuHtml(view, "actions", false);
