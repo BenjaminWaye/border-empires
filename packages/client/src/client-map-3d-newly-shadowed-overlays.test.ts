@@ -19,14 +19,14 @@ const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
   );
 
 describe("newly shadow-wired overlays", () => {
-  it("mountain massifs cast and receive shadows", () => {
+  it("mountain massifs cast shadows (but don't self-shadow: it speckled their facets)", () => {
     const scene = new Scene();
     const massifs = createMountainMassifs(scene, 4, LONE_MOUNTAIN_LOOKUP);
     const meshes = instancedMeshesIn(scene);
     expect(meshes.length).toBeGreaterThan(0);
     for (const mesh of meshes) {
       expect(mesh.castShadow).toBe(true);
-      expect(mesh.receiveShadow).toBe(true);
+      expect(mesh.receiveShadow).toBe(false);
     }
     massifs.dispose();
   });

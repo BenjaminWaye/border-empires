@@ -15,7 +15,7 @@ import {
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
-  type MeshStandardMaterial,
+  type MeshLambertMaterial,
   Quaternion,
   Scene,
   Vector3,
@@ -78,7 +78,7 @@ type ShapeLayer = {
   count: number;
 };
 
-const createShapeLayer = (geometry: BufferGeometry, material: MeshStandardMaterial, capacity: number): ShapeLayer => {
+const createShapeLayer = (geometry: BufferGeometry, material: MeshLambertMaterial, capacity: number): ShapeLayer => {
   const snowLines = new InstancedBufferAttribute(new Float32Array(capacity), 1);
   geometry.setAttribute("aSnowLine", snowLines);
   const mesh = new InstancedMesh(geometry, material, capacity);
@@ -88,7 +88,8 @@ const createShapeLayer = (geometry: BufferGeometry, material: MeshStandardMateri
   // cast shadow they float free of the raking sun's lighting model the
   // same way trees used to (client-map-3d-forest.ts).
   mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  // Not receiving: self-shadowing across the facets reads as speckle.
+  mesh.receiveShadow = false;
   return { mesh, snowLines, count: 0 };
 };
 

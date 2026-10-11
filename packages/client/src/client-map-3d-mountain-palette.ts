@@ -20,11 +20,11 @@ export type MountainFacet = {
   readonly flat: number;
   /** Highest point of the facet above the ground. */
   readonly top: number;
-  /** Facet centre height as a fraction of its peak's height (snow). */
+  /** Facet centre height as a fraction of its peak's height (snow; rock lightens with it). */
   readonly heightFraction: number;
   /** 0 = no snow; otherwise snow above this height fraction. */
   readonly snowLine: number;
-  /** 0..1, picks the shade within rock or grass. */
+  /** 0..1, one per mountain: shifts its rock and grass shade a little. */
   readonly shade: number;
 };
 
@@ -32,17 +32,8 @@ export type MountainFacet = {
 export const mountainFacetColor = (out: Color, facet: MountainFacet): Color => {
   if (facet.snowLine > 0 && facet.heightFraction >= facet.snowLine && facet.flat >= 0.3) return out.copy(SNOW);
   if (facet.flat >= GRASS_FLATNESS || facet.top <= FOOT_HEIGHT) return out.copy(GRASS_A).lerp(GRASS_B, facet.shade);
-  return out.copy(ROCK_A).lerp(ROCK_B, facet.shade);
-};
-
-/**
- * Terraces a height into ledges `step` tall: a short flat ledge per step,
- * then a riser -- the stratified look, with grass on the ledges.
- */
-export const terraceHeight = (h: number, step: number): number => {
-  if (h <= 0) return h;
-  const t = h / step;
-  const base = Math.floor(t);
-  const f = t - base;
-  return (base + Math.min(1, Math.max(0, (f - 0.3) / 0.7))) * step;
+  // Rock lightens gently toward the summit (form without per-facet noise);
+  // `shade` shifts the whole mountain a little.
+  const height = Math.min(1, Math.max(0, facet.heightFraction));
+  return out.copy(ROCK_B).lerp(ROCK_A, 0.25 + 0.65 * height - 0.2 * facet.shade);
 };

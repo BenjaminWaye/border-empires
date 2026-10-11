@@ -1,5 +1,5 @@
 // The true-3D mountain's own mesh: hard-edged, low-poly rock. A summit and
-// five rings of vertices around it, terraced into ledges, with ridges and V-shaped
+// three rings of vertices around it, with straight ridges and V-shaped
 // creases running down from the summit -- every face a flat plane, every
 // ridge a crisp line, one flat colour per facet (brown rock, grass on
 // ledges -- client-map-3d-mountain-palette.ts). (It replaced the old hex
@@ -10,8 +10,8 @@
 // Snow is not geometry: the shader whitens whole facets above a
 // per-instance snow line (attribute aSnowLine, 0 = bare) that are flat
 // enough to hold it, so the snow line is a crisp facet edge too.
-import { BufferAttribute, BufferGeometry, Color, MeshStandardMaterial } from "three";
-import { mountainFacetColor, terraceHeight } from "./client-map-3d-mountain-palette.js";
+import { BufferAttribute, BufferGeometry, Color, MeshLambertMaterial } from "three";
+import { mountainFacetColor } from "./client-map-3d-mountain-palette.js";
 
 /** Footprint radius (tile units) of an unscaled mountain; its rim sinks below the ground. */
 export const MOUNTAIN_RADIUS = 0.74;
@@ -20,8 +20,7 @@ export const MOUNTAIN_HEIGHT = 1.2;
 // How far below the ground the rim sinks, so no gap shows on sloped terrain.
 const RIM_SINK = 0.16;
 // Fractions of the radius of the rings below the summit (the last is the rim).
-const RINGS: readonly number[] = [0.2, 0.4, 0.6, 0.8, 1];
-const TERRACE_STEP = 0.2;
+const RINGS: readonly number[] = [0.34, 0.66, 1];
 
 export type MountainShapeSpec = {
   /** Seed for ridge count, jitter and summit position. */
@@ -57,11 +56,11 @@ const shapeTriangles = (spec: MountainShapeSpec): Triangle[] => {
       if (rim) return { x: Math.sin(theta) * r, y: -RIM_SINK, z: Math.cos(theta) * r };
       // Straight slopes; even segments are ridges (higher), odd are creases.
       const ridge = k % 2 === 0 ? 0.12 : -0.1;
-      let h = (1 - fraction) * (1 + ridge) + (hash(spec.seed * 11 + i, k) - 0.5) * 0.08;
+      let h = (1 - fraction) * (1 + ridge) + (hash(spec.seed * 11 + i, k) - 0.5) * 0.04;
       if (i === 0 && k === shoulder) h = Math.max(h, 0.78);
-      // The gully: a V-notch down the +z ridge line, cut after terracing.
+      // The gully: a V-notch down the +z ridge line.
       const cut = gully && k === 0 ? (i === 0 ? 0.2 : 0.12) : 0;
-      return { x: Math.sin(theta) * r, y: terraceHeight(MOUNTAIN_HEIGHT * h, TERRACE_STEP) - MOUNTAIN_HEIGHT * cut, z: Math.cos(theta) * r };
+      return { x: Math.sin(theta) * r, y: MOUNTAIN_HEIGHT * (h - cut), z: Math.cos(theta) * r };
     })
   );
   const triangles: Triangle[] = [];
@@ -138,7 +137,7 @@ export const createMountainShapeGeometry = (spec: MountainShapeSpec): BufferGeom
     const flat = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
     const mid = (a.y + b.y + c.y) / 3;
     // Snow is per instance (shader); bake rock / grass by slope.
-    mountainFacetColor(color, { flat, top: Math.max(a.y, b.y, c.y), heightFraction: 0, snowLine: 0, shade: hash(spec.seed * 3 + t, 9) });
+    mountainFacetColor(color, { flat, top: Math.max(a.y, b.y, c.y), heightFraction: mid / MOUNTAIN_HEIGHT, snowLine: 0, shade: 0.5 });
     const centreX = (a.x + b.x + c.x) / 3;
     const centreZ = (a.z + b.z + c.z) / 3;
     if (spec.gully && centreZ > 0 && Math.abs(Math.atan2(centreX, centreZ)) < 0.5) color.lerp(GULLY, 0.7);
@@ -164,8 +163,9 @@ export const createMountainShapeGeometry = (spec: MountainShapeSpec): BufferGeom
  * tint, plus whole-facet shader snow above each instance's aSnowLine
  * (InstancedBufferAttribute; 0 = no snow) on facets flat enough to hold it.
  */
-export const createMountainMaterial = (): MeshStandardMaterial => {
-  const material = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.95, metalness: 0, flatShading: true });
+export const createMountainMaterial = (): MeshLambertMaterial => {
+  // Matte (Lambert: no specular highlights) and flat-shaded.
+  const material = new MeshLambertMaterial({ color: "#ffffff", vertexColors: true, flatShading: true });
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace(
