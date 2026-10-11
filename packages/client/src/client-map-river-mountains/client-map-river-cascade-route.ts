@@ -12,7 +12,7 @@ import { riverMountainFaces, type RiverMountainFace } from "./client-map-river-m
 export const CASCADE_FOOT_RHO = 0.78;
 // A north exit corner: the fall turns this far south (per unit east/west) so
 // it comes down a face the camera sees.
-const BEHIND_TURN_SOUTH = 0.6;
+const BEHIND_TURN_SOUTH = 1.4;
 // Trees keep this far back from the stream's centreline.
 const STREAM_TREE_CLEARANCE = 0.32;
 

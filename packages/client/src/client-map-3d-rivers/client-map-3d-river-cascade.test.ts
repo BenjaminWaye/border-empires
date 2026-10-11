@@ -32,6 +32,27 @@ describe("river mountain cascade", () => {
     expect(first.color[0]).toBeGreaterThan(last.color[0]);
   });
 
+  it("stays a finite, connected path when it walks off the rock (regression: NaN once it left the model)", () => {
+    // A north exit: the river turns toward the camera and runs round the mountain's foot to the pool.
+    const northFace = riverMountainFaceOf({ corner: { x: 9, y: 8 }, heading: { dx: -1, dy: 0 }, mountain: { x: 10, y: 8 } })!;
+    // Ground well below the rock, so the walk reaches the model's edge before it meets the ground.
+    const lowGround = flatDeps();
+    const samples = cascadeCenterline(northFace, 0, 0, { ...lowGround, heightfield: { cornerYAt: () => -1, elevationAt: () => GROUND } });
+    expect(samples.length).toBeGreaterThan(10);
+    for (const p of samples) {
+      expect(Number.isFinite(p.x + p.y + p.z + p.edgeY[0] + p.edgeY[1])).toBe(true);
+      // Edges never dip below the centreline (no half of the river sunk into the rock).
+      expect(Math.min(...p.edgeY)).toBeGreaterThanOrEqual(p.y - 1e-9);
+    }
+    // No jumps: consecutive samples stay close.
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(Math.hypot(samples[i]!.x - samples[i - 1]!.x, samples[i]!.z - samples[i - 1]!.z)).toBeLessThan(0.1);
+    }
+    const last = samples[samples.length - 1]!;
+    expect(last.x).toBeCloseTo(9);
+    expect(last.z).toBeCloseTo(8);
+  });
+
   it("checks the two tiles beside its edge, across the world wrap too", () => {
     expect(cascadeSideTiles(face)).toEqual([[9, 9], [10, 9]]);
   });

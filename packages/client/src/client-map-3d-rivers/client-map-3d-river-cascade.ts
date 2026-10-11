@@ -34,14 +34,33 @@ import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-wat
 // (OVERLAY_RISE_ABOVE_HEIGHTFIELD), so the cascade starts on the same rock.
 const MASSIF_RISE = 0.012;
 const SURFACE_LIFT = 0.014;
-// The fall's lip: this far out from the tile centre (tiles), high on the face.
-const SOURCE_RHO = 0.2;
-const FALL_STEPS = 10;
-const STREAM_STEPS = 12;
-const TOP_HALF_WIDTH = 0.06;
+// The spring: this far out from the tile centre (tiles), high on the face.
+const SOURCE_RHO = 0.12;
+// The descent walks the rock in steps this long, steering by its own heading,
+// the downhill slope (so it finds the gullies between peaks) and the pull
+// toward the foot (so it always gets there), weighted as below.
+const DESCENT_STEP = 0.035;
+const DESCENT_MAX_STEPS = 80;
+const GRADIENT_EPS = 0.03;
+const KEEP_HEADING = 0.55;
+const FOLLOW_SLOPE = 0.4;
+const PULL_TO_FOOT = 0.35;
+// The descent ends this close to the foot, or where the rock meets the ground.
+const FOOT_REACHED = 0.06;
+const GROUND_REACHED = 0.012;
+// From the foot, the river curves into the pool, carrying on in the fall's
+// direction this far before bending round (a quadratic curve).
+const POOL_BEND = 0.28;
+const POOL_STEPS = 14;
+// Chaikin smoothing passes over the descent, so it winds rather than zig-zags.
+const SMOOTH_PASSES = 2;
+const TOP_HALF_WIDTH = 0.045;
 const BOTTOM_HALF_WIDTH = 0.08;
-// Steeper than this (rise over run) reads as falling water: foam colour.
-const FALL_SLOPE = 0.6;
+// Foam shows where it's steeper than this (rise over run), and at most this much.
+const FALL_SLOPE = 1.4;
+const MAX_FOAM = 0.4;
+// A ribbon edge rises with the rock across the flow by at most this much (tiles).
+const EDGE_RISE = 0.12;
 const FOAM: readonly [number, number, number, number] = [0.86, 0.93, 0.97, 0.95];
 const SPLASH_RADII: readonly [number, number] = [0.05, 0.15];
 const SPLASH_SEGMENTS = 16;
@@ -77,7 +96,16 @@ export type RiverCascades = {
 };
 
 /** One cascade sample: scene position, half-width, RGBA, distance downstream. */
-export type CascadeSample = { x: number; y: number; z: number; halfWidth: number; color: readonly [number, number, number, number]; flow: number };
+export type CascadeSample = {
+  x: number;
+  y: number;
+  z: number;
+  halfWidth: number;
+  color: readonly [number, number, number, number];
+  flow: number;
+  /** Heights of the ribbon's two edges (left, right of the flow): on a cross-slope they follow the rock, so no half of it sinks in. */
+  edgeY: readonly [number, number];
+};
 
 /** The two tiles either side of a cascade's edge (exit corner to head corner). */
 export const cascadeSideTiles = (face: RiverMountainFace): ReadonlyArray<readonly [number, number]> => {
@@ -144,33 +172,66 @@ export const cascadeCenterline = (
   // Down the face and over the ground to the pool (cascadeRoute: turned toward
   // the camera when the pool is on the mountain's far side).
   const route = cascadeRoute(face);
-  const dirX = route.dirX;
-  const dirZ = route.dirY;
-  const lipX = centreX + dirX * SOURCE_RHO;
-  const lipZ = centreZ + dirZ * SOURCE_RHO;
-  const footX = centreX + dirX * CASCADE_FOOT_RHO;
-  const footZ = centreZ + dirZ * CASCADE_FOOT_RHO;
-  const lipY = surfaceAt(lipX, lipZ);
-  const footY = surfaceAt(footX, footZ);
-  const points: { x: number; z: number; y: number }[] = [];
-  // The fall: a straight chute from the lip to the foot, lifted wherever the
-  // rock (across the chute's width) would poke through it.
-  const crossX = -dirZ * BOTTOM_HALF_WIDTH;
-  const crossZ = dirX * BOTTOM_HALF_WIDTH;
-  for (let s = 0; s < FALL_STEPS; s += 1) {
-    const t = s / FALL_STEPS;
-    const x = lipX + (footX - lipX) * t;
-    const z = lipZ + (footZ - lipZ) * t;
-    const rock = Math.max(surfaceAt(x, z), surfaceAt(x + crossX, z + crossZ), surfaceAt(x - crossX, z - crossZ));
-    points.push({ x, z, y: Math.max(lipY + (footY - lipY) * t, rock) });
+  const footX = centreX + route.dirX * CASCADE_FOOT_RHO;
+  const footZ = centreZ + route.dirY * CASCADE_FOOT_RHO;
+
+  // The descent: from a spring high on the face, the water finds its own way
+  // down the rock -- downhill, through the gullies -- toward the foot.
+  let x = centreX + route.dirX * SOURCE_RHO;
+  let z = centreZ + route.dirY * SOURCE_RHO;
+  let hx = route.dirX;
+  let hz = route.dirY;
+  const path: { x: number; z: number }[] = [{ x, z }];
+  for (let i = 0; i < DESCENT_MAX_STEPS; i += 1) {
+    // Downhill on the drawn surface (rock or ground: off the model, rockAt is -Infinity).
+    const gx = surfaceAt(x - GRADIENT_EPS, z) - surfaceAt(x + GRADIENT_EPS, z);
+    const gz = surfaceAt(x, z - GRADIENT_EPS) - surfaceAt(x, z + GRADIENT_EPS);
+    const gLen = Math.hypot(gx, gz) || 1;
+    const fx = footX - x;
+    const fz = footZ - z;
+    const fLen = Math.hypot(fx, fz) || 1;
+    let nx = hx * KEEP_HEADING + (gx / gLen) * FOLLOW_SLOPE + (fx / fLen) * PULL_TO_FOOT;
+    let nz = hz * KEEP_HEADING + (gz / gLen) * FOLLOW_SLOPE + (fz / fLen) * PULL_TO_FOOT;
+    // Never turn back on the foot: the river always makes progress down.
+    if ((nx * fx + nz * fz) / fLen < 0.25 * Math.hypot(nx, nz)) {
+      nx += fx / fLen;
+      nz += fz / fLen;
+    }
+    const nLen = Math.hypot(nx, nz) || 1;
+    hx = nx / nLen;
+    hz = nz / nLen;
+    x += hx * DESCENT_STEP;
+    z += hz * DESCENT_STEP;
+    path.push({ x, z });
+    if (Math.hypot(footX - x, footZ - z) < FOOT_REACHED || rockAt(x, z) <= groundAtStream(x, z) + GROUND_REACHED) break;
   }
-  // The stream: from the foot along the ground into the pool at the head.
-  for (let s = 0; s <= STREAM_STEPS; s += 1) {
-    const t = s / STREAM_STEPS;
-    const x = footX + (headX - footX) * t;
-    const z = footZ + (headZ - footZ) * t;
-    points.push({ x, z, y: s === STREAM_STEPS ? poolY + SURFACE_LIFT : surfaceAt(x, z) });
+  // Then a smooth bend from where it left the rock into the pool.
+  const endX = x;
+  const endZ = z;
+  const bendX = endX + hx * POOL_BEND;
+  const bendZ = endZ + hz * POOL_BEND;
+  for (let s = 1; s <= POOL_STEPS; s += 1) {
+    const t = s / POOL_STEPS;
+    const u = 1 - t;
+    path.push({ x: u * u * endX + 2 * u * t * bendX + t * t * headX, z: u * u * endZ + 2 * u * t * bendZ + t * t * headZ });
   }
+  // Round off the corners, keeping both ends where they are.
+  let smooth = path;
+  for (let pass = 0; pass < SMOOTH_PASSES; pass += 1) {
+    const next: { x: number; z: number }[] = [smooth[0]!];
+    for (let i = 0; i + 1 < smooth.length; i += 1) {
+      const p = smooth[i]!;
+      const q = smooth[i + 1]!;
+      next.push({ x: p.x * 0.75 + q.x * 0.25, z: p.z * 0.75 + q.z * 0.25 }, { x: p.x * 0.25 + q.x * 0.75, z: p.z * 0.25 + q.z * 0.75 });
+    }
+    next.push(smooth[smooth.length - 1]!);
+    smooth = next;
+  }
+  const points = smooth.map((p, i) => ({
+    x: p.x,
+    z: p.z,
+    y: i === smooth.length - 1 ? poolY + SURFACE_LIFT : surfaceAt(p.x, p.z)
+  }));
   // Water never runs uphill: where terraces or jitter rise ahead, it keeps its level.
   for (let i = 1; i < points.length; i += 1) points[i]!.y = Math.min(points[i]!.y, points[i - 1]!.y);
 
@@ -183,11 +244,17 @@ export const cascadeCenterline = (
     const slope = (prev.y - next.y) / run;
     if (i > 0) flow += Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
     const t = i / Math.max(1, points.length - 1);
-    // Foamy where steep, but settling into river water as it enters the pool.
-    const foam = Math.min(1, Math.max(0, slope / FALL_SLOPE)) * Math.min(1, Math.max(0, (0.95 - t) / 0.2));
+    // White water where it's steep, but mostly river; calm as it enters the pool.
+    const foam = MAX_FOAM * Math.min(1, Math.max(0, slope / FALL_SLOPE)) * Math.min(1, Math.max(0, (0.95 - t) / 0.2));
     const water = t > 0.85 ? RIVER_WATER_CORE : RIVER_WATER_SHALLOW;
     const color: [number, number, number, number] = [0, 1, 2, 3].map((k) => water[k]! + (FOAM[k]! - water[k]!) * foam) as [number, number, number, number];
-    samples.push({ x: p.x, y: p.y, z: p.z, halfWidth: TOP_HALF_WIDTH + (BOTTOM_HALF_WIDTH - TOP_HALF_WIDTH) * t, color, flow });
+    const halfWidth = TOP_HALF_WIDTH + (BOTTOM_HALF_WIDTH - TOP_HALF_WIDTH) * t;
+    // Edge heights across the flow (same normal as appendRibbon); level water at the pool.
+    const tlen = Math.hypot(next.x - prev.x, next.z - prev.z) || 1;
+    const ex = (-(next.z - prev.z) / tlen) * halfWidth;
+    const ez = ((next.x - prev.x) / tlen) * halfWidth;
+    const edge = (side: number): number => (i === points.length - 1 ? p.y : Math.max(p.y, Math.min(p.y + EDGE_RISE, surfaceAt(p.x + ex * side, p.z + ez * side))));
+    samples.push({ x: p.x, y: p.y, z: p.z, halfWidth, color, flow, edgeY: [edge(-1), edge(1)] });
   });
   return samples;
 };
@@ -204,8 +271,8 @@ const appendRibbon = (buffers: Buffers, samples: readonly CascadeSample[]): void
     const tlen = Math.hypot(tx, tz) || 1;
     const nx = (-tz / tlen) * p.halfWidth;
     const nz = (tx / tlen) * p.halfWidth;
-    for (const side of [-1, 1]) {
-      buffers.positions.push(p.x + nx * side, p.y, p.z + nz * side);
+    for (const [k, side] of [-1, 1].entries()) {
+      buffers.positions.push(p.x + nx * side, p.edgeY[k]!, p.z + nz * side);
       buffers.colors.push(...p.color);
       buffers.flows.push(p.flow);
     }
@@ -260,7 +327,7 @@ const createCascadeMaterial = (time: { value: number }): MeshStandardMaterial =>
       .replace("#include <common>", "#include <common>\nuniform float uTime;\nvarying float vFlow;")
       .replace(
         "#include <color_fragment>",
-        "#include <color_fragment>\nfloat streak = smoothstep(0.6, 1.0, fract(vFlow * 9.0 - uTime * 1.8));\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95), streak * 0.4);"
+        "#include <color_fragment>\nfloat ripple = sin(vFlow * 23.0 - uTime * 4.0) * 0.5 + sin(vFlow * 41.0 - uTime * 6.3 + 1.7) * 0.35 + sin(vFlow * 9.0 - uTime * 2.1) * 0.15;\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.97, 1.0), smoothstep(0.55, 1.0, ripple) * 0.18);"
       );
   };
   material.customProgramCacheKey = () => "river-cascade";
@@ -306,9 +373,6 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
       appendRibbon(buffers, samples);
       const end = samples[samples.length - 1]!;
       appendSplash(buffers, end.x, end.y, end.z);
-      // ...and where the fall lands at the mountain's foot.
-      const foot = samples[Math.min(FALL_STEPS, samples.length - 1)]!;
-      appendSplash(buffers, foot.x, foot.y, foot.z);
       // Boulders on the bank either side of where the cascade enters the pool.
       const back = samples[Math.max(0, samples.length - 4)]!;
       const len = Math.hypot(back.x - end.x, back.z - end.z) || 1;

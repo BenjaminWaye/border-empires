@@ -57,7 +57,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A river that starts next to a mountain now looks like it comes from it.",
     changes: [
       "Where a river starts beside a mountain, a gully runs down the mountain and a waterfall falls down it into the river's spring pool",
-      "The waterfall foams down the side of the mountain you can see, splashes at its foot and runs as a stream into the pool, with a few boulders round it",
+      "The river finds its own way down the side of the mountain you can see, white where it is steep, then winds over the ground into the pool, with a few boulders round it",
       "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
     ]
   },
