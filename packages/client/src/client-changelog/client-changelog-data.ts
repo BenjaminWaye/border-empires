@@ -46,7 +46,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
       "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
-      "Mountains in cold country are paler and snow-capped",
+      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
       "Mountains are matte, with clean facets"
     ]
   },

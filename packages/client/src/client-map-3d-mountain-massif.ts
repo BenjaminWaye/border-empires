@@ -5,7 +5,8 @@
 // touching tiles read as a range of distinct peaks. A tile that stands
 // higher than its mountain neighbours (by hash) gets a big summit cluster;
 // the rest of a range gets smaller ones. Cold-country mountains use the
-// alpine (paler, snowy) version of each model.
+// alpine (paler, snowy) version of each model; most summit peaks elsewhere
+// are snow-tipped too.
 import {
   Color,
   InstancedBufferAttribute,
@@ -41,6 +42,9 @@ const FILLER_FOOTPRINT = 1.25;
 // How much the per-tile footprint variation (0.9..1.1) widens or narrows a model.
 const FOOTPRINT_SPREAD = 0.6;
 const SUMMIT_SALT = 21;
+const SNOW_SALT = 47;
+// Share of temperate summit tiles whose peaks carry snow.
+const SUMMIT_SNOW_SHARE = 0.65;
 
 export type MountainMassifDeps = MountainNeighbourhoodLookup;
 
@@ -152,8 +156,9 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     const light = 1 + TINT_LIGHTNESS * variation.tint;
     const warm = TINT_WARMTH * variation.warmth;
     layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
-    // Snow only in cold country: the stone clusters stay bare elsewhere.
-    const snow = neighbourhood.cold ? 1 : 0;
+    // Snow in cold country, and on most of the tall summit peaks everywhere
+    // (a range with no white tops at all looks odd).
+    const snow = neighbourhood.cold || (summit && mountainHash01(wx, wy, SNOW_SALT) < SUMMIT_SNOW_SHARE) ? 1 : 0;
     layer.snowLines.setX(layer.count, snow);
     snowy += snow;
     layer.count += 1;
