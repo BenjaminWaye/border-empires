@@ -32,9 +32,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "New-look mountains",
     why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
     changes: [
-      "Mountains are now hand-designed low-poly peaks -- tall spires, twin peaks, broad massifs, crags, knolls, foothills and the odd mesa -- with rock ledges",
-      "In a range, the highest tiles get the big snowy peaks and the rest lower foothills, so ranges read as distinct mountains",
-      "Temperate mountains are brown rock with grassy ledges; mountains in cold country are grey rock under snow",
+      "Mountains are now low-poly clusters of faceted grey rock: a big peak with smaller rocks round its foot",
+      "In a range, the highest tiles get the big peaks and the rest smaller rock clusters, so ranges read as distinct mountains",
+      "Mountains in cold country are paler and snow-capped",
       "Mountains are matte, with clean facets"
     ]
   },

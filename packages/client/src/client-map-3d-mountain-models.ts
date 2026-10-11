@@ -1,200 +1,98 @@
-// Hand-designed low-poly mountain models for the true-3D map, in the warm
-// stylised look of the owner's reference: brown rock built up in tiers, each
-// tier stepping in to a ledge that carries grass, and pointed peaks that can
-// wear a small snow cap. Every model is authored (fixed outlines and heights
-// below), not generated -- the generated surfaces read as buggy -- and one is
-// placed per mountain tile (client-map-3d-mountain-massif.ts), turned and
-// scaled, overlapping its neighbours a little so touching tiles read as a
-// range of distinct peaks.
-import { BufferAttribute, BufferGeometry, Color, DoubleSide, MeshLambertMaterial } from "three";
+// Low-poly mountains for the true-3D map, in the style of the owner's
+// reference: each mountain is a cluster of faceted grey rocks -- one big
+// rounded peak with two or three smaller rocks huddled round its foot --
+// built from an irregular faceted dome (a subdivided icosahedron, flattened
+// at the base, tapered toward a blunt top and jittered so the facets read as
+// broken stone). No ledges, no grass on the rock: one neutral stone colour,
+// lit by the sun, with snow on the upper facets only in cold country.
+//
+// One cluster is placed per mountain tile (client-map-3d-mountain-massif.ts),
+// turned and scaled per tile; summit tiles get the big clusters, the rest of
+// a range the smaller ones. Every rock is a deterministic function of its
+// spec below, so a cluster always looks the same.
+import { BufferAttribute, BufferGeometry, Color, DoubleSide, IcosahedronGeometry, MeshLambertMaterial } from "three";
 
-/** A tier: an outline ring at height `h` (tile units above the ground). */
-type Tier = {
-  readonly h: number;
-  /** Outline radius (tile units) per side, going round. */
-  readonly r: readonly number[];
-  /**
-   * Step in to a ledge at this height, per side: the inner ring's fraction of
-   * the outline (1 = no step: the wall carries straight on). Partial,
-   * irregular ledges read as layered rock; a full ring reads as stacked plates.
-   */
-  readonly ledge?: readonly number[];
-};
-
-/** One peak of a model: tiers bottom to top, then a point (or a flat top). */
-type Part = {
+/** One rock of a cluster, in tile units from the tile centre. */
+type Rock = {
   readonly x: number;
   readonly z: number;
-  readonly tiers: readonly Tier[];
-  /** The summit; null for a flat (grassy) top on the last tier. */
-  readonly apex: { readonly x: number; readonly z: number; readonly h: number } | null;
-  /** Snow line: the peak above this height is the snow cap (shown on snowy peaks). */
-  readonly snowFrom?: number;
+  /** Footprint radius. */
+  readonly r: number;
+  /** Height above the ground. */
+  readonly h: number;
+  /** Seed for its facet jitter. */
+  readonly seed: number;
 };
 
 export type MountainModel = {
   readonly name: string;
-  readonly parts: readonly Part[];
+  readonly rocks: readonly Rock[];
   /** Big landmark peak (summit tiles) or smaller filler (the rest of a range). */
   readonly role: "summit" | "filler";
   /** How often it's picked within its role (relative). */
   readonly weight: number;
 };
 
-// A ledge pattern for a tier: steps in to `depth` on about half its sides,
-// irregularly (fixed pattern), and carries the wall straight on elsewhere.
-const LEDGE_PATTERN = [1, 0, 1, 1, 0, 0, 1, 0, 1];
-const L = (depth: number): readonly number[] => LEDGE_PATTERN.map((on, k) => (on ? depth - (k % 3) * 0.04 : 1));
-
-// Outlines are written out per side so every silhouette is deliberate and
-// a little irregular. Heights: a summit peak is ~1.2-1.4, fillers lower.
 export const MOUNTAIN_MODELS: readonly MountainModel[] = [
   {
-    name: "spire",
+    name: "peak",
     role: "summit",
     weight: 3,
-    parts: [
-      {
-        x: 0,
-        z: 0,
-        tiers: [
-          { h: -0.08, r: [0.72, 0.64, 0.7, 0.6, 0.74, 0.66, 0.62] },
-          { h: 0.34, r: [0.58, 0.5, 0.56, 0.47, 0.6, 0.52, 0.5], ledge: L(0.78) },
-          { h: 0.78, r: [0.36, 0.32, 0.38, 0.3, 0.35, 0.33, 0.3], ledge: L(0.8) }
-        ],
-        apex: { x: 0.03, z: 0.02, h: 1.38 },
-        snowFrom: 1.02
-      }
+    rocks: [
+      { x: 0, z: 0, r: 0.56, h: 1.28, seed: 1 },
+      { x: 0.38, z: 0.24, r: 0.2, h: 0.36, seed: 2 },
+      { x: -0.34, z: 0.3, r: 0.15, h: 0.24, seed: 3 }
     ]
   },
   {
     name: "twin",
     role: "summit",
     weight: 2,
-    parts: [
-      {
-        x: -0.16,
-        z: 0.04,
-        tiers: [
-          { h: -0.08, r: [0.6, 0.54, 0.62, 0.5, 0.58, 0.55] },
-          { h: 0.4, r: [0.42, 0.38, 0.44, 0.35, 0.4, 0.39], ledge: L(0.8) }
-        ],
-        apex: { x: 0, z: 0, h: 1.26 },
-        snowFrom: 0.96
-      },
-      {
-        x: 0.26,
-        z: -0.08,
-        tiers: [
-          { h: -0.08, r: [0.5, 0.46, 0.52, 0.44, 0.49, 0.47] },
-          { h: 0.34, r: [0.34, 0.31, 0.36, 0.3, 0.33, 0.32], ledge: L(0.8) }
-        ],
-        apex: { x: 0.02, z: 0, h: 0.98 },
-        snowFrom: 0.8
-      }
+    rocks: [
+      { x: -0.14, z: -0.04, r: 0.48, h: 1.2, seed: 4 },
+      { x: 0.26, z: 0.08, r: 0.36, h: 0.78, seed: 5 },
+      { x: 0.02, z: 0.4, r: 0.16, h: 0.26, seed: 6 }
     ]
   },
   {
-    name: "massif",
+    name: "broad",
     role: "summit",
     weight: 2,
-    parts: [
-      {
-        x: 0.06,
-        z: 0,
-        tiers: [
-          { h: -0.08, r: [0.82, 0.64, 0.58, 0.66, 0.84, 0.66, 0.56, 0.62, 0.8] },
-          { h: 0.3, r: [0.66, 0.52, 0.47, 0.54, 0.68, 0.53, 0.45, 0.5, 0.64], ledge: L(0.82) },
-          { h: 0.64, r: [0.42, 0.33, 0.3, 0.35, 0.44, 0.34, 0.29, 0.32, 0.4], ledge: L(0.84) }
-        ],
-        apex: { x: 0.1, z: 0, h: 1.18 },
-        snowFrom: 0.92
-      },
-      {
-        x: -0.38,
-        z: 0.06,
-        tiers: [
-          { h: -0.08, r: [0.38, 0.34, 0.4, 0.33, 0.36, 0.35] },
-          { h: 0.3, r: [0.25, 0.22, 0.26, 0.21, 0.24, 0.23], ledge: L(0.82) }
-        ],
-        apex: { x: 0, z: 0, h: 0.74 }
-      }
-    ]
-  },
-  {
-    name: "crag",
-    role: "summit",
-    weight: 2,
-    parts: [
-      {
-        x: 0,
-        z: 0,
-        tiers: [
-          { h: -0.08, r: [0.64, 0.56, 0.66, 0.58, 0.6] },
-          { h: 0.46, r: [0.4, 0.34, 0.42, 0.36, 0.38], ledge: L(0.78) }
-        ],
-        apex: { x: 0.12, z: 0.08, h: 1.12 },
-        snowFrom: 0.88
-      }
-    ]
-  },
-  {
-    name: "mesa",
-    role: "filler",
-    // Rare: several flat tops together read as tree stumps.
-    weight: 1,
-    parts: [
-      {
-        x: 0,
-        z: 0,
-        tiers: [
-          { h: -0.08, r: [0.72, 0.66, 0.74, 0.64, 0.7, 0.68, 0.73, 0.65] },
-          { h: 0.26, r: [0.62, 0.56, 0.64, 0.55, 0.6, 0.58, 0.63, 0.56], ledge: L(0.84) },
-          { h: 0.52, r: [0.48, 0.44, 0.5, 0.43, 0.47, 0.45, 0.49, 0.44] }
-        ],
-        apex: null
-      }
+    rocks: [
+      { x: 0.04, z: 0, r: 0.6, h: 1.12, seed: 7 },
+      { x: -0.4, z: -0.2, r: 0.22, h: 0.4, seed: 8 },
+      { x: 0.42, z: -0.26, r: 0.17, h: 0.28, seed: 9 },
+      { x: -0.22, z: 0.4, r: 0.14, h: 0.2, seed: 10 }
     ]
   },
   {
     name: "knoll",
     role: "filler",
     weight: 3,
-    parts: [
-      {
-        x: 0,
-        z: 0,
-        tiers: [
-          { h: -0.08, r: [0.66, 0.6, 0.68, 0.58, 0.64, 0.62, 0.6] },
-          { h: 0.28, r: [0.46, 0.42, 0.48, 0.4, 0.45, 0.43, 0.42], ledge: L(0.78) }
-        ],
-        apex: { x: -0.04, z: 0.03, h: 0.62 }
-      }
+    rocks: [
+      { x: 0, z: 0.02, r: 0.44, h: 0.66, seed: 11 },
+      { x: 0.32, z: -0.22, r: 0.17, h: 0.26, seed: 12 }
     ]
   },
   {
-    name: "foothill",
+    name: "pair",
     role: "filler",
     weight: 3,
-    parts: [
-      {
-        x: -0.18,
-        z: 0.06,
-        tiers: [
-          { h: -0.08, r: [0.48, 0.42, 0.5, 0.4, 0.46, 0.44] },
-          { h: 0.26, r: [0.32, 0.28, 0.34, 0.27, 0.31, 0.3], ledge: L(0.8) }
-        ],
-        apex: { x: 0, z: 0, h: 0.7 }
-      },
-      {
-        x: 0.24,
-        z: -0.1,
-        tiers: [
-          { h: -0.08, r: [0.42, 0.38, 0.44, 0.36, 0.4, 0.39] },
-          { h: 0.22, r: [0.27, 0.24, 0.28, 0.23, 0.26, 0.25], ledge: L(0.8) }
-        ],
-        apex: { x: 0.02, z: 0, h: 0.56 }
-      }
+    rocks: [
+      { x: -0.16, z: 0.06, r: 0.38, h: 0.58, seed: 13 },
+      { x: 0.22, z: -0.1, r: 0.27, h: 0.44, seed: 14 },
+      { x: 0.1, z: 0.34, r: 0.13, h: 0.18, seed: 15 }
+    ]
+  },
+  {
+    name: "rubble",
+    role: "filler",
+    weight: 2,
+    rocks: [
+      { x: -0.1, z: -0.12, r: 0.28, h: 0.42, seed: 16 },
+      { x: 0.26, z: 0.12, r: 0.22, h: 0.34, seed: 17 },
+      { x: -0.24, z: 0.28, r: 0.18, h: 0.26, seed: 18 },
+      { x: 0.3, z: -0.3, r: 0.12, h: 0.16, seed: 19 }
     ]
   }
 ];
@@ -209,65 +107,51 @@ export const SUMMIT_MODELS = weighted("summit");
 export const FILLER_MODELS = weighted("filler");
 
 type V = { readonly x: number; readonly y: number; readonly z: number };
-type Facet = { readonly v: readonly [V, V, V]; readonly cap: boolean };
+type Facet = readonly [V, V, V];
 
-const ringAt = (part: Part, tier: Tier, scale: (k: number) => number = () => 1, h = tier.h): V[] =>
-  tier.r.map((r, k) => {
-    const a = (k / tier.r.length) * Math.PI * 2;
-    return { x: part.x + Math.sin(a) * r * scale(k), y: h, z: part.z + Math.cos(a) * r * scale(k) };
-  });
+const fract = (v: number): number => v - Math.floor(v);
+// Deterministic jitter keyed on the (rounded) unit-sphere position, so the
+// copies of a vertex shared by neighbouring facets move together (no cracks).
+const jitter = (seed: number, x: number, y: number, z: number, salt: number): number =>
+  fract(Math.sin(seed * 91.7 + Math.round(x * 1000) * 12.9898 + Math.round(y * 1000) * 78.233 + Math.round(z * 1000) * 37.719 + salt * 3.1) * 43758.5453) - 0.5;
 
-/** The model's facets: tier walls, flat ledges, and the peak (or flat top). */
-const modelFacets = (model: MountainModel): Facet[] => {
+// Below this height on the unit sphere the rock is cut flat (its base, sunk
+// just under the ground); above, it tapers toward a blunt top.
+const BASE_CUT = -0.25;
+const SINK = 0.05;
+const TOP_TAPER = 0.78;
+
+/** A rock's facets: an irregular faceted dome on its footprint. */
+const rockFacets = (rock: Rock): Facet[] => {
+  const sphere = new IcosahedronGeometry(1, 1).getAttribute("position");
+  const shape = (i: number): V => {
+    const ux = sphere.getX(i);
+    const uy = Math.max(BASE_CUT, sphere.getY(i));
+    const uz = sphere.getZ(i);
+    // 0 at the base, 1 at the top.
+    const t = (uy - BASE_CUT) / (1 - BASE_CUT);
+    const taper = 1 - TOP_TAPER * t * t;
+    const wobble = 1 + 0.18 * jitter(rock.seed, ux, uy, uz, 1);
+    const lift = t > 0 ? 1 + 0.12 * jitter(rock.seed, ux, uy, uz, 2) : 1;
+    return {
+      x: rock.x + ux * rock.r * taper * wobble,
+      y: t > 0 ? t * rock.h * lift - SINK : -SINK,
+      z: rock.z + uz * rock.r * taper * wobble
+    };
+  };
   const facets: Facet[] = [];
-  for (const part of model.parts) {
-    const n = part.tiers[0]!.r.length;
-    const push = (a: V, b: V, c: V): void => {
-      facets.push({ v: [a, b, c], cap: false });
-    };
-    // Walls between rings (CCW seen from outside); quads split into two.
-    const wall = (lower: V[], upper: V[]): void => {
-      for (let k = 0; k < n; k += 1) {
-        const a = lower[k]!;
-        const b = lower[(k + 1) % n]!;
-        const c = upper[k]!;
-        const d = upper[(k + 1) % n]!;
-        push(a, b, c);
-        push(b, d, c);
-      }
-    };
-    let below = ringAt(part, part.tiers[0]!);
-    for (let t = 1; t < part.tiers.length; t += 1) {
-      const tier = part.tiers[t]!;
-      const outer = ringAt(part, tier);
-      wall(below, outer);
-      if (tier.ledge !== undefined) {
-        // A ledge stepping in to the next tier's foot (where the side has one).
-        const ledge = tier.ledge;
-        const inner = ringAt(part, tier, (k) => ledge[k % ledge.length]!);
-        for (let k = 0; k < n; k += 1) {
-          push(outer[k]!, outer[(k + 1) % n]!, inner[k]!);
-          push(outer[(k + 1) % n]!, inner[(k + 1) % n]!, inner[k]!);
-        }
-        below = inner;
-      } else {
-        below = outer;
-      }
-    }
-    const top = part.tiers[part.tiers.length - 1]!;
-    const apex: V = part.apex ? { x: part.x + part.apex.x, y: part.apex.h, z: part.z + part.apex.z } : { x: part.x, y: top.h, z: part.z };
-    if (part.apex && part.snowFrom !== undefined && part.snowFrom > top.h && part.snowFrom < apex.y) {
-      // Cut the peak at the snow line: a ring there, the cap above it.
-      const t = (part.snowFrom - top.h) / (apex.y - top.h);
-      const line = below.map((p) => ({ x: p.x + (apex.x - p.x) * t, y: part.snowFrom!, z: p.z + (apex.z - p.z) * t }));
-      wall(below, line);
-      for (let k = 0; k < n; k += 1) facets.push({ v: [line[k]!, line[(k + 1) % n]!, apex], cap: true });
-    } else {
-      for (let k = 0; k < n; k += 1) push(below[k]!, below[(k + 1) % n]!, apex);
-    }
+  for (let i = 0; i < sphere.count; i += 3) {
+    const a = shape(i);
+    const b = shape(i + 1);
+    const c = shape(i + 2);
+    // Faces entirely in the flattened base are never seen.
+    if (a.y <= -SINK && b.y <= -SINK && c.y <= -SINK) continue;
+    facets.push([a, b, c]);
   }
   return facets;
 };
+
+const modelFacets = (model: MountainModel): Facet[] => model.rocks.flatMap(rockFacets);
 
 /**
  * Height of a model's surface above its ground at local (x, z) (unscaled,
@@ -276,7 +160,7 @@ const modelFacets = (model: MountainModel): Facet[] => {
  */
 export const mountainModelHeight = (model: MountainModel, x: number, z: number): number => {
   let best = -Infinity;
-  for (const { v: [a, b, c] } of modelFacets(model)) {
+  for (const [a, b, c] of modelFacets(model)) {
     const d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
     if (Math.abs(d) < 1e-12) continue;
     const wa = ((b.z - c.z) * (x - c.x) + (c.x - b.x) * (z - c.z)) / d;
@@ -288,30 +172,34 @@ export const mountainModelHeight = (model: MountainModel, x: number, z: number):
   return best;
 };
 
-// Palettes (sRGB). Rock lightens a little toward the top; ledges and flat
-// tops are grass (temperate) or pale stone (alpine, cold country).
+// Neutral stone: a touch lighter on facets that face up, so the tops catch
+// the light the way the reference's do. Cold-country stone is a little
+// cooler and paler.
 const PALETTES = {
-  temperate: { rockLow: new Color("#6d5140"), rockHigh: new Color("#9a7556"), ledge: new Color("#86b445") },
-  alpine: { rockLow: new Color("#5c5f67"), rockHigh: new Color("#9b9ea6"), ledge: new Color("#b9bec4") }
+  temperate: { side: new Color("#9d9ca2"), top: new Color("#bdbcc1") },
+  alpine: { side: new Color("#a0a3aa"), top: new Color("#c4c8ce") }
 } as const;
-// Facets at least this flat (normal's upward component) are ledges.
-const LEDGE_FLATNESS = 0.8;
-const MODEL_TOP = 1.4;
+// Facets this flat (normal's upward component) count as top facets.
+const TOP_FLATNESS = 0.7;
+// Snow (cold country) covers facets at least this high, as a fraction of their rock's height.
+const SNOW_FROM = 0.62;
 
 /**
  * Builds a model's geometry, unindexed so every facet is flat with one
- * colour, plus a per-facet aCap attribute (1 on the snow cap) for the snow
- * shader (createMountainModelMaterial).
+ * colour, plus a per-facet aCap attribute (1 where snow can settle) for the
+ * snow shader (createMountainModelMaterial).
  */
 export const createMountainModelGeometry = (model: MountainModel, climate: "temperate" | "alpine"): BufferGeometry => {
-  const facets = modelFacets(model);
   const palette = PALETTES[climate];
+  const facets: { readonly f: Facet; readonly cap: boolean }[] = model.rocks.flatMap((rock) =>
+    rockFacets(rock).map((f) => ({ f, cap: (f[0].y + f[1].y + f[2].y) / 3 >= rock.h * SNOW_FROM }))
+  );
   const positions = new Float32Array(facets.length * 9);
   const colors = new Float32Array(facets.length * 9);
   const caps = new Float32Array(facets.length * 3);
   const color = new Color();
-  facets.forEach(({ v: [a, b, c], cap }, f) => {
-    [a, b, c].forEach((p, j) => positions.set([p.x, p.y, p.z], f * 9 + j * 3));
+  facets.forEach(({ f: [a, b, c], cap }, i) => {
+    [a, b, c].forEach((p, j) => positions.set([p.x, p.y, p.z], i * 9 + j * 3));
     const ux = b.x - a.x;
     const uy = b.y - a.y;
     const uz = b.z - a.z;
@@ -320,12 +208,10 @@ export const createMountainModelGeometry = (model: MountainModel, climate: "temp
     const vz = c.z - a.z;
     const ny = uz * vx - ux * vz;
     const flat = Math.abs(ny) / (Math.hypot(uy * vz - uz * vy, ny, ux * vy - uy * vx) || 1);
-    const mid = Math.max(0, (a.y + b.y + c.y) / 3);
-    if (flat >= LEDGE_FLATNESS) color.copy(palette.ledge);
-    else color.copy(palette.rockLow).lerp(palette.rockHigh, Math.min(1, mid / MODEL_TOP));
+    color.copy(flat >= TOP_FLATNESS ? palette.top : palette.side);
     for (let j = 0; j < 3; j += 1) {
-      colors.set([color.r, color.g, color.b], f * 9 + j * 3);
-      caps[f * 3 + j] = cap ? 1 : 0;
+      colors.set([color.r, color.g, color.b], i * 9 + j * 3);
+      caps[i * 3 + j] = cap && flat >= 0.35 ? 1 : 0;
     }
   });
   const geometry = new BufferGeometry();
@@ -339,9 +225,9 @@ export const createMountainModelGeometry = (model: MountainModel, climate: "temp
 };
 
 /**
- * Matte, flat-shaded rock (no specular highlights), multiplied by the
- * per-instance tint; the snow cap shows white where the instance's
- * aSnowLine (InstancedBufferAttribute) is non-zero.
+ * Matte, flat-shaded stone (no specular highlights), multiplied by the
+ * per-instance tint; snow shows white on the cap facets where the
+ * instance's aSnowLine (InstancedBufferAttribute) is non-zero.
  */
 export const createMountainModelMaterial = (): MeshLambertMaterial => {
   // Double-sided so a facet wound the other way can never drop out.

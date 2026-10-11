@@ -1,11 +1,11 @@
-// True-3D mountains, placed the way tile games do it: one hand-designed
-// low-poly model (client-map-3d-mountain-models.ts) per mountain tile,
+// True-3D mountains, placed the way tile games do it: one low-poly rock
+// cluster (client-map-3d-mountain-models.ts) per mountain tile,
 // turned, scaled and tinted per tile from the shared variation
 // (client-map-mountain-variation.ts), overlapping its neighbours a little so
 // touching tiles read as a range of distinct peaks. A tile that stands
-// higher than its mountain neighbours (by hash) gets a big summit model; the
-// rest of a range gets lower filler models (knolls, foothills, the odd mesa).
-// Cold-country mountains use the alpine (grey, snowy) version of each model.
+// higher than its mountain neighbours (by hash) gets a big summit cluster;
+// the rest of a range gets smaller ones. Cold-country mountains use the
+// alpine (paler, snowy) version of each model.
 import {
   Color,
   InstancedBufferAttribute,
@@ -87,12 +87,9 @@ export const isSummitTile = (wx: number, wy: number, lookup: MountainNeighbourho
   });
 };
 
-// Flat-topped mesas are a temperate shape; in cold country they read as grey cakes.
-const ALPINE_FILLER_MODELS = FILLER_MODELS.filter((i) => MOUNTAIN_MODELS[i]!.name !== "mesa");
-
 /** Which model a mountain tile shows (index into MOUNTAIN_MODELS). */
-export const mountainModelIndexAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup, cold = false): number => {
-  const pool = isSummitTile(wx, wy, lookup) ? SUMMIT_MODELS : cold ? ALPINE_FILLER_MODELS : FILLER_MODELS;
+export const mountainModelIndexAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): number => {
+  const pool = isSummitTile(wx, wy, lookup) ? SUMMIT_MODELS : FILLER_MODELS;
   return pool[Math.floor(mountainHash01(wx, wy, 33) * pool.length)]!;
 };
 
@@ -123,7 +120,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
   const addInstance = (x: number, z: number, surfaceY: number, wx: number, wy: number): void => {
     const neighbourhood = mountainNeighbourhoodAt(wx, wy, deps);
     const variation = mountainVariationAt(wx, wy, neighbourhood);
-    const modelIndex = mountainModelIndexAt(wx, wy, deps, neighbourhood.cold);
+    const modelIndex = mountainModelIndexAt(wx, wy, deps);
     const layer = (neighbourhood.cold ? alpine : temperate)[modelIndex]!;
     if (layer.count >= layer.mesh.instanceMatrix.count) return;
     const summit = MOUNTAIN_MODELS[modelIndex]!.role === "summit";
@@ -136,8 +133,10 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     const light = 1 + TINT_LIGHTNESS * variation.tint;
     const warm = TINT_WARMTH * variation.warmth;
     layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
-    layer.snowLines.setX(layer.count, variation.snowLine);
-    if (variation.snowLine > 0) snowy += 1;
+    // Snow only in cold country: the stone clusters stay bare elsewhere.
+    const snow = neighbourhood.cold ? 1 : 0;
+    layer.snowLines.setX(layer.count, snow);
+    snowy += snow;
     layer.count += 1;
   };
 
