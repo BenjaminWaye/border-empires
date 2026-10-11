@@ -15,10 +15,11 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
   {
     createdAt: 1791748183000, // frozen at authoring time
     introducedIn: "2026.10.11.1",
-    title: "Auto-garrison checkbox uses the new name",
-    why: "The tile menu checkbox for towns and docks still said \"Settle\" after the rename to Garrison.",
+    title: "Leftover \"Settle\" wording is now \"Garrison\"",
+    why: "A few places still said \"settle\" or \"settled\" after the rename to Garrison, which made the buttons and the messages disagree.",
     changes: [
-      "The checkbox under the Garrison button now reads \"Garrison towns, docks and the tiles around them automatically from now on\""
+      "The auto-garrison checkboxes under the Garrison button and in Settings now say Garrison and Auto-garrison",
+      "Disabled-action reasons, attack sheets, tile overview notes, queue help and a few error messages now say garrisoned instead of settled"
     ]
   }
 ];

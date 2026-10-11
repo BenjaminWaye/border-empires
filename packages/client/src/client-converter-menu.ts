@@ -45,7 +45,7 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
       ...deps.tileActionAvailability(
         downtimeRemainingMs <= 0 && !tileNotSettled,
         tileNotSettled
-          ? "Tile is not settled"
+          ? "Tile is not garrisoned"
           : downtimeRemainingMs > 0
             ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
             : "Needs enough coin for one upkeep tick",
