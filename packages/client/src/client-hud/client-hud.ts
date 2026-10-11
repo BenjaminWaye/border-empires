@@ -45,6 +45,7 @@ import type { StructureInfoKey } from "../client-map-display.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
+import { applyHudTabBadges } from "./client-hud-tab-badges.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -324,31 +325,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   const feedUnreadCount = state.feedUnreadCount;
   const feedAttentionActive = state.feedAttentionUntil > Date.now();
-  dom.panelActionButtons.forEach((btn: HTMLButtonElement) => {
-    btn.classList.toggle("feed-attention-pulse", btn.dataset.panel === "feed" && feedAttentionActive);
-    if (btn.dataset.panel === "tech") {
-      setTabButtonHtml(btn, techReady
-        ? navTabIconHtml("tech") + '<span class="tech-ready-dot" aria-label="upgrade available"></span>'
-        : navTabIconHtml("tech"));
-      return;
-    }
-    if (btn.dataset.panel === "feed") {
-      setTabButtonHtml(btn, attackAlertUnread || feedUnreadCount > 0
-        ? `${navTabIconHtml("feed")}<span class="feed-alert-dot" aria-label="${attackAlertUnread ? "under attack" : "new activity"}">${attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
-        : navTabIconHtml("feed"));
-    }
-  });
+  applyHudTabBadges(dom.hud, dom.panelActionButtons, { techReady, attackAlertUnread, feedUnreadCount, feedAttentionActive });
   applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  const coreMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='core']") as HTMLButtonElement | null;
-  if (coreMobileBtn) setTabButtonHtml(coreMobileBtn, mobileNavLabelHtml("core"));
-  const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
-  if (techMobileBtn) setTabButtonHtml(techMobileBtn, mobileNavLabelHtml("tech", { techReady }));
   applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
-  if (feedMobileBtn) {
-    setTabButtonHtml(feedMobileBtn, mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount }));
-    feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
-  }
   const activityUnread = activityDashboardUnreadCount(state);
   const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
   activityButtons.forEach((btn: HTMLButtonElement) => {

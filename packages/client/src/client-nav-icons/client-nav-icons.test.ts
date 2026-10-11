@@ -1,4 +1,6 @@
+// @vitest-environment happy-dom
 import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { navTabIconHtml, setTabButtonHtml, type NavTabIconKey } from "./client-nav-icons.js";
@@ -13,7 +15,7 @@ describe("navTabIconHtml", () => {
       const srcs = srcsOf(navTabIconHtml(key));
       expect(srcs.length).toBeGreaterThan(0);
       for (const src of srcs) {
-        const file = fileURLToPath(new URL(`../../public${src}`, import.meta.url));
+        const file = resolve(dirname(fileURLToPath(import.meta.url)), "../../public", src.slice(1));
         expect(existsSync(file), `${key}: ${file}`).toBe(true);
       }
     }
@@ -34,6 +36,26 @@ describe("navTabIconHtml", () => {
 });
 
 describe("setTabButtonHtml", () => {
+  it("keeps the same icon element when only the badge changes", () => {
+    const button = document.createElement("button");
+    setTabButtonHtml(button, navTabIconHtml("tech"));
+    const icon = button.querySelector("img");
+    setTabButtonHtml(button, navTabIconHtml("tech") + '<span class="tech-ready-dot"></span>');
+    expect(button.querySelector("img")).toBe(icon);
+    expect(button.querySelector(".tech-ready-dot")).not.toBeNull();
+    setTabButtonHtml(button, navTabIconHtml("tech"));
+    expect(button.querySelector("img")).toBe(icon);
+    expect(button.querySelector(".tech-ready-dot")).toBeNull();
+  });
+
+  it("replaces the icon when the button switches to a different tab icon", () => {
+    const button = document.createElement("button");
+    setTabButtonHtml(button, navTabIconHtml("tech"));
+    setTabButtonHtml(button, navTabIconHtml("feed"));
+    expect(button.querySelector("img")?.getAttribute("src")).toBe("/icons/nav/feed-48.png");
+    expect(button.querySelectorAll("img")).toHaveLength(1);
+  });
+
   it("only rewrites the button when the markup changes", () => {
     let writes = 0;
     let current = "";
