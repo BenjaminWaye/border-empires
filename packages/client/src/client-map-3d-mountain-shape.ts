@@ -1,7 +1,8 @@
 // The true-3D mountain's own mesh: hard-edged, low-poly rock. A summit and
-// three rings of vertices around it, with straight ridges and V-shaped
+// five rings of vertices around it, terraced into ledges, with ridges and V-shaped
 // creases running down from the summit -- every face a flat plane, every
-// ridge a crisp line, one flat colour per facet. (It replaced the old hex
+// ridge a crisp line, one flat colour per facet (brown rock, grass on
+// ledges -- client-map-3d-mountain-palette.ts). (It replaced the old hex
 // base + 4-sided cone, which read as blocky, and a smooth sculpted version
 // that read as soft-serve.) A few variants are instanced across the map
 // (client-map-3d-mountain-massif.ts), each turned, scaled and tinted per tile.
@@ -10,6 +11,7 @@
 // per-instance snow line (attribute aSnowLine, 0 = bare) that are flat
 // enough to hold it, so the snow line is a crisp facet edge too.
 import { BufferAttribute, BufferGeometry, Color, MeshStandardMaterial } from "three";
+import { mountainFacetColor, terraceHeight } from "./client-map-3d-mountain-palette.js";
 
 /** Footprint radius (tile units) of an unscaled mountain; its rim sinks below the ground. */
 export const MOUNTAIN_RADIUS = 0.74;
@@ -17,8 +19,9 @@ export const MOUNTAIN_RADIUS = 0.74;
 export const MOUNTAIN_HEIGHT = 1.2;
 // How far below the ground the rim sinks, so no gap shows on sloped terrain.
 const RIM_SINK = 0.16;
-// Fractions of the radius of the three rings below the summit (the last is the rim).
-const RINGS: readonly number[] = [0.34, 0.66, 1];
+// Fractions of the radius of the rings below the summit (the last is the rim).
+const RINGS: readonly number[] = [0.2, 0.4, 0.6, 0.8, 1];
+const TERRACE_STEP = 0.2;
 
 export type MountainShapeSpec = {
   /** Seed for ridge count, jitter and summit position. */
@@ -56,9 +59,9 @@ const shapeTriangles = (spec: MountainShapeSpec): Triangle[] => {
       const ridge = k % 2 === 0 ? 0.12 : -0.1;
       let h = (1 - fraction) * (1 + ridge) + (hash(spec.seed * 11 + i, k) - 0.5) * 0.08;
       if (i === 0 && k === shoulder) h = Math.max(h, 0.78);
-      // The gully: a V-notch down the +z ridge line.
-      if (gully && k === 0) h -= i === 0 ? 0.2 : 0.12;
-      return { x: Math.sin(theta) * r, y: MOUNTAIN_HEIGHT * h, z: Math.cos(theta) * r };
+      // The gully: a V-notch down the +z ridge line, cut after terracing.
+      const cut = gully && k === 0 ? (i === 0 ? 0.2 : 0.12) : 0;
+      return { x: Math.sin(theta) * r, y: terraceHeight(MOUNTAIN_HEIGHT * h, TERRACE_STEP) - MOUNTAIN_HEIGHT * cut, z: Math.cos(theta) * r };
     })
   );
   const triangles: Triangle[] = [];
@@ -107,12 +110,7 @@ export const mountainShapeHeight = (spec: MountainShapeSpec, x: number, z: numbe
   return best;
 };
 
-// Rock colours (sRGB): facets vary between these; the foot is earthier and
-// a gully's facets darker (wet rock).
-const ROCK_DARK = new Color("#6a656b");
-const ROCK_LIGHT = new Color("#9d969c");
-const FOOT = new Color("#7a6f5e");
-const GULLY = new Color("#45434a");
+const GULLY = new Color("#4a3a30");
 
 /**
  * Builds one variant's geometry, unindexed so each facet is flat with its own
@@ -139,8 +137,8 @@ export const createMountainShapeGeometry = (spec: MountainShapeSpec): BufferGeom
     const nz = ux * vy - uy * vx;
     const flat = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
     const mid = (a.y + b.y + c.y) / 3;
-    color.copy(ROCK_DARK).lerp(ROCK_LIGHT, hash(spec.seed * 3 + t, 9));
-    if (Math.max(a.y, b.y, c.y) <= MOUNTAIN_HEIGHT * 0.05) color.lerp(FOOT, 0.55);
+    // Snow is per instance (shader); bake rock / grass by slope.
+    mountainFacetColor(color, { flat, top: Math.max(a.y, b.y, c.y), heightFraction: 0, snowLine: 0, shade: hash(spec.seed * 3 + t, 9) });
     const centreX = (a.x + b.x + c.x) / 3;
     const centreZ = (a.z + b.z + c.z) / 3;
     if (spec.gully && centreZ > 0 && Math.abs(Math.atan2(centreX, centreZ)) < 0.5) color.lerp(GULLY, 0.7);
