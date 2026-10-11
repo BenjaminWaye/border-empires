@@ -158,6 +158,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
     // Snow in cold country, and on most of the tall summit peaks everywhere
     // (a range with no white tops at all looks odd).
+    const summit = MOUNTAIN_MODELS[placement.modelIndex]!.role === "summit";
     const snow = neighbourhood.cold || (summit && mountainHash01(wx, wy, SNOW_SALT) < SUMMIT_SNOW_SHARE) ? 1 : 0;
     layer.snowLines.setX(layer.count, snow);
     snowy += snow;
