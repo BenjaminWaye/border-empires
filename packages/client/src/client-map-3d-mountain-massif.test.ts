@@ -60,18 +60,28 @@ describe("mountain massif (one rock cluster per tile)", () => {
     expect(isSummitTile(5, 5, LONE_MOUNTAIN_LOOKUP)).toBe(true);
   });
 
-  it("snows on every mountain in cold country and on none elsewhere", () => {
-    const count = (cold: boolean): number => {
+  it("snows on every mountain in cold country, and elsewhere on most summits but no filler", () => {
+    const count = (cold: boolean, lookupMountains: ReadonlySet<string>, tiles: ReadonlyArray<readonly [number, number]>): number => {
       const scene = new Scene();
-      const massifs = createMountainMassifs(scene, 60, rangeLookup(new Set(), cold));
-      for (let i = 0; i < 30; i += 1) massifs.addInstance(i * 2, 0, 0, i * 3, i);
+      const massifs = createMountainMassifs(scene, 2 * tiles.length, rangeLookup(lookupMountains, cold));
+      tiles.forEach(([wx, wy], i) => massifs.addInstance(i * 2, 0, 0, wx, wy));
       massifs.commit();
       const n = massifs.snowyInstanceCount();
       massifs.dispose();
       return n;
     };
-    expect(count(true)).toBe(30);
-    expect(count(false)).toBe(0);
+    // No mountain neighbours: every tile is a lone summit.
+    const lone = Array.from({ length: 40 }, (_, i) => [i * 3, i] as const);
+    expect(count(true, new Set(), lone)).toBe(40);
+    const warmSummits = count(false, new Set(), lone);
+    expect(warmSummits).toBeGreaterThan(15);
+    expect(warmSummits).toBeLessThan(40);
+    // A long range: only its filler tiles, which never snow in warm country.
+    const range = new Set(Array.from({ length: 40 }, (_, x) => `${x},0`));
+    const lookup = rangeLookup(range);
+    const fillers = Array.from({ length: 40 }, (_, x) => [x, 0] as const).filter(([x, y]) => !isSummitTile(x, y, lookup));
+    expect(fillers.length).toBeGreaterThan(10);
+    expect(count(false, range, fillers)).toBe(0);
   });
 
   it("clears back to zero instances", () => {
