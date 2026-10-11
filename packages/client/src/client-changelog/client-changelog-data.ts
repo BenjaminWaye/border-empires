@@ -44,12 +44,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "New-look mountains",
     why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
     changes: [
-      "Mountains are now chunky low-poly brown rock with grassy ledges and feet, and snow only on the tallest tips",
-      "Neighbouring mountains merge into one range with distinct peaks and flat-topped mesas, instead of a row of identical cones",
-      "Mountains differ in shape, height, width, angle and rock colour, and some have a second, smaller peak",
-      "Neighbouring mountains join into ridges, and the middle of a range stands taller",
-      "Snow caps only tall peaks and mountains in cold country",
-      "Both the 3D map and the 2D map show the same variety"
+      "Mountains are now hand-designed low-poly peaks -- tall spires, twin peaks, broad massifs, crags, knolls, foothills and the odd mesa -- with rock ledges",
+      "In a range, the highest tiles get the big snowy peaks and the rest lower foothills, so ranges read as distinct mountains",
+      "Temperate mountains are brown rock with grassy ledges; mountains in cold country are grey rock under snow",
+      "Mountains are matte, with clean facets"
     ]
   },
   {

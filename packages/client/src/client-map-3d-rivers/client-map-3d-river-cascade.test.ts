@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Mesh, Quaternion, Scene, Vector3, Matrix4 } from "three";
+import { Mesh, Scene } from "three";
 import { setWorldSeed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
+import { mountainPlacementAt } from "../client-map-3d-mountain-massif.js";
+import { MOUNTAIN_MODELS } from "../client-map-3d-mountain-models.js";
 import { LONE_MOUNTAIN_LOOKUP } from "../client-map-3d-mountain-massif.test-helpers.js";
 import { riverMountainFaceOf, riverMountainFaces } from "../client-map-river-mountains/client-map-river-mountains.js";
 import { cascadeCenterline, cascadeSideTiles, createRiverCascades, type RiverCascadeDeps } from "./client-map-3d-river-cascade.js";
@@ -35,23 +36,14 @@ describe("river mountain cascade", () => {
     expect(cascadeSideTiles(face)).toEqual([[9, 9], [10, 9]]);
   });
 
-  it("draws the river mountain with its gully turned toward the river, and no second peak", () => {
-    const scene = new Scene();
-    const massifs = createMountainMassifs(scene, 2, { ...LONE_MOUNTAIN_LOOKUP, riverFaceAt: () => ({ dirX: face.dirX, dirY: face.dirY }) });
-    massifs.addInstance(10.5, 8.5, GROUND, 10, 8);
-    massifs.commit();
-    expect(massifs.riverMountainCount()).toBe(1);
-    expect(massifs.instanceCount()).toBe(1);
-    const riverMesh = massifs.meshes.find((m) => m.count > 0)!;
-    const m = new Matrix4();
-    riverMesh.getMatrixAt(0, m);
-    const q = new Quaternion();
-    m.decompose(new Vector3(), q, new Vector3());
-    // The gully runs down the shape's local +z.
-    const gully = new Vector3(0, 0, 1).applyQuaternion(q);
-    expect(gully.x).toBeCloseTo(face.dirX);
-    expect(gully.z).toBeCloseTo(face.dirY);
-    massifs.dispose();
+  it("starts on the rock of the model drawn on the river mountain's tile", () => {
+    // A lone mountain (only its own tile is mountain) gets a summit model.
+    const lone = flatDeps((x, y) => x === face.mountain.x && y === face.mountain.y);
+    const samples = cascadeCenterline(face, 0, 0, lone);
+    const placement = mountainPlacementAt(face.mountain.x, face.mountain.y, lone.mountainLookup);
+    expect(MOUNTAIN_MODELS[placement.modelIndex]!.role).toBe("summit");
+    // Well above the ground: on the model's face, not on the grass.
+    expect(samples[0]!.y).toBeGreaterThan(GROUND + 0.4);
   });
 
   it("builds only for explored, still-standing river mountains on a real v9 seed", () => {

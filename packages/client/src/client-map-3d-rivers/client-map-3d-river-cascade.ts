@@ -1,6 +1,6 @@
 // River mountain cascades (docs/river-mountains-plan.md, PR C): water falls
-// down the gully of a river mountain (client-map-3d-mountain-massif.ts,
-// RIVER_MOUNTAIN_SHAPE), then runs along the one tile edge from the
+// down the face of a river mountain's model (client-map-3d-mountain-massif.ts,
+// client-map-3d-mountain-models.ts), then runs along the one tile edge from the
 // mountain's corner to the river's spring pool (client-map-3d-rivers-channel.ts
 // SPRING_HALF_WIDTH). Foam on the steep part, river water lower down, with
 // streaks scrolling downstream; a splash ring where it lands and a few
@@ -21,12 +21,11 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import { heightfieldTileWindow, isInHeightfieldTileWindow } from "../client-map-3d-heightfield/client-map-3d-heightfield-window.js";
-import { RIVER_MOUNTAIN_SHAPE } from "../client-map-3d-mountain-massif.js";
-import { isRangeTile, mountainRangeSurfaceY, type MountainRangeDeps } from "../client-map-3d-mountain-range.js";
-import { MOUNTAIN_RADIUS, mountainShapeHeight } from "../client-map-3d-mountain-shape.js";
+import { mountainPlacementAt } from "../client-map-3d-mountain-massif.js";
+import { MOUNTAIN_MODELS, mountainModelHeight } from "../client-map-3d-mountain-models.js";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
-import { mountainNeighbourhoodAt, mountainVariationAt, type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
-import { riverMountainFaceAt, riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
+import { type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
+import { riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
 import { heightfieldSurfaceY, RIVER_WATER_DEPTH, riverTrenchDepth, SPRING_HALF_WIDTH } from "./client-map-3d-rivers-channel.js";
 import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-water-material.js";
 
@@ -34,11 +33,8 @@ import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-wat
 // (OVERLAY_RISE_ABOVE_HEIGHTFIELD), so the cascade starts on the same rock.
 const MASSIF_RISE = 0.012;
 const SURFACE_LIFT = 0.014;
-// Where the water starts down the gully, as a fraction of the mountain's
-// radius from its summit (the gully is cut from ~0.12 of the radius out).
-const SOURCE_RHO = 0.22;
-// In a range the gully starts this far (tiles) from the river mountain's centre.
-const RANGE_SOURCE_RHO = 0.15;
+// Where the water starts down the mountain's face (tiles from its centre).
+const SOURCE_RHO = 0.2;
 const FACE_STEP = 0.035;
 const EDGE_STEPS = 12;
 const TOP_HALF_WIDTH = 0.03;
@@ -98,7 +94,7 @@ const wrapH = (y: number): number => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD
 
 /**
  * The cascade's centreline for one river mountain, in scene coords relative
- * to (camX, camY): down the mountain's gully, then along the edge from
+ * to (camX, camY): down the mountain's face, then along the edge from
  * the mountain's exit corner into the pool at the head, ending at the pool's
  * water level.
  */
@@ -112,7 +108,11 @@ export const cascadeCenterline = (
   const { wrapX, wrapY } = deps.mountainLookup;
   const mx = face.mountain.x;
   const my = face.mountain.y;
-  const variation = mountainVariationAt(mx, my, mountainNeighbourhoodAt(mx, my, deps.mountainLookup));
+  // The model drawn on the river mountain's tile, and how it's turned and scaled.
+  const placement = mountainPlacementAt(mx, my, deps.mountainLookup);
+  const model = MOUNTAIN_MODELS[placement.modelIndex]!;
+  const cos = Math.cos(placement.yaw);
+  const sin = Math.sin(placement.yaw);
   const massifY =
     Math.max(
       heightfield.elevationAt(mx, my),
@@ -129,30 +129,21 @@ export const cascadeCenterline = (
   const exitZ = toroidDelta(camY, face.exit.y, WORLD_HEIGHT);
   const groundAt = (x: number, z: number): number => heightfieldSurfaceY(x, z, camX, camY, heightfield.cornerYAt);
   const poolY = groundAt(headX, headZ) - RIVER_WATER_DEPTH;
-  // A river mountain inside a range is part of the range surface (its gully
-  // cut by the range); a lone one is the instanced gully shape.
-  const rangeDeps: MountainRangeDeps = {
-    ...deps.mountainLookup,
-    cornerYAt: heightfield.cornerYAt,
-    riverFaceAt: (wx, wy) => riverMountainFaceAt(wx, wy, deps.mountainLookup.isMountainAt)
-  };
-  const inRange = isRangeTile(mx, my, deps.mountainLookup);
   // Ground (carved into the pool's bowl near the head) or the mountain's rock, whichever is higher.
   const surfaceAt = (x: number, z: number): number => {
+    // Scene offset from the tile centre -> the model's own (unturned, unscaled) frame.
     const dx = x - centreX;
     const dz = z - centreZ;
-    const fs = variation.footprintScale;
-    // The lone river mountain is turned so its gully (local +z) points along (dirX, dirY).
-    const rock = inRange
-      ? mountainRangeSurfaceY(camX + x, camY + z, rangeDeps)
-      : massifY + variation.heightScale * mountainShapeHeight(RIVER_MOUNTAIN_SHAPE, (dx * face.dirY - dz * face.dirX) / fs, (dx * face.dirX + dz * face.dirY) / fs);
+    const lx = (dx * cos - dz * sin) / placement.footprint;
+    const lz = (dx * sin + dz * cos) / placement.footprint;
+    const rock = massifY + placement.heightScale * mountainModelHeight(model, lx, lz);
     const toHead = Math.hypot(x - headX, z - headZ);
     const ground = Math.max(groundAt(x, z) - riverTrenchDepth(toHead, SPRING_HALF_WIDTH), poolY);
     return Math.max(rock, ground) + SURFACE_LIFT;
   };
 
   const points: { x: number; z: number; y: number }[] = [];
-  const startRho = inRange ? RANGE_SOURCE_RHO : SOURCE_RHO * MOUNTAIN_RADIUS * variation.footprintScale;
+  const startRho = SOURCE_RHO;
   const exitRho = Math.hypot(exitX - centreX, exitZ - centreZ);
   for (let rho = startRho; rho < exitRho; rho += FACE_STEP) {
     const x = centreX + face.dirX * rho;

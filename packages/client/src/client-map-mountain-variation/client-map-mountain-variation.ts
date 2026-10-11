@@ -44,8 +44,6 @@ export type MountainVariation = {
    * (lower in cold country); 0 when the peak is bare.
    */
   readonly snowLine: number;
-  /** Which of the 3D mountain shapes this tile uses (client-map-3d-mountain-shape.ts). */
-  readonly shape: number;
   readonly secondary: SecondaryPeak | null;
   /** Low ridge saddle toward the east / south neighbour (each adjacent pair drawn once). */
   readonly saddleEast: boolean;
@@ -65,8 +63,7 @@ const SECONDARY_MIN_DISTANCE = 0.22;
 const SECONDARY_DISTANCE_RANGE = 0.08;
 const SECONDARY_MIN_SCALE = 0.5;
 const SECONDARY_SCALE_RANGE = 0.2;
-export const MOUNTAIN_SHAPE_COUNT = 4;
-const COLD_SNOW_LINE = 0.6;
+const COLD_SNOW_LINE = 0.45;
 const TALL_SNOW_LINE = 0.78;
 
 /**
@@ -82,6 +79,8 @@ export const mountainHash01 = (wx: number, wy: number, salt: number): number => 
   return (h >>> 0) / 4294967296;
 };
 
+const COLD_RADIUS = 3;
+
 export type MountainNeighbourhoodLookup = {
   readonly isMountainAt: (wx: number, wy: number) => boolean;
   readonly isColdAt: (wx: number, wy: number) => boolean;
@@ -91,9 +90,12 @@ export type MountainNeighbourhoodLookup = {
 
 export const mountainNeighbourhoodAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): MountainNeighbourhood => {
   const { isMountainAt, isColdAt, wrapX, wrapY } = lookup;
+  // Cold if there is cold land within COLD_RADIUS: wide enough that tiles
+  // deep inside a range (with only mountains around them) share their
+  // range's climate instead of patching it with the other palette.
   let cold = false;
-  for (let dy = -1; dy <= 1 && !cold; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  for (let dy = -COLD_RADIUS; dy <= COLD_RADIUS && !cold; dy += 1) {
+    for (let dx = -COLD_RADIUS; dx <= COLD_RADIUS; dx += 1) {
       if ((dx !== 0 || dy !== 0) && isColdAt(wrapX(wx + dx), wrapY(wy + dy))) {
         cold = true;
         break;
@@ -134,7 +136,6 @@ export const mountainVariationAt = (wx: number, wy: number, neighbourhood: Mount
     // otherwise nearly every peak inside a range would be snow-capped.
     snow: neighbourhood.cold || ownHeight >= SNOW_HEIGHT_SCALE,
     snowLine: neighbourhood.cold ? COLD_SNOW_LINE : ownHeight >= SNOW_HEIGHT_SCALE ? TALL_SNOW_LINE : 0,
-    shape: Math.floor(mountainHash01(wx, wy, 10) * MOUNTAIN_SHAPE_COUNT),
     secondary,
     saddleEast: neighbourhood.east,
     saddleSouth: neighbourhood.south
