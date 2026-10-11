@@ -249,44 +249,71 @@ const createStressSeedWorld = (
 };
 
 // createSeasonSeedWorld regenerates the full world map (~200k tiles) from
-// scratch — a multi-second synchronous cost (~3.4s on a loaded box). Callers
-// like the gateway's buildGatewayInitPayload invoke createSeedWorld() on
-// every login purely as a fallback lookup table, so an unmemoized call here
-// turned into a per-login full worldgen block on the gateway main thread
-// (observed at 100+s under concurrent AI load). Cache the generated result
-// and hand back a DEEP clone: the gateway path only reads it, but the sim
+// scratch — a multi-second synchronous cost (3.4s on a loaded box in July,
+// 30-45s on staging by October). The gateway used to call createSeedWorld()
+// on every login purely as a fallback lookup table, so an unmemoized call
+// here turned into a per-login full worldgen block on the gateway main thread
+// (observed at 100+s under concurrent AI load). Cache the generated result.
+// createSeedWorld hands back a DEEP clone: the sim
 // runtime constructor mutates seed players/tiles in place (applyManpowerRegen,
 // tile-merge), so a shared reference would let one runtime construction
 // corrupt the cached template for the next. structuredClone (~110ms for
 // 200k tiles) fully isolates every caller and is still ~30x cheaper than
 // regenerating the world.
 let cachedSeasonSeedWorld: ReturnType<typeof createSeasonSeedWorld> | undefined;
+const generatedSeasonSeedWorld = (): ReturnType<typeof createSeasonSeedWorld> =>
+  (cachedSeasonSeedWorld ??= createSeasonSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer));
+
+const seasonSeedWorldFrom = (
+  generated: ReturnType<typeof createSeasonSeedWorld>,
+  copy: <T>(value: T) => T
+): SimulationSeedWorld => ({
+  players: copy(generated.players),
+  tiles: copy(generated.tiles),
+  docks: copy(generated.docks),
+  summary: {
+    profile: "season-20ai",
+    humanPlayers: generated.humanPlayers,
+    aiPlayers: generated.aiPlayers,
+    totalTiles: generated.totalTiles,
+    totalSettledTiles: generated.totalSettledTiles,
+    totalTownTiles: generated.totalTownTiles,
+    perPlayer: copy(generated.perPlayer)
+  }
+});
 
 export const createSeedWorld = (profile: SimulationSeedProfile = "default"): SimulationSeedWorld => {
   if (profile === "stress-10ai") return createStressSeedWorld(10, "stress-10ai");
   if (profile === "stress-20ai") return createStressSeedWorld(20, "stress-20ai");
   if (profile === "stress-40ai") return createStressSeedWorld(40, "stress-40ai");
-  if (profile === "season-20ai") {
-    if (!cachedSeasonSeedWorld) {
-      cachedSeasonSeedWorld = createSeasonSeedWorld(SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"], createPlayer);
-    }
-    const generated = cachedSeasonSeedWorld;
-    return {
-      players: structuredClone(generated.players),
-      tiles: structuredClone(generated.tiles),
-      docks: structuredClone(generated.docks),
-      summary: {
-        profile: "season-20ai",
-        humanPlayers: generated.humanPlayers,
-        aiPlayers: generated.aiPlayers,
-        totalTiles: generated.totalTiles,
-        totalSettledTiles: generated.totalSettledTiles,
-        totalTownTiles: generated.totalTownTiles,
-        perPlayer: structuredClone(generated.perPlayer)
-      }
-    };
-  }
+  if (profile === "season-20ai") return seasonSeedWorldFrom(generatedSeasonSeedWorld(), structuredClone);
   return createDefaultSeedWorld();
+};
+
+// Read-only view for callers that only look things up -- the gateway's INIT
+// fallback fields (init-payload.ts, seed-fallback.ts). It shares one cached
+// world instead of structuredClone-ing ~200k tiles on every login, and the
+// gateway builds it at boot (warmGatewaySeedWorld) so no login pays the
+// worldgen: lazily, the first login after each restart generated the whole
+// season-20ai world on the gateway main thread (30-45s on staging,
+// 2026-10-10), failing deploy probes and tripping the event-loop watchdog.
+// Never mutate it; use createSeedWorld for a private, mutable copy.
+export type SeedWorldTemplate = {
+  readonly players: ReadonlyMap<string, Readonly<DomainPlayer>>;
+  readonly tiles: ReadonlyMap<string, Readonly<DomainTileState>>;
+  readonly docks: readonly Readonly<DockRouteDefinition>[];
+  readonly summary: Readonly<SimulationSeedSummary>;
+};
+// Bounded: at most one entry per SimulationSeedProfile.
+const seedWorldTemplates = new Map<SimulationSeedProfile, SeedWorldTemplate>();
+
+export const readSeedWorldTemplate = (profile: SimulationSeedProfile = "default"): SeedWorldTemplate => {
+  const cached = seedWorldTemplates.get(profile);
+  if (cached) return cached;
+  const template =
+    profile === "season-20ai" ? seasonSeedWorldFrom(generatedSeasonSeedWorld(), (value) => value) : createSeedWorld(profile);
+  seedWorldTemplates.set(profile, template);
+  return template;
 };
 
 export const parseSimulationSeedProfile = (value: string | undefined): SimulationSeedProfile =>

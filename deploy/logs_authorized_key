@@ -1,0 +1,1 @@
+command="/opt/border-empires/bin/deploy --logs-only",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBM6fkWufDjI0XbVF6qOZCl7luw0uognEbmPuhPGhFWz claude-logs@border-empires
