@@ -112,11 +112,11 @@ export const mountainShapeHeight = (spec: MountainShapeSpec, x: number, z: numbe
 const GULLY = new Color("#4a3a30");
 
 /**
- * Builds one variant's geometry, unindexed so each facet is flat with its own
+ * Builds one variant's geometry (temperate or alpine palette), unindexed so each facet is flat with its own
  * colour: position, colour, and per-facet aHeight (0 at the ground, 1 at the
  * summit) / aFlat (the facet normal's upward component) for the snow shader.
  */
-export const createMountainShapeGeometry = (spec: MountainShapeSpec): BufferGeometry => {
+export const createMountainShapeGeometry = (spec: MountainShapeSpec, alpine = false): BufferGeometry => {
   const triangles = trianglesFor(spec);
   const positions = new Float32Array(triangles.length * 9);
   const colors = new Float32Array(triangles.length * 9);
@@ -137,7 +137,7 @@ export const createMountainShapeGeometry = (spec: MountainShapeSpec): BufferGeom
     const flat = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
     const mid = (a.y + b.y + c.y) / 3;
     // Snow is per instance (shader); bake rock / grass by slope.
-    mountainFacetColor(color, { flat, top: Math.max(a.y, b.y, c.y), heightFraction: mid / MOUNTAIN_HEIGHT, snowLine: 0, shade: 0.5 });
+    mountainFacetColor(color, { flat, top: Math.max(a.y, b.y, c.y), heightFraction: mid / MOUNTAIN_HEIGHT, snowLine: 0, shade: 0.5, alpine });
     const centreX = (a.x + b.x + c.x) / 3;
     const centreZ = (a.z + b.z + c.z) / 3;
     if (spec.gully && centreZ > 0 && Math.abs(Math.atan2(centreX, centreZ)) < 0.5) color.lerp(GULLY, 0.7);

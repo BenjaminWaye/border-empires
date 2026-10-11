@@ -74,10 +74,11 @@ export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): numb
   }
 };
 
-// Ground under and round a mountain mesh's foot: grassy earth, matching the
-// meshes' grassy aprons (client-map-3d-mountain-palette.ts).
-const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [112, 134, 66];
-const MOUNTAIN_ROCK_DARK: [number, number, number] = [98, 120, 58];
+// Ground under and round a mountain mesh's foot: a muted olive-grey earth
+// that sits with both the grassy temperate and the stony alpine mountain
+// feet (client-map-3d-mountain-palette.ts) and their surroundings.
+const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [122, 130, 100];
+const MOUNTAIN_ROCK_DARK: [number, number, number] = [110, 118, 90];
 const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDark;
 const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
 // Pale frost blue-grey-green — matches the 2D minimap's TUNDRA tone (client-map-facade.ts).

@@ -80,7 +80,8 @@ export const initTerrainTextures = (): void => {
   terrainTextures.set("JUNGLE", makeTerrainTexture([46, 100, 45], { grain: 12, grass: true, mottle: true }));
   terrainTextures.set("MARSH", makeTerrainTexture([90, 108, 72], { grain: 8, mottle: true, waveA: 0.2, waveB: 0.16 }));
   terrainTextures.set("SNOW", makeTerrainTexture([235, 240, 245], { grain: 6, waveA: 0.08, waveB: 0.06 }));
-  // Grassy, stony ground only (the mountains' foot, as in 3D): the peaks are drawn per tile on top
+  // Muted olive-grey stony ground only (the mountains' foot, as in 3D, fitting
+  // grass and tundra alike): the peaks are drawn per tile on top
   // (client-map-render-mountain-peaks.ts) so every mountain can differ.
-  terrainTextures.set("MOUNTAIN", makeTerrainTexture([108, 128, 64], { grain: 9, grass: true, rock: true }));
+  terrainTextures.set("MOUNTAIN", makeTerrainTexture([120, 128, 100], { grain: 9, rock: true }));
 };

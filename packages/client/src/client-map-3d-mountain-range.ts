@@ -80,6 +80,8 @@ type TileInfo = {
   readonly lobePhase: number;
   /** One rock / grass shade per mountain, so facets differ only by how they face the light. */
   readonly shade: number;
+  /** In cold country: dark grey rock under snow (client-map-3d-mountain-palette.ts). */
+  readonly alpine: boolean;
   readonly reach: number;
   /** Flat top height (mesas), or Infinity for a pointed peak. */
   readonly cap: number;
@@ -87,7 +89,7 @@ type TileInfo = {
   readonly gully: { readonly sx: number; readonly sy: number } | null;
 };
 
-const NOT_MOUNTAIN: TileInfo = { mountain: false, peak: 0, heightScale: 0, snowLine: 0, tint: 0, warmth: 0, lobePhase: 0, shade: 0, reach: 0, cap: Infinity, gully: null };
+const NOT_MOUNTAIN: TileInfo = { mountain: false, peak: 0, heightScale: 0, snowLine: 0, tint: 0, warmth: 0, lobePhase: 0, shade: 0, alpine: false, reach: 0, cap: Infinity, gully: null };
 
 /** True when (wx, wy) is a mountain with at least one orthogonal mountain neighbour: drawn as part of a range. */
 export const isRangeTile = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): boolean => {
@@ -120,7 +122,9 @@ const createSampler = (deps: MountainRangeDeps, cache: Map<number, TileInfo> | n
     let info = NOT_MOUNTAIN;
     // Only range tiles raise cones: a lone mountain is drawn by its own instanced peak.
     if (isRangeTile(wx, wy, deps)) {
-      const v = mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, deps));
+      const neighbourhood = mountainNeighbourhoodAt(wx, wy, deps);
+      const v = mountainVariationAt(wx, wy, neighbourhood);
+      const alpine = neighbourhood.cold;
       const own = mountainHash01(wx, wy, SUMMIT_SALT);
       const summit = [[0, -1], [1, 0], [0, 1], [-1, 0]].every(([dx, dy]) => {
         const nx = wrapX(wx + dx!);
@@ -130,14 +134,17 @@ const createSampler = (deps: MountainRangeDeps, cache: Map<number, TileInfo> | n
       const face = deps.riverFaceAt?.(wx, wy) ?? null;
       const peak = MOUNTAIN_HEIGHT * v.heightScale * (summit ? 1 : SHOULDER);
       // River mountains stay pointed: their gully runs down from the summit.
-      const mesa = summit && !face && mountainHash01(wx, wy, 25) < MESA_CHANCE;
+      // Mesas are a temperate shape; alpine peaks stay pointed under snow.
+      const mesa = summit && !face && !alpine && mountainHash01(wx, wy, 25) < MESA_CHANCE;
       info = {
         mountain: true,
         peak,
         reach: summit ? SUMMIT_REACH : SHOULDER_REACH,
         cap: mesa ? peak * MESA_TOP : Infinity,
         heightScale: v.heightScale,
-        snowLine: summit && !mesa ? v.snowLine : 0,
+        // Alpine shoulders carry snow too; temperate snow only on summits' tips.
+        snowLine: (summit || alpine) && !mesa ? v.snowLine : 0,
+        alpine,
         tint: v.tint,
         warmth: v.warmth,
         lobePhase: mountainHash01(wx, wy, 23) * Math.PI * 2,
@@ -357,7 +364,8 @@ export const createMountainRange = (scene: Scene, deps: MountainRangeDeps): Moun
         top: Math.max(a.h, b.h, c.h),
         heightFraction: mid / (MOUNTAIN_HEIGHT * owner.heightScale || 1),
         snowLine: owner.snowLine,
-        shade: owner.shade
+        shade: owner.shade,
+        alpine: owner.alpine
       });
       const light = 1 + TINT_LIGHTNESS * owner.tint;
       const warm = TINT_WARMTH * owner.warmth;

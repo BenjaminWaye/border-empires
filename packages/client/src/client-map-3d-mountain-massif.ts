@@ -78,11 +78,16 @@ const createShapeLayer = (geometry: BufferGeometry, material: MeshLambertMateria
 
 export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: MountainMassifDeps): MountainMassif => {
   const material = createMountainMaterial();
-  // Each shape can hold every visible tile's main peak; second peaks and
-  // second peaks spread across the shapes; anything past capacity is dropped.
-  const layers = Array.from({ length: MOUNTAIN_SHAPE_COUNT }, (_, i) =>
-    createShapeLayer(createMountainShapeGeometry({ seed: i + 1 }), material, Math.max(1, maxInstances))
-  );
+  // Each shape can hold every visible tile's main peak; second peaks spread
+  // across the shapes; anything past capacity is dropped. Temperate shapes
+  // are brown rock, alpine ones (cold country) dark grey under snow.
+  const shapeLayers = (alpine: boolean): ShapeLayer[] =>
+    Array.from({ length: MOUNTAIN_SHAPE_COUNT }, (_, i) =>
+      createShapeLayer(createMountainShapeGeometry({ seed: i + 1 }, alpine), material, Math.max(1, alpine ? Math.ceil(maxInstances / 2) : maxInstances))
+    );
+  const temperateLayers = shapeLayers(false);
+  const alpineLayers = shapeLayers(true);
+  const layers = [...temperateLayers, ...alpineLayers];
   for (const layer of layers) scene.add(layer.mesh);
   const range = createMountainRange(scene, deps);
 
@@ -135,16 +140,18 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
       range.addTile(x, z, wx, wy);
       return;
     }
-    const variation = mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, deps));
+    const neighbourhood = mountainNeighbourhoodAt(wx, wy, deps);
+    const variation = mountainVariationAt(wx, wy, neighbourhood);
+    const set = neighbourhood.cold ? alpineLayers : temperateLayers;
     const color = rockColor(variation);
     const footprint = variation.footprintScale;
     const yaw = variation.yaw * 4; // shapes aren't 4-fold symmetric: use the full turn
-    const main = layers[variation.shape]!;
+    const main = set[variation.shape]!;
     addShape(main, x, z, surfaceY, yaw, footprint, variation.heightScale, footprint, color, variation.snowLine);
     const second = variation.secondary;
     if (second) {
       const s = second.scale;
-      const layer = layers[(variation.shape + 1) % layers.length]!;
+      const layer = set[(variation.shape + 1) % set.length]!;
       addShape(
         layer,
         x + second.dx,

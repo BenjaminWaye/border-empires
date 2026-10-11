@@ -31,6 +31,8 @@ export type MountainPeaksLayout = {
   readonly ridges: readonly RidgeShape[];
   /** Rock lightness shift in [-1, 1]. */
   readonly tint: number;
+  /** Cold country: dark grey rock (as in 3D), otherwise warm brown. */
+  readonly alpine: boolean;
 };
 
 const BASE_Y = 0.84;
@@ -90,7 +92,7 @@ export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: Mount
   if (neighbourhood.east) ridges.push({ toward: "east" });
   if (neighbourhood.south) ridges.push({ toward: "south" });
   if (neighbourhood.west) ridges.push({ toward: "west" });
-  return { peaks, ridges, tint: v.tint };
+  return { peaks, ridges, tint: v.tint, alpine: neighbourhood.cold };
 };
 
 const shade = (base: readonly [number, number, number], tint: number, alpha: number): string => {
@@ -100,9 +102,11 @@ const shade = (base: readonly [number, number, number], tint: number, alpha: num
 };
 
 // Warm brown rock, matching the 3D mountains (client-map-3d-mountain-palette.ts).
-const LIT_ROCK: readonly [number, number, number] = [150, 114, 84];
-const SHADED_ROCK: readonly [number, number, number] = [108, 80, 60];
-const RIDGE_ROCK: readonly [number, number, number] = [128, 96, 70];
+type Rgb = readonly [number, number, number];
+type RockPalette = { readonly lit: Rgb; readonly shaded: Rgb; readonly ridge: Rgb };
+const TEMPERATE_ROCK: RockPalette = { lit: [150, 114, 84], shaded: [108, 80, 60], ridge: [128, 96, 70] };
+// Cold country (matches the 3D alpine palette).
+const ALPINE_ROCK: RockPalette = { lit: [150, 152, 160], shaded: [98, 101, 109], ridge: [124, 126, 134] };
 
 // East/west ridge: a sloped shoulder from the main peak's flank down to a
 // low crest at the tile edge, where the neighbour's mirrored shoulder meets it.
@@ -114,7 +118,7 @@ const SHOULDER_EDGE_CREST_Y = 0.7;
 // spur, which sits right behind this tile's main peak).
 const SPUR = { x: 0.5, baseY: 0.36, halfWidth: 0.16, height: 0.2 } as const;
 
-const drawRidge = (ctx: CanvasRenderingContext2D, ridge: RidgeShape, px: number, py: number, size: number, tint: number): void => {
+const drawRidge = (ctx: CanvasRenderingContext2D, ridge: RidgeShape, px: number, py: number, size: number, tint: number, rock: RockPalette): void => {
   const at = (x: number, y: number): [number, number] => [px + x * size, py + y * size];
   if (ridge.toward === "south") return;
   if (ridge.toward === "north") {
@@ -123,11 +127,11 @@ const drawRidge = (ctx: CanvasRenderingContext2D, ridge: RidgeShape, px: number,
       baseLeft: { x: SPUR.x - SPUR.halfWidth, y: SPUR.baseY },
       baseRight: { x: SPUR.x + SPUR.halfWidth, y: SPUR.baseY },
       snow: false
-    }, px, py, size, tint);
+    }, px, py, size, tint, rock);
     return;
   }
   const mirror = (x: number): number => (ridge.toward === "east" ? x : 1 - x);
-  ctx.fillStyle = shade(RIDGE_ROCK, tint, 0.92);
+  ctx.fillStyle = shade(rock.ridge, tint, 0.92);
   ctx.beginPath();
   ctx.moveTo(...at(mirror(0.5), BASE_Y));
   ctx.lineTo(...at(mirror(SHOULDER_INNER_X), SHOULDER_INNER_CREST_Y));
@@ -137,20 +141,20 @@ const drawRidge = (ctx: CanvasRenderingContext2D, ridge: RidgeShape, px: number,
   ctx.fill();
 };
 
-const drawPeak = (ctx: CanvasRenderingContext2D, peak: PeakShape, px: number, py: number, size: number, tint: number): void => {
+const drawPeak = (ctx: CanvasRenderingContext2D, peak: PeakShape, px: number, py: number, size: number, tint: number, rock: RockPalette): void => {
   const X = (x: number): number => px + x * size;
   const Y = (y: number): number => py + y * size;
   const midX = X(peak.apex.x);
   const baseY = Y(peak.baseLeft.y);
   // Sun from the upper left: lit left face, shaded right face.
-  ctx.fillStyle = shade(LIT_ROCK, tint, 0.92);
+  ctx.fillStyle = shade(rock.lit, tint, 0.92);
   ctx.beginPath();
   ctx.moveTo(midX, Y(peak.apex.y));
   ctx.lineTo(X(peak.baseLeft.x), baseY);
   ctx.lineTo(midX, baseY);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = shade(SHADED_ROCK, tint, 0.92);
+  ctx.fillStyle = shade(rock.shaded, tint, 0.92);
   ctx.beginPath();
   ctx.moveTo(midX, Y(peak.apex.y));
   ctx.lineTo(midX, baseY);
@@ -177,8 +181,9 @@ const drawPeak = (ctx: CanvasRenderingContext2D, peak: PeakShape, px: number, py
 
 /** Draws a peaks layout into the tile square at (px, py). */
 export const drawMountainPeaksLayout = (ctx: CanvasRenderingContext2D, layout: MountainPeaksLayout, px: number, py: number, size: number): void => {
-  for (const ridge of layout.ridges) drawRidge(ctx, ridge, px, py, size, layout.tint);
-  for (const peak of layout.peaks) drawPeak(ctx, peak, px, py, size, layout.tint);
+  const rock = layout.alpine ? ALPINE_ROCK : TEMPERATE_ROCK;
+  for (const ridge of layout.ridges) drawRidge(ctx, ridge, px, py, size, layout.tint, rock);
+  for (const peak of layout.peaks) drawPeak(ctx, peak, px, py, size, layout.tint, rock);
 };
 
 export const drawMountainPeaks2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
