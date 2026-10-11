@@ -40,7 +40,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST, isAutoSettleAllowed,
+  SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -3439,10 +3439,10 @@ export class SimulationRuntime {
     if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be garrisoned"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
-    // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce
-    // their own reach once settled, so requiring pre-existing reach here is
-    // circular (mirrors isAutoSettlementEligibleTarget's exemption).
-    if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    // EXPAND's OUT_OF_REACH check. Town/dock tiles and tiles holding a captured
+    // building are exempt (settleIgnoresReach) -- the same tiles the sim
+    // auto-settles out of reach on capture, so manual Garrison must accept them.
+    if (!settleIgnoresReach(target) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
