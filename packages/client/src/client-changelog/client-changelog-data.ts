@@ -18,7 +18,6 @@ import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-gar
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
-import { CLIENT_CHANGELOG_ENTRIES_GARRISON_OUT_OF_REACH } from "./client-changelog-garrison-out-of-reach.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -414,6 +413,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
     ]
   },
+  {
+    createdAt: 1791748295340, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.1",
+    title: "Garrison works on towns, docks and captured buildings outside your reach",
+    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    changes: [
+      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
+      "Plain land outside your reach still can't be garrisoned"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -425,8 +434,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
-  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
-  ...CLIENT_CHANGELOG_ENTRIES_GARRISON_OUT_OF_REACH
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
