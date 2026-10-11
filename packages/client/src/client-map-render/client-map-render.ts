@@ -29,6 +29,7 @@ export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-t
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
+import { depositIconKey, drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -474,19 +475,8 @@ export {
 } from "./client-map-render-centered-overlay.js";
 
 const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
-  const icon =
-    resource === "FARM" || resource === "FISH" ? "🍞"
-    : resource === "TITANIUM" ? "⛏"
-    : resource === "GEMS" ? "💎"
-    : resource === "UMBRITE" ? "🟣"
-    : "";
-  if (!icon) return;
-  ctx.font = `${Math.max(8, badge * 0.8)}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(icon, x + badge / 2, y + badge / 2 + 0.5);
-  ctx.textAlign = "start";
-  ctx.textBaseline = "alphabetic";
+  const key = depositIconKey(resource);
+  if (key) drawResourceIconOnCanvas(ctx, key, x + badge / 2, y + badge / 2, badge, `${Math.max(8, badge * 0.8)}px system-ui`);
 };
 
 export const drawResourceCornerMarker = (

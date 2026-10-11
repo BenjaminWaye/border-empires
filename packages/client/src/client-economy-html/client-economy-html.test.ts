@@ -33,7 +33,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -71,7 +71,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -107,7 +107,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -139,7 +139,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -181,7 +181,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -215,7 +215,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -243,7 +243,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -282,7 +282,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -326,7 +326,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -367,7 +367,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -405,7 +405,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: false,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -443,7 +443,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown: emptyEconomyBreakdown(),
       isMobile: false,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type,
@@ -487,7 +487,7 @@ describe("renderEconomyPanelHtml", () => {
       economyBreakdown,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type

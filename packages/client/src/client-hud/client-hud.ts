@@ -136,7 +136,7 @@ type HudDeps = {
   pushFeed: (message: string, type: import("../client-types.js").FeedType, severity?: import("../client-types.js").FeedSeverity) => void;
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
   prettyToken: (token: string) => string;
-  resourceIconForKey: (key: string) => string;
+  resourceIconHtml: (key: string) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (structureType: string) => string;
   leaderboardHtml: typeof import("../client-panel-html/client-panel-html.js").leaderboardHtml;
@@ -212,7 +212,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     pushFeed,
     requestViewRefresh,
     prettyToken,
-    resourceIconForKey,
+    resourceIconHtml,
     resourceLabel,
     economicStructureName,
     leaderboardHtml,
@@ -833,7 +833,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       tiles: state.tiles.values(),
       isMobile: window.matchMedia("(max-width: 900px)").matches,
       prettyToken,
-      resourceIconForKey,
+      resourceIconHtml,
       rateToneClass,
       resourceLabel,
       economicStructureName,

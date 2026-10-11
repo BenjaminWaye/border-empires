@@ -43,6 +43,7 @@ import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
 import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
 import type { MapPrepStage } from "../client-map-prep/client-map-prep-stages.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
+import { resourceIconGlyph } from "../client-resource-icons/client-resource-icons.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js"; import { createWinChancePaintOverlay } from "../client-map-3d-win-chance-paint-overlay.js"; import { createArrowOverlay, syncArrowOverlayFrame } from "../client-map-3d-arrow-overlay.js"; import { createShieldAreaOverlay } from "../client-map-3d-shield-area-overlay.js"; import { collectKnownShieldFlags, isShieldCoverageShownOn, tileShieldCoverage } from "../client-known-shield-flags.js";
@@ -189,11 +190,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // animation would freeze whenever the camera stops moving mid-transition.
   const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number; ownerId: string }>();
   const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>(); let reach3DPylonsAnimateArrivals = false; // false only on the first diffTransitions() call (initial load)
-  // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
-  const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
+  // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets the titanium icon while an unfed town still gets food.
+  const slotResourceBadge = (key: SlotResource): ResourceBadgeOverlay => createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, resourceIconGlyph(key), { iconKey: key });
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
-    FOOD: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.FOOD), TITANIUM: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.TITANIUM),
-    CRYSTAL: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.CRYSTAL), UMBRITE: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.UMBRITE)
+    FOOD: slotResourceBadge("FOOD"), TITANIUM: slotResourceBadge("TITANIUM"), CRYSTAL: slotResourceBadge("CRYSTAL"), UMBRITE: slotResourceBadge("UMBRITE")
   };
   const shardRainBadgeOverlay = createShardRainBadgeOverlay(scene); const allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]; // shares the clear/commit/tick/dispose loops below — see client-map-3d-shard-rain-badge-overlay.ts
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);

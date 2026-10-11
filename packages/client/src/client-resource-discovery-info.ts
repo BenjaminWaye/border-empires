@@ -3,12 +3,14 @@
 // resource, players who haven't found it yet need to know what it looks
 // like (glyph/color, matching the map/HUD) and roughly where to look.
 // Deliberately reuses the glyph/color already defined for the map/HUD
-// (resourceIconForKey/strategicResourceColor in client-map-display.ts) and
+// (resourceIconHtml in client-resource-icons.ts, resourceColor in
+// client-map-display.ts) and
 // the "what it's for" copy already written for the map-discovery toast
 // (DISCOVERY_TIPS in client-discovery-tips/client-discovery-tips.ts) instead
 // of duplicating either, so this panel can't drift out of sync with what the
 // map itself shows.
-import { resourceColor, resourceIconForKey, resourceLabel } from "./client-map-display.js";
+import { resourceColor, resourceLabel } from "./client-map-display.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips/client-discovery-tips.js";
 import type { TechInfo } from "./client-types.js";
 import { occupationSurveyController, occupationSurveyResourceLabel, techIdForOccupationSurveyResource } from "./client-occupation-survey.js";
@@ -39,7 +41,7 @@ const WHERE_TO_FIND: Record<StrategicResourceKey, string> = {
 // Map's raw deposit key (GEMS) differs from the strategic-resource key used
 // by tech requirements/HUD (CRYSTAL) — mirrors strategicResourceKeyForTile
 // in client-map-display.ts. resourceColor/resourceLabel take the raw
-// deposit key; resourceIconForKey takes the strategic-resource key.
+// deposit key; resourceIconHtml takes the strategic-resource key.
 const MAP_RESOURCE_KEY_BY_STRATEGIC: Record<StrategicResourceKey, string> = {
   TITANIUM: "TITANIUM",
   CRYSTAL: "GEMS",
@@ -51,7 +53,7 @@ export const resourceDiscoveryInfo = (key: StrategicResourceKey): ResourceDiscov
   return {
     key,
     label: resourceLabel(mapKey),
-    glyph: resourceIconForKey(key),
+    glyph: resourceIconHtml(key, "large"),
     color: resourceColor(mapKey) ?? "#888",
     whatItsFor: DISCOVERY_TIPS[DISCOVERY_TIP_ID_BY_RESOURCE[key]].body,
     whereToFind: WHERE_TO_FIND[key]

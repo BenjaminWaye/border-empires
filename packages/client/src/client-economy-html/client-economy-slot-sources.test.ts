@@ -43,7 +43,7 @@ describe("renderEconomyPanelHtml — Slot Sources", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
@@ -90,7 +90,7 @@ describe("renderEconomyPanelHtml — Slot Sources", () => {
       economyBreakdown: undefined,
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type
