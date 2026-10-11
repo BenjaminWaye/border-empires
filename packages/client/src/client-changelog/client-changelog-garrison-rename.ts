@@ -11,5 +11,14 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
       "Settled land is now called garrisoned land everywhere: tile menus, building placement hints, alerts, the leaderboard and player profiles",
       "Garrisoning works exactly as settling did: same manpower cost, same timer, and the tile becomes defendable, buildable and counts toward victory"
     ]
+  },
+  {
+    createdAt: 1791748183000, // frozen at authoring time
+    introducedIn: "2026.10.11.1",
+    title: "Auto-garrison checkbox uses the new name",
+    why: "The tile menu checkbox for towns and docks still said \"Settle\" after the rename to Garrison.",
+    changes: [
+      "The checkbox under the Garrison button now reads \"Garrison towns, docks and the tiles around them automatically from now on\""
+    ]
   }
 ];
