@@ -22,6 +22,34 @@ const installSessionStorageMock = () => {
 };
 
 describe("auto-settled development queue entries", () => {
+  it("removes an earlier queue entry when server automation starts its garrison", () => {
+    installSessionStorageMock();
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 1_000;
+    state.autoSettle = loadedAutoSettleState({ ...DEFAULT_AUTO_SETTLE_PREFS });
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as never);
+    const deps = { keyFor: (x: number, y: number) => `${x},${y}` };
+    expect(applyAutoSettlementQueueFromServer(state, [{ x: 9, y: 10 }], deps)).toBe(1);
+    state.settleProgressByTile.set("9,10", { startAt: 1_000, resolvesAt: Date.now() + 60_000, target: { x: 9, y: 10 }, awaitingServerConfirm: false });
+    expect(applyAutoSettlementQueueFromServer(state, [{ x: 9, y: 10 }], deps)).toBe(0);
+    expect(state.developmentQueue).toEqual([]);
+    expect(globalThis.sessionStorage.getItem("border-empires-development-queue-v1")).toBeNull();
+  });
+
+  it("keeps queued tiles outside the loaded map while removing completed garrisons", () => {
+    installSessionStorageMock();
+    const state = createInitialState();
+    state.me = "me";
+    state.developmentQueue = [
+      { kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Garrison" },
+      { kind: "SETTLE", x: 30, y: 30, tileKey: "30,30", label: "Garrison" }
+    ];
+    state.tiles.set("9,10", { x: 9, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as never);
+    applyAutoSettlementQueueFromServer(state, [], { keyFor: (x, y) => `${x},${y}` });
+    expect(state.developmentQueue.map((entry) => entry.tileKey)).toEqual(["30,30"]);
+  });
+
   it("appends server-ordered auto settlements to the cancellable development queue", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();

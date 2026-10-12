@@ -143,6 +143,7 @@ const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => {
 };
 
 const actionIcon = (id: TileActionDef["id"]): string => {
+  if (id.startsWith("redeploy_afc_module:")) return "⇣";
   if (id === "expand_here") return "⚐";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
