@@ -69,6 +69,15 @@ export const applyAutoSettlementQueueFromServer = (
   pruneExpiredAutoSettlementQueueVisibleHolds(state);
   let added = 0;
   const pendingSettlementTileKeys = new Set(state.settleProgressByTile.keys());
+  // Server automation can start a tile while its client queue entry still waits.
+  const previousQueueLength = state.developmentQueue.length;
+  state.developmentQueue = state.developmentQueue.filter((entry) =>
+    entry.kind !== "SETTLE" || (!pendingSettlementTileKeys.has(entry.tileKey) &&
+      (!state.tiles.has(entry.tileKey) || isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me)))
+  );
+  if (state.developmentQueue.length !== previousQueueLength) {
+    persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  }
   const queuedSettlementTileKeys = new Set(
     state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
   );

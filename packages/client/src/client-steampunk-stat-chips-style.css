@@ -267,7 +267,7 @@
    ~60px wider than the old text chip, which pushed the resource ribbon under
    the panel buttons at common laptop widths (1280px). Below 1440px the gauge
    becomes a thin strip along the chip's bottom edge and the countdown drops
-   its "Refill in" prefix and the label shortens to "MP"; the mono readings also step down a size (Space Mono
+   its "Next batch in" prefix and the label shortens to "MP"; the mono readings also step down a size (Space Mono
    runs wider than the old serif), so the row fits wherever it fitted before. */
 
 @media (max-width: 1440px) {

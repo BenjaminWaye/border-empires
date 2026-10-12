@@ -21,5 +21,14 @@ export const CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME: ClientChangelogEntry[] = 
       "The auto-garrison checkboxes under the Garrison button and in Settings now say Garrison and Auto-garrison",
       "Disabled-action reasons, attack sheets, tile overview notes, queue help and a few error messages now say garrisoned instead of settled"
     ]
+  },
+  {
+    createdAt: 1791750979959, // frozen at authoring time
+    introducedIn: "2026.10.11.2",
+    title: "Leaderboard says \"garrisoned tiles\"",
+    why: "After the rename, leaderboard rows read \"garrisoned 123\" with nothing saying what was being counted.",
+    changes: [
+      "Overall leaderboard rows now read \"garrisoned tiles 123\" instead of \"garrisoned 123\""
+    ]
   }
 ];
