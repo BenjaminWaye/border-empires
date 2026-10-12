@@ -334,4 +334,12 @@ export const simulationWorldSeedForProfile = (profile: SimulationSeedProfile): n
 export const seedProfileWorldgen = (
   profile: SimulationSeedProfile | undefined
 ): { readonly worldSeed: number; readonly worldgenVersion: number } | undefined =>
-  profile === "season-20ai" ? { worldSeed: generatedSeasonSeedWorld().worldSeed, worldgenVersion: CURRENT_WORLDGEN_VERSION } : undefined;
+  profile === "season-20ai"
+    ? {
+        // The world actually generated in this process, if any (it may have
+        // re-rolled its seed); never generated here just to read the seed --
+        // a recovered season-20ai runtime doesn't otherwise need it.
+        worldSeed: cachedSeasonSeedWorld?.worldSeed ?? SIMULATION_PROFILE_WORLD_SEEDS["season-20ai"],
+        worldgenVersion: CURRENT_WORLDGEN_VERSION
+      }
+    : undefined;
