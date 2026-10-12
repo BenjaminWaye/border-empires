@@ -45,4 +45,12 @@ describe("trees stay out of river banks", () => {
     expect(inPool!(-0.36, -0.36)).toBe(true); // by that corner
     expect(inPool!(0.36, 0.36)).toBe(false); // far corner
   });
+  it("keeps trees off a river mountain's cascade edge too", () => {
+    const edges = new Set([riverEdgeKey(40, 40, "V")]);
+    const cascades = new Set([riverEdgeKey(10, 20, "H")]); // cascade along tile (10, 20)'s top border
+    const onCascade = riverBankTreeFilter(10, 20, edges, new Set(), new Set(), cascades);
+    expect(onCascade).not.toBeNull();
+    expect(onCascade!(0, -0.45)).toBe(true);
+    expect(onCascade!(0, 0.3)).toBe(false);
+  });
 });

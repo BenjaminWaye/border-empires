@@ -25,12 +25,13 @@ import type { RiverPath, RiverPoint } from "./worldgen-rivers.js";
 import { headwaterMountainAt } from "./worldgen-river-headwater.js";
 import { worldgenVersion } from "./worldgen-version.js";
 
-// v10+: rivers start at a headwater corner -- a mountain in the ring of tiles
+// v11+: rivers start at a headwater corner -- a mountain in the ring of tiles
 // just outside it -- so the client can draw them falling out of that
 // mountain (docs/river-mountains-plan.md, PR D). Only the choice of start
 // corner changes (no new random draws); a river with no headwater candidate
-// falls back to the v9 start, so no world gets fewer rivers.
-export const HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 10;
+// falls back to the v9 start, so no world gets fewer rivers. v10 seasons
+// (already running on staging) keep the v9 start pick.
+export const HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 11;
 const headwaterRiversActive = (): boolean => worldgenVersion() >= HEADWATER_RIVERS_MIN_WORLDGEN_VERSION;
 
 const RIVER_COUNT_TARGET = 10;
@@ -298,7 +299,7 @@ const toroidDelta = (a: number, b: number, size: number): number => {
   return d > size / 2 ? d - size : d < -size / 2 ? d + size : d;
 };
 
-/** v9+ river generation: deterministic per seed, every step is one tile edge; v10+ starts at headwater corners where it can. */
+/** v9+ river generation: deterministic per seed, every step is one tile edge; v11+ starts at headwater corners where it can. */
 export const generateEdgeRiverPaths = (seed: number): readonly RiverPath[] => {
   const dist = buildCornerDistanceToSea();
   const rivers: RiverPath[] = [];

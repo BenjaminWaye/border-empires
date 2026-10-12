@@ -2,8 +2,10 @@ import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
+import { warmGatewaySeedWorld } from "./seed-world-warmup/seed-world-warmup.js";
 
 const runtimeEnv = parseRealtimeGatewayRuntimeEnv(process.env);
+warmGatewaySeedWorld(runtimeEnv.simulationSeedProfile); // never on the first login (seed-world-warmup.ts)
 const gateway = await createRealtimeGatewayApp({
   host: runtimeEnv.host,
   port: runtimeEnv.port,

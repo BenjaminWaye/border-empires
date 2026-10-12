@@ -7,7 +7,10 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 10;
+export const CURRENT_WORLDGEN_VERSION = 11;
+// v11: v10 + edge rivers start at headwater corners beside a mountain where
+// they can (worldgen-rivers-edge.ts), so the client draws them flowing out of
+// it. Its own version because staging already runs v10 seasons.
 // v10 (continents maps; see the gates below): several separate continents
 // chosen by area target with a rift seaway between them (worldgen-plates.ts,
 // worldgen-continent-shelf.ts); natural coastlines from coast detail, fine
@@ -15,8 +18,7 @@ export const CURRENT_WORLDGEN_VERSION = 10;
 // worldgen-island-pruning.ts); thin wandering mountain ranges with hill
 // foothills (worldgen-natural-ranges.ts, worldgen-hills.ts); small irregular
 // atolls in deep ocean (worldgen-atoll-shape.ts) and coastal island chains
-// (worldgen-island-chain.ts). All styles: edge rivers start at headwater
-// corners beside a mountain where they can (worldgen-rivers-edge.ts).
+// (worldgen-island-chain.ts).
 // v9: v8 + rivers along tile edges (worldgen-rivers-edge.ts), GRASSLAND/bright
 // PLAINS split, lake-only MARSH (worldgen-visual-biome.ts)
 

@@ -1,12 +1,12 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { createSeedWorld, parseSimulationSeedProfile, type SimulationSeedProfile } from "../../simulation/src/seed-state/seed-state.js";
+import { parseSimulationSeedProfile, readSeedWorldTemplate, type SimulationSeedProfile } from "../../simulation/src/seed-state/seed-state.js";
 
 export const fallbackInitialStateFromSeed = (
   playerId: string,
   seedProfile: SimulationSeedProfile
 ): PlayerSubscriptionSnapshot => {
-  const seedWorld = createSeedWorld(seedProfile);
+  const seedWorld = readSeedWorldTemplate(seedProfile);
   return {
   playerId,
   ...(seedWorld.docks.length

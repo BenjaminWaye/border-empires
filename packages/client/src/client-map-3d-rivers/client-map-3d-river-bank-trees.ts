@@ -6,6 +6,8 @@
 import { riverEdgeKey, riverEdgeKeysForCurrentSeed, riverHeadsForCurrentSeed, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { BANK_WIDTH, RIVER_BANK_REACH, SPRING_HALF_WIDTH } from "./client-map-3d-rivers-channel.js";
 import { COVE_RADIUS } from "./client-map-3d-river-edge-water.js";
+import { riverCascadeEdges } from "../client-map-river-mountains/client-map-river-mountains.js";
+import { cascadeStreamTreeFilter } from "../client-map-river-mountains/client-map-river-cascade-route.js";
 import { riverMouthCorners } from "./client-map-3d-river-mouths.js";
 
 // Trees also keep out of the cove cut at a river mouth (the land there drops
@@ -36,14 +38,19 @@ export const riverBankTreeFilter = (
   worldZ: number,
   edges: ReadonlySet<number> = riverEdgeKeysForCurrentSeed(),
   mouthsOverride?: ReadonlySet<number>,
-  heads: { has: (cornerIndex: number) => boolean } = riverHeadsForCurrentSeed()
+  heads: { has: (cornerIndex: number) => boolean } = riverHeadsForCurrentSeed(),
+  cascades: ReadonlySet<number> = riverCascadeEdges(),
+  onCascadeStream: ((ox: number, oz: number) => boolean) | null = cascadeStreamTreeFilter(worldX, worldZ)
 ): ((ox: number, oz: number) => boolean) | null => {
   if (edges.size === 0) return null;
   const mouths = mouthsOverride ?? mouthCornersFor(edges);
-  const top = edges.has(riverEdgeKey(worldX, worldZ, "H"));
-  const bottom = edges.has(riverEdgeKey(worldX, worldZ + 1, "H"));
-  const left = edges.has(riverEdgeKey(worldX, worldZ, "V"));
-  const right = edges.has(riverEdgeKey(worldX + 1, worldZ, "V"));
+  // River mountain cascades (one tile edge each) keep trees back like a river
+  // edge, and so does the 3D cascade's stream from the mountain's foot to the pool.
+  const along = (key: number): boolean => edges.has(key) || cascades.has(key);
+  const top = along(riverEdgeKey(worldX, worldZ, "H"));
+  const bottom = along(riverEdgeKey(worldX, worldZ + 1, "H"));
+  const left = along(riverEdgeKey(worldX, worldZ, "V"));
+  const right = along(riverEdgeKey(worldX + 1, worldZ, "V"));
   // Tile corners (offsets from the tile centre) where a river meets the sea.
   const coves: (readonly [number, number])[] = [];
   // ...and where a river starts (spring pool).
@@ -53,10 +60,11 @@ export const riverBankTreeFilter = (
     if (mouths.has(key)) coves.push([cx - 0.5, cz - 0.5]);
     if (heads.has(key)) springs.push([cx - 0.5, cz - 0.5]);
   }
-  if (!top && !bottom && !left && !right && coves.length === 0 && springs.length === 0) return null;
+  if (!top && !bottom && !left && !right && coves.length === 0 && springs.length === 0 && !onCascadeStream) return null;
   const limit = 0.5 - RIVER_BANK_REACH;
   return (ox, oz) =>
     (top && oz < -limit) || (bottom && oz > limit) || (left && ox < -limit) || (right && ox > limit) ||
     coves.some(([cx, cz]) => Math.hypot(ox - cx, oz - cz) < COVE_TREE_CLEARANCE) ||
-    springs.some(([cx, cz]) => Math.hypot(ox - cx, oz - cz) < SPRING_TREE_CLEARANCE);
+    springs.some(([cx, cz]) => Math.hypot(ox - cx, oz - cz) < SPRING_TREE_CLEARANCE) ||
+    (onCascadeStream?.(ox, oz) ?? false);
 };

@@ -116,7 +116,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     if (inCaptureShock) {
       modifiers.push({
         reason: "Recently captured",
-        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until settled",
+        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until garrisoned",
         tone: "negative"
       });
     }

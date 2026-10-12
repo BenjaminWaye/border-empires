@@ -44,6 +44,7 @@ export * from "./frontier-combat/frontier-combat.js";
 export * from "./frontier-combat/frontier-combat-win-chance-paint.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";
+export * from "./reach/reach-settle-exemption.js";
 export * from "./player-display-name.js";
 export * from "./dev-queue/dev-queue.js";
 export * from "./auto-settle-prefs/auto-settle-prefs.js";

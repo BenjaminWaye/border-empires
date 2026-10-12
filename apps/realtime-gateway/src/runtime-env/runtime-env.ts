@@ -54,6 +54,12 @@ const parseOptionalAiPlayerCount = (value: string | undefined): number | undefin
   return parsed;
 };
 
+// Seed profile alone, readable before the rest of the env is final: the
+// merged entrypoint warms the seed world (seed-world-warmup.ts) before the sim
+// worker has reported SIMULATION_ADDRESS, which the full parse requires.
+export const gatewaySeedProfileFromEnv = (env: NodeJS.ProcessEnv): SimulationSeedProfile =>
+  parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default");
+
 export const parseRealtimeGatewayRuntimeEnv = (
   env: NodeJS.ProcessEnv
 ): RealtimeGatewayRuntimeEnv => {
@@ -124,7 +130,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
       : !isManagedRuntime
         ? { defaultHumanPlayerId: "player-1" }
         : {}),
-    simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
+    simulationSeedProfile: gatewaySeedProfileFromEnv(env),
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
     ...(adminEmail ? { adminEmail } : {}),

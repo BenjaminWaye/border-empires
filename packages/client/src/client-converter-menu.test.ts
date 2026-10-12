@@ -31,12 +31,12 @@ describe("Enable <structure> — disabled on an unsettled (FRONTIER) tile, for a
     ["RELAY_BEACON"],
     ["UMBRITE_SYNTHESIZER"],
     ["TITANIUM_WEAPONS_FACTORY"]
-  ] as const)("disables Enable %s with 'Tile is not settled' on a FRONTIER tile", (type) => {
+  ] as const)("disables Enable %s with 'Tile is not garrisoned' on a FRONTIER tile", (type) => {
     const entries = converterStructureMenuEntries(inactiveStructureTile(type, "FRONTIER"), baseDeps);
     const enableAction = entries.find((action) => action.id === "enable_converter_structure");
     expect(enableAction).toBeDefined();
     expect(enableAction?.disabled).toBe(true);
-    expect(enableAction?.disabledReason).toBe("Tile is not settled");
+    expect(enableAction?.disabledReason).toBe("Tile is not garrisoned");
   });
 
   it("leaves Enable <structure> enabled (by normal downtime rules) on a SETTLED tile", () => {
