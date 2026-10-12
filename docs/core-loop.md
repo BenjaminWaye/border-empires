@@ -485,11 +485,10 @@ plug in, so the diagram stays readable and the core cycle stays visible.
 
 ## 8. Onboarding loop (first session)
 
-As implemented in `client-onboarding-checklist.ts` and `guideSteps`
-(`client-constants.ts`):
+As implemented in `client-onboarding-checklist.ts`:
 
-1. An 8-step guide modal covers the fantasy, expanding, manpower, slots,
-   building and fighting, research, towns, and winning.
+1. There is no intro slideshow: the old 8-step guide modal was removed, so a
+   new player lands straight on the map.
 2. The existing checklist has 4 goals: **find a town → Expand To it → find
    food → Expand To 4 food slots**. It highlights town and food objectives
    directly, not intermediate land. Only garrisoned food supplies slots.
@@ -584,12 +583,12 @@ deliberately no decay for simply being offline.
    empires get a grace period: integrity stays at 90%+ until 50 settled tiles,
    then the floor fades out by 100 tiles (`INTEGRITY_GRACE_*` in
    `packages/shared/src/config.ts`).
-4. **Onboarding teaches the wrong growth verb.** The checklist and guide
-   frame Expand To as how you grow ("Tap a neutral tile next to your border to
+4. **Onboarding teaches the wrong growth verb.** The checklist (and the
+   removed intro guide) frame Expand To as how you grow ("Tap a neutral tile next to your border to
    claim it… Settle it"). In the live game, beacons and town/dock anchors move
    reach and auto-claim everything inside it, and Expand To mostly matters for
-   crossing to an out-of-reach town or dock. Players who follow the guide will
-   Expand To tiles beyond reach and watch them decay. The guide and checklist
+   crossing to an out-of-reach town or dock. Players who follow the checklist will
+   Expand To tiles beyond reach and watch them decay. The checklist
    should say that reach comes from beacons and that ground beyond reach
    doesn't last.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,

@@ -33,24 +33,22 @@ export const unseenClientChangelogEntries = (
   entries: ClientChangelogEntry[] = CLIENT_CHANGELOG_ENTRIES
 ): ClientChangelogEntry[] => sortedClientChangelogEntries(entries).filter((entry) => entry.createdAt > seenAt);
 
-// A player who hasn't finished (or skipped) the intro tutorial is treated as
-// brand new. New players get the tutorial only: no release notes, no Activity
-// dashboard auto-open. Too many stacked popups bury what matters at the start.
-export type GuideCompletionState = { guide: Pick<ClientState["guide"], "completed"> };
-
-export const isNewPlayerStillOnboarding = (state: GuideCompletionState): boolean => !state.guide.completed;
+// A browser that has never recorded a changelog timestamp belongs to a brand
+// new player. New players get no release notes and no Activity dashboard
+// auto-open: too many stacked popups bury what matters at the start.
+export const isFirstTimeVisitor = (state: Pick<ClientState, "changelog">): boolean => state.changelog.seenAt === 0;
 
 export const shouldShowClientChangelog = (
-  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog"> & GuideCompletionState,
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
   latestAt: number = latestClientChangelogTimestamp()
 ): boolean =>
   state.authSessionReady &&
   !state.profileSetupRequired &&
-  !isNewPlayerStillOnboarding(state) &&
+  !isFirstTimeVisitor(state) &&
   state.changelog.seenAt < latestAt;
 
 export const syncClientChangelogVisibility = (
-  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog"> & GuideCompletionState,
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">,
   latestAt: number = latestClientChangelogTimestamp()
 ): boolean => {
   state.changelog.open = shouldShowClientChangelog(state, latestAt);
@@ -105,16 +103,16 @@ const changelogSummary = (unseenCount: number, totalCount: number): string => {
 };
 
 export const renderClientChangelogOverlay = (deps: {
-  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog"> & GuideCompletionState;
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">;
   changelogOverlayEl: HTMLDivElement;
   buildVersion: string;
   persistSeenAt: typeof storageSet;
   renderHud: () => void;
 }): void => {
   const latestAt = latestClientChangelogTimestamp();
-  // Baseline a new player at the current release so finishing the tutorial
-  // doesn't dump the whole backlog on them; they only see future updates.
-  if (deps.state.authSessionReady && isNewPlayerStillOnboarding(deps.state) && deps.state.changelog.seenAt < latestAt) {
+  // Baseline a new player at the current release so the whole backlog isn't
+  // dumped on them; they only see future updates.
+  if (deps.state.authSessionReady && isFirstTimeVisitor(deps.state) && deps.state.changelog.seenAt < latestAt) {
     markClientChangelogSeen(deps.state, latestAt, deps.persistSeenAt);
   }
   const renderSignature = clientChangelogRenderSignature(latestAt, deps.buildVersion);
