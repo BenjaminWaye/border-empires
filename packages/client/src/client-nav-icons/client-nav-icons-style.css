@@ -8,9 +8,11 @@
   justify-content: center;
 }
 
+/* 30px fills the 44x40 desktop tab button (and the 44px-tall mobile nav
+   buttons) with room to spare; smaller and the painted art stops reading. */
 .tab-icon-img {
-  width: 1.3em;
-  height: 1.3em;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   user-select: none;
   pointer-events: none;

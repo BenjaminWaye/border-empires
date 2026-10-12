@@ -30,7 +30,7 @@ export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-t
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
-import { depositIconKey, drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
+export { drawResourceCornerMarker } from "./client-map-render-resource-marker.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -436,32 +436,6 @@ export {
   drawCenteredOverlayWithAlpha,
   drawCenteredOverlayRotatedWithAlpha
 } from "./client-map-render-centered-overlay.js";
-
-const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
-  const key = depositIconKey(resource);
-  if (key) drawResourceIconOnCanvas(ctx, key, x + badge / 2, y + badge / 2, badge, `${Math.max(8, badge * 0.8)}px system-ui`);
-};
-
-export const drawResourceCornerMarker = (
-  ctx: CanvasRenderingContext2D,
-  tile: Tile,
-  px: number,
-  py: number,
-  size: number,
-  resourceColor: (resource: string | undefined) => string | undefined
-): void => {
-  if (!tile.resource) return;
-  const color = resourceColor(tile.resource);
-  if (!color) return;
-  const badge = Math.max(9, size * 0.22);
-  const inset = Math.max(2, size * 0.03);
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(px + inset - 1, py + inset - 1, badge + 2, badge + 2);
-  ctx.fillStyle = color;
-  ctx.fillRect(px + inset, py + inset, badge, badge);
-  ctx.fillStyle = "rgba(22, 24, 28, 0.95)";
-  drawResourceMarkerIcon(ctx, tile.resource, px + inset, py + inset, badge);
-};
 
 export const drawDockMarker = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number, fullTile = false): void => {
   const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);

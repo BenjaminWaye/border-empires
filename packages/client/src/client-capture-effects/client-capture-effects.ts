@@ -8,6 +8,7 @@ import { predictedMusterAmount } from "../client-muster-prediction/client-muster
 import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
 
 // Capped just *below* `required`, never at or above it: promotion out of
 // pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
@@ -79,7 +80,7 @@ export const renderCaptureProgress = (
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
     deps.captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
-    deps.captureTargetEl.textContent = state.captureAlert.detail;
+    setTextWithResourceIcons(deps.captureTargetEl, state.captureAlert.detail);
     if (typeof state.captureAlert.focusX === "number" && typeof state.captureAlert.focusY === "number") {
       deps.captureGotoBtn.style.display = "inline-flex";
       deps.captureGotoBtn.dataset.feedFocusX = String(state.captureAlert.focusX);

@@ -117,3 +117,60 @@ export const drawResourceIconOnCanvas = (
   ctx.fillText(RESOURCE_ICON_GLYPH[key], cx, cy + size * 0.03);
   ctx.restore();
 };
+
+// Plain-text messages (plunder alerts, feed entries) keep the text glyphs so
+// they stay safe in any text-only sink; these swap the glyphs for the PNGs at
+// display time. The glyph set is the resource glyphs only.
+const GLYPH_ICON_KEY = new Map<string, ResourceIconKey>(
+  (Object.keys(RESOURCE_ICON_GLYPH) as ResourceIconKey[]).map((key) => [RESOURCE_ICON_GLYPH[key], key])
+);
+const GLYPH_PATTERN = new RegExp([...GLYPH_ICON_KEY.keys()].join("|"), "gu");
+// Non-global twin for presence checks: .test() on a /g regex moves lastIndex,
+// which matchAll would then inherit and skip the first glyph.
+const HAS_GLYPH = new RegExp(GLYPH_PATTERN.source, "u");
+
+// For strings that are already rendered as HTML (e.g. feed entry text).
+export const resourceGlyphsToIconHtml = (html: string): string =>
+  html.replace(GLYPH_PATTERN, (glyph) => {
+    const key = GLYPH_ICON_KEY.get(glyph);
+    return key ? resourceIconHtml(key) : glyph;
+  });
+
+// For elements that show untrusted text via textContent (e.g. the capture
+// alert card, which includes player names): builds text nodes and <img>
+// elements directly, so nothing in the text is ever parsed as HTML. Skips the
+// rebuild when the text hasn't changed, since callers re-render every frame,
+// but only while the element still holds the nodes built here: other code
+// paths write the same element's textContent directly.
+const lastIconText = new WeakMap<HTMLElement, { text: string; first: Node | null; count: number }>();
+
+export const setTextWithResourceIcons = (el: HTMLElement, text: string): void => {
+  // Most alert text has no resource glyphs: keep it a plain textContent write.
+  if (!HAS_GLYPH.test(text)) {
+    lastIconText.delete(el);
+    if (el.textContent !== text) el.textContent = text;
+    return;
+  }
+  const last = lastIconText.get(el);
+  if (last && last.text === text && el.firstChild === last.first && el.childNodes.length === last.count) return;
+  const doc = el.ownerDocument;
+  const nodes: Node[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(GLYPH_PATTERN)) {
+    const key = GLYPH_ICON_KEY.get(match[0]);
+    const index = match.index ?? 0;
+    if (!key) continue;
+    if (index > cursor) nodes.push(doc.createTextNode(text.slice(cursor, index)));
+    const img = doc.createElement("img");
+    img.className = "resource-icon-img";
+    img.src = resourceIconUrl(key, 48);
+    img.srcset = `${resourceIconUrl(key, 48)} 1x, ${resourceIconUrl(key, 72)} 1.5x, ${resourceIconUrl(key, 96)} 2x`;
+    img.alt = RESOURCE_ICON_LABEL[key];
+    img.draggable = false;
+    nodes.push(img);
+    cursor = index + match[0].length;
+  }
+  if (cursor < text.length) nodes.push(doc.createTextNode(text.slice(cursor)));
+  el.replaceChildren(...nodes);
+  lastIconText.set(el, { text, first: el.firstChild, count: el.childNodes.length });
+};
