@@ -1,10 +1,11 @@
-// River mountain cascades (docs/river-mountains-plan.md, PR C): water falls
-// down the face of a river mountain's model (client-map-3d-mountain-massif.ts,
-// client-map-3d-mountain-models.ts), then runs along the one tile edge from the
-// mountain's corner to the river's spring pool (client-map-3d-rivers-channel.ts
-// SPRING_HALF_WIDTH). Foam on the steep part, river water lower down, with
-// streaks scrolling downstream; a splash ring where it lands and a few
-// boulders round the pool. Built alongside the river overlay
+// River mountain springs (docs/river-mountains-plan.md, PR C): the river
+// wells up at the base of its mountain's drawn model (client-map-3d-mountain-
+// massif.ts, client-map-3d-mountain-models.ts) on the side facing the river
+// head, between two boulders, and meanders over the ground into the spring
+// pool (client-map-3d-rivers-channel.ts SPRING_HALF_WIDTH) in a channel with
+// earth banks (client-map-3d-river-cascade-banks.ts). White water where it
+// wells up, river water after, with ripples moving downstream; a splash ring
+// and a few boulders at the pool. Built alongside the river overlay
 // (client-map-3d-water-wiring.ts) and animated from the ocean's frame tick.
 import {
   BufferAttribute,
@@ -26,7 +27,14 @@ import { MOUNTAIN_MODELS, mountainModelHeight } from "../client-map-3d-mountain-
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { type MountainNeighbourhoodLookup } from "../client-map-mountain-variation/client-map-mountain-variation.js";
 import { riverMountainFaces, type RiverMountainFace } from "../client-map-river-mountains/client-map-river-mountains.js";
-import { CASCADE_FOOT_RHO, cascadeRoute } from "../client-map-river-mountains/client-map-river-cascade-route.js";
+import { cascadeRoute } from "../client-map-river-mountains/client-map-river-cascade-route.js";
+import {
+  appendCascadeBanks,
+  cascadeBankAt,
+  createCascadeBankGeometry,
+  createCascadeBankMaterial,
+  type CascadeBankSide
+} from "./client-map-3d-river-cascade-banks.js";
 import { heightfieldSurfaceY, RIVER_WATER_DEPTH, riverTrenchDepth, SPRING_HALF_WIDTH } from "./client-map-3d-rivers-channel.js";
 import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-water-material.js";
 
@@ -34,33 +42,24 @@ import { RIVER_WATER_CORE, RIVER_WATER_SHALLOW } from "./client-map-3d-river-wat
 // (OVERLAY_RISE_ABOVE_HEIGHTFIELD), so the cascade starts on the same rock.
 const MASSIF_RISE = 0.012;
 const SURFACE_LIFT = 0.014;
-// The spring: this far out from the tile centre (tiles), high on the face.
-const SOURCE_RHO = 0.12;
-// The descent walks the rock in steps this long, steering by its own heading,
-// the downhill slope (so it finds the gullies between peaks) and the pull
-// toward the foot (so it always gets there), weighted as below.
-const DESCENT_STEP = 0.035;
-const DESCENT_MAX_STEPS = 80;
-const GRADIENT_EPS = 0.03;
-const KEEP_HEADING = 0.55;
-const FOLLOW_SLOPE = 0.4;
-const PULL_TO_FOOT = 0.35;
-// The descent ends this close to the foot, or where the rock meets the ground.
-const FOOT_REACHED = 0.06;
+// The spring: found walking out from the mountain tile's centre toward the
+// pool in these steps, where the drawn rock meets the ground (the rock's
+// base), then nudged this far clear of it.
+const SOURCE_STEP = 0.02;
+const SOURCE_MAX_RHO = 1.2;
 const GROUND_REACHED = 0.012;
-// From the foot, the river curves into the pool, carrying on in the fall's
-// direction this far before bending round (a quadratic curve).
-const POOL_BEND = 0.28;
-const POOL_STEPS = 14;
-// Chaikin smoothing passes over the descent, so it winds rather than zig-zags.
-const SMOOTH_PASSES = 2;
-const TOP_HALF_WIDTH = 0.045;
-const BOTTOM_HALF_WIDTH = 0.08;
-// Foam shows where it's steeper than this (rise over run), and at most this much.
-const FALL_SLOPE = 1.4;
-const MAX_FOAM = 0.4;
-// A ribbon edge rises with the rock across the flow by at most this much (tiles).
-const EDGE_RISE = 0.12;
+const SOURCE_CLEAR = 0.03;
+// The stream bows sideways by this fraction of its length, so it meanders
+// rather than running ruler-straight to the pool.
+const MEANDER = 0.14;
+const STREAM_STEPS = 20;
+// Where it wells up from the rock it's white water, settling over this fraction of its length.
+const SPRING_FOAM = 0.5;
+const SPRING_FOAM_FADE = 0.25;
+const TOP_HALF_WIDTH = 0.065;
+const BOTTOM_HALF_WIDTH = 0.095;
+// A ribbon edge rises with the ground across the flow by at most this much (tiles).
+const EDGE_RISE = 0.06;
 const FOAM: readonly [number, number, number, number] = [0.86, 0.93, 0.97, 0.95];
 const SPLASH_RADII: readonly [number, number] = [0.05, 0.15];
 const SPLASH_SEGMENTS = 16;
@@ -70,6 +69,11 @@ const BOULDER_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [0.17, 0.1],
   [0.2, -0.11],
   [0.06, 0.19]
+];
+// [downstream of the spring, across the stream] -- either side of where it wells up.
+const SPRING_BOULDER_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [-0.01, 0.1],
+  [0.03, -0.11]
 ];
 
 export type RiverCascadeDeps = {
@@ -103,8 +107,10 @@ export type CascadeSample = {
   halfWidth: number;
   color: readonly [number, number, number, number];
   flow: number;
-  /** Heights of the ribbon's two edges (left, right of the flow): on a cross-slope they follow the rock, so no half of it sinks in. */
+  /** Heights of the ribbon's two edges (left, right of the flow): on a cross-slope they follow the ground, so no half of it sinks in. */
   edgeY: readonly [number, number];
+  /** The channel's banks either side (client-map-3d-river-cascade-banks.ts). */
+  bank: readonly [CascadeBankSide, CascadeBankSide];
 };
 
 /** The two tiles either side of a cascade's edge (exit corner to head corner). */
@@ -169,69 +175,28 @@ export const cascadeCenterline = (
     Math.max(groundAt(x, z) - riverTrenchDepth(Math.hypot(x - headX, z - headZ), SPRING_HALF_WIDTH), poolY);
   const surfaceAt = (x: number, z: number): number => Math.max(rockAt(x, z), groundAtStream(x, z)) + SURFACE_LIFT;
 
-  // Down the face and over the ground to the pool (cascadeRoute: turned toward
-  // the camera when the pool is on the mountain's far side).
+  // The river wells up at the mountain's base on the pool's side and
+  // meanders over the ground into the pool (cascadeRoute).
   const route = cascadeRoute(face);
-  const footX = centreX + route.dirX * CASCADE_FOOT_RHO;
-  const footZ = centreZ + route.dirY * CASCADE_FOOT_RHO;
-
-  // The descent: from a spring high on the face, the water finds its own way
-  // down the rock -- downhill, through the gullies -- toward the foot.
-  let x = centreX + route.dirX * SOURCE_RHO;
-  let z = centreZ + route.dirY * SOURCE_RHO;
-  let hx = route.dirX;
-  let hz = route.dirY;
-  const path: { x: number; z: number }[] = [{ x, z }];
-  for (let i = 0; i < DESCENT_MAX_STEPS; i += 1) {
-    // Downhill on the drawn surface (rock or ground: off the model, rockAt is -Infinity).
-    const gx = surfaceAt(x - GRADIENT_EPS, z) - surfaceAt(x + GRADIENT_EPS, z);
-    const gz = surfaceAt(x, z - GRADIENT_EPS) - surfaceAt(x, z + GRADIENT_EPS);
-    const gLen = Math.hypot(gx, gz) || 1;
-    const fx = footX - x;
-    const fz = footZ - z;
-    const fLen = Math.hypot(fx, fz) || 1;
-    let nx = hx * KEEP_HEADING + (gx / gLen) * FOLLOW_SLOPE + (fx / fLen) * PULL_TO_FOOT;
-    let nz = hz * KEEP_HEADING + (gz / gLen) * FOLLOW_SLOPE + (fz / fLen) * PULL_TO_FOOT;
-    // Never turn back on the foot: the river always makes progress down.
-    if ((nx * fx + nz * fz) / fLen < 0.25 * Math.hypot(nx, nz)) {
-      nx += fx / fLen;
-      nz += fz / fLen;
-    }
-    const nLen = Math.hypot(nx, nz) || 1;
-    hx = nx / nLen;
-    hz = nz / nLen;
-    x += hx * DESCENT_STEP;
-    z += hz * DESCENT_STEP;
-    path.push({ x, z });
-    if (Math.hypot(footX - x, footZ - z) < FOOT_REACHED || rockAt(x, z) <= groundAtStream(x, z) + GROUND_REACHED) break;
-  }
-  // Then a smooth bend from where it left the rock into the pool.
-  const endX = x;
-  const endZ = z;
-  const bendX = endX + hx * POOL_BEND;
-  const bendZ = endZ + hz * POOL_BEND;
-  for (let s = 1; s <= POOL_STEPS; s += 1) {
-    const t = s / POOL_STEPS;
+  const isRockAt = (x: number, z: number): boolean => rockAt(x, z) > groundAtStream(x, z) + GROUND_REACHED;
+  let rho = 0;
+  while (rho < SOURCE_MAX_RHO && isRockAt(centreX + route.dirX * rho, centreZ + route.dirY * rho)) rho += SOURCE_STEP;
+  rho += SOURCE_CLEAR;
+  const sourceX = centreX + route.dirX * rho;
+  const sourceZ = centreZ + route.dirY * rho;
+  // A quadratic curve bowed to one side (fixed per mountain).
+  const length = Math.hypot(headX - sourceX, headZ - sourceZ);
+  const bow = (route.bowLeft ? 1 : -1) * MEANDER * length;
+  const ctrlX = (sourceX + headX) / 2 - route.dirY * bow;
+  const ctrlZ = (sourceZ + headZ) / 2 + route.dirX * bow;
+  const points: { x: number; z: number; y: number }[] = [];
+  for (let s = 0; s <= STREAM_STEPS; s += 1) {
+    const t = s / STREAM_STEPS;
     const u = 1 - t;
-    path.push({ x: u * u * endX + 2 * u * t * bendX + t * t * headX, z: u * u * endZ + 2 * u * t * bendZ + t * t * headZ });
+    const x = u * u * sourceX + 2 * u * t * ctrlX + t * t * headX;
+    const z = u * u * sourceZ + 2 * u * t * ctrlZ + t * t * headZ;
+    points.push({ x, z, y: s === STREAM_STEPS ? poolY + SURFACE_LIFT : surfaceAt(x, z) });
   }
-  // Round off the corners, keeping both ends where they are.
-  let smooth = path;
-  for (let pass = 0; pass < SMOOTH_PASSES; pass += 1) {
-    const next: { x: number; z: number }[] = [smooth[0]!];
-    for (let i = 0; i + 1 < smooth.length; i += 1) {
-      const p = smooth[i]!;
-      const q = smooth[i + 1]!;
-      next.push({ x: p.x * 0.75 + q.x * 0.25, z: p.z * 0.75 + q.z * 0.25 }, { x: p.x * 0.25 + q.x * 0.75, z: p.z * 0.25 + q.z * 0.75 });
-    }
-    next.push(smooth[smooth.length - 1]!);
-    smooth = next;
-  }
-  const points = smooth.map((p, i) => ({
-    x: p.x,
-    z: p.z,
-    y: i === smooth.length - 1 ? poolY + SURFACE_LIFT : surfaceAt(p.x, p.z)
-  }));
   // Water never runs uphill: where terraces or jitter rise ahead, it keeps its level.
   for (let i = 1; i < points.length; i += 1) points[i]!.y = Math.min(points[i]!.y, points[i - 1]!.y);
 
@@ -240,12 +205,10 @@ export const cascadeCenterline = (
   points.forEach((p, i) => {
     const prev = points[Math.max(0, i - 1)]!;
     const next = points[Math.min(points.length - 1, i + 1)]!;
-    const run = Math.hypot(next.x - prev.x, next.z - prev.z) || 1;
-    const slope = (prev.y - next.y) / run;
     if (i > 0) flow += Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
     const t = i / Math.max(1, points.length - 1);
-    // White water where it's steep, but mostly river; calm as it enters the pool.
-    const foam = MAX_FOAM * Math.min(1, Math.max(0, slope / FALL_SLOPE)) * Math.min(1, Math.max(0, (0.95 - t) / 0.2));
+    // White water where it wells up from the rock, settling into river.
+    const foam = SPRING_FOAM * Math.max(0, 1 - t / SPRING_FOAM_FADE);
     const water = t > 0.85 ? RIVER_WATER_CORE : RIVER_WATER_SHALLOW;
     const color: [number, number, number, number] = [0, 1, 2, 3].map((k) => water[k]! + (FOAM[k]! - water[k]!) * foam) as [number, number, number, number];
     const halfWidth = TOP_HALF_WIDTH + (BOTTOM_HALF_WIDTH - TOP_HALF_WIDTH) * t;
@@ -254,7 +217,9 @@ export const cascadeCenterline = (
     const ex = (-(next.z - prev.z) / tlen) * halfWidth;
     const ez = ((next.x - prev.x) / tlen) * halfWidth;
     const edge = (side: number): number => (i === points.length - 1 ? p.y : Math.max(p.y, Math.min(p.y + EDGE_RISE, surfaceAt(p.x + ex * side, p.z + ez * side))));
-    samples.push({ x: p.x, y: p.y, z: p.z, halfWidth, color, flow, edgeY: [edge(-1), edge(1)] });
+    const edgeY = [edge(-1), edge(1)] as const;
+    const bank = cascadeBankAt({ x: p.x, z: p.z, nx: ex / halfWidth, nz: ez / halfWidth, halfWidth, edgeY, t, surfaceAt, isRockAt });
+    samples.push({ x: p.x, y: p.y, z: p.z, halfWidth, color, flow, edgeY, bank });
   });
   return samples;
 };
@@ -341,6 +306,8 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
   const boulderMaterial = new MeshStandardMaterial({ color: "#6f6b6e", roughness: 0.95, metalness: 0, flatShading: true });
   let mesh: Mesh | null = null;
   let boulders: InstancedMesh | null = null;
+  let banks: Mesh | null = null;
+  const bankMaterial = createCascadeBankMaterial();
   const matrix = new Matrix4();
 
   const clear = (): void => {
@@ -354,6 +321,11 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
       boulders.dispose();
       boulders = null;
     }
+    if (banks) {
+      scene.remove(banks);
+      banks.geometry.dispose();
+      banks = null;
+    }
   };
 
   const rebuild = (inputs: RiverCascadeRebuildInputs): void => {
@@ -364,6 +336,7 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
       isInHeightfieldTileWindow(window, toroidDelta(camX, wx, WORLD_WIDTH), toroidDelta(camY, wy, WORLD_HEIGHT)) && isExploredAt(wrapW(wx), wrapH(wy));
     const buffers: Buffers = { positions: [], colors: [], flows: [], indices: [] };
     const stones: { x: number; y: number; z: number }[] = [];
+    const bankBuffers = { positions: [] as number[], colors: [] as number[] };
     for (const face of riverMountainFaces().values()) {
       if (!deps.mountainLookup.isMountainAt(face.mountain.x, face.mountain.y)) continue;
       // The mountain and both tiles beside the cascade's edge must be drawn.
@@ -371,6 +344,7 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
       const samples = cascadeCenterline(face, camX, camY, deps);
       if (samples.length < 2) continue;
       appendRibbon(buffers, samples);
+      appendCascadeBanks(bankBuffers, samples);
       const end = samples[samples.length - 1]!;
       appendSplash(buffers, end.x, end.y, end.z);
       // Boulders on the bank either side of where the cascade enters the pool.
@@ -380,6 +354,15 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
       const uz = (back.z - end.z) / len;
       for (const [along, across] of BOULDER_OFFSETS) {
         stones.push({ x: end.x + ux * along - uz * across, y: back.y - BOULDER_RADIUS * 0.3, z: end.z + uz * along + ux * across });
+      }
+      // ...and either side of the spring, where it wells up at the mountain's base.
+      const start = samples[0]!;
+      const ahead = samples[Math.min(samples.length - 1, 2)]!;
+      const sl = Math.hypot(ahead.x - start.x, ahead.z - start.z) || 1;
+      const sx = (ahead.x - start.x) / sl;
+      const sz = (ahead.z - start.z) / sl;
+      for (const [along, across] of SPRING_BOULDER_OFFSETS) {
+        stones.push({ x: start.x + sx * along - sz * across, y: start.y - BOULDER_RADIUS * 0.3, z: start.z + sz * along + sx * across });
       }
     }
     if (buffers.positions.length === 0) return;
@@ -400,6 +383,10 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
     stones.forEach((s, i) => boulders!.setMatrixAt(i, matrix.makeTranslation(s.x, s.y, s.z)));
     boulders.instanceMatrix.needsUpdate = true;
     scene.add(boulders);
+    banks = new Mesh(createCascadeBankGeometry(bankBuffers), bankMaterial);
+    banks.frustumCulled = false;
+    banks.receiveShadow = true;
+    scene.add(banks);
   };
 
   const tick = (nowMs: number): void => {
@@ -411,6 +398,7 @@ export const createRiverCascades = (scene: Scene, deps: RiverCascadeDeps): River
     material.dispose();
     boulderGeometry.dispose();
     boulderMaterial.dispose();
+    bankMaterial.dispose();
   };
 
   return { rebuild, tick, dispose };

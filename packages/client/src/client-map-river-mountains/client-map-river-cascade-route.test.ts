@@ -6,21 +6,15 @@ import { riverMountainFaceOf } from "./client-map-river-mountains.js";
 const head = (x: number, y: number, mountain: { x: number; y: number }): RiverHead => ({ corner: { x, y }, heading: { dx: 0, dy: 1 }, mountain });
 
 describe("river cascade route", () => {
-  it("falls toward a south exit corner, down the face the camera sees", () => {
-    // Mountain (10, 8); head (10, 10) is one edge below its south-west corner (10, 9).
+  it("springs from the mountain's base on the side facing the river head", () => {
+    // Mountain (10, 8), centre (10.5, 8.5); head (10, 10) is down and to the left.
     const route = cascadeRoute(riverMountainFaceOf(head(10, 10, { x: 10, y: 8 }))!);
-    expect(route.dirX).toBeCloseTo(-Math.SQRT1_2);
-    expect(route.dirY).toBeCloseTo(Math.SQRT1_2);
     expect(route.headX).toBe(10);
     expect(route.headY).toBe(10);
-  });
-
-  it("turns a north exit's fall toward the camera (south) instead of down the hidden far side", () => {
-    // Mountain (10, 8); head (9, 8) is one edge west of its north-west corner (10, 8).
-    const route = cascadeRoute(riverMountainFaceOf(head(9, 8, { x: 10, y: 8 }))!);
-    expect(route.dirX).toBeLessThan(0);
-    expect(route.dirY).toBeGreaterThan(0);
-    expect(route.footY).toBeGreaterThan(8.5);
+    expect(route.dirX).toBeCloseTo(-0.5 / Math.hypot(0.5, 1.5));
+    expect(route.dirY).toBeCloseTo(1.5 / Math.hypot(0.5, 1.5));
+    // The spring sits between the mountain and the head.
+    expect(Math.hypot(route.footX - 10.5, route.footY - 8.5)).toBeLessThan(Math.hypot(10 - 10.5, 10 - 8.5));
   });
 
   it("keeps trees off the stream from the foot to the pool, and only near it", () => {

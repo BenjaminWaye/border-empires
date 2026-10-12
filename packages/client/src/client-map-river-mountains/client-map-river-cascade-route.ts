@@ -1,26 +1,25 @@
-// Where a river mountain's cascade runs in 3D (client-map-3d-river-cascade.ts),
+// Where a river mountain's river runs in 3D (client-map-3d-river-cascade.ts),
 // worked out from the face alone so the tree placement can keep clear of it
-// (client-map-3d-river-bank-trees.ts): a fall down the mountain's face toward
-// its exit corner -- turned toward the camera when that corner is on the far
-// (north) side, which the camera can't see -- landing at a foot point, then a
-// stream over the ground from the foot to the spring pool at the river head.
+// (client-map-3d-river-bank-trees.ts): it wells up at the mountain's base on
+// the side facing the river head and meanders over the ground into the
+// spring pool there.
 import { riverHeadsForCurrentSeed, WORLD_HEIGHT, WORLD_WIDTH, type RiverHead } from "@border-empires/shared";
 import { riverMountainFaces, type RiverMountainFace } from "./client-map-river-mountains.js";
 
-// The fall lands this far out from the mountain tile's centre (tiles): about
-// where the widened mountain model meets the ground.
-export const CASCADE_FOOT_RHO = 0.78;
-// A north exit corner: the fall turns this far south (per unit east/west) so
-// it comes down a face the camera sees.
-const BEHIND_TURN_SOUTH = 1.4;
+// The spring is about this far out from the mountain tile's centre (tiles),
+// where the widened mountain model meets the ground (the 3D cascade finds the
+// exact spot on the drawn rock).
+export const CASCADE_FOOT_RHO = 0.7;
 // Trees keep this far back from the stream's centreline.
 const STREAM_TREE_CLEARANCE = 0.32;
 
 export type CascadeRoute = {
-  /** Unit direction (world x/y) the water falls in, from the mountain tile's centre. */
+  /** Unit direction (world x/y) from the mountain tile's centre toward the river head. */
   readonly dirX: number;
   readonly dirY: number;
-  /** Foot of the fall, and the river head it streams to, in world tile units (unwrapped, near the mountain). */
+  /** Which way the stream bows as it meanders (fixed per mountain). */
+  readonly bowLeft: boolean;
+  /** The spring at the mountain's base, and the river head it streams to, in world tile units (unwrapped, near the mountain). */
   readonly footX: number;
   readonly footY: number;
   readonly headX: number;
@@ -37,20 +36,19 @@ const toroid = (from: number, to: number, size: number): number => {
 export const cascadeRoute = (face: RiverMountainFace): CascadeRoute => {
   const centreX = face.mountain.x + 0.5;
   const centreY = face.mountain.y + 0.5;
-  const exitX = centreX + toroid(centreX, face.exit.x, WORLD_WIDTH);
-  const exitY = centreY + toroid(centreY, face.exit.y, WORLD_HEIGHT);
-  const aimX = exitX - centreX;
-  const aimY = exitY < centreY ? BEHIND_TURN_SOUTH * Math.abs(aimX) : exitY - centreY;
-  const len = Math.hypot(aimX, aimY) || 1;
-  const dirX = aimX / len;
-  const dirY = aimY / len;
+  const headX = centreX + toroid(centreX, face.head.x, WORLD_WIDTH);
+  const headY = centreY + toroid(centreY, face.head.y, WORLD_HEIGHT);
+  const len = Math.hypot(headX - centreX, headY - centreY) || 1;
+  const dirX = (headX - centreX) / len;
+  const dirY = (headY - centreY) / len;
   return {
     dirX,
     dirY,
+    bowLeft: (face.mountain.x * 7 + face.mountain.y * 13) % 2 === 0,
     footX: centreX + dirX * CASCADE_FOOT_RHO,
     footY: centreY + dirY * CASCADE_FOOT_RHO,
-    headX: centreX + toroid(centreX, face.head.x, WORLD_WIDTH),
-    headY: centreY + toroid(centreY, face.head.y, WORLD_HEIGHT)
+    headX,
+    headY
   };
 };
 

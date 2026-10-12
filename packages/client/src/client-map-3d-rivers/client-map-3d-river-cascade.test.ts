@@ -16,37 +16,47 @@ const flatDeps = (isMountainAt: (x: number, y: number) => boolean = () => true):
 const face = riverMountainFaceOf({ corner: { x: 10, y: 10 }, heading: { dx: 0, dy: 1 }, mountain: { x: 10, y: 8 } })!;
 
 describe("river mountain cascade", () => {
-  it("falls from the mountain face down to the spring pool's water at the river head", () => {
-    const samples = cascadeCenterline(face, 0, 0, flatDeps());
+  it("wells up at the mountain's base and flows over the ground to the spring pool's water at the river head", () => {
+    const deps = flatDeps();
+    const samples = cascadeCenterline(face, 0, 0, deps);
     const first = samples[0]!;
     const last = samples[samples.length - 1]!;
-    // Starts up in the gully, well above the ground.
-    expect(first.y).toBeGreaterThan(GROUND + 0.4);
+    // Starts at the foot of the drawn model: off the rock, on the ground.
+    const placement = mountainPlacementAt(face.mountain.x, face.mountain.y, deps.mountainLookup);
+    expect(MOUNTAIN_MODELS[placement.modelIndex]).toBeDefined();
+    expect(first.y).toBeLessThan(GROUND + 0.1);
+    expect(Math.hypot(first.x - (face.mountain.x + 0.5), first.z - (face.mountain.y + 0.5))).toBeGreaterThan(0.4);
     // Ends at the head corner, on the pool's water.
     expect(last.x).toBeCloseTo(10);
     expect(last.z).toBeCloseTo(10);
     expect(last.y).toBeCloseTo(GROUND - RIVER_WATER_DEPTH, 1);
-    // Never climbs on the way down (allowing float noise).
+    // Never climbs on the way (allowing float noise).
     for (let i = 1; i < samples.length; i += 1) expect(samples[i]!.y).toBeLessThanOrEqual(samples[i - 1]!.y + 1e-6);
-    // Steep top is foam (light), the end is river water (dark).
+    // White water where it wells up, river water at the end.
     expect(first.color[0]).toBeGreaterThan(last.color[0]);
   });
 
-  it("stays a finite, connected path when it walks off the rock (regression: NaN once it left the model)", () => {
-    // A north exit: the river turns toward the camera and runs round the mountain's foot to the pool.
+  it("sits in a channel: banks either side rise above the water's edge (etched in)", () => {
+    const samples = cascadeCenterline(face, 0, 0, flatDeps());
+    // Away from the pool, where the banks fade into it.
+    for (const p of samples.slice(0, Math.floor(samples.length * 0.8))) {
+      for (const k of [0, 1] as const) expect(p.bank[k].lipY).toBeGreaterThan(p.edgeY[k] + 0.01);
+    }
+  });
+
+  it("stays a finite, connected path even with the ground far below the rock (regression: NaN once it left the model)", () => {
+    // A north exit; ground well below the rock, so the walk reaches the model's edge before it meets the ground.
     const northFace = riverMountainFaceOf({ corner: { x: 9, y: 8 }, heading: { dx: -1, dy: 0 }, mountain: { x: 10, y: 8 } })!;
-    // Ground well below the rock, so the walk reaches the model's edge before it meets the ground.
-    const lowGround = flatDeps();
-    const samples = cascadeCenterline(northFace, 0, 0, { ...lowGround, heightfield: { cornerYAt: () => -1, elevationAt: () => GROUND } });
+    const samples = cascadeCenterline(northFace, 0, 0, { ...flatDeps(), heightfield: { cornerYAt: () => -1, elevationAt: () => GROUND } });
     expect(samples.length).toBeGreaterThan(10);
     for (const p of samples) {
-      expect(Number.isFinite(p.x + p.y + p.z + p.edgeY[0] + p.edgeY[1])).toBe(true);
-      // Edges never dip below the centreline (no half of the river sunk into the rock).
+      expect(Number.isFinite(p.x + p.y + p.z + p.edgeY[0] + p.edgeY[1] + p.bank[0].lipY + p.bank[1].outerY)).toBe(true);
+      // Edges never dip below the centreline (no half of the river sunk in).
       expect(Math.min(...p.edgeY)).toBeGreaterThanOrEqual(p.y - 1e-9);
     }
     // No jumps: consecutive samples stay close.
     for (let i = 1; i < samples.length; i += 1) {
-      expect(Math.hypot(samples[i]!.x - samples[i - 1]!.x, samples[i]!.z - samples[i - 1]!.z)).toBeLessThan(0.1);
+      expect(Math.hypot(samples[i]!.x - samples[i - 1]!.x, samples[i]!.z - samples[i - 1]!.z)).toBeLessThan(0.15);
     }
     const last = samples[samples.length - 1]!;
     expect(last.x).toBeCloseTo(9);
@@ -55,16 +65,6 @@ describe("river mountain cascade", () => {
 
   it("checks the two tiles beside its edge, across the world wrap too", () => {
     expect(cascadeSideTiles(face)).toEqual([[9, 9], [10, 9]]);
-  });
-
-  it("starts on the rock of the model drawn on the river mountain's tile", () => {
-    // A lone mountain (only its own tile is mountain) gets a summit model.
-    const lone = flatDeps((x, y) => x === face.mountain.x && y === face.mountain.y);
-    const samples = cascadeCenterline(face, 0, 0, lone);
-    const placement = mountainPlacementAt(face.mountain.x, face.mountain.y, lone.mountainLookup);
-    expect(MOUNTAIN_MODELS[placement.modelIndex]!.role).toBe("summit");
-    // Well above the ground: on the model's face, not on the grass.
-    expect(samples[0]!.y).toBeGreaterThan(GROUND + 0.4);
   });
 
   it("builds only for explored, still-standing river mountains on a real v9 seed", () => {
