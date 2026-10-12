@@ -12,11 +12,12 @@ import {
   SRGBColorSpace,
   Vector3
 } from "three";
+import { drawResourceIconOnCanvas, whenResourceIconReady, type ResourceIconKey } from "../client-resource-icons/client-resource-icons.js";
 
 // 3D parity for the 2D unfed-town badge, generalized: originally hardcoded to `tile.town &&
 // !tile.town.isFed` with a fixed food emoji, now parameterized by icon so
 // the same machinery renders a badge for any of the 4 resource icons
-// (client-panel-html.ts: 🍞 Food, ⛏ Titanium, 💎 Crystal, 🟣 Umbrite) — driven by
+// (client-resource-icons.ts: Food, Titanium, Crystal, Umbrite) — driven by
 // whichever resource a dormant structure (§5.4) is short on, not only
 // town-unfed. Callers create one overlay instance per resource type they
 // need simultaneously (a dormant Fort missing TITANIUM and an unfed town both
@@ -46,11 +47,14 @@ const PHASE_PER_INSTANCE = Math.PI * 0.37;
 // elevations rather than only from the default.
 const PLANE_TILT_X = -0.50;
 
+const BADGE_GLYPH_FONT = `${Math.round(CANVAS_SIZE * 0.62)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
+
 const drawBadgeCanvas = (
   icon: string,
   drawProhibitionSlash: boolean,
   customIconDraw?: (ctx: CanvasRenderingContext2D, size: number) => void,
-  shieldColors?: { fill: string; stroke: string }
+  shieldColors?: { fill: string; stroke: string },
+  iconKey?: ResourceIconKey
 ): HTMLCanvasElement | null => {
   // The unit test imports createResourceBadgeOverlay in a Node env that
   // has no `document`; skip canvas painting there. The overlay still
@@ -99,8 +103,10 @@ const drawBadgeCanvas = (
     ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
     customIconDraw(ctx, CANVAS_SIZE * 0.34);
     ctx.restore();
+  } else if (iconKey) {
+    drawResourceIconOnCanvas(ctx, iconKey, CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE * 0.66, BADGE_GLYPH_FONT);
   } else {
-    ctx.font = `${Math.round(CANVAS_SIZE * 0.62)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
+    ctx.font = BADGE_GLYPH_FONT;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(icon, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.02);
@@ -141,17 +147,33 @@ export const createResourceBadgeOverlay = (
     drawProhibitionSlash?: boolean;
     customIconDraw?: (ctx: CanvasRenderingContext2D, size: number) => void;
     shieldColors?: { fill: string; stroke: string };
+    // Paints the steampunk resource PNG instead of the emoji glyph once it decodes.
+    iconKey?: ResourceIconKey;
   }
 ): ResourceBadgeOverlay => {
   const group = new Group();
   group.name = "resource-badge-overlay";
   scene.add(group);
 
-  const canvas = drawBadgeCanvas(icon, options?.drawProhibitionSlash ?? true, options?.customIconDraw, options?.shieldColors);
+  const paintBadge = (): HTMLCanvasElement | null =>
+    drawBadgeCanvas(icon, options?.drawProhibitionSlash ?? true, options?.customIconDraw, options?.shieldColors, options?.iconKey);
+  const canvas = paintBadge();
   const texture = canvas ? new CanvasTexture(canvas) : null;
   if (texture) {
     texture.colorSpace = SRGBColorSpace;
     texture.needsUpdate = true;
+  }
+  let disposed = false;
+  // The first paint falls back to the glyph if the PNG hasn't decoded yet;
+  // repaint the shared texture once it has.
+  const iconKey = options?.iconKey;
+  if (texture && iconKey) {
+    whenResourceIconReady(iconKey, () => {
+      const repainted = disposed ? null : paintBadge();
+      if (!repainted) return;
+      texture.image = repainted;
+      texture.needsUpdate = true;
+    });
   }
 
   const planeGeometry = new PlaneGeometry(BADGE_SIZE, BADGE_SIZE);
@@ -245,6 +267,7 @@ export const createResourceBadgeOverlay = (
   };
 
   const dispose = (): void => {
+    disposed = true;
     scene.remove(group);
     planeGeometry.dispose();
     material.dispose();

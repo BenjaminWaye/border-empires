@@ -51,7 +51,7 @@ type EconomyPanelArgs = {
   economyBreakdown: EconomyBreakdown | undefined;
   isMobile: boolean;
   prettyToken: (value: string) => string;
-  resourceIconForKey: (resource: string) => string;
+  resourceIconHtml: (resource: string) => string;
   rateToneClass: (rate: number) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (type: EconomicStructureType) => string;
@@ -240,13 +240,13 @@ const slotStatusLine = (supply: number, demand: number): { text: string; tone: n
 
 const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
-  resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
+  resourceIconHtml: EconomyPanelArgs["resourceIconHtml"]
 ): string => {
   // §5/§12.1: FOOD/TITANIUM/CRYSTAL/UMBRITE stopped being stockpiled flows — their
   // upkeep is the slot occupancy shown in the per-resource cards, so only the
   // GOLD flow upkeep belongs in this summary line.
   const parts: string[] = [];
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconHtml("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
 
@@ -374,7 +374,7 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
 };
 
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
-  const icon = args.resourceIconForKey(resource);
+  const icon = args.resourceIconHtml(resource);
   const label = args.prettyToken(resource);
   const head = `<div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>`;
   if (isSlotResource(resource)) {
@@ -425,7 +425,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
   const visibleResources = (
     args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus]
   ).filter(isResourceRevealed);
-  const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconForKey);
+  const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconHtml);
   return `
     <div class="economy-panel">
       <div class="economy-summary-grid">
@@ -450,7 +450,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${demand} / ${supply} slots used</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
@@ -473,7 +473,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${args.gold.toFixed(1)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>

@@ -9,6 +9,7 @@ import {
   mintworksGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
+import { resourceIconGlyph, resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 import { costBitsFor, structureBaseKey } from "./client-structure-cost-bits.js";
 import { upkeepDescriptorFor } from "./client-structure-upkeep-text/client-structure-upkeep-text.js";
@@ -922,15 +923,8 @@ export const resourceLabel = (resource: string | undefined): string => {
   return resource ?? "";
 };
 
-export const resourceIconForKey = (resource: string): string => {
-  if (resource === "GOLD") return "◉";
-  if (resource === "FOOD") return "🍞";
-  if (resource === "TITANIUM") return "⛏";
-  if (resource === "CRYSTAL") return "💎";
-  if (resource === "UMBRITE") return "🟣";
-  if (resource === "SHARD") return "✦";
-  return "•";
-};
+// Plain-text glyph (canvas text, titles); HTML callers use resourceIconHtml.
+export const resourceIconForKey = resourceIconGlyph;
 
 export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | undefined => {
   if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
@@ -943,10 +937,10 @@ export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "
 export const tileProductionHtml = (tile: Tile): string => {
   const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
     .filter(([, value]) => Number(value) > 0)
-    .map(([resource, value]) => `${resourceIconForKey(resource)} ${Number(value).toFixed(1)}/day`);
+    .map(([resource, value]) => `${resourceIconHtml(resource)} ${Number(value).toFixed(1)}/day`);
   const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
   const parts: string[] = [];
-  if (tile.town || gpd > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpd.toFixed(1)}/day`);
+  if (tile.town || gpd > 0) parts.push(`${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day`);
   parts.push(...prodStrategic);
   return parts.join(" · ");
 };
@@ -961,14 +955,14 @@ export const tileUpkeepHtml = (tile: Tile): string => {
     upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
   }
   const parts: string[] = [];
-  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeepFromEntries.titanium * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeepFromEntries.umbrite * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconHtml("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.titanium > 0.001) parts.push(`${resourceIconHtml("TITANIUM")} ${(upkeepFromEntries.titanium * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.umbrite > 0.001) parts.push(`${resourceIconHtml("UMBRITE")} ${(upkeepFromEntries.umbrite * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconHtml("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconHtml("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
   if (parts.length > 0) return parts.join(" · ");
-  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
-  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
+  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconHtml("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
+  if (tile.observatory?.status === "active") parts.push(`${resourceIconHtml("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
   return parts.join(" · ");
 };
 
