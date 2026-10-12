@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Color, type BufferGeometry } from "three";
-import { TOWN_COLORS } from "./town-mesh-builder.js";
+import { TOWN_COLORS, TOWN_METAL_COLORS, type TownColor } from "./town-mesh-builder.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./town-tier-geometry.js";
 
 const topOf = (geometry: BufferGeometry): number => {
@@ -8,10 +8,12 @@ const topOf = (geometry: BufferGeometry): number => {
   return geometry.boundingBox!.max.y;
 };
 
-const tierTop = (tier: TownTier): number => {
-  const { body, glow } = getTownTierGeometry(tier);
-  return Math.max(topOf(body), glow ? topOf(glow) : 0);
+const partsOf = (tier: TownTier): BufferGeometry[] => {
+  const { body, metal, glow } = getTownTierGeometry(tier);
+  return [body, metal, glow].filter((part): part is BufferGeometry => part !== undefined);
 };
+
+const tierTop = (tier: TownTier): number => Math.max(...partsOf(tier).map(topOf));
 
 const hasVertexColor = (geometry: BufferGeometry, hex: string): boolean => {
   const target = new Color(hex);
@@ -28,8 +30,7 @@ const hasVertexColor = (geometry: BufferGeometry, hex: string): boolean => {
 
 describe("procedural town tiers", () => {
   it.each(TOWN_TIERS)("%s stays inside its own tile", (tier) => {
-    const { body, glow } = getTownTierGeometry(tier);
-    for (const geometry of glow ? [body, glow] : [body]) {
+    for (const geometry of partsOf(tier)) {
       geometry.computeBoundingBox();
       const box = geometry.boundingBox!;
       // Every tier is drawn turned by a quarter-turn, so both axes need the margin.
@@ -47,8 +48,7 @@ describe("procedural town tiers", () => {
   });
 
   it.each(TOWN_TIERS)("%s stays within a per-town vertex budget", (tier) => {
-    const { body, glow } = getTownTierGeometry(tier);
-    const vertices = body.getAttribute("position").count + (glow?.getAttribute("position").count ?? 0);
+    const vertices = partsOf(tier).reduce((sum, part) => sum + part.getAttribute("position").count, 0);
     expect(vertices, `${tier} vertices`).toBeLessThanOrEqual(40_000);
   });
 
@@ -61,6 +61,14 @@ describe("procedural town tiers", () => {
     expect(tierTop("METROPOLIS")).toBeGreaterThan(0.9);
     const metropolisGlow = getTownTierGeometry("METROPOLIS").glow!;
     expect(hasVertexColor(metropolisGlow, TOWN_COLORS.aether)).toBe(true);
+  });
+
+  it.each(TOWN_TIERS)("%s draws its iron and brass with the metal mesh, AFC-style, and nothing else there", (tier) => {
+    const { body, metal } = getTownTierGeometry(tier);
+    expect(metal, `${tier} metalwork`).toBeDefined();
+    const metalColors = [...TOWN_METAL_COLORS].map((name: TownColor) => TOWN_COLORS[name]);
+    expect(metalColors.some((hex) => hasVertexColor(metal!, hex))).toBe(true);
+    for (const hex of metalColors) expect(hasVertexColor(body, hex), `${tier} matte body has metal ${hex}`).toBe(false);
   });
 
   it("bakes each tier once and hands every overlay the same geometry", () => {

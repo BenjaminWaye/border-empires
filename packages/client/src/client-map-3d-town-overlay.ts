@@ -1,9 +1,9 @@
 // Procedural 3D towns. Each tier is baked once into a vertex-coloured,
-// flat-shaded miniature (town-tier-geometry.ts) in the same sunlit low-poly
-// language as the rest of the map -- cream plaster, terracotta and slate
-// roofs, pale stone walls, timber, a little brass and verdigris copper -- and
-// drawn as one instanced body mesh plus one unlit glow mesh (lit windows,
-// lanterns, the metropolis's aether crystal) per tier.
+// flat-shaded steampunk town (town-tier-geometry.ts): warm sandstone, brick
+// and plaster streets with the AFC's brass, blackened iron and cyan aether
+// rising out of them. Drawn per tier as three instanced meshes that share one
+// transform buffer: the matte body, the metalwork (metallic, like the AFC's)
+// and the unlit glow (window bands, lamps, aether).
 //
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
@@ -37,7 +37,8 @@ export const townQuarterTurnForTile = (tileX: number, tileY: number): number => 
 
 type TierSlot = {
   readonly body: InstancedMesh;
-  readonly glow: InstancedMesh | undefined;
+  /** Metal and glow meshes drawing with the body's instance matrices. */
+  readonly followers: readonly InstancedMesh[];
   count: number;
 };
 
@@ -52,6 +53,9 @@ export type TownOverlay = {
 export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): TownOverlay => {
   const bodyMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, flatShading: true });
   applyBuildingEnvMap(bodyMaterial, envMap);
+  // Matches the AFC's iron/brass finish (client-map-3d-fabrication-complex.ts).
+  const metalMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7, flatShading: true });
+  applyBuildingEnvMap(metalMaterial, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
   const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
 
@@ -66,19 +70,24 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     body.receiveShadow = true;
     body.count = 0;
     scene.add(body);
-    let glow: InstancedMesh | undefined;
-    if (geometry.glow) {
-      glow = new InstancedMesh(geometry.glow, glowMaterial, capacity);
-      glow.name = `town-${tier}-glow`;
+    const followers: InstancedMesh[] = [];
+    for (const [suffix, part, material, shadowed] of [
+      ["metal", geometry.metal, metalMaterial, true],
+      ["glow", geometry.glow, glowMaterial, false]
+    ] as const) {
+      if (!part) continue;
+      const mesh = new InstancedMesh(part, material, capacity);
+      mesh.name = `town-${tier}-${suffix}`;
       // Same transforms as the body: share its buffer so it is uploaded once.
-      glow.instanceMatrix = body.instanceMatrix;
-      glow.frustumCulled = false;
-      glow.castShadow = false;
-      glow.receiveShadow = false;
-      glow.count = 0;
-      scene.add(glow);
+      mesh.instanceMatrix = body.instanceMatrix;
+      mesh.frustumCulled = false;
+      mesh.castShadow = shadowed;
+      mesh.receiveShadow = shadowed;
+      mesh.count = 0;
+      scene.add(mesh);
+      followers.push(mesh);
     }
-    slots.set(tier, { body, glow, count: 0 });
+    slots.set(tier, { body, followers, count: 0 });
   }
 
   const matrix = new Matrix4();
@@ -103,7 +112,7 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   const commit = (): void => {
     for (const slot of slots.values()) {
       slot.body.count = slot.count;
-      if (slot.glow) slot.glow.count = slot.count;
+      for (const follower of slot.followers) follower.count = slot.count;
       // Upload only the instances actually drawn, not the whole tile-budget buffer.
       slot.body.instanceMatrix.clearUpdateRanges();
       if (slot.count === 0) continue;
@@ -116,10 +125,11 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     for (const slot of slots.values()) {
       scene.remove(slot.body);
       slot.body.dispose();
-      if (slot.glow) scene.remove(slot.glow);
+      for (const follower of slot.followers) scene.remove(follower);
     }
     slots.clear();
     bodyMaterial.dispose();
+    metalMaterial.dispose();
     glowMaterial.dispose();
   };
 

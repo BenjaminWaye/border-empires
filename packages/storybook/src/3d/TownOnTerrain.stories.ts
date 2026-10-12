@@ -6,6 +6,7 @@ import { createForest } from "@client/client-map-3d-forest.js";
 import { createFarmlandOverlay } from "@client/client-map-3d-farmland/client-map-3d-farmland.js";
 import { createOwnershipOverlay } from "@client/client-map-3d-ownership-overlay.js";
 import { createTownOverlay, type TownTier } from "@client/client-map-3d-town-overlay.js";
+import { createFabricationComplexOverlay } from "@client/client-map-3d-fabrication-complex.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // The procedural towns on the real game terrain -- production heightfield,
@@ -23,6 +24,8 @@ const PLAYER = new Color("#3d7fd6");
 
 type Args = {
   showTerritory: boolean;
+  /** An AFC behind the row, for comparing the towns' metalwork with it. */
+  showAfc: boolean;
   cameraDistance: number;
   cameraTilt: number;
   focus: TownTier;
@@ -37,7 +40,8 @@ const render = (args: Args): HTMLElement => {
   stage.camera.position.z += 0.5;
   stage.camera.lookAt(focusX, 0, 0.5);
 
-  const atmosphere = createAtmosphere(stage.scene);
+  // With the renderer, as in the game, so metalwork gets the building environment map.
+  const atmosphere = createAtmosphere(stage.scene, stage.renderer);
   const hf = createHeightfield();
   stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
   hf.rebuild({ camX: CENTER, camY: CENTER, halfW: 12, halfH: 10, worldWidth: 240, worldHeight: 240, tileKindAt });
@@ -63,8 +67,18 @@ const render = (args: Args): HTMLElement => {
     cleanups.push(territory.dispose);
   }
 
-  const forest = createForest(stage.scene, FOREST_TILES.length);
-  for (const [dx, dz] of FOREST_TILES) forest.addInstance(dx + 0.5, dz + 0.5, surfaceYAt(dx, dz), dx + CENTER, dz + CENTER);
+  const AFC_DX = 0;
+  const AFC_DZ = -4;
+  if (args.showAfc) {
+    const afc = createFabricationComplexOverlay(stage.scene, 1, atmosphere.buildingEnvironmentTexture);
+    afc.addInstance(AFC_DX + 0.5, AFC_DZ + 0.5, surfaceYAt(AFC_DX, AFC_DZ), AFC_DX + CENTER, AFC_DZ + CENTER);
+    afc.commit();
+    afc.update(0);
+    cleanups.push(afc.dispose);
+  }
+  const forestTiles = FOREST_TILES.filter(([dx, dz]) => !args.showAfc || Math.abs(dx - AFC_DX) > 1 || Math.abs(dz - AFC_DZ) > 1);
+  const forest = createForest(stage.scene, forestTiles.length);
+  for (const [dx, dz] of forestTiles) forest.addInstance(dx + 0.5, dz + 0.5, surfaceYAt(dx, dz), dx + CENTER, dz + CENTER);
   forest.commit();
   cleanups.push(forest.dispose);
 
@@ -96,11 +110,12 @@ const meta: Meta<Args> = {
   },
   argTypes: {
     showTerritory: { control: "boolean" },
+    showAfc: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 2, max: 40, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } },
     focus: { control: "inline-radio", options: TIERS as unknown as string[] }
   },
-  args: { showTerritory: true, cameraDistance: 12, cameraTilt: 0.6, focus: "CITY" },
+  args: { showTerritory: true, showAfc: true, cameraDistance: 12, cameraTilt: 0.6, focus: "CITY" },
   render
 };
 
@@ -108,6 +123,7 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const Lineup: Story = {};
+export const WithAfc: Story = { args: { cameraDistance: 7, cameraTilt: 0.75 } };
 // DEFAULT_ZOOM (22) puts the real camera ~38 units out (cameraDistanceForZoom).
 export const GameplayZoom: Story = { args: { cameraDistance: 38 } };
 export const SettlementCloseUp: Story = { args: { focus: "SETTLEMENT", cameraDistance: 3.2 } };

@@ -49,17 +49,16 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped procedural town overlay (createTownOverlay): one sunlit low-poly town growing through five tiers,",
-          "in the same flat-shaded, vertex-coloured language as the rest of the map -- cream plaster, terracotta and slate",
-          "roofs, pale stone walls, timber, with brass clock faces, verdigris copper domes and lit windows as the steampunk",
-          "accents. See TownOnTerrain for the towns on the real terrain at the game's camera tilt.",
+          "The shipped procedural town overlay (createTownOverlay): a lived-in steampunk town growing through five tiers --",
+          "sandstone, brick and plaster townhouses under copper, slate and terracotta roofs, with the AFC's brass, blackened",
+          "iron and cyan aether rising out of them in sandstone towers, skybridges and airships. See TownOnTerrain for the",
+          "towns on the real terrain beside an AFC.",
           "",
-          "SETTLEMENT · a farming hamlet: cottages, a barn and haystacks round a well.",
-          "TOWN · a market town: terraces round a square with a fountain, market stalls and a clock-towered town hall.",
-          "CITY · a walled city: curtain wall, corner towers and gatehouse, church spire, domed guild hall, workshop stack.",
-          "GREAT_CITY · taller walls ringed with towers, a domed palace, cathedral, clock tower and an industrial corner.",
-          "METROPOLIS · a central citadel spire crowned with an aether crystal, copper domes, an aether-lit avenue and",
-          "dense three-storey districts."
+          "SETTLEMENT · a hamlet of cottages round an aether lamp, with a greenhouse, water condenser and wind turbine.",
+          "TOWN · a crescent of townhouses round a fountain square and market under a geared clock tower.",
+          "CITY · terraces ringing a copper-spired sandstone tower, two skybridged towers, a greenhouse and an airship.",
+          "GREAT_CITY · twin towers joined by skybridges behind a terraced garden arcology, a clock tower, a moored airship.",
+          "METROPOLIS · a rooftop monorail circling three-storey terraces round a brass-haloed megaspire, two airships."
         ].join("\n")
       }
     }

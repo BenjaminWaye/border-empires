@@ -26,66 +26,57 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-// Warm, sunlit palette pulled from the rest of the map: the civic structures'
-// cream plaster and terracotta/slate roofs, the farmland's straw, the forest
-// greens and a little brass and verdigris copper for the steampunk accents.
+// Palette of a lived-in steampunk city: warm sandstone, brick and plaster
+// streets under copper, slate and terracotta roofs, with the AFC's
+// (client-map-3d-fabrication-complex.ts) blackened iron, aged brass and cyan
+// aether as the technology rising out of them. Warm lamplight carries most of
+// the glow; aether is kept for the machines. Colours in
+// TOWN_METAL_COLORS are drawn with the overlay's metallic material, like the
+// AFC's metalwork.
 export const TOWN_COLORS = {
-  plaster: "#ecdcbb",
-  plasterWarm: "#e3c597",
-  plasterRose: "#e6c3a8",
-  plasterWhite: "#f3ecdd",
-  timber: "#7a5236",
-  timberDark: "#523724",
-  stone: "#c7baa0",
-  stoneDark: "#9a8d76",
-  stoneDeep: "#7c7060",
-  roofTerracotta: "#c4633a",
-  roofRed: "#a8462f",
-  roofBrown: "#8c5c3c",
-  roofSlate: "#5f7890",
-  roofSlateDark: "#4b5f74",
-  roofThatch: "#cfa65a",
-  copper: "#6fa592",
-  brass: "#d6a548",
-  brassDark: "#9c7433",
-  window: "#3c4250",
-  iron: "#4c535e",
-  ironLight: "#6c7480",
-  canvas: "#e2d2ad",
-  door: "#5c3b26",
-  cobble: "#c9b896",
-  cobbleDark: "#a8977a",
-  dirt: "#b39a70",
-  path: "#ddcfae",
+  sandstone: "#c09a68",
+  sandstoneDark: "#93714a",
+  brick: "#a65a40",
+  plaster: "#cdb38a",
+  plasterRose: "#c6977a",
+  timber: "#6e4a30",
+  door: "#4e3322",
+  window: "#2f3540",
+  roofTerracotta: "#a24a2c",
+  roofSlate: "#4a5b6e",
+  roofThatch: "#c4964f",
+  glass: "#5f9a98",
+  plaza: "#98886c",
+  plazaDark: "#73654f",
+  water: "#5ea9cf",
+  awningRed: "#c4553f",
+  awningBlue: "#4b7fae",
+  copper: "#477f6c",
+  brass: "#c9a05a",
+  brassDark: "#8b6c3d",
+  iron: "#3a3e46",
+  ironLight: "#5a616c",
+  ironDark: "#25282e",
+  garden: "#6aa84a",
   foliage: "#5f9a3c",
   foliageLight: "#86b34a",
   foliageDark: "#3f6e3c",
   trunk: "#6b4a2e",
-  field: "#dcbc4c",
-  water: "#5ea9cf",
-  barn: "#b0503c",
-  awningRed: "#cf5a44",
-  awningBlue: "#4f86b8",
-  awningGold: "#e2b64e",
   // Glow-only colours (drawn unlit by the overlay's glow mesh).
   lamp: "#ffd58a",
   aether: "#9ff4ff",
-  aetherGlass: "#c9f6ff"
+  aetherDeep: "#3fc3d6"
 } as const;
 
 export type TownColor = keyof typeof TOWN_COLORS;
+
+/** Metalwork: drawn with the metallic material, the way the AFC renders its iron and brass. */
+export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironLight", "ironDark"]);
 
 const UNIT_BOX = new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const UNIT_BOX_CENTRED = new BoxGeometry(1, 1, 1);
 const UNIT_PANEL = new PlaneGeometry(1, 1);
 const UNIT_PYRAMID = new ConeGeometry(Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4).translate(0, 0.5, 0);
-const UNIT_OCTAHEDRON = new OctahedronGeometry(1, 0);
-const UNIT_ICOSAHEDRON = new IcosahedronGeometry(1, 0);
-const UNIT_SMOOTH_BLOB = new IcosahedronGeometry(1, 1);
-// Axis along z, so it faces +z like a panel: gears, clock faces, propellers.
-const UNIT_DISC = new CylinderGeometry(1, 1, 1, 12, 1).rotateX(Math.PI / 2);
-// Flat ring in the xz plane: brass hoops round spires and tanks.
-const UNIT_RING = new TorusGeometry(1, 0.14, 4, 16).rotateX(Math.PI / 2);
 
 /** Triangular prism, ridge along x, base on y = 0, 1 x 1 x 1. Open underneath:
  * the camera never looks up at a roof. */
@@ -99,6 +90,22 @@ const createGableGeometry = (): BufferGeometry => {
   return geometry;
 };
 const UNIT_GABLE = createGableGeometry();
+const UNIT_OCTAHEDRON = new OctahedronGeometry(1, 0);
+const UNIT_ICOSAHEDRON = new IcosahedronGeometry(1, 0);
+const UNIT_SMOOTH_BLOB = new IcosahedronGeometry(1, 1);
+// Axis along z, so it faces +z like a panel: rotor hubs.
+const UNIT_DISC = new CylinderGeometry(1, 1, 1, 12, 1).rotateX(Math.PI / 2);
+// Flat rings in the xz plane (brass hoops, halos), keyed by tube/radius ratio.
+const ringCache = new Map<number, BufferGeometry>();
+const unitRing = (tubeRatio: number): BufferGeometry => {
+  let geometry = ringCache.get(tubeRatio);
+  if (!geometry) {
+    geometry = new TorusGeometry(1, tubeRatio, 3, 16).rotateX(Math.PI / 2);
+    ringCache.set(tubeRatio, geometry);
+  }
+  return geometry;
+};
+
 
 const cylinderCache = new Map<string, BufferGeometry>();
 const unitCylinder = (radiusTop: number, radiusBottom: number, segments: number): BufferGeometry => {
@@ -148,7 +155,7 @@ export type TownMeshBuilder = {
   readonly box: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry?: number) => void;
   /** Gable roof, ridge along the (turned) x axis. */
   readonly gable: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry?: number) => void;
-  /** Four-sided hip / spire roof. */
+  /** Four-sided hip / mansard / spire roof. */
   readonly pyramid: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry?: number) => void;
   readonly cylinder: (x: number, y: number, z: number, radiusTop: number, radiusBottom: number, h: number, color: TownColor, segments?: number, ry?: number) => void;
   readonly cone: (x: number, y: number, z: number, radius: number, h: number, color: TownColor, segments?: number) => void;
@@ -162,8 +169,8 @@ export type TownMeshBuilder = {
   readonly tiltedBox: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry: number, rz: number) => void;
   /** Disc of the given thickness facing +z (turned ry), centred on (x, y, z). */
   readonly disc: (x: number, y: number, z: number, radius: number, thickness: number, color: TownColor, ry?: number) => void;
-  /** Horizontal hoop centred on (x, y, z). */
-  readonly ring: (x: number, y: number, z: number, radius: number, color: TownColor) => void;
+  /** Horizontal hoop centred on (x, y, z); `tubeRatio` is its tube radius over its radius. */
+  readonly ring: (x: number, y: number, z: number, radius: number, color: TownColor, tubeRatio?: number) => void;
   /** Smooth-ish ellipsoid centred on (x, y, z), long axis along x (turned ry). */
   readonly ellipsoid: (x: number, y: number, z: number, rx: number, ry3: number, rz: number, color: TownColor, ry?: number) => void;
   /** Round pipe from (x0, y0, z0) to (x1, y1, z1). */
@@ -226,7 +233,7 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
     panel: (x, y, z, w, h, color, ry = 0) => push(UNIT_PANEL, color, x, y, z, w, h, 1, ry),
     tiltedBox: (x, y, z, w, h, d, color, ry, rz) => push(UNIT_BOX_CENTRED, color, x, y, z, w, h, d, ry, rz),
     disc: (x, y, z, radius, thickness, color, ry = 0) => push(UNIT_DISC, color, x, y, z, radius, radius, thickness, ry),
-    ring: (x, y, z, radius, color) => push(UNIT_RING, color, x, y, z, radius, radius, radius, 0),
+    ring: (x, y, z, radius, color, tubeRatio = 0.14) => push(unitRing(tubeRatio), color, x, y, z, radius, radius, radius, 0),
     ellipsoid: (x, y, z, rx, ry3, rz, color, ry = 0) => push(UNIT_SMOOTH_BLOB, color, x, y, z, rx, ry3, rz, ry),
     pipe: (x0, y0, z0, x1, y1, z1, radius, color) => {
       direction.set(x1 - x0, y1 - y0, z1 - z0);
@@ -246,6 +253,32 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
       for (const part of parts) part.dispose();
       parts.length = 0;
       return merged ?? undefined;
+    }
+  };
+};
+
+/** One builder that sends metalwork colours (TOWN_METAL_COLORS) to `metal` and
+ * everything else to `matte`, so layouts never have to pick a builder. */
+export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshBuilder): TownMeshBuilder => {
+  const to = (color: TownColor): TownMeshBuilder => (TOWN_METAL_COLORS.has(color) ? metal : matte);
+  return {
+    box: (x, y, z, w, h, d, color, ry) => to(color).box(x, y, z, w, h, d, color, ry),
+    gable: (x, y, z, w, h, d, color, ry) => to(color).gable(x, y, z, w, h, d, color, ry),
+    pyramid: (x, y, z, w, h, d, color, ry) => to(color).pyramid(x, y, z, w, h, d, color, ry),
+    cylinder: (x, y, z, radiusTop, radiusBottom, h, color, segments, ry) =>
+      to(color).cylinder(x, y, z, radiusTop, radiusBottom, h, color, segments, ry),
+    cone: (x, y, z, radius, h, color, segments) => to(color).cone(x, y, z, radius, h, color, segments),
+    dome: (x, y, z, radius, color, segments, heightScale) => to(color).dome(x, y, z, radius, color, segments, heightScale),
+    blob: (x, y, z, radius, color, squash) => to(color).blob(x, y, z, radius, color, squash),
+    gem: (x, y, z, radius, height, color) => to(color).gem(x, y, z, radius, height, color),
+    panel: (x, y, z, w, h, color, ry) => to(color).panel(x, y, z, w, h, color, ry),
+    tiltedBox: (x, y, z, w, h, d, color, ry, rz) => to(color).tiltedBox(x, y, z, w, h, d, color, ry, rz),
+    disc: (x, y, z, radius, thickness, color, ry) => to(color).disc(x, y, z, radius, thickness, color, ry),
+    ring: (x, y, z, radius, color, tubeRatio) => to(color).ring(x, y, z, radius, color, tubeRatio),
+    ellipsoid: (x, y, z, rx, ry3, rz, color, ry) => to(color).ellipsoid(x, y, z, rx, ry3, rz, color, ry),
+    pipe: (x0, y0, z0, x1, y1, z1, radius, color) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color),
+    build: () => {
+      throw new Error("build the matte and metal builders directly");
     }
   };
 };

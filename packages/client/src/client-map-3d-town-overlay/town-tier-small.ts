@@ -1,111 +1,88 @@
 // SETTLEMENT, TOWN and CITY layouts. A town grows outward and upward through
-// the tiers: a farming hamlet with its wind pump, then a market town round a
-// square with its geared clock tower and brass water tower, then a walled city
-// with aether-lit walls, a church spire, a domed guild hall and an airship.
-import { airship, waterTower, windPump } from "./town-steam-parts.js";
-import type { TownColor } from "./town-mesh-builder.js";
+// the tiers: a hamlet of cottages round an aether lamp, with its greenhouse,
+// water condenser and wind turbine; then a market town -- a crescent of
+// townhouses round a fountain square under a geared clock tower; then a city
+// ringed by terraces round a copper-spired sandstone tower, tied to its
+// neighbours by skybridges, with an airship overhead.
+import { airship, condenser } from "./town-air-parts.js";
+import { clockTower, crescent, fountain, house, stall } from "./town-house-parts.js";
 import {
-  church,
-  gear,
-  clockTower,
-  domeHall,
-  fountain,
-  gatehouse,
-  groundPad,
-  house,
-  houseRow,
+  aetherPylon,
+  facingOut,
+  hydroDome,
   lampPost,
-  roundTower,
-  smokestack,
-  stall,
+  plazaDeck,
+  polar,
+  skyBridge,
+  tierTower,
   tree,
-  wallRun,
+  windTurbine,
   type TownBuilders
 } from "./town-parts.js";
 
-/** Roofs once a town is wealthy enough for verdigris copper. */
-export const STEAM_ROOFS: readonly TownColor[] = ["roofTerracotta", "roofRed", "copper", "roofSlate", "roofTerracotta", "copper"];
-
 export const buildSettlement = (t: TownBuilders): void => {
-  groundPad(t, 0.36, 7, "dirt", "cobbleDark");
-  house(t, { x: -0.12, z: -0.1, w: 0.18, d: 0.12, wall: "plaster", roof: "roofThatch", chimney: true, roofPitch: 0.75 });
-  house(t, { x: 0.14, z: -0.12, w: 0.14, d: 0.11, wall: "plasterWarm", roof: "roofTerracotta", ry: 0.35 });
-  house(t, { x: 0.15, z: 0.13, w: 0.13, d: 0.1, wall: "plasterWhite", roof: "roofThatch", ry: -0.5, chimney: true, roofPitch: 0.75 });
-  // Barn and its hay.
-  house(t, { x: -0.13, z: 0.14, w: 0.16, d: 0.12, wall: "barn", roof: "roofBrown", roofPitch: 0.85, lit: 0 });
-  t.body.dome(-0.25, 0, 0.25, 0.04, "roofThatch", 7, 1.1);
-  t.body.dome(-0.19, 0, 0.29, 0.03, "roofThatch", 7, 1.1);
-  // Well with a little timber hood.
-  fountain(t, 0.01, 0.02, 0.03, false);
-  t.body.box(-0.017, 0, 0.02, 0.005, 0.05, 0.005, "timberDark");
-  t.body.box(0.037, 0, 0.02, 0.005, 0.05, 0.005, "timberDark");
-  t.body.gable(0.01, 0.05, 0.02, 0.07, 0.025, 0.045, "roofBrown");
-  lampPost(t, 0.07, -0.01, 0.05, "aether");
-  // Fence along the barnyard.
-  t.body.box(-0.3, 0, 0.02, 0.004, 0.022, 0.2, "timber");
-  t.body.box(-0.2, 0, 0.31, 0.2, 0.022, 0.004, "timber");
-  tree(t, -0.3, -0.24, 0.15, "leaf");
-  windPump(t, 0.33, 0.0, 0.17);
-  tree(t, 0.03, -0.31, 0.12, "leaf");
-  tree(t, 0.3, 0.3, 0.11, "leaf");
+  plazaDeck(t, 0.32, "plaza");
+  aetherPylon(t, 0, 0, 0.1);
+  const cottages = [
+    { degrees: 205, w: 0.14, d: 0.1, wall: "plaster", roof: "roofThatch" },
+    { degrees: 330, w: 0.12, d: 0.095, wall: "sandstone", roof: "roofTerracotta" },
+    { degrees: 80, w: 0.12, d: 0.09, wall: "plasterRose", roof: "roofThatch" }
+  ] as const;
+  for (const cottage of cottages) {
+    const [x, z] = polar(0.17, cottage.degrees);
+    house(t, { x, z, w: cottage.w, d: cottage.d, wall: cottage.wall, roof: cottage.roof, ry: facingOut(cottage.degrees + 180), chimney: true, lit: 0.6 });
+  }
+  const [gx, gz] = polar(0.2, 140);
+  hydroDome(t, gx, gz, 0.05);
+  condenser(t, 0.34, 0.14, 0.05, 0.028);
+  windTurbine(t, -0.35, -0.04, 0.14);
+  tree(t, -0.3, -0.25, 0.13, "leaf");
+  tree(t, 0.3, -0.26, 0.12, "leaf");
+  tree(t, -0.2, 0.33, 0.11, "pine");
 };
 
 export const buildTown = (t: TownBuilders): void => {
-  groundPad(t, 0.41, 8, "cobble", "cobbleDark");
-  // Road in from the south to the square.
-  t.body.box(0, 0, 0.27, 0.075, 0.002, 0.26, "path");
-  // Town hall and its clock tower on the north side of the square.
-  house(t, { x: -0.06, z: -0.17, w: 0.2, d: 0.12, storeys: 2, wall: "plasterWhite", roof: "roofSlate", hip: true, lit: 0.6 });
-  clockTower(t, 0.1, -0.17, 0.07, 0.24, "stone", "roofSlateDark");
-  fountain(t, 0, 0.06, 0.045, true);
-  stall(t, -0.1, 0.1, 0.25, "awningRed");
-  stall(t, 0.1, 0.1, -0.25, "awningBlue");
-  stall(t, 0.11, -0.04, -1.2, "awningGold");
-  lampPost(t, -0.07, -0.03, 0.05, "aether");
-  lampPost(t, 0.07, 0.17, 0.05, "aether");
-  waterTower(t, 0.19, -0.27, 0.1, 0.038);
-  // Terraces round the square, fronts facing in.
-  houseRow(t, -0.33, -0.16, -0.33, 0.16, { depth: 0.09, storeys: [1, 2], facing: -1 });
-  houseRow(t, 0.33, 0.16, 0.33, -0.16, { depth: 0.09, storeys: [1, 2], facing: -1 });
-  houseRow(t, -0.21, 0.28, -0.06, 0.28, { depth: 0.085, storeys: [1, 1], facing: -1 });
-  houseRow(t, 0.06, 0.28, 0.21, 0.28, { depth: 0.085, storeys: [1, 1], facing: -1 });
-  tree(t, -0.2, -0.33, 0.14, "leaf");
-  tree(t, -0.38, 0.33, 0.12, "pine");
+  plazaDeck(t, 0.4);
+  // Terraces on three sides, the square open to the south road.
+  crescent(t, 0.3, 190, 350, { depth: 0.085, storeys: [1, 2] });
+  crescent(t, 0.3, 15, 70, { depth: 0.085, storeys: [1, 2] });
+  crescent(t, 0.3, 110, 165, { depth: 0.085, storeys: [1, 2] });
+  clockTower(t, 0, -0.15, 0.07, 0.24);
+  tierTower(t, { x: -0.15, z: -0.07, radius: 0.04, tiers: 2, tierH: 0.062, cap: "glassDome", light: "lamp" });
+  condenser(t, 0.15, -0.08, 0.06, 0.03);
+  fountain(t, 0, 0.05, 0.045);
+  stall(t, -0.1, 0.11, 0.3, "awningRed");
+  stall(t, 0.1, 0.11, -0.3, "awningBlue");
+  lampPost(t, -0.07, -0.03, 0.05, "lamp");
+  lampPost(t, 0.07, 0.17, 0.05, "lamp");
+  for (const degrees of [80, 100]) {
+    const [x, z] = polar(0.36, degrees);
+    tree(t, x, z, 0.09, "leaf");
+  }
 };
 
 export const buildCity = (t: TownBuilders): void => {
-  // Square pad: a 4-sided cylinder turned 45 degrees, half-side ~0.44.
-  groundPad(t, 0.62, 4, "cobble", "stoneDark");
-  const s = 0.39;
-  const wallH = 0.1;
-  const thickness = 0.028;
-  wallRun(t, -s, -s, s, -s, wallH, thickness, "stone", true);
-  wallRun(t, s, -s, s, s, wallH, thickness, "stone", true);
-  wallRun(t, -s, s, -s, -s, wallH, thickness, "stone", true);
-  wallRun(t, -s, s, -0.065, s, wallH, thickness, "stone", true);
-  wallRun(t, 0.065, s, s, s, wallH, thickness, "stone", true);
-  gatehouse(t, 0, s, 0.09, 0.14, 0, "stone", "roofSlateDark");
-  for (const [x, z] of [[-s, -s], [s, -s], [-s, s], [s, s]] as const) {
-    roundTower(t, x, z, 0.044, 0.16, "stone", "roofSlate", 0.1, 0, true);
+  plazaDeck(t, 0.45);
+  crescent(t, 0.36, -75, 75, { depth: 0.08, storeys: [2, 3] });
+  crescent(t, 0.36, 105, 285, { depth: 0.08, storeys: [2, 3] });
+  tierTower(t, { x: 0, z: 0, radius: 0.075, tiers: 4, tierH: 0.08, taper: 0.06, cap: "spire", light: "aether", spireH: 0.14 });
+  const flankers = [
+    { degrees: 200, cap: "dome" },
+    { degrees: 340, cap: "glassDome" }
+  ] as const;
+  for (const flanker of flankers) {
+    const [x, z] = polar(0.18, flanker.degrees);
+    tierTower(t, { x, z, radius: 0.05, tiers: 3, tierH: 0.07, cap: flanker.cap, light: "lamp", shell: flanker.degrees === 200 ? "brick" : "sandstone" });
+    skyBridge(t, x * 0.42, 0.18, z * 0.42, x * 0.75, 0.16, z * 0.75);
   }
-  t.body.box(0, 0, 0.18, 0.07, 0.002, 0.2, "path");
-  // Church in the north-west, domed guild hall in the north-east.
-  church(t, -0.13, -0.21, 1, 0, "plasterWhite", "roofSlateDark", "roofSlate");
-  domeHall(t, 0.21, -0.2, 0.13, 0.1, "plaster", "copper");
-  // Workshop with its stack.
-  house(t, { x: 0.15, z: 0.04, w: 0.11, d: 0.08, storeys: 1, wall: "stoneDark", roof: "roofSlateDark", lit: 0.7 });
-  smokestack(t, 0.22, 0.04, 0.2, 0.017);
-  gear(t, 0.13, 0.04, 0.084, 0.022, 0);
-  t.body.pipe(0.18, 0.055, 0.03, 0.21, 0.055, 0.03, 0.006, "iron");
-  airship(t, 0.1, 0.44, 0.13, 0.28, 0);
-  fountain(t, -0.04, 0.04, 0.04, true);
-  lampPost(t, 0.04, 0.12, 0.05, "aether");
-  lampPost(t, -0.12, 0.0, 0.05, "aether");
-  houseRow(t, -0.31, -0.08, -0.31, 0.3, { depth: 0.08, storeys: [2, 2], facing: -1, roofs: STEAM_ROOFS });
-  houseRow(t, 0.31, 0.3, 0.31, 0.12, { depth: 0.08, storeys: [2, 2], facing: -1, roofs: STEAM_ROOFS });
-  houseRow(t, -0.23, 0.3, -0.06, 0.3, { depth: 0.075, storeys: [1, 2], facing: -1, roofs: STEAM_ROOFS });
-  houseRow(t, 0.06, 0.3, 0.23, 0.3, { depth: 0.075, storeys: [1, 2], facing: -1, roofs: STEAM_ROOFS });
-  houseRow(t, -0.22, 0.14, -0.08, 0.14, { depth: 0.075, storeys: [2, 2], facing: 1, roofs: STEAM_ROOFS });
-  tree(t, 0.04, -0.07, 0.1, "leaf");
-  tree(t, -0.2, 0.03, 0.09, "leaf");
+  const [hx, hz] = polar(0.2, 125);
+  hydroDome(t, hx, hz, 0.05);
+  const [fx, fz] = polar(0.2, 55);
+  fountain(t, fx, fz, 0.04);
+  lampPost(t, -0.06, 0.2, 0.05, "lamp");
+  lampPost(t, 0.06, 0.2, 0.05, "lamp");
+  tree(t, 0.0, 0.25, 0.09, "leaf");
+  tree(t, -0.22, 0.02, 0.08, "leaf");
+  tree(t, 0.22, 0.02, 0.08, "leaf");
+  airship(t, -0.12, 0.5, 0.16, 0.22, 0);
 };

@@ -1,8 +1,9 @@
-// Bakes each town tier into two merged geometries -- the lit, vertex-coloured
-// body and the unlit glow (lit windows, lanterns, aether) -- once per page
+// Bakes each town tier into three merged geometries -- the matte,
+// vertex-coloured body, the metalwork (iron and brass, drawn metallic like the
+// AFC) and the unlit glow (lit windows, lanterns, aether) -- once per page
 // load. Shared by every town overlay, so overlays must not dispose them.
 import type { BufferGeometry } from "three";
-import { createTownMeshBuilder, createTownRandom } from "./town-mesh-builder.js";
+import { createRoutedTownBuilder, createTownMeshBuilder, createTownRandom } from "./town-mesh-builder.js";
 import type { TownBuilders } from "./town-parts.js";
 import { buildGreatCity, buildMetropolis } from "./town-tier-large.js";
 import { buildCity, buildSettlement, buildTown } from "./town-tier-small.js";
@@ -21,6 +22,7 @@ const TIER_LAYOUTS: Readonly<Record<TownTier, { readonly seed: number; readonly 
 
 export type TownTierGeometry = {
   readonly body: BufferGeometry;
+  readonly metal: BufferGeometry | undefined;
   readonly glow: BufferGeometry | undefined;
 };
 
@@ -30,17 +32,19 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
   let geometry = cache.get(tier);
   if (!geometry) {
     const layout = TIER_LAYOUTS[tier];
+    const matte = createTownMeshBuilder();
+    const metal = createTownMeshBuilder();
     const builders: TownBuilders = {
-      body: createTownMeshBuilder(),
+      body: createRoutedTownBuilder(matte, metal),
       glow: createTownMeshBuilder(),
       random: createTownRandom(layout.seed)
     };
     layout.build(builders);
-    const body = builders.body.build();
+    const body = matte.build();
     if (!body) throw new Error(`town tier ${tier} produced no geometry`);
     body.computeBoundingBox();
     body.computeBoundingSphere();
-    geometry = { body, glow: builders.glow.build() };
+    geometry = { body, metal: metal.build(), glow: builders.glow.build() };
     cache.set(tier, geometry);
   }
   return geometry;
