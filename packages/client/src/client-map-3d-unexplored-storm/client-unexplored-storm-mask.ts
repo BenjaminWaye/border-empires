@@ -6,7 +6,7 @@ import type { TileVisibilityState } from "../client-types.js";
 // dx = i - halfW - 1, dy = j - halfH - 1 from the window's camX/camY):
 //   R -- how unexplored the tile is: 255 = unexplored, 0 = explored, in
 //        between while the clouds roll back off it (the reveal animates each
-//        tile's exploredness, client-map-3d-unexplored-storm.ts).
+//        tile's exploredness, client-map-3d-unexplored-storm-reveal.ts).
 //   G -- deep-fog field. A tile's "deepness" is how far it and all 8
 //        neighbours are from explored (1 = none explored: deep fog); deep
 //        tiles hold 255, the rest a 3x3 tent blur of deepness blended up to
@@ -27,8 +27,6 @@ export type UnexploredStormGrid = {
   readonly explored: Uint8Array;
   readonly keys: Int32Array;
 };
-
-const TENT = [1, 2, 1, 2, 4, 2, 1, 2, 1] as const;
 
 export const sampleUnexploredStormGrid = (
   window: TerrainWindow,
@@ -54,29 +52,45 @@ export const sampleUnexploredStormGrid = (
 /**
  * Encodes the mask from each tile's exploredness (0..1) and optional reveal
  * flash (0..1), into `out` when given (it must be width * height * 4 long).
+ * `deepScratch` (width * height) avoids an allocation per call; the reveal
+ * re-encodes every frame while it runs.
  */
 export const encodeUnexploredStormMask = (
   width: number,
   height: number,
   exploredness: Float32Array,
   flash?: Float32Array,
-  out: Uint8Array = new Uint8Array(width * height * 4)
+  out: Uint8Array = new Uint8Array(width * height * 4),
+  deepScratch: Float32Array = new Float32Array(width * height)
 ): UnexploredStormMask => {
-  const exploredAt = (i: number, j: number): number => (i < 0 || j < 0 || i >= width || j >= height ? 0 : exploredness[j * width + i]!);
-  const deepness = new Float32Array(width * height);
+  const deepness = deepScratch;
   for (let j = 0; j < height; j += 1) {
     for (let i = 0; i < width; i += 1) {
       let deep = 1;
-      for (let k = 0; k < 9; k += 1) deep *= 1 - exploredAt(i + (k % 3) - 1, j + Math.floor(k / 3) - 1);
+      for (let dj = -1; dj <= 1; dj += 1) {
+        const nj = j + dj;
+        if (nj < 0 || nj >= height) continue; // outside counts as unexplored
+        for (let di = -1; di <= 1; di += 1) {
+          const ni = i + di;
+          if (ni >= 0 && ni < width) deep *= 1 - exploredness[nj * width + ni]!;
+        }
+      }
       deepness[j * width + i] = deep;
     }
   }
-  const deepAt = (i: number, j: number): number => (i < 0 || j < 0 || i >= width || j >= height ? 1 : deepness[j * width + i]!);
   for (let j = 0; j < height; j += 1) {
     for (let i = 0; i < width; i += 1) {
       const t = j * width + i;
       let sum = 0;
-      for (let k = 0; k < 9; k += 1) sum += TENT[k]! * deepAt(i + (k % 3) - 1, j + Math.floor(k / 3) - 1);
+      for (let dj = -1; dj <= 1; dj += 1) {
+        const nj = j + dj;
+        for (let di = -1; di <= 1; di += 1) {
+          const ni = i + di;
+          // Tent weights 1-2-1 / 2-4-2 / 1-2-1; outside counts as deep.
+          const weight = (dj === 0 ? 2 : 1) * (di === 0 ? 2 : 1);
+          sum += weight * (nj < 0 || nj >= height || ni < 0 || ni >= width ? 1 : deepness[nj * width + ni]!);
+        }
+      }
       const tent = sum / 16;
       const own = deepness[t]!;
       out[t * 4] = Math.round((1 - exploredness[t]!) * 255);
@@ -86,15 +100,4 @@ export const encodeUnexploredStormMask = (
     }
   }
   return { width, height, data: out };
-};
-
-/** The plain mask (whole tiles, no reveal in progress). */
-export const buildUnexploredStormMask = (
-  window: TerrainWindow,
-  worldWidth: number,
-  worldHeight: number,
-  visibilityAt: (wx: number, wy: number) => TileVisibilityState
-): UnexploredStormMask => {
-  const grid = sampleUnexploredStormGrid(window, worldWidth, worldHeight, visibilityAt);
-  return encodeUnexploredStormMask(grid.width, grid.height, Float32Array.from(grid.explored));
 };

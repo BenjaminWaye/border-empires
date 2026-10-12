@@ -26,9 +26,9 @@ import {
 import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 import { applyUnexploredStormClipToScene, type StormClipUniforms } from "./client-map-3d-unexplored-storm-clip.js";
 import { sampleUnexploredStormGrid } from "./client-unexplored-storm-mask.js";
-import { createUnexploredStormReveal, UNEXPLORED_REVEAL_MAX_TILES, UNEXPLORED_REVEAL_MS } from "./client-map-3d-unexplored-storm-reveal.js";
+import { createUnexploredStormReveal } from "./client-map-3d-unexplored-storm-reveal.js";
 
-export { UNEXPLORED_REVEAL_MAX_TILES, UNEXPLORED_REVEAL_MS };
+export { UNEXPLORED_REVEAL_MS } from "./client-map-3d-unexplored-storm-reveal.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
 // lying level with the land (flat ground tops out at ~0.26), so the

@@ -45,17 +45,25 @@ export const createUnexploredStormReveal = (): UnexploredStormReveal => {
   let lastExplored = new Map<number, boolean>();
   const startAt = new Map<number, number>();
 
+  // Whether the last rebuild showed any explored land.
+  let lastHadLand = false;
+  // Per-frame scratch, reused while the window size holds.
+  let exploredness = new Float32Array(0);
+  let flash = new Float32Array(0);
+  let deepness = new Float32Array(0);
+
   const onGrid = (next: UnexploredStormGrid, nowMs: number): void => {
     // No reveal on the first rebuild with land in it (login, reconnect: every
     // tile reads unexplored until the first chunk lands).
-    let hadLand = false;
-    for (const explored of lastExplored.values()) if (explored) { hadLand = true; break; }
+    const hadLand = lastHadLand;
+    let hasLand = false;
     const newly: number[] = [];
     const seen = new Map<number, boolean>();
     for (let t = 0; t < next.keys.length; t += 1) {
       const key = next.keys[t]!;
       const explored = next.explored[t] === 1;
       seen.set(key, explored);
+      hasLand ||= explored;
       if (!explored) startAt.delete(key);
       else if (lastExplored.get(key) === false) newly.push(key);
     }
@@ -64,7 +72,13 @@ export const createUnexploredStormReveal = (): UnexploredStormReveal => {
       while (startAt.size > MAX_ANIMATING_TILES) startAt.delete(startAt.keys().next().value as number);
     }
     lastExplored = seen;
+    lastHadLand = hasLand;
     grid = next;
+    if (exploredness.length !== next.explored.length) {
+      exploredness = new Float32Array(next.explored.length);
+      flash = new Float32Array(next.explored.length);
+      deepness = new Float32Array(next.explored.length);
+    }
   };
 
   const isAnimating = (nowMs: number): boolean => {
@@ -74,9 +88,9 @@ export const createUnexploredStormReveal = (): UnexploredStormReveal => {
 
   const encode = (nowMs: number, out?: Uint8Array): UnexploredStormMask => {
     if (!grid) return encodeUnexploredStormMask(1, 1, new Float32Array(1), undefined, out);
-    const exploredness = new Float32Array(grid.explored.length);
-    const flash = new Float32Array(grid.explored.length);
     for (let t = 0; t < exploredness.length; t += 1) {
+      exploredness[t] = 0;
+      flash[t] = 0;
       if (grid.explored[t] !== 1) continue;
       const start = startAt.get(grid.keys[t]!);
       if (start === undefined) {
@@ -88,7 +102,7 @@ export const createUnexploredStormReveal = (): UnexploredStormReveal => {
       // Lantern light swells and fades as the clouds part over the tile.
       flash[t] = Math.sin(Math.PI * p) ** 2;
     }
-    return encodeUnexploredStormMask(grid.width, grid.height, exploredness, flash, out);
+    return encodeUnexploredStormMask(grid.width, grid.height, exploredness, flash, out, deepness);
   };
 
   return { onGrid, isAnimating, encode, animatingCount: () => startAt.size };

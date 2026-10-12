@@ -82,9 +82,11 @@ void main() {
   float d = maskR(tile + vec2(0.0, 1.0));
   // Inward-only anti-aliasing along edges shared with explored tiles.
   vec2 fwScene = fwidth(vSceneXZ);
+  // Eased by the neighbour's exploredness (1 - R), so it fades in while a
+  // neighbour rolls back instead of switching on at once.
   float edgeAa = min(
-    min(l > 0.5 ? 1.0 : smoothstep(0.0, fwScene.x, f.x), r > 0.5 ? 1.0 : smoothstep(0.0, fwScene.x, 1.0 - f.x)),
-    min(u > 0.5 ? 1.0 : smoothstep(0.0, fwScene.y, f.y), d > 0.5 ? 1.0 : smoothstep(0.0, fwScene.y, 1.0 - f.y))
+    min(mix(smoothstep(0.0, fwScene.x, f.x), 1.0, l), mix(smoothstep(0.0, fwScene.x, 1.0 - f.x), 1.0, r)),
+    min(mix(smoothstep(0.0, fwScene.y, f.y), 1.0, u), mix(smoothstep(0.0, fwScene.y, 1.0 - f.y), 1.0, d))
   );
 
   // G: deep-fog field. Exactly 1 at a deep tile's centre (it's always
@@ -93,7 +95,7 @@ void main() {
   vec2 uv = (vSceneXZ - uMaskMin) / uMaskSize;
   vec2 uvTile = (tile + 0.5 - uMaskMin) / uMaskSize;
   bool outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
-  float deep = outside ? 1.0 : step(0.99, texture2D(uMask, uvTile).g);
+  float deep = outside ? 1.0 : smoothstep(0.97, 0.995, texture2D(uMask, uvTile).g);
   float soft = outside ? 1.0 : stormSoftField(uMask, uv, uMaskSize);
   // Reveal (client-map-3d-unexplored-storm-reveal.ts): a newly explored
   // tile's R eases from 1 to 0, which shrinks the deep-fog field and pulls the

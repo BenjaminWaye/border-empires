@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildUnexploredStormMask, encodeUnexploredStormMask } from "./client-unexplored-storm-mask.js";
+import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import type { TileVisibilityState } from "../client-types.js";
+import { encodeUnexploredStormMask, sampleUnexploredStormGrid } from "./client-unexplored-storm-mask.js";
+import { createUnexploredStormReveal } from "./client-map-3d-unexplored-storm-reveal.js";
+
+// The production path: sample the window, encode through the reveal (a first
+// grid never animates, so this is the plain mask).
+const buildUnexploredStormMask = (window: TerrainWindow, worldWidth: number, worldHeight: number, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => {
+  const reveal = createUnexploredStormReveal();
+  reveal.onGrid(sampleUnexploredStormGrid(window, worldWidth, worldHeight, visibilityAt), 0);
+  return reveal.encode(0);
+};
 
 const at = (mask: ReturnType<typeof buildUnexploredStormMask>, i: number, j: number) => ({
   unexplored: mask.data[(j * mask.width + i) * 4]!,

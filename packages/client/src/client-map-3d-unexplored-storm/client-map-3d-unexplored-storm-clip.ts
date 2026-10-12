@@ -43,9 +43,8 @@ export const markUnexploredStormClip = <T extends Material>(material: T, kind: S
 };
 
 // Vertex stage only. stormClipField returns the storm's contour field s
-// (soft field + edge wobble; > 1 on deep fog, -1 off unexplored tiles), and
-// stormClipRing how far into the unexplored side of a tile edge a point is
-// (bilinear R: 0.5 on the edge; this is 1 from a tenth of a tile in).
+// (soft field + edge wobble + clearance; > 1 on deep fog, -1 on fully
+// explored tiles).
 const CLIP_DECL = `
 uniform sampler2D uStormClipMask;
 uniform vec2 uStormClipMaskMin;
@@ -64,9 +63,6 @@ float stormClipField(vec2 sceneXZ) {
   float s = stormSoftField(uStormClipMask, uv, uStormClipMaskSize) + stormEdgeNoise(sceneXZ + uStormClipOrigin, uStormClipTime) * 0.1;
   return stormClearanceField(s, stormExploredDistance(uStormClipMask, uStormClipMaskMin, uStormClipMaskSize, sceneXZ));
 }
-float stormClipRing(vec2 sceneXZ) {
-  return smoothstep(0.5, 0.6, texture2D(uStormClipMask, (sceneXZ - uStormClipMaskMin) / uStormClipMaskSize).r);
-}
 `;
 
 // Collapses the whole instance to one point outside the clip volume. Past
@@ -83,14 +79,16 @@ const FEATURE_VERTEX = `
 
 // Ground meshes are unrotated and unscaled, so a world-y shift is a local
 // one. Pressed 0.04 under the sheet: much closer and the brass line
-// depth-fights the ground beneath it at a distance. Fully pressed 0.05 inside the contour (about 0.04 tile before the
-// brass line, which never comes closer than STORM_CLEARANCE to explored
-// land); the explored side of the tile edge (stormClipRing 0) never moves.
+// depth-fights the ground beneath it at a distance. Fully pressed 0.05
+// inside the contour (about 0.04 tile before the brass line). The clearance
+// term makes s 0 on explored land's edge, so explored ground never moves,
+// and it eases with a tile's exploredness during a reveal -- the pressing
+// lets go only as the cloud actually parts.
 const GROUND_VERTEX = `
 {
   vec3 stormGroundWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
   float stormGroundS = stormClipField(stormGroundWorld.xz);
-  float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS) * stormClipRing(stormGroundWorld.xz);
+  float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS);
   transformed.y -= stormPress * max(0.0, stormGroundWorld.y - (uStormClipPlaneY - 0.04));
 }
 `;

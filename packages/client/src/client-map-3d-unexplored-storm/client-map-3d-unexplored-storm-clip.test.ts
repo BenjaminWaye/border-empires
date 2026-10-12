@@ -57,7 +57,11 @@ describe("unexplored storm clip", () => {
     const shader = compile(material);
     // Hills slope down to just under the sheet as they reach the brass line;
     // the explored side of a tile edge never moves.
-    expect(shader.vertexShader).toContain("smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS) * stormClipRing(stormGroundWorld.xz)");
+    expect(shader.vertexShader).toContain("float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS);");
+    // No separate tile-edge gate: it read R against a fixed 0.5, so mid-reveal
+    // it let go of a hill while the cloud still covered it (the hill popped up
+    // through). The clearance in s already keeps explored ground still.
+    expect(shader.vertexShader).not.toContain("stormClipRing");
     expect(shader.vertexShader).toContain("transformed.y -= stormPress * max(0.0, stormGroundWorld.y - (uStormClipPlaneY - 0.04));");
     // Never cut: through the clear strip inside the brass line you see the
     // ground a little further out, so a cut there showed the void as a dark seam.
