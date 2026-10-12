@@ -119,7 +119,9 @@ test("OBSERVATORY cost matches existing constants", () => {
   // Manpower-economy rewrite Step 4 (docs/manpower-economy-rewrite-plan.md §4.1/§4.4, §12):
   // Observatory is a Tier 1 economic sink, now 80 manpower.
   expect(spec.cost.manpower).toBe(80);
-  expect(spec.cost.strategic).toEqual({ CRYSTAL: 45 });
+  // No build-time CRYSTAL figure — its CRYSTAL cost is the permanent slot
+  // occupation in STRUCTURE_SLOT_REQUIREMENTS.OBSERVATORY.
+  expect(spec.cost.strategic).toBeUndefined();
 });
 
 // ── Cost parity: economic structures (against structureCostDefinition) ─

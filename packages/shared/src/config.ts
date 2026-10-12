@@ -179,8 +179,8 @@ export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
 // as STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE above (doubles it).
 export const GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE = 0.4;
 // Deep Sensor Array stand-in: reuses the Observatory vision-radius model
-// (OBSERVATORY_VISION_BONUS below) at half its magnitude — a head start, not
-// a full Observatory-equivalent bonus.
+// (OBSERVATORY_VISION_BONUS below) at a fraction of its magnitude — a head
+// start, not a full Observatory-equivalent bonus.
 export const GALACTIC_WONDER_VISION_RADIUS_BONUS = 2;
 // §upgrade-bonus-rebalance: only the CITY-and-above tiers' manpower cap/regen
 // INCREASE over the previous tier is halved -- TOWN keeps its original,
@@ -250,7 +250,7 @@ export const WOODEN_FORT_BUILD_MS = 10 * 60_000;
 export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
-export const OBSERVATORY_VISION_BONUS = 5;
+export const OBSERVATORY_VISION_BONUS = 10;
 // §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's ongoing
 // crystal drain is replaced entirely by its permanent CRYSTAL slot
 // occupation — "the slot occupation itself is the upkeep... there is

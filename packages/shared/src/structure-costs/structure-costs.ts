@@ -64,7 +64,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   OBSERVATORY: {
     baseGoldCost: 0,
     manpowerCost: 80,
-    resourceCost: { resource: "CRYSTAL", amount: 45 },
     scaling: { kind: "doubling" }
   },
   SIEGE_OUTPOST: {
