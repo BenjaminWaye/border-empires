@@ -1,4 +1,5 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
+import { structureDisplayNameForId } from "../client-structure-display-names.js";
 
 // Materiality gate for the manpower-spent-attacking headline (plan §2.3):
 // only surface it up top when it's both a large absolute number and a
@@ -105,7 +106,7 @@ const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED
 };
 
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
-  const parts = [`${card.structureType} completed`];
+  const parts = [`${structureDisplayNameForId(card.structureType)} completed`];
   if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} gold`);
   if (card.populationBurst && card.populationBurst > 0) parts.push(`+${roundedAmount(card.populationBurst)} population`);
   return parts.join(" · ");

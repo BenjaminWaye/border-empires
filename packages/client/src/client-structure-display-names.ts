@@ -82,3 +82,21 @@ export const STRUCTURE_DISPLAY_NAMES: Partial<Record<EconomicStructureType | Str
 
 export const economicStructureName = (type: EconomicStructureType | StructureInfoKey): string =>
   STRUCTURE_DISPLAY_NAMES[type] ?? "Mintworks";
+
+const hasStructureDisplayName = (type: string): type is keyof typeof STRUCTURE_DISPLAY_NAMES =>
+  Object.prototype.hasOwnProperty.call(STRUCTURE_DISPLAY_NAMES, type);
+
+// Turns an internal identifier like "SOME_NEW_THING" into "Some new thing".
+const humanizeStructureId = (type: string): string => {
+  const words = type.toLowerCase().split("_").filter(Boolean).join(" ");
+  return words ? words[0]!.toUpperCase() + words.slice(1) : type;
+};
+
+/**
+ * Display name for a structure id that arrives as a plain string (e.g. the
+ * activity dashboard's BUILDING_COMPLETED card). Unlike economicStructureName
+ * it never falls back to "Mintworks": an id missing from the map is shown
+ * humanized rather than as the raw backend constant or a wrong building.
+ */
+export const structureDisplayNameForId = (type: string): string =>
+  (hasStructureDisplayName(type) ? STRUCTURE_DISPLAY_NAMES[type] : undefined) ?? humanizeStructureId(type);
