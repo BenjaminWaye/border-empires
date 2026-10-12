@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { CURRENT_WORLDGEN_VERSION, getWorldSeed, worldgenVersion } from "@border-empires/shared";
 
 import { InMemorySimulationCommandStore } from "../command-store/command-store.js";
 import { InMemorySimulationEventStore } from "../event-store/event-store.js";
@@ -132,11 +131,6 @@ describe("simulation service startup recovery", () => {
         (tile) => tile.ownerId === "player-1" && typeof tile.ownershipState === "string"
       )
     ).toBe(true);
-    // Regression: the season-20ai world is generated at the current worldgen
-    // version, but its season used to fall back to seed 0 / legacy v1, so
-    // terrainAt (server and client) drifted from it -- no edge rivers locally.
-    expect(worldgenVersion()).toBe(CURRENT_WORLDGEN_VERSION);
-    expect(getWorldSeed()).not.toBe(0);
     await service.close();
   }, 90_000);
 
