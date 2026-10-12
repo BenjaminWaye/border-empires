@@ -1,8 +1,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-// Moved verbatim out of client-changelog-data.ts to keep that file under the
-// 500-line cap.
-export const RIVER_SOURCES_CHANGELOG: ClientChangelogEntry[] = [
+export const RIVERS_MOUNTAINS_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.3",
@@ -22,6 +20,18 @@ export const RIVER_SOURCES_CHANGELOG: ClientChangelogEntry[] = [
     changes: [
       "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
       "Running seasons keep their rivers, towns and resources exactly as they are"
+    ]
+  },
+  {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "New-look mountains",
+    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
+    changes: [
+      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
+      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
+      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
+      "Mountains are matte, with clean facets"
     ]
   }
 ];

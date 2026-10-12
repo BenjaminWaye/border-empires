@@ -16,6 +16,7 @@ const baseTile: DomainTileState = { x: 1, y: 1, terrain: "LAND" };
 
 const harness = (queue: FrontierAutoHealQueue, tiles: Map<string, DomainTileState>, reachOwnerAt: (x: number, y: number) => string | undefined) => {
   const events: SimulationEvent[] = [];
+  const claimed: Array<{ tileKey: string; ownerId: string }> = [];
   const tick = (nowMs: number) =>
     tickFrontierAutoHeal({
       queue,
@@ -25,9 +26,10 @@ const harness = (queue: FrontierAutoHealQueue, tiles: Map<string, DomainTileStat
       tileDeltaFromState: (t) => ({ x: t.x, y: t.y }) as SimulationTileWireDelta,
       emitEvent: (e) => events.push(e),
       runtimeLogInfo: () => {},
-      reachBorderOwnerAt: reachOwnerAt
+      reachBorderOwnerAt: reachOwnerAt,
+      onTileClaimed: (tileKey, ownerId) => claimed.push({ tileKey, ownerId })
     });
-  return { events, tick };
+  return { events, claimed, tick };
 };
 
 describe("tickFrontierAutoHeal", () => {
@@ -42,6 +44,17 @@ describe("tickFrontierAutoHeal", () => {
     expect(healed).toBe(1);
     expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER", healAt: undefined });
     expect(events).toHaveLength(1);
+  });
+
+  it("reports each healed tile via onTileClaimed so a dormant waystation on it can activate", () => {
+    const queue = createFrontierAutoHealQueue();
+    const tiles = new Map<string, DomainTileState>([["1,1", { ...baseTile, healAt: 1_000, waystation: { activated: false } }]]);
+    enqueueFrontierAutoHeal(queue, "1,1", 1_000);
+    const { claimed, tick } = harness(queue, tiles, () => "player-1");
+
+    tick(1_000);
+
+    expect(claimed).toEqual([{ tileKey: "1,1", ownerId: "player-1" }]);
   });
 
   it("does not fire before the deadline", () => {
