@@ -69,12 +69,12 @@ describe("build menu building art", () => {
         "build_bank",
         "build_exchange_house",
         "build_fuel_plant",
+        "build_hydroworks",
         "build_lockworks_port",
         "build_quartermasters_office",
         "build_titanium_levy_part_1",
         "build_titanium_levy_part_2",
         "build_titanium_levy_part_3",
-        "build_hydroworks",
         "build_weapons_workshop",
       ]
     `);
