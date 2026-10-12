@@ -13,7 +13,7 @@ off tile borders. Rev 2 replaces it with a draped ribbon (below).
 | Phase 0 -- reproduce, versions, overlay heights, look target | Done (findings below) |
 | Phase 1a -- water fix on existing meshes (v8 prod + v9 staging) | Implemented (PR #2262); verified locally on v9, needs review on staging/prod |
 | Phase 1b -- draped ribbon rebuild (1.0-1.8) | After 1a is reviewed in game |
-| River heads, springs, river mountains and the mountain remake | Shipped 2026-10-12 (#2300, #2299; see "River mountains" below) |
+| River heads, springs, river mountains and the mountain remake | Shipped 2026-10-12 (#2300, #2299, #2321; see "River mountains" below). Open: phone profiling |
 | Phase 2 -- worldgen v12 river networks + FARM bias (v10 is the continents/ranges rework, v11 the headwater rule) | Unscheduled |
 | Phase 3 -- optional extras | Unscheduled |
 
@@ -500,8 +500,10 @@ is gone. (Rivers leaving high ground shipped as river mountains -- below.)
 
 ## River mountains
 
-Shipped 2026-10-12 (#2300 with #2296 and #2298; #2299; follow-ups in the
-branch that retired the separate `river-mountains-plan.md`). Rivers are still
+Shipped 2026-10-12: #2300 (with #2296 and #2298), #2299 (worldgen v11) and
+#2321 (2D parity, shared snow rule, local seed worlds on the current
+worldgen, measurements; it also retired the separate
+`river-mountains-plan.md` into this section). Rivers are still
 purely visual: a river mountain is not a terrain type -- the tile stays
 `MOUNTAIN` for gameplay, the server and the AI.
 
@@ -549,8 +551,13 @@ purely visual: a river mountain is not a terrain type -- the tile stays
   draws (6 models x 2 climates), versus ~40 triangles in 3 draws for the old
   cone. The worst view on the season-20ai world (the 115x115-tile budget)
   holds ~2,000 mountain tiles: ~460k triangles plus the shadow pass, up from
-  ~80k. Not yet profiled on a mid-range phone; if it is too heavy, the
-  rocks' icosahedron subdivision is the first thing to cut.
+  ~80k.
+
+**Still open:** frame time with a mountain range in view on a mid-range
+phone (no device was available; the numbers above are the budget, not a
+profile). If it is too heavy, the rocks' icosahedron subdivision is the
+first thing to cut. Production gets all of this when `develop` is promoted
+to `main`; river mountains there need a new (v11) season.
 
 ## Risks and trade-offs
 
