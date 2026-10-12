@@ -1,7 +1,7 @@
 // Per-tile look of a mountain, shared by the true-3D massif
 // (client-map-3d-mountain-massif.ts) and the 2D canvas peaks
 // (client-map-render/client-map-render-mountain-peaks.ts), so both renderers
-// agree on which mountains are tall, twin-peaked or snow-capped
+// agree on which mountains are tall, summits or snow-capped
 // (docs/river-mountains-plan.md, PR A).
 //
 // Everything is derived from an integer hash of the *world* tile, never of
@@ -37,13 +37,6 @@ export type MountainVariation = {
   readonly tint: number;
   /** Rock warm (+) / cool (-) shift in [-1, 1]. */
   readonly warmth: number;
-  /** Snow cap on the main peak: naturally tall peaks and cold-country peaks only. */
-  readonly snow: boolean;
-  /**
-   * Where the 3D shader's snow starts, as a fraction of the peak's height
-   * (lower in cold country); 0 when the peak is bare.
-   */
-  readonly snowLine: number;
   readonly secondary: SecondaryPeak | null;
   /** Low ridge saddle toward the east / south neighbour (each adjacent pair drawn once). */
   readonly saddleEast: boolean;
@@ -56,15 +49,15 @@ const RANGE_SPINE_BONUS = 0.12;
 const MAX_HEIGHT_SCALE = 1.4;
 const MIN_FOOTPRINT_SCALE = 0.9;
 const FOOTPRINT_SCALE_RANGE = 0.2;
-/** Main peaks at least this tall (own height, without the range bonus) carry snow even outside cold country. */
-export const SNOW_HEIGHT_SCALE = 1.05;
 const SECONDARY_PEAK_CHANCE = 0.45;
 const SECONDARY_MIN_DISTANCE = 0.22;
 const SECONDARY_DISTANCE_RANGE = 0.08;
 const SECONDARY_MIN_SCALE = 0.5;
 const SECONDARY_SCALE_RANGE = 0.2;
-const COLD_SNOW_LINE = 0.45;
-const TALL_SNOW_LINE = 0.78;
+const SUMMIT_SALT = 21;
+const SNOW_SALT = 47;
+/** Share of summit tiles outside cold country whose peaks carry snow. */
+export const SUMMIT_SNOW_SHARE = 0.65;
 
 /**
  * Deterministic 0..1 value for a world tile and a salt (one salt per
@@ -132,12 +125,29 @@ export const mountainVariationAt = (wx: number, wy: number, neighbourhood: Mount
     footprintScale: MIN_FOOTPRINT_SCALE + FOOTPRINT_SCALE_RANGE * mountainHash01(wx, wy, 3),
     tint: mountainHash01(wx, wy, 4) * 2 - 1,
     warmth: mountainHash01(wx, wy, 9) * 2 - 1,
-    // Judged on the peak's own height, before the range spine bonus --
-    // otherwise nearly every peak inside a range would be snow-capped.
-    snow: neighbourhood.cold || ownHeight >= SNOW_HEIGHT_SCALE,
-    snowLine: neighbourhood.cold ? COLD_SNOW_LINE : ownHeight >= SNOW_HEIGHT_SCALE ? TALL_SNOW_LINE : 0,
     secondary,
     saddleEast: neighbourhood.east,
     saddleSouth: neighbourhood.south
   };
 };
+
+/**
+ * A tile that stands higher than all its orthogonal mountain neighbours (by
+ * hash): the summit of its range. 3D gives it a tall summit model.
+ */
+export const isSummitTile = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): boolean => {
+  const own = mountainHash01(wx, wy, SUMMIT_SALT);
+  return [[0, -1], [1, 0], [0, 1], [-1, 0]].every(([dx, dy]) => {
+    const nx = lookup.wrapX(wx + dx!);
+    const ny = lookup.wrapY(wy + dy!);
+    return !lookup.isMountainAt(nx, ny) || mountainHash01(nx, ny, SUMMIT_SALT) < own;
+  });
+};
+
+/**
+ * Whether a mountain tile is snow-capped, in both renderers: every mountain in
+ * cold country, and most summit tiles elsewhere (a range with no white tops
+ * at all looks odd); the rest of a range stays bare.
+ */
+export const mountainSnowAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup, cold: boolean): boolean =>
+  cold || (isSummitTile(wx, wy, lookup) && mountainHash01(wx, wy, SNOW_SALT) < SUMMIT_SNOW_SHARE);
