@@ -12,7 +12,7 @@ import { isMusterUnlocked, markMusterUnlocked } from "./client-muster-unlock-sto
  * the season id isn't known yet.
  */
 export const unlockMusterOnEnemyContact = (
-  seenTile: { ownerId?: string } | undefined,
+  seenTile: { ownerId?: string; x: number; y: number } | undefined,
   me: string | undefined,
   authEmail: string | null | undefined,
   discoveryTipQueue: DiscoveryTipId[] | undefined,
@@ -21,5 +21,5 @@ export const unlockMusterOnEnemyContact = (
   if (!seenTile?.ownerId || seenTile.ownerId === me || !seasonId) return;
   if (isMusterUnlocked(authEmail, seasonId)) return;
   markMusterUnlocked(authEmail, seasonId);
-  if (discoveryTipQueue) enqueueDiscoveryTip(discoveryTipQueue, "ENEMY_EMPIRE", authEmail);
+  if (discoveryTipQueue) enqueueDiscoveryTip(discoveryTipQueue, "ENEMY_EMPIRE", authEmail, { x: seenTile.x, y: seenTile.y });
 };
