@@ -9,6 +9,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
+import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
@@ -18,12 +19,13 @@ import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-must
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
 import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
-import { CLIENT_CHANGELOG_ENTRIES_RIVER_MOUNTAINS } from "./client-changelog-river-mountains.js";
+import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -34,7 +36,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  ...CLIENT_CHANGELOG_ENTRIES_RIVER_MOUNTAINS,
+  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
     createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.12.1",
@@ -314,34 +316,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791434436666,
-    introducedIn: "2026.10.08.1",
-    title: "Your AFC's landing has sound",
-    why: "The orbital landing of your Automated Fabrication Complex played in silence.",
-    changes: [
-      "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
-      "The landing now follows the sound: thrusters at full burn as it comes in, winding down as it slows, cutting out just above the ground, then touchdown on the impact",
-      "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
-    ]
-  },
-  {
-    createdAt: 1791437889049,
-    introducedIn: "2026.10.08.2",
-    title: "AFC landing stays put when you pan",
-    why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
-    changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
-  },
-  {
-    createdAt: 1791450095409,
-    introducedIn: "2026.10.08.3",
-    title: "Tips wait for your AFC to land",
-    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
-    changes: [
-      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
-      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
-    ]
-  },
-  {
     createdAt: 1791462529729,
     introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
@@ -358,13 +332,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your AFC always sees 4 tiles around itself",
       "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
     ]
-  },
-  {
-    createdAt: 1791469348919,
-    introducedIn: "2026.10.08.6",
-    title: "Quieter AFC landing",
-    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
-    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
   {
     createdAt: 1791488967000,
@@ -442,6 +409,25 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  {
+    createdAt: 1791750801000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.2",
+    title: "Docks link to nearby docks, with a way to jump along their routes",
+    why: "Dock routes often led to a far-away dock instead of a close one, and following a long dashed route meant a lot of scrolling while the line broke up along the way.",
+    changes: [
+      "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
+      "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
+      "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
+    ]
+  },
+  {
+    createdAt: 1791805200000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "No more floating blue slabs after a long camera jump",
+    why: "After jumping the camera from your coast to an area with no explored sea, the edge of your old coastline's water stayed behind as floating blue slabs in the dark.",
+    changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
+  },
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -456,7 +442,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
-  ...AFC_MODULE_TAB_CHANGELOG
+  ...AFC_MODULE_TAB_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  {
+    createdAt: 1791827518951, // Date.now() captured once for this release.
+    introducedIn: "2026.10.12.1",
+    title: "Building machinery waits for construction to finish",
+    why: "Fully visible moving parts could start running while their 3D building was still being built.",
+    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -88,6 +88,7 @@ type RelayBeaconInstance = {
   readonly disabled: boolean;
   // False while the heliograph array is not built yet; its slots are held as zero-scale placeholders, so update() must not animate them.
   readonly arrayVisible: boolean;
+  readonly underConstruction: boolean;
 };
 
 export const createRelayBeaconOverlay = (
@@ -375,7 +376,7 @@ export const createRelayBeaconOverlay = (
     } else {
       arrayVisible = addBeacon(sceneX, surfaceY, sceneZ);
     }
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible });
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled, arrayVisible, underConstruction: site !== undefined });
   };
 
   const commit = (): void => {
@@ -398,7 +399,7 @@ export const createRelayBeaconOverlay = (
     const gearSlot = slots.get("arrayGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
-      if (!t.arrayVisible) continue; // still a zero-scale placeholder under construction
+      if (!t.arrayVisible || t.underConstruction) continue; // preserve the placed construction pose
       const angle = t.disabled ? t.phase : nowMs * ARRAY_SPEED + t.phase;
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);

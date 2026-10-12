@@ -75,6 +75,8 @@ export type StructurePieceBuilder = {
   // any piece whose lowest point sits above `cutY` (offset above the surface),
   // so a structure under construction shows only the bands built so far.
   readonly setGate: (cutY: number | undefined) => void;
+  // Fully visible moving parts also stay in their rest pose until construction ends.
+  readonly isConstructionGated: () => boolean;
   // Dry-runs `run` without placing anything and returns the highest point
   // (offset above the surface) any piece would reach. Callers must undo any
   // family-local side effects of the layout they ran (e.g. animation records).
@@ -275,7 +277,7 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure, lastPieceWasCut: () => lastCut },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh, setGate, measure, lastPieceWasCut: () => lastCut, isConstructionGated: () => gateY !== undefined },
     clear,
     commit,
     dispose

@@ -101,12 +101,15 @@ export type FrontierAutoHealTickContext = {
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   /** O(1) persistent-border lookup -- same map `isInReach`/EXPAND use. */
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
+  /** Runs once per healed tile AFTER the heal delta has been emitted, so a still-dormant waystation/watchtower on it activates. */
+  onTileClaimed?: (tileKey: string, ownerId: string, claimCommandId: string) => void;
 };
 
 /** Heals every tile whose auto-heal deadline has passed, up to this tick's work cap. Returns the number actually healed. */
 export const tickFrontierAutoHeal = (context: FrontierAutoHealTickContext): number => {
   const { queue, nowMs, tiles } = context;
   const tileDeltasByOwner = new Map<string, SimulationTileWireDelta[]>();
+  const healedTiles: Array<{ tileKey: string; ownerId: string }> = [];
   let healed = 0;
   let examined = 0;
 
@@ -133,6 +136,7 @@ export const tickFrontierAutoHeal = (context: FrontierAutoHealTickContext): numb
     const healedTile: DomainTileState = { ...liveTile, ownerId, ownershipState: "FRONTIER", healAt: undefined };
     context.replaceTileState(entry.tileKey, healedTile, `frontier-auto-heal:${nowMs}`);
     healed += 1;
+    healedTiles.push({ tileKey: entry.tileKey, ownerId });
     const deltas = tileDeltasByOwner.get(ownerId);
     if (deltas) deltas.push(context.tileDeltaFromState(healedTile));
     else tileDeltasByOwner.set(ownerId, [context.tileDeltaFromState(healedTile)]);
@@ -141,6 +145,7 @@ export const tickFrontierAutoHeal = (context: FrontierAutoHealTickContext): numb
   for (const [playerId, tileDeltas] of tileDeltasByOwner) {
     context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `frontier-auto-heal:${nowMs}`, playerId, tileDeltas });
   }
+  for (const { tileKey, ownerId } of healedTiles) context.onTileClaimed?.(tileKey, ownerId, `frontier-auto-heal:${nowMs}`);
 
   if (healed >= FRONTIER_AUTO_HEAL_MAX_PER_TICK) {
     context.runtimeLogInfo(

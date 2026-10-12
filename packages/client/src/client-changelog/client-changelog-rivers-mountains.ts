@@ -1,10 +1,6 @@
-// River heads, springs, river mountains and the mountain remake
-// (docs/rivers-remake-plan.md, "River mountains"), split out of
-// client-changelog-data.ts to keep it under the 500-line cap. Entries are
-// unordered -- client-changelog.ts sorts the combined list by createdAt.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const CLIENT_CHANGELOG_ENTRIES_RIVER_MOUNTAINS: ClientChangelogEntry[] = [
+export const RIVERS_MOUNTAINS_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.3",

@@ -5,33 +5,35 @@ import {
   LineDashedMaterial,
   Scene
 } from "three";
+import { WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
 
 // True-3D counterpart of client-dock-route-draw.ts's 2D dashed sea-route
-// line. Drawn as one Three.js Line per hop (not one polyline for the whole
-// route) so a hop that crosses the toroidal world seam can simply be
-// skipped by the caller instead of drawing a line across the whole map --
-// mirroring the 2D renderer's per-segment wrap check in client-runtime-loop.ts.
+// line. Each route is one continuous Three.js Line (not one Line per hop) so
+// the dash pattern runs unbroken along the whole route; the caller unwraps
+// the route across the toroidal seam before handing points over (see
+// client-map-3d-dock-route-sync.ts).
+//
+// Every point sits at a flat height just above the water surface. Routes
+// only ever cross sea, and sampling the heightfield instead made the line
+// jump wherever the route left the loaded terrain window (heightfield
+// elevation reads 0 there vs ~-0.16..-0.36 for loaded sea), which read as
+// the line "breaking" while following it to a far dock.
 export type DockRouteOverlay = {
   clear: () => void;
-  addSegment: (
-    fromX: number, fromZ: number, fromSurfaceY: number,
-    toX: number, toZ: number, toSurfaceY: number
-  ) => void;
+  addPath: (points: ReadonlyArray<{ x: number; z: number }>) => void;
   commit: () => void;
   tick: (nowMs: number) => void;
   dispose: () => void;
 };
 
-const FLOAT_ABOVE = 0.05;
+const ROUTE_Y = WATER_SURFACE_Y + 0.05;
 const DASH_SIZE = 0.16;
 const GAP_SIZE = 0.13;
 const DASH_COLOR = "#fff6b0";
 
-type PendingSegment = { fromX: number; fromY: number; fromZ: number; toX: number; toY: number; toZ: number };
-
 export const createDockRouteOverlay = (scene: Scene): DockRouteOverlay => {
   const activeLines: Array<{ line: Line; mat: LineDashedMaterial }> = [];
-  const pending: PendingSegment[] = [];
+  const pending: Array<ReadonlyArray<{ x: number; z: number }>> = [];
 
   const clear = (): void => {
     for (const { line, mat } of activeLines) {
@@ -43,20 +45,16 @@ export const createDockRouteOverlay = (scene: Scene): DockRouteOverlay => {
     pending.length = 0;
   };
 
-  const addSegment = (
-    fromX: number, fromZ: number, fromSurfaceY: number,
-    toX: number, toZ: number, toSurfaceY: number
-  ): void => {
-    pending.push({ fromX, fromY: fromSurfaceY + FLOAT_ABOVE, fromZ, toX, toY: toSurfaceY + FLOAT_ABOVE, toZ });
+  const addPath = (points: ReadonlyArray<{ x: number; z: number }>): void => {
+    if (points.length >= 2) pending.push(points);
   };
 
   const commit = (): void => {
-    for (const p of pending) {
+    for (const points of pending) {
+      const positions: number[] = [];
+      for (const point of points) positions.push(point.x, ROUTE_Y, point.z);
       const geo = new BufferGeometry();
-      geo.setAttribute("position", new Float32BufferAttribute([
-        p.fromX, p.fromY, p.fromZ,
-        p.toX, p.toY, p.toZ
-      ], 3));
+      geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
       const mat = new LineDashedMaterial({
         color: DASH_COLOR,
         transparent: true,
@@ -91,5 +89,5 @@ export const createDockRouteOverlay = (scene: Scene): DockRouteOverlay => {
     clear();
   };
 
-  return { clear, addSegment, commit, tick, dispose };
+  return { clear, addPath, commit, tick, dispose };
 };
