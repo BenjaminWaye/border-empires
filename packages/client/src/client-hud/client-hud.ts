@@ -7,7 +7,6 @@ import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gau
 import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
 import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
@@ -23,7 +22,6 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
-import { renderClientGuideOverlay } from "../client-guide-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
@@ -243,18 +241,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   };
 
   const replayPanelHtml = (): string => "";
-
-  if (
-    !state.guide.completed &&
-    !state.guide.autoOpened &&
-    state.connection === "initialized" &&
-    state.firstChunkAt > 0 &&
-    dom.authOverlayEl.style.display !== "grid"
-  ) {
-    state.guide.open = true;
-    state.guide.autoOpened = true;
-    storageSet(GUIDE_AUTO_OPEN_STORAGE_KEY, "1");
-  }
 
   const development = safeValue("developmentSlotSummary", { busy: 0, limit: 0, available: 0 }, () => developmentSlotSummary());
   const mobile = isMobile();
@@ -1024,13 +1010,6 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
-
-  renderClientGuideOverlay({
-    state,
-    guideOverlayEl: dom.guideOverlayEl,
-    storageSet,
-    renderHud: () => renderClientHud(deps)
-  });
 
   renderClientActivityDashboardOverlay({
     state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,

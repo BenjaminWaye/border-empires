@@ -230,7 +230,6 @@ export const hudMarkup = `
 
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
-  <div id="guide-overlay" style="display:none;"></div>
   <div id="activity-dashboard-overlay" style="display:none;"></div>
   <div id="respawn-overlay" style="display:none;"></div>
   <div id="join-season-overlay" style="display:none;"></div>
