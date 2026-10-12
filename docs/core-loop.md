@@ -5,7 +5,7 @@ Status: canonical reference
 What the player repeatedly does, why they do it, what it costs, and what
 brings them back. This doc covers the **design shape** of the game.
 `docs/game-mechanics.md` is the rules reference and
-`docs/manpower-economy-rewrite-plan.md` has the economy derivations; this doc
+`docs/product/resource-and-manpower-economy.md` has the economy rules; this doc
 links to them instead of repeating them.
 
 Surveyed 2026-09-23 against the rewrite stack (`apps/simulation`,
@@ -371,7 +371,7 @@ winners only.
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
 
 **Why manpower is the gate:** gold was rescaled so it could no longer outrun
-every sink (`docs/manpower-economy-rewrite-plan.md` §6). Manpower is capped by
+every sink (`docs/product/resource-and-manpower-economy.md`). Manpower is capped by
 town tiers, and towns come only from land. So the only way to act more often
 is to **own more and better towns**. That is what connects the economy back
 to expansion and war.

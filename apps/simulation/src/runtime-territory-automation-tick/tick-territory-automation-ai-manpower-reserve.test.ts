@@ -4,8 +4,7 @@
  *
  * Bug: the auto-claim tick (tickTerritoryAutomation) never checked or
  * deducted actor.manpower at all — it only gated/spent gold. Once EXPAND
- * started costing EXPAND_MANPOWER_COST manpower (§4.2 of
- * docs/manpower-economy-rewrite-plan.md), this meant auto-claim silently
+ * started costing EXPAND_MANPOWER_COST manpower, this meant auto-claim silently
  * bypassed the manpower economy entirely: it claimed tiles for free with
  * respect to manpower, and could drain an AI's manpower toward the same
  * near-zero trap the pre-fix gold reserve bug caused, permanently starving

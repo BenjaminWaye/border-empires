@@ -310,7 +310,7 @@ const manpowerRequirements = (
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   if (actionType === "EXPAND") {
-    // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2):
+    // Manpower-economy rewrite:
     // claiming a frontier tile is the cheapest manpower-gated action.
     return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
   }

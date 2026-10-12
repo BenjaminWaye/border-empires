@@ -3041,7 +3041,7 @@ export class SimulationRuntime {
     return cachedTownNetworkForPlayerImpl(this.townNetworkContext(), player, settledTiles, maxConnectedTownNames);
   }
 
-  // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
+  // Garrison Hall's flat cap
   // bonus is a plain per-structure count (garrisonHallTilesByOwner) — NOT
   // town-adjacency-scoped, because GARRISON_HALL uses "same_tile" placement
   // (structure-placement-metadata.json) and can sit on any settled/resource/

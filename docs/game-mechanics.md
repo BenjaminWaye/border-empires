@@ -87,7 +87,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **Tech tree**: DAG with prerequisites; tier-based. Tree config is per-season (serialized config ID), so tech contents can vary across seasons.
 - **Effects**: each tech can unlock structures, grant stat mods (`attack`, `defense`, `income`, `vision` multipliers), or grant ability access.
-- **Research**: one tech at a time per player. Completes instantly on purchase (cost in coin only) — no research timer (`researchTimeMult` was removed as a dead effect, docs/manpower-economy-rewrite-plan.md §23.1).
+- **Research**: one tech at a time per player. Completes instantly on purchase (cost in coin only) — no research timer (`researchTimeMult` was removed as a dead effect).
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
 - References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 

@@ -113,7 +113,7 @@ export const createInitialState = () => ({
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
-  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+  // Resource slots: global
   // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
   // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
   // signal for FOOD/TITANIUM/CRYSTAL/UMBRITE now that stockpiles are retired at

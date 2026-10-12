@@ -49,7 +49,7 @@ export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 export const SHARD_RAIN_SITE_MIN = 3;
 export const SHARD_RAIN_SITE_MAX = 6;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
-// Gold rescope (docs/manpower-economy-rewrite-plan.md §6.1): every passive gold-income
+// Gold rescope: every passive gold-income
 // source below divides by this to preserve their relative balance while cutting the
 // absolute magnitude — TOWN_BASE_GOLD_PER_MIN's old 2/min (~2,880/day/town) -> ~10/day.
 export const GOLD_RESCALE_DIVISOR = 288;
@@ -72,7 +72,7 @@ export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
-// §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+// a structure's slot
 // occupation IS its upkeep now — there is nothing left to meter per-minute
 // on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
 // were never retired to 0 when their build cost moved to manpower + slots
@@ -128,7 +128,7 @@ export const TITANIUM_LEVY_REGEN_FREEZE_MS = SHARED_TITANIUM_LEVY_REGEN_FREEZE_M
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
-// §6.4 (docs/manpower-economy-rewrite-plan.md): synthesizers are the ONE
+// synthesizers are the ONE
 // structure family gold still gates on an ongoing basis — everything else
 // is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
 // comment above). Decided figures: 30 gold/day (Umbrite/Titanium), 40 gold/day
@@ -218,7 +218,7 @@ export const converterExchangeGoldPerMinute = (structureType: string, mode: stri
   const perDay = (EXCHANGE_GOLD_PER_SLOT_PER_DAY as Record<string, number | undefined>)[structureType];
   return perDay ? perDay / UPKEEP_MINUTES_PER_DAY : 0;
 };
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
+// Resource slots: FOOD's only
 // building-level cost is now the permanent slot it occupies
 // (structure-slots.ts) — the separate per-minute flow drain these three
 // constants used to charge on top of that would double-charge the same
@@ -240,7 +240,7 @@ export const TITANIUM_WORKS_TITANIUM_PER_DAY = 18;
 export const ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
-// §12.1 (docs/manpower-economy-rewrite-plan.md): Airport's ongoing crystal
+// Airport's ongoing crystal
 // drain is replaced entirely by its permanent CRYSTAL slot occupation —
 // "the slot occupation itself is the upkeep... there is nothing left to
 // meter per-minute." Retired to 0 rather than deleted (call sites across

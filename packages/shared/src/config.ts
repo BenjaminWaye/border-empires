@@ -134,7 +134,7 @@ export const MANPOWER_BASE_CAP = 150;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = 150 / 720;
 export const MANPOWER_EPSILON = 1e-6;
 
-// --- Manpower economy: Expand/Settle costs (manpower-economy-rewrite-plan.md §4.2) ---
+// --- Manpower economy: Expand/Settle costs ---
 // Cheapest action — just claiming dirt.
 export const EXPAND_MANPOWER_COST = 10;
 // Priced below every structure on purpose — acquisition is always a little
@@ -251,7 +251,7 @@ export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 10;
-// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's ongoing
+// Observatory's ongoing
 // crystal drain is replaced entirely by its permanent CRYSTAL slot
 // occupation — "the slot occupation itself is the upkeep... there is
 // nothing left to meter per-minute." Retired to 0 rather than deleted.
@@ -386,7 +386,7 @@ export const MUSTER_DEPOT_SPEED_MULT = 1.25;
 export const OUTPOST_DEPOT_RADIUS = 5;
 
 // --- Rail Depot mustering hub ---
-// docs/manpower-economy-rewrite-plan.md §4.4: Garrison Hall grants a flat,
+// Garrison Hall grants a flat,
 // unconditional manpower-cap bonus to the town it's built in, regardless of
 // network. Rail Depot no longer grants its own flat per-depot regen (the old
 // RAIL_DEPOT_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a

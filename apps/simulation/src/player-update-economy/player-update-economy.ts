@@ -69,8 +69,8 @@ const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
 });
 
 // Rounding precision here (and on every other .toFixed(...) in this file)
-// was bumped from 4 to 6 decimal places for the gold rescope (docs/
-// manpower-economy-rewrite-plan.md §6.1): gold amounts are now ~288x
+// was bumped from 4 to 6 decimal places for the gold rescope: gold
+// amounts are now ~288x
 // smaller, and 4dp rounding on intermediate bucket sums was coarse enough
 // relative to the new magnitudes that two independently-accumulated chains
 // could round to different 4th-decimal values despite being mathematically

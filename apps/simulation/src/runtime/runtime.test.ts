@@ -2548,8 +2548,7 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toBeDefined();
       expect(tile?.fortJson).toContain("\"variant\":\"TITANIUM_BASTION\"");
-      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
-      // §12) — the fort tier ladder no longer charges gold at all, just the
+      // Structure build gold costs are zeroed — the fort tier ladder no longer charges gold at all, just the
       // manpower/iron already asserted above via the fort variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
       expect(player.points).toBe(10_000);
@@ -2952,8 +2951,7 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
       expect(tile?.siegeOutpostJson).toBeDefined();
       expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
-      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
-      // §12) — the siege tier ladder no longer charges gold at all, just the
+      // Structure build gold costs are zeroed — the siege tier ladder no longer charges gold at all, just the
       // manpower/supply/iron already asserted above via the siege variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
       expect(player.points).toBe(10_000);

@@ -6,8 +6,8 @@ import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
  *   - 250,000 owned tiles, handleCollectVisibleCommand < 100ms wall time
  *   - Correctness: gold is credited and the yield-bearing index contains
  *     exactly the expected tiles. Strategic resources (FOOD/TITANIUM/CRYSTAL/
- *     UMBRITE) are slot-based, not a stockpiled per-minute yield (docs/
- *     manpower-economy-rewrite-plan.md §5.4/§5.6) — see the correctness test
+ *     UMBRITE) are slot-based, not a stockpiled per-minute yield
+ *     — see the correctness test
  *     below for why they are deliberately not asserted here.
  */
 import { describe, expect, it } from "vitest";

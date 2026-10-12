@@ -29,7 +29,7 @@ export type ConnectedTownNetworkEntry = {
   // by the actual number of Clearing Houses nearby, not by connectedTownCount.
   connectedClearingHouseKeys?: string[];
   // Same precomputation, for Garrison Hall — feeds the Rail Depot network
-  // manpower bonus (docs/manpower-economy-rewrite-plan.md §4.4): a Rail Depot
+  // manpower bonus: a Rail Depot
   // amplifies every Garrison Hall in its connected-town network, uncapped.
   connectedGarrisonHallKeys?: string[];
   // Same precomputation, for Rail Depot — used to enforce "only one Rail
@@ -632,7 +632,7 @@ export const buildConnectedTownNetworkForPlayer = (
 };
 
 /**
- * docs/manpower-economy-rewrite-plan.md §4.4: Rail Depot is the enabler of a
+ * Rail Depot is the enabler of a
  * network-wide manpower bonus. For every one of the player's own towns that
  * itself hosts an active Rail Depot, count that town's own Garrison Hall (if
  * any) plus every Garrison Hall in its connected-town network — summed
@@ -820,7 +820,7 @@ export {
 } from "./economy-network-first-three-towns.js";
 
 
-// §5.4/§5.3 (docs/manpower-economy-rewrite-plan.md): a town is "fed" (produces
+// a town is "fed" (produces
 // gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
 // — FOOD no longer has a separate stockpile/flow gate (there's only one food
 // mechanic now: slots). `foodDormantTownKeys` is the FOOD-resource dormancy

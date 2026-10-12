@@ -21,7 +21,7 @@ import type { StructureInfoKey } from "../client-map-display.js";
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/
+// Resource slots: FOOD/TITANIUM/CRYSTAL/
 // UMBRITE stopped being stockpiled flows once Step 5 shipped — they're now
 // discrete slot capacity, so this panel renders them with a slots-used mode
 // instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource

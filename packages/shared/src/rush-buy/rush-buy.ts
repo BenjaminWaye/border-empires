@@ -1,4 +1,4 @@
-// docs/manpower-economy-rewrite-plan.md §6.3: pay gold to cover a
+// pay gold to cover a
 // manpower-cost action's shortfall, not the full cost. Extended (per user
 // direction, not written up in the plan doc) to an already-in-progress
 // settle/build: price scales with the fraction of time still remaining, so

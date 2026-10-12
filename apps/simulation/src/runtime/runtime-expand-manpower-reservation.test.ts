@@ -6,8 +6,7 @@ import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
 type SimulationRuntimeEventShape = SimulationEvent;
 
-// Regression for the "immediate MP deduction on queue" gap (see AGENTS.md /
-// the manpower-economy-rewrite-plan docs): EXPAND's manpower cost used to
+// Regression for the "immediate MP deduction on queue" gap: EXPAND's manpower cost used to
 // only get charged at lock resolution (up to ~90s later with forest/hills
 // claim-time penalties), not when the command was accepted -- letting a
 // player fire off far more simultaneous EXPANDs than their manpower could
