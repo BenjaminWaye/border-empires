@@ -97,5 +97,21 @@ export const appendPlayerEventLogEntry = (
     ...(input.distanceBand ? { distanceBand: input.distanceBand } : {}),
     ...(input.confidence ? { confidence: input.confidence } : {})
   });
-  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
+  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? trimKeepingSurveyReports(log) : log;
+};
+
+// OCCUPATION_SURVEY entries are standing intelligence (at most one per
+// strategic resource, see occupation-survey.ts), not feed history: the
+// client reads them back as "Titanium likely nearby". Dropping them with the
+// oldest feed lines erased that intelligence within minutes, so the cap
+// evicts the oldest *other* entries instead. Total size stays capped.
+const trimKeepingSurveyReports = (log: PlayerEventLogEntry[]): PlayerEventLogEntry[] => {
+  let toDrop = log.length - PLAYER_EVENT_LOG_MAX_ENTRIES;
+  return log.filter((entry) => {
+    if (toDrop > 0 && entry.type !== "OCCUPATION_SURVEY") {
+      toDrop -= 1;
+      return false;
+    }
+    return true;
+  });
 };

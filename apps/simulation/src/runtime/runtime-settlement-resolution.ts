@@ -1,4 +1,4 @@
-import type { DomainTileState } from "@border-empires/game-domain";
+import { appendOccupationSurveyReports, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { SETTLE_COST } from "@border-empires/shared";
@@ -10,6 +10,7 @@ export type SettlementResolutionInput = Omit<PendingSettlementRecord, "goldCost"
 export interface SettlementResolutionContext {
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   tiles: ReadonlyMap<string, DomainTileState>;
+  players: ReadonlyMap<string, DomainPlayer>;
   removePendingSettlement(tileKey: string): void;
   drainDevQueue(ownerId: string): void;
   retireQueuedSettlement(ownerId: string, tileKey: string): void;
@@ -77,6 +78,15 @@ export const resolvePendingSettlement = (context: SettlementResolutionContext, i
     tileDeltas: [{ ...context.tileDeltaFromState(tileAfterBuildTail), ownerId: tileAfterBuildTail.ownerId ?? undefined, ownershipState: tileAfterBuildTail.ownershipState ?? undefined }]
   });
   context.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
+  // Garrisoning a neutral town surveys the land around it: any resource clue
+  // within a few tiles becomes a standing "<Resource> likely <bearing> of this
+  // town" report until you research that resource's reveal Manifest. Towns
+  // taken from another empire (marked by populationBeforeCapture) don't
+  // count -- the survey rewards peaceful expansion into unclaimed towns.
+  const owner = context.players.get(input.ownerId);
+  if (owner && settledTile.town && settledTile.town.populationBeforeCapture === undefined) {
+    appendOccupationSurveyReports(owner, context.tiles, settledTile.x, settledTile.y, context.now());
+  }
   context.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
 };

@@ -468,6 +468,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   {
+    createdAt: 1791803592000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Resource clues now show on the map",
+    why: "Land near Titanium, Umbrite and Crystal carries a clue (ferrous dust, blackwood canopy, refractive ground), but the clues were lost on every server restart, never sent when you logged in, and drawn too faintly to see. Occupation-survey reports from conquered towns also vanished after a few dozen other events.",
+    changes: [
+      "Clue tiles now get a clear tint on both the 3D and 2D maps: rust for Titanium, violet for Umbrite, ice-cyan for Crystal",
+      "Selecting a clue tile explains it in the tile overview, e.g. \"Ferrous dust: Titanium deposits are likely within a few tiles\"",
+      "Garrisoning a neutral town now surveys the land around it: nearby clues become a report like \"Titanium likely north-east of this town\" (capturing an enemy town no longer does)",
+      "Survey reports are no longer pushed out of your event log by later events"
+    ]
+  },
+  {
     createdAt: 1791827518951, // Date.now() captured once for this release.
     introducedIn: "2026.10.12.1",
     title: "Building machinery waits for construction to finish",

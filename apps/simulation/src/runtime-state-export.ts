@@ -9,7 +9,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { AutoSettlePrefs, FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
+import type { AutoSettlePrefs, FrontierDecayKind, ProspectSignature, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -24,6 +24,7 @@ export type RuntimeExportState = {
     y: number;
     terrain: Terrain;
     resource?: string;
+    prospectSignature?: ProspectSignature;
     dockId?: string;
     shardSiteJson?: string;
     naturalWonderJson?: string;
