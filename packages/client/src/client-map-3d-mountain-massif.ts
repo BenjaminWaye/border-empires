@@ -19,8 +19,10 @@ import {
   type MeshLambertMaterial
 } from "three";
 import {
+  isSummitTile,
   mountainHash01,
   mountainNeighbourhoodAt,
+  mountainSnowAt,
   mountainVariationAt,
   type MountainNeighbourhoodLookup
 } from "./client-map-mountain-variation/client-map-mountain-variation.js";
@@ -41,10 +43,6 @@ const SUMMIT_FOOTPRINT = 1.35;
 const FILLER_FOOTPRINT = 1.25;
 // How much the per-tile footprint variation (0.9..1.1) widens or narrows a model.
 const FOOTPRINT_SPREAD = 0.6;
-const SUMMIT_SALT = 21;
-const SNOW_SALT = 47;
-// Share of temperate summit tiles whose peaks carry snow.
-const SUMMIT_SNOW_SHARE = 0.65;
 
 export type MountainMassifDeps = MountainNeighbourhoodLookup;
 
@@ -82,15 +80,7 @@ const createModelLayer = (geometry: BufferGeometry, material: MeshLambertMateria
   return { mesh, snowLines, count: 0 };
 };
 
-/** A tile that stands higher than all its orthogonal mountain neighbours (by hash): it gets a summit model. */
-export const isSummitTile = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): boolean => {
-  const own = mountainHash01(wx, wy, SUMMIT_SALT);
-  return [[0, -1], [1, 0], [0, 1], [-1, 0]].every(([dx, dy]) => {
-    const nx = lookup.wrapX(wx + dx!);
-    const ny = lookup.wrapY(wy + dy!);
-    return !lookup.isMountainAt(nx, ny) || mountainHash01(nx, ny, SUMMIT_SALT) < own;
-  });
-};
+export { isSummitTile } from "./client-map-mountain-variation/client-map-mountain-variation.js";
 
 /** Which model a mountain tile shows (index into MOUNTAIN_MODELS). */
 export const mountainModelIndexAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): number => {
@@ -156,10 +146,8 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     const light = 1 + TINT_LIGHTNESS * variation.tint;
     const warm = TINT_WARMTH * variation.warmth;
     layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
-    // Snow in cold country, and on most of the tall summit peaks everywhere
-    // (a range with no white tops at all looks odd).
-    const summit = MOUNTAIN_MODELS[placement.modelIndex]!.role === "summit";
-    const snow = neighbourhood.cold || (summit && mountainHash01(wx, wy, SNOW_SALT) < SUMMIT_SNOW_SHARE) ? 1 : 0;
+    // Shared with the 2D peaks: cold country, and most summits elsewhere.
+    const snow = mountainSnowAt(wx, wy, deps, neighbourhood.cold) ? 1 : 0;
     layer.snowLines.setX(layer.count, snow);
     snowy += snow;
     layer.count += 1;

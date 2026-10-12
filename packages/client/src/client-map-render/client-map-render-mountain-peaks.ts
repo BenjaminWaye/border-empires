@@ -1,11 +1,13 @@
 // 2D canvas mountain peaks, drawn per tile over the plain rock texture
-// (which no longer bakes in one identical pair of peaks). Height, twin peak,
-// snow and rock tint come from the same per-tile variation the true-3D
-// massif uses (client-map-mountain-variation.ts), so a tall, snow-capped
-// twin peak in 3D is also one in the 2D fallback.
+// (which no longer bakes in one identical pair of peaks). Height, twin peak
+// and rock tint come from the same per-tile variation the true-3D massif
+// uses, and snow from the same rule (mountainSnowAt in
+// client-map-mountain-variation.ts), so a snow-capped mountain in 3D is one
+// in the 2D fallback too.
 import { terrainAt, visualLandBiomeAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import {
   mountainNeighbourhoodAt,
+  mountainSnowAt,
   mountainVariationAt,
   type MountainNeighbourhood,
   type MountainNeighbourhoodLookup,
@@ -63,12 +65,26 @@ const WORLD_LOOKUP: MountainNeighbourhoodLookup = {
 export const mountainVariationForWorldTile = (wx: number, wy: number): MountainVariation =>
   mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP));
 
-/**
- * `riverMountain`: the tile is a river mountain (client-map-river-mountains.ts)
- * -- no second peak, so the stream down its face stays clear.
- */
-export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: MountainNeighbourhood, riverMountain = false): MountainPeaksLayout => {
+/** Whether a world tile's mountain is snow-capped (same rule as 3D), from static worldgen terrain. */
+export const mountainSnowForWorldTile = (wx: number, wy: number): boolean =>
+  mountainSnowAt(wx, wy, WORLD_LOOKUP, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP).cold);
+
+export type MountainPeaksOptions = {
+  /** The tile is a river mountain (client-map-river-mountains.ts): no second peak, so the spring at its foot stays clear. */
+  readonly riverMountain?: boolean;
+  /** Snow-capped (mountainSnowAt); defaults to cold country only. */
+  readonly snow?: boolean;
+};
+
+export const mountainPeaksLayout = (
+  wx: number,
+  wy: number,
+  neighbourhood: MountainNeighbourhood,
+  options: MountainPeaksOptions = {}
+): MountainPeaksLayout => {
   const v = mountainVariationAt(wx, wy, neighbourhood);
+  const snow = options.snow ?? neighbourhood.cold;
+  const riverMountain = options.riverMountain ?? false;
   const lean = (v.yaw / (Math.PI / 2) - 0.5) * APEX_LEAN;
   const peak = (cx: number, baseY: number, halfWidth: number, height: number, snow: boolean): PeakShape => ({
     apex: { x: cx + lean, y: Math.max(0.04, baseY - height) },
@@ -86,11 +102,11 @@ export const mountainPeaksLayout = (wx: number, wy: number, neighbourhood: Mount
         BASE_Y - 0.06 + v.secondary.dz * SECONDARY_DEPTH_SQUASH,
         halfWidth * s * 1.1,
         MAIN_HEIGHT * v.heightScale * s,
-        v.snow && s >= 0.6
+        snow && s >= 0.6
       )
     );
   }
-  peaks.push(peak(0.5, BASE_Y, halfWidth, MAIN_HEIGHT * v.heightScale, v.snow));
+  peaks.push(peak(0.5, BASE_Y, halfWidth, MAIN_HEIGHT * v.heightScale, snow));
   // Unlike 3D (one saddle per adjacent pair), each 2D tile is drawn on its
   // own, so it draws its half of the ridge toward every mountain neighbour.
   const ridges: RidgeShape[] = [];
@@ -195,7 +211,11 @@ export const drawMountainPeaksLayout = (ctx: CanvasRenderingContext2D, layout: M
 export const drawMountainPeaks2D = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   if (size < 8) return;
   const face = riverMountainFaceAt(wx, wy, WORLD_LOOKUP.isMountainAt);
-  const layout = mountainPeaksLayout(wx, wy, mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP), face !== null);
+  const neighbourhood = mountainNeighbourhoodAt(wx, wy, WORLD_LOOKUP);
+  const layout = mountainPeaksLayout(wx, wy, neighbourhood, {
+    riverMountain: face !== null,
+    snow: mountainSnowAt(wx, wy, WORLD_LOOKUP, neighbourhood.cold)
+  });
   drawMountainPeaksLayout(ctx, layout, px, py, size);
   const main = layout.peaks[layout.peaks.length - 1];
   if (face && main) drawRiverMountainStream(ctx, riverMountainStream(face, wx, wy, main), px, py, size);

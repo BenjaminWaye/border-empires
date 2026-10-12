@@ -268,7 +268,7 @@ describe("simulation service startup recovery", () => {
       expect.arrayContaining([expect.objectContaining({ x: 99, y: 99, ownerId: "player-1" })])
     );
     await service.close();
-  });
+  }, 90_000); // season-20ai seasons run on the current worldgen (seedProfileWorldgen), not legacy v1
 
   it("replaces a recovered seed-backed default world with the managed ruleset bootstrap", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -506,6 +506,6 @@ describe("simulation service startup recovery", () => {
     );
 
     await service.close();
-  }, 15_000);
+  }, 90_000); // season-20ai seasons run on the current worldgen (seedProfileWorldgen), not legacy v1
 
 });

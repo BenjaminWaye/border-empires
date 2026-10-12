@@ -38,14 +38,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {
-    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.4",
-    title: "Rivers fall from the mountains",
-    why: "A river that starts next to a mountain now looks like it comes from it.",
+    createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.12.1",
+    title: "River mountains on the 2D map, and matching snow",
+    why: "The 2D map still drew rivers pouring down the mountain while 3D starts them at its foot, and the two maps disagreed on which peaks have snow.",
     changes: [
-      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
-      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
-      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+      "On the 2D map, a river now wells up at the foot of its mountain between two boulders and runs in a banked stream to the pool, like the 3D map",
+      "Both maps now cap the same mountains with snow: every mountain in cold country, and most of the tallest peaks elsewhere"
     ]
   },
   {

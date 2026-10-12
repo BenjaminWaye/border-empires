@@ -1,4 +1,4 @@
-// River mountains (docs/river-mountains-plan.md, PR C): a mountain one tile
+// River mountains (docs/rivers-remake-plan.md, "River mountains"): a mountain one tile
 // ring out from a river's head is drawn with the river coming out of it --
 // in 3D a stream welling up at its base (client-map-3d-river-cascade.ts), in
 // 2D a notch and stream down the tile (client-map-render-river-mountain.ts).
