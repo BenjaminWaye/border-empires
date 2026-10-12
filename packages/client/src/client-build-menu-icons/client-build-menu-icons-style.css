@@ -1,0 +1,38 @@
+/* Build menu art (client-build-menu-icons.ts). */
+
+.tile-building-category-art {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Building rows: a slightly wider icon column so the map art reads as a
+   thumbnail; rows that still use a glyph keep the original 22px column. */
+.tile-action-btn:has(.tile-action-art) {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.tile-action-art {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Inline styles (client-build-menu-icons.ts) scale and offset the SVG so the
+   building's own bounding box fills the slot. */
+.tile-action-art img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+/* Disabled rows are already dimmed as a whole (.tile-action-btn:disabled), so
+   the art needs no extra treatment. */
