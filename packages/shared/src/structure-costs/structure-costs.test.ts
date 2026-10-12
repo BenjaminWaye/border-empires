@@ -350,7 +350,7 @@ describe("relayBeaconManpowerCost", () => {
 });
 
 // D12: first-tier beacons keep paying manpower but are placed instantly; the
-// 6th+ follow time-follows-cost (100 MP = 1 hour).
+// 6th+ follow time-follows-cost (100 MP = 100 seconds).
 describe("relayBeaconBuildDurationMs", () => {
   test("the first 5 beacons a player owns build instantly despite costing manpower", () => {
     for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
@@ -360,8 +360,8 @@ describe("relayBeaconBuildDurationMs", () => {
     }
   });
 
-  test("the 6th+ beacon takes an hour (100 MP x 36s)", () => {
-    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(3_600_000);
-    expect(relayBeaconBuildDurationMs(20)).toBe(3_600_000);
+  test("the 6th+ beacon takes 100 seconds (100 MP x 1s)", () => {
+    expect(relayBeaconBuildDurationMs(RELAY_BEACON_FIRST_TIER_COUNT)).toBe(100_000);
+    expect(relayBeaconBuildDurationMs(20)).toBe(100_000);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { relayBeaconManpowerCost } from "@border-empires/shared";
+import { relayBeaconBuildDurationMs, relayBeaconManpowerCost } from "@border-empires/shared";
 
 // docs/replenishment-update-plan.md D12: a player's first 5 owned Relay
 // Beacons are placed instantly (no timer wait) but still charge their
@@ -63,7 +63,7 @@ describe("Relay Beacon instant first tier", () => {
     }
   });
 
-  it("makes the 6th beacon wait out its hour", async () => {
+  it("makes the 6th beacon wait out its manpower-scaled build time", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildRuntime();
@@ -73,7 +73,7 @@ describe("Relay Beacon instant first tier", () => {
         await Promise.resolve();
       }
       await buildBeacon(runtime, 5);
-      vi.advanceTimersByTime(3_599_000);
+      vi.advanceTimersByTime(relayBeaconBuildDurationMs(5) - 1_000);
       await Promise.resolve();
       expect(beaconStatus(runtime, 5)).toBe("under_construction");
       vi.advanceTimersByTime(1_000);

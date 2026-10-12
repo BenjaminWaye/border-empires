@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { announceDiscoveryTip, renderDiscoveryTipOverlay } from "./client-discovery-tip-overlay.js";
+import { announceDiscoveryTip, renderDiscoveryTipOverlay, setDiscoveryTipCenterHandler } from "./client-discovery-tip-overlay.js";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips.js";
 
 beforeEach(() => {
@@ -69,5 +69,27 @@ describe("announceDiscoveryTip onShow", () => {
     announceDiscoveryTip(queue, "FIRST_MUSTER", "a@example.com", vi.fn(), onShow);
 
     expect(onShow).toHaveBeenCalledWith(DISCOVERY_TIPS.FIRST_MUSTER);
+  });
+});
+
+describe("discovery tip Center button", () => {
+  afterEach(() => setDiscoveryTipCenterHandler(undefined));
+
+  it("jumps to the tile the tip was announced for, without dismissing the toast", () => {
+    const center = vi.fn();
+    setDiscoveryTipCenterHandler(center);
+    announceDiscoveryTip([], "FIRST_MUSTER", "a@example.com", vi.fn(), undefined, false, { x: 7, y: 9 });
+
+    (document.getElementById("discovery-tip-center") as HTMLButtonElement).click();
+
+    expect(center).toHaveBeenCalledWith({ x: 7, y: 9 });
+    expect(document.getElementById("discovery-tip-overlay")).not.toBeNull();
+  });
+
+  it("omits the Center button for a tip with no target tile", () => {
+    announceDiscoveryTip([], "FIRST_MUSTER", "a@example.com", vi.fn());
+
+    expect(document.getElementById("discovery-tip-overlay")).not.toBeNull();
+    expect(document.getElementById("discovery-tip-center")).toBeNull();
   });
 });

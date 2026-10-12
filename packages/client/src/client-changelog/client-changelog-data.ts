@@ -14,7 +14,11 @@ import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.
 import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-muster-save-up.js";
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
+import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
+import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
+import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
+import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -24,6 +28,62 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+  {
+    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.5",
+    title: "Rivers rise in the mountains (new seasons)",
+    why: "Rivers began wherever the generator happened to start them, often on open plains.",
+    changes: [
+      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
+      "Running seasons keep their rivers, towns and resources exactly as they are"
+    ]
+  },
+  {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "New-look mountains",
+    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
+    changes: [
+      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
+      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
+      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
+      "Mountains are matte, with clean facets"
+    ]
+  },
+  {
+    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.4",
+    title: "Rivers fall from the mountains",
+    why: "A river that starts next to a mountain now looks like it comes from it.",
+    changes: [
+      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
+      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
+      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+    ]
+  },
+  {
+    createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.1",
+    title: "Better starter sites and accurate checklist goals",
+    why: "A nearby town was not always reachable, and claiming food without garrisoning it looked like progress even though it supplied no food slots.",
+    changes: [
+      "New worlds require 50 spaced starter sites with first food within three land steps and AFC reach, four food slots within six, and a town within eight; live joins recheck neutral routes and amenities before using those sites",
+      "The existing town-first checklist still highlights town and food tiles directly in both map renderers; only garrisoned food counts as usable food slots",
+      "Your AFC's reach is included in local target selection, and pending targets stop highlighting until their action resolves",
+      "Upgraded towns and lightweight town data count correctly, and enemy towns are not suggested as neutral expansion goals"
+    ]
+  },
   {
     createdAt: 1791527749820, // frozen Date.now() value for this release
     introducedIn: "2026.10.09.1",
@@ -334,6 +394,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
   {
+    createdAt: 1791488967000,
+    introducedIn: "2026.10.08.7",
+    title: "Waystations no longer promise population without a town",
+    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
+    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",
@@ -362,7 +429,47 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Hovering a top-bar chip now keeps a steady highlight"
     ]
   },
+  {
+    createdAt: 1791579131298, // Date.now() frozen for this entry
+    introducedIn: "2026.10.09.1",
+    title: "Separate continents, natural coasts and mountain ranges on new worlds",
+    why: "Continent maps often fused into one supercontinent holding most of the land, mountain ranges ran in ruler-straight lines or filled wide gray wedges, and atolls were stretched into ovals or dropped onto continents.",
+    changes: [
+      "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
+      "Coastlines are more natural: capes, coves and offshore islands, with craggier coasts toward the poles, instead of long smooth or ruler-straight shores",
+      "Coastal mountain ranges now sit just inland of the coast, like the Andes",
+      "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
+      "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
+      "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
+      "Atolls are now small, irregular rings of reef islets out in open ocean, sometimes with a smaller atoll nearby, instead of continent-sized perfect circles",
+      "Island chains now run along coasts as strings of small, elongated islands, instead of clusters of large round islands in the middle of the ocean",
+      "Seasons already in progress keep their current map"
+    ]
+  },
+  {
+    createdAt: 1791581686000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.2",
+    title: "Choose your effort when launching an attack",
+    why: "Committing extra manpower to a fight was only possible through March To. Launch Attack always sent the minimum.",
+    changes: [
+      "Launch Attack on a settled enemy tile now opens the Normal / Extra / Double effort picker March To uses, with a live win chance",
+      "Attacks on several tiles (box-select or Attack Connected Region) get one picker that applies to each settled target",
+      "Expand To & Attack asks for an effort level too; the waypoint's final attack uses it, even while you're offline",
+      "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
+    ]
+  },
+  {
+    createdAt: 1791748295340, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.1",
+    title: "Garrison works on towns, docks and captured buildings outside your reach",
+    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    changes: [
+      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
+      "Plain land outside your reach still can't be garrisoned"
+    ]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
+  ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
@@ -370,7 +477,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_SEPT_24_26,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
-  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
+  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
+  ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
+  ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
+  {
+    createdAt: 1791753144590, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.2",
+    title: "Graphical AFC module sockets",
+    why: "Managing modules across multiple AFCs needed a clear view of what each complex contains.",
+    changes: ["A new Modules tab maps all eight sockets, including captured copies and incoming deliveries", "Empty sockets link to call-down controls for unlocked modules missing here, including your copies on other AFCs"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

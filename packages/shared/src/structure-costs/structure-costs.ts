@@ -362,17 +362,45 @@ export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
 export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
   type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 
-// docs/replenishment-update-plan.md D9: "build time = manpower cost x 36s /
-// build-speed multiplier" -- 100 MP = 1 hour. Structures only (settle,
+// docs/replenishment-update-plan.md D9: "build time = manpower cost x 1s /
+// build-speed multiplier" -- 100 MP = 100 seconds (was 36s/MP until
+// 2026-10-10; cut so a 15-30 minute session can actually spend a full
+// manpower refill -- manpower, not build time, is the limit). Structures only (settle,
 // expand, attacks and muster keep their own, unrelated timers -- this
 // function family never covered those). Replaces the old flat per-type
 // FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_OUTPOST_BUILD_MS/
 // ECONOMIC_STRUCTURE_BUILD_MS/WOODEN_FORT_BUILD_MS/RELAY_BEACON_BUILD_MS
 // constants (config.js) these two functions used to read.
-export const MANPOWER_COST_MS_PER_POINT = 36_000;
+export const MANPOWER_COST_MS_PER_POINT = 1_000;
 
 export const structureBuildDurationMsForManpowerCost = (manpowerCost: number): number =>
   Math.max(0, Math.round(manpowerCost * MANPOWER_COST_MS_PER_POINT));
+
+// Removal takes half as long as building: 0.5s per manpower point of the
+// structure actually being torn down (its own fort/siege tier, the full
+// non-discounted Relay Beacon price). Replaced the flat per-type removal
+// timers (FORT_BUILD_MS etc.) on 2026-10-10.
+export const MANPOWER_COST_REMOVAL_MS_PER_POINT = 500;
+
+// Build time of a specific fort/siege tier (an upgrade charges that tier's own
+// manpower, so it builds for that tier's time, not the base Fort's).
+export const fortBuildDurationMs = (variant: FortVariant = "FORT"): number =>
+  structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);
+
+export const siegeOutpostBuildDurationMs = (variant: SiegeOutpostVariant = "SIEGE_OUTPOST"): number =>
+  structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
+
+export const structureRemovalDurationMsForManpowerCost = (manpowerCost: number): number =>
+  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_REMOVAL_MS_PER_POINT));
+
+export const fortRemovalDurationMs = (variant: FortVariant = "FORT"): number =>
+  structureRemovalDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);
+
+export const siegeOutpostRemovalDurationMs = (variant: SiegeOutpostVariant = "SIEGE_OUTPOST"): number =>
+  structureRemovalDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
+
+export const structureRemovalDurationMs = (type: BuildableStructureType): number =>
+  structureRemovalDurationMsForManpowerCost(structureBuildManpowerCost(type));
 
 // D12: the first RELAY_BEACON_FIRST_TIER_COUNT beacons still pay their
 // discounted manpower (relayBeaconManpowerCost) but are placed instantly --

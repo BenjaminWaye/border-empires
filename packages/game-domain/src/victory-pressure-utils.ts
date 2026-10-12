@@ -33,7 +33,7 @@ export const maritimeSupremacyProgressLabel = (ownedDocks: number, targetDocks: 
   `${ownedDocks}/${targetDocks} docks`;
 
 export const maritimeSupremacyThresholdLabel = (requiredShare: number, targetDocks: number): string =>
-  `Need ${targetDocks} settled docks (${formatVictoryShare(requiredShare)} of world docks)`;
+  `Need ${targetDocks} garrisoned docks (${formatVictoryShare(requiredShare)} of world docks)`;
 
 export const diplomaticDominanceProgressLabel = (input: {
   blocControlledTiles: number;

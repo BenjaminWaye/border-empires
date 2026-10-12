@@ -14,6 +14,7 @@ export type WaypointEnqueuePayload = {
   planId?: string;
   plannedAt?: number;
   steps?: WaypointWireStep[];
+  commitManpower?: number;
 };
 export type WaypointTargetPayload = { x: number; y: number };
 
@@ -58,7 +59,10 @@ export const parseWaypointEnqueuePayload = (payloadJson: string): WaypointEnqueu
       ...(typeof parsed.trackBarbarian === "boolean" ? { trackBarbarian: parsed.trackBarbarian } : {}),
       ...(typeof parsed.planId === "string" ? { planId: parsed.planId } : {}),
       ...(typeof parsed.plannedAt === "number" ? { plannedAt: parsed.plannedAt } : {}),
-      ...(steps ? { steps } : {})
+      ...(steps ? { steps } : {}),
+      ...(typeof parsed.commitManpower === "number" && Number.isFinite(parsed.commitManpower) && parsed.commitManpower > 0
+        ? { commitManpower: parsed.commitManpower }
+        : {})
     };
   } catch {
     return null;
@@ -101,6 +105,7 @@ export const waypointQueueEnqueue = (
       ...(entry.planId ? { planId: entry.planId } : {}),
       ...(entry.plannedAt !== undefined ? { plannedAt: entry.plannedAt } : {}),
       ...(entry.steps ? { steps: entry.steps, cursor: 0 } : {}),
+      ...(entry.commitManpower !== undefined ? { commitManpower: entry.commitManpower } : {}),
       stalled: false
     };
     const nextQueue = [...queue];
@@ -114,7 +119,8 @@ export const waypointQueueEnqueue = (
     ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
     ...(entry.planId ? { planId: entry.planId } : {}),
     ...(entry.plannedAt !== undefined ? { plannedAt: entry.plannedAt } : {}),
-    ...(entry.steps ? { steps: entry.steps, cursor: 0 } : {})
+    ...(entry.steps ? { steps: entry.steps, cursor: 0 } : {}),
+    ...(entry.commitManpower !== undefined ? { commitManpower: entry.commitManpower } : {})
   };
   return { queue: [...queue, next], accepted: true };
 };

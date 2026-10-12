@@ -21,9 +21,10 @@ import {
 } from "./death-forensics.js";
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
-import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
+import { gatewaySeedProfileFromEnv, parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
 import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 import { setRuntimeSqliteBusyTimeout } from "./sqlite-db.js";
+import { warmGatewaySeedWorld } from "./seed-world-warmup/seed-world-warmup.js";
 
 // Replay any forensics persisted by a prior death before we arm the watchdog.
 replayDeathForensicsOnBoot();
@@ -143,6 +144,12 @@ simWorker.on("message", (raw: unknown) => {
     latestSimMainThreadTaskActive = msg.task;
   }
 });
+
+// Build the login fallback world now, while the sim worker replays in
+// parallel and before the watchdog arms -- never on the first login. Only the
+// seed profile is read here: the full gateway env is parsed below, after
+// SIMULATION_ADDRESS is set from the sim worker's ready message.
+warmGatewaySeedWorld(gatewaySeedProfileFromEnv(process.env));
 
 const simReady = await new Promise<SimWorkerReadyMessage>((resolve, reject) => {
   const onMessage = (raw: unknown): void => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Scene } from "three";
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
+import { LONE_MOUNTAIN_LOOKUP } from "./client-map-3d-mountain-massif.test-helpers.js";
 import { createFortOverlay } from "./client-map-3d-fort-overlay.js";
 import { createWatchtowerOverlay } from "./client-map-3d-watchtower-overlay.js";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
@@ -18,14 +19,14 @@ const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
   );
 
 describe("newly shadow-wired overlays", () => {
-  it("mountain massifs cast and receive shadows", () => {
+  it("mountain massifs cast shadows (but don't self-shadow: it speckled their facets)", () => {
     const scene = new Scene();
-    const massifs = createMountainMassifs(scene, 4);
+    const massifs = createMountainMassifs(scene, 4, LONE_MOUNTAIN_LOOKUP);
     const meshes = instancedMeshesIn(scene);
     expect(meshes.length).toBeGreaterThan(0);
     for (const mesh of meshes) {
       expect(mesh.castShadow).toBe(true);
-      expect(mesh.receiveShadow).toBe(true);
+      expect(mesh.receiveShadow).toBe(false);
     }
     massifs.dispose();
   });

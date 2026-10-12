@@ -1,131 +1,205 @@
+// True-3D mountains, placed the way tile games do it: one low-poly rock
+// cluster (client-map-3d-mountain-models.ts) per mountain tile,
+// turned, scaled and tinted per tile from the shared variation
+// (client-map-mountain-variation.ts), overlapping its neighbours a little so
+// touching tiles read as a range of distinct peaks. A tile that stands
+// higher than its mountain neighbours (by hash) gets a big summit cluster;
+// the rest of a range gets smaller ones. Cold-country mountains use the
+// alpine (paler, snowy) version of each model; most summit peaks elsewhere
+// are snow-tipped too.
 import {
-  ConeGeometry,
-  CylinderGeometry,
+  Color,
+  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
-  MeshStandardMaterial,
-  Scene
+  Quaternion,
+  Scene,
+  Vector3,
+  type BufferGeometry,
+  type MeshLambertMaterial
 } from "three";
+import {
+  mountainHash01,
+  mountainNeighbourhoodAt,
+  mountainVariationAt,
+  type MountainNeighbourhoodLookup
+} from "./client-map-mountain-variation/client-map-mountain-variation.js";
+import {
+  createMountainModelGeometry,
+  createMountainModelMaterial,
+  FILLER_MODELS,
+  MOUNTAIN_MODELS,
+  SUMMIT_MODELS
+} from "./client-map-3d-mountain-models.js";
 
-const ROCK_BASE_HEIGHT = 0.62;
-const ROCK_BASE_RADIUS_TOP = 0.42;
-const ROCK_BASE_RADIUS_BOTTOM = 0.78;
-const ROCK_BASE_SIDES = 6;
-const PEAK_HEIGHT = 1.24;
-const PEAK_RADIUS = 0.715;
-const PEAK_SIDES = 4;
-const SNOW_CAP_HEIGHT = 0.34;
-const SNOW_CAP_RADIUS = 0.19;
+// Per-instance rock colour shift (multiplies the vertex colours).
+const TINT_LIGHTNESS = 0.06;
+const TINT_WARMTH = 0.02;
+// Footprint scale: broad (well over 1), so mountains read wide rather than tall
+// from the high game camera and neighbouring models overlap at their feet.
+const SUMMIT_FOOTPRINT = 1.35;
+const FILLER_FOOTPRINT = 1.25;
+// How much the per-tile footprint variation (0.9..1.1) widens or narrows a model.
+const FOOTPRINT_SPREAD = 0.6;
+const SUMMIT_SALT = 21;
+const SNOW_SALT = 47;
+// Share of temperate summit tiles whose peaks carry snow.
+const SUMMIT_SNOW_SHARE = 0.65;
 
-const PEAK_ROTATION_RADIANS = Math.PI / 4;
-
-const ROCK_BASE_RISE = 0.05;
-const PEAK_RISE = 0.55;
-const SNOW_CAP_RISE = 1.05;
+export type MountainMassifDeps = MountainNeighbourhoodLookup;
 
 export type MountainMassif = {
-  readonly rockBaseMesh: InstancedMesh;
-  readonly peakMesh: InstancedMesh;
-  readonly snowCapMesh: InstancedMesh;
+  /** One InstancedMesh per model and climate. */
+  readonly meshes: readonly InstancedMesh[];
+  /** The neighbourhood lookup this massif was built with. */
+  readonly lookup: MountainMassifDeps;
+  /** Mountain instances drawn after the last commit. */
+  readonly instanceCount: () => number;
+  /** Instances added since the last clear that carry snow. */
+  readonly snowyInstanceCount: () => number;
   readonly clear: () => void;
-  readonly addInstance: (worldX: number, worldZ: number, surfaceY: number) => void;
+  /** (x, z) scene position of the tile centre, (wx, wy) its world tile -- the look is keyed on the latter. */
+  readonly addInstance: (x: number, z: number, surfaceY: number, wx: number, wy: number) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
 
-export const createMountainMassifs = (scene: Scene, maxInstances: number): MountainMassif => {
-  const rockBaseGeometry = new CylinderGeometry(
-    ROCK_BASE_RADIUS_TOP,
-    ROCK_BASE_RADIUS_BOTTOM,
-    ROCK_BASE_HEIGHT,
-    ROCK_BASE_SIDES,
-    1,
-    false
-  );
-  const peakGeometry = new ConeGeometry(PEAK_RADIUS, PEAK_HEIGHT, PEAK_SIDES, 1, false);
-  const snowCapGeometry = new ConeGeometry(SNOW_CAP_RADIUS, SNOW_CAP_HEIGHT, PEAK_SIDES, 1, false);
+type ModelLayer = {
+  readonly mesh: InstancedMesh;
+  readonly snowLines: InstancedBufferAttribute;
+  count: number;
+};
 
-  const rockBaseMaterial = new MeshStandardMaterial({
-    color: "#7b7479",
-    roughness: 0.94,
-    metalness: 0,
-    flatShading: true
-  });
-  const peakMaterial = new MeshStandardMaterial({
-    color: "#535760",
-    roughness: 0.9,
-    metalness: 0,
-    flatShading: true
-  });
-  const snowCapMaterial = new MeshStandardMaterial({
-    color: "#f3f7ff",
-    roughness: 0.62,
-    metalness: 0,
-    flatShading: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
-  });
+const createModelLayer = (geometry: BufferGeometry, material: MeshLambertMaterial, capacity: number): ModelLayer => {
+  const snowLines = new InstancedBufferAttribute(new Float32Array(capacity), 1);
+  geometry.setAttribute("aSnowLine", snowLines);
+  const mesh = new InstancedMesh(geometry, material, capacity);
+  mesh.frustumCulled = false;
+  mesh.count = 0;
+  // Mountains cast onto the ground but don't self-shadow (it speckled the facets).
+  mesh.castShadow = true;
+  mesh.receiveShadow = false;
+  return { mesh, snowLines, count: 0 };
+};
 
-  const rockBaseMesh = new InstancedMesh(rockBaseGeometry, rockBaseMaterial, maxInstances);
-  const peakMesh = new InstancedMesh(peakGeometry, peakMaterial, maxInstances);
-  const snowCapMesh = new InstancedMesh(snowCapGeometry, snowCapMaterial, maxInstances);
-  for (const mesh of [rockBaseMesh, peakMesh, snowCapMesh]) {
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    // Mountains are the tallest terrain feature on the map -- without a real
-    // cast shadow they float free of the raking sun's lighting model the
-    // same way trees used to (client-map-3d-forest.ts).
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-  }
-  scene.add(rockBaseMesh, peakMesh, snowCapMesh);
+/** A tile that stands higher than all its orthogonal mountain neighbours (by hash): it gets a summit model. */
+export const isSummitTile = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): boolean => {
+  const own = mountainHash01(wx, wy, SUMMIT_SALT);
+  return [[0, -1], [1, 0], [0, 1], [-1, 0]].every(([dx, dy]) => {
+    const nx = lookup.wrapX(wx + dx!);
+    const ny = lookup.wrapY(wy + dy!);
+    return !lookup.isMountainAt(nx, ny) || mountainHash01(nx, ny, SUMMIT_SALT) < own;
+  });
+};
+
+/** Which model a mountain tile shows (index into MOUNTAIN_MODELS). */
+export const mountainModelIndexAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): number => {
+  const pool = isSummitTile(wx, wy, lookup) ? SUMMIT_MODELS : FILLER_MODELS;
+  return pool[Math.floor(mountainHash01(wx, wy, 33) * pool.length)]!;
+};
+
+/** How a mountain tile's model is placed: which model, turned and scaled how (the river cascade lies on it). */
+export type MountainPlacement = {
+  readonly modelIndex: number;
+  readonly yaw: number;
+  readonly footprint: number;
+  readonly heightScale: number;
+};
+
+export const mountainPlacementAt = (wx: number, wy: number, lookup: MountainNeighbourhoodLookup): MountainPlacement => {
+  const variation = mountainVariationAt(wx, wy, mountainNeighbourhoodAt(wx, wy, lookup));
+  const modelIndex = mountainModelIndexAt(wx, wy, lookup);
+  const summit = MOUNTAIN_MODELS[modelIndex]!.role === "summit";
+  return {
+    modelIndex,
+    yaw: variation.yaw * 4,
+    footprint: (summit ? SUMMIT_FOOTPRINT : FILLER_FOOTPRINT) + (variation.footprintScale - 1) * FOOTPRINT_SPREAD,
+    heightScale: variation.heightScale
+  };
+};
+
+export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: MountainMassifDeps): MountainMassif => {
+  const material = createMountainModelMaterial();
+  // Each layer can hold half the visible tiles; anything past capacity is dropped.
+  const capacity = Math.max(1, Math.ceil(maxInstances / 2));
+  const layersFor = (climate: "temperate" | "alpine"): ModelLayer[] =>
+    MOUNTAIN_MODELS.map((model) => createModelLayer(createMountainModelGeometry(model, climate), material, capacity));
+  const temperate = layersFor("temperate");
+  const alpine = layersFor("alpine");
+  const layers = [...temperate, ...alpine];
+  for (const layer of layers) scene.add(layer.mesh);
 
   const tempMatrix = new Matrix4();
-  const peakRotation = new Matrix4().makeRotationY(PEAK_ROTATION_RADIANS);
-  let count = 0;
+  const tempPosition = new Vector3();
+  const tempScale = new Vector3();
+  const tempQuaternion = new Quaternion();
+  const yAxis = new Vector3(0, 1, 0);
+  const tempColor = new Color();
+  let snowy = 0;
 
   const clear = (): void => {
-    count = 0;
+    for (const layer of layers) layer.count = 0;
+    snowy = 0;
   };
 
-  const addInstance = (worldX: number, worldZ: number, surfaceY: number): void => {
-    if (count >= maxInstances) return;
-    tempMatrix.makeTranslation(worldX, surfaceY + ROCK_BASE_RISE, worldZ);
-    rockBaseMesh.setMatrixAt(count, tempMatrix);
-    tempMatrix.copy(peakRotation);
-    tempMatrix.setPosition(worldX, surfaceY + PEAK_RISE, worldZ);
-    peakMesh.setMatrixAt(count, tempMatrix);
-    tempMatrix.copy(peakRotation);
-    tempMatrix.setPosition(worldX, surfaceY + SNOW_CAP_RISE, worldZ);
-    snowCapMesh.setMatrixAt(count, tempMatrix);
-    count += 1;
+  const addInstance = (x: number, z: number, surfaceY: number, wx: number, wy: number): void => {
+    const neighbourhood = mountainNeighbourhoodAt(wx, wy, deps);
+    const variation = mountainVariationAt(wx, wy, neighbourhood);
+    const placement = mountainPlacementAt(wx, wy, deps);
+    const layer = (neighbourhood.cold ? alpine : temperate)[placement.modelIndex]!;
+    if (layer.count >= layer.mesh.instanceMatrix.count) return;
+    tempQuaternion.setFromAxisAngle(yAxis, placement.yaw);
+    tempScale.set(placement.footprint, placement.heightScale, placement.footprint);
+    tempPosition.set(x, surfaceY, z);
+    tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+    layer.mesh.setMatrixAt(layer.count, tempMatrix);
+    const light = 1 + TINT_LIGHTNESS * variation.tint;
+    const warm = TINT_WARMTH * variation.warmth;
+    layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
+    // Snow in cold country, and on most of the tall summit peaks everywhere
+    // (a range with no white tops at all looks odd).
+    const summit = MOUNTAIN_MODELS[placement.modelIndex]!.role === "summit";
+    const snow = neighbourhood.cold || (summit && mountainHash01(wx, wy, SNOW_SALT) < SUMMIT_SNOW_SHARE) ? 1 : 0;
+    layer.snowLines.setX(layer.count, snow);
+    snowy += snow;
+    layer.count += 1;
   };
 
   const commit = (): void => {
-    rockBaseMesh.count = count;
-    peakMesh.count = count;
-    snowCapMesh.count = count;
-    rockBaseMesh.instanceMatrix.clearUpdateRanges();
-    rockBaseMesh.instanceMatrix.addUpdateRange(0, rockBaseMesh.count * 16);
-    rockBaseMesh.instanceMatrix.needsUpdate = true;
-    peakMesh.instanceMatrix.clearUpdateRanges();
-    peakMesh.instanceMatrix.addUpdateRange(0, peakMesh.count * 16);
-    peakMesh.instanceMatrix.needsUpdate = true;
-    snowCapMesh.instanceMatrix.clearUpdateRanges();
-    snowCapMesh.instanceMatrix.addUpdateRange(0, snowCapMesh.count * 16);
-    snowCapMesh.instanceMatrix.needsUpdate = true;
+    for (const layer of layers) {
+      const { mesh, count } = layer;
+      mesh.count = count;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceMatrix.addUpdateRange(0, count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) {
+        mesh.instanceColor.clearUpdateRanges();
+        mesh.instanceColor.addUpdateRange(0, count * 3);
+        mesh.instanceColor.needsUpdate = true;
+      }
+      layer.snowLines.clearUpdateRanges();
+      layer.snowLines.addUpdateRange(0, count);
+      layer.snowLines.needsUpdate = true;
+    }
   };
 
   const dispose = (): void => {
-    scene.remove(rockBaseMesh, peakMesh, snowCapMesh);
-    rockBaseGeometry.dispose();
-    peakGeometry.dispose();
-    snowCapGeometry.dispose();
-    rockBaseMaterial.dispose();
-    peakMaterial.dispose();
-    snowCapMaterial.dispose();
+    for (const layer of layers) {
+      scene.remove(layer.mesh);
+      layer.mesh.geometry.dispose();
+      layer.mesh.dispose();
+    }
+    material.dispose();
   };
 
-  return { rockBaseMesh, peakMesh, snowCapMesh, clear, addInstance, commit, dispose };
+  return {
+    meshes: layers.map((l) => l.mesh),
+    lookup: deps,
+    instanceCount: () => layers.reduce((n, l) => n + l.mesh.count, 0),
+    snowyInstanceCount: () => snowy,
+    clear,
+    addInstance,
+    commit,
+    dispose
+  };
 };

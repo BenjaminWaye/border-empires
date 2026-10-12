@@ -14,6 +14,8 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
       ? {
           overviewLines: view.overviewLines
         }
+      : activeTab === "modules"
+        ? { modules: view.modules }
       : activeTab === "actions"
         ? { actions: view.actions, combatBreakdown: view.combatBreakdown }
         : activeTab === "buildings"

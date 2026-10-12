@@ -32,7 +32,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     isAlliedOrTruced(actor, target.ownerId) ||
     !targetIsPurgeableOwnership
   ) {
-    reject("AETHER_LANCE_INVALID", "target hostile settled or frontier land");
+    reject("AETHER_LANCE_INVALID", "target hostile garrisoned or frontier land");
     return;
   }
   if (context.isTileShieldedByEnemyAegisDome(actor.id, target.x, target.y)) {

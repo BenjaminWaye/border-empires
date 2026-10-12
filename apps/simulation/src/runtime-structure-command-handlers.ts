@@ -7,6 +7,8 @@ import {
   nextSiegeTierForUpgrade,
   relayBeaconBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
+  structureBuildSpeedEffectKey,
+  buildDurationWithSpeedMult,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -272,7 +274,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {
-    rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
+    rejectCommand(context, command, "BUILD_INVALID", "tile must be garrisoned");
     return;
   }
   // Development on a tile is frozen while an attack on it is unresolved (attack-development-hold.ts).
@@ -393,7 +395,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   actor.manpower = Math.max(0, actor.manpower - manpowerCost);
 
   // docs/replenishment-update-plan.md D9: build time follows manpower cost
-  // (100 MP = 1 hour) instead of spec's old flat per-type buildMs -- reuses
+  // (100 MP = 100 seconds) instead of spec's old flat per-type buildMs -- reuses
   // manpowerCost, already resolved above for the exact tier/count this build
   // actually charges, so a Fort-family upgrade or a scaling structure's Nth
   // copy gets a duration that matches what it paid, not a flat per-type
@@ -405,13 +407,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   const structureDurationMs = structureType === "RELAY_BEACON"
     ? relayBeaconBuildDurationMs(context.ownedStructureCountForPlayer(command.playerId, structureType))
     : structureBuildDurationMsForManpowerCost(manpowerCost);
-  const buildMs = spec.kind === "FORT"
-    ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
-    : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"
-      ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
-      : spec.kind === "ECONOMIC"
-        ? Math.max(1, Math.round(structureDurationMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
-        : structureDurationMs;
+  // Shared with the client's build menus (structureBuildSpeedEffectKey) so
+  // the time a menu shows is the time this stamps.
+  const speedEffectKey = structureBuildSpeedEffectKey(structureType);
+  const buildMs = speedEffectKey
+    ? buildDurationWithSpeedMult(structureDurationMs, multiplicativeEffectForPlayer(actor, speedEffectKey))
+    : structureDurationMs;
   const startedAt = context.now();
   const completesAt = startedAt + buildMs;
   const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";

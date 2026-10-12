@@ -106,7 +106,7 @@ export const ownerOwnsTile: PlacementCheck = (ctx) => {
 
 /** Reject unless the tile ownership state is SETTLED. */
 export const tileIsSettled: PlacementCheck = (ctx) => {
-  if (ctx.tile.ownershipState !== "SETTLED") return "tile must be settled";
+  if (ctx.tile.ownershipState !== "SETTLED") return "tile must be garrisoned";
   return null;
 };
 

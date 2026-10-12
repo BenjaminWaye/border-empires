@@ -1,7 +1,8 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, terrainAt } from "@border-empires/shared";
 import { terrainTextureIdAt } from "./client-map-render-texture-id.js";
 import { terrainTextures } from "./client-map-render-terrain-textures.js";
-import { drawReliefMountainTile } from "./client-map-render-relief-mountain.js";
+import { drawReliefTerrainTile } from "./client-map-render-relief-tile.js";
+import { drawMountainPeaks2D } from "./client-map-render-mountain-peaks.js";
 import { drawRiverEdges } from "./client-map-render-river-edges.js";
 
 export { initTerrainTextures } from "./client-map-render-terrain-textures.js";
@@ -28,7 +29,7 @@ type TileMap = Map<string, Tile>;
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
-import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
+import { useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -232,46 +233,7 @@ export const drawTerrainTile = (
   );
   const texture = terrainTextures.get(id);
   if (useTerrainReliefRenderer) {
-    const relief = terrainReliefPx(options.wx, options.wy, options.terrain, options.size);
-    const topHeight = Math.max(2, options.size - relief);
-    if (options.terrain === "MOUNTAIN" && options.size >= 12) {
-      drawReliefMountainTile(ctx, {
-        wx: options.wx,
-        wy: options.wy,
-        px: options.px,
-        py: options.py,
-        size: options.size,
-        topHeight,
-        relief
-      });
-      return;
-    }
-    if (texture) {
-      ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, topHeight);
-    } else {
-      ctx.fillStyle = options.cachedTerrainColorAt(options.wx, options.wy, options.terrain);
-      ctx.fillRect(options.px, options.py, options.size, topHeight);
-    }
-
-    if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") {
-      ctx.fillStyle = "rgba(13, 52, 80, 0.55)";
-      ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
-      ctx.fillStyle = "rgba(173, 229, 255, 0.15)";
-      ctx.fillRect(options.px + 1, options.py + 1, options.size - 2, Math.max(1, Math.floor(options.size * 0.12)));
-      drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
-    } else {
-      ctx.fillStyle = options.terrain === "MOUNTAIN" ? "rgba(52, 55, 63, 0.9)" : "rgba(34, 42, 26, 0.65)";
-      ctx.fillRect(options.px, options.py + topHeight, options.size, relief);
-      ctx.fillStyle = options.terrain === "MOUNTAIN" ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.08)";
-      ctx.fillRect(options.px + 1, options.py + 1, options.size - 2, Math.max(1, Math.floor(options.size * 0.08)));
-      ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
-      ctx.fillRect(options.px, options.py + topHeight - 1, options.size, 1);
-      if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, topHeight);
-    }
-
-    ctx.strokeStyle = "rgba(128, 128, 128, 0.32)";
-    ctx.lineWidth = 1;
-      ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
+    drawReliefTerrainTile(ctx, options, texture);
     return;
   }
 
@@ -281,7 +243,8 @@ export const drawTerrainTile = (
     return;
   }
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
-  if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
+  if (options.terrain === "MOUNTAIN") drawMountainPeaks2D(ctx, options.wx, options.wy, options.px, options.py, options.size);
+  else if (options.terrain === "LAND") drawRiverEdges(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
   else if (options.terrain === "SEA" || options.terrain === "COASTAL_SEA") drawSeaCoast2D(ctx, options.wx, options.wy, options.px, options.py, options.size, options.size);
 };
 

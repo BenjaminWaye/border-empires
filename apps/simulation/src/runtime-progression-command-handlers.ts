@@ -121,7 +121,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   const tileKey = simulationTileKey(payload.x, payload.y);
   const tile = context.tiles.get(tileKey);
   if (!tile || tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED" || !tile.town) {
-    rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "not your settled town");
+    rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "not your garrisoned town");
     return;
   }
   const town = tile.town;

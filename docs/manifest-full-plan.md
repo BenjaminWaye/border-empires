@@ -108,6 +108,15 @@ instead, after it, leaving the window's earlier offsets unchanged.
 
 ### New: AFC tile overview UI (added to backlog 2026-09-28)
 
+**Graphical follow-up (2026-10-11):** the dedicated Modules tab now maps the
+eight sockets clockwise from east, matching the 3D attachment order, and
+distinguishes movable House copies, captured copies and incoming reservations.
+Empty sockets open the call-down picker for unlocked types absent from this
+AFC, including movable copies on another owned AFC. It reuses the authoritative
+redeploy command and eight-slot limit; incoming placement is provisional until
+landing. This tile-details UI is shared by the 2D and 3D renderers; no map
+overlay behavior changes.
+
 Not yet covered anywhere else in this plan: the AFC needs its own tile
 overview panel (the equivalent of a town's tile-menu economy/stat view)
 showing its docked Module slots in a readable UI — which Manifest modules

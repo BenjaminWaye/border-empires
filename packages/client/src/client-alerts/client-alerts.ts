@@ -7,7 +7,7 @@ import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-aler
 import type { ClientState } from "../client-state/client-state.js";
 import { isPlanetaryDefenseOwnerId } from "../client-planetary-defense-style.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
-import type { DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
+import { getDiscoveryTipTarget, type DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
 export type FeedMutableState = Pick<ClientState, "feed"> &
@@ -55,7 +55,15 @@ export const pushFeedEntry = (state: FeedMutableState, entry: FeedEntry): void =
  * call site: records a freshly-shown discovery tip into the Activity Feed so the
  * player can scroll back and re-read it after the toast is gone. */
 export const pushDiscoveryTipFeedEntry = (state: FeedMutableState, def: DiscoveryTipDef): void => {
-  pushFeedEntry(state, { title: def.title, text: def.body, type: "info", severity: "info", at: Date.now() });
+  const target = getDiscoveryTipTarget(def.id);
+  pushFeedEntry(state, {
+    title: def.title,
+    text: def.body,
+    type: "info",
+    severity: "info",
+    at: Date.now(),
+    ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
+  });
 };
 
 export const maybeAnnounceShardSite = (
@@ -382,8 +390,8 @@ export const combatResolutionAlert = (
     const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
     const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
     return {
-      title: "Settlement Complete",
-      detail: `${settledTileLabel(settledTarget, deps)} was settled.`,
+      title: "Garrison Established",
+      detail: `${settledTileLabel(settledTarget, deps)} was garrisoned.`,
       tone: "success",
       ...(settledTarget ? { focusX: settledTarget.x, focusY: settledTarget.y, actionLabel: "Center" } : {})
     };
