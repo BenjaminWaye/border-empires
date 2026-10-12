@@ -10,6 +10,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
+import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
@@ -399,13 +400,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791748295340, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.1",
-    title: "Garrison works on towns, docks and captured buildings outside your reach",
-    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    createdAt: 1791815066622, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "The Ancillary Depot is now a dormant-body storehouse",
+    why: "The Ancillary Depot was still borrowing the Logistics Guild's civic-hall art, so it didn't read as the AI Hive's body storehouse either on the 3D map or on the 2D map.",
     changes: [
-      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
-      "Plain land outside your reach still can't be garrisoned"
+      "Ancillary Depots now show as a circular storage drum of dormant Ancillary bodies, ringed by large body-shaped pods like cartridges in a revolver cylinder, on the 3D map",
+      "The 2D map's Ancillary Depot icon and its info-card art match the new storage-drum look",
+      "The Ancillary Factory keeps its hopper-tower manufactory"
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
@@ -428,6 +430,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
+  ...GARRISON_OUTSIDE_REACH_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

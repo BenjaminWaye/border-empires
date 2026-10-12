@@ -37,11 +37,11 @@ describe("converter toggle regression guard", () => {
       ["AIRPORT", "airport-overlay.svg"],
       ["CARAVANARY", "trade-nexus-overlay.svg"],
       ["FOUNDRY", "foundry-overlay.svg"],
-      // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot")
-      // and LOGISTICS_GUILD ("Ancillary Factory") swap art, as do
-      // RAIL_DEPOT ("Neural Works") and ASSEMBLY_WORKS ("Reserve
-      // Lattice") -- no new 3D/2D assets this pass, per user decision.
-      ["GARRISON_HALL", "logistics-guild-overlay.svg"],
+      // GARRISON_HALL ("Ancillary Depot") got its own storage-drum overlay;
+      // LOGISTICS_GUILD ("Ancillary Factory") keeps the hopper manufactory.
+      // RAIL_DEPOT ("Neural Works") and ASSEMBLY_WORKS ("Reserve Lattice")
+      // still swap.
+      ["GARRISON_HALL", "ancillary-depot-overlay.svg"],
       ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
       ["RAIL_DEPOT", "assembly-works-overlay.svg"],
       ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],

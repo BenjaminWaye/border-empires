@@ -7,6 +7,7 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
+import { createAncillaryDepotLayout } from "./client-map-3d-structure-ancillary-depot.js";
 
 export type ManpowerStructureKind =
   | "QUARTERMASTERS_OFFICE"
@@ -33,6 +34,7 @@ export const registerManpowerStructures = (
   builder: StructurePieceBuilder
 ): ManpowerHandle => {
   const C = builder.maxTiles;
+  const addAncillaryDepot = createAncillaryDepotLayout(builder);
 
   // ─── Shared branch palette ──────────────────────────────────────────
   // The Manpower branch's steampunk language: bronze/brass trim, gunmetal
@@ -67,17 +69,6 @@ export const registerManpowerStructures = (
   const qmCrateLidGeo = new BoxGeometry(0.04, 0.008, 0.04);
   const qmLampGeo = new BoxGeometry(0.018, 0.018, 0.018);
   const qmRailStubGeo = new BoxGeometry(0.03, 0.012, 0.10);
-  const lgStepGeo = new BoxGeometry(0.30, 0.03, 0.20);
-  const lgBodyGeo = new BoxGeometry(0.26, 0.15, 0.20);
-  const lgRoofGeo = new ConeGeometry(0.19, 0.10, 4);
-  const lgTurretGeo = new BoxGeometry(0.10, 0.10, 0.10);
-  const lgDialGeo = new CylinderGeometry(0.042, 0.042, 0.022, 12);
-  const lgWhistleGeo = new CylinderGeometry(0.011, 0.011, 0.05, 6);
-  const lgPylonGeo = new CylinderGeometry(0.012, 0.012, 0.26, 6);
-  const lgLanternGeo = new BoxGeometry(0.022, 0.026, 0.022);
-  const lgLampGeo = new BoxGeometry(0.016, 0.016, 0.016);
-  const lgAnnexGeo = new BoxGeometry(0.20, 0.07, 0.12);
-  const lgAnnexRoofGeo = new BoxGeometry(0.21, 0.012, 0.13);
   const awColumnGeo = new BoxGeometry(0.022, 0.13, 0.022);
   const awFloorGeo = new BoxGeometry(0.42, 0.02, 0.32);
   const awRoofGeo = new BoxGeometry(0.46, 0.035, 0.36);
@@ -152,17 +143,6 @@ export const registerManpowerStructures = (
   builder.makeSlot("qmCrateLid", qmCrateLidGeo, mpBrassDarkMaterial, C * 2);
   builder.makeSlot("qmLamp", qmLampGeo, mpAmberGlowMaterial, C);
   builder.makeSlot("qmRailStub", qmRailStubGeo, mpSteelMaterial, C);
-  builder.makeSlot("lgStep", lgStepGeo, mpStoneDarkMaterial, C);
-  builder.makeSlot("lgBody", lgBodyGeo, mpStoneMaterial, C);
-  builder.makeSlot("lgRoof", lgRoofGeo, mpIronMaterial, C);
-  builder.makeSlot("lgTurret", lgTurretGeo, mpStoneMaterial, C);
-  builder.makeSlot("lgDial", lgDialGeo, mpBrassMaterial, C);
-  builder.makeSlot("lgWhistle", lgWhistleGeo, mpSteelLightMaterial, C);
-  builder.makeSlot("lgLamp", lgLampGeo, mpAmberGlowMaterial, C);
-  builder.makeSlot("lgPylon", lgPylonGeo, mpSteelMaterial, C);
-  builder.makeSlot("lgLantern", lgLanternGeo, mpBrassMaterial, C);
-  builder.makeSlot("lgAnnex", lgAnnexGeo, mpSteelMaterial, C);
-  builder.makeSlot("lgAnnexRoof", lgAnnexRoofGeo, mpIronMaterial, C);
   builder.makeSlot("awColumn", awColumnGeo, mpSteelMaterial, C * 4);
   builder.makeSlot("awFloor", awFloorGeo, mpIronMaterial, C);
   builder.makeSlot("awRoof", awRoofGeo, mpIronMaterial, C);
@@ -244,25 +224,6 @@ export const registerManpowerStructures = (
     builder.addPiece("qmLamp", sx, sy, sz, -0.15, 0.12, 0.15);
     builder.addPiece("mpPipe", sx, sy, sz, 0.18, 0.18, 0.12);
     builder.addPiece("qmRailStub", sx, sy, sz, 0.20, 0.006, 0.12);
-  };
-
-  const addLogisticsGuild: ManpowerStructureLayout = (sx, sy, sz) => {
-    // Taller civic hall crowned by a brass schedule-tower: a square
-    // turret with an hour-drums dial face and a steam whistle stack.
-    // A rail pylon at one corner reads "linked by rail"; a low train-hall
-    // annex juts off the back. One amber lamp in the turret face.
-    builder.addPiece("lgStep", sx, sy, sz, 0, 0.015, 0.12);
-    builder.addPiece("lgBody", sx, sy, sz, 0, 0.12, 0);
-    builder.addPiece("lgRoof", sx, sy, sz, 0, 0.245, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("lgTurret", sx, sy, sz, 0, 0.345, 0);
-    builder.addPiece("lgDial", sx, sy, sz, 0, 0.35, 0.06, 1, 1, 1, 0, Math.PI * 0.5);
-    builder.addPiece("lgLamp", sx, sy, sz, 0, 0.35, 0.073);
-    builder.addPiece("lgWhistle", sx, sy, sz, 0, 0.435, 0);
-    builder.addPiece("mpVentCap", sx, sy, sz, 0, 0.47, 0);
-    builder.addPiece("lgPylon", sx, sy, sz, 0.20, 0.13, 0.14);
-    builder.addPiece("lgLantern", sx, sy, sz, 0.20, 0.285, 0.14);
-    builder.addPiece("lgAnnex", sx, sy, sz, -0.02, 0.055, -0.13);
-    builder.addPiece("lgAnnexRoof", sx, sy, sz, -0.02, 0.098, -0.13);
   };
 
   const addAssemblyWorks: ManpowerStructureLayout = (sx, sy, sz) => {
@@ -437,14 +398,14 @@ export const registerManpowerStructures = (
   return {
     layouts: {
       QUARTERMASTERS_OFFICE: addQuartermastersOffice,
-      // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot")
-      // and LOGISTICS_GUILD ("Ancillary Factory") swap 3D art -- no new
-      // assets this pass, per user decision.
+      // GARRISON_HALL ("Ancillary Depot") gets its own dedicated drum + body-pod
+      // storehouse art; LOGISTICS_GUILD ("Ancillary Factory") keeps the
+      // hopper-tower manufactory. No art is swapped between the two anymore.
       LOGISTICS_GUILD: addAncillaryFactory,
       ASSEMBLY_WORKS: addAssemblyWorks,
       POPULATION_BUREAU: addPopulationBureau,
       TITANIUM_LEVY: addTitaniumLevy,
-      GARRISON_HALL: addLogisticsGuild,
+      GARRISON_HALL: addAncillaryDepot,
       GRANARY: addIncubationEngine,
       AETHER_TOWER: addAmbaricTower
     }
