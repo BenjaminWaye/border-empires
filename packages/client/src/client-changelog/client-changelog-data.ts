@@ -74,8 +74,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791324109390, // Date.now() frozen for this entry
-    introducedIn: "2026.10.07.1",
+    createdAt: 1791837136490, // Date.now() frozen for this entry
+    introducedIn: "2026.10.12.1",
     title: "Soldiers now show when you attack enemy frontier land",
     why: "Launching an attack on an enemy's frontier tile showed the tile changing colour but no soldiers, so it looked like a plain expansion.",
     changes: [
