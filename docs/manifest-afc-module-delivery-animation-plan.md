@@ -376,8 +376,7 @@ and adds the blockers that check misses:
   `client-auth-ui.ts`);
 - `!state.changelog.open` (a new player has `seenAt === 0`, so the
   changelog auto-opens);
-- `!state.guide.open` (the tutorial auto-opens until
-  `GUIDE_STORAGE_KEY` is `"1"`);
+- (the intro tutorial that used to gate this was removed);
 - `!state.activityDashboard.open`;
 - **not in the existing check, must be added:**
   `!(state.needsSeasonJoin && state.joinSeasonOverlayOpen)` (join-season
