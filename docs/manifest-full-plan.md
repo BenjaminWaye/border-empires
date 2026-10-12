@@ -117,6 +117,13 @@ redeploy command and eight-slot limit; incoming placement is provisional until
 landing. This tile-details UI is shared by the 2D and 3D renderers; no map
 overlay behavior changes.
 
+**Slot picker follow-up (2026-10-12):** choices are hidden until an empty
+socket is clicked, then open beside that socket. Only one picker is open at
+a time; selection highlighting, Escape/outside-click dismissal and focus
+restoration are supported. Same-tile timer refreshes preserve the open picker
+unless its socket fills or becomes ineligible. This changes the UI interaction,
+not module docking authority: final placement is still assigned on landing.
+
 Not yet covered anywhere else in this plan: the AFC needs its own tile
 overview panel (the equivalent of a town's tile-menu economy/stat view)
 showing its docked Module slots in a readable UI — which Manifest modules

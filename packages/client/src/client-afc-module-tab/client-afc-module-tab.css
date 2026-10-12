@@ -13,5 +13,15 @@
 .afc-socket.is-captured { border-width: 2px; }
 button.afc-socket { cursor: pointer; font-family: inherit; width: 100%; }
 button.afc-socket:hover, button.afc-socket:focus-visible { border-color: var(--sp-brass-100); outline: 2px solid var(--sp-brass-300); outline-offset: 2px; }
-.afc-module-call-down { border-top: 1px solid var(--sp-brass-700); padding-top: 12px; color: var(--sp-brass-100); }
+.afc-socket-cell { position: relative; min-width: 0; }
+.afc-socket-cell > .afc-socket { height: 100%; box-sizing: border-box; }
+.afc-socket-cell.is-picker-open { z-index: 3; }
+.afc-socket.is-selected { border-color: var(--sp-brass-300); box-shadow: inset 0 0 0 1px var(--sp-brass-300); }
+.afc-module-call-down { color: var(--sp-brass-100); }
 .afc-module-call-down .tile-action-btn { margin-top: 6px; }
+.afc-slot-picker { position: absolute; z-index: 4; top: calc(100% + 6px); left: 0; width: min(280px, calc(300% + 12px)); max-height: min(var(--afc-picker-height, 320px), 50vh); overflow-y: auto; box-sizing: border-box; padding: 12px; border: 1px solid var(--sp-brass-300); border-radius: 6px; background: var(--sp-panel-bg) var(--sp-iron-900); box-shadow: 0 8px 24px rgba(0,0,0,.6); }
+.afc-slot-picker[hidden] { display: none; }
+.afc-socket-cell[data-afc-column="4"] .afc-slot-picker { left: auto; right: 0; }
+.afc-socket-cell[data-afc-column="3"] .afc-slot-picker { left: 50%; transform: translateX(-50%); }
+.afc-picker-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; background: var(--sp-panel-bg) var(--sp-iron-900); }
+.afc-picker-heading button { flex: 0 0 32px; height: 32px; border: 1px solid var(--sp-brass-700); border-radius: 4px; color: var(--sp-brass-100); background: transparent; cursor: pointer; }
