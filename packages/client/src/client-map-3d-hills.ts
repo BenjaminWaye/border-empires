@@ -18,6 +18,7 @@ import {
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
 import { hillBumpsWithCorridorAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { createFlatCornerResolver } from "./client-map-3d-hills-corner.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -90,6 +91,9 @@ export type HillTerrain = {
 // `sharedMaterial` must be the main heightfield's own material instance —
 // see the module comment above.
 export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial: MeshStandardMaterial): HillTerrain => {
+  // Shared with the main heightfield: hill domes on the fog's first ring
+  // would rise through the storm, so its ground is pressed under it too.
+  markUnexploredStormClip(sharedMaterial, "ground");
   const vertsPerTile = (SUBDIV + 1) * (SUBDIV + 1);
   const indicesPerTile = SUBDIV * SUBDIV * 6;
   const positions = new Float32Array(maxTiles * vertsPerTile * 3);
@@ -161,12 +165,12 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   // Matches the main grid's own skirt material exactly (see skirtMaterial in
   // client-map-3d-heightfield.ts) — same unlit-feeling flat response, same
   // double-sided draw so it's covered from both directions of grazing angle.
-  const skirtMaterial = new MeshStandardMaterial({
+  const skirtMaterial = markUnexploredStormClip(new MeshStandardMaterial({
     vertexColors: true,
     roughness: 1,
     metalness: 0,
     side: DoubleSide
-  });
+  }), "ground");
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;
   skirtMesh.receiveShadow = false;

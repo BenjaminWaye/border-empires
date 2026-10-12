@@ -18,9 +18,9 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   CUSTOMS_HOUSE: "/overlays/customs-house-overlay.svg",
   CLEARING_HOUSE: "/overlays/clearing-house-overlay.svg",
   GOVERNORS_OFFICE: "/overlays/governors-office-overlay.svg",
-  // GARRISON_HALL ("Ancillary Depot") and LOGISTICS_GUILD ("Ancillary
-  // Factory") swap art -- no new 3D/2D assets this pass, per user decision.
-  GARRISON_HALL: "/overlays/logistics-guild-overlay.svg",
+  // GARRISON_HALL ("Ancillary Depot") has its own storage-drum art;
+  // LOGISTICS_GUILD ("Ancillary Factory") keeps the hopper manufactory.
+  GARRISON_HALL: "/overlays/ancillary-depot-overlay.svg",
   AIRPORT: "/overlays/airport-overlay.svg",
   RADAR_SYSTEM: "/overlays/radar-system-overlay.svg",
   AETHER_TOWER: "/overlays/ambaric-tower-overlay.svg",

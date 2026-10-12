@@ -1,6 +1,7 @@
 // Heightfield skirt mesh buffers, extracted from client-map-3d-heightfield.ts
 // (over the 500-line cap). client-map-3d-heightfield.ts fills them per rebuild.
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshStandardMaterial } from "three";
+import { markUnexploredStormClip } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 export type HeightfieldSkirt = {
   readonly MAX_SKIRT_EDGES: number;
@@ -36,12 +37,14 @@ export const createHeightfieldSkirt = (QUAD_COUNT: number): HeightfieldSkirt => 
   skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
   skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
   skirtGeometry.setDrawRange(0, 0);
-  const skirtMaterial = new MeshStandardMaterial({
+  // Clipped under the unexplored storm: the fog's first ring is drawn, so
+  // its outer edge grows a skirt that would show at the brass edge's corners.
+  const skirtMaterial = markUnexploredStormClip(new MeshStandardMaterial({
     vertexColors: true,
     roughness: 1,
     metalness: 0,
     side: DoubleSide
-  });
+  }), "ground");
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;
   skirtMesh.receiveShadow = false;

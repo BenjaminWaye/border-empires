@@ -208,7 +208,8 @@ describe("server worldgen docks", () => {
     expect(eastIslandDocks).toHaveLength(1);
     expect(new Set(largeIslandDocks.map((dock) => dock.tileKey)).size).toBe(2);
     expect(new Set(largeIslandDocks.map((dock) => dock.pairedDockId)).size).toBe(2);
-    expect(largeIslandDocks.every((dock) => (dock.connectedDockIds?.length ?? 0) === 1)).toBe(true);
+    // Each dock gets its nearest foreign link; a spanning-tree link may add a second.
+    expect(largeIslandDocks.every((dock) => (dock.connectedDockIds?.length ?? 0) >= 1)).toBe(true);
   });
 
 

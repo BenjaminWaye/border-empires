@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SimulationRuntime } from "./runtime.js";
 
-// The client advertises Observatory as granting +5 local vision
+// The client advertises Observatory as granting +10 local vision
 // (OBSERVATORY_VISION_BONUS, config.ts — see structure-modifier-catalog-military.ts
 // and client-tile-action-detail-text.ts) but nothing in the simulation ever
 // applied it: OBSERVATORY_VISION_BONUS was read only for display copy, with
@@ -26,13 +26,13 @@ const visibleTileKeys = (runtime: SimulationRuntime, playerId: string): Set<stri
   new Set(runtime.exportVisibleStateForPlayer(playerId).tiles.map((t) => `${t.x},${t.y}`));
 
 describe("SimulationRuntime observatory vision bonus", () => {
-  it("an active Observatory reveals 5 tiles around itself at boot, independent of base radius", () => {
+  it("an active Observatory reveals 10 tiles around itself at boot, independent of base radius", () => {
     // Unlike Relay Beacon (5 free ones before its FOOD-slot waiver runs out —
     // see resource-slot-view.ts), Observatory has no such waiver: it always
     // needs its own CRYSTAL slot, so a GEMS tile is required for it to be
     // active rather than dormant.
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
-    for (let x = 0; x <= 20; x += 1) {
+    for (let x = 0; x <= 25; x += 1) {
       for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
     }
     const runtime = new SimulationRuntime({
@@ -57,8 +57,8 @@ describe("SimulationRuntime observatory vision bonus", () => {
     });
 
     const keys = visibleTileKeys(runtime, "player-1");
-    expect(keys.has("15,10")).toBe(true); // dx=5, within the flat bonus
-    expect(keys.has("16,10")).toBe(false); // dx=6, outside it
+    expect(keys.has("20,10")).toBe(true); // dx=10, within the flat bonus
+    expect(keys.has("21,10")).toBe(false); // dx=11, outside it
   });
 
   it("an ally's Observatory ring is visible to the player, and withdraws when the alliance breaks", async () => {

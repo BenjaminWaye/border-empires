@@ -31,6 +31,7 @@ import "./client-tile-progress-queued-next-style.css";
 import "./client-season-end-score-graph.css";
 import "./client-tile-progress-battle-style.css";
 import "./client-tile-menu-building-group-style.css";
+import "./client-dock-navigator-style.css";
 import "./client-resource-discovery-info-style.css";
 import "./client-steampunk-theme-style.css";
 import "./client-steampunk-panels-style.css";

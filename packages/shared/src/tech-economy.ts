@@ -1,7 +1,7 @@
 /**
  * Tech research gold pricing.
  *
- * Tech-tree redesign decision (docs/manpower-economy-rewrite-plan.md §6.2):
+ * Tech-tree redesign decision:
  * gold is no longer a per-tier or per-tech static number. Every tech costs
  * the SAME gold at any given moment, and each tech you have already
  * researched raises the price of every remaining tech by a flat increment.

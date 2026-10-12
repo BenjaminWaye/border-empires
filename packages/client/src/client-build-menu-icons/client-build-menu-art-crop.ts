@@ -15,6 +15,7 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/aether-sail-overlay.svg": [0.063, 0.094, 0.859, 0.734],
   "/overlays/airport-overlay.svg": [0.141, 0.313, 0.82, 0.484],
   "/overlays/ambaric-tower-overlay.svg": [0.25, 0.047, 0.5, 0.75],
+  "/overlays/ancillary-depot-overlay.svg": [0.105, 0.105, 0.789, 0.789],
   "/overlays/ancillary-factory-overlay.svg": [0.156, 0.195, 0.688, 0.602],
   "/overlays/assembly-works-overlay.svg": [0.078, 0.375, 0.844, 0.406],
   "/overlays/astral-dock-overlay.svg": [0.063, 0.188, 0.859, 0.641],

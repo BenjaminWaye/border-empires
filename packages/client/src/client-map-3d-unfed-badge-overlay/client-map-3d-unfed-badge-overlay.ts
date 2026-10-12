@@ -14,8 +14,7 @@ import {
 } from "three";
 import { drawResourceIconOnCanvas, whenResourceIconReady, type ResourceIconKey } from "../client-resource-icons/client-resource-icons.js";
 
-// 3D parity for the 2D unfed-town badge, generalized per §21.1 of the
-// manpower-economy-rewrite plan: originally hardcoded to `tile.town &&
+// 3D parity for the 2D unfed-town badge, generalized: originally hardcoded to `tile.town &&
 // !tile.town.isFed` with a fixed food emoji, now parameterized by icon so
 // the same machinery renders a badge for any of the 4 resource icons
 // (client-resource-icons.ts: Food, Titanium, Crystal, Umbrite) — driven by

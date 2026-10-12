@@ -9,6 +9,8 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
+import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
+import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
@@ -18,11 +20,13 @@ import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-must
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
 import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
+import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -33,48 +37,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
-    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.3",
-    title: "Rivers start at a spring",
-    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.12.1",
+    title: "River mountains on the 2D map, and matching snow",
+    why: "The 2D map still drew rivers pouring down the mountain while 3D starts them at its foot, and the two maps disagreed on which peaks have snow.",
     changes: [
-      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
-      "Trees no longer stand in the pool",
-      "Shown on both the 3D map and the 2D map"
-    ]
-  },
-  {
-    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.5",
-    title: "Rivers rise in the mountains (new seasons)",
-    why: "Rivers began wherever the generator happened to start them, often on open plains.",
-    changes: [
-      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
-      "Running seasons keep their rivers, towns and resources exactly as they are"
-    ]
-  },
-  {
-    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.2",
-    title: "New-look mountains",
-    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
-    changes: [
-      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
-      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
-      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
-      "Mountains are matte, with clean facets"
-    ]
-  },
-  {
-    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.4",
-    title: "Rivers fall from the mountains",
-    why: "A river that starts next to a mountain now looks like it comes from it.",
-    changes: [
-      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
-      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
-      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+      "On the 2D map, a river now wells up at the foot of its mountain between two boulders and runs in a banked stream to the pool, like the 3D map",
+      "Both maps now cap the same mountains with snow: every mountain in cold country, and most of the tallest peaks elsewhere"
     ]
   },
   {
@@ -346,34 +317,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791434436666,
-    introducedIn: "2026.10.08.1",
-    title: "Your AFC's landing has sound",
-    why: "The orbital landing of your Automated Fabrication Complex played in silence.",
-    changes: [
-      "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
-      "The landing now follows the sound: thrusters at full burn as it comes in, winding down as it slows, cutting out just above the ground, then touchdown on the impact",
-      "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
-    ]
-  },
-  {
-    createdAt: 1791437889049,
-    introducedIn: "2026.10.08.2",
-    title: "AFC landing stays put when you pan",
-    why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
-    changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
-  },
-  {
-    createdAt: 1791450095409,
-    introducedIn: "2026.10.08.3",
-    title: "Tips wait for your AFC to land",
-    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
-    changes: [
-      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
-      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
-    ]
-  },
-  {
     createdAt: 1791462529729,
     introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
@@ -392,18 +335,31 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791469348919,
-    introducedIn: "2026.10.08.6",
-    title: "Quieter AFC landing",
-    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
-    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
-  },
-  {
     createdAt: 1791488967000,
     introducedIn: "2026.10.08.7",
     title: "Waystations no longer promise population without a town",
     why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
     changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
+  {
+    createdAt: 1791832192120,
+    introducedIn: "2026.10.12.2",
+    title: "Storm clouds over unexplored land",
+    why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
+    changes: [
+      "Unexplored territory is now a bank of warm iron storm clouds, lit by lantern light along the edge of your known world, in both the 3D map and the 2D map",
+      "Unexplored tiles bordering your land are mostly shrouded, giving just a glimpse of their terrain up to a brass edge, while every tile you've explored stays completely clear",
+      "When you explore new land the clouds roll back off it with a lantern-lit glow instead of vanishing instantly",
+      "Land you've explored but can't currently see now looks like a faded survey print, keeping its forests and mountains, instead of turning near-black",
+      "Faint tile outlines show through the clouds, and distant terrain fades into them instead of into black"
+    ]
+  },
+  {
+    createdAt: 1791832192121,
+    introducedIn: "2026.10.12.2",
+    title: "No error when pressing Esc with nothing to cancel",
+    why: "Pressing Esc to close a menu, with no capture running, popped up an \"Action failed: no active capture to cancel\" warning.",
+    changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
   },
   {
     createdAt: 1791489815345,
@@ -464,16 +420,37 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791748295340, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.1",
-    title: "Garrison works on towns, docks and captured buildings outside your reach",
-    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    createdAt: 1791831898352, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "The Ancillary Depot is now a dormant-body storehouse",
+    why: "The Ancillary Depot was still borrowing the Logistics Guild's civic-hall art, so it didn't read as the AI Hive's body storehouse either on the 3D map or on the 2D map.",
     changes: [
-      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
-      "Plain land outside your reach still can't be garrisoned"
+      "Ancillary Depots now show as a circular storage drum of dormant Ancillary bodies, ringed by twelve blackened-iron storage pods with brass collars and small cyan seam lights, on the 3D map",
+      "The 2D map's Ancillary Depot icon and its info-card art match the new storage-drum look",
+      "The Ancillary Factory keeps its hopper-tower manufactory"
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  {
+    createdAt: 1791750801000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.2",
+    title: "Docks link to nearby docks, with a way to jump along their routes",
+    why: "Dock routes often led to a far-away dock instead of a close one, and following a long dashed route meant a lot of scrolling while the line broke up along the way.",
+    changes: [
+      "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
+      "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
+      "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
+    ]
+  },
+  {
+    createdAt: 1791805200000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "No more floating blue slabs after a long camera jump",
+    why: "After jumping the camera from your coast to an area with no explored sea, the edge of your old coastline's water stayed behind as floating blue slabs in the dark.",
+    changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
+  },
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
+  ...GARRISON_OUTSIDE_REACH_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -488,7 +465,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
-  ...AFC_MODULE_TAB_CHANGELOG
+  ...AFC_MODULE_TAB_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  {
+    createdAt: 1791827518951, // Date.now() captured once for this release.
+    introducedIn: "2026.10.12.1",
+    title: "Building machinery waits for construction to finish",
+    why: "Fully visible moving parts could start running while their 3D building was still being built.",
+    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

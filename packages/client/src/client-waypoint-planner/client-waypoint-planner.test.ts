@@ -139,8 +139,8 @@ describe("planWaypoint", () => {
     expect(plan.steps[0]!.target).toEqual({ x: 4, y: 3 });
     expect(plan.steps[2]!.target).toEqual({ x: 6, y: 3 });
     expect(plan.totalGold).toBe(0); // FRONTIER_CLAIM_COST is 0 post-manpower-rewrite
-    // Each EXPAND step costs EXPAND_MANPOWER_COST manpower (§4.2 of
-    // docs/manpower-economy-rewrite-plan.md) — a multi-hop EXPAND-only chain
+    // Each EXPAND step costs EXPAND_MANPOWER_COST manpower — a multi-hop
+    // EXPAND-only chain
     // must show its real total manpower cost, not silently omit it.
     expect(plan.totalManpower).toBe(3 * EXPAND_MANPOWER_COST);
     expect(plan.steps.every((s) => s.manpowerCost === EXPAND_MANPOWER_COST)).toBe(true);

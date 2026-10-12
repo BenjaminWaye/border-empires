@@ -40,7 +40,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const structureGoldCost = (structureType: BuildableStructureId): number =>
     structureBuildGoldCost(structureType, ownedStructureCount(structureType));
 
-  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
+  // Resource slots: FOOD/TITANIUM/
   // CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step
   // 5 item 4 Slice A) -- structureCostDefinition's resourceCost field for
   // these four keys is stale display copy. This is one-time build cost only

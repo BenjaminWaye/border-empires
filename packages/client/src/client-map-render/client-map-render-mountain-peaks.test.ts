@@ -5,15 +5,18 @@ import { mountainPeaksLayout } from "./client-map-render-mountain-peaks.js";
 const LONE: MountainNeighbourhood = { north: false, east: false, south: false, west: false, cold: false };
 
 describe("2D mountain peaks layout", () => {
-  it("matches the 3D variation: twin peak and snow decisions agree", () => {
+  it("matches the 3D variation: twin peak decisions agree, and the snow it is given caps the main peak", () => {
     for (let x = 0; x < 25; x += 1) {
       for (let y = 0; y < 25; y += 1) {
         const v = mountainVariationAt(x, y, LONE);
-        const layout = mountainPeaksLayout(x, y, LONE);
+        const layout = mountainPeaksLayout(x, y, LONE, { snow: (x + y) % 2 === 0 });
         expect(layout.peaks.length).toBe(v.secondary ? 2 : 1);
-        expect(layout.peaks[layout.peaks.length - 1]!.snow).toBe(v.snow);
+        expect(layout.peaks[layout.peaks.length - 1]!.snow).toBe((x + y) % 2 === 0);
       }
     }
+    // Without a snow decision, only cold country is snowy.
+    expect(mountainPeaksLayout(3, 4, LONE).peaks.at(-1)!.snow).toBe(false);
+    expect(mountainPeaksLayout(3, 4, { ...LONE, cold: true }).peaks.at(-1)!.snow).toBe(true);
   });
 
   it("keeps every peak apex inside the tile and above its base", () => {

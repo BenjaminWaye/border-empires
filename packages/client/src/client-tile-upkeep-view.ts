@@ -8,7 +8,7 @@ const upkeepResourceOrder = ["GOLD", "FOOD", "TITANIUM", "UMBRITE", "CRYSTAL"] a
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);
 
-// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's CRYSTAL
+// Observatory's CRYSTAL
 // slot occupation is its upkeep now — no separate per-minute drain left
 // to show here.
 const fallbackUpkeepEntriesForTile = (tile: Tile): TileUpkeepEntry[] => {

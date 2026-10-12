@@ -160,7 +160,6 @@ import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.
 import { refreshSpatialFocusForSummary, recordSpatialFocusOutcome, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
 import {
   InMemorySimulationPersistence,
-  TERRITORY_AUTO_COMMAND_PREFIX,
   type ActiveAetherBridgeView,
   type ActiveAetherWallView,
   type AetherWallDirection,
@@ -440,6 +439,8 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
+import { createTerritoryAutomationCommandIdGenerator } from "../runtime-territory-automation-tick/territory-automation-command-id.js";
+import { dormantOwnedActivatables } from "../runtime-territory-automation-tick/dormant-claim-sweep.js";
 import {
   seedEligibleFrontierQueueForOwner as seedEligibleFrontierQueueForOwnerImpl,
   seedGrownTownSupportRingForTownTile as seedGrownTownSupportRingForTownTileImpl,
@@ -831,7 +832,8 @@ export class SimulationRuntime {
   private readonly lastShardRainHelloByPlayer = new Map<string, number>();
   private readonly recentShardRainTileKeys = new Set<string>();
   private readonly activeShardFallSiteKeys = new Set<string>();
-  private territoryAutomationCounter = 0;
+  private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
+  private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
@@ -1407,6 +1409,7 @@ export class SimulationRuntime {
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
+    if (!this.dormantClaimSweepDone) { this.dormantClaimSweepDone = true; const sweepOwners = new Set<string>(); for (const { tileKey, ownerId } of dormantOwnedActivatables(this.state.tiles)) { this.activateReachClaimedTile(tileKey, ownerId, `dormant-claim-sweep:${tileKey}`); sweepOwners.add(ownerId); } for (const playerId of sweepOwners) this.emitPlayerStateUpdate({ commandId: `dormant-claim-sweep:${playerId}`, playerId }); }
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -1424,6 +1427,7 @@ export class SimulationRuntime {
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      onTileClaimed: (tileKey, ownerId, claimCommandId) => this.activateReachClaimedTile(tileKey, ownerId, claimCommandId),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
@@ -1445,7 +1449,7 @@ export class SimulationRuntime {
 
   tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options) }); }
   private registerFrontierAutoHeal(tileKey: string, deadlineAt: number): void { enqueueFrontierAutoHeal(this.frontierAutoHealQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)); }
-  tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y) }); }
+  tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) }); }
 
   private musterTickContext(): MusterTickContext {
     return buildMusterTickContext({
@@ -3041,7 +3045,7 @@ export class SimulationRuntime {
     return cachedTownNetworkForPlayerImpl(this.townNetworkContext(), player, settledTiles, maxConnectedTownNames);
   }
 
-  // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
+  // Garrison Hall's flat cap
   // bonus is a plain per-structure count (garrisonHallTilesByOwner) — NOT
   // town-adjacency-scoped, because GARRISON_HALL uses "same_tile" placement
   // (structure-placement-metadata.json) and can sit on any settled/resource/
@@ -3287,11 +3291,6 @@ export class SimulationRuntime {
   private drainQueues(): void { drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState()); }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
-
-  private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
-    this.territoryAutomationCounter += 1;
-    return `${TERRITORY_AUTO_COMMAND_PREFIX}${label}:${playerId}:${tileKey}:${nowMs}:${this.territoryAutomationCounter}`;
-  }
 
   private startSettlementProcess(input: {
     commandId: string;

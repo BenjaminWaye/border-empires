@@ -27,7 +27,7 @@ import {
 
 export type TradeNexusOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -90,6 +90,7 @@ type TradeNexusInstance = {
   readonly y: number;
   readonly z: number;
   readonly phase: number;
+  readonly frozen: boolean;
 };
 
 const makeMat = (color: string, roughness: number, metalness: number, emissive?: { color: string; intensity: number }): MeshStandardMaterial => {
@@ -351,13 +352,13 @@ export const createTradeNexusOverlay = (scene: Scene, maxTiles: number): TradeNe
     instances.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): void => {
     // The seal spoke/gear buffers are per-nexus indexed: instances beyond
     // C would write past their InstancedMesh typed arrays in update().
     if (instances.length >= C) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
     addNexus(sceneX, surfaceY, sceneZ);
   };
 
@@ -379,6 +380,7 @@ export const createTradeNexusOverlay = (scene: Scene, maxTiles: number): TradeNe
     const gearSlot = slots.get("sealGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
+      if (t.frozen) continue;
       const angle = nowMs * SEAL_SPEED + t.phase;
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);

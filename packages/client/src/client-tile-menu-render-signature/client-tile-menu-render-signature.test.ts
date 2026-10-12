@@ -8,7 +8,7 @@ const baseView = (): TileMenuView => ({
   tabs: ["buildings", "overview"],
   overviewLines: [{ html: "Settled land" }],
   actions: [],
-  buildings: [{ id: "build_observatory", label: "Build Observatory", cost: "800 gold • 45 CRYSTAL • 10m" }],
+  buildings: [{ id: "build_observatory", label: "Build Observatory", cost: "80 manpower • 10m" }],
   crystal: []
 });
 
