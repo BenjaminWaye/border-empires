@@ -22,7 +22,7 @@ remain authoritative for runtime behavior.
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |
 | Rivers remake (renderer + worldgen v10) | [`rivers-remake-plan.md`](rivers-remake-plan.md) |
-| River mountains and mountain variety (proposed) | [`river-mountains-plan.md`](river-mountains-plan.md) |
+| River mountains and mountain variety (shipped; open items listed) | [`river-mountains-plan.md`](river-mountains-plan.md) |
 | Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Starter-site contract and new-player guidance | [`product/new-player-opening.md`](product/new-player-opening.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |

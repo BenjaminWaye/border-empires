@@ -1,9 +1,10 @@
 # River mountains and mountain variety plan
 
-Status: accepted (2026-10-10); owner decisions recorded at the end.
-Implemented on branches `agent/mountain-variety` (A),
-`agent/river-springs` (B), `agent/river-mountain` (C, stacked on A+B) and
-`agent/river-headwaters-v10` (D, stacked on B); see "As built" below. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
+Status: **shipped to develop (2026-10-12)**. A, B and C landed together in
+#2300 (with #2296 and #2298); D landed in #2299 as worldgen **v11**. What
+was actually built differs from the design below in several places -- read
+"As built" first; "What remains" lists the open items. Owner decisions are
+at the end. Extends [`rivers-remake-plan.md`](rivers-remake-plan.md)
 (it delivers that plan's Phase 3 "rapids where a river leaves high ground"
 and adds a headwater rule to its Phase 2). Replaces no document; when it
 ships, fold the durable facts into the rivers plan and delete this file.
@@ -316,34 +317,91 @@ heightfield river mask, the clear-corner rule can relax (rivers plan Phase 3).
 Then a head can sit on the river mountain's own corner and the cascade
 shortens to just the massif face. Lake outlets could reuse the spring pool.
 
-## As built (2026-10-10)
+## As built (2026-10-12)
 
-Where the implementation differs from the plan above:
+The sections above are the original design. What shipped:
 
-- **A -- full mountain remake.** After review ("current mountains look very
-  pixel graphics"), the 3D massif is not the old cone with variation but
-  four procedurally sculpted, flat-shaded mountain shapes
-  (`client-map-3d-mountain-shape.ts`): summit plus sub-peaks, ridges and
-  creases, a lobed foot. Snow is a shader effect above a per-instance snow
-  line on gentle slopes. The variation rules (height, yaw, tint, twin peak,
-  saddles, spine, snow rule) are as planned. 2D draws per-tile peaks over a
-  plain rock texture.
-- **C -- gully, not cleft.** River mountains use a fifth shape with a gully
-  cut down one side, turned toward the river; the cascade lies on the gully
-  floor; there is no separate cleft mesh.
-- **D -- v10 already existed.** `develop` had already bumped to v10 for the
-  continents/ranges rework, so the headwater rule is gated on
-  `HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 10` rather than a separate bump.
-  This is only safe if no season has been created on v10 yet; otherwise set
-  it to 11 and bump `CURRENT_WORLDGEN_VERSION`. On sample seeds 9-10 of 10
-  v10 rivers start beside a mountain (5-7 without the rule); v9 paths are
-  pinned unchanged.
+- **A -- mountains (3D), authored models, not a varied cone.** After several
+  rounds of owner review, each mountain tile is one of six hand-specified
+  low-poly models (`client-map-3d-mountain-models.ts`): 3-4 sharp,
+  straight-sided, faceted peaks packed together in dark blue-grey slate, so
+  neighbouring tiles mass into one jagged range. Every peak is broadest at
+  its base (a test enforces it; anything wider above reads as a boulder).
+  Placement (`client-map-3d-mountain-massif.ts`): a tile higher than its
+  orthogonal mountain neighbours (by hash) is a *summit* and gets a tall
+  model, the rest of a range a lower *filler* one; yaw, height, footprint and
+  tint come from `client-map-mountain-variation.ts`, keyed on world coords.
+  Unindexed geometry with one flat colour per facet, matte Lambert, cast but
+  no self shadows. Snow is a shader cap on the upper, flatter facets: every
+  mountain in cold country, and about two thirds of summit tiles elsewhere
+  (`SUMMIT_SNOW_SHARE`); filler stays bare. No secondary/saddle peak
+  instances -- the models carry their own sub-peaks. Terrain under mountains
+  is only slightly raised (`HEIGHTFIELD_MOUNTAIN_ELEVATION` 0.3).
+- **A -- mountains (2D).** Per-tile peaks (`client-map-render-mountain-
+  peaks.ts`) using the same variation, over a plain rock texture; the
+  mountain branch moved out of `client-map-render.ts` into
+  `client-map-render-relief-tile.ts`.
+- **B -- spring pools.** As planned: `riverHeadsForCurrentSeed`
+  (`worldgen-river-heads.ts`, with `worldgen-river-headwater.ts`), a pool and
+  bank ring at every v9+ river head in 3D, quarter pools per tile in 2D.
+- **C -- river mountains (3D): the river wells up at the mountain's base.**
+  No cleft, gully or cascade on the rock (owner: "it is enough that the
+  river flows from its base"). `client-map-3d-river-cascade.ts` finds where
+  the drawn model meets the ground on the side facing the river head
+  (`mountainPlacementAt` + `mountainModelHeight`, so it follows the model
+  actually placed), puts two boulders there and runs a meandering stream to
+  the spring pool: white water where it emerges, ripples moving downstream,
+  never uphill, splash ring and boulders at the pool. The instanced models
+  can't be cut, so the stream sits in a shallow channel of low banks
+  (`client-map-3d-river-cascade-banks.ts`: tan earth like the main rivers'
+  banks, slate where they touch rock). The route
+  (`client-map-river-cascade-route.ts`) is shared with the forest filter so
+  trees keep off the stream.
+- **C -- river mountains (2D).** As planned: a notch and a short stream on
+  the mountain tile plus a rapids band along the cascade edge into the pool.
+  (This no longer matches 3D -- see "What remains".)
+- **D -- worldgen v11.** `develop` had already used v10 for the
+  continents/ranges rework, and staging runs v10 seasons, so the headwater
+  start pick is gated on `HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 11` with
+  `CURRENT_WORLDGEN_VERSION = 11`. Standalone variant (start pick only, no
+  new random draws, v9 fallback). On sample seeds 9-10 of 10 rivers start
+  beside a mountain (5-7 before); v9 and v10 river paths are pinned by
+  fingerprint tests.
 
-## Decisions (owner, 2026-10-10)
+## What remains
 
-1. **v10 scope:** the headwater rule ships as part of worldgen v10 (PR D).
-   The rivers plan Phase 2 network rework moves to v11.
+- **2D river mountain look.** 2D still draws a notch and a stream down the
+  mountain tile; 3D now starts the river at the mountain's base. Change 2D to
+  start the stream at the mountain's edge (renderer parity).
+- **2D snow rule.** 2D peaks still use the old "tall or cold" snow
+  (`variation.snow`); 3D uses "cold, or ~2/3 of summit tiles". Align them.
+- **Not measured:** frame time with a range in view on a mid-range phone
+  (A), and the worldgen-lab before/after for v11 -- town distribution, fair
+  spawn sites, generation time (D). CI's worldgen and seed-state tests pass,
+  but no side-by-side was run.
+- **Local dev seasons are v1.** The seed-profile startup path in
+  `simulation-service.ts` creates its fallback season without a
+  `worldgenVersion`, so local seed worlds (`pnpm dev`,
+  `rewrite:restart:20ai:seed`) are legacy v1 with no edge rivers, springs or
+  river mountains. Testing this feature locally needed a temporary patch.
+- **Rivers plan numbering.** `rivers-remake-plan.md` still calls its Phase 2
+  river networks "worldgen v10"; v10 and v11 are taken, so it is now v12 at
+  the earliest.
+- **Retire this doc.** Per its own lifecycle, fold the durable facts above
+  into `rivers-remake-plan.md` and delete this file.
+- **Prod.** Gets the mountains and springs when develop is promoted to
+  `main`; river mountains need a new season (v11) there.
+
+## Decisions (owner, 2026-10-10; updated 2026-10-12)
+
+1. **Version:** the headwater rule was to ship in v10 (PR D). Staging was
+   already running v10 seasons, so it shipped as **v11** instead; the rivers
+   plan Phase 2 network rework moves to v12.
 2. **Snow rule:** both -- tall peaks and cold-biome peaks get snow; low peaks
    elsewhere stay bare.
 3. **Prod v8:** left as is. Prod gets PR A now and river mountains with its
    next season.
+4. **River mountains (2026-10-12):** no water on the rock -- the river flows
+   out of the mountain's base, in a shallow banked channel.
+5. **3D first (2026-10-12):** mountain look iterations target 3D; 2D follows
+   (see "What remains").
