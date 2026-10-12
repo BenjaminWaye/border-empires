@@ -4,18 +4,25 @@
 // non-blocking, auto-positioned, one at a time.
 
 import type { DiscoveryTipDef, DiscoveryTipId } from "./client-discovery-tips.js";
-import { DISCOVERY_TIPS, dismissActiveDiscoveryTip, enqueueDiscoveryTip } from "./client-discovery-tips.js";
+import type { DiscoveryTipTarget } from "./client-discovery-tips.js";
+import { DISCOVERY_TIPS, dismissActiveDiscoveryTip, enqueueDiscoveryTip, getDiscoveryTipTarget } from "./client-discovery-tips.js";
 import { isDiscoveryTipsMuted } from "./client-discovery-tips-storage.js";
 
 const OVERLAY_ID = "discovery-tip-overlay";
 
 let currentOverlayTipId: DiscoveryTipId | null = null;
+let centerOnTarget: ((target: DiscoveryTipTarget) => void) | undefined;
+
+/** Registers how the toast's "Center" button moves the camera (wired once at bootstrap). */
+export const setDiscoveryTipCenterHandler = (handler: ((target: DiscoveryTipTarget) => void) | undefined): void => {
+  centerOnTarget = handler;
+};
 
 const removeDiscoveryTipOverlay = (): void => {
   document.getElementById(OVERLAY_ID)?.remove();
 };
 
-const showDiscoveryTipToast = (def: DiscoveryTipDef, onDismiss: (mute: boolean) => void): void => {
+const showDiscoveryTipToast = (def: DiscoveryTipDef, target: DiscoveryTipTarget | undefined, onDismiss: (mute: boolean) => void): void => {
   removeDiscoveryTipOverlay();
   injectStyles();
 
@@ -27,7 +34,10 @@ const showDiscoveryTipToast = (def: DiscoveryTipDef, onDismiss: (mute: boolean) 
     <div id="discovery-tip-title">${escapeHtml(def.title)}</div>
     <p id="discovery-tip-body">${escapeHtml(def.body)}</p>
     <label id="discovery-tip-mute-row"><input type="checkbox" id="discovery-tip-mute" /> Don't show tooltips</label>
-    <button id="discovery-tip-ack" type="button">Got it</button>`;
+    <div id="discovery-tip-actions">
+      ${target ? `<button id="discovery-tip-center" type="button">Center</button>` : ""}
+      <button id="discovery-tip-ack" type="button">Got it</button>
+    </div>`;
   document.body.appendChild(overlay);
 
   const dismiss = (): void => {
@@ -37,6 +47,7 @@ const showDiscoveryTipToast = (def: DiscoveryTipDef, onDismiss: (mute: boolean) 
   };
   overlay.querySelector("#discovery-tip-close")?.addEventListener("click", dismiss);
   overlay.querySelector("#discovery-tip-ack")?.addEventListener("click", dismiss);
+  if (target) overlay.querySelector("#discovery-tip-center")?.addEventListener("click", () => centerOnTarget?.(target));
 };
 
 /**
@@ -71,7 +82,7 @@ export const renderDiscoveryTipOverlay = (
   currentOverlayTipId = nextId;
   const def = DISCOVERY_TIPS[nextId];
   onShow?.(def);
-  showDiscoveryTipToast(def, (mute) => {
+  showDiscoveryTipToast(def, getDiscoveryTipTarget(nextId), (mute) => {
     dismissActiveDiscoveryTip(queue, authEmail, mute);
     currentOverlayTipId = null;
     onDismiss();
@@ -85,9 +96,10 @@ export const announceDiscoveryTip = (
   authEmail: string | null | undefined,
   onDismiss: () => void,
   onShow?: (def: DiscoveryTipDef) => void,
-  deferred = false
+  deferred = false,
+  target?: DiscoveryTipTarget
 ): void => {
-  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss, onShow, deferred);
+  if (enqueueDiscoveryTip(queue, id, authEmail, target)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss, onShow, deferred);
 };
 
 const escapeHtml = (value: string): string =>
@@ -133,12 +145,13 @@ const styles = `
   font-size: 11.5px; color: #bda880; cursor: pointer; user-select: none;
 }
 #discovery-tip-mute-row input { accent-color: #d9ad52; cursor: pointer; }
-#discovery-tip-ack {
+#discovery-tip-actions { display: flex; gap: 8px; }
+#discovery-tip-center, #discovery-tip-ack {
   padding: 7px 14px; border-radius: 4px; border: 1px solid #8a611f;
   background: linear-gradient(180deg, rgba(90, 61, 32, 0.95), rgba(40, 28, 16, 0.96));
   color: #e6d6ae; font-family: "Spectral", "Segoe UI", system-ui, serif; font-size: 12.5px; font-weight: 700; cursor: pointer;
 }
-#discovery-tip-ack:hover { background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6)); border-color: #f4dfa6; }
+#discovery-tip-center:hover, #discovery-tip-ack:hover { background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6)); border-color: #f4dfa6; }
 @keyframes discoveryTipEnter {
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }

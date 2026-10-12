@@ -4,6 +4,7 @@ import {
   discoveryTipIdForNewlySeenTile,
   dismissActiveDiscoveryTip,
   enqueueDiscoveryTipForNewlySeenTile,
+  getDiscoveryTipTarget,
   type DiscoveryTipId
 } from "./client-discovery-tips.js";
 
@@ -154,43 +155,52 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
 
   it("enqueues a tip for a newly-seen town tile", () => {
     const queue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "X" } as never }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, town: { name: "X" } as never }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["TOWN"]);
   });
 
   it("enqueues a tip for a newly-seen dock tile", () => {
     const queue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { dockId: "dock-1" }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, dockId: "dock-1" }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["DOCK"]);
   });
 
   it("enqueues a tip for a newly-seen natural wonder tile", () => {
     const queue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { naturalWonder: { type: "QUICKFORGE" } as never }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, naturalWonder: { type: "QUICKFORGE" } as never }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["QUICKFORGE"]);
   });
 
   it("enqueues a tip for a newly-seen barbarian tile", () => {
     const queue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { ownerId: "barbarian-1" }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, ownerId: "barbarian-1" }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["BARBARIAN"]);
   });
 
   it("barbarian does not trigger for non-barbarian ownerId", () => {
     const queue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { ownerId: "player-1" }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, ownerId: "player-1" }, "a@example.com");
     expect(enqueued).toBe(false);
     expect(queue).toEqual([]);
   });
 
+  it("records the tile a newly-seen tip is about and clears it on dismiss", () => {
+    const queue: DiscoveryTipId[] = [];
+    enqueueDiscoveryTipForNewlySeenTile(queue, { x: 12, y: 34, town: { name: "X" } as never }, "a@example.com");
+    expect(getDiscoveryTipTarget("TOWN")).toEqual({ x: 12, y: 34 });
+
+    dismissActiveDiscoveryTip(queue, "a@example.com");
+    expect(getDiscoveryTipTarget("TOWN")).toBeUndefined();
+  });
+
   it("does not enqueue twice in the same session", () => {
     const queue: DiscoveryTipId[] = [];
-    enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "X" } as never }, "a@example.com");
-    const secondEnqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "Y" } as never }, "a@example.com");
+    enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, town: { name: "X" } as never }, "a@example.com");
+    const secondEnqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, town: { name: "Y" } as never }, "a@example.com");
     expect(secondEnqueued).toBe(false);
     expect(queue).toEqual(["TOWN"]);
   });
@@ -200,7 +210,7 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     dismissActiveDiscoveryTip(queue, "a@example.com");
     expect(queue).toEqual([]);
 
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "Z" } as never }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, town: { name: "Z" } as never }, "a@example.com");
     expect(enqueued).toBe(false);
     expect(queue).toEqual([]);
   });
@@ -210,14 +220,14 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     dismissActiveDiscoveryTip(queue, "a@example.com");
 
     const queueForB: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queueForB, { town: { name: "Z" } as never }, "b@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queueForB, { x: 3, y: 4, town: { name: "Z" } as never }, "b@example.com");
     expect(enqueued).toBe(true);
     expect(queueForB).toEqual(["TOWN"]);
   });
 
   it("returns false and does not enqueue for a tile with no town/resource/barbarian", () => {
     const queue: DiscoveryTipId[] = [];
-    expect(enqueueDiscoveryTipForNewlySeenTile(queue, {}, "a@example.com")).toBe(false);
+    expect(enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4 }, "a@example.com")).toBe(false);
     expect(queue).toEqual([]);
   });
 
@@ -228,7 +238,7 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     const realNow = Date.now;
     Date.now = () => realNow() + 31 * 24 * 60 * 60 * 1000;
     try {
-      const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { town: { name: "Z" } as never }, "a@example.com");
+      const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { x: 3, y: 4, town: { name: "Z" } as never }, "a@example.com");
       expect(enqueued).toBe(true);
       expect(queue).toEqual(["TOWN"]);
     } finally {
@@ -241,7 +251,7 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     dismissActiveDiscoveryTip(queue, "a@example.com", true);
 
     const resourceQueue: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(resourceQueue, { resource: "GEMS" }, "a@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(resourceQueue, { x: 3, y: 4, resource: "GEMS" }, "a@example.com");
     expect(enqueued).toBe(false);
     expect(resourceQueue).toEqual([]);
   });
@@ -251,7 +261,7 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     dismissActiveDiscoveryTip(queue, "a@example.com", true);
 
     const queueForB: DiscoveryTipId[] = [];
-    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queueForB, { resource: "GEMS" }, "b@example.com");
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queueForB, { x: 3, y: 4, resource: "GEMS" }, "b@example.com");
     expect(enqueued).toBe(true);
     expect(queueForB).toEqual(["CRYSTAL"]);
   });

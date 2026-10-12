@@ -13,6 +13,14 @@ export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARI
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
+/** World tile a tip is about; powers the toast's (and its Activity Feed entry's) "Center" button. */
+export type DiscoveryTipTarget = { x: number; y: number };
+
+// One entry per queued tip id (a finite union, so bounded); cleared on dismiss.
+const discoveryTipTargets = new Map<DiscoveryTipId, DiscoveryTipTarget>();
+
+export const getDiscoveryTipTarget = (id: DiscoveryTipId): DiscoveryTipTarget | undefined => discoveryTipTargets.get(id);
+
 const capitalizeFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 // One discovery tip per natural wonder, generated from the shared label data
@@ -131,11 +139,18 @@ export const discoveryTipIdForNewlySeenTile = (
  * tile-driven tips (see below) and tips triggered by a player action, e.g.
  * placing their first Muster Flag.
  */
-export const enqueueDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId, authEmail?: string | null): boolean => {
+export const enqueueDiscoveryTip = (
+  queue: DiscoveryTipId[],
+  id: DiscoveryTipId,
+  authEmail?: string | null,
+  target?: DiscoveryTipTarget
+): boolean => {
   if (isDiscoveryTipsMuted(authEmail)) return false;
   if (queue.includes(id)) return false;
   if (isDiscoveryTipSeen(id, authEmail)) return false;
   queue.push(id);
+  if (target) discoveryTipTargets.set(id, { x: target.x, y: target.y });
+  else discoveryTipTargets.delete(id);
   return true;
 };
 
@@ -147,12 +162,12 @@ export const enqueueDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId,
  */
 export const enqueueDiscoveryTipForNewlySeenTile = (
   queue: DiscoveryTipId[],
-  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder" | "waystation"> | undefined,
+  tile: Pick<Tile, "x" | "y" | "town" | "resource" | "dockId" | "ownerId" | "naturalWonder" | "waystation"> | undefined,
   authEmail?: string | null
 ): boolean => {
   const id = tile && discoveryTipIdForNewlySeenTile(tile);
   if (!id) return false;
-  return enqueueDiscoveryTip(queue, id, authEmail);
+  return enqueueDiscoveryTip(queue, id, authEmail, { x: tile.x, y: tile.y });
 };
 
 /**
@@ -162,6 +177,9 @@ export const enqueueDiscoveryTipForNewlySeenTile = (
  */
 export const dismissActiveDiscoveryTip = (queue: DiscoveryTipId[], authEmail?: string | null, mute = false): void => {
   const id = queue.shift();
-  if (id) markDiscoveryTipSeen(id, authEmail);
+  if (id) {
+    markDiscoveryTipSeen(id, authEmail);
+    discoveryTipTargets.delete(id);
+  }
   if (mute) muteDiscoveryTips(authEmail);
 };

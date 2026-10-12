@@ -149,7 +149,7 @@ export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: Mus
   const { x, y } = tile;
   if (actionId === "muster_hold" || actionId === "muster_advance") {
     deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" });
-    if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud);
+    if (deps.state.discoveryTipQueue) announceDiscoveryTipForState(deps.state, "FIRST_MUSTER", deps.renderHud, { x, y });
     return true;
   }
   if (actionId === "muster_march") {
