@@ -15,14 +15,14 @@ export const autoSettleSettingsFieldHtml = (autoSettle: ClientAutoSettleState): 
   if (autoSettle.status !== "loaded") {
     return `
     <div class="settings-auto-settle-field">
-      <p>Auto-settle</p>
+      <p>Auto-garrison</p>
       <p class="settings-field-hint">Loading your auto-garrison choices…</p>
     </div>`;
   }
   const current = autoSettle.prefs;
   return `
     <div class="settings-auto-settle-field">
-      <p>Auto-settle</p>
+      <p>Auto-garrison</p>
       <p class="settings-field-hint">Spends manpower to garrison these tiles as soon as they're yours. Off means nothing garrisons until you click.</p>
       ${AUTO_SETTLE_CATEGORIES.map(
         (category) => `

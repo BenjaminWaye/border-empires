@@ -1,0 +1,17 @@
+.afc-module-heading { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; color: var(--sp-brass-100); }
+.afc-module-heading span, .afc-module-note { color: var(--sp-parchment-muted); font-size: 11px; line-height: 1.5; }
+.afc-socket-diagram { display: grid; grid-template-columns: 0 repeat(3, minmax(0, 1fr)) 0; gap: 6px; padding: 8px 0; background: radial-gradient(circle, rgba(217,173,82,.12), transparent 70%); }
+.afc-socket-north { grid-column: 3; grid-row: 1; text-align: center; color: var(--sp-brass-300); font-size: 11px; }
+.afc-socket-core { grid-column: 3; grid-row: 3; align-self: center; justify-self: center; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--sp-brass-700); color: var(--sp-brass-300); font-size: 28px; box-shadow: 0 0 0 6px rgba(217,173,82,.08); }
+.afc-socket-core small { font: 10px var(--sp-font-display); }
+.afc-socket { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 100px; padding: 8px 4px; border: 1px solid var(--sp-brass-700); border-radius: 5px; background: var(--sp-panel-bg); color: var(--sp-brass-100); font-size: 10px; text-align: center; overflow-wrap: anywhere; text-decoration: none; }
+.afc-socket small { color: var(--sp-parchment-muted); font-size: 9px; }
+.afc-socket-number { position: absolute; top: 3px; left: 5px; color: var(--sp-brass-300); font-size: 9px; }
+.afc-socket-icon { font-size: 20px; color: var(--sp-brass-300); }
+.afc-socket.is-empty { border-style: dashed; background: rgba(0,0,0,.12); }
+.afc-socket.is-incoming { border-style: dashed; border-color: var(--sp-brass-300); }
+.afc-socket.is-captured { border-width: 2px; }
+button.afc-socket { cursor: pointer; font-family: inherit; width: 100%; }
+button.afc-socket:hover, button.afc-socket:focus-visible { border-color: var(--sp-brass-100); outline: 2px solid var(--sp-brass-300); outline-offset: 2px; }
+.afc-module-call-down { border-top: 1px solid var(--sp-brass-700); padding-top: 12px; color: var(--sp-brass-100); }
+.afc-module-call-down .tile-action-btn { margin-top: 6px; }

@@ -12,6 +12,7 @@ import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
+import { bindAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -160,6 +161,7 @@ export const renderTileActionMenu = (
       };
     });
     const actionButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
+    bindAfcModulePicker(deps.tileActionMenuEl);
     actionButtons.forEach((btn) => {
       btn.onclick = () => {
         const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
