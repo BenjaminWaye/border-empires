@@ -64,6 +64,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1791837136490, // Date.now() frozen for this entry
+    introducedIn: "2026.10.12.1",
+    title: "Soldiers now show when you attack enemy frontier land",
+    why: "Launching an attack on an enemy's frontier tile showed the tile changing colour but no soldiers, so it looked like a plain expansion.",
+    changes: [
+      "Your soldiers now step onto the enemy frontier tile you attack and stand there until it is yours, in the 3D map (the 2D map draws no soldiers for attacks)"
+    ]
+  },
+  {
     createdAt: 1791311818491, // Date.now() frozen for this entry
     introducedIn: "2026.10.06.1",
     title: "Relay Beacons and forts are built piece by piece",
@@ -334,6 +343,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "No error when pressing Esc with nothing to cancel",
     why: "Pressing Esc to close a menu, with no capture running, popped up an \"Action failed: no active capture to cancel\" warning.",
     changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
+  },
+  {
+    createdAt: 1791839075156,
+    introducedIn: "2026.10.12.3",
+    title: "Smoother clouds rolling back as you explore",
+    why: "When you explored new land the storm clouds snapped and restarted as the newly seen tiles arrived, and trees and hills popped up through clouds that were still parting.",
+    changes: [
+      "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
+      "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
+    ]
   },
   {
     createdAt: 1791489815345,
