@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { mountainNeighbourhoodAt } from "../../../client/src/client-map-mountain-variation/client-map-mountain-variation.js";
+import { mountainNeighbourhoodAt, mountainSnowAt } from "../../../client/src/client-map-mountain-variation/client-map-mountain-variation.js";
 import { drawMountainPeaksLayout, mountainPeaksLayout } from "../../../client/src/client-map-render/client-map-render-mountain-peaks.js";
 
 type Args = {
@@ -37,13 +37,10 @@ const render = (args: Args): HTMLElement => {
       ctx.fillStyle = isMountain(x, y) ? ROCK : GRASS;
       ctx.fillRect(px, py, args.tileSize, args.tileSize);
       if (!isMountain(x, y)) continue;
-      const neighbourhood = mountainNeighbourhoodAt(x, y, {
-        isMountainAt: isMountain,
-        isColdAt: () => args.coldCountry,
-        wrapX: (v) => v,
-        wrapY: (v) => v
-      });
-      drawMountainPeaksLayout(ctx, mountainPeaksLayout(x, y, neighbourhood), px, py, args.tileSize);
+      const lookup = { isMountainAt: isMountain, isColdAt: () => args.coldCountry, wrapX: (v: number) => v, wrapY: (v: number) => v };
+      const neighbourhood = mountainNeighbourhoodAt(x, y, lookup);
+      const snow = mountainSnowAt(x, y, lookup, neighbourhood.cold);
+      drawMountainPeaksLayout(ctx, mountainPeaksLayout(x, y, neighbourhood, { snow }), px, py, args.tileSize);
     }
   }
   return canvas;

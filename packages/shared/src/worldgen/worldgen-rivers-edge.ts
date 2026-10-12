@@ -27,7 +27,7 @@ import { worldgenVersion } from "./worldgen-version.js";
 
 // v11+: rivers start at a headwater corner -- a mountain in the ring of tiles
 // just outside it -- so the client can draw them falling out of that
-// mountain (docs/river-mountains-plan.md, PR D). Only the choice of start
+// mountain (docs/rivers-remake-plan.md, "River mountains"). Only the choice of start
 // corner changes (no new random draws); a river with no headwater candidate
 // falls back to the v9 start, so no world gets fewer rivers. v10 seasons
 // (already running on staging) keep the v9 start pick.

@@ -292,9 +292,9 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    // GARRISON_HALL ("Ancillary Depot") and LOGISTICS_GUILD ("Ancillary
-    // Factory") swap art -- no new 3D/2D assets this pass, per user decision.
-    if (key === "GARRISON_HALL") return "/overlays/logistics-guild-overlay.svg";
+    // GARRISON_HALL ("Ancillary Depot") has its own storage-drum art;
+    // LOGISTICS_GUILD ("Ancillary Factory") keeps the hopper manufactory.
+    if (key === "GARRISON_HALL") return "/overlays/ancillary-depot-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";

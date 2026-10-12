@@ -11,7 +11,7 @@ import { ClientMessageSchema, type ClientMessage, type EconomicStructureType, ty
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { sleep } from "./sleep.js";
 
-// §5 (docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/UMBRITE
+// FOOD/TITANIUM/CRYSTAL/UMBRITE
 // build costs are retired as a stockpile spend (strategicResources) -- a
 // structure needing one of these permanently occupies a SLOT instead
 // (packages/shared/src/structure-slots/structure-slots.ts), gated by a

@@ -33,5 +33,16 @@ export const RIVERS_MOUNTAINS_CHANGELOG: ClientChangelogEntry[] = [
       "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
       "Mountains are matte, with clean facets"
     ]
+  },
+  {
+    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.4",
+    title: "Rivers fall from the mountains",
+    why: "A river that starts next to a mountain now looks like it comes from it.",
+    changes: [
+      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
+      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
+      "Shown on both the 3D map and the 2D map"
+    ]
   }
 ];

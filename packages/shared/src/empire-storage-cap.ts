@@ -1,5 +1,5 @@
-// TITANIUM/CRYSTAL/UMBRITE are slot-based, not stockpiled (docs/manpower-economy-
-// rewrite-plan.md §5, §5.6) — they never carried a storage cap to begin with
+// TITANIUM/CRYSTAL/UMBRITE are slot-based, not stockpiled —
+// they never carried a storage cap to begin with
 // once Slice B retired their production. FOOD is the only resource still
 // gated by a real stockpile cap. GOLD and SHARD are both uncapped
 // (docs/replenishment-update-plan.md D4 removed the gold cap, matching

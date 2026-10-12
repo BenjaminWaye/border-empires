@@ -10,6 +10,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
+import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
@@ -38,14 +39,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {
-    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.4",
-    title: "Rivers fall from the mountains",
-    why: "A river that starts next to a mountain now looks like it comes from it.",
+    createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.12.1",
+    title: "River mountains on the 2D map, and matching snow",
+    why: "The 2D map still drew rivers pouring down the mountain while 3D starts them at its foot, and the two maps disagreed on which peaks have snow.",
     changes: [
-      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
-      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
-      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+      "On the 2D map, a river now wells up at the foot of its mountain between two boulders and runs in a banked stream to the pool, like the 3D map",
+      "Both maps now cap the same mountains with snow: every mountain in cold country, and most of the tallest peaks elsewhere"
     ]
   },
   {
@@ -420,13 +420,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791748295340, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.1",
-    title: "Garrison works on towns, docks and captured buildings outside your reach",
-    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    createdAt: 1791831898352, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "The Ancillary Depot is now a dormant-body storehouse",
+    why: "The Ancillary Depot was still borrowing the Logistics Guild's civic-hall art, so it didn't read as the AI Hive's body storehouse either on the 3D map or on the 2D map.",
     changes: [
-      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
-      "Plain land outside your reach still can't be garrisoned"
+      "Ancillary Depots now show as a circular storage drum of dormant Ancillary bodies, ringed by twelve blackened-iron storage pods with brass collars and small cyan seam lights, on the 3D map",
+      "The 2D map's Ancillary Depot icon and its info-card art match the new storage-drum look",
+      "The Ancillary Factory keeps its hopper-tower manufactory"
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
@@ -449,6 +450,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
+  ...GARRISON_OUTSIDE_REACH_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

@@ -14,22 +14,35 @@ const fillCountingContext = (): { ctx: CanvasRenderingContext2D; fills: () => nu
 };
 
 describe("2D river mountain", () => {
-  it("has no second peak, so the stream stays clear", () => {
-    for (let i = 0; i < 40; i += 1) expect(mountainPeaksLayout(i, i * 2, LONE, true).peaks).toHaveLength(1);
+  it("has no second peak, so the spring at its foot stays clear", () => {
+    for (let i = 0; i < 40; i += 1) expect(mountainPeaksLayout(i, i * 2, LONE, { riverMountain: true }).peaks).toHaveLength(1);
   });
 
-  it("runs its stream from the peak down to the mountain's corner nearest the river head", () => {
+  it("wells up at the main peak's foot (not on its face) and runs to the corner nearest the river head", () => {
     // Mountain (10, 8), head (10, 10): exit corner (10, 9) is the tile's bottom-left corner.
     const face = riverMountainFaceOf({ corner: { x: 10, y: 10 }, heading: { dx: 0, dy: 1 }, mountain: { x: 10, y: 8 } })!;
-    const main = mountainPeaksLayout(10, 8, LONE, true).peaks[0]!;
+    const main = mountainPeaksLayout(10, 8, LONE, { riverMountain: true }).peaks[0]!;
     const stream = riverMountainStream(face, 10, 8, main);
     expect(stream.exit).toEqual({ x: 0, y: 1 });
-    expect(stream.source.y).toBeGreaterThan(main.apex.y);
-    expect(stream.source.y).toBeLessThan(main.baseLeft.y);
-    expect(stream.foot.x).toBeLessThan(stream.source.x); // heads toward the left corner
+    // At or below the peak's base line, on its left (river) side.
+    expect(stream.source.y).toBeGreaterThanOrEqual(main.baseLeft.y);
+    expect(stream.source.x).toBeLessThan(main.apex.x);
+    expect(stream.path[0]).toEqual(stream.source);
+    expect(stream.path.at(-1)).toEqual(stream.exit);
   });
 
-  it("the two land tiles beside the cascade's edge each draw their half of the rapids", () => {
+  it("goes round the tile's side, never over the peak, for a corner on the far (north) side", () => {
+    // Mountain (10, 8), head (9, 8): exit corner (10, 8) is the tile's top-left corner.
+    const face = riverMountainFaceOf({ corner: { x: 9, y: 8 }, heading: { dx: -1, dy: 0 }, mountain: { x: 10, y: 8 } })!;
+    const main = mountainPeaksLayout(10, 8, LONE, { riverMountain: true }).peaks[0]!;
+    const stream = riverMountainStream(face, 10, 8, main);
+    expect(stream.exit).toEqual({ x: 0, y: 0 });
+    expect(stream.source.y).toBeGreaterThanOrEqual(main.baseLeft.y);
+    // Everything after the spring stays left of the peak's base.
+    for (const p of stream.path.slice(1)) expect(p.x).toBeLessThan(main.baseLeft.x);
+  });
+
+  it("the two land tiles beside the cascade's edge each draw their half of the stream", () => {
     const cascades = new Set([riverEdgeKeyBetween(10, 9, 10, 10)]); // vertical edge x = 10, y 9..10
     const left = fillCountingContext();
     drawCascadeEdges(left.ctx, 9, 9, 0, 0, 40, 40, cascades);
