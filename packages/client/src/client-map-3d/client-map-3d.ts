@@ -64,7 +64,6 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
-import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
 import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
 import {
   createContactShadowOverlay,
