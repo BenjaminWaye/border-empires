@@ -1,4 +1,4 @@
-import { appendOccupationSurveyReports, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST
@@ -318,9 +318,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       const occurredAt = context.now();
       context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
       context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
-    }
-    if (attackerWon && previousTarget?.town && townAftermath.town && lock.playerId !== "barbarian-1") {
-      if (attacker) appendOccupationSurveyReports(attacker, context.tiles, lock.targetX, lock.targetY, context.now());
     }
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({

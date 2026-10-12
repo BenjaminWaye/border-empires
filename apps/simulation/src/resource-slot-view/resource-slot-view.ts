@@ -1,5 +1,4 @@
-// Resource-slot supply/demand aggregation — docs/manpower-economy-rewrite-plan.md
-// §5 (Pillar 2, Step 5), item 1 of the "still open" list in the Step 5 handoff.
+// Resource-slot supply/demand aggregation.
 //
 // v1 scope (§5.6): a global pool per resource, not per-tile tapping.
 // `supply` sums base + boost slots across a player's owned SETTLED resource

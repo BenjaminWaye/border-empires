@@ -11,13 +11,10 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import {
-  GUIDE_AUTO_OPEN_STORAGE_KEY,
-  GUIDE_STORAGE_KEY,
   canAffordCost,
   formatGoldAmount,
   frontierClaimCostLabelForTile,
-  frontierClaimDurationMsForTile,
-  guideSteps
+  frontierClaimDurationMsForTile
 } from "./client-constants.js";
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
 import { exposedSidesForTile } from "./client-defensibility-tile.js";
@@ -62,7 +59,6 @@ import {
   formatUpkeepSummary,
   formatYieldSummary,
   resourceColor,
-  resourceIconForKey,
   resourceLabel,
   storedYieldSummary,
   strategicResourceKeyForTile,
@@ -70,6 +66,7 @@ import {
   tileUpkeepHtml
 } from "./client-map-display.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
@@ -102,7 +99,8 @@ import { createInitialState, storageSet } from "./client-state/client-state.js";
 import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
-import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
+import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
+import { techOwnedHtml } from "./client-manifest-detail/client-manifest-owned-html.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,
@@ -364,7 +362,7 @@ bootstrapClientApp({
   pushFeedEntry,
   requestViewRefresh,
   prettyToken,
-  resourceIconForKey,
+  resourceIconHtml,
   resourceLabel,
   economicStructureName,
   leaderboardHtml,

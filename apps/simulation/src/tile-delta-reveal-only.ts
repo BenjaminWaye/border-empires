@@ -21,6 +21,8 @@ export const tileDeltaRevealOnly = (
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
     ...(resourceValue ? { resource: resourceValue } : {}),
+    // Public terrain clue, never resource-gated (see prospect-signatures.ts).
+    ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
     // Explicit `undefined` vs `...({})` is load-bearing: subscribers diff by

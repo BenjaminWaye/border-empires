@@ -1,6 +1,6 @@
 // The headwater ring: a river corner whose ring of tiles just outside it
 // holds a mountain can be drawn flowing out of that mountain
-// (docs/river-mountains-plan.md). Shared by the v10+ river start rule
+// (docs/rivers-remake-plan.md, "River mountains"). Shared by the v11+ river start rule
 // (worldgen-rivers-edge.ts) and the read-only head lookup the client draws
 // river mountains from (worldgen-river-heads.ts). Pure over terrainAt.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";

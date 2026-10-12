@@ -12,14 +12,13 @@ import {
 
 // Regression: the "First Town Discovered!" toast and the force-opened "New
 // empire checklist" painted over the tutorial and the AFC landing. Both must
-// wait until the tutorial is closed and the join drop has finished.
+// wait until the dialog is closed and the join drop has finished.
 
 const joiningPlayerState = () => {
   const state = createInitialState();
   state.authSessionReady = true;
   state.profileSetupRequired = false;
-  state.changelog.open = false;
-  state.guide.open = true; // tutorial up on join
+  state.changelog.open = true; // a dialog is up on join
   state.activityDashboard.open = false;
   state.needsSeasonJoin = false;
   state.joinSeasonOverlayOpen = false;
@@ -54,7 +53,7 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     expect(toast()).toBeNull();
     expect(checklist()).toBeNull();
 
-    state.guide.open = false;
+    state.changelog.open = false;
     state.afcJoinDrop.phase = "waiting";
     tickOnboardingUiGateForFrame(state, renderHud);
     state.afcJoinDrop.phase = "playing";
@@ -83,7 +82,7 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     expect(toast()).toBeNull();
     expect(state.discoveryTipQueue).toEqual(["FIRST_MUSTER"]);
 
-    state.guide.open = false;
+    state.changelog.open = false;
     tickOnboardingUiGateForFrame(state, renderHud);
     expect(toast()?.textContent).toContain("First Muster Flag Placed!");
   });
@@ -94,7 +93,7 @@ describe("onboarding corner UI waits for the tutorial and the AFC join drop", ()
     const renderHud = vi.fn();
     tickOnboardingUiGateForFrame(state, renderHud);
 
-    state.guide.open = false;
+    state.changelog.open = false;
     tickOnboardingUiGateForFrame(state, renderHud);
     expect(checklist()).toBeNull();
   });

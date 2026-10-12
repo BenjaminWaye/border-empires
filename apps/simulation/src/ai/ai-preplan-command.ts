@@ -32,7 +32,7 @@ type AutomationPreplanTile = {
 // in player-update-economy.ts) that tier unlocks.
 // Gold-affordability only — the AI planner doesn't have cheap access to real
 // per-player FOOD slot supply/demand (same known gap as the BUILD_STRUCTURE
-// planner check, docs/manpower-economy-rewrite-plan.md Step 5 item 5: real
+// planner check: real
 // fix needs an incrementally-maintained slot index threaded through the
 // worker-sync boundary, its own scoped slice). A server-side INSUFFICIENT_SLOT
 // rejection here is the same class of self-correcting staleness already

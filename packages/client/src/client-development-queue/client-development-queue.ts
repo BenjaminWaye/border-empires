@@ -82,7 +82,7 @@ export const applyAutoSettlementQueueFromServer = (
     state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
   );
   let settlementBudget = Math.max(0, state.gold - queuedSettlementTileKeys.size * SETTLE_COST);
-  // Manpower is also a real SETTLE cost (§4.2 of docs/manpower-economy-rewrite-plan.md)
+  // Manpower is also a real SETTLE cost
   // — bulk-filling this queue against gold alone over-queues settlements a
   // manpower-poor player can't actually afford, each of which then gets
   // rejected server-side one at a time.

@@ -6,7 +6,7 @@ import { buildAiOpponent, buildPlayer, collectEvents } from "./runtime.test-help
 // §14.2: dormant/unpowered structure indicator. Runtime.dormantStructuresForPlayer
 // (and the PLAYER_UPDATE payload it feeds) is what threads §5.4's existing
 // per-structure dormancy computation onto the wire for the client — see
-// docs/manpower-economy-rewrite-plan.md §14.2 and dormantStructureDetailsFromDormancy
+// dormantStructureDetailsFromDormancy
 // in resource-slot-view.ts for the pure-function unit coverage of the detail
 // shape itself. These tests cover the Runtime-level wiring: the right
 // structures show up, with the right resource(s), on the live PLAYER_UPDATE

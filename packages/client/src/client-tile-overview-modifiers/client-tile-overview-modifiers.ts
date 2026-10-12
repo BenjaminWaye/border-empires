@@ -1,4 +1,5 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, defendingFortVariant, FORT_VARIANT_LABELS, isFortDefending, type EconomicStructureType } from "@border-empires/shared";
+import { prospectClueOverviewLine } from "../client-prospect-clue/client-prospect-clue.js";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import type { TechInfo } from "../client-tech-info-types.js";
@@ -328,5 +329,7 @@ export const tileFeatureLeadLines = (
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
   lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
+  const clueLine = prospectClueOverviewLine(tile.prospectSignature);
+  if (clueLine) lines.push({ html: clueLine });
   return lines;
 };
