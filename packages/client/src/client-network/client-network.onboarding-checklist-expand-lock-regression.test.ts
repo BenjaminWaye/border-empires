@@ -111,7 +111,6 @@ describe("onboarding checklist recomputes when an EXPAND lock starts", () => {
     // Signed in with the tutorial closed, so the onboarding UI gate
     // (client-onboarding-ui-gate.ts) isn't holding the checklist back.
     state.authSessionReady = true;
-    state.guide.open = false;
     // An owned town satisfies the first goal; the AFC also supplies reach.
     state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", afc: { ownerId: "player-1", status: "active" } });
     state.tiles.set("20,20", { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "MARKET", townPopulationTier: "TOWN" });
