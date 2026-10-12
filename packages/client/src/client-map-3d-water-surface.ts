@@ -205,6 +205,17 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
       geometry.dispose();
       geometry = null;
     }
+    // Before the no-sea early return below: leaving the previous skirt in
+    // place stranded the old coastline's walls in the scene after a camera
+    // jump to an area with no explored sea (floating slabs over the void).
+    if (skirtMesh) {
+      scene.remove(skirtMesh);
+      skirtMesh = null;
+    }
+    if (skirtGeometry) {
+      skirtGeometry.dispose();
+      skirtGeometry = null;
+    }
     if (tiles.length === 0) {
       // No sea in view: drop the previous commit's foam too.
       shoreFoam.rebuild([], () => false, WATER_SURFACE_Y, false);
@@ -349,14 +360,6 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
     // Skirt: a vertical wall dropped to WATER_SKIRT_BOTTOM_Y along every
     // tile edge that doesn't border another water tile — see
     // WATER_SKIRT_BOTTOM_Y above for why the flat sheet needs this.
-    if (skirtMesh) {
-      scene.remove(skirtMesh);
-      skirtMesh = null;
-    }
-    if (skirtGeometry) {
-      skirtGeometry.dispose();
-      skirtGeometry = null;
-    }
 
     const skirtPositions: number[] = [];
     const skirtColors: number[] = [];
