@@ -1,5 +1,7 @@
 import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
 import { DEFAULT_WORLD_HEIGHT, WORLD_HEIGHT as CONFIGURED_WORLD_HEIGHT, isCoastalLandAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
+import { computeFairSpawnSites, type FairSpawnSite } from "@border-empires/game-domain";
+import { starterTilesForWorldgen } from "./season-seed-world-fair-spawn-check.js";
 
 /**
  * Initial-roster player spawn placement, shared by the sync
@@ -41,6 +43,7 @@ export const createSeasonSeedPlayerSpawner = (
   const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, isSpawnableLand, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
+  let humanSites: FairSpawnSite[] | undefined;
   // A player's own settlement is planted directly on their spawn tile below,
   // so an existing town counted as "nearby" here must sit at least the same
   // minimum spacing away that towns keep from each other everywhere else —
@@ -102,7 +105,15 @@ export const createSeasonSeedPlayerSpawner = (
   ] as const;
   const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
     let spawn: { x: number; y: number } | undefined;
+    if (!isAi) {
+      humanSites ??= computeFairSpawnSites(starterTilesForWorldgen({
+        WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, docksByTile, clusterByTile, clustersById
+      }), 50, { requireStarterEconomy: true, width: WORLD_WIDTH, height: WORLD_HEIGHT });
+      spawn = humanSites.find((site) => !ownership.has(key(site.x, site.y)) && !hasNearbySpawn(site.x, site.y, 10));
+      if (!spawn) throw new Error(`no qualified starter site for season player ${playerId}`);
+    }
     for (const [passIndex, pass] of spawnSearchOrder.entries()) {
+      if (spawn) break;
       if (pass.tries === WORLD_WIDTH * WORLD_HEIGHT) {
         for (let y = 0; y < WORLD_HEIGHT && !spawn; y += 1) {
           for (let x = 0; x < WORLD_WIDTH; x += 1) {

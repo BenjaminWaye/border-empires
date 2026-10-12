@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Box3, InstancedMesh, Matrix4, Scene } from "three";
 import { LAYOUTS, TREES_PER_TILE, createForest } from "./client-map-3d-forest.js";
 import { createMountainMassifs } from "./client-map-3d-mountain-massif.js";
+import { LONE_MOUNTAIN_LOOKUP } from "./client-map-3d-mountain-massif.test-helpers.js";
 import { createTropicalForest } from "./client-map-3d-tropical-forest.js";
 
 // Highest world-space Y reached by any instance of any InstancedMesh in scene.
@@ -21,14 +22,20 @@ const tallestInstanceTop = (scene: Scene): number => {
   return top;
 };
 
+// Mountain heights vary per tile, so "a mountain's height" is the mean top
+// of a sample of lone mountains.
 const mountainTop = (): number => {
-  const scene = new Scene();
-  const massifs = createMountainMassifs(scene, 1);
-  massifs.addInstance(0, 0, 0);
-  massifs.commit();
-  const top = tallestInstanceTop(scene);
-  massifs.dispose();
-  return top;
+  let total = 0;
+  const samples = 64;
+  for (let i = 0; i < samples; i += 1) {
+    const scene = new Scene();
+    const massifs = createMountainMassifs(scene, 1, LONE_MOUNTAIN_LOOKUP);
+    massifs.addInstance(0, 0, 0, i * 7, i * 3);
+    massifs.commit();
+    total += tallestInstanceTop(scene);
+    massifs.dispose();
+  }
+  return total / samples;
 };
 
 // Regression: forest trees stood ~1.6-1.8 tall -- taller than the ~1.2

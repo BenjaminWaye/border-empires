@@ -1,8 +1,11 @@
 import {
   FORT_TIER_LADDER,
+  MANPOWER_COST_MS_PER_POINT,
+  MANPOWER_COST_REMOVAL_MS_PER_POINT,
   RELAY_BEACON_FIRST_TIER_COUNT,
   SIEGE_TIER_LADDER,
   economicStructureBuildDurationMs,
+  siegeOutpostBuildDurationMs,
   structureBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildManpowerCost,
@@ -10,8 +13,9 @@ import {
 } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-// docs/construction-animation-plan.md. Structures take 1h to many hours to
-// build, so construction is shown as discrete phases (pieces appear bottom-up,
+// docs/construction-animation-plan.md. Structures took 1h to many hours to
+// build when this was designed (now 1s per manpower point -- minutes), so
+// construction is shown as discrete phases (pieces appear bottom-up,
 // one height band per phase) with a parts-crate stack that is consumed within
 // each phase, rather than a smooth rise that would look frozen at that scale.
 // Everything is a pure function of (tile record, now): nothing is stored per
@@ -103,7 +107,7 @@ type ConstructionRecord = {
 // degrade to a generic site (default crew and duration), never throw, because
 // this runs every frame in 2D and on every 3D rebuild.
 const FALLBACK_MANPOWER = 0;
-const FALLBACK_DURATION_MS = 3_600_000;
+const FALLBACK_DURATION_MS = 300_000;
 const safely = <T>(read: () => T, fallback: T): T => {
   try {
     return read();
@@ -124,7 +128,14 @@ const inFlight = (status: string | undefined): status is "under_construction" | 
 // `only` restricts the lookup to one structure slot: a tile can carry several
 // (e.g. a fort being built beside an active economic structure), and a renderer
 // drawing one structure must not pick up another's in-flight record.
+// A removal runs at MANPOWER_COST_REMOVAL_MS_PER_POINT instead of the build rate.
 const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {
+  const record = buildRecordForTile(tile, only);
+  if (record?.status !== "removing") return record;
+  return { ...record, estimatedDurationMs: Math.round((record.estimatedDurationMs * MANPOWER_COST_REMOVAL_MS_PER_POINT) / MANPOWER_COST_MS_PER_POINT) };
+};
+
+const buildRecordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {
   const { fort, observatory, siegeOutpost, economicStructure } = tile;
   const allowed = (field: ConstructionSite["field"]): boolean => only === undefined || only === field;
   if (allowed("fort") && fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
@@ -139,7 +150,7 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
   }
   if (allowed("siegeOutpost") && siegeOutpost && inFlight(siegeOutpost.status) && typeof siegeOutpost.completesAt === "number") {
     const variant = siegeOutpost.variant ?? "SIEGE_OUTPOST";
-    return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: safely(() => SIEGE_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs("SIEGE_OUTPOST"), FALLBACK_DURATION_MS) };
+    return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: safely(() => SIEGE_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER), estimatedDurationMs: safely(() => siegeOutpostBuildDurationMs(variant), FALLBACK_DURATION_MS) };
   }
   if (allowed("economicStructure") && economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
     const type = economicStructure.type as EconomicStructureType;

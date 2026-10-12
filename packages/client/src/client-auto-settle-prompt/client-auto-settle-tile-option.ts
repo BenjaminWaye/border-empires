@@ -12,9 +12,9 @@ export type AutoSettleOption = { category: AutoSettleCategory; checked: boolean;
 const RESOURCE_LABELS: Record<string, string> = { TITANIUM: "titanium", UMBRITE: "umbrite", CRYSTAL: "crystal", GEMS: "gems" };
 
 const OPTION_LABELS: Record<AutoSettleCategory, string> = {
-  towns: "Settle towns, docks and the tiles around them automatically from now on",
-  food: "Settle farms and fish automatically from now on",
-  resources: "Settle resource tiles automatically from now on"
+  towns: "Garrison towns, docks and the tiles around them automatically from now on",
+  food: "Garrison farms and fish automatically from now on",
+  resources: "Garrison resource tiles automatically from now on"
 };
 
 const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -28,7 +28,7 @@ export const settleOutcomeText = (state: Pick<ClientState, "resourceSlots">, til
     const demand = townFoodSlotDemandForTier(tile.town.populationTier);
     if (demand > 0) {
       const short = state.resourceSlots.demand.FOOD + demand - state.resourceSlots.supply.FOOD;
-      upkeep.push(`${plural(demand, "food slot")}${short > 0 ? ` (${short} short – idle until you settle more food)` : ""}`);
+      upkeep.push(`${plural(demand, "food slot")}${short > 0 ? ` (${short} short – idle until you garrison more food)` : ""}`);
     }
   } else if (tile.dockId) {
     gains.push("+ Coin");

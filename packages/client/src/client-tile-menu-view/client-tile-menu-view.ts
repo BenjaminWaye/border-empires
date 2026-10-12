@@ -30,6 +30,8 @@ import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
+import { tileMenuTabs } from "./client-tile-menu-tabs.js";
+import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-tab.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
 // exported from here too so existing importers of "./client-tile-menu-view.js"
@@ -158,9 +160,9 @@ export const menuOverviewForTile = (
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
     const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
-      pushLine("Neutral town. Claim and settle this tile to start its economy.");
+      pushLine("Neutral town. Claim and garrison this tile to start its economy.");
     } else if (!isSettled) {
-      pushLine("Settle this tile to activate the town's economy and start coin income.");
+      pushLine("Garrison this tile to activate the town's economy and start coin income.");
     } else if (tile.town.populationTier === "SETTLEMENT") {
       // No prose income line — the unified `Production: X/m` row below shows the same value.
     } else if (
@@ -170,7 +172,7 @@ export const menuOverviewForTile = (
       (tile.town.goldPerMinute ?? 0) <= 0.001 &&
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
-      pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
+      pushLine("Town is unfed. Add more FOOD upkeep coverage or garrison nearby fish or grain.");
     }
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus coin production.");
@@ -415,7 +417,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
-    state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
+    state: { me: string; dukePlayers?: ReadonlySet<string>; techCatalog?: readonly TechInfo[] } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -450,17 +452,13 @@ export const tileMenuViewForTile = (
   const progress = primaryProgress && queuedNext ? { ...primaryProgress, queuedNext } : primaryProgress;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
-  const tabs: TileMenuTab[] = [];
+  const modules = afcModuleTabForTile(tile, deps.state.techCatalog ?? [], actions, deps.state.me);
+  if (modules) actionTabs.actions = actionTabs.actions.filter((action) => !action.id.startsWith("redeploy_afc_module:"));
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
     actionSourceTile.ownerId === deps.state.me &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
-  if (progress) tabs.push("progress");
-  if (actionTabs.actions.length > 0) tabs.push("actions");
-  if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
-  if (actionTabs.crystal.length > 0) tabs.push("crystal");
-  if (deps.musterCommit) tabs.push("commit");
-  tabs.push("overview");
+  const tabs = tileMenuTabs({ progress: Boolean(progress), modules: Boolean(modules), actions: actionTabs.actions.length > 0, buildings: visibleBuildings.length > 0 || canShowBuildingsTab, crystal: actionTabs.crystal.length > 0, commit: Boolean(deps.musterCommit) });
   const regionLabel = [foreignTileOwnershipLabel(tile, deps.state.me), tile.regionType ? deps.prettyToken(tile.regionType) : undefined].filter(Boolean).join(" · ") || undefined;
   const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
   const ownerLabel =
@@ -473,7 +471,7 @@ export const tileMenuViewForTile = (
         : tile.ownerId === deps.state.me
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
-            : "Your settled land"
+            : "Your garrisoned land"
           : (foreignOwnerLabel ?? "Unknown empire");
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
@@ -488,6 +486,7 @@ export const tileMenuViewForTile = (
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone, ...(headerStatus.helpText ? { statusHelpText: headerStatus.helpText } : {}) } : {}),
     tabs,
+    ...(modules ? { modules } : {}),
     overviewLines: [...battleOverviewLines(incomingAttack ?? capture), ...deps.menuOverviewForTile(tile)],
     actions: actionTabs.actions,
     buildings: visibleBuildings,

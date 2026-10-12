@@ -5,16 +5,18 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { installAutoSettleSettingsBinding } from "../client-auto-settle-prompt/client-auto-settle-settings-ui.js";
 import { installAutoSettleTileOptionBinding } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
+import { installDiscoveryTipCenterBinding, type DiscoveryTipCenterDeps } from "../client-discovery-tips/client-discovery-tip-center.js";
 import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay/client-debug-season-end-overlay.js";
 
 type PostBootstrapDeps = {
   state: ClientState;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
-};
+} & Pick<DiscoveryTipCenterDeps, "wrapX" | "wrapY" | "requestViewRefresh">;
 
-export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage }: PostBootstrapDeps): void => {
+export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, wrapX, wrapY, requestViewRefresh }: PostBootstrapDeps): void => {
+  installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   installDebugSeasonEndOverlay(state, renderHud);
-  installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-settle."));
-  installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-settle."));
+  installAutoSettleSettingsBinding((payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
+  installAutoSettleTileOptionBinding(state, (payload) => sendGameMessage(payload, "Finish sign-in before changing auto-garrison."));
 };

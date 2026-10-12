@@ -171,6 +171,8 @@ import type {
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
+import { attackWireMessage } from "./client-attack-commit/client-attack-commit.js";
+import { launchAttacksWithEffort, type AttackLaunchDeps } from "./client-launch-attack-effort/client-launch-attack-effort.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -542,8 +544,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
       skipsSettle || isActiveCaptureTarget
-        ? `Queued ${skipsSettle ? "build" : "settle + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
-        : `Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`,
+        ? `Queued ${skipsSettle ? "build" : "garrison + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
+        : `Garrisoning (${selected.x}, ${selected.y}) — garrison + build ${structureDisplayLabel(structureType)}.`,
       "info", "info"
     );
     // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
@@ -614,6 +616,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
 
+  // Shared by the action queue's direct send and the muster-transit deferred send; carries the chosen effort (client-attack-commit.ts).
+  const sendAttackMessage = (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number): void =>
+    ws.send(JSON.stringify(attackWireMessage(state, { fromX, fromY, toX, toY, commandId, clientSeq, commitManpower })));
+
   const processActionQueue = (): boolean =>
     processActionQueueFromModule(state, {
       ws,
@@ -627,8 +633,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
+      sendAttack: sendAttackMessage,
       sendGameMessage
     });
 
@@ -679,7 +684,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
       // Keyed off the SERVER's stamp, so the contested-border exemption never fires a false warning.
-      if (merged.frontierDecayKind === "OUT_OF_REACH" && merged.ownerId === state.me && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud);
+      if (merged.frontierDecayKind === "OUT_OF_REACH" && merged.ownerId === state.me && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: merged.x, y: merged.y });
     }
     const resultAlert = combatResolutionAlert(msg, {
       targetTileBefore: targetBefore,
@@ -715,7 +720,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (!resolveMyReachCached(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
         else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
-          pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+          pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
       }
       state.autoSettleTargets.delete(targetKey);
@@ -1009,23 +1014,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const remainingMs = Math.max(0, progress.resolvesAt - Date.now());
         const totalMs = Math.max(1, progress.resolvesAt - progress.startAt);
         return {
-          title: "Settlement in progress",
+          title: "Garrison moving in",
           detail: progress.awaitingServerConfirm
-            ? "Settlement timer finished locally. Waiting for server confirmation."
-            : "Settling unlocks defense and activates town and resource production.",
+            ? "Garrison timer finished locally. Waiting for server confirmation."
+            : "Troops are moving in. Once garrisoned, this tile can be defended and built on, and its town or resource starts producing. Nothing is built here.",
           remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(remainingMs),
           progress: progress.awaitingServerConfirm
             ? 1
             : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / totalMs)),
           note: progress.awaitingServerConfirm
-            ? "Keeping the tile settled client-side until the server responds."
-            : "This tile is actively settling.",
+            ? "Keeping the tile garrisoned client-side until the server responds."
+            : "Troops are moving in to garrison this tile.",
           // §6.3 rush-buy: hidden once the timer's already elapsed locally
           // (awaitingServerConfirm) — nothing left to pay to speed up.
           ...(progress.awaitingServerConfirm
             ? {}
             : {
-                cancelLabel: "Cancel settlement",
+                cancelLabel: "Cancel garrison",
                 cancelActionId: "cancel_settle" as const,
                 rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
@@ -1220,6 +1225,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void =>
     openBulkTileActionMenuFromModule(state, targetKeys, clientX, clientY, tileActionMenuUiDeps());
 
+  const attackLaunchDeps = (): AttackLaunchDeps => ({
+    keyFor, pickOriginForTarget, isTileOwnedByAlly, queueSpecificTargets, processActionQueue, attackQueueFailureReason, pushFeed, showCaptureAlert, hideTileActionMenu
+  });
+
   const handleTileAction = (actionId: string, _targetKeyOverride?: string, _originKeyOverride?: string): void => {
     const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
     const selectedKey = singleTargetKey || (state.selected ? keyFor(state.selected.x, state.selected.y) : "");
@@ -1252,11 +1261,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check coin and development slots.", "warn");
+      if (queued <= 0) showCaptureAlert("Garrison blocked", "No garrisons queued. Check coin and development slots.", "warn");
       pushFeed(
         queued > 0
-          ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No settlements queued — check coin / slots.",
+          ? `Queued ${queued} garrisons across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
+          : "No garrisons queued — check coin / slots.",
         "combat",
         queued > 0 ? "info" : "warn"
       );
@@ -1335,48 +1344,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
     if (actionId === "launch_attack") {
-      const enemyTargets = targets.filter((k) => {
-        const t = state.tiles.get(k);
-        return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
-      });
-      const out = queueSpecificTargets(enemyTargets);
-      if (out.queued > 0) processActionQueue();
-      if (out.queued > 0) {
-        pushFeed(`Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
-      } else {
-        const singleTile = !fromBulk && selected ? selected : undefined;
-        const failureMessage = singleTile
-          ? attackQueueFailureReason(singleTile)
-          : "Cannot launch attack for one or more selected tiles.";
-        showCaptureAlert("Attack failed", failureMessage, "warn");
-        pushFeed(failureMessage, "combat", "error");
-      }
-      hideTileActionMenu();
+      launchAttacksWithEffort(state, { targetKeys: targets, scope: fromBulk ? "bulk" : "single", selected }, attackLaunchDeps());
       return;
     }
     if (actionId === "attack_connected_region") {
-      const connectedTargets = !fromBulk && selected
-        ? connectedEnemyRegionKeys(state, selected, { keyFor, wrapX, wrapY }).filter((k) => {
-            const t = state.tiles.get(k);
-            return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
-          })
-        : [];
-      const out = queueSpecificTargets(connectedTargets);
-      if (out.queued > 0) processActionQueue();
-      if (out.queued > 0) {
-        pushFeed(
-          `Queued ${out.queued} attacks across the connected region${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`,
-          "combat",
-          "warn"
-        );
-      } else {
-        const failureMessage = selected
-          ? attackQueueFailureReason(selected)
-          : "Cannot attack this connected region right now.";
-        showCaptureAlert("Connected region attack failed", failureMessage, "warn");
-        pushFeed(failureMessage, "combat", "error");
-      }
-      hideTileActionMenu();
+      const regionKeys = !fromBulk && selected ? connectedEnemyRegionKeys(state, selected, { keyFor, wrapX, wrapY }) : [];
+      launchAttacksWithEffort(state, { targetKeys: regionKeys, scope: "region", selected }, attackLaunchDeps());
       return;
     }
     if (!selected) {
@@ -1502,7 +1475,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selectedDirections.length > 1) {
         beginCrystalTargeting("aether_wall");
       } else {
-        pushFeed("Select one of your settled border tiles before casting Aether Wall.", "combat", "warn");
+        pushFeed("Select one of your garrisoned border tiles before casting Aether Wall.", "combat", "warn");
       }
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
@@ -1573,7 +1546,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (clicked) {
         const clickedKey = keyFor(wx, wy);
         if (!state.aetherWallTargeting.validOrigins.has(clickedKey)) {
-          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible settled border tiles.", "combat", "warn");
+          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible garrisoned border tiles.", "combat", "warn");
           renderHud();
           return;
         }
@@ -1838,6 +1811,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderTileActionMenu,
     openSingleTileActionMenu,
     openBulkTileActionMenu,
+    sendDeferredAttack: sendAttackMessage,
     handleTileAction,
     mapInteractionFlags,
     handleTileSelection,

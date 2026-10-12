@@ -75,7 +75,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
   };
 
   const structureInfoForKey = (type: StructureInfoKey): StructureInfoView =>
-    structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) });
+    structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type), buildSpeedState: state });
 
   const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
     structureInfoButtonHtmlFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) }, label);

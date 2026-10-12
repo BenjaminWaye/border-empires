@@ -21,14 +21,14 @@ describe("manpowerGaugeChipHtml", () => {
     const html = manpowerGaugeChipHtml(input());
     expect(html).toContain('data-panel="manpower"');
     expect(html).toContain("412<small>/720</small>");
-    expect(html).toContain("Refill in 1h 20m");
+    expect(html).toContain("Next batch in 1h 20m");
     expect(html).toContain('style="width:57.22%"');
     expect(html).toContain('aria-valuenow="412"');
   });
 
   it("renders long and short countdown and label so CSS can pick by width", () => {
     const html = manpowerGaugeChipHtml(input());
-    expect(html).toContain('<i class="mp-gauge-refill-long">Refill in 1h 20m</i><i class="mp-gauge-refill-short">1h 20m</i>');
+    expect(html).toContain('<i class="mp-gauge-refill-long">Next batch in 1h 20m</i><i class="mp-gauge-refill-short">1h 20m</i>');
     expect(html).toContain('<b class="mp-gauge-label-long">Manpower</b><b class="mp-gauge-label-short">MP</b>');
   });
 
@@ -37,7 +37,7 @@ describe("manpowerGaugeChipHtml", () => {
     const full = manpowerGaugeChipHtml(input({ manpower: 720 }));
     expect(full).toContain("is-full");
     expect(full).toContain(">Full<");
-    expect(full).not.toContain("Refill in");
+    expect(full).not.toContain("Next batch in");
   });
 
   it("flags waystation overflow above the cap and clamps the fill to 100%", () => {
@@ -55,8 +55,8 @@ describe("manpowerGaugeChipHtml", () => {
     expect(manpowerGaugeChipHtml(input({ manpower: 700, staged: 500 }))).toContain("width:2.78%");
   });
 
-  it("reads Refilling… once the refill is due and Paused when regen is frozen", () => {
-    expect(manpowerGaugeChipHtml(input({ nextRefillAtMs: NOW - 1_000 }))).toContain('<i class="mp-gauge-refill-long">Refilling…</i><i class="mp-gauge-refill-short">now</i>');
+  it("reads Installing… once the batch is due and Paused when regen is frozen", () => {
+    expect(manpowerGaugeChipHtml(input({ nextRefillAtMs: NOW - 1_000 }))).toContain('<i class="mp-gauge-refill-long">Installing…</i><i class="mp-gauge-refill-short">now</i>');
     expect(manpowerGaugeChipHtml(input({ regenPerMinute: 0 }))).toContain(">Paused<");
   });
 

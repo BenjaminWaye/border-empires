@@ -235,7 +235,7 @@ growing your economy *means* taking the land around you.
 
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
-| **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | 30 MP, 60s, uses a development slot | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
+| **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Farmstead 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
@@ -263,8 +263,8 @@ a victory hold.
 
 1. Look at the reach overlay. Where is the edge of my reach, and what is just
    past it: a town, a dock, food, resources?
-2. Pick a SETTLED tile near that edge and build a **Relay Beacon** (30 MP,
-   60s).
+2. Pick a garrisoned tile near that edge and build a **Relay Beacon** (50 MP
+   and instant for the first five owned; 100 MP and 100s after that).
 3. When it activates, every neutral land tile within radius 5 becomes your
    FRONTIER at once. **FRONTIER has zero defense**, so any adjacent enemy takes
    it without a roll (`frontier-combat.ts`).
@@ -365,7 +365,7 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
 | **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Customs House adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
@@ -475,7 +475,7 @@ loop at a named point.
 | **Military buildings** | **Core, in the conflict loop** | War is the second source of land. Forts and siege set how much taking land costs, and they compete with economic buildings for MP and slots | Structures → Attack/defense |
 | **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by its cooldown (5 min to 24h). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
 | **Shards** | **Core (late-game currency)** | The gate on domains from tier 2 and on monuments. They only come from shard rain (08:00 and 21:00 UTC, 30-min TTL), the initial scatter and caches, so they give players a scheduled, contested reason to be online | Shards → Domains, Monuments |
-| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Expanding onto one activates it once, granting one random permanent reward: permanent vision around the nearest town, a +5,000 population burst, a free tier-1 tech, or +1 resource slot (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
+| **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Expanding onto one activates it once, granting one random permanent reward: permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), +1 resource slot, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
 | **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP and 5 shards, which makes them the biggest manpower and shard sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), World Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Population Bureau and Titanium Levy feed manpower instead | Manpower + Shards → Monuments → abilities |
 | **Sky Dock** | **Supporting (ability structure, not a monument)** | Works like a monument ability but isn't unique and has no stages: 150 MP (doubling per copy), and it needs a powered Aether Tower. Its Bombard hits tiles up to 30 away | Tech → Sky Dock → Attack |
 | **Diplomacy** | **Supporting (social layer)**, with one exception | Alliances and truces decide *who* you fight and when, not how you grow. Allies can't attack each other, and breaking a truce locks you out of truces for 24h. The exception: **Diplomatic Dominance** is a victory path, so for a player going for it, diplomacy moves into the season loop | Choice of attack target; the Victory path |
@@ -489,16 +489,19 @@ As implemented in `client-onboarding-checklist.ts`:
 
 1. There is no intro slideshow: the old 8-step guide modal was removed, so a
    new player lands straight on the map.
-2. A checklist with 4 goals, all driven by Expand To: **find a town → expand
-   to it → find food → expand to 4 food slots**. The map highlights the next
-   tile in reach. If nothing is in reach, it points you at building a Relay
-   Beacon. (See §12: this teaches Expand To as the main verb, but in practice
-   beacons are what move reach, and Expand To mostly matters beyond reach.)
+2. The existing checklist has 4 goals: **find a town → Expand To it → find
+   food → Expand To 4 food slots**. It highlights town and food objectives
+   directly, not intermediate land. Only garrisoned food supplies slots.
+   When no objective is in reach, it retains the Relay Beacon note:
+   ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
    session is long enough to finish the checklist without stalling.
-4. New players spawn a safe distance from the nearest town. The first town is
-   a short trip that teaches reach.
+4. Newly generated worlds require 50 spaced starting sites with first food
+   within three land steps (already in AFC reach), four slots within six,
+   and a town within eight.
+   Live placement revalidates amenities; exhausted mature worlds can still use
+   a logged fallback. See [the opening contract](product/new-player-opening.md).
 
 At the end, the player is food-secure with a second town, which is the full
 town-engine loop at small scale.
@@ -510,7 +513,7 @@ town-engine loop at small scale.
 | World | 640×320, toroidal | `config.ts` |
 | Expand | 10 MP, 7.5s (11.25s forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
-| Relay Beacon | 30 MP, 60s. Radius 5; claims every neutral tile in it as FRONTIER, free | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
+| Relay Beacon | First five: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot. Radius 5; claims neutral tiles as FRONTIER, free | `relayBeaconManpowerCost`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 10–960 MP depending on target (§7), 30s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |

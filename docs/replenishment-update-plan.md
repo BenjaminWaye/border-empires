@@ -54,10 +54,10 @@ Status: active proposal
 | D6 | **Commit rule:** committed MP is always lost; the odds ratio is scaled by `commit / base` (superseding the original `(commit / base)²`); no cap on commitment. |
 | D7 | **Shield flags:** a Defend-mode flag matches the attacker's commitment in its area. Chosen after simulating four designs. |
 | D8 | **Attack gesture:** drag an arrow (desktop right-drag, mobile long-press + drag), then one confirm sheet. |
-| D9 | **Build time follows manpower cost:** **100 MP = 1 hour** for structures. Growth over the season comes from the existing cost scaling, so there's no separate time table. |
+| D9 | **Build time follows manpower cost:** **100 MP = 100 seconds** for structures (was 100 MP = 1 hour until 2026-10-10; cut so a 15–30 minute session can spend a full refill). Growth over the season comes from the existing cost scaling, so there's no separate time table. |
 | D10 | **Manpower is charged when a build starts**, not when it's queued. A queued build waits for manpower if the pool is empty. |
 | D11 | **Alert the player when manpower is full** (the pool has reached its cap). No alert per finished building. |
-| D12 | **Relay Beacons:** the **first 5 are instant**. They came down with the landing party, so they only need to be put in place. From the 6th, beacons cost **100 MP flat** (growth removed 2026-09-25) and follow the time-follows-cost rule (≈1 h and growing). |
+| D12 | **Relay Beacons:** the **first 5 are instant**. They came down with the landing party, so they only need to be put in place. From the 6th, beacons cost **100 MP flat** (growth removed 2026-09-25) and follow the time-follows-cost rule (100 s since 2026-10-10). |
 | D13 | **Siege tiers scale their MP** (60 / 120 / 240), so their times scale too. |
 | D14 | **Town tier-ups stay instant.** They cost gold, and the time rule only covers manpower. |
 | D15 | **Cooldowns stay as they are.** The cooldowns-to-charges idea is dropped. |
@@ -131,7 +131,7 @@ Manpower keeps regenerating continuously, as today (`applyManpowerRegen`).
 
 **The rule** (OGame-style: time is derived from cost, with no separate table):
 
-> build time = manpower cost × 36 s ÷ build-speed multiplier  (100 MP = 1 hour)
+> build time = manpower cost × 1 s ÷ build-speed multiplier  (100 MP = 100 seconds; was × 36 s until 2026-10-10)
 
 - Growth comes from cost scaling that already exists (e.g. +10–15% per copy of
   a type, and Sky Dock doubling), so times grow the same way automatically.

@@ -11,6 +11,7 @@ export * from "../server-worldgen-clusters.js";
 export type { ProspectSignature, TownTerrainProfileId } from "@border-empires/shared";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-fair-spawn-sites.js";
+export * from "../starter-site-quality.js";
 export * from "../server-worldgen-island-connectivity.js";
 export * from "../server-worldgen-natural-wonders.js";
 export * from "../server-worldgen-shards.js";

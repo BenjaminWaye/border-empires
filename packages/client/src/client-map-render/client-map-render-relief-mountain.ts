@@ -1,6 +1,8 @@
 // Split out of client-map-render.ts (over the repo's 500-line file cap) so
 // adding 2D river edges to drawTerrainTile didn't grow that file. The 2D
 // relief renderer's stylized mountain tile, drawn by drawTerrainTile.
+import { mountainVariationForWorldTile } from "./client-map-render-mountain-peaks.js";
+
 const mountainPeakOffset = (wx: number, wy: number): { x: number; y: number } => {
   const nx = Math.sin(wx * 12.7 + wy * 4.9) * 0.5 + 0.5;
   const ny = Math.cos(wx * 8.3 - wy * 6.1) * 0.5 + 0.5;
@@ -45,8 +47,10 @@ export const drawReliefMountainTile = (
   const centerX = px + size * 0.54;
   const centerY = py + size * 0.52;
   const peakOffset = mountainPeakOffset(wx, wy);
+  const variation = mountainVariationForWorldTile(wx, wy);
   const peakX = centerX + size * peakOffset.x * 0.9;
-  const peakY = py + size * (0.1 + peakOffset.y * 0.7);
+  // Taller peaks (shared per-tile variation, same as 3D) reach higher.
+  const peakY = py + size * Math.max(0.03, 0.1 + peakOffset.y * 0.7 - (variation.heightScale - 1) * 0.12);
 
   const footLeft = { x: px + size * 0.18, y: py + size * 0.68 };
   const footRight = { x: px + size * 0.92, y: py + size * 0.78 };
@@ -119,7 +123,17 @@ export const drawReliefMountainTile = (
     ctx.stroke();
   }
 
-  // Snow cap.
+  // Snow cap: tall or cold-country peaks only (same rule as 3D).
+  if (variation.snow) drawReliefSnowCap(ctx, peakX, peakY, size);
+
+  ctx.fillStyle = "rgba(255, 245, 208, 0.1)";
+  ctx.fillRect(px + 1, py + 1, size - 2, Math.max(1, Math.floor(size * 0.06)));
+  ctx.strokeStyle = "rgba(10, 12, 18, 0.34)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + 0.5, py + 0.5, size - 1, Math.max(1, frontY - py - 1));
+};
+
+const drawReliefSnowCap = (ctx: CanvasRenderingContext2D, peakX: number, peakY: number, size: number): void => {
   ctx.fillStyle = "rgba(244, 250, 255, 0.9)";
   ctx.beginPath();
   ctx.moveTo(peakX, peakY - size * 0.01);
@@ -130,10 +144,4 @@ export const drawReliefMountainTile = (
   ctx.lineTo(peakX + size * 0.06, peakY + size * 0.04);
   ctx.closePath();
   ctx.fill();
-
-  ctx.fillStyle = "rgba(255, 245, 208, 0.1)";
-  ctx.fillRect(px + 1, py + 1, size - 2, Math.max(1, Math.floor(size * 0.06)));
-  ctx.strokeStyle = "rgba(10, 12, 18, 0.34)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px + 0.5, py + 0.5, size - 1, Math.max(1, frontY - py - 1));
 };

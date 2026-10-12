@@ -13,6 +13,14 @@
 }
 
 #auth-overlay[data-busy="true"] #auth-busy-modal {
+  grid-template-columns: minmax(0, 1fr);
   overflow-y: auto;
   place-items: safe center;
+}
+
+/* The width includes the frame and padding, even on the narrowest phones. */
+.auth-busy-card {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

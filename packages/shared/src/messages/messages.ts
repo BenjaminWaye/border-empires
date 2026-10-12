@@ -328,7 +328,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
           action: z.enum(["EXPAND", "ATTACK"])
         })
       )
-      .optional()
+      .optional(),
+    // Expand To & Attack effort (docs/replenishment-update-plan.md D6) for
+    // the plan's final ATTACK leg -- same meaning as ATTACK.commitManpower.
+    commitManpower: z.number().positive().optional()
   }),
   z.object({ type: z.literal("WAYPOINT_CANCEL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("WAYPOINT_CANCEL_ALL") }),

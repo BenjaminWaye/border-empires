@@ -13,9 +13,9 @@ const baseArgs = {
 };
 
 describe("renderManpowerPanelHtml refill summary", () => {
-  it("shows what one refill pays instead of a per-minute rate, and labels the per-minute breakdown", () => {
+  it("shows what one batch pays instead of a per-minute rate, and labels the per-minute breakdown", () => {
     const html = renderManpowerPanelHtml({ ...baseArgs, manpowerRegenPerMinute: 0.4, musterFlags: [] });
-    expect(html).toContain("+96 per refill");
+    expect(html).toContain("+96 per batch");
     expect(html).not.toContain("/m<");
     expect(html).toContain("Regen modifiers (per minute)");
   });

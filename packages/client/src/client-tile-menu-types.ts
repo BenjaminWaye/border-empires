@@ -5,8 +5,9 @@
 import type { FrontierCombatSideBreakdown } from "@border-empires/shared";
 import type { MusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import type { TileActionDef } from "./client-types.js";
+import type { AfcModuleTabView } from "./client-afc-module-tab/client-afc-module-tab.js";
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit";
+export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit" | "modules";
 
 export type TileMenuProgressView = {
   title: string;
@@ -80,6 +81,7 @@ export type TileCombatBreakdown = {
 };
 
 export type TileMenuView = {
+  modules?: AfcModuleTabView;
   title: string;
   townCharacter?: string;
   subtitle: string;

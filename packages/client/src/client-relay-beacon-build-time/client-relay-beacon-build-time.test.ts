@@ -25,13 +25,13 @@ describe("relay beacon build time in the build menu", () => {
     expect(relayBeaconBuildTimeLabel(stateWithBeacons(4))).toBe("instant");
   });
 
-  it("shows 60m (100 MP) from the sixth beacon on, not the stale 1m constant", () => {
-    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("60m");
+  it("shows 1m 40s (100 MP = 100s) from the sixth beacon on, not the stale 1m constant", () => {
+    expect(relayBeaconBuildTimeLabel(stateWithBeacons(5))).toBe("1m 40s");
   });
 
   it("prices the settle-then-build chain with the owned-count-aware beacon cost", () => {
     expect(buildManpowerCostForState(stateWithBeacons(0), "RELAY_BEACON")).toBe(50);
     expect(buildManpowerCostForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(100);
-    expect(buildDurationMsForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(3_600_000);
+    expect(buildDurationMsForState(stateWithBeacons(5), "RELAY_BEACON")).toBe(100_000);
   });
 });

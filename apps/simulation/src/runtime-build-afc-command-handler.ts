@@ -22,7 +22,7 @@ export const handleBuildAfcCommand = (context: RuntimeStructureCommandContext, c
   const isFreeRebuild = ownedAfcCount === 0;
   const ownershipOk = tile?.ownerId === actor.id && (tile.ownershipState === "SETTLED" || (isFreeRebuild && tile.ownershipState === "FRONTIER"));
   if (!tile || tile.terrain !== "LAND" || !ownershipOk || !isEmptyAfcSite(tile) || context.locksByTile.has(tileKey)) {
-    return rejectCommand(context, command, "BUILD_INVALID", isFreeRebuild ? "Your new AFC needs an unlocked, empty land tile you control" : "AFCs need an unlocked, empty settled land tile you control");
+    return rejectCommand(context, command, "BUILD_INVALID", isFreeRebuild ? "Your new AFC needs an unlocked, empty land tile you control" : "AFCs need an unlocked, empty garrisoned land tile you control");
   }
   const cost = isFreeRebuild ? 0 : afcBuildCost(ownedAfcCount);
   if (actor.points < cost) return rejectCommand(context, command, "INSUFFICIENT_GOLD", `AFC needs ${cost} coin`);

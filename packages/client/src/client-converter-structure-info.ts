@@ -22,7 +22,7 @@ export const converterStructureInfoView = (
       title: "Umbrite Works",
       detail: "Umbrite Works can point either way: Refine (30 coin/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 8 coin per day. A 60-minute cooldown gates flipping direction.",
       glyph: "📦",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open garrisoned support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -42,7 +42,7 @@ export const converterStructureInfoView = (
       title: "Titanium Works",
       detail: "Titanium Works can point either way: Refine (30 coin/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 8 coin per day. A 60-minute cooldown gates flipping direction.",
       glyph: "⚙",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open garrisoned support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -62,7 +62,7 @@ export const converterStructureInfoView = (
       title: "Aether Condenser",
       detail: "Aether Condensers can point either way: Refine (40 coin/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 10 coin per day. A 60-minute cooldown gates flipping direction.",
       glyph: "💎",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on an open garrisoned support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
