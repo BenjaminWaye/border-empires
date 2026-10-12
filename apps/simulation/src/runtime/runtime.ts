@@ -1,3 +1,4 @@
+import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -40,7 +41,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST, isAutoSettleAllowed,
+  SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -89,7 +90,6 @@ import {
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
   createPlayerRuntimeSummaryFromRecovered,
-  pendingSettlementMatches,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -206,7 +206,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, clearCompletedSettleEntry, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
@@ -3345,64 +3345,26 @@ export class SimulationRuntime {
   // this already ran (rush-buy) by the time the original timer fires, the
   // match check fails and the timer's call is a no-op — same pattern
   // completeStructureBuild already relies on for its own status guard.
-  private resolvePendingSettlement(input: {
-    ownerId: string;
-    tileKey: string;
-    startedAt: number;
-    resolvesAt: number;
-    commandId: string;
-  }): void {
-    const expectedSettlement = {
-      ownerId: input.ownerId,
-      tileKey: input.tileKey,
-      startedAt: input.startedAt,
-      resolvesAt: input.resolvesAt,
-      goldCost: SETTLE_COST,
-      commandId: input.commandId
-    };
-    const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
-    if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-    this.removePendingSettlement(input.tileKey);
-    tryDrainDevQueueImpl(this.devQueueCommandContext(), input.ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
-    const latest = this.state.tiles.get(input.tileKey);
-    if (
-      !latest ||
-      latest.ownerId !== input.ownerId ||
-      latest.ownershipState !== "FRONTIER"
-    ) {
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
-      // Slot-freed drain (Design §5) even when the settlement itself didn't
-      // land (tile lost FRONTIER/ownership before this fired) -- the dev
-      // slot is still freed either way.
-      this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
-      return;
-    }
-    const settledTile: DomainTileState = {
-      ...latest,
-      ownerId: input.ownerId,
-      ownershipState: "SETTLED",
-      ...(latest.town ? { town: latest.town } : {})
-    };
-    this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
-    this.replaceTileState(input.tileKey, settledTile);
-    // Slot-freed drain (Design §5): replaceTileState above already removed
-    // this now-SETTLED tile from eligibleFrontierByOwner (it's no longer
-    // FRONTIER), so draining here can't immediately re-consume the slot it
-    // just freed by re-settling the SAME tile -- the next QUEUED eligible
-    // tile starts this same tick instead of waiting for the next 30s pass.
-    this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
-    tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
-    const tileAfterBuildTail = resolveTileAfterBuildTail(this.state.tiles, input.tileKey, settledTile); // see doc comment at definition
-    this.emitEvent({ eventType: "TILE_DELTA_BATCH",
-      commandId: input.commandId,
-      playerId: input.ownerId,
-      // ownerId/ownershipState forced regardless of the sparse-diff cache; see
-      // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-      tileDeltas: [{ ...this.tileDeltaFromState(tileAfterBuildTail), ownerId: tileAfterBuildTail.ownerId ?? undefined, ownershipState: tileAfterBuildTail.ownershipState ?? undefined }]
-    });
-    this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
-    this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
+  private resolvePendingSettlement(input: SettlementResolutionInput): void {
+    resolvePendingSettlementImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tiles: this.state.tiles,
+      removePendingSettlement: (key) => this.removePendingSettlement(key),
+      drainDevQueue: (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId),
+      retireQueuedSettlement: (ownerId, key) => {
+        const context = this.devQueueCommandContext();
+        clearCompletedSettleEntry(context, ownerId, context.summaryForPlayer(ownerId), key);
+      },
+      drainAutoSettle: (ownerId) => this.autoSettleEligibilityRuntime().drainForOwner(ownerId),
+      drainBuildTail: (ownerId, key, x, y) => tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), ownerId, key, x, y),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      setTileYieldCollectedAt: (commandId, ownerId, key, nowMs) => this.setTileYieldCollectedAt(commandId, ownerId, key, nowMs),
+      now: () => this.now(),
+      replaceTileState: (key, tile) => this.replaceTileState(key, tile),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      emitAutoFillForSettlement: (tile, ownerId, key) => this.emitAutoFillForSettlement(tile, ownerId, key)
+    }, input);
   }
 
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
@@ -3439,10 +3401,10 @@ export class SimulationRuntime {
     if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be garrisoned"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
-    // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce
-    // their own reach once settled, so requiring pre-existing reach here is
-    // circular (mirrors isAutoSettlementEligibleTarget's exemption).
-    if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    // EXPAND's OUT_OF_REACH check. Town/dock tiles and tiles holding a captured
+    // building are exempt (settleIgnoresReach) -- the same tiles the sim
+    // auto-settles out of reach on capture, so manual Garrison must accept them.
+    if (!settleIgnoresReach(target) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
@@ -3465,7 +3427,7 @@ export class SimulationRuntime {
     const targetKey = simulationTileKey(payload.x, payload.y);
     const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
     if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
-      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no settlement in progress on tile");
+      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no garrisoning in progress on tile");
       return;
     }
     this.removePendingSettlement(targetKey);

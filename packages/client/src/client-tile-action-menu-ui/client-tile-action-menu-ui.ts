@@ -12,6 +12,7 @@ import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
+import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -103,6 +104,7 @@ export const renderTileActionMenu = (
   state.tileActionMenu.activeTab = activeTab;
   const signature = tileMenuRenderSignature(view, activeTab);
   const shouldReuseRenderedMenu = state.tileActionMenu.visible && state.tileActionMenu.renderSignature === signature;
+  const afcPickerState = !shouldReuseRenderedMenu && state.tileActionMenu.visible && activeTab === "modules" ? afcModulePickerStateForTitle(deps.tileActionMenuEl, view.title) : undefined;
   if (!shouldReuseRenderedMenu) {
     deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
     state.tileActionMenu.renderSignature = signature;
@@ -160,6 +162,7 @@ export const renderTileActionMenu = (
       };
     });
     const actionButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
+    bindAfcModulePicker(deps.tileActionMenuEl, afcPickerState);
     actionButtons.forEach((btn) => {
       btn.onclick = () => {
         const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
@@ -406,6 +409,7 @@ export const renderTileActionMenu = (
       };
     }
   }
+  fitAfcModulePicker(deps.tileActionMenuEl);
 };
 
 export const openSingleTileActionMenu = (

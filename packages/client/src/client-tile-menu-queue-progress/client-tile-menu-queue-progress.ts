@@ -43,7 +43,7 @@ export const queuedSettlementProgressForTile = (
     progress: 0,
     note: isPlanned
       ? "Planned actions live only on this device -- they are not durable and can be lost if you close the game before a server slot frees up. Jumping the queue will bump whichever tile is currently last in line back to Planned."
-      : "Queued settlements reserve a durable server slot (max 20 per player) and can be cancelled before they start.",
+      : "Queued garrisons reserve a durable server slot (max 20 per player) and can be cancelled before they start.",
     cancelLabel: isPlanned ? "Remove from plan" : "Cancel queued garrison",
     cancelActionId: "cancel_queued_settlement",
     queueState,

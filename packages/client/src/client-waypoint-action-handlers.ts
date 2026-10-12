@@ -68,7 +68,7 @@ const setWaypointForSelected = (
   // tile-delta confirms the decay stamp (client-action-flow.ts's
   // frontierDecayKind handler) -- by then the claim/decay is already
   // underway and the "why" is easy to miss.
-  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud);
+  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: selected.x, y: selected.y });
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

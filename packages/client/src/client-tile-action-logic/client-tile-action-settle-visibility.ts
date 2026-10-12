@@ -5,7 +5,7 @@
 // tiles in the opening minutes expecting some benefit, when in the early game
 // there's nothing to gain from it. Once shown, manual settling is really only
 // for cheap defense, connecting towns, or consolidating territory.
-import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { SETTLE_COST, SETTLE_MANPOWER_COST, settleIgnoresReach } from "@border-empires/shared";
 import { autoSettleOptionForTile, settleOutcomeText } from "../client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { canAffordCost, isForestTile } from "../client-constants.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
@@ -43,7 +43,9 @@ export const settleActionsForFrontierTile = (
   // Fixed-border reach: SETTLE is still reach-gated server-side even though EXPAND
   // itself is not -- see runtime-structure-command-handlers.ts. On a FRONTIER tile
   // outside reach, show these actions disabled with the reason instead of hiding them.
-  const frontierOutOfReach = !authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
+  // Mirrors the server's exemption (settleIgnoresReach): towns, docks and captured
+  // buildings may be garrisoned out of reach, exactly as the sim does automatically.
+  const frontierOutOfReach = !settleIgnoresReach(tile) && !authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
   const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
     frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
 

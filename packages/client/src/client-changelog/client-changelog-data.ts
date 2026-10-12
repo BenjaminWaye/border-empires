@@ -1,3 +1,4 @@
+import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -7,6 +8,8 @@
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
+import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
+import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -18,6 +21,8 @@ import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-gar
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
+import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
+import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -27,6 +32,51 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...AUTO_GARRISON_REQUEUE_CHANGELOG,
+  {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+  {
+    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.5",
+    title: "Rivers rise in the mountains (new seasons)",
+    why: "Rivers began wherever the generator happened to start them, often on open plains.",
+    changes: [
+      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
+      "Running seasons keep their rivers, towns and resources exactly as they are"
+    ]
+  },
+  {
+    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.2",
+    title: "New-look mountains",
+    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
+    changes: [
+      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
+      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
+      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
+      "Mountains are matte, with clean facets"
+    ]
+  },
+  {
+    createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.4",
+    title: "Rivers fall from the mountains",
+    why: "A river that starts next to a mountain now looks like it comes from it.",
+    changes: [
+      "Where a river starts beside a mountain, it now flows out of the mountain into the river's spring pool",
+      "In 3D the river wells up at the foot of the mountain between two boulders and flows in a shallow banked channel into the pool, with a few boulders round it",
+      "Shown on both the 3D map and the 2D map (the 2D map draws the stream and rapids)"
+    ]
+  },
   {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
@@ -413,6 +463,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Frontier and barbarian targets still attack on the first click, since extra manpower doesn't improve odds there"
     ]
   },
+  {
+    createdAt: 1791748295340, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.1",
+    title: "Garrison works on towns, docks and captured buildings outside your reach",
+    why: "Your troops already garrisoned a captured town, dock or building outside your reach on their own, but the tile menu's Garrison button was greyed out with \"Outside your reach\" (and the server refused captured buildings).",
+    changes: [
+      "Garrison is now available from the tile menu on towns, docks and captured forts, observatories and economic structures, even outside your reach",
+      "Plain land outside your reach still can't be garrisoned"
+    ]
+  },
+  ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -424,7 +485,10 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
-  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS
+  ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
+  ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
+  ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AFC_MODULE_TAB_CHANGELOG
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

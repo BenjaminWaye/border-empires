@@ -155,3 +155,23 @@ describe("build_siege_camp's reach gate — weaker than settle_land's", () => {
     expect(siegeCamp?.detail).not.toContain("settles this tile first");
   });
 });
+
+// Manual Garrison mirrors the server's reach exemption (settleIgnoresReach):
+// towns, docks and captured buildings are garrisoned out of reach by the sim
+// automatically, so the tile menu must not refuse them either.
+describe("settle_land on out-of-reach tiles the sim garrisons automatically", () => {
+  it.each([
+    ["a town", { town: { name: "Far", type: "FARMING", populationTier: "TOWN" } }],
+    ["a dock", { dockId: "dock-far" }],
+    ["a captured fort", { fort: { ownerId: "me", status: "active" } }],
+    ["a captured observatory", { observatory: { ownerId: "me", status: "active" } }],
+    ["a captured economic structure", { economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" } }]
+  ])("leaves settle_land enabled on %s outside reach", (_label, extra) => {
+    const { state, target } = stateWithTownAndFrontierTile(50, 50);
+    Object.assign(target, extra);
+
+    const settleLand = findAction(menuActionsForSingleTile(state, target, baseDeps as never), "settle_land");
+    expect(settleLand).toBeDefined();
+    expect(settleLand?.disabled).toBeFalsy();
+  });
+});
