@@ -12,7 +12,6 @@ export type RendererPromptVisibilityInput = RendererPromptWakeInput & {
   authSessionReady: boolean;
   profileSetupRequired: boolean;
   changelogOpen: boolean;
-  guideOpen: boolean;
   // Optional (defaults to not-open) so the many existing call sites/tests
   // written before the Activity dashboard existed don't all need updating.
   activityDashboardOpen?: boolean;
@@ -30,7 +29,6 @@ export const shouldShowRendererPrompt = (input: RendererPromptVisibilityInput): 
   input.authSessionReady &&
   !input.profileSetupRequired &&
   !input.changelogOpen &&
-  !input.guideOpen &&
   !input.activityDashboardOpen;
 
 export type TwoDimensionalNoticeVisibilityInput = {
@@ -39,14 +37,13 @@ export type TwoDimensionalNoticeVisibilityInput = {
   authSessionReady: boolean;
   profileSetupRequired: boolean;
   changelogOpen: boolean;
-  guideOpen: boolean;
   activityDashboardOpen?: boolean;
 };
 
 /**
  * The "you're on the 2D map" notice waits for the same gameplay-ready,
  * nothing-modal-open moment as the slow-3D prompt, so it doesn't pile onto
- * the login screen or the first-run guide.
+ * the login screen or the What's New popup.
  */
 export const shouldShowTwoDimensionalNotice = (input: TwoDimensionalNoticeVisibilityInput): boolean =>
   input.prefers2D &&
@@ -54,5 +51,4 @@ export const shouldShowTwoDimensionalNotice = (input: TwoDimensionalNoticeVisibi
   input.authSessionReady &&
   !input.profileSetupRequired &&
   !input.changelogOpen &&
-  !input.guideOpen &&
   !input.activityDashboardOpen;
