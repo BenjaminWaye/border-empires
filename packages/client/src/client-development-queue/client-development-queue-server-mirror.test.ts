@@ -252,10 +252,10 @@ describe("isQueuedDevelopmentActionStillValid", () => {
   });
 
   it("is false for a BUILD entry once the requested economic structure already exists on the tile", () => {
-    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "GRANARY", status: "active" } }]]);
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "INCUBATION_ENGINE", status: "active" } }]]);
     expect(
       isQueuedDevelopmentActionStillValid(
-        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Granary", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "GRANARY" }, optimisticKind: "GRANARY" as any },
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Incubation Engine", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "INCUBATION_ENGINE" }, optimisticKind: "INCUBATION_ENGINE" as any },
         tiles,
         "me"
       )
@@ -263,7 +263,7 @@ describe("isQueuedDevelopmentActionStillValid", () => {
   });
 
   it("is true for a BUILD entry when a different economic structure exists on the tile", () => {
-    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "GRANARY", status: "active" } }]]);
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "INCUBATION_ENGINE", status: "active" } }]]);
     expect(
       isQueuedDevelopmentActionStillValid(
         { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Mine", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "MINE" }, optimisticKind: "MINE" as any },

@@ -161,7 +161,7 @@ has a player-safe map location:
 
 - `09:42 · Osmond captured a settled tile · 85 gold raided · Center`
 - `10:03 · Waystation activated · +1 CRYSTAL slot · Center`
-- `10:27 · Granary completed in Rivergate · +10,000 population · Center`
+- `10:27 · Incubation Engine completed in Rivergate · +10,000 population · Center`
 
 For a grouped territory or combat event, `Center` targets its largest spatial
 cluster; it must not use the centroid of distant raids and place the player on

@@ -1,3 +1,4 @@
+import { upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DatabaseSync } from "node:sqlite";
 
 import type { WorldStyle } from "@border-empires/shared";
@@ -262,7 +263,8 @@ export class SqliteSimulationSnapshotStore implements SimulationSnapshotStore {
       )
       .get() as Row | undefined;
     if (!row) return undefined;
-    const parsed = JSON.parse(row.snapshot_payload);
+    // Snapshots saved before the structure id rename carry old names.
+    const parsed = upgradeLegacyStructureNames(JSON.parse(row.snapshot_payload));
     const observedFormatVersion =
       parsed && typeof parsed === "object" && typeof (parsed as { formatVersion?: unknown }).formatVersion === "number"
         ? (parsed as { formatVersion: number }).formatVersion

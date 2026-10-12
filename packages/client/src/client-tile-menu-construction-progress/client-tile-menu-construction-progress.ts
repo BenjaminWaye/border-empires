@@ -9,7 +9,7 @@ import {
   SIEGE_TIER_LADDER,
   economicStructureBuildDurationMs,
   fortRemovalDurationMs,
-  siegeOutpostRemovalDurationMs,
+  siegeBatteryRemovalDurationMs,
   structureBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildManpowerCost,
@@ -29,13 +29,13 @@ import { constructionClockMs } from "../client-construction-remaining-ms/client-
 const fortBuildEstimateMs = (tile: Tile): number =>
   structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[tile.fort?.variant ?? "FORT"].manpower);
 const siegeBuildEstimateMs = (tile: Tile): number =>
-  structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[tile.siegeOutpost?.variant ?? "SIEGE_OUTPOST"].manpower);
+  structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[tile.siegeBattery?.variant ?? "SIEGE_BATTERY"].manpower);
 
 // The server stamps the real construction window (startedAt..completesAt), which
 // depends on tier upgrades, build-speed effects and manpower cost; use it when
 // present so this ring agrees with the on-map construction phases. Records that
 // predate startedAt keep the caller's per-type estimate.
-type ConstructionField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+type ConstructionField = "fort" | "observatory" | "siegeBattery" | "economicStructure";
 const exactProgress = (tile: Tile, field: ConstructionField, nowMs: number): number | undefined =>
   typeof tile[field]?.startedAt === "number" ? constructionSiteForTile(tile, nowMs, field)?.fraction : undefined;
 
@@ -79,7 +79,7 @@ const PAUSED_NOTE = "Paused due to an ongoing attack on this tile. Construction 
 // frozen, so say so, and drop rush-buy (the server refuses it while paused).
 const withPausedModifier = (tile: Tile, progress: TileMenuProgressView | undefined): TileMenuProgressView | undefined => {
   if (!progress) return progress;
-  const isPaused = [tile.fort, tile.observatory, tile.siegeOutpost, tile.economicStructure].some(
+  const isPaused = [tile.fort, tile.observatory, tile.siegeBattery, tile.economicStructure].some(
     (candidate) => candidate?.status === "under_construction" && candidate.pausedAt !== undefined
   );
   if (!isPaused) return progress;
@@ -149,31 +149,31 @@ const activeConstructionProgressForTile = (
       cancelLabel: "Cancel removal"
     };
   }
-  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - constructionClockMs(tile.siegeOutpost));
+  if (tile.siegeBattery?.status === "under_construction" && typeof tile.siegeBattery.completesAt === "number") {
+    const remaining = Math.max(0, tile.siegeBattery.completesAt - constructionClockMs(tile.siegeBattery));
     return {
       title: "Siege camp under construction",
       detail: "This tile will gain an offensive staging structure when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeBuildEstimateMs(tile)))),
+      progress: exactProgress(tile, "siegeBattery", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeBuildEstimateMs(tile)))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
       rushBuyLabel: rushBuyLabel(
         remaining,
-        rushWindowMs(tile.siegeOutpost, siegeBuildEstimateMs(tile)),
-        SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower,
+        rushWindowMs(tile.siegeBattery, siegeBuildEstimateMs(tile)),
+        SIEGE_TIER_LADDER[tile.siegeBattery.variant ?? "SIEGE_BATTERY"].manpower,
         quickforge
       ),
       rushBuyActionId: "rush_buy"
     };
   }
-  if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
+  if (tile.siegeBattery?.status === "removing" && typeof tile.siegeBattery.completesAt === "number") {
+    const remaining = Math.max(0, tile.siegeBattery.completesAt - nowMs);
     return {
       title: "Removing Siege Battery",
       detail: "This outpost is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
-      progress: exactProgress(tile, "siegeOutpost", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant)))),
+      progress: exactProgress(tile, "siegeBattery", nowMs) ?? Math.max(0, Math.min(1, 1 - remaining / Math.max(1, siegeBatteryRemovalDurationMs(tile.siegeBattery.variant)))),
       note: "Attack bonuses from this outpost are disabled while removal is underway.",
       cancelLabel: "Cancel removal"
     };

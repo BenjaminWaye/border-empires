@@ -23,10 +23,10 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, garrisoning (internally SETTLE), building structures, and attacking. It regenerates from an empire-wide pool sized by town population tier, paid out in one refill every four hours; a depleted empire cannot afford sustained expansion or warfare.
-- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
+- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Sky Dock Bombard, Sovereign Siege Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or garrison. Passive coin income comes from garrisoned tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
-- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
+- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, Sovereign Siege Engine Strike, Sky Dock Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
 - **Towns** are the economic backbone. Each town has a population tier (Town → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
 
@@ -40,10 +40,10 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Structures
 
-- One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
-- **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
+- One structure per tile, placed on garrisoned (SETTLED) owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Battery/Siege Tower/Dread Tower) is the one exception: it builds directly on ungarrisoned (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
+- **Economic**: Hydrogarden, Umbrite Rig, Mine, Incubation Engine, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Ore Refinery, Governance structures.
 - **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
-- **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
+- **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.
 - A structure that loses its resource-slot backing (e.g. a captured Fort with no Titanium access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
 
@@ -184,7 +184,7 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 ### Size budget
 
 Numbers are derived from the existing procedural structures (a tile is `1.0`; the
-widest current piece is the airport runway at `0.40`, the tallest point is the
+widest current piece is the sky dock runway at `0.40`, the tallest point is the
 control tower cab at `~0.36`).
 
 | Budget | Target | Hard cap |

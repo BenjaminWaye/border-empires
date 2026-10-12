@@ -1,8 +1,8 @@
 import type { PerspectiveCamera } from "three";
 
-// Global "the ground just moved" feedback for a World Engine strike — every
+// Global "the ground just moved" feedback for a Sovereign Siege Engine strike — every
 // connected client plays this once, live, when the broadcast arrives (see
-// client-network.ts's WORLD_ENGINE_STRIKE_ANNOUNCEMENT handling). Flat
+// client-network.ts's SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT handling). Flat
 // magnitude/duration for every strike; not scaled by population lost or by
 // camera distance from the target, since the broadcast itself is unconditional
 // for every player regardless of where they're looking.

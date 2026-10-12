@@ -3,7 +3,7 @@ import { SimulationRuntime } from "./runtime.js";
 import { buildAiOpponent, buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
 // AETHER_EMP (Manifest plan §7 item 6): disables a hostile empire's Ambaric
-// Transformers (AETHER_TOWER) within AETHER_EMP_RADIUS of the target tile,
+// Transformers (AMBARIC_TRANSFORMER) within AETHER_EMP_RADIUS of the target tile,
 // which knocks out power to anything that depends on that Tower too.
 describe("AETHER_EMP", () => {
   const baseState = (): Array<Record<string, unknown>> => [
@@ -13,9 +13,9 @@ describe("AETHER_EMP", () => {
     // Target: an enemy tile within the caster's observatory range.
     { x: 3, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
     // The enemy's Ambaric Transformer, close enough to the target to be struck.
-    { x: 4, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" } },
-    // An enemy Airport that only works because that Transformer powers it.
-    { x: 4, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "AIRPORT", status: "active" } }
+    { x: 4, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "AMBARIC_TRANSFORMER", status: "active" } },
+    // An enemy Sky Dock that only works because that Transformer powers it.
+    { x: 4, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "SKY_DOCK", status: "active" } }
   ];
 
   it("disables the target empire's Ambaric Transformer in range and cascades to what it powers", async () => {

@@ -100,7 +100,7 @@ describe("runtime-structure-lifecycle-command-handlers COMMAND_RESOLVED regressi
     });
   });
 
-  it("CANCEL_SIEGE_OUTPOST_BUILD emits COMMAND_RESOLVED on success", async () => {
+  it("CANCEL_SIEGE_BATTERY_BUILD emits COMMAND_RESOLVED on success", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
@@ -112,7 +112,7 @@ describe("runtime-structure-lifecycle-command-handlers COMMAND_RESOLVED regressi
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            siegeOutpost: { ownerId: "player-1", status: "under_construction", completesAt: 2_000 }
+            siegeBattery: { ownerId: "player-1", status: "under_construction", completesAt: 2_000 }
           }
         ],
         activeLocks: []
@@ -126,11 +126,11 @@ describe("runtime-structure-lifecycle-command-handlers COMMAND_RESOLVED regressi
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "CANCEL_SIEGE_OUTPOST_BUILD",
+      type: "CANCEL_SIEGE_BATTERY_BUILD",
       payloadJson: JSON.stringify({ x: 10, y: 10 })
     });
     await Promise.resolve();
-    expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.siegeOutpostJson).toBeUndefined();
+    expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.siegeBatteryJson).toBeUndefined();
     expect(findResolved(seen, "cancel-siege-1")).toEqual({
       eventType: "COMMAND_RESOLVED",
       commandId: "cancel-siege-1",

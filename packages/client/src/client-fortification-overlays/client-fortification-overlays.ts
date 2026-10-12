@@ -1,7 +1,7 @@
 import { defendingFortVariant, isFortDefending } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "RELAY_BEACON";
+export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_BATTERY" | "PALISADE" | "RELAY_BEACON";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
 export type FortificationOverlayDeps = {
@@ -21,7 +21,7 @@ const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: Exclude<Fortifica
 const fortOverlayKind = (fort: NonNullable<Tile["fort"]>): FortificationOverlayKind => {
   // Mid-upgrade, the tier being upgraded from is what's standing on the tile.
   const variant = defendingFortVariant(fort) ?? fort.variant;
-  if (variant === "TITANIUM_BASTION" || variant === "THUNDER_BASTION" || variant === "WOODEN_FORT") return variant;
+  if (variant === "TITANIUM_BASTION" || variant === "THUNDER_BASTION" || variant === "PALISADE") return variant;
   return "FORT";
 };
 
@@ -30,7 +30,7 @@ const fortOverlayKind = (fort: NonNullable<Tile["fort"]>): FortificationOverlayK
 export const fortificationOverlayKindForTile = (tile: Tile | undefined): FortificationOverlayKind | undefined => {
   if (!tile) return undefined;
   if (tile.fort) return fortOverlayKind(tile.fort);
-  if (tile.siegeOutpost) return "SIEGE_OUTPOST";
+  if (tile.siegeBattery) return "SIEGE_BATTERY";
   if (tile.economicStructure?.type === "RELAY_BEACON") return "RELAY_BEACON";
   return undefined;
 };
@@ -43,13 +43,13 @@ export const stackedRelayBeaconForTile = (tile: Tile | undefined): boolean =>
 export const isFortificationOverlayTile = (tile: Tile | undefined): boolean => Boolean(fortificationOverlayKindForTile(tile));
 
 export const fortificationOwnerIdForTile = (tile: Tile | undefined): string | undefined =>
-  tile?.fort?.ownerId ?? tile?.siegeOutpost?.ownerId ?? tile?.economicStructure?.ownerId ?? tile?.ownerId;
+  tile?.fort?.ownerId ?? tile?.siegeBattery?.ownerId ?? tile?.economicStructure?.ownerId ?? tile?.ownerId;
 
 export const fortificationOverlayAlphaForTile = (tile: Tile | undefined, kind?: FortificationOverlayKind): number => {
   if (!tile) return 1;
   const status = kind === "RELAY_BEACON"
     ? tile.economicStructure?.status
-    : isFortDefending(tile.fort) ? "active" : tile.fort?.status ?? tile.siegeOutpost?.status ?? tile.economicStructure?.status;
+    : isFortDefending(tile.fort) ? "active" : tile.fort?.status ?? tile.siegeBattery?.status ?? tile.economicStructure?.status;
   if (status === "active") return 1;
   if (status === "under_construction") return 0.82;
   if (status === "inactive") return 0.78;
@@ -63,13 +63,13 @@ export const fortificationOpeningForTile = (
 ): FortificationOpening => {
   if (!tile) return "CLOSED";
   const kind = fortificationOverlayKindForTile(tile);
-  if (!kind || kind === "RELAY_BEACON" || kind === "SIEGE_OUTPOST") return "CLOSED";
+  if (!kind || kind === "RELAY_BEACON" || kind === "SIEGE_BATTERY") return "CLOSED";
   const ownerId = fortificationOwnerIdForTile(tile);
   if (!ownerId) return "CLOSED";
   for (const step of CARDINAL_STEPS) {
     const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + step.dx), deps.wrapY(tile.y + step.dy)));
     if (!isFortificationOverlayTile(neighbor)) continue;
-    if (fortificationOverlayKindForTile(neighbor) === "RELAY_BEACON" || fortificationOverlayKindForTile(neighbor) === "SIEGE_OUTPOST") {
+    if (fortificationOverlayKindForTile(neighbor) === "RELAY_BEACON" || fortificationOverlayKindForTile(neighbor) === "SIEGE_BATTERY") {
       continue;
     }
     if (fortificationOwnerIdForTile(neighbor) !== ownerId) continue;
@@ -113,7 +113,7 @@ export const siegeBatteryFacingRadiansForTile = (
   tile: Tile | undefined,
   deps: FortificationOverlayDeps
 ): number => {
-  if (!tile || fortificationOverlayKindForTile(tile) !== "SIEGE_OUTPOST") return 0;
+  if (!tile || fortificationOverlayKindForTile(tile) !== "SIEGE_BATTERY") return 0;
   const ownerId = fortificationOwnerIdForTile(tile);
   if (!ownerId) return 0;
   for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
@@ -126,26 +126,26 @@ export const siegeBatteryFacingRadiansForTile = (
 
 /**
  * Finds the nearest tile within FACING_SEARCH_RADIUS of (battleX, battleY)
- * whose siegeOutpost is owned by `attackerOwnerId`. Used to pick which of
+ * whose siegeBattery is owned by `attackerOwnerId`. Used to pick which of
  * the attacker's Siege Battery/Tower/Dread Tower structures should turn to
  * aim at a battle that just started (see triggerSiegeBombardmentForNewBattle
  * in client-battle-overlay/client-siege-bombardment.ts). Client-visual only,
  * same framing as siegeBatteryFacingRadiansForTile above: it never affects
  * targeting, range, or combat math, only which structure plays the FX.
  */
-export const nearestSiegeOutpostTileForBattle = (
+export const nearestSiegeBatteryTileForBattle = (
   deps: FortificationOverlayDeps,
   battleX: number,
   battleY: number,
   attackerOwnerId: string
 ): { x: number; y: number } | undefined => {
   const here = deps.tiles.get(deps.keyFor(battleX, battleY));
-  if (here?.siegeOutpost?.ownerId === attackerOwnerId) return { x: battleX, y: battleY };
+  if (here?.siegeBattery?.ownerId === attackerOwnerId) return { x: battleX, y: battleY };
   for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
     const x = deps.wrapX(battleX + dx);
     const y = deps.wrapY(battleY + dy);
     const candidate = deps.tiles.get(deps.keyFor(x, y));
-    if (candidate?.siegeOutpost?.ownerId === attackerOwnerId) return { x, y };
+    if (candidate?.siegeBattery?.ownerId === attackerOwnerId) return { x, y };
   }
   return undefined;
 };

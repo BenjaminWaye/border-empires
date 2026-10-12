@@ -64,8 +64,8 @@ export const nextSiegeVariantForTile = (
   state: ClientState,
   tile: Tile,
 ): SiegeVariantAction | undefined => {
-  if (tile.siegeOutpost) {
-    const result = nextSiegeTierForUpgrade(tile.siegeOutpost.variant, (id) => state.techIds.includes(id));
+  if (tile.siegeBattery) {
+    const result = nextSiegeTierForUpgrade(tile.siegeBattery.variant, (id) => state.techIds.includes(id));
     return result ? siegeActionFromTier(result) : undefined;
   }
   return siegeBuildVariantForState(state);

@@ -6,7 +6,7 @@ import { rejectCommand, type RuntimeMapCommandContext } from "./runtime-map-comm
 
 // §15: Imperial Exchange Levy, finalized design. Single target chosen by the
 // caster (payload.toX/toY identifies a rival-owned tile, same origin->target
-// shape as World Engine Strike/Airport Bombard), takes 100% of the target's
+// shape as Sovereign Siege Engine Strike/Sky Dock Bombard), takes 100% of the target's
 // GOLD (not a strategic-resource stockpile — those no longer exist as
 // spendable quantities under the resource-slots pillar, §5), 24hr cooldown,
 // free activation (§17 — no CRYSTAL cost). The offline notification is the

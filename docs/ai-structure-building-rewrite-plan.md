@@ -21,18 +21,18 @@ candidate based *only on what already sits on that tile*:
 
 | Tile trait | Candidate emitted | Score |
 | --- | --- | --- |
-| `resource === FARM \| FISH` | `FARMSTEAD` | 190 if food low, else 70 |
+| `resource === FARM \| FISH` | `HYDROGARDEN` | 190 if food low, else 70 |
 | `resource === UMBRITE` | `UMBRITE_RIG` | 58 if economy weak, else 42 |
 | `resource === TITANIUM \| GEMS` | `MINE` | 62 if economy weak, else 46 |
-| town below support cap | `MINTWORKS` or `GRANARY` | up to 160 |
+| town below support cap | `MINTWORKS` or `INCUBATION_ENGINE` | up to 160 |
 
 Everything else in `EconomicStructureType` has **no code path that can ever
 propose it**. That includes every structure that addresses the pressures the AI
-actually feels: `GARRISON_HALL` (+150 manpower cap), `LOGISTICS_GUILD` (+manpower
-regen), `ASSEMBLY_WORKS`, `RAIL_DEPOT`, `WATERWORKS`, `SEED_GRANARY`,
-`CENSUS_HALL`, `GOVERNORS_OFFICE`, `CLEARING_HOUSE`, `CUSTOMS_HOUSE`,
-`CARAVANARY`, `FOUNDRY`, all six synthesizers, both weapons factories,
-`AIRPORT`, `AETHER_TOWER`, `RADAR_SYSTEM`, and all six wonder chains.
+actually feels: `ANCILLARY_DEPOT` (+150 manpower cap), `ANCILLARY_FACTORY` (+manpower
+regen), `RESERVE_LATTICE`, `NEURAL_WORKS`, `HYDROWORKS`, `SEED_INCUBATION_ENGINE`,
+`CENSUS_HALL`, `MINISTRY_HALL`, `CLEARING_HOUSE`, `HARBOR_EXCHANGE`,
+`TRADE_NEXUS`, `ORE_REFINERY`, all six synthesizers, both weapons factories,
+`SKY_DOCK`, `AMBARIC_TRANSFORMER`, `RESONANCE_GRID`, and all six wonder chains.
 
 `docs/AI_DEBUGGING.md` records the Observatory gap but not this one, which is
 far larger.
@@ -48,7 +48,7 @@ the real cost. But the candidate selectors still gate on gold:
   It never reads `player.manpower`.
 - `chooseBestFortBuild` (`:253-297`) checks `TITANIUM` and `fortTier.gold` (0).
   Never checks `fortTier.manpower` (300).
-- `chooseBestSiegeOutpostBuild` (`:299-336`) — same, never checks its 60.
+- `chooseBestSiegeBatteryBuild` (`:299-336`) — same, never checks its 60.
 - `utility-dispatch.ts:133-135` reduces each candidate to `Boolean(...)`.
 
 The runtime then rejects with `INSUFFICIENT_MANPOWER`
@@ -79,8 +79,8 @@ Against that trickle:
 | `SETTLE` | 20 | 0.13 |
 | `ATTACK` | 60 | 0.40 |
 | Cheapest economic structure | 80 | 0.54 |
-| `GARRISON_HALL` / `MINTWORKS` / `LOGISTICS_GUILD` | 150 | 1.0 |
-| `FORT` / `FOUNDRY` / `RAIL_DEPOT` / `ASSEMBLY_WORKS` | 300 | 2.0 |
+| `ANCILLARY_DEPOT` / `MINTWORKS` / `ANCILLARY_FACTORY` | 150 | 1.0 |
+| `FORT` / `ORE_REFINERY` / `NEURAL_WORKS` / `RESERVE_LATTICE` | 300 | 2.0 |
 | Wonder part | 1 000 | 6.7 |
 | Completed wonder | 1 600 | 10.7 |
 
@@ -147,7 +147,7 @@ built. It only steers expansion and posture.
 - No change to structure costs, effects, or the manpower economy. Balance
   findings are recorded in §13 and handed off, not acted on here.
 - No new command types. The AI keeps emitting `BUILD_ECONOMIC_STRUCTURE`,
-  `BUILD_FORT`, `BUILD_SIEGE_OUTPOST` (plus `BUILD_OBSERVATORY`, newly wired).
+  `BUILD_FORT`, `BUILD_SIEGE_BATTERY` (plus `BUILD_OBSERVATORY`, newly wired).
 - No GOAP//planner-architecture rewrite. This stays inside the existing utility
   policy (`docs/archive/design-history-2026/ai-goap-plan.md` is historical
   context, not a target).
@@ -195,7 +195,7 @@ reachable when a front opens.
 
 ### §3.3 Worked example
 
-Five `TOWN`-tier towns, regen 2.48 MP/min, target build `GARRISON_HALL` (150 MP):
+Five `TOWN`-tier towns, regen 2.48 MP/min, target build `ANCILLARY_DEPOT` (150 MP):
 
 | `savingsRate` | Time to fund | Expansion during | Effect |
 | --- | --- | --- | --- |
@@ -214,7 +214,7 @@ succeed — the pool clips at the cap forever.
 Rule: a structure is only eligible as `targetBuild` when
 `manpowerCap >= manpowerCost + ATTACK_MANPOWER_COST`. If the best-scoring
 structure fails that test, the AI must first raise its ceiling — build
-`GARRISON_HALL` (+150 cap), or upgrade a town tier — and the `MANPOWER_CEILING`
+`ANCILLARY_DEPOT` (+150 cap), or upgrade a town tier — and the `MANPOWER_CEILING`
 need (§4.2) is what makes that happen automatically. Base cap is 576 + 300/town,
 so this binds mainly on the 1 000/1 600 MP wonder chain.
 
@@ -247,7 +247,7 @@ export type NeedKey =
   | "MANPOWER_CEILING"      // MP cap — gates what is bankable at all
   | "FOOD_SLOTS"            // slot supply; dormancy risk
   | "TITANIUM_SLOTS"        // war structures: forts, bastions
-  | "UMBRITE_SLOTS"         // war structures: siege outposts, towers
+  | "UMBRITE_SLOTS"         // war structures: siege batteries, towers
   | "CRYSTAL_SLOTS"         // observatories, radar, aether
   | "GOLD"                  // income vs upkeep and tier-upgrade costs
   | "DEFENSE"               // fort coverage on threatened fronts
@@ -273,7 +273,7 @@ ladders, `structure-slots.ts:47-90`).
 | `CRYSTAL_SLOTS` | as above, observatory/radar |
 | `GOLD` | `clamp01(1 - incomePerMinute / goldTarget(settledTileCount))` |
 | `DEFENSE` | `clamp01(frontierEnemyTargetCount / max(1, ownedForts × 2))` |
-| `OFFENSE` | `clamp01(stalematedTargetCount / max(1, ownedSiegeOutposts + 1))` |
+| `OFFENSE` | `clamp01(stalematedTargetCount / max(1, ownedSiegeBatteries + 1))` |
 | `VICTORY` | `1 - pathProgress` from `scoreVictoryPaths` (§7.2) |
 
 Baseline weights are uniform (1.0); §7.1 re-weights by victory path.
@@ -299,7 +299,7 @@ export type StructureCapability = {
   type: BuildableStructureType;
   /** Normalised 0..1 contribution to each need it services. */
   provides: Partial<Record<NeedKey, number>>;
-  /** Hard unlocks (e.g. RAIL_DEPOT only matters with LOGISTICS_GUILDs present). */
+  /** Hard unlocks (e.g. NEURAL_WORKS only matters with ANCILLARY_FACTORIES present). */
   requiresOwned?: Partial<Record<BuildableStructureType, number>>;
   /** Where it can legally sit — reuses the existing predicate vocabulary. */
   placement: "OWN_SETTLED_LAND" | "TOWN_SUPPORT_NEIGHBOR" | "RESOURCE_TILE" | "FRONTIER_ADJACENT";
@@ -324,23 +324,23 @@ Derived from `packages/game-domain/src/structure-modifier-catalog/structure-modi
 
 | Structure | `provides` | Notes |
 | --- | --- | --- |
-| `GARRISON_HALL` | `MANPOWER_CEILING: 0.9` | +150 cap flat |
-| `ASSEMBLY_WORKS` | `MANPOWER_CEILING: 0.8` | +300 cap per networked Ancillary Factory; `requiresOwned: { GARRISON_HALL: 1 }` |
-| `LOGISTICS_GUILD` | `MANPOWER_THROUGHPUT: 0.5` | +0.05 MP/min — see §13.1 |
-| `RAIL_DEPOT` | `MANPOWER_THROUGHPUT: 0.7` | +0.1/min per networked guild; `requiresOwned: { LOGISTICS_GUILD: 2 }` |
-| `FARMSTEAD` | `FOOD_SLOTS: 0.8` | +1 own-tile slot; `RESOURCE_TILE: [FARM, FISH]` |
-| `WATERWORKS` | `FOOD_SLOTS: 0.9` | +2 per Farmstead in a 10-tile radius |
-| `GOVERNORS_OFFICE` | `FOOD_SLOTS: 0.5, GOLD: 0.2` | waives food demand by tier step |
+| `ANCILLARY_DEPOT` | `MANPOWER_CEILING: 0.9` | +150 cap flat |
+| `RESERVE_LATTICE` | `MANPOWER_CEILING: 0.8` | +300 cap per networked Ancillary Factory; `requiresOwned: { ANCILLARY_DEPOT: 1 }` |
+| `ANCILLARY_FACTORY` | `MANPOWER_THROUGHPUT: 0.5` | +0.05 MP/min — see §13.1 |
+| `NEURAL_WORKS` | `MANPOWER_THROUGHPUT: 0.7` | +0.1/min per networked guild; `requiresOwned: { ANCILLARY_FACTORY: 2 }` |
+| `HYDROGARDEN` | `FOOD_SLOTS: 0.8` | +1 own-tile slot; `RESOURCE_TILE: [FARM, FISH]` |
+| `HYDROWORKS` | `FOOD_SLOTS: 0.9` | +2 per Hydrogarden in a 10-tile radius |
+| `MINISTRY_HALL` | `FOOD_SLOTS: 0.5, GOLD: 0.2` | waives food demand by tier step |
 | `MINE` | `TITANIUM_SLOTS: 0.8` / `CRYSTAL_SLOTS: 0.8` | by tile resource |
-| `FOUNDRY` | `TITANIUM_SLOTS: 0.7, CRYSTAL_SLOTS: 0.7` | doubles mines in a 5-tile radius |
+| `ORE_REFINERY` | `TITANIUM_SLOTS: 0.7, CRYSTAL_SLOTS: 0.7` | doubles mines in a 5-tile radius |
 | `UMBRITE_RIG` | `UMBRITE_SLOTS: 0.8` | |
-| `TITANIUM_WORKS` / `UMBRITE_SYNTHESIZER` / `CRYSTAL_SYNTHESIZER` | corresponding `*_SLOTS: 0.6` | hard cap 1 (`structure-slots.ts:150-165`); carry real gold upkeep |
+| `TITANIUM_WORKS` / `UMBRITE_WORKS` / `AETHER_CONDENSER` | corresponding `*_SLOTS: 0.6` | hard cap 1 (`structure-slots.ts:150-165`); carry real gold upkeep |
 | `MINTWORKS` | `GOLD: 0.7` | +10%/copy town gold |
 | `CLEARING_HOUSE` | `GOLD: 0.6` | lifts Mintworks 10% → 35%; `requiresOwned: { MINTWORKS: 2 }` |
-| `CUSTOMS_HOUSE` | `GOLD: 0.5` | +1 gold/min per connected dock |
-| `CARAVANARY` (Trade Nexus) | `GOLD: 0.6` | +25% connected-town gold |
+| `HARBOR_EXCHANGE` | `GOLD: 0.5` | +1 gold/min per connected dock |
+| `TRADE_NEXUS` (Trade Nexus) | `GOLD: 0.6` | +25% connected-town gold |
 | `FORT` (ladder) | `DEFENSE: 1.0` | titanium slots; tier via `bestFortTierForTech` |
-| `SIEGE_OUTPOST` (ladder) | `OFFENSE: 1.0` | umbrite slots |
+| `SIEGE_BATTERY` (ladder) | `OFFENSE: 1.0` | umbrite slots |
 | `OBSERVATORY` | `CRYSTAL_SLOTS: -1, DEFENSE: 0.3` | closes the §1.1 gap noted in `AI_DEBUGGING.md` |
 | Wonder parts / wonders | `VICTORY: 1.0` | §7.3 |
 
@@ -396,7 +396,7 @@ The single best-scoring eligible candidate becomes `targetBuild`. If affordable
 now, the corresponding `BUILD_*` command is emitted this tick; if not, §3 funds
 it. `BUILD_DEFENSE` vs `BUILD_ECONOMY` class routing is preserved for
 diagnostics and cooldown bookkeeping, but both now draw from one ranked list, so
-a fort and a granary compete on the same axis instead of in separate silos.
+a fort and a incubation engine compete on the same axis instead of in separate silos.
 
 ---
 
@@ -440,10 +440,10 @@ path mapping:
 | Path | Chain | Why |
 | --- | --- | --- |
 | `ECONOMIC_HEGEMONY` | `IMPERIAL_EXCHANGE` | 100% rival gold levy |
-| `TOWN_CONTROL` | `WORLD_ENGINE` | population strike |
+| `TOWN_CONTROL` | `SOVEREIGN_SIEGE_ENGINE` | population strike |
 | `RESOURCE_MONOPOLY` | `TITANIUM_LEVY` | banked manpower → army at 0.5 |
 | `MARITIME_SUPREMACY` | `ASTRAL_DOCK` | full-map vision |
-| `DIPLOMATIC_DOMINANCE` | `POPULATION_BUREAU` | +0.1 MP/min per manpower building |
+| `DIPLOMATIC_DOMINANCE` | `CENSUS_DIRECTORATE` | +0.1 MP/min per manpower building |
 | *(any, defensive)* | `AEGIS_DOME` | protection radius; scored on `DEFENSE`, not path |
 
 Gating — a chain is only entered when all hold:
@@ -467,7 +467,7 @@ condition, and the reason §7.3.1 gating matters.
 
 `BUILD_ECONOMY` and `BUILD_DEFENSE` stay. What changes is what feeds them:
 
-- `hasEconomicBuild` / `hasFortBuild` / `hasSiegeOutpost`
+- `hasEconomicBuild` / `hasFortBuild` / `hasSiegeBattery`
   (`utility-dispatch.ts:133-135`) become "the ranked list's top candidate is of
   this family **and** is affordable now".
 - `scoreBuildEconomy`'s `needsEconomy` term (`decisions.ts:215`) is replaced by
@@ -567,7 +567,7 @@ Sequenced so each phase is independently shippable and observable.
 
 | Phase | Content | Ships behind |
 | --- | --- | --- |
-| **0** | ✅ **Landed.** Fix §1.2 in place: manpower gate in `canAffordStructure`, `chooseBestFortBuild`, `chooseBestSiegeOutpostBuild`. Stops the reject loop immediately. Note it does **not** by itself make the AI build more — it makes it stop proposing builds it cannot pay for, which is a waste fix, not a behaviour fix. §13.6 records what landing it revealed. | no flag |
+| **0** | ✅ **Landed.** Fix §1.2 in place: manpower gate in `canAffordStructure`, `chooseBestFortBuild`, `chooseBestSiegeBatteryBuild`. Stops the reject loop immediately. Note it does **not** by itself make the AI build more — it makes it stop proposing builds it cannot pay for, which is a waste fix, not a behaviour fix. §13.6 records what landing it revealed. | no flag |
 | **1** | ✅ **Landed and active.** §9 plumbing + §10.1 diagnostics: `AutomationPlannerInput`'s four optional fields, `computeNeedVector`/`needVectorFromPlannerInput` (`ai/build/build-need-vector.ts`), `AutomationPlannerDiagnostic.needVector`, `AiDecisionDiagnostic.needVector` reaching `/admin/debug/ai/decisions`, and `PlannerPlayerView`/`PlannerExportInput`'s matching fields threaded through `runtime-state-export.ts`, `runtime.ts`'s `exportPlannerPlayerViews`, and `ai-planner-worker-core.ts`. `runtime.ts`'s closures (`playerManpowerCap`/`playerManpowerRegenPerMinute`/`resourceSlotSupplyForPlayer`/`resourceSlotDemandForPlayer`) were fitted into the file's existing line count exactly — it's already 4,851 lines against the repo's 500-line file cap (`scripts/check-file-line-limits.mjs`), which fails unconditionally on any growth to an already-oversized file, so the closures for `exportPlannerPlayerViews` were densified onto fewer lines (several one-line closures sharing physical lines with their neighbors) rather than adding net new lines — a deliberate one-time formatting trade-off scoped tightly to this one method, not a precedent for the file generally. `runtime.export-planner-player-views-need-vector.test.ts` confirms real (non-zero, per-player-distinct) values flow end-to-end from `SimulationRuntime` through `exportPlannerPlayerViews`. Nothing downstream reads `needVector` yet — confirmed unchanged command selection in `automation-command-planner-need-vector.test.ts`. Next: watch it against live/staging AIs before Phase 2 scores against it. | no flag (read-only) |
 | **2** | §5 catalog + §6 scoring, replacing `chooseBestEconomicBuild`'s internals. Selection changes; savings not yet active. | `AI_BUILD_CATALOG_ENABLED` |
 | **3** | §3 savings + §8.3 EXPAND veto. The behavioural core. | `AI_BUILD_SAVINGS_ENABLED` |
@@ -647,15 +647,15 @@ Surfaced by building the ROI model; recorded rather than acted on (§2.2).
 
 ### §13.1 Manpower buildings are third-best, and the AI must learn the ordering
 
-The two Logistics Guild bonuses **stack**: a guild inside a Rail Depot network
-earns its standalone `LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05`
-(`config.ts:289`) *plus* `RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD
+The two Ancillary Factory bonuses **stack**: a guild inside a Neural Works network
+earns its standalone `ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE = 0.05`
+(`config.ts:289`) *plus* `NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY
 = 0.1` (`config.ts:290`) — both terms are added in
 `playerManpowerRegenPerMinuteFromSummary` (`runtime-manpower.ts:66-73`), and
 `economy-network.ts:849-852` states the "on top of" intent explicitly. So a
 networked guild is 0.15/min (a standalone one, 0.05/min).
 
-Amortising the Rail Depot's own 300 MP across the guilds it serves:
+Amortising the Neural Works's own 300 MP across the guilds it serves:
 
 | Guilds per depot | Total MP | Regen gained | Payback |
 | --- | --- | --- | --- |
@@ -687,7 +687,7 @@ first: **town tier upgrade (§13.5, costs no manpower at all) → settle a new t
 are exhausted would optimise the wrong end. §6.2's `requiresOwned` gate is the
 natural place to express "only when settling is unavailable".
 
-### §13.2 `GARRISON_HALL` is cost-neutral on the ceiling
+### §13.2 `ANCILLARY_DEPOT` is cost-neutral on the ceiling
 
 150 MP for +150 cap: it pays for exactly itself in headroom. Fine as an enabler
 for the §3.4 ladder, but it never gets an empire *ahead*.
@@ -720,7 +720,7 @@ doubles both regen and cap (`TOWN_MANPOWER_BY_TIER`, `config.ts:122-131`):
 | CITY → GREAT_CITY | 80 | +0.833/min | +600 |
 
 A single TOWN → CITY upgrade yields +0.417 MP/min — the equivalent of **~2.8
-networked Logistics Guilds** (420 MP of guilds plus a share of a 300 MP depot) —
+networked Ancillary Factories** (420 MP of guilds plus a share of a 300 MP depot) —
 for 40 gold and **zero manpower**. Manpower payback is undefined because no
 manpower is spent.
 
@@ -761,9 +761,9 @@ Affording the structure needs `manpower ≥ cost`. Both hold only when
 
 | Structure | Manpower | Minimum settled tiles for the window to exist |
 | --- | --- | --- |
-| `GRANARY` | 80 | > 13 |
+| `INCUBATION_ENGINE` | 80 | > 13 |
 | `MINTWORKS` | 150 | > 25 |
-| `FOUNDRY` / `RAIL_DEPOT` | 300 | > 50 |
+| `ORE_REFINERY` / `NEURAL_WORKS` | 300 | > 50 |
 
 Below those sizes the two conditions are **mutually exclusive** — the AI is
 either too rich to want the building or too poor to buy it. Three separate test
@@ -776,8 +776,8 @@ Both findings are fixed by the same §3/§4/§6 work — a savings pool decouple
 attack". Neither is fixable by tuning the existing scores.
 
 One benign behaviour to preserve: because the gate is applied per candidate
-*before* the best-score pick, a player who can afford `GRANARY` (80) but not
-`MINTWORKS` (150) now proposes the Granary rather than nothing. Graceful
+*before* the best-score pick, a player who can afford `INCUBATION_ENGINE` (80) but not
+`MINTWORKS` (150) now proposes the Incubation Engine rather than nothing. Graceful
 degradation is the desired shape and is pinned by
 `structure-command-planner.test.ts`.
 
@@ -808,7 +808,7 @@ degradation is the desired shape and is pinned by
    shipping this plan's §3 savings work *without* it would have the AI grinding
    for hours toward buildings it could out-earn for 40 gold. Strong candidate to
    pull into Phase 2, or to run as its own small parallel change.
-3. **`AIRPORT_BOMBARD` / crystal abilities** remain unused (`AI_DEBUGGING.md`).
+3. **`SKY_DOCK_BOMBARD` / crystal abilities** remain unused (`AI_DEBUGGING.md`).
    In scope for a follow-up, or fold `CRYSTAL_SLOTS` demand into this work?
 4. **Fort/siege ladder upgrades** (`nextFortTierForUpgrade`) — the AI builds
    fresh at the best tier but never upgrades existing forts. Same rework?
@@ -821,7 +821,7 @@ Between this plan's original write-up and Phase 0/1 shipping, `main` landed a
 fixed-borders-via-reach mechanic (commits `f098e66`..`c5b0158`+): `EXPAND`/
 `SETTLE` are now gated by a persistent reach radius from anchors —
 `TOWN` (`TOWN_REACH_RADIUS` = 3), the outpost family `RELAY_BEACON` /
-`SIEGE_OUTPOST` / `SIEGE_TOWER` / `DREAD_TOWER` (`OUTPOST_REACH_RADIUS` = 5),
+`SIEGE_BATTERY` / `SIEGE_TOWER` / `DREAD_TOWER` (`OUTPOST_REACH_RADIUS` = 5),
 and `DOCK` (`DOCK_REACH_RADIUS` = 1). **`FORT` does not grant reach** — it is
 not one of the anchor kinds `gatherReachAnchors()` (`runtime.ts`) recognizes;
 the separate `activeFortAnchorsByOwner` map is the pre-existing
@@ -897,8 +897,8 @@ win that competition).
 ### §16.4 Need-weighted economic structure catalog
 
 `chooseBestEconomicBuild` (`structure-command-planner.ts`) could only ever
-propose 5 of the ~28 buildable `EconomicStructureType`s — FARMSTEAD,
-UMBRITE_RIG, MINE, MINTWORKS, GRANARY — each scored by a hand-picked flat
+propose 5 of the ~28 buildable `EconomicStructureType`s — HYDROGARDEN,
+UMBRITE_RIG, MINE, MINTWORKS, INCUBATION_ENGINE — each scored by a hand-picked flat
 number (`foodLow ? 190 : 70`, etc.), not by any measured need. This was the
 original plan's §5/§6 Phase 2 gap.
 
@@ -916,20 +916,20 @@ source of truth the client's own tooltips read from) — not guessed:
 
 | Type | needKey | Placement |
 | --- | --- | --- |
-| WATERWORKS | FOOD_SLOTS | any open settled tile |
-| GOVERNORS_OFFICE | FOOD_SLOTS | any open settled tile |
-| GARRISON_HALL | MANPOWER_CEILING | town-support neighbor |
-| LOGISTICS_GUILD | MANPOWER_THROUGHPUT | town-support neighbor |
-| CARAVANARY | GOLD | town-support neighbor |
-| UMBRITE_SYNTHESIZER | UMBRITE_SLOTS | town-support neighbor |
+| HYDROWORKS | FOOD_SLOTS | any open settled tile |
+| MINISTRY_HALL | FOOD_SLOTS | any open settled tile |
+| ANCILLARY_DEPOT | MANPOWER_CEILING | town-support neighbor |
+| ANCILLARY_FACTORY | MANPOWER_THROUGHPUT | town-support neighbor |
+| TRADE_NEXUS | GOLD | town-support neighbor |
+| UMBRITE_WORKS | UMBRITE_SLOTS | town-support neighbor |
 | TITANIUM_WORKS | TITANIUM_SLOTS | town-support neighbor |
-| CRYSTAL_SYNTHESIZER | CRYSTAL_SLOTS | town-support neighbor |
+| AETHER_CONDENSER | CRYSTAL_SLOTS | town-support neighbor |
 
-Deliberately left out of this pass: RAIL_DEPOT/ASSEMBLY_WORKS (their effect
+Deliberately left out of this pass: NEURAL_WORKS/RESERVE_LATTICE (their effect
 is "+X per Y-in-network" — only useful if another specific structure is
 already built elsewhere, which the planner doesn't evaluate yet);
-CUSTOMS_HOUSE (placed directly on a dock tile — no existing candidate-
-gathering for that placement rule); SEED_GRANARY/CENSUS_HALL/CLEARING_HOUSE
+HARBOR_EXCHANGE (placed directly on a dock tile — no existing candidate-
+gathering for that placement rule); SEED_INCUBATION_ENGINE/CENSUS_HALL/CLEARING_HOUSE
 (population/upgrade-cost/synergy effects with no clean `NeedVector`
 counterpart, some needing a prerequisite structure already built); the
 wonder chain (needs completed PART prerequisites first, §15 open question
@@ -971,7 +971,7 @@ a periodic priority boost layered on top of §16.2's graduated site-value
 score, tracked by `ai-beacon-cadence.ts`:
 
 - A per-player cycle position (0..4), advanced once per **accepted**
-  structure-build command (`BUILD_FORT`/`BUILD_SIEGE_OUTPOST`/
+  structure-build command (`BUILD_FORT`/`BUILD_SIEGE_BATTERY`/
   `BUILD_ECONOMIC_STRUCTURE`, including beacons themselves) — counted at
   command acceptance, not construction finish (which can be minutes later
   for slower structures), so the cadence tracks build *actions*, not

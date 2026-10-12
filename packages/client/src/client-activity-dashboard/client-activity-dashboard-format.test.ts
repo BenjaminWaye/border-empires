@@ -141,11 +141,11 @@ describe("activityCardText / activityCardCoordinates", () => {
   });
 
   it("names completed buildings by their player-facing name, not the backend id", () => {
-    const caravanary = { kind: "BUILDING_COMPLETED" as const, structureType: "CARAVANARY", x: 4, y: 7 };
-    const granary = { kind: "BUILDING_COMPLETED" as const, structureType: "GRANARY", x: 4, y: 7 };
+    const tradeNexus = { kind: "BUILDING_COMPLETED" as const, structureType: "TRADE_NEXUS", x: 4, y: 7 };
+    const incubationEngine = { kind: "BUILDING_COMPLETED" as const, structureType: "INCUBATION_ENGINE", x: 4, y: 7 };
     const unknown = { kind: "BUILDING_COMPLETED" as const, structureType: "SOME_FUTURE_HALL", x: 4, y: 7 };
-    expect(activityCardText(caravanary as any, "me", noNames)).toBe("Trade Nexus completed");
-    expect(activityCardText(granary as any, "me", noNames)).toBe("Incubation Engine completed");
+    expect(activityCardText(tradeNexus as any, "me", noNames)).toBe("Trade Nexus completed");
+    expect(activityCardText(incubationEngine as any, "me", noNames)).toBe("Incubation Engine completed");
     expect(activityCardText(unknown as any, "me", noNames)).toBe("Some future hall completed");
   });
 });

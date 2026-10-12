@@ -11,14 +11,14 @@
 // `demand = Σ` over resource-consuming structures. No per-tile assignment.
 
 import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
-import type { ConverterMode, FortVariant, PopulationTier, ResourceType, SiegeOutpostVariant } from "../types.js";
+import type { ConverterMode, FortVariant, PopulationTier, ResourceType, SiegeBatteryVariant } from "../types.js";
 
 // Fort/Siege tier-ladder variants (TITANIUM_BASTION, THUNDER_BASTION, SIEGE_TOWER,
 // DREAD_TOWER) aren't part of BuildableStructureType — they're FortVariant/
-// SiegeOutpostVariant — but each has its own distinct slot requirement
+// SiegeBatteryVariant — but each has its own distinct slot requirement
 // (§12's Fort/Siege ladder tables), so the slot-requirement map needs to key
 // on the union of all three.
-export type SlotStructureType = BuildableStructureType | FortVariant | SiegeOutpostVariant;
+export type SlotStructureType = BuildableStructureType | FortVariant | SiegeBatteryVariant;
 
 export type SlotResource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
@@ -35,58 +35,58 @@ export type StructureSlotRequirement = {
 // still apply, since SHARD stays a real stockpile, §5.5).
 //
 // One known documentation quirk, preserved intentionally rather than
-// "corrected" by guessing: CUSTOMS_HOUSE lists a 60-CRYSTAL build cost in
+// "corrected" by guessing: HARBOR_EXCHANGE lists a 60-CRYSTAL build cost in
 // structure-costs.ts but §12's own slot-requirement column for it says only
-// "1 FOOD slot" (no CRYSTAL slot), unlike FOUNDRY/RAIL_DEPOT/
-// RADAR_SYSTEM/AETHER_TOWER, which the plan's "Tier 3 crystal
+// "1 FOOD slot" (no CRYSTAL slot), unlike ORE_REFINERY/NEURAL_WORKS/
+// RESONANCE_GRID/AMBARIC_TRANSFORMER, which the plan's "Tier 3 crystal
 // fix" explicitly gives a CRYSTAL slot on top of FOOD. Taken at face value
 // (the plan's table is the source of truth for slot requirements), not
-// inferred. GARRISON_HALL (Ancillary Factory) originally had this same
+// inferred. ANCILLARY_DEPOT (Ancillary Factory) originally had this same
 // CRYSTAL slot too, but it was removed per a later tech-tree redesign
 // decision — CRYSTAL doesn't fit a Manpower-branch building's theme.
 export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, StructureSlotRequirement[]>> = {
   // Starter military
-  WOODEN_FORT: [{ resource: "FOOD", count: 1 }],
+  PALISADE: [{ resource: "FOOD", count: 1 }],
   RELAY_BEACON: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1 — basic economic sinks
-  // FARMSTEAD/WATERWORKS deliberately have NO slot requirement (zero
+  // HYDROGARDEN/HYDROWORKS deliberately have NO slot requirement (zero
   // upkeep, user decision): both boost FOOD supply itself (same-tile +1,
-  // Waterworks-radius +2 via WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS below), so
+  // Hydroworks-radius +2 via HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS below), so
   // charging them their own boosted resource would be circular — dormancy
   // could silently zero out the very supply they exist to add.
   UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
   MINE: [{ resource: "FOOD", count: 1 }],
-  GRANARY: [{ resource: "FOOD", count: 1 }],
+  INCUBATION_ENGINE: [{ resource: "FOOD", count: 1 }],
   OBSERVATORY: [{ resource: "CRYSTAL", count: 1 }],
   CENSUS_HALL: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1.5 — mid sinks
-  CUSTOMS_HOUSE: [{ resource: "FOOD", count: 1 }],
+  HARBOR_EXCHANGE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 2 — trade & production infrastructure
   MINTWORKS: [{ resource: "FOOD", count: 1 }],
-  UMBRITE_SYNTHESIZER: [{ resource: "UMBRITE", count: 1 }],
+  UMBRITE_WORKS: [{ resource: "UMBRITE", count: 1 }],
   TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
-  CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
+  AETHER_CONDENSER: [{ resource: "CRYSTAL", count: 1 }],
   // CRYSTAL slot removed per user decision (tech-tree redesign) — Ancillary
   // Factory is a Manpower-branch building, CRYSTAL doesn't fit its theme.
-  GARRISON_HALL: [{ resource: "FOOD", count: 1 }],
-  GOVERNORS_OFFICE: [{ resource: "FOOD", count: 1 }],
-  CARAVANARY: [{ resource: "FOOD", count: 1 }],
-  AIRPORT: [{ resource: "CRYSTAL", count: 3 }],
+  ANCILLARY_DEPOT: [{ resource: "FOOD", count: 1 }],
+  MINISTRY_HALL: [{ resource: "FOOD", count: 1 }],
+  TRADE_NEXUS: [{ resource: "FOOD", count: 1 }],
+  SKY_DOCK: [{ resource: "CRYSTAL", count: 3 }],
   CLEARING_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 3 — major economic engines
-  FOUNDRY: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
-  RAIL_DEPOT: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
-  RADAR_SYSTEM: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
-  ADVANCED_UMBRITE_SYNTHESIZER: [{ resource: "UMBRITE", count: 1 }],
-  ADVANCED_TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
-  ADVANCED_CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
+  ORE_REFINERY: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  NEURAL_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  RESONANCE_GRID: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  HIGH_YIELD_UMBRITE_WORKS: [{ resource: "UMBRITE", count: 1 }],
+  HIGH_YIELD_TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
+  HIGH_YIELD_AETHER_CONDENSER: [{ resource: "CRYSTAL", count: 1 }],
 
   // Tier 4 — elite structures
-  AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  AMBARIC_TRANSFORMER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
   // War branch — WEAPONS_WORKSHOP retired (structure-registry-economic.ts),
   // replaced by the two resource-specific factories below. Entry kept so any
@@ -100,8 +100,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Manpower branch — new buildings
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
-  LOGISTICS_GUILD: [{ resource: "FOOD", count: 1 }],
-  ASSEMBLY_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
+  ANCILLARY_FACTORY: [{ resource: "FOOD", count: 1 }],
+  RESERVE_LATTICE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
   // Fort ladder
   FORT: [{ resource: "TITANIUM", count: 1 }],
@@ -109,7 +109,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   THUNDER_BASTION: [{ resource: "TITANIUM", count: 4 }],
 
   // Siege ladder
-  SIEGE_OUTPOST: [{ resource: "UMBRITE", count: 1 }],
+  SIEGE_BATTERY: [{ resource: "UMBRITE", count: 1 }],
   SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }, { resource: "TITANIUM", count: 1 }],
   DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }, { resource: "TITANIUM", count: 2 }],
 
@@ -118,18 +118,18 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   IMPERIAL_EXCHANGE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   IMPERIAL_EXCHANGE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   IMPERIAL_EXCHANGE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  SOVEREIGN_SIEGE_ENGINE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  SOVEREIGN_SIEGE_ENGINE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  SOVEREIGN_SIEGE_ENGINE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
   AEGIS_DOME_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   AEGIS_DOME_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   AEGIS_DOME_PART_3: [{ resource: "CRYSTAL", count: 1 }],
   ASTRAL_DOCK_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   ASTRAL_DOCK_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   ASTRAL_DOCK_PART_3: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU_PART_1: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU_PART_2: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  CENSUS_DIRECTORATE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  CENSUS_DIRECTORATE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  CENSUS_DIRECTORATE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
   TITANIUM_LEVY_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   TITANIUM_LEVY_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   TITANIUM_LEVY_PART_3: [{ resource: "CRYSTAL", count: 1 }],
@@ -139,10 +139,10 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // completion.ts, which clears the Parts on monument completion) plus 1
   // for the monument itself.
   IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 4 }],
-  WORLD_ENGINE: [{ resource: "CRYSTAL", count: 4 }],
+  SOVEREIGN_SIEGE_ENGINE: [{ resource: "CRYSTAL", count: 4 }],
   AEGIS_DOME: [{ resource: "CRYSTAL", count: 4 }],
   ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 4 }],
-  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 4 }],
+  CENSUS_DIRECTORATE: [{ resource: "CRYSTAL", count: 4 }],
   TITANIUM_LEVY: [{ resource: "CRYSTAL", count: 4 }]
 };
 
@@ -156,7 +156,7 @@ export const structureSlotRequirements = (type: SlotStructureType): StructureSlo
 // demand) and the client's build-menu/info-modal/dormancy-line displays all
 // call this instead of each keeping their own inline copy -- the same
 // duplicate-formula risk that already produced the Fort/Siege upkeep bug
-// and the Customs House/toDomainTile drift.
+// and the Harbor Exchange/toDomainTile drift.
 export const observatoryCrystalSlotCostForOwnedCount = (existingOwnedCount: number): number => existingOwnedCount + 1;
 
 // §6.4: synthesizers (and their Advanced variants) are hard-capped at
@@ -165,23 +165,23 @@ export const observatoryCrystalSlotCostForOwnedCount = (existingOwnedCount: numb
 // (never build a 2nd), not by shrinking their own slot contribution, since
 // a synthesizer doesn't sit on a real resource tile at all.
 export const SYNTHESIZER_STRUCTURE_TYPES: readonly BuildableStructureType[] = [
-  "UMBRITE_SYNTHESIZER",
-  "ADVANCED_UMBRITE_SYNTHESIZER",
+  "UMBRITE_WORKS",
+  "HIGH_YIELD_UMBRITE_WORKS",
   "TITANIUM_WORKS",
-  "ADVANCED_TITANIUM_WORKS",
-  "CRYSTAL_SYNTHESIZER",
-  "ADVANCED_CRYSTAL_SYNTHESIZER"
+  "HIGH_YIELD_TITANIUM_WORKS",
+  "AETHER_CONDENSER",
+  "HIGH_YIELD_AETHER_CONDENSER"
 ];
 
 export const SYNTHESIZER_TYPE_SET = new Set(SYNTHESIZER_STRUCTURE_TYPES);
 
 export const SYNTHESIZER_FAMILY_RESOURCE: Partial<Record<BuildableStructureType, SlotResource>> = {
-  UMBRITE_SYNTHESIZER: "UMBRITE",
-  ADVANCED_UMBRITE_SYNTHESIZER: "UMBRITE",
+  UMBRITE_WORKS: "UMBRITE",
+  HIGH_YIELD_UMBRITE_WORKS: "UMBRITE",
   TITANIUM_WORKS: "TITANIUM",
-  ADVANCED_TITANIUM_WORKS: "TITANIUM",
-  CRYSTAL_SYNTHESIZER: "CRYSTAL",
-  ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL"
+  HIGH_YIELD_TITANIUM_WORKS: "TITANIUM",
+  AETHER_CONDENSER: "CRYSTAL",
+  HIGH_YIELD_AETHER_CONDENSER: "CRYSTAL"
 } as const;
 
 export const converterModeOf = (structure: { converterMode?: ConverterMode | undefined } | undefined): ConverterMode =>
@@ -195,7 +195,7 @@ export const isSlotSinkConverter = (type: string, mode: ConverterMode): boolean 
 
 // §5.2/§5.3: base slot supply per raw resource tile, and the boost each
 // tile-sitting structure adds. FISH has no per-tile-structure boost path
-// (§5.3, Farmstead/Waterworks don't touch it) — FARM is the one worth
+// (§5.3, Hydrogarden/Hydroworks don't touch it) — FARM is the one worth
 // developing for real scale via structures. FISH does get one flat,
 // tech-gated bonus instead: AGRICULTURE_FISH_FOOD_SLOT_BONUS below, applied
 // per owned FISH tile once the player has researched Agrarian Works
@@ -209,32 +209,32 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
 };
 
 // Agrarian Works ("agriculture" tech) grants +1 FOOD slot on every owned
-// settled FISH tile, flat, regardless of whether a Farmstead is built there
-// — a passive tech effect, not a structure boost (Farmstead itself still has
+// settled FISH tile, flat, regardless of whether a Hydrogarden is built there
+// — a passive tech effect, not a structure boost (Hydrogarden itself still has
 // no effect on fish production, §5.3). See tech-domain-bridge.ts's
 // techGrantedFishFoodSlotBonus, which is what actually gates this on the
 // player having researched the tech.
 export const AGRICULTURE_FISH_FOOD_SLOT_BONUS = 1;
 
 // Mine/Camp add +1 slot to the tile they sit on (§5.2: "one rule, all
-// resources"). Farmstead adds +2 (user decision — a bigger same-tile boost
-// than Mine/Camp, on top of which Waterworks still adds its own separate
-// +2-per-Farmstead-in-radius bonus below). Waterworks/Foundry instead boost
-// every Farmstead/Mine within their radius by a further bonus (§5.3/§12) — a
+// resources"). Hydrogarden adds +2 (user decision — a bigger same-tile boost
+// than Mine/Camp, on top of which Hydroworks still adds its own separate
+// +2-per-Hydrogarden-in-radius bonus below). Hydroworks/Ore Refinery instead boost
+// every Hydrogarden/Mine within their radius by a further bonus (§5.3/§12) — a
 // radius effect, not a same-tile one, so neither is part of this
 // per-tile-structure map.
 export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, number>> = {
-  FARMSTEAD: 2,
+  HYDROGARDEN: 2,
   MINE: 1,
   UMBRITE_RIG: 1
 };
 
-export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;
-// Mirrors WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS's "double the post-own-boost
+export const HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS = 2;
+// Mirrors HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS's "double the post-own-boost
 // total" shape: a Mine alone is base(1) + own-boost(1) = 2 slots; within
-// Foundry range it becomes 2 + 2 = 4, i.e. doubled, matching Foundry's
+// Ore Refinery range it becomes 2 + 2 = 4, i.e. doubled, matching Ore Refinery's
 // "doubles active Mine production" billing (§12).
-export const FOUNDRY_MINE_SLOT_BONUS = 2;
+export const ORE_REFINERY_MINE_SLOT_BONUS = 2;
 
 // §5.3: "a town requires ~4 food slots to be powered (produce gold +
 // manpower)" — the town itself, separate from any structure sitting on its
@@ -250,9 +250,9 @@ export const TOWN_FOOD_SLOT_DEMAND = 4;
 // upgrading to TOWN brings it up to the base 4. The "one more FOOD slot per
 // upgrade step" applies to the manual growth steps beyond that: TOWN->CITY 5;
 // CITY->GREAT_CITY 6; GREAT_CITY->METROPOLIS 7.
-// Exported (not just module-private) so Ministry Hall (GOVERNORS_OFFICE) can
+// Exported (not just module-private) so Ministry Hall (MINISTRY_HALL) can
 // reduce a town's FOOD slot demand by exactly its tier step, per the
-// tech-tree redesign — see governorsOfficeFoodSlotWaiver below.
+// tech-tree redesign — see ministryHallFoodSlotWaiver below.
 export const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
   SETTLEMENT: -4,
   TOWN: 0,
@@ -264,11 +264,11 @@ export const TOWN_TIER_FOOD_SLOT_STEP: Record<PopulationTier, number> = {
 export const townFoodSlotDemandForTier = (tier: PopulationTier | undefined): number =>
   TOWN_FOOD_SLOT_DEMAND + (tier ? TOWN_TIER_FOOD_SLOT_STEP[tier] : 0);
 
-// Ministry Hall (GOVERNORS_OFFICE): reduces the town's FOOD slot demand by an
+// Ministry Hall (MINISTRY_HALL): reduces the town's FOOD slot demand by an
 // amount equal to the town's own tier step (Town=0, City=1, Great City=2,
 // Metropolis=3) — replaces the old fabricated "-20% settled-tile upkeep"
 // claim, which corresponded to nothing real in the code.
-export const governorsOfficeFoodSlotWaiver = (tier: PopulationTier | undefined): number =>
+export const ministryHallFoodSlotWaiver = (tier: PopulationTier | undefined): number =>
   tier ? Math.max(0, TOWN_TIER_FOOD_SLOT_STEP[tier]) : 0;
 
 // Gold cost for each UPGRADE_TOWN_TIER step, decided directly by the user:

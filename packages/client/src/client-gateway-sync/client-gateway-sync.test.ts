@@ -272,18 +272,18 @@ describe("client gateway sync", () => {
         x: 49,
         y: 219,
         detailLevel: "full",
-        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
-        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
-        economicStructureJson: JSON.stringify({ ownerId: "me", type: "WOODEN_FORT", status: "active" })
+        upkeepEntries: [{ label: "Palisade", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["PALISADE"] },
+        economicStructureJson: JSON.stringify({ ownerId: "me", type: "PALISADE", status: "active" })
       }
     ]);
 
     expect(deps.state.tiles.get("49,219")).toEqual(
       expect.objectContaining({
         detailLevel: "full",
-        upkeepEntries: [{ label: "Wooden Fort", perMinute: { GOLD: 0.05 } }],
-        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["WOODEN_FORT"] },
-        economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+        upkeepEntries: [{ label: "Palisade", perMinute: { GOLD: 0.05 } }],
+        history: { previousOwners: ["me"], captureCount: 1, structureHistory: ["PALISADE"] },
+        economicStructure: { ownerId: "me", type: "PALISADE", status: "active" }
       })
     );
   });

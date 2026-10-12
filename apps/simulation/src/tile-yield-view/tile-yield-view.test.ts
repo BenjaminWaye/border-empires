@@ -159,65 +159,65 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldCap.strategicEach).toBe(TILE_YIELD_CAP_RESOURCE);
   });
 
-  it("farmstead on a farm tile produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
+  it("hydrogarden on a farm tile produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
       resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: player.id }
+      economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBeUndefined();
   });
 
-  it("farmstead on a fish tile produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
+  it("hydrogarden on a fish tile produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
       resource: "FISH",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: player.id }
+      economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBeUndefined();
   });
 
-  it("waterworks within 10 tiles still produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
+  it("hydroworks within 10 tiles still produces no FOOD strategicPerDay (slot-based, not yield-based)", () => {
     const farmTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
       resource: "FARM",
-      economicStructure: { type: "FARMSTEAD", status: "active", ownerId: player.id }
+      economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: player.id }
     };
-    const waterworksTile: DomainTileState = {
+    const hydroworksTile: DomainTileState = {
       x: 10, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "WATERWORKS", status: "active", ownerId: player.id }
+      economicStructure: { type: "HYDROWORKS", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([
       ["5,5", farmTile],
-      ["10,5", waterworksTile]
+      ["10,5", hydroworksTile]
     ]);
     const view = buildTileYieldView(farmTile, 0, 1440 * 60000, {
       player,
       tiles,
       dockLinksByDockTileKey: new Map(),
-      waterworksKeys: new Set(["10,5"])
+      hydroworksKeys: new Set(["10,5"])
     });
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBeUndefined();
   });
 
   // TITANIUM/CRYSTAL/UMBRITE are slot-based, not tile-yield-produced (§5.1/§5.6) —
-  // MINE/UMBRITE_RIG/TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer emit a
+  // MINE/UMBRITE_RIG/TITANIUM_WORKS/UMBRITE_WORKS/AETHER_CONDENSER no longer emit a
   // strategicPerDay entry for these keys.
   it("MINE on a TITANIUM tile produces no TITANIUM strategicPerDay (slot-based, not yield-based)", () => {
     const mineTile: DomainTileState = {
@@ -247,39 +247,39 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.UMBRITE).toBeUndefined();
   });
 
-  it("ADVANCED_TITANIUM_WORKS produces no TITANIUM strategicPerDay (slot-based, not yield-based)", () => {
+  it("HIGH_YIELD_TITANIUM_WORKS produces no TITANIUM strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "ADVANCED_TITANIUM_WORKS", status: "active", ownerId: player.id }
+      economicStructure: { type: "HIGH_YIELD_TITANIUM_WORKS", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
     expect(view?.yieldRate.strategicPerDay?.TITANIUM).toBeUndefined();
   });
 
-  it("ADVANCED_UMBRITE_SYNTHESIZER produces no UMBRITE strategicPerDay (slot-based, not yield-based)", () => {
+  it("HIGH_YIELD_UMBRITE_WORKS produces no UMBRITE strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active", ownerId: player.id }
+      economicStructure: { type: "HIGH_YIELD_UMBRITE_WORKS", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
     expect(view?.yieldRate.strategicPerDay?.UMBRITE).toBeUndefined();
   });
 
-  it("ADVANCED_CRYSTAL_SYNTHESIZER produces no CRYSTAL strategicPerDay (slot-based, not yield-based)", () => {
+  it("HIGH_YIELD_AETHER_CONDENSER produces no CRYSTAL strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "ADVANCED_CRYSTAL_SYNTHESIZER", status: "active", ownerId: player.id }
+      economicStructure: { type: "HIGH_YIELD_AETHER_CONDENSER", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
@@ -299,15 +299,15 @@ describe("buildTileYieldView", () => {
       expect(tileYieldNeedsServerAuthority({ dockId: "dock-a" })).toBe(true);
     });
 
-    it("is true for an active FARMSTEAD", () => {
+    it("is true for an active HYDROGARDEN", () => {
       expect(
-        tileYieldNeedsServerAuthority({ economicStructure: { type: "FARMSTEAD", status: "active", ownerId: "player-1" } })
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "HYDROGARDEN", status: "active", ownerId: "player-1" } })
       ).toBe(true);
     });
 
     it("is false for an inactive (e.g. under-construction) strategic structure", () => {
       expect(
-        tileYieldNeedsServerAuthority({ economicStructure: { type: "FARMSTEAD", status: "under_construction", ownerId: "player-1" } })
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "HYDROGARDEN", status: "under_construction", ownerId: "player-1" } })
       ).toBe(false);
     });
 

@@ -45,8 +45,8 @@ const slotLinesForTile = (tile: Tile): TileOverviewLine[] => {
     }
   };
   if (tile.fort && tile.fort.status === "active") pushSlotLines("Fort", tile.fort.variant ?? "FORT");
-  if (tile.siegeOutpost && tile.siegeOutpost.status === "active") {
-    pushSlotLines("Siege Battery", tile.siegeOutpost.variant ?? "SIEGE_OUTPOST");
+  if (tile.siegeBattery && tile.siegeBattery.status === "active") {
+    pushSlotLines("Siege Battery", tile.siegeBattery.variant ?? "SIEGE_BATTERY");
   }
   if (tile.economicStructure && tile.economicStructure.status === "active") {
     pushSlotLines(economicStructureName(tile.economicStructure.type), tile.economicStructure.type, converterModeOf(tile.economicStructure));

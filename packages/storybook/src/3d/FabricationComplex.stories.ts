@@ -328,7 +328,7 @@ export const OnGrass: Story = {
 };
 
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
-// Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
+// Ore Refinery + Titanium Forge + Rigging Works + Aether Resonance Core +
 // Transposition Array + Aetherward Coil + Tideway Lattice + Geoform Engine +
 // Stratospheric Dockyard + Resonance Grid + Matterwright Retort + Umbrite
 // Synthesis + Titanium Synthesis + Catalyst Fabricator + Ancillary Control

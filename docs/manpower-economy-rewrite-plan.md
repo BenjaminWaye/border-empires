@@ -75,7 +75,7 @@ comparatively slow *by design*. That brake is the thing gold never had.
 This is why the swap is structural, not a relabel.
 
 Today manpower only gates **combat** (ATTACK 60, DEEP_STRIKE /
-NAVAL_INFILTRATION 120) and forts (Fort 300, Siege Outpost 60, Wooden
+NAVAL_INFILTRATION 120) and forts (Fort 300, Siege Battery 60, Wooden
 Fort / Relay Beacon 30) `[code: config.ts:67-72, structure-costs.ts]`.
 EXPAND and SETTLE cost **zero** manpower `[code:
 game-domain index manpowerRequirements()]`. The two actions the beta tester
@@ -102,7 +102,7 @@ This plan fixes exactly that.
 ### 4.1 What moves onto manpower
 
 **Everything that builds or expands.** Expansion, settlement, and every
-economic structure (Farmstead, Camp, Mine, Granary, Market, Bank, Foundry,
+economic structure (Hydrogarden, Camp, Mine, Incubation Engine, Market, Bank, Ore Refinery,
 synthesizers, governance buildings, monuments) now cost manpower as their
 primary cost. Fort already works this way — this extends a proven,
 already-shipped pattern to the whole build economy rather than inventing a
@@ -114,14 +114,14 @@ new mechanic.
 |---|---|---|
 | **Expand** (claim → FRONTIER) | **10** `[decided]` | Cheapest — just claiming dirt; 0 defense, 0 yield. Deliberately matches the existing `BARBARIAN_RAID_COST = 10` `[code: config.ts]` — one shared mental model, "10 = a cheap frontier poke," across claiming land and raiding a barbarian tile. |
 | **Settle** (FRONTIER → SETTLED) | **20** `[decided]` | The growth loop we're reviving; acquisition of new capacity/slots + defense + Integrity `T`. Priced below structures on purpose. |
-| Farmstead / Camp / Mine / Granary | **80** `[decided, revised up from 35 — §12]` | Basic optimization sinks — amplify a tile you already have; pure spend, no capacity return. |
+| Hydrogarden / Camp / Mine / Incubation Engine | **80** `[decided, revised up from 35 — §12]` | Basic optimization sinks — amplify a tile you already have; pure spend, no capacity return. |
 | Market / synthesizers | **150** `[revised up from 70]` | |
-| Bank / Foundry | **300** `[revised up from 180]` | |
+| Bank / Ore Refinery | **300** `[revised up from 180]` | |
 | Fort | 300 | `[code]` already set — highest common build, now matched by Tier 3. |
 
 **Design rule that sets the ordering:** *acquisition is always a little
 cheaper than optimization.* Settle (acquire a producing tile / new slots) <
-Farmstead (optimize an existing tile). This tilts the player back toward the
+Hydrogarden (optimize an existing tile). This tilts the player back toward the
 map — expressed in the cost numbers themselves, not a tutorial. (Note: an
 earlier version of this reasoning wrongly claimed settling "returns
 manpower via a new town" — corrected: SETTLE does **not** create a town
@@ -193,19 +193,19 @@ needed now that the capital has its own correctly-sized tier.
 
 Moving the economy onto manpower means manpower needs its own investment
 ladder (as gold structures had Market/Bank). Partial foundation already
-exists — **Rail Depot already does two distinct things today**, part of
+exists — **Neural Works already does two distinct things today**, part of
 the mustering system that is **live in prod and staging**
 (`MUSTER_SYSTEM_ENABLED = "true"` in both `fly.combined.toml` and
 `fly.combined.staging.toml`) `[code]`:
-1. **Global manpower regen**: `RAIL_DEPOT_MANPOWER_REGEN_PER_MIN = 0.5`
+1. **Global manpower regen**: `NEURAL_WORKS_MANPOWER_REGEN_PER_MIN = 0.5`
    per depot, empire-wide, stacking with multiple depots
    `[code: config.ts:161]`. **This is removed** — see the network redesign
    below, which replaces it.
-2. **Muster speed boost**: within a 50-tile radius (`RAIL_DEPOT_MUSTER_
-   RADIUS = 50`, Chebyshev distance), a Rail Depot boosts any of your
+2. **Muster speed boost**: within a 50-tile radius (`NEURAL_WORKS_MUSTER_
+   RADIUS = 50`, Chebyshev distance), a Neural Works boosts any of your
    outposts' manpower-muster inflow rate from the ordinary 1.25×
    (`MUSTER_DEPOT_SPEED_MULT`, the base bonus just for being inside an
-   outpost's own 5-tile depot zone) up to 2.0× (`RAIL_DEPOT_BOOSTED_
+   outpost's own 5-tile depot zone) up to 2.0× (`NEURAL_WORKS_BOOSTED_
    MUSTER_MULT`) `[code: config.ts:162-167]` — troops build up at a
    forward position 60% faster near a depot. **Kept unchanged** — this is a
    purely spatial effect (radius-based), independent of the connected-town
@@ -217,29 +217,29 @@ the mustering system that is **live in prod and staging**
 Ladder:
 - **Local tier** (new, low): a cheap town-level structure boosting *that
   town's* regen.
-- **Mid tier — Garrison Hall** (exists `[code: structure-costs.ts:76]`):
+- **Mid tier — Ancillary Depot** (exists `[code: structure-costs.ts:76]`):
   gives **+150 manpower cap, flat, to the town it's built in**, always,
   unconditionally `[decided]` — deliberately matching the base SETTLEMENT
-  tier's own cap exactly, so the intuitive read is "a Garrison Hall gives
+  tier's own cap exactly, so the intuitive read is "a Ancillary Depot gives
   this town an extra Settlement's worth of capacity."
-- **Network tier — Rail Depot, redesigned** `[decided]`: Rail Depot no
-  longer grants its own flat regen. Instead, **Rail Depot is the enabler of
+- **Network tier — Neural Works, redesigned** `[decided]`: Neural Works no
+  longer grants its own flat regen. Instead, **Neural Works is the enabler of
   a network-wide manpower bonus**, reusing the existing connected-town
   network already used for the gold bonus (`economy-network.ts`):
-  - **Only one Rail Depot may be built per connected-town network** — a
+  - **Only one Neural Works may be built per connected-town network** — a
     second one inside the same contiguous cluster is disallowed. One hub
     activates the whole network; there's no benefit to building more.
-  - For **every Garrison Hall in that network, uncapped in count**, Rail
+  - For **every Ancillary Depot in that network, uncapped in count**, Rail
     Depot grants **+0.1 global manpower regen and +75 global manpower
-    cap**, on top of that Garrison Hall's own unconditional +150 local cap.
+    cap**, on top of that Ancillary Depot's own unconditional +150 local cap.
     Both bonuses are attributed to the depot, not generated by the halls
-    independently — build one Rail Depot, then every Garrison Hall you
+    independently — build one Neural Works, then every Ancillary Depot you
     connect to that network keeps adding to the total, with no ceiling on
     how many can contribute.
-  - This is deliberately uncapped on the Garrison Hall side (unlike the
+  - This is deliberately uncapped on the Ancillary Depot side (unlike the
     3-connection cap on the existing gold-network bonus) — the cap already
-    lives on the Rail Depot side (build 1, that's it), so gating the
-    Garrison Hall side too would double-restrict the same thing. It also
+    lives on the Neural Works side (build 1, that's it), so gating the
+    Ancillary Depot side too would double-restrict the same thing. It also
     reinforces the same "stay connected and contiguous" theme that already
     matters for the gold-network bonus and Empire Integrity — a third
     system now rewards maintaining a large, connected empire, and "how many
@@ -256,7 +256,7 @@ these structures cost "gold + a slot, not manpower" to avoid a bootstrap
 trap (needing manpower to fix a manpower shortage). That's stale — it
 predates the later, load-bearing decision that *all* buildings cost
 manpower (§4.1), and the actual costs already locked in §12 confirm this:
-Garrison Hall is 150 manpower + 1 FOOD slot + 1 CRYSTAL slot, Rail Depot is
+Ancillary Depot is 150 manpower + 1 FOOD slot + 1 CRYSTAL slot, Neural Works is
 300 manpower + 1 FOOD slot + 1 CRYSTAL slot (both revised up per §12), same
 as every other structure in their tiers. The bootstrap concern turns out not to be a real trap in
 practice: manpower regenerates passively regardless of what a player
@@ -302,7 +302,7 @@ A boosting structure raises the slot capacity of the tile it sits on,
 instead of an abstract yield %:
 - **Mine** on an IRON tile: 1 slot → 2 slots (replaces the old
   `STRUCTURE_OUTPUT_MULT` percentage `[code: tile-yield-view.ts:264-272]`).
-- **Farmstead** on a FARM tile: increases the FOOD slots that tile provides.
+- **Hydrogarden** on a FARM tile: increases the FOOD slots that tile provides.
 
 One legible mental model — "this building lets this tile support more" —
 across every resource type, instead of five different bonus formulas.
@@ -317,18 +317,18 @@ abstract `supportMax`/`supportCurrent` mechanic that already gates town gold
 **Every building requires 1 FOOD slot as ongoing upkeep, unless it already
 has a different slot requirement.** Structures with a natural material tie
 (Fort family → iron, Siege family → iron/supply, Synthesizers → their own
-resource, Observatory/Airport/certain elite structures → crystal, per
+resource, Observatory/Sky Dock/certain elite structures → crystal, per
 §12/§17) keep that resource instead of food. Everything else in the
-structure list — Market, Bank, Governor's Office, Caravanary, Foundry,
-Census Hall, Rail Depot, Radar System, Exchange House, Aether Tower, Seed
-Granary, Clearing House, and Camp/Mine/Granary themselves — draws 1 FOOD
+structure list — Market, Bank, Ministry Hall, Trade Nexus, Ore Refinery,
+Census Hall, Neural Works, Resonance Grid, Exchange House, Aether Tower, Seed
+Incubation Engine, Clearing House, and Camp/Mine/Incubation Engine themselves — draws 1 FOOD
 slot each.
 
-**Implementation exception, not reflected above: Farmstead and Waterworks
+**Implementation exception, not reflected above: Hydrogarden and Hydroworks
 draw no FOOD slot of their own** (`structure-slots.ts`). Both boost FOOD
 supply directly (this section's own "+1"/"+2 food slots" bullets below) —
 charging them their own boosted resource would be circular, since a
-Farmstead/Waterworks dormant for lack of a free FOOD slot would zero out
+Hydrogarden/Hydroworks dormant for lack of a free FOOD slot would zero out
 the very supply it exists to add. Camp/Mine aren't exempted the same way:
 their own-tile boost is to IRON/CRYSTAL/SUPPLY, not FOOD, so charging them
 a separate FOOD slot has no such circularity.
@@ -337,32 +337,32 @@ a separate FOOD slot has no such circularity.
 map against up to ~2,700 potential building slots (300 towns × 9
 slots/town):** food-slot *supply* isn't fixed at 1-per-tile. It scales with
 investment:
-- **Farmstead adds +1 food slot** to the FARM tile it's built on (base 1
+- **Hydrogarden adds +1 food slot** to the FARM tile it's built on (base 1
   → 2).
-- **Waterworks** (a radius-support structure, not tied to a resource tile
-  itself — it boosts nearby Farmsteads rather than producing food, per the
+- **Hydroworks** (a radius-support structure, not tied to a resource tile
+  itself — it boosts nearby Hydrogardens rather than producing food, per the
   existing code comment at `tile-yield-view.ts:169-171`) **adds +2 food
-  slots to every Farmstead within its radius.** Waterworks is now the
-  bigger multiplier of the pair — a Farmstead alone gets a modest bump, but
-  a Farmstead *within Waterworks range* jumps from 2 to 4 slots, making
-  Waterworks placement (and its radius) the real capacity-scaling decision
-  rather than Farmstead spam.
+  slots to every Hydrogarden within its radius.** Hydroworks is now the
+  bigger multiplier of the pair — a Hydrogarden alone gets a modest bump, but
+  a Hydrogarden *within Hydroworks range* jumps from 2 to 4 slots, making
+  Hydroworks placement (and its radius) the real capacity-scaling decision
+  rather than Hydrogarden spam.
 
 **FISH tiles get a different, fixed treatment: 2 base food slots, with no
-Farmstead or Waterworks bonus available** `[decided]`. This preserves the
-existing asymmetry already in the code — Farmstead explicitly excludes
-FISH (`tile-yield-view.ts:84`: *"Farmstead: +50% food only on FARM tiles.
+Hydrogarden or Hydroworks bonus available** `[decided]`. This preserves the
+existing asymmetry already in the code — Hydrogarden explicitly excludes
+FISH (`tile-yield-view.ts:84`: *"Hydrogarden: +50% food only on FARM tiles.
 FISH gets nothing"*), and FISH's old raw yield (72/day) was already ~1.5×
 FARM's (48/day) with zero scaling either way. Carrying that forward: FARM
-starts at 1 slot but scales to 2 (Farmstead) or 4 (Waterworks-boosted
-Farmstead); FISH is a flat, reliable 2 slots forever, no investment
+starts at 1 slot but scales to 2 (Hydrogarden) or 4 (Hydroworks-boosted
+Hydrogarden); FISH is a flat, reliable 2 slots forever, no investment
 possible. That gives the two tile types a real strategic difference — FISH
 is the no-effort, immediately-useful source; FARM is the one worth
 developing if you want real scale.
 
 So a heavily-developed FARM tile can support far more than 1 building's
 worth of food upkeep — food becomes a resource you actively **build
-capacity into** (via Farmstead/Waterworks) rather than a fixed ceiling,
+capacity into** (via Hydrogarden/Hydroworks) rather than a fixed ceiling,
 which turns "do I have enough food slots to support my next building" into
 a real, ongoing decision rather than a hard wall. Exact multipliers above
 are a first-pass anchor, not modelled against the full 2,700-slot
@@ -487,14 +487,14 @@ tech:
 | Action | Manpower `[per §12]` | Full rush from zero |
 |---|---|---|
 | Settle | 20 | ~10 gold |
-| Farmstead | 80 | ~40 gold |
+| Hydrogarden | 80 | ~40 gold |
 | Bank | 300 | ~150 gold |
 | Fort | 300 | ~150 gold |
 
-(Manpower costs updated to the §12-revised figures — Farmstead 35→80, Bank
+(Manpower costs updated to the §12-revised figures — Hydrogarden 35→80, Bank
 180→300 — so the rush prices track the current build costs, not an earlier
 draft's.) Settle ≈ tier-1-tech price (10 gold) → a real "tech vs. rush this
-one settle" choice at the everyday scale. Farmstead is a few techs' worth;
+one settle" choice at the everyday scale. Hydrogarden is a few techs' worth;
 Bank/Fort cost ~15 days' income at 10 gold/day/town → a deliberate
 rich-empire splurge, not spam. The 0.5-gold-per-manpower rate is anchored on
 Settle specifically (the everyday action), so a full Settle rush stays
@@ -524,9 +524,9 @@ Reconciliation with the slot model:
 **How that number was actually derived, since it's worth recording:** the
 live game's real upkeep, confirmed against in-game screenshots (not the
 code alone, see below), is 12 gold/m for Fur/Ironworks and 16 gold/m for
-Crystal Synthesizer (displayed in-game as **"Aether Condenser"** — same
+Aether Condenser (displayed in-game as **"Aether Condenser"** — same
 structure, different player-facing name than the internal type; worth
-knowing so nobody goes looking for "Crystal Synthesizer" in the UI) —
+knowing so nobody goes looking for "Aether Condenser" in the UI) —
 17,280 gold/day and 23,040 gold/day respectively in the current economy.
 Rescaling those by the same ~288× factor used everywhere else gives ~60/80
 gold/day; halved (to avoid pricing a synthesizer out of reach for anything
@@ -543,14 +543,14 @@ explain the gap. **Root cause not found** — the live code and the live
 displayed number disagree by a clean 2×, and rather than keep debugging
 legacy code that's being fully replaced by this rewrite, the live *observed*
 numbers were trusted over the code. Also confirmed in the same pass: this
-bug is specific to converters — Farmstead's upkeep (0.1 gold/m, live)
-matches its code (`FARMSTEAD_GOLD_UPKEEP=1, /10=0.1`) exactly, so the base
-pattern isn't broken everywhere, just for Fur/Iron/Crystal Synthesizer.
+bug is specific to converters — Hydrogarden's upkeep (0.1 gold/m, live)
+matches its code (`HYDROGARDEN_GOLD_UPKEEP=1, /10=0.1`) exactly, so the base
+pattern isn't broken everywhere, just for Fur/Iron/Aether Condenser.
 
 **Separately confirmed as a real, pre-existing bug worth fixing regardless
 of this rewrite**: `ADVANCED_FUR_SYNTHESIZER` reuses `CAMP_GOLD_UPKEEP`
 (1.2, i.e. ~17 gold/day) instead of its own rate — `ADVANCED_IRONWORKS` and
-`ADVANCED_CRYSTAL_SYNTHESIZER` both correctly reuse their own base
+`HIGH_YIELD_AETHER_CONDENSER` both correctly reuse their own base
 structure's upkeep unchanged. This reads as a copy-paste error (an upgraded
 building costing *less* upkeep than the thing it upgrades) and should be
 fixed independent of anything else in this plan.
@@ -788,11 +788,11 @@ amount or zero everywhere except synthesizers, which keep meaningful gold
 on an ongoing basis.
 
 **Note on Fort/Siege data:** two cost sources exist in the codebase for Fort
-and Siege Outpost — the generic `STRUCTURE_COST_DEFINITIONS` table and the
+and Siege Battery — the generic `STRUCTURE_COST_DEFINITIONS` table and the
 dedicated `FORT_TIER_LADDER` / `SIEGE_TIER_LADDER` (the latter is
 explicitly commented as *"Single source of truth... Used by the simulation,
 game-domain, and the client"*). The table below uses the tier-ladder
-numbers as authoritative; the generic table's `WOODEN_FORT`/`SIEGE_OUTPOST`
+numbers as authoritative; the generic table's `PALISADE`/`SIEGE_BATTERY`
 entries look superseded and worth deleting during implementation rather
 than carrying two sources of truth forward.
 
@@ -802,13 +802,13 @@ The original version of this table only converted **build** costs to slots
 and missed that some structures also have a separate, **ongoing per-minute
 crystal upkeep** on top of their build cost — confirmed directly:
 `OBSERVATORY_UPKEEP_PER_MIN = 0.025` and
-`AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.025` `[code: server-game-constants.ts:
+`SKY_DOCK_CRYSTAL_UPKEEP_PER_MIN = 0.025` `[code: server-game-constants.ts:
 125, config.ts:87]`, both drained continuously while the structure is
 active (`player-upkeep-incremental.ts:127,157`). Under slots, this doesn't
 need a separate mechanic: **the slot occupation itself is the upkeep** —
 once a structure permanently occupies a CRYSTAL slot for as long as it
 exists (§5.1, the same rule as Fort/IRON), there is nothing left to meter
-per-minute. Observatory and Airport are updated in the tables above to
+per-minute. Observatory and Sky Dock are updated in the tables above to
 "1 CRYSTAL slot, permanently occupied while active," replacing their old
 build-cost-plus-drain pattern entirely. The same fix applies to the
 `reveal_empire` ability's ongoing upkeep (§17).
@@ -817,7 +817,7 @@ build-cost-plus-drain pattern entirely. The same fix applies to the
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Wooden Fort | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
+| Palisade | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
 | Relay Beacon | 75g + 30mp, ×1.1/build | **30** (unchanged) | 1 FOOD slot |
 
 ### Tier 1 — basic economic sinks (80 manpower) `[increased — see §9 item on structure costs]`
@@ -831,25 +831,25 @@ multiples of Settle's cost (4× here).
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Farmstead | 700g + 20 food | **80** | **No FOOD slot** (would be circular — see §5.3's implementation-exception note) — *boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
-| Waterworks | 600g + 20 food | **80** | **No FOOD slot** (same circularity exception as Farmstead) — *boosts every Farmstead within its radius by +2 FOOD slots, per §5.3* |
+| Hydrogarden | 700g + 20 food | **80** | **No FOOD slot** (would be circular — see §5.3's implementation-exception note) — *boosts the tile's own FOOD slot count by +1, per §5.2/5.3* |
+| Hydroworks | 600g + 20 food | **80** | **No FOOD slot** (same circularity exception as Hydrogarden) — *boosts every Hydrogarden within its radius by +2 FOOD slots, per §5.3* |
 | Camp | 800g + 30 supply | **80** | 1 FOOD slot |
 | Mine | 800g + 30 iron (or crystal) | **80** | 1 FOOD slot (upkeep) — *also boosts the tile's own IRON/CRYSTAL slot count, per §5.2* |
-| Granary | 700g + 40 food | **80** | 1 FOOD slot |
+| Incubation Engine | 700g + 40 food | **80** | 1 FOOD slot |
 | Observatory | 800g + 45 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build (doubling) | **80**, doubling scaling kept | **1 CRYSTAL slot** (already has "another slot requirement," so no food slot) — see §12.1 note. |
 | Census Hall | 900g + 30 food | **80** | 1 FOOD slot |
 
 *(Mine still boosts its own tile's IRON/CRYSTAL slot count in addition to
 drawing its own 1 FOOD slot of upkeep — the boosting effect and the upkeep
-cost are separate things. Farmstead/Waterworks boost FOOD slot count too,
+cost are separate things. Hydrogarden/Hydroworks boost FOOD slot count too,
 but draw no FOOD slot themselves, per the circularity exception above.)*
 
 ### Tier 1.5 — mid sinks (100 manpower) `[increased, 5× Settle]`
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Seed Granary | 1,400g + 80 food | **100** | 1 FOOD slot |
-| Customs House | 1,800g + 60 crystal | **100** | 1 FOOD slot |
+| Seed Incubation Engine | 1,400g + 80 food | **100** | 1 FOOD slot |
+| Harbor Exchange | 1,800g + 60 crystal | **100** | 1 FOOD slot |
 
 ### Tier 2 — trade & production infrastructure (150 manpower) `[increased, 7.5× Settle]`
 
@@ -858,34 +858,34 @@ but draw no FOOD slot themselves, per the circularity exception above.)*
 | Market | 2,200g | **150** | 1 FOOD slot |
 | Fur Synthesizer | 2,200g | **150** | 1 SUPPLY slot (hard-capped, never upgradeable — §6.4) + **30 gold/day upkeep** (already has "another slot requirement," no food slot) |
 | Ironworks | 2,400g | **150** | 1 IRON slot (hard-capped) + **30 gold/day upkeep** |
-| Crystal Synthesizer | 2,800g | **150** | 1 CRYSTAL slot (hard-capped) + **40 gold/day upkeep** |
-| Garrison Hall | 2,200g + 80 crystal | **150** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
-| Governor's Office | 2,600g | **150** | 1 FOOD slot |
-| Caravanary | 2,600g | **150** | 1 FOOD slot |
-| Airport | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **150**, doubling scaling kept | **1 CRYSTAL slot** (replaces the separate per-minute upkeep, §12.1 — no food slot, already has another requirement) |
+| Aether Condenser | 2,800g | **150** | 1 CRYSTAL slot (hard-capped) + **40 gold/day upkeep** |
+| Ancillary Depot | 2,200g + 80 crystal | **150** | Repurposed (§4.4) — manpower-**cap** booster for its town. **1 FOOD slot + 1 CRYSTAL slot** (advanced-tier gate, per the crystal fix below — scaling manpower infrastructure deliberately draws on the scarcer resource) |
+| Ministry Hall | 2,600g | **150** | 1 FOOD slot |
+| Trade Nexus | 2,600g | **150** | 1 FOOD slot |
+| Sky Dock | 3,000g + 80 crystal build + 0.025 crystal/min ongoing upkeep, ×2/build | **150**, doubling scaling kept | **1 CRYSTAL slot** (replaces the separate per-minute upkeep, §12.1 — no food slot, already has another requirement) |
 | Clearing House | 3,000g + 80 crystal | **150** | 1 FOOD slot |
 
 ### Tier 3 — major economic engines (300 manpower) `[increased, 15× Settle — now matches Fort]`
 
-**Crystal fix (this section): Bank, Foundry, Rail Depot, and Radar System
+**Crystal fix (this section): Bank, Ore Refinery, Neural Works, and Resonance Grid
 now also draw 1 CRYSTAL slot, on top of their base FOOD slot** — crystal is
 deliberately positioned as the material that gates *advanced-tier*
 infrastructure specifically (not competing with food/iron on breadth, where
 there isn't enough of it — see the crystal-demand discussion this decision
-came from). Rail Depot in particular matters: it's part of the
+came from). Neural Works in particular matters: it's part of the
 manpower-boosting tree (§4.4), so crystal now directly gates how fast a
 player can scale manpower itself, giving crystal a permanent, felt role
-instead of being touched twice (Observatory, Airport) and forgotten.
+instead of being touched twice (Observatory, Sky Dock) and forgotten.
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
 | Bank | 3,200g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Foundry | 4,500g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
-| Rail Depot | 4,000g + 100 crystal | **300** | Network booster (§4.4, redesigned — no longer a flat regen source). 1 FOOD slot + **1 CRYSTAL slot** |
-| Radar System | 4,000g + 120 crystal | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Ore Refinery | 4,500g | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
+| Neural Works | 4,000g + 100 crystal | **300** | Network booster (§4.4, redesigned — no longer a flat regen source). 1 FOOD slot + **1 CRYSTAL slot** |
+| Resonance Grid | 4,000g + 120 crystal | **300** | 1 FOOD slot + **1 CRYSTAL slot** |
 | Advanced Fur Synthesizer | 4,000g + 40 supply | **300** | Still 1 SUPPLY slot (hard-capped), higher output within it + **45 gold/day upkeep** `[proposed]` |
 | Advanced Ironworks | 4,200g + 40 iron | **300** | Still 1 IRON slot + **45 gold/day upkeep** `[proposed]` |
-| Advanced Crystal Synthesizer | 4,800g + 40 crystal | **300** | Still 1 CRYSTAL slot + **60 gold/day upkeep** `[proposed]` |
+| High Yield Aether Condenser | 4,800g + 40 crystal | **300** | Still 1 CRYSTAL slot + **60 gold/day upkeep** `[proposed]` |
 
 *(Advanced synthesizer upkeep set at 1.5× the base rate decided in §6.4 —
 must stay **above** the base synthesizer's upkeep, since an upgraded
@@ -914,7 +914,7 @@ advanced ≥ base — is not negotiable.)*
 
 | Variant | Old cost | New manpower | New slot requirement | Attack mult |
 |---|---|---|---|---|
-| Siege Outpost | 900g + 60mp + 45 supply | **60** (unchanged) | 1 SUPPLY slot | 1.6× |
+| Siege Battery | 900g + 60mp + 45 supply | **60** (unchanged) | 1 SUPPLY slot | 1.6× |
 | Siege Tower | 1,800g + 60mp + 90 supply + 60 iron | **60** (unchanged) | 2 SUPPLY + 1 IRON slots | 1.8× |
 | Dread Tower | 4,200g + 60mp + 140 supply + 120 iron | **60** (unchanged) | 3 SUPPLY + 2 IRON slots | 2.0× |
 
@@ -922,8 +922,8 @@ advanced ≥ base — is not negotiable.)*
 
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
-| Imperial Exchange / World Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **1,000 each** `[corrected — see §16]` | 1 CRYSTAL slot each |
-| Imperial Exchange / World Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **1,600** `[corrected]` | 2 SHARD (unchanged — stays event-gated, §5.5) + **1 CRYSTAL slot, permanent upkeep, decided** |
+| Imperial Exchange / Sovereign Siege Engine / Aegis Dome / Astral Dock **Part** (×4 per monument) | 8,000g + 180 crystal each | **1,000 each** `[corrected — see §16]` | 1 CRYSTAL slot each |
+| Imperial Exchange / Sovereign Siege Engine / Aegis Dome / Astral Dock (final assembly) | 18,000g + 2 shard | **1,600** `[corrected]` | 2 SHARD (unchanged — stays event-gated, §5.5) + **1 CRYSTAL slot, permanent upkeep, decided** |
 
 A complete monument: 4×1,000 (parts) + 1,600 (assembly) = **5,600
 manpower** total — corrected upward from an original, under-priced 2,200
@@ -964,7 +964,7 @@ unenforced, per §6.2 (no research timer).
 | 1 | **10** | Agriculture, Workshop Standards, Merchant Charters, Cartography, Warbands |
 | 2 | **50** | Boiler Alchemy, Field Rigging, Stoneworks, Deep Prospecting, Irrigation, Assembly Guilds, Signal Fires, Aether Moorings |
 | 3 | **100** | Brass Drillwork, Ceramic Stores, Royal Mint, Crystal Lattices, Mercantile Ledgers, Survey Corps, Bastion Walls, Siege Towers, Convoy Logistics |
-| 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Quartermaster Corps, Deep Extraction, Seedline Granaries — 7 techs, not 8: `Overload Protocols` removed (§18, Synthesizer Overload is removed and this was its only unlock) |
+| 4 | **200** | Aether Bridge, Census Records, Dockworks, Beacon Towers, Quartermaster Corps, Deep Extraction, Seedline Incubation Engines — 7 techs, not 8: `Overload Protocols` removed (§18, Synthesizer Overload is removed and this was its only unlock) |
 | 5 | **400** | Cipher Bureaus, Aether Engineering, Banking, Provincial Ministries, Rail Networks, Grand Synthesis, Starforged Steel |
 | 6 | **500** `[decided]` | Grand Cartography, Monument Cities, Standing Army, Sky Docks, Resonance Grid, Aether Towers |
 | 7 | **650** `[decided]` | Imperial Exchange, Aegis Dome, Worldbreaker Cannon, Astral Dock |
@@ -1083,7 +1083,7 @@ implementation.
   currency again.
 - **Synthesizer tooltip copy** — needs to explicitly state the upkeep
   (gold/day) and the hard 1-slot cap with no upgrade path, so players
-  understand up front why a Crystal Synthesizer behaves differently from a
+  understand up front why a Aether Condenser behaves differently from a
   Mine on a real Crystal tile (§6.4) — this is the thing that keeps tall
   play viable, so it needs to read as a deliberate, understood trade-off,
   not a mysteriously weak building.
@@ -1129,15 +1129,15 @@ implementation.
   1:1) surfaced several checks that were wrong in more ways than "stale
   amount": `CAMP` and `MINE` were gated on SUPPLY/IRON-or-CRYSTAL but the
   table says both draw a FOOD slot (§5.3's "boosting structures draw FOOD
-  unless they have a natural material tie"); `CUSTOMS_HOUSE` was gated on
+  unless they have a natural material tie"); `HARBOR_EXCHANGE` was gated on
   CRYSTAL but the table's documented quirk (`structure-slots.ts`) says FOOD;
-  `BANK`/`MARKET`/`GOVERNORS_OFFICE`/`CARAVANARY`/`CLEARING_HOUSE`/
-  `FOUNDRY`/`WOODEN_FORT` had no resource check at all client-side (some
+  `BANK`/`MARKET`/`MINISTRY_HALL`/`TRADE_NEXUS`/`CLEARING_HOUSE`/
+  `ORE_REFINERY`/`PALISADE` had no resource check at all client-side (some
   never did, some lost theirs to drift) despite the table requiring one; the
   four monument *assemblies* (`IMPERIAL_EXCHANGE` etc, not the parts) were
   checking their real SHARD stockpile spend but had no CRYSTAL slot check
   even though the table lists one. All of these are now checked. The
-  `upgrade_fur_synthesizer`/`upgrade_ironworks`/`upgrade_crystal_synthesizer`
+  `upgrade_fur_synthesizer`/`upgrade_ironworks`/`upgrade_aether_condenser`
   Advanced-tier upgrades had a stockpile check that should never have gated
   anything (Advanced synthesizers are still synthesizer-family, still
   slot-exempt) — removed entirely rather than converted. Cost/detail text
@@ -1163,21 +1163,21 @@ implementation.
 
   **Bug found and flagged, later confirmed moot by a subsequent change — no
   fix needed:** while wiring the cold/reconnect path, `live-economy-snapshot.ts`'s
-  then-existing `farmsteadWaterworksKeys` computation (built over
+  then-existing `hydrogardenHydroworksKeys` computation (built over
   `settledDomainTilesByPlayerId`, which never carries `economicStructure`)
   was silently always empty, meaning the reconnect-path economy breakdown
-  would never show the Farmstead/Waterworks radius doubling that the live
+  would never show the Hydrogarden/Hydroworks radius doubling that the live
   incremental path applied. **Re-checked during the diff/plan cross-reference
   pass**: `strategicProductionPerMinuteForResource` and
   `converterOutputPerMinute` (`snapshot-economy-helpers.ts`) were both
   retired to always-return-0/`{}` once FOOD joined IRON/CRYSTAL/SUPPLY as
   fully slot-based (no per-minute flow left to produce or convert,
-  `applyFarmsteadFoodToProduction` is now an explicit documented no-op) —
+  `applyHydrogardenFoodToProduction` is now an explicit documented no-op) —
   so the flow-based bucket loop this bug was about no longer has any real
   value to compute in the first place, on either path. Separately,
   `resourceSlotsForPlayer` (the function that actually feeds the "N/M slots
   used" UI) already builds its own economicStructure-carrying tile view and
-  correctly threads Waterworks doubling into the reconnect-path *slot
+  correctly threads Hydroworks doubling into the reconnect-path *slot
   supply* count. Net: no display bug remains on either surface — closing
   this out rather than fixing dead code.
 
@@ -1205,7 +1205,7 @@ implementation.
      (`runtime-tile-index-maintenance.ts`) — supply is gated on SETTLED
      ownership same as `economySnapshotCacheByPlayer` (it only reads settled
      resource tiles), demand invalidates unconditionally same as
-     `defensibilityMetricsCacheByPlayer` (Siege Outposts can sit on FRONTIER
+     `defensibilityMetricsCacheByPlayer` (Siege Batteries can sit on FRONTIER
      tiles, so a frontier-only mutation can still change demand). Full test
      suite re-verified green after this change, including the existing
      multi-step "build Fort on the empire's only IRON slot → second Fort
@@ -1236,7 +1236,7 @@ not something requiring further design decisions:
   economic tiers, the Fort and Siege ladders, monument parts and assembly)
   need their in-game description text rewritten to reflect: the new
   manpower cost, the new slot requirement(s), and — where changed — the
-  new gold upkeep (synthesizers) or removed upkeep (Observatory/Airport,
+  new gold upkeep (synthesizers) or removed upkeep (Observatory/Sky Dock,
   now slot-only). Wherever a structure is shown twice (build menu tooltip
   and tech-tree unlock description), both copies need the same update, not
   just one.
@@ -1294,7 +1294,7 @@ That's a moment worth naming, unlike the old version.
 
 - **Cap each monument type at ONE PER SEASON, globally — not per player.**
   Revised from an earlier per-player-cap draft. There is exactly one
-  Imperial Exchange, one World Engine, one Aegis Dome, one Astral Dock
+  Imperial Exchange, one Sovereign Siege Engine, one Aegis Dome, one Astral Dock
   available in the entire world each season. Whoever completes the final
   assembly first gets it; **no other player can ever build that monument
   type again that season.** This is a much higher-stakes rule than a
@@ -1347,10 +1347,10 @@ their existing cooldown** — no crystal cost, no slot cost, nothing. The
 cooldowns (5 minutes to 24 hours) are already a sufficient standalone
 pacing lever.
 
-Crystal's demand instead comes entirely from **buildings** — Bank, Foundry,
-Rail Depot, Radar System, Exchange House, Aether Tower, and Garrison Hall
-(§12 Tier 3/4), plus Observatory, Airport, and the monument structures.
-Rail Depot and Garrison Hall matter most: they're the manpower-scaling
+Crystal's demand instead comes entirely from **buildings** — Bank, Ore Refinery,
+Neural Works, Resonance Grid, Exchange House, Aether Tower, and Ancillary Depot
+(§12 Tier 3/4), plus Observatory, Sky Dock, and the monument structures.
+Neural Works and Ancillary Depot matter most: they're the manpower-scaling
 structures (§4.4), so crystal ends up gating how fast a player can grow the
 game's central resource — a permanent, felt role, instead of being spread
 thin across seventeen abilities most players would rarely use.
@@ -1371,12 +1371,12 @@ existing cooldown unchanged:
 | Siphon | logistics | 15 | **Free** | 10 min |
 | Create Mountain | terrain-engineering | 400 | **Free** | 20 min |
 | Remove Mountain | terrain-engineering | 400 | **Free** | 20 min |
-| Airport Bombard | (Airport) | 200 | **Free** | 20 min |
+| Sky Dock Bombard | (Sky Dock) | 200 | **Free** | 20 min |
 | Deep Strike | (already costs 120 manpower) | 25 | **Free** (unchanged manpower cost stands alone) | 20 min |
 | Naval Infiltration | (already costs 120 manpower) | 30 | **Free** | 30 min |
 | Sabotage | — | 20 | **Free** | 15 min |
 | Imperial Exchange Levy | exchange-levy | 200 | **Free** | **24 hr** (§15 — the activation-cost note there is also corrected to Free) |
-| World Engine Strike | (World Engine) | 500 | **Free** | 60 min |
+| Sovereign Siege Engine Strike | (Sovereign Siege Engine) | 500 | **Free** | 60 min |
 | Aegis Lock | (Aegis Dome) | 220 | **Free** | 60 min |
 | Astral Dock Launch | (Astral Dock) | 300 | **Free** | 90 min |
 
@@ -1385,7 +1385,7 @@ existing cooldown unchanged:
 `handleOverloadSynthesizerCommand` (`runtime-economic-structure-command-
 handlers.ts:96-153`): pay `SYNTH_OVERLOAD_GOLD_COST` gold to instantly add a
 burst of resource (`FUR_SYNTHESIZER_OVERLOAD_SUPPLY` /
-`IRONWORKS_OVERLOAD_IRON` / `CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 10`) to
+`IRONWORKS_OVERLOAD_IRON` / `AETHER_CONDENSER_OVERLOAD_CRYSTAL = 10`) to
 your stockpile, then the synthesizer goes `inactive` for
 `SYNTH_OVERLOAD_DISABLE_MS` before recovering. Gated behind the
 `overload-protocols` tech (tier 4, listed in §13).
@@ -1405,7 +1405,7 @@ model it doesn't fit. Cleanup scope:
 - Remove the client button/ability entry.
 - Remove now-dead constants: `SYNTH_OVERLOAD_GOLD_COST`,
   `SYNTH_OVERLOAD_DISABLE_MS`, `FUR_SYNTHESIZER_OVERLOAD_SUPPLY`,
-  `IRONWORKS_OVERLOAD_IRON`, `CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL`.
+  `IRONWORKS_OVERLOAD_IRON`, `AETHER_CONDENSER_OVERLOAD_CRYSTAL`.
 - **`Overload Protocols` (tier 4 tech) is removed too, decided** — it has no
   purpose once the ability it unlocks is gone. Tier 4 drops from 8 techs to
   **7**, and the tech list in §13 is updated to match (48 techs total, not
@@ -1582,7 +1582,7 @@ Clearing House)**, confirmed directly in the formula's final term
   `/10` → 0.1 food/min) doesn't survive as a separate metered drain.** It
   folds into the already-decided universal rule that every building draws
   1 FOOD slot (§5.3) — same treatment already applied to Observatory/
-  Airport's old crystal drain (§12.1). Bank's manpower/slot cost is already
+  Sky Dock's old crystal drain (§12.1). Bank's manpower/slot cost is already
   set in §12 Tier 3: **180 manpower + 1 FOOD slot + 1 CRYSTAL slot.**
 
 ### 22.2 Siphon — works unchanged, no slot translation needed
@@ -1651,7 +1651,7 @@ the same shape of fix in every case — a demand-side waiver by count, not a
 supply-side percentage — and it's the pattern used consistently below:
 
 - **`fortIronUpkeepMult`** → **Dwarf Kingdom (tier 1): your first 3 Forts
-  (any tier in the Fort ladder — Wooden Fort/Fort/Iron Bastion/Thunder
+  (any tier in the Fort ladder — Palisade/Fort/Iron Bastion/Thunder
   Bastion, counted in build order) need zero IRON slots for their
   upkeep.** Also folds in `fortGoldUpkeepMult` from the same domain — Fort's
   gold cost is already near-zero under this plan, so rather than a separate
@@ -1661,7 +1661,7 @@ supply-side percentage — and it's the pattern used consistently below:
   meaningful, non-redundant upgrade over Dwarf Kingdom's tier-1 version
   rather than a duplicate of it.
 - **`outpostSupplyUpkeepMult`** → **Supply State (tier 3): your first 3
-  Siege Outposts (any tier — Siege Outpost/Siege Tower/Dread Tower) need
+  Siege Batteries (any tier — Siege Battery/Siege Tower/Dread Tower) need
   zero SUPPLY slots for their upkeep** — same waiver pattern, applied to
   the Siege ladder.
 - **`supportEconomicFoodUpkeepMult`** → **Treasury State (tier 4): your
@@ -1673,12 +1673,12 @@ supply-side percentage — and it's the pattern used consistently below:
   already has its own `firstThreeTownsGoldOutputMult`, so gating this
   effect the same way would have been redundant with its own sibling
   effect; going empire-wide here is the meaningfully bigger tier-5 payoff).
-- **`granaryBonusMult`** → **resolved, not redesigned**: Granary's actual
+- **`incubationEngineBonusMult`** → **resolved, not redesigned**: Incubation Engine's actual
   effect is a **population growth speed boost** — this was simply missing
-  from Granary's description in §12, not missing from the game. Merchant
+  from Incubation Engine's description in §12, not missing from the game. Merchant
   Houses (tier 3) boosts that existing bonus by 15%, unchanged, no slots
   conflict (population growth speed is a timing multiplier, not a resource
-  quantity). §12's Granary entry should be corrected to note this effect
+  quantity). §12's Incubation Engine entry should be corrected to note this effect
   during the description-rewrite pass (§14.4).
 
 ### 23.3 Settled gold upkeep — removed, not redefined `[decided]`
@@ -1726,8 +1726,8 @@ effects across §23.3 and this section).
   (`economy-network.ts:105-117`, feeding town gold at
   `player-update-economy.ts:286`). Considered redirecting/duplicating it
   onto the new manpower network bonus (§4.4) and **rejected**: the manpower
-  network already has its own dedicated investment ladder (Rail Depot +
-  uncapped Garrison Halls), and gold stays a real, meaningful currency under
+  network already has its own dedicated investment ladder (Neural Works +
+  uncapped Ancillary Depots), and gold stays a real, meaningful currency under
   this plan (§6), so "reward a well-connected empire with more gold income"
   is still a perfectly good, non-obsolete effect. It needs no translation —
   it only ever touched gold, and gold is unaffected by the slots pillar.

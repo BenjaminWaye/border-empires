@@ -42,9 +42,9 @@ export const createDemoTileSpecs = () => {
     new URLSearchParams(window.location.search).get("fortdemo") === "1";
   const FORT_DEMO_KINDS: ReadonlyArray<FortificationOverlayKind> = [
     "FORT",
-    "WOODEN_FORT",
+    "PALISADE",
     "RELAY_BEACON",
-    "SIEGE_OUTPOST"
+    "SIEGE_BATTERY"
   ];
   const FORT_DEMO_SPACING = 2;
   // Row 1 at camY+2: 4 kinds spaced 2 tiles apart (no wall sharing).
@@ -87,20 +87,20 @@ export const createDemoTileSpecs = () => {
     new URLSearchParams(window.location.search).get("structuredemo") === "1";
   type StructureDemoEntry = { kind: StructureKind | "UMBRITE_RIG" | "UMBRITE_WEAPONS_FACTORY"; resource?: "TITANIUM" | "GEMS" };
   const STRUCTURE_DEMO_ENTRIES: ReadonlyArray<StructureDemoEntry> = [
-    { kind: "FARMSTEAD" },
-    { kind: "WATERWORKS" },
+    { kind: "HYDROGARDEN" },
+    { kind: "HYDROWORKS" },
     { kind: "UMBRITE_RIG" },
     { kind: "MINE", resource: "TITANIUM" },
     { kind: "MINE", resource: "GEMS" },
     { kind: "TITANIUM_WORKS" },
     { kind: "MINTWORKS" },
     { kind: "OBSERVATORY" },
-    { kind: "GRANARY" },
+    { kind: "INCUBATION_ENGINE" },
     { kind: "CENSUS_HALL" },
     { kind: "TITANIUM_WEAPONS_FACTORY" },
     { kind: "UMBRITE_WEAPONS_FACTORY" },
-    { kind: "WORLD_ENGINE_PART_1" }, { kind: "WORLD_ENGINE_PART_2" }, { kind: "WORLD_ENGINE_PART_3" },
-    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }, { kind: "POPULATION_BUREAU_PART_1" }, { kind: "POPULATION_BUREAU_PART_2" }, { kind: "POPULATION_BUREAU_PART_3" }
+    { kind: "SOVEREIGN_SIEGE_ENGINE_PART_1" }, { kind: "SOVEREIGN_SIEGE_ENGINE_PART_2" }, { kind: "SOVEREIGN_SIEGE_ENGINE_PART_3" },
+    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }, { kind: "CENSUS_DIRECTORATE_PART_1" }, { kind: "CENSUS_DIRECTORATE_PART_2" }, { kind: "CENSUS_DIRECTORATE_PART_3" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number, originX: number, originY: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;

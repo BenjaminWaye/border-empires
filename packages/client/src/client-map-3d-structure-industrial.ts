@@ -9,12 +9,12 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 import type { EconomicSharedAssets } from "./client-map-3d-structure-economic.js";
 
 export type IndustrialStructureKind =
-  | "FOUNDRY"
-  | "ADVANCED_TITANIUM_WORKS"
-  | "UMBRITE_SYNTHESIZER"
-  | "ADVANCED_UMBRITE_SYNTHESIZER"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
+  | "ORE_REFINERY"
+  | "HIGH_YIELD_TITANIUM_WORKS"
+  | "UMBRITE_WORKS"
+  | "HIGH_YIELD_UMBRITE_WORKS"
+  | "AETHER_CONDENSER"
+  | "HIGH_YIELD_AETHER_CONDENSER"
   | "ASTRAL_DOCK"
   | "WEAPONS_WORKSHOP"
   // Titanium Weapons Factory reuses Weapons Workshop's model as-is (see
@@ -25,12 +25,12 @@ export type IndustrialStructureKind =
   | "TITANIUM_WEAPONS_FACTORY";
 
 export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = new Set([
-  "FOUNDRY",
-  "ADVANCED_TITANIUM_WORKS",
-  "UMBRITE_SYNTHESIZER",
-  "ADVANCED_UMBRITE_SYNTHESIZER",
-  "CRYSTAL_SYNTHESIZER",
-  "ADVANCED_CRYSTAL_SYNTHESIZER",
+  "ORE_REFINERY",
+  "HIGH_YIELD_TITANIUM_WORKS",
+  "UMBRITE_WORKS",
+  "HIGH_YIELD_UMBRITE_WORKS",
+  "AETHER_CONDENSER",
+  "HIGH_YIELD_AETHER_CONDENSER",
   "ASTRAL_DOCK",
   "WEAPONS_WORKSHOP",
   "TITANIUM_WEAPONS_FACTORY"
@@ -43,8 +43,8 @@ export type IndustrialHandle = {
 };
 
 // `shared` carries the forge palette + blueCrystal assets from the
-// economic family so FOUNDRY/ADVANCED_TITANIUM_WORKS render with the same
-// forge palette as TITANIUM_WORKS, and the crystal synthesizers reuse the
+// economic family so ORE_REFINERY/HIGH_YIELD_TITANIUM_WORKS render with the same
+// forge palette as TITANIUM_WORKS, and the aether condensers reuse the
 // OBSERVATORY/MINE crystal material.
 export const registerIndustrialStructures = (
   builder: StructurePieceBuilder,
@@ -64,7 +64,7 @@ export const registerIndustrialStructures = (
   const synthBaseMaterial = new MeshStandardMaterial({ color: "#3e4248", roughness: 0.7, metalness: 0.35, flatShading: true });
   const synthChamberMaterial = new MeshStandardMaterial({ color: "#b6bcc0", roughness: 0.5, metalness: 0.55, flatShading: true });
   const synthTubeMaterial = new MeshStandardMaterial({ color: "#5a5e62", roughness: 0.6, metalness: 0.5, flatShading: true });
-  // Umbrite Synthesizer glow — a cold violet glow (echoing the umbrite
+  // Umbrite Works glow — a cold violet glow (echoing the umbrite
   // deposit's own sheen material) rather than the old warm amber-iron glow,
   // so the synthesizer visually reads as processing umbrite, not metal.
   const umbriteGlowMaterial = new MeshStandardMaterial({ color: "#8a5cc9", roughness: 0.35, metalness: 0.1, flatShading: true, emissive: "#3a1a5c", emissiveIntensity: 0.85 });
@@ -76,7 +76,7 @@ export const registerIndustrialStructures = (
   const astralCoreMaterial = new MeshStandardMaterial({ color: "#c08aff", roughness: 0.3, metalness: 0.25, flatShading: true, emissive: "#7a3acc", emissiveIntensity: 1.0 });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  // ADVANCED_TITANIUM_WORKS uses the synthesizer-chamber idiom (same as
+  // HIGH_YIELD_TITANIUM_WORKS uses the synthesizer-chamber idiom (same as
   // TITANIUM_WORKS in economic.ts and UMBRITE/CRYSTAL synthesizers here) so
   // the titanium-works family stays visually coherent.
   const titaniumSynthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
@@ -85,15 +85,15 @@ export const registerIndustrialStructures = (
   const titaniumSynthWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
   const titaniumSynthTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
   const titaniumSynthTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
-  // FOUNDRY keeps the original forge silhouette — wider stone base,
+  // ORE_REFINERY keeps the original forge silhouette — wider stone base,
   // pyramidal roof, tall stone furnace, twin chimneys, and a glowing
-  // slag pile. Foundry and titanium works are *not* the same thing: a
-  // foundry casts metal; titanium works (synthesizer) extracts/refines it.
-  const foundryBaseGeo = new BoxGeometry(0.40, 0.20, 0.30);
-  const foundryRoofGeo = new ConeGeometry(0.28, 0.10, 4);
-  const foundryFurnaceGeo = new BoxGeometry(0.20, 0.24, 0.18);
-  const foundryGlowGeo = new BoxGeometry(0.08, 0.08, 0.08);
-  const foundryChimneyGeo = new BoxGeometry(0.07, 0.34, 0.07);
+  // slag pile. Ore Refinery and titanium works are *not* the same thing: a
+  // ore refinery casts metal; titanium works (synthesizer) extracts/refines it.
+  const oreRefineryBaseGeo = new BoxGeometry(0.40, 0.20, 0.30);
+  const oreRefineryRoofGeo = new ConeGeometry(0.28, 0.10, 4);
+  const oreRefineryFurnaceGeo = new BoxGeometry(0.20, 0.24, 0.18);
+  const oreRefineryGlowGeo = new BoxGeometry(0.08, 0.08, 0.08);
+  const oreRefineryChimneyGeo = new BoxGeometry(0.07, 0.34, 0.07);
   const slagPileGeo = new ConeGeometry(0.08, 0.05, 6);
   const synthBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
   const synthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
@@ -110,7 +110,7 @@ export const registerIndustrialStructures = (
   // WEAPONS_WORKSHOP: a small titanium-alloy forging bay — low platform,
   // an alloy press (base + tapered forming horn) that stamps armor plate,
   // a glowing plasma core powering it, and a rack of charged energy blades
-  // on posts. Deliberately smaller/simpler than FOUNDRY's furnace
+  // on posts. Deliberately smaller/simpler than ORE_REFINERY's furnace
   // silhouette (no chimneys/roof) since this is an early, cheap, uncapped
   // War-branch building, not a late economic engine.
   const weaponsBaseGeo = new BoxGeometry(0.30, 0.08, 0.22);
@@ -123,20 +123,20 @@ export const registerIndustrialStructures = (
   const astralCoreGeo = new OctahedronGeometry(0.05, 0);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  // ADVANCED_TITANIUM_WORKS twin-chamber synthesizer slots.
+  // HIGH_YIELD_TITANIUM_WORKS twin-chamber synthesizer slots.
   builder.makeSlot("titaniumSynthAdvBase", titaniumSynthAdvBaseGeo, shared.forgeBaseMaterial, C);
   builder.makeSlot("titaniumSynthChamber", titaniumSynthChamberGeo, shared.forgeStoneMaterial, C * 2);
   builder.makeSlot("titaniumSynthChamberCap", titaniumSynthChamberCapGeo, shared.forgeStoneMaterial, C * 2);
   builder.makeSlot("titaniumSynthWindow", titaniumSynthWindowGeo, shared.forgeGlowMaterial, C * 2);
   builder.makeSlot("titaniumSynthTube", titaniumSynthTubeGeo, shared.forgeChimneyMaterial, C * 3);
   builder.makeSlot("titaniumSynthTubeCap", titaniumSynthTubeCapGeo, shared.forgeChimneyMaterial, C * 3);
-  // FOUNDRY forge-style slots — distinct silhouette from the titanium-synth
+  // ORE_REFINERY forge-style slots — distinct silhouette from the titanium-synth
   // family. Uses shared forge palette but renders as a forge building.
-  builder.makeSlot("foundryBase", foundryBaseGeo, shared.forgeBaseMaterial, C);
-  builder.makeSlot("foundryRoof", foundryRoofGeo, shared.barnRoofMaterial, C);
-  builder.makeSlot("foundryFurnace", foundryFurnaceGeo, shared.forgeStoneMaterial, C);
-  builder.makeSlot("foundryGlow", foundryGlowGeo, shared.forgeGlowMaterial, C);
-  builder.makeSlot("foundryChimney", foundryChimneyGeo, shared.forgeChimneyMaterial, C * 2);
+  builder.makeSlot("oreRefineryBase", oreRefineryBaseGeo, shared.forgeBaseMaterial, C);
+  builder.makeSlot("oreRefineryRoof", oreRefineryRoofGeo, shared.barnRoofMaterial, C);
+  builder.makeSlot("oreRefineryFurnace", oreRefineryFurnaceGeo, shared.forgeStoneMaterial, C);
+  builder.makeSlot("oreRefineryGlow", oreRefineryGlowGeo, shared.forgeGlowMaterial, C);
+  builder.makeSlot("oreRefineryChimney", oreRefineryChimneyGeo, shared.forgeChimneyMaterial, C * 2);
   builder.makeSlot("slagPile", slagPileGeo, slagMaterial, C);
   // Synthesizer family — caps sized for advanced (2× capacity for
   // shared pieces). Materials shared between basic and advanced.
@@ -170,7 +170,7 @@ export const registerIndustrialStructures = (
     // Twin synthesizer chambers on a wide dark-steel base. Two main
     // exhaust tubes vent upward and a third smaller tube sits between
     // them as a central control vent — same pattern as
-    // ADVANCED_UMBRITE_SYNTHESIZER but with hot-metal glow windows.
+    // HIGH_YIELD_UMBRITE_WORKS but with hot-metal glow windows.
     builder.addPiece("titaniumSynthAdvBase", sx, sy, sz, 0, 0.05, 0);
     builder.addPiece("titaniumSynthChamber", sx, sy, sz, -0.08, 0.19, 0);
     builder.addPiece("titaniumSynthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
@@ -185,25 +185,25 @@ export const registerIndustrialStructures = (
     builder.addPiece("titaniumSynthTube", sx, sy, sz, 0, 0.32, 0.06, 0.8, 0.6, 0.8);
   };
 
-  const addAdvancedTitaniumWorks: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addHighYieldTitaniumWorks: IndustrialStructureLayout = (sx, sy, sz) => {
     addTitaniumSynthDual(sx, sy, sz);
   };
 
-  const addFoundry: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addOreRefinery: IndustrialStructureLayout = (sx, sy, sz) => {
     // Classic forge: stone base + pyramidal roof + tall stone furnace
     // with a hot glow window, twin chimneys at the back, and a glowing
     // slag pile out front. Casting metal, not refining it — distinct
     // silhouette from the synthesizer-style ironworks family.
-    builder.addPiece("foundryBase", sx, sy, sz, -0.08, 0.10, -0.04);
-    builder.addPiece("foundryRoof", sx, sy, sz, -0.08, 0.27, -0.04, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("foundryFurnace", sx, sy, sz, 0.20, 0.12, -0.04);
-    builder.addPiece("foundryGlow", sx, sy, sz, 0.20, 0.08, 0.06);
-    builder.addPiece("foundryChimney", sx, sy, sz, 0.16, 0.34, -0.10);
-    builder.addPiece("foundryChimney", sx, sy, sz, 0.24, 0.34, -0.10);
+    builder.addPiece("oreRefineryBase", sx, sy, sz, -0.08, 0.10, -0.04);
+    builder.addPiece("oreRefineryRoof", sx, sy, sz, -0.08, 0.27, -0.04, 1, 1, 1, Math.PI * 0.25);
+    builder.addPiece("oreRefineryFurnace", sx, sy, sz, 0.20, 0.12, -0.04);
+    builder.addPiece("oreRefineryGlow", sx, sy, sz, 0.20, 0.08, 0.06);
+    builder.addPiece("oreRefineryChimney", sx, sy, sz, 0.16, 0.34, -0.10);
+    builder.addPiece("oreRefineryChimney", sx, sy, sz, 0.24, 0.34, -0.10);
     builder.addPiece("slagPile", sx, sy, sz, -0.20, 0.025, 0.18);
   };
 
-  const addUmbriteSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addUmbriteWorks: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthBase", sx, sy, sz, 0, 0.04, 0);
     builder.addPiece("synthChamber", sx, sy, sz, 0, 0.17, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, 0, 0.28, 0);
@@ -212,7 +212,7 @@ export const registerIndustrialStructures = (
     builder.addPiece("synthTubeCap", sx, sy, sz, 0, 0.41, 0);
   };
 
-  const addAdvancedUmbriteSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addHighYieldUmbriteWorks: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthAdvBase", sx, sy, sz, 0, 0.05, 0);
     builder.addPiece("synthChamber", sx, sy, sz, -0.08, 0.19, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
@@ -227,7 +227,7 @@ export const registerIndustrialStructures = (
     builder.addPiece("synthTube", sx, sy, sz, 0, 0.32, 0.06, 0.8, 0.6, 0.8);
   };
 
-  const addCrystalSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addAetherCondenser: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthBase", sx, sy, sz, 0, 0.04, 0);
     builder.addPiece("crystalChamber", sx, sy, sz, 0, 0.17, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, 0, 0.28, 0);
@@ -236,7 +236,7 @@ export const registerIndustrialStructures = (
     builder.addPiece("synthTubeCap", sx, sy, sz, 0, 0.41, 0);
   };
 
-  const addAdvancedCrystalSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addHighYieldAetherCondenser: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthAdvBase", sx, sy, sz, 0, 0.05, 0);
     builder.addPiece("crystalChamber", sx, sy, sz, -0.08, 0.19, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
@@ -289,12 +289,12 @@ export const registerIndustrialStructures = (
 
   return {
     layouts: {
-      FOUNDRY: addFoundry,
-      ADVANCED_TITANIUM_WORKS: addAdvancedTitaniumWorks,
-      UMBRITE_SYNTHESIZER: addUmbriteSynthesizer,
-      ADVANCED_UMBRITE_SYNTHESIZER: addAdvancedUmbriteSynthesizer,
-      CRYSTAL_SYNTHESIZER: addCrystalSynthesizer,
-      ADVANCED_CRYSTAL_SYNTHESIZER: addAdvancedCrystalSynthesizer,
+      ORE_REFINERY: addOreRefinery,
+      HIGH_YIELD_TITANIUM_WORKS: addHighYieldTitaniumWorks,
+      UMBRITE_WORKS: addUmbriteWorks,
+      HIGH_YIELD_UMBRITE_WORKS: addHighYieldUmbriteWorks,
+      AETHER_CONDENSER: addAetherCondenser,
+      HIGH_YIELD_AETHER_CONDENSER: addHighYieldAetherCondenser,
       ASTRAL_DOCK: addAstralDock,
       WEAPONS_WORKSHOP: addWeaponsWorkshop,
       // Reuses the exact same model as WEAPONS_WORKSHOP (see comment on

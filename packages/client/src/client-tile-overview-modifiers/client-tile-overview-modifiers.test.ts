@@ -34,8 +34,8 @@ describe("tileOverviewModifiersForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
         }
       } satisfies Tile)
@@ -73,8 +73,8 @@ describe("tileOverviewModifiersForTile", () => {
         hasMintworks: true,
         mintworksActive: true,
         mintworksCount: 5,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason === "Gold production" || m.reason.includes("Gold production"))).toBe(false);
@@ -177,8 +177,8 @@ describe("tileOverviewModifiersForTile", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
           captureShockUntil: Date.now() + 60_000
         }
       } satisfies Tile)
@@ -217,8 +217,8 @@ describe("tileOverviewModifiersForTile", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [
           { label: "Recently captured", deltaPerMinute: 0 },
@@ -263,8 +263,8 @@ describe("tileOverviewModifiersForTile", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [{ label: "Long time peace", deltaPerMinute: 12 }]
       }
@@ -306,8 +306,8 @@ describe("tileOverviewModifiersForTile", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
       }
@@ -324,8 +324,8 @@ describe("tileOverviewModifiersForTile", () => {
   });
 
   // Regression test: economicStructureModifiersForTile used to gate behind a
-  // small hardcoded allowlist (FARMSTEAD/WATERWORKS/UMBRITE_RIG/WOODEN_FORT/
-  // RELAY_BEACON/CARAVANARY/CUSTOMS_HOUSE/RAIL_DEPOT) left over from before
+  // small hardcoded allowlist (HYDROGARDEN/HYDROWORKS/UMBRITE_RIG/PALISADE/
+  // RELAY_BEACON/TRADE_NEXUS/HARBOR_EXCHANGE/NEURAL_WORKS) left over from before
   // the shared catalog existed, so most buildings — including every one of
   // the Weapons Workshop family — showed no Modifier section at all when
   // their own tile was clicked directly in-game, even though the catalog
@@ -361,7 +361,7 @@ describe("tileOverviewModifiersForTile", () => {
   });
 
   // Regression: economicStructureModifiersForTile called structureModifiersFor
-  // with no ctx at all, so an Aether Condenser (CRYSTAL_SYNTHESIZER) in
+  // with no ctx at all, so an Aether Condenser (AETHER_CONDENSER) in
   // EXCHANGE (Sell Off) mode still showed "Refine mode supplies: +1 CRYSTAL
   // slot" -- contradicting the structure's own status line, which correctly
   // said it was selling off its slot for gold instead.
@@ -372,7 +372,7 @@ describe("tileOverviewModifiersForTile", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+      economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
     } satisfies Tile);
     expect(modifiers.find((m) => m.reason === "Refine mode supplies")).toBeUndefined();
   });
@@ -384,7 +384,7 @@ describe("tileOverviewModifiersForTile", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" }
+      economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "SYNTHESIZE" }
     } satisfies Tile);
     expect(modifiers).toContainEqual({ reason: "Refine mode supplies", effect: "+1 CRYSTAL slot", tone: "positive" });
   });
@@ -406,11 +406,11 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers.some((m) => m.reason === "Aether Tower — Crystal range")).toBe(true);
   });
 
-  // Regression test: a Farmstead's own tile overview used to always show a
+  // Regression test: a Hydrogarden's own tile overview used to always show a
   // static "Farm food: +50%" line that never reflected the tile's real
-  // boosted output (e.g. when a Waterworks doubles it) — noise, not a real
+  // boosted output (e.g. when a Hydroworks doubles it) — noise, not a real
   // modifier. Only the FOOD-slot line, which is genuinely additive, remains.
-  it("does not show the static Farm food percent line for a Farmstead tile, but keeps the FOOD slot line", () => {
+  it("does not show the static Farm food percent line for a Hydrogarden tile, but keeps the FOOD slot line", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -418,13 +418,13 @@ describe("tileOverviewModifiersForTile", () => {
       resource: "FARM",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" }
+      economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "active" }
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason.includes("Farm food"))).toBe(false);
     expect(modifiers.some((m) => m.reason.includes("FOOD slot"))).toBe(true);
   });
 
-  it("does not show the static Farmstead-food-radius percent line for a Waterworks tile, but keeps the FOOD slot line", () => {
+  it("does not show the static Hydrogarden-food-radius percent line for a Hydroworks tile, but keeps the FOOD slot line", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -432,9 +432,9 @@ describe("tileOverviewModifiersForTile", () => {
       resource: "FARM",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "WATERWORKS", status: "active" }
+      economicStructure: { ownerId: "me", type: "HYDROWORKS", status: "active" }
     } satisfies Tile);
-    expect(modifiers.some((m) => m.reason.includes("Farmstead food"))).toBe(false);
+    expect(modifiers.some((m) => m.reason.includes("Hydrogarden food"))).toBe(false);
     expect(modifiers.some((m) => m.reason.includes("FOOD slots per boosted Hydrogarden"))).toBe(true);
   });
 

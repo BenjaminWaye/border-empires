@@ -48,7 +48,7 @@ export const isValidAfcLandingTile = (state: ClientState, tile: Tile | undefined
       !tile.dockId &&
       !tile.afc &&
       !tile.fort &&
-      !tile.siegeOutpost &&
+      !tile.siegeBattery &&
       !tile.observatory &&
       !tile.economicStructure
   );

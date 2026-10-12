@@ -53,7 +53,7 @@ export const tileDeltaFromState = (
   const player = tile.ownerId ? deps.players.get(tile.ownerId) : undefined;
   // The per-player economy context only feeds enrichTileWithTownContext
   // (town tiles) and the yield view's structure/town-dependent branches
-  // (fedTownKeys / firstThreeTownKeys / waterworksKeys / foundryKeys, all
+  // (fedTownKeys / firstThreeTownKeys / hydroworksKeys / oreRefineryKeys, all
   // gated on tile.town or an economicStructure). A plain owned tile -- the
   // common case: every frontier claim and every settlement resolution emits
   // exactly one of these -- reads nothing from it, yet resolving it right

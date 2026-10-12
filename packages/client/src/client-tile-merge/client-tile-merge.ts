@@ -53,7 +53,7 @@ export type CommonTileFieldsUpdate = {
   fort?: Tile["fort"];
   observatory?: Tile["observatory"];
   economicStructure?: Tile["economicStructure"];
-  siegeOutpost?: Tile["siegeOutpost"];
+  siegeBattery?: Tile["siegeBattery"];
   sabotage?: Tile["sabotage"];
   muster?: Tile["muster"];
   afc?: Tile["afc"];
@@ -142,9 +142,9 @@ export const applyCommonTileFields = (
     if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
     else delete merged.economicStructure;
   }
-  if ("siegeOutpost" in normalizedUpdate) {
-    if (normalizedUpdate.siegeOutpost) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
-    else delete merged.siegeOutpost;
+  if ("siegeBattery" in normalizedUpdate) {
+    if (normalizedUpdate.siegeBattery) merged.siegeBattery = normalizedUpdate.siegeBattery;
+    else delete merged.siegeBattery;
   }
   if ("sabotage" in normalizedUpdate) {
     if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;

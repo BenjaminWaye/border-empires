@@ -10,7 +10,7 @@ describe("buildDetailTextForAction fort tier text", () => {
   const fortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active" } };
   const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "TITANIUM_BASTION" } };
   const thunderTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "THUNDER_BASTION" } };
-  const woodenFortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" } };
+  const palisadeTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "PALISADE" } };
 
   it("shows 'Fortify this tile' for a tile with no fort (no regression to upgrade text)", () => {
     const detail = buildDetailTextForAction("build_fortification", emptyTile);
@@ -18,8 +18,8 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).not.toContain("Upgrade");
   });
 
-  it("shows 'Upgrade this Palisade' for a wooden-fort tile", () => {
-    const detail = buildDetailTextForAction("build_fortification", woodenFortTile);
+  it("shows 'Upgrade this Palisade' for a palisade tile", () => {
+    const detail = buildDetailTextForAction("build_fortification", palisadeTile);
     expect(detail).toContain("Upgrade this Palisade");
   });
 
@@ -45,7 +45,7 @@ describe("buildDetailTextForAction fort tier text", () => {
 });
 
 // Regression test: buildDetailTextForAction had no branch at all for
-// build_waterworks / build_census_hall / build_clearing_house, so it fell
+// build_hydroworks / build_census_hall / build_clearing_house, so it fell
 // through to `return undefined`. The build-menu action list then does
 // `deps.buildDetailTextForAction(...) + frontierBuildDetailSuffix(tile)`
 // (client-tile-action-logic.ts), and `undefined + string` coerces to the
@@ -75,13 +75,13 @@ describe("buildDetailTextForAction never returns undefined for a real build acti
       connectedTownBonus: 0,
       hasMintworks: false,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false
+      hasIncubationEngine: false,
+      incubationEngineActive: false
     }
   };
 
-  it("returns real detail text for build_waterworks", () => {
-    const detail = buildDetailTextForAction("build_waterworks", supportTile, supportedTown);
+  it("returns real detail text for build_hydroworks", () => {
+    const detail = buildDetailTextForAction("build_hydroworks", supportTile, supportedTown);
     expect(detail).not.toContain("undefined");
     expect(detail).toContain("Hydrogarden");
   });

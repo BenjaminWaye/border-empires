@@ -1,5 +1,5 @@
 import {
-  OBSERVATORY_UPKEEP_PER_MIN, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  OBSERVATORY_UPKEEP_PER_MIN, TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   economicStructureBuildDurationMs, type SlotStructureType
 } from "@border-empires/shared";
 import { structureInfoBuildMs, type BuildSpeedState } from "./client-structure-time-labels/client-structure-time-labels.js";
@@ -28,59 +28,59 @@ export type StructureInfoKey =
   | "TITANIUM_BASTION"
   | "THUNDER_BASTION"
   | "OBSERVATORY"
-  | "FARMSTEAD"
-  | "WATERWORKS"
+  | "HYDROGARDEN"
+  | "HYDROWORKS"
   | "UMBRITE_RIG"
   | "MINE"
   | "MINTWORKS"
-  | "GRANARY"
+  | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
-  | "CARAVANARY"
-  | "WOODEN_FORT"
+  | "TRADE_NEXUS"
+  | "PALISADE"
   | "RELAY_BEACON"
-  | "UMBRITE_SYNTHESIZER"
-  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "UMBRITE_WORKS"
+  | "HIGH_YIELD_UMBRITE_WORKS"
   | "TITANIUM_WORKS"
-  | "ADVANCED_TITANIUM_WORKS"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FOUNDRY"
-  | "CUSTOMS_HOUSE"
-  | "GOVERNORS_OFFICE"
-  | "GARRISON_HALL"
-  | "AIRPORT"
-  | "AETHER_TOWER"
-  | "RADAR_SYSTEM"
+  | "HIGH_YIELD_TITANIUM_WORKS"
+  | "AETHER_CONDENSER"
+  | "HIGH_YIELD_AETHER_CONDENSER"
+  | "ORE_REFINERY"
+  | "HARBOR_EXCHANGE"
+  | "MINISTRY_HALL"
+  | "ANCILLARY_DEPOT"
+  | "SKY_DOCK"
+  | "AMBARIC_TRANSFORMER"
+  | "RESONANCE_GRID"
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
   | "ASTRAL_DOCK_PART_1"
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
-  | "RAIL_DEPOT"
+  | "NEURAL_WORKS"
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE"
+  | "SOVEREIGN_SIEGE_ENGINE"
   | "AEGIS_DOME_PART_1"
   | "AEGIS_DOME_PART_2"
   | "AEGIS_DOME_PART_3"
   | "AEGIS_DOME"
-  | "POPULATION_BUREAU_PART_1"
-  | "POPULATION_BUREAU_PART_2"
-  | "POPULATION_BUREAU_PART_3"
-  | "POPULATION_BUREAU"
+  | "CENSUS_DIRECTORATE_PART_1"
+  | "CENSUS_DIRECTORATE_PART_2"
+  | "CENSUS_DIRECTORATE_PART_3"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY_PART_1"
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
   | "TITANIUM_LEVY"
-  | "SIEGE_OUTPOST"
+  | "SIEGE_BATTERY"
   | "SIEGE_TOWER"
   | "DREAD_TOWER"
   | "WEAPONS_WORKSHOP"
@@ -118,10 +118,10 @@ export type StructureInfoView = {
 // effects bullet) instead of hand-listing all 18 names at each call site.
 export const MONUMENT_COMPONENT_KEYS: ReadonlySet<StructureInfoKey> = new Set([
   "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
   "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
   "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-  "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+  "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
   "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
 ]);
 
@@ -134,10 +134,10 @@ export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, Reado
     { type: "IMPERIAL_EXCHANGE_PART_2", name: "Counting Engine" },
     { type: "IMPERIAL_EXCHANGE_PART_3", name: "Sovereign Seal" }
   ],
-  WORLD_ENGINE: [
-    { type: "WORLD_ENGINE_PART_1", name: "The Long Barrel" },
-    { type: "WORLD_ENGINE_PART_2", name: "Fracture Core" },
-    { type: "WORLD_ENGINE_PART_3", name: "Sky-Marking Array" }
+  SOVEREIGN_SIEGE_ENGINE: [
+    { type: "SOVEREIGN_SIEGE_ENGINE_PART_1", name: "The Long Barrel" },
+    { type: "SOVEREIGN_SIEGE_ENGINE_PART_2", name: "Fracture Core" },
+    { type: "SOVEREIGN_SIEGE_ENGINE_PART_3", name: "Sky-Marking Array" }
   ],
   AEGIS_DOME: [
     { type: "AEGIS_DOME_PART_1", name: "Shield Lattice" },
@@ -149,10 +149,10 @@ export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, Reado
     { type: "ASTRAL_DOCK_PART_2", name: "Orbital Array" },
     { type: "ASTRAL_DOCK_PART_3", name: "Aether Sail" }
   ],
-  POPULATION_BUREAU: [
-    { type: "POPULATION_BUREAU_PART_1", name: "Census Engine" },
-    { type: "POPULATION_BUREAU_PART_2", name: "Registry Vault" },
-    { type: "POPULATION_BUREAU_PART_3", name: "Levy Charter" }
+  CENSUS_DIRECTORATE: [
+    { type: "CENSUS_DIRECTORATE_PART_1", name: "Census Engine" },
+    { type: "CENSUS_DIRECTORATE_PART_2", name: "Registry Vault" },
+    { type: "CENSUS_DIRECTORATE_PART_3", name: "Levy Charter" }
   ],
   TITANIUM_LEVY: [
     { type: "TITANIUM_LEVY_PART_1", name: "Muster Klaxon" },
@@ -168,29 +168,29 @@ export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, Reado
 // this module has no tech-tree.json access.
 const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy" | "Manpower" | "Aether">> = {
   FORT: "War", TITANIUM_BASTION: "War", THUNDER_BASTION: "War",
-  SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
+  SIEGE_BATTERY: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
-  FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
+  HYDROGARDEN: "Economy", HYDROWORKS: "Economy", MINE: "Economy",
   MINTWORKS: "Economy", CLEARING_HOUSE: "Economy",
-  UMBRITE_SYNTHESIZER: "Economy", ADVANCED_UMBRITE_SYNTHESIZER: "Economy",
-  TITANIUM_WORKS: "Economy", ADVANCED_TITANIUM_WORKS: "Economy",
-  FOUNDRY: "Economy", CUSTOMS_HOUSE: "Economy",
-  CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
+  UMBRITE_WORKS: "Economy", HIGH_YIELD_UMBRITE_WORKS: "Economy",
+  TITANIUM_WORKS: "Economy", HIGH_YIELD_TITANIUM_WORKS: "Economy",
+  ORE_REFINERY: "Economy", HARBOR_EXCHANGE: "Economy",
+  TRADE_NEXUS: "Economy", MINISTRY_HALL: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   UMBRITE_RIG: "War",
-  GRANARY: "Manpower", CENSUS_HALL: "Manpower",
-  GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
-  QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
-  ASSEMBLY_WORKS: "Manpower",
-  POPULATION_BUREAU_PART_1: "Manpower", POPULATION_BUREAU_PART_2: "Manpower", POPULATION_BUREAU_PART_3: "Manpower", POPULATION_BUREAU: "Manpower",
+  INCUBATION_ENGINE: "Manpower", CENSUS_HALL: "Manpower",
+  ANCILLARY_DEPOT: "Manpower", NEURAL_WORKS: "Manpower",
+  QUARTERMASTERS_OFFICE: "Manpower", ANCILLARY_FACTORY: "Manpower",
+  RESERVE_LATTICE: "Manpower",
+  CENSUS_DIRECTORATE_PART_1: "Manpower", CENSUS_DIRECTORATE_PART_2: "Manpower", CENSUS_DIRECTORATE_PART_3: "Manpower", CENSUS_DIRECTORATE: "Manpower",
   TITANIUM_LEVY_PART_1: "Manpower", TITANIUM_LEVY_PART_2: "Manpower", TITANIUM_LEVY_PART_3: "Manpower", TITANIUM_LEVY: "Manpower",
-  OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
-  ADVANCED_CRYSTAL_SYNTHESIZER: "Aether", AIRPORT: "Aether",
-  AETHER_TOWER: "Aether", RADAR_SYSTEM: "Aether",
+  OBSERVATORY: "Aether", AETHER_CONDENSER: "Aether",
+  HIGH_YIELD_AETHER_CONDENSER: "Aether", SKY_DOCK: "Aether",
+  AMBARIC_TRANSFORMER: "Aether", RESONANCE_GRID: "Aether",
   ASTRAL_DOCK_PART_1: "Aether", ASTRAL_DOCK_PART_2: "Aether", ASTRAL_DOCK_PART_3: "Aether", ASTRAL_DOCK: "Aether",
   AEGIS_DOME_PART_1: "War", AEGIS_DOME_PART_2: "War", AEGIS_DOME_PART_3: "War", AEGIS_DOME: "War",
-  WORLD_ENGINE_PART_1: "War", WORLD_ENGINE_PART_2: "War", WORLD_ENGINE_PART_3: "War", WORLD_ENGINE: "War"
+  SOVEREIGN_SIEGE_ENGINE_PART_1: "War", SOVEREIGN_SIEGE_ENGINE_PART_2: "War", SOVEREIGN_SIEGE_ENGINE_PART_3: "War", SOVEREIGN_SIEGE_ENGINE: "War"
 };
 
 // Structure display names live in their own module (single source of truth,
@@ -229,40 +229,40 @@ export const structureInfoForKey = (
     if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% garrisoned defense from Bastion Walls"];
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
-    if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
+    if (key === "PALISADE") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Battery"];
-    if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
+    if (key === "SIEGE_BATTERY") return ["Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["Grain resource tiles only — no effect on fish tiles"];
-    if (key === "WATERWORKS") return [];
+    if (key === "HYDROGARDEN") return ["Grain resource tiles only — no effect on fish tiles"];
+    if (key === "HYDROWORKS") return [];
     if (key === "UMBRITE_RIG") return [];
     if (key === "MINE") return [];
     if (key === "MINTWORKS") return ["Stacks additively across every active Mintworks in the town"];
-    if (key === "GRANARY") return [];
+    if (key === "INCUBATION_ENGINE") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
-    if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → coin"];
-    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → coin"];
-    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → coin"];
-    if (key === "FOUNDRY") return [];
-    if (key === "CUSTOMS_HOUSE") return [];
-    if (key === "GOVERNORS_OFFICE") return [];
-    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
-    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
+    if (key === "TRADE_NEXUS") return ["Enables the connected-town income bonus for this road network"];
+    if (key === "UMBRITE_WORKS" || key === "HIGH_YIELD_UMBRITE_WORKS") return ["Sell off: 1 umbrite slot → coin"];
+    if (key === "TITANIUM_WORKS" || key === "HIGH_YIELD_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → coin"];
+    if (key === "AETHER_CONDENSER" || key === "HIGH_YIELD_AETHER_CONDENSER") return ["Sell off: 1 crystal slot → coin"];
+    if (key === "ORE_REFINERY") return [];
+    if (key === "HARBOR_EXCHANGE") return [];
+    if (key === "MINISTRY_HALL") return [];
+    if (key === "ANCILLARY_DEPOT") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
+    if (key === "SKY_DOCK") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
+    if (key === "AMBARIC_TRANSFORMER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
+    if (key === "RESONANCE_GRID") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
-    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
-    if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
+    if (key === "ANCILLARY_FACTORY") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
+    if (key === "RESERVE_LATTICE") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
-    if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
+    if (key === "NEURAL_WORKS") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Transformer power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Transformer power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Transformer power"];
-    if (key === "POPULATION_BUREAU") return ["Unique world monument"];
+    if (key === "SOVEREIGN_SIEGE_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Transformer power"];
+    if (key === "CENSUS_DIRECTORATE") return ["Unique world monument"];
     if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Transformer power"];
     if (key === "WEAPONS_WORKSHOP") return ["No per-town limit — build as many as you like to specialize a town for war"];
     if (key === "TITANIUM_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
@@ -278,35 +278,35 @@ export const structureInfoForKey = (
   };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MINTWORKS") return "/overlays/mintworks-overlay.svg";
-    if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
+    if (key === "INCUBATION_ENGINE") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
-    if (key === "CARAVANARY") return "/overlays/trade-nexus-overlay.svg";
-    if (key === "UMBRITE_SYNTHESIZER") return "/overlays/umbrite-synthesizer-overlay.svg";
-    if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return "/overlays/advanced-umbrite-synthesizer-overlay.svg";
+    if (key === "TRADE_NEXUS") return "/overlays/trade-nexus-overlay.svg";
+    if (key === "UMBRITE_WORKS") return "/overlays/umbrite-works-overlay.svg";
+    if (key === "HIGH_YIELD_UMBRITE_WORKS") return "/overlays/high-yield-umbrite-works-overlay.svg";
     if (key === "TITANIUM_WORKS") return "/overlays/titanium-works-overlay.svg";
-    if (key === "ADVANCED_TITANIUM_WORKS") return "/overlays/advanced-titanium-works-overlay.svg";
-    if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
-    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
-    if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
-    if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
+    if (key === "HIGH_YIELD_TITANIUM_WORKS") return "/overlays/high-yield-titanium-works-overlay.svg";
+    if (key === "AETHER_CONDENSER") return "/overlays/aether-condenser-overlay.svg";
+    if (key === "HIGH_YIELD_AETHER_CONDENSER") return "/overlays/high-yield-aether-condenser-overlay.svg";
+    if (key === "ORE_REFINERY") return "/overlays/ore-refinery-overlay.svg";
+    if (key === "HARBOR_EXCHANGE") return "/overlays/harbor-exchange-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
-    if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    // GARRISON_HALL ("Ancillary Depot") and LOGISTICS_GUILD ("Ancillary
+    if (key === "MINISTRY_HALL") return "/overlays/ministry-hall-overlay.svg";
+    // ANCILLARY_DEPOT ("Ancillary Depot") and ANCILLARY_FACTORY ("Ancillary
     // Factory") swap art -- no new 3D/2D assets this pass, per user decision.
-    if (key === "GARRISON_HALL") return "/overlays/logistics-guild-overlay.svg";
-    if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
-    if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
-    if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
+    if (key === "ANCILLARY_DEPOT") return "/overlays/ancillary-depot-overlay.svg";
+    if (key === "SKY_DOCK") return "/overlays/sky-dock-overlay.svg";
+    if (key === "RESONANCE_GRID") return "/overlays/resonance-grid-overlay.svg";
+    if (key === "AMBARIC_TRANSFORMER") return "/overlays/ambaric-tower-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
     if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
-    if (key === "RAIL_DEPOT") return "/overlays/assembly-works-overlay.svg";
+    if (key === "NEURAL_WORKS") return "/overlays/neural-works-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
-    if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
+    if (key === "SOVEREIGN_SIEGE_ENGINE") return "/overlays/sovereign-siege-engine-overlay.svg";
     if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
-    if (key === "LOGISTICS_GUILD") return "/overlays/ancillary-factory-overlay.svg";
-    if (key === "ASSEMBLY_WORKS") return "/overlays/rail-depot-overlay.svg";
-    if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
+    if (key === "ANCILLARY_FACTORY") return "/overlays/ancillary-factory-overlay.svg";
+    if (key === "RESERVE_LATTICE") return "/overlays/reserve-lattice-overlay.svg";
+    if (key === "CENSUS_DIRECTORATE") return "/overlays/census-directorate-overlay.svg";
     if (key === "TITANIUM_LEVY") return "/overlays/titanium-levy-overlay.svg";
     // Each of the 18 monument components gets its own distinct overlay,
     // named after the component (not the monument) since each is a unique
@@ -314,18 +314,18 @@ export const structureInfoForKey = (
     if (key === "IMPERIAL_EXCHANGE_PART_1") return "/overlays/golden-ledger-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE_PART_2") return "/overlays/counting-engine-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE_PART_3") return "/overlays/sovereign-seal-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_1") return "/overlays/long-barrel-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_2") return "/overlays/fracture-core-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_3") return "/overlays/sky-marking-array-overlay.svg";
+    if (key === "SOVEREIGN_SIEGE_ENGINE_PART_1") return "/overlays/long-barrel-overlay.svg";
+    if (key === "SOVEREIGN_SIEGE_ENGINE_PART_2") return "/overlays/fracture-core-overlay.svg";
+    if (key === "SOVEREIGN_SIEGE_ENGINE_PART_3") return "/overlays/sky-marking-array-overlay.svg";
     if (key === "AEGIS_DOME_PART_1") return "/overlays/shield-lattice-overlay.svg";
     if (key === "AEGIS_DOME_PART_2") return "/overlays/ward-anchor-overlay.svg";
     if (key === "AEGIS_DOME_PART_3") return "/overlays/aegis-crown-overlay.svg";
     if (key === "ASTRAL_DOCK_PART_1") return "/overlays/launch-cradle-overlay.svg";
     if (key === "ASTRAL_DOCK_PART_2") return "/overlays/orbital-array-overlay.svg";
     if (key === "ASTRAL_DOCK_PART_3") return "/overlays/aether-sail-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_1") return "/overlays/census-engine-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_2") return "/overlays/registry-vault-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_3") return "/overlays/levy-charter-overlay.svg";
+    if (key === "CENSUS_DIRECTORATE_PART_1") return "/overlays/census-engine-overlay.svg";
+    if (key === "CENSUS_DIRECTORATE_PART_2") return "/overlays/registry-vault-overlay.svg";
+    if (key === "CENSUS_DIRECTORATE_PART_3") return "/overlays/levy-charter-overlay.svg";
     if (key === "TITANIUM_LEVY_PART_1") return "/overlays/muster-klaxon-overlay.svg";
     if (key === "TITANIUM_LEVY_PART_2") return "/overlays/titanium-standard-overlay.svg";
     if (key === "TITANIUM_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
@@ -374,7 +374,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WOODEN_FORT") {
+  if (type === "PALISADE") {
     return structure({
       title: "Palisade",
       detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
@@ -384,10 +384,10 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "FARMSTEAD") {
+  if (type === "HYDROGARDEN") {
     return structure({
       title: "Hydrogarden",
-      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slots on grain resource tiles. No effect on fish tiles.`,
+      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles. No effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a garrisoned farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -424,7 +424,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "GRANARY") {
+  if (type === "INCUBATION_ENGINE") {
     return structure({
       title: "Incubation Engine",
       detail: "Incubation Engines are built on a town support tile. They strengthen nearby Hydrogardens within 10 tiles and reduce the supported town's food upkeep.",
@@ -454,7 +454,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "CARAVANARY") {
+  if (type === "TRADE_NEXUS") {
     return structure({
       title: "Trade Nexus",
       detail: "Trade Nexuses are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Trade Nexus.",
@@ -498,7 +498,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "FOUNDRY") {
+  if (type === "ORE_REFINERY") {
     return structure({
       title: "Ore Refinery",
       detail: "Ore Refineries double active Mine slot output within 5 tiles.",
@@ -508,7 +508,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "CUSTOMS_HOUSE") {
+  if (type === "HARBOR_EXCHANGE") {
     return structure({
       title: "Harbor Exchange",
       detail: "Harbor exchanges are built beside a dock and add +5 coin per day for each connected owned dock.",
@@ -558,7 +558,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "RAIL_DEPOT") {
+  if (type === "NEURAL_WORKS") {
     return structure({
       title: "Neural Works",
       detail: "Neural Works are mustering hubs that amplify every Ancillary Factory in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Neural Works is allowed per connected-town network.",
@@ -568,17 +568,17 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WATERWORKS") {
+  if (type === "HYDROWORKS") {
     return structure({
       title: "Hydroworks",
-      detail: `A network of irrigation canals. Every Hydrogarden within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
+      detail: `A network of irrigation canals. Every Hydrogarden within a 10-tile radius gains +${HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS} FOOD slots.`,
       glyph: "💧",
       placement: "Build on any garrisoned land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "GOVERNORS_OFFICE") {
+  if (type === "MINISTRY_HALL") {
     return structure({
       title: "Ministry Hall",
       detail: "Ministry halls reduce a nearby town's FOOD slot demand by its own tier step (e.g. -1 for City, -2 for Great City) within 10 tiles.",
@@ -588,7 +588,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "GARRISON_HALL") {
+  if (type === "ANCILLARY_DEPOT") {
     return structure({
       title: "Ancillary Depot",
       detail: "Ancillary Depots add +150 manpower cap to this town, plus +300 manpower cap if a Reserve Lattice is in this town's connected network.",
@@ -628,7 +628,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "AIRPORT") {
+  if (type === "SKY_DOCK") {
     return structure({
       title: "Sky Dock",
       detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
@@ -638,7 +638,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "AETHER_TOWER") {
+  if (type === "AMBARIC_TRANSFORMER") {
     return structure({
       title: "Ambaric Transformer",
       detail: "Ambaric Transformers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
@@ -648,7 +648,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "RADAR_SYSTEM") {
+  if (type === "RESONANCE_GRID") {
     return structure({
       title: "Resonance Grid",
       detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Transformer power.",
@@ -688,7 +688,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WORLD_ENGINE_PART_1") {
+  if (type === "SOVEREIGN_SIEGE_ENGINE_PART_1") {
     return structure({
       title: "The Long Barrel",
       detail: "The Long Barrel is one of the Sovereign Siege Engine's 3 required components — the tapered iron barrel the finished engine will fire through.",
@@ -698,7 +698,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WORLD_ENGINE_PART_2") {
+  if (type === "SOVEREIGN_SIEGE_ENGINE_PART_2") {
     return structure({
       title: "Fracture Core",
       detail: "The Fracture Core is one of the Sovereign Siege Engine's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
@@ -708,7 +708,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WORLD_ENGINE_PART_3") {
+  if (type === "SOVEREIGN_SIEGE_ENGINE_PART_3") {
     return structure({
       title: "Sky-Marking Array",
       detail: "The Sky-Marking Array is one of the Sovereign Siege Engine's 3 required components — the targeting rig the finished engine will sight its shots through.",
@@ -728,7 +728,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WORLD_ENGINE") {
+  if (type === "SOVEREIGN_SIEGE_ENGINE") {
     return structure({
       title: "Sovereign Siege Engine",
       detail: "Unique world monument. Once the three parts are complete, place it on any garrisoned tile you own — this consumes all 3 Sovereign Siege Engine Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
@@ -788,7 +788,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "LOGISTICS_GUILD") {
+  if (type === "ANCILLARY_FACTORY") {
     return structure({
       title: "Ancillary Factory",
       detail: "Ancillary Factories add +0.05 manpower/min empire-wide, standalone. A Neural Works in this town's connected network amplifies each one to +0.1/min.",
@@ -798,7 +798,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ASSEMBLY_WORKS") {
+  if (type === "RESERVE_LATTICE") {
     return structure({
       title: "Reserve Lattice",
       detail: "Reserve Lattices change every connected Ancillary Depot to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Reserve Lattice is allowed per connected-town network.",
@@ -808,7 +808,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "POPULATION_BUREAU_PART_1") {
+  if (type === "CENSUS_DIRECTORATE_PART_1") {
     return structure({
       title: "Census Engine",
       detail: "The Census Engine is one of the Census Directorate's 3 required components — a rotary card-index drum for tracking every counted citizen.",
@@ -818,7 +818,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "POPULATION_BUREAU_PART_2") {
+  if (type === "CENSUS_DIRECTORATE_PART_2") {
     return structure({
       title: "Registry Vault",
       detail: "The Registry Vault is one of the Census Directorate's 3 required components — a strongbox for the empire's population records.",
@@ -828,7 +828,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "POPULATION_BUREAU_PART_3") {
+  if (type === "CENSUS_DIRECTORATE_PART_3") {
     return structure({
       title: "Levy Charter",
       detail: "The Levy Charter is one of the Census Directorate's 3 required components — the founding writ that will authorize the finished Directorate's manpower bonus.",
@@ -838,7 +838,7 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "POPULATION_BUREAU") {
+  if (type === "CENSUS_DIRECTORATE") {
     return structure({
       title: "Census Directorate",
       detail: "Unique world monument. Once the three parts are complete, place it on any garrisoned tile you own — this consumes all 3 Census Directorate Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",

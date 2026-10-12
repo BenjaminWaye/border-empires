@@ -73,10 +73,10 @@ export const knownTerrainAt =
 const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
   action.id === "build_relay_beacon" && Boolean(action.detail?.includes("garrisons this tile first"));
 
-// Farmstead is a build_* action, so it's normally Buildings-tab-only. But
+// Hydrogarden is a build_* action, so it's normally Buildings-tab-only. But
 // it's also the single most commonly reached-for build on a settled FARM
-// tile once researched (build_farmstead is FARM-only -- structure-placement-
-// metadata.json's FARMSTEAD.resourceTypes -- since Farmstead has no effect
+// tile once researched (build_hydrogarden is FARM-only -- structure-placement-
+// metadata.json's HYDROGARDEN.resourceTypes -- since Hydrogarden has no effect
 // on fish production, §5.3 in structure-slots.ts), and Buildings is a
 // second tab away -- surface it in Actions too, but only while it's
 // actually a live thing to do (researched, tile not already carrying it, a
@@ -84,7 +84,7 @@ const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
 // it drops back to Buildings-only so Actions doesn't fill up with a dead
 // button. Both tabs still get it, same as the frontier relay beacon above,
 // since a player used to browsing Buildings will look for it there too.
-const isReadyFarmstead = (action: TileActionDef): boolean => action.id === "build_farmstead" && !action.disabled;
+const isReadyHydrogarden = (action: TileActionDef): boolean => action.id === "build_hydrogarden" && !action.disabled;
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
@@ -93,59 +93,59 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
     case "build_observatory":
       return "OBSERVATORY";
     case "build_siege_camp":
-      return "SIEGE_OUTPOST";
-    case "build_farmstead":
-      return "FARMSTEAD";
-    case "build_waterworks":
-      return "WATERWORKS";
+      return "SIEGE_BATTERY";
+    case "build_hydrogarden":
+      return "HYDROGARDEN";
+    case "build_hydroworks":
+      return "HYDROWORKS";
     case "build_umbrite_rig":
       return "UMBRITE_RIG";
     case "build_mine":
       return "MINE";
     case "build_mintworks":
       return "MINTWORKS";
-    case "build_granary":
-      return "GRANARY";
+    case "build_incubation_engine":
+      return "INCUBATION_ENGINE";
     case "build_census_hall":
       return "CENSUS_HALL";
     case "build_clearing_house":
       return "CLEARING_HOUSE";
-    case "build_airport":
-      return "AIRPORT";
-    case "build_aether_tower":
-      return "AETHER_TOWER";
-    case "build_wooden_fort":
-      return "WOODEN_FORT";
+    case "build_sky_dock":
+      return "SKY_DOCK";
+    case "build_ambaric_transformer":
+      return "AMBARIC_TRANSFORMER";
+    case "build_palisade":
+      return "PALISADE";
     case "build_relay_beacon":
       return "RELAY_BEACON";
-    case "build_umbrite_synthesizer":
-      return "UMBRITE_SYNTHESIZER";
+    case "build_umbrite_works":
+      return "UMBRITE_WORKS";
     case "build_titanium_works":
       return "TITANIUM_WORKS";
-    case "build_crystal_synthesizer":
-      return "CRYSTAL_SYNTHESIZER";
-    case "build_caravanary":
-      return "CARAVANARY";
-    case "build_foundry":
-      return "FOUNDRY";
-    case "build_garrison_hall":
-      return "GARRISON_HALL";
-    case "build_customs_house":
-      return "CUSTOMS_HOUSE";
-    case "build_rail_depot":
-      return "RAIL_DEPOT";
+    case "build_aether_condenser":
+      return "AETHER_CONDENSER";
+    case "build_trade_nexus":
+      return "TRADE_NEXUS";
+    case "build_ore_refinery":
+      return "ORE_REFINERY";
+    case "build_ancillary_depot":
+      return "ANCILLARY_DEPOT";
+    case "build_harbor_exchange":
+      return "HARBOR_EXCHANGE";
+    case "build_neural_works":
+      return "NEURAL_WORKS";
     case "build_imperial_exchange_part_1":
       return "IMPERIAL_EXCHANGE_PART_1";
     case "build_imperial_exchange_part_2":
       return "IMPERIAL_EXCHANGE_PART_2";
     case "build_imperial_exchange_part_3":
       return "IMPERIAL_EXCHANGE_PART_3";
-    case "build_world_engine_part_1":
-      return "WORLD_ENGINE_PART_1";
-    case "build_world_engine_part_2":
-      return "WORLD_ENGINE_PART_2";
-    case "build_world_engine_part_3":
-      return "WORLD_ENGINE_PART_3";
+    case "build_sovereign_siege_engine_part_1":
+      return "SOVEREIGN_SIEGE_ENGINE_PART_1";
+    case "build_sovereign_siege_engine_part_2":
+      return "SOVEREIGN_SIEGE_ENGINE_PART_2";
+    case "build_sovereign_siege_engine_part_3":
+      return "SOVEREIGN_SIEGE_ENGINE_PART_3";
     case "build_aegis_dome_part_1":
       return "AEGIS_DOME_PART_1";
     case "build_aegis_dome_part_2":
@@ -158,12 +158,12 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "ASTRAL_DOCK_PART_2";
     case "build_astral_dock_part_3":
       return "ASTRAL_DOCK_PART_3";
-    case "build_population_bureau_part_1":
-      return "POPULATION_BUREAU_PART_1";
-    case "build_population_bureau_part_2":
-      return "POPULATION_BUREAU_PART_2";
-    case "build_population_bureau_part_3":
-      return "POPULATION_BUREAU_PART_3";
+    case "build_census_directorate_part_1":
+      return "CENSUS_DIRECTORATE_PART_1";
+    case "build_census_directorate_part_2":
+      return "CENSUS_DIRECTORATE_PART_2";
+    case "build_census_directorate_part_3":
+      return "CENSUS_DIRECTORATE_PART_3";
     case "build_titanium_levy_part_1":
       return "TITANIUM_LEVY_PART_1";
     case "build_titanium_levy_part_2":
@@ -172,28 +172,28 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "TITANIUM_LEVY_PART_3";
     case "build_imperial_exchange":
       return "IMPERIAL_EXCHANGE";
-    case "build_world_engine":
-      return "WORLD_ENGINE";
+    case "build_sovereign_siege_engine":
+      return "SOVEREIGN_SIEGE_ENGINE";
     case "build_aegis_dome":
       return "AEGIS_DOME";
     case "build_astral_dock":
       return "ASTRAL_DOCK";
-    case "build_population_bureau":
-      return "POPULATION_BUREAU";
+    case "build_census_directorate":
+      return "CENSUS_DIRECTORATE";
     case "build_titanium_levy":
       return "TITANIUM_LEVY";
-    case "build_governors_office":
-      return "GOVERNORS_OFFICE";
-    case "build_radar_system":
-      return "RADAR_SYSTEM";
+    case "build_ministry_hall":
+      return "MINISTRY_HALL";
+    case "build_resonance_grid":
+      return "RESONANCE_GRID";
     case "build_titanium_weapons_factory":
       return "TITANIUM_WEAPONS_FACTORY";
     case "build_umbrite_weapons_factory":
       return "UMBRITE_WEAPONS_FACTORY";
-    case "build_assembly_works":
-      return "ASSEMBLY_WORKS";
-    case "build_logistics_guild":
-      return "LOGISTICS_GUILD";
+    case "build_reserve_lattice":
+      return "RESERVE_LATTICE";
+    case "build_ancillary_factory":
+      return "ANCILLARY_FACTORY";
     default:
       return undefined;
   }
@@ -201,7 +201,7 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
 
 // Defensive net for the exact bug fixed in #1253 (build_titanium_weapons_factory
 // / build_umbrite_weapons_factory) and its build_quartermasters_office /
-// build_assembly_works / build_logistics_guild siblings found alongside it:
+// build_reserve_lattice / build_ancillary_factory siblings found alongside it:
 // structureTypeForTileAction's switch silently falling through to `undefined`
 // for a genuine build_* action id makes that build button a no-op — no
 // optimistic update, no message sent to the server, no visible error.
@@ -222,62 +222,62 @@ export const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef[
 
 export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
   switch (actionId) {
-    case "build_foundry":
+    case "build_ore_refinery":
       return "industrial-extraction";
     case "build_fortification":
     case "build_titanium_weapons_factory":
       return "masonry";
     case "build_observatory":
       return "crystal-lattices";
-    case "build_airport":
+    case "build_sky_dock":
       return "aeronautics";
-    case "build_aether_tower":
+    case "build_ambaric_transformer":
       return "plastics";
-    case "build_radar_system":
+    case "build_resonance_grid":
       return "radar";
-    case "build_governors_office":
+    case "build_ministry_hall":
       return "civil-service";
-    case "build_garrison_hall":
+    case "build_ancillary_depot":
       return "organized-supply";
     case "build_siege_camp":
     case "build_umbrite_rig":
     case "build_umbrite_weapons_factory":
       return "leatherworking";
-    case "build_farmstead":
+    case "build_hydrogarden":
       return "agriculture";
-    case "build_waterworks":
+    case "build_hydroworks":
       return "irrigation";
     case "build_mine":
       return "mining";
     case "build_mintworks":
       return "trade";
-    case "build_granary":
+    case "build_incubation_engine":
       return "pottery";
     case "build_clearing_house":
       return "coinage";
-    case "build_caravanary":
+    case "build_trade_nexus":
       return "ledger-keeping";
-    case "build_umbrite_synthesizer":
+    case "build_umbrite_works":
       return "workshops";
     case "build_titanium_works":
       return "alchemy";
-    case "build_crystal_synthesizer":
+    case "build_aether_condenser":
       return "crystal-lattices";
-    case "build_customs_house":
+    case "build_harbor_exchange":
       return "harborcraft";
     case "build_lockworks_port":
       return "port-infrastructure";
-    case "build_rail_depot":
+    case "build_neural_works":
       return "global-trade-networks";
     case "build_imperial_exchange_part_1":
     case "build_imperial_exchange_part_2":
     case "build_imperial_exchange_part_3":
     case "build_imperial_exchange":
       return "urban-mintworks";
-    case "build_world_engine_part_1":
-    case "build_world_engine_part_2":
-    case "build_world_engine_part_3":
-    case "build_world_engine":
+    case "build_sovereign_siege_engine_part_1":
+    case "build_sovereign_siege_engine_part_2":
+    case "build_sovereign_siege_engine_part_3":
+    case "build_sovereign_siege_engine":
       return "world-engine";
     case "build_aegis_dome_part_1":
     case "build_aegis_dome_part_2":
@@ -291,10 +291,10 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_astral_dock":
     case "astral_dock_launch":
       return "astral-dock";
-    case "build_population_bureau_part_1":
-    case "build_population_bureau_part_2":
-    case "build_population_bureau_part_3":
-    case "build_population_bureau":
+    case "build_census_directorate_part_1":
+    case "build_census_directorate_part_2":
+    case "build_census_directorate_part_3":
+    case "build_census_directorate":
       return "demographic-registry";
     case "build_titanium_levy_part_1":
     case "build_titanium_levy_part_2":
@@ -320,9 +320,9 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "create_mountain":
     case "remove_mountain":
       return requiredTechIdsForAbility("create_mountain")[0];
-    case "build_assembly_works":
+    case "build_reserve_lattice":
       return "conveyor-networks";
-    case "build_logistics_guild":
+    case "build_ancillary_factory":
       return "remade-concordat";
     default:
       return undefined;
@@ -342,7 +342,7 @@ export const splitTileActionsIntoTabs = (
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
   const actionRows = filtered.filter(
     (action) =>
-      (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyFarmstead(action)) &&
+      (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyHydrogarden(action)) &&
       !tileActionIsCrystal(action.id)
   );
   const buildingRows = filtered
@@ -403,23 +403,23 @@ export const hostileObservatoryProtectingTile = (
 // own structures (PLAYER_UPDATE is a private per-player message), so a
 // foreign tile never gets a dormancy lookup. Extracted from
 // client-action-flow.ts (file-line-cap) — kept as a plain function of
-// state so both it and dockSupportedByCustomsHouseForTile below can share it.
+// state so both it and dockSupportedByHarborExchangeForTile below can share it.
 export const dormantResourcesForTile = (
   state: Pick<ClientState, "me" | "dormantStructures">,
   tile: Tile,
-  field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+  field: "fort" | "observatory" | "siegeBattery" | "economicStructure"
 ): SlotResource[] | undefined => {
   if (tile.ownerId !== state.me) return undefined;
   const key = `${tile.x},${tile.y}:${field}`;
   return state.dormantStructures.find((entry) => entry.key === key)?.resources;
 };
 
-// Mirrors dockSupportedByCustomsHouse (apps/simulation/src/economy-network/economy-network.ts):
+// Mirrors dockSupportedByHarborExchange (apps/simulation/src/economy-network/economy-network.ts):
 // true when `tile` (a dock) has an adjacent (8-neighbor) owned, SETTLED,
-// active CUSTOMS_HOUSE (Harbor Exchange) that isn't dormant. Used to
+// active HARBOR_EXCHANGE (Harbor Exchange) that isn't dormant. Used to
 // determine whether the Harbor Exchange gold bonus applies for the tile
 // menu's dock income display.
-export const dockSupportedByCustomsHouseForTile = (
+export const dockSupportedByHarborExchangeForTile = (
   state: Pick<ClientState, "tiles" | "me" | "dormantStructures">,
   tile: Pick<Tile, "x" | "y">
 ): boolean => {
@@ -430,7 +430,7 @@ export const dockSupportedByCustomsHouseForTile = (
       if (
         neighbor?.ownerId === state.me &&
         neighbor.ownershipState === "SETTLED" &&
-        neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
+        neighbor.economicStructure?.type === "HARBOR_EXCHANGE" &&
         neighbor.economicStructure.status === "active" &&
         !(dormantResourcesForTile(state, neighbor, "economicStructure")?.length)
       ) {

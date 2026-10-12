@@ -38,7 +38,7 @@ type NormalizedGatewayTileUpdate = {
   townDataPartial?: boolean;
   fort?: Tile["fort"] | undefined;
   observatory?: Tile["observatory"] | undefined;
-  siegeOutpost?: Tile["siegeOutpost"] | undefined;
+  siegeBattery?: Tile["siegeBattery"] | undefined;
   economicStructure?: Tile["economicStructure"] | undefined;
   sabotage?: Tile["sabotage"] | undefined;
   shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
@@ -79,7 +79,7 @@ export type GatewayTileUpdate = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   fortJson?: string;
   observatoryJson?: string;
-  siegeOutpostJson?: string;
+  siegeBatteryJson?: string;
   economicStructureJson?: string;
   sabotageJson?: string;
   shardSiteJson?: string; naturalWonderJson?: string;
@@ -138,7 +138,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
   if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
-  if ("siegeOutpostJson" in update) normalized.siegeOutpost = parseGatewayStructureJson<Tile["siegeOutpost"]>(update.siegeOutpostJson);
+  if ("siegeBatteryJson" in update) normalized.siegeBattery = parseGatewayStructureJson<Tile["siegeBattery"]>(update.siegeBatteryJson);
   if ("economicStructureJson" in update) {
     normalized.economicStructure = parseGatewayStructureJson<Tile["economicStructure"]>(update.economicStructureJson);
   }
@@ -272,7 +272,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
   // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
   // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
-  // siegeOutpost/sabotage/muster/yield/yieldRate/yieldCap/upkeepEntries/
+  // siegeBattery/sabotage/muster/yield/yieldRate/yieldCap/upkeepEntries/
   // history) merged via the shared helper -- see client-tile-merge.ts.
   applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });
 

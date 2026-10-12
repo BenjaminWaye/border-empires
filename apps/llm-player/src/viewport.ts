@@ -194,7 +194,7 @@ export type OwnedSettledSite = { x: number; y: number; tile: GameTile };
 // Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's actual
 // build-eligibility check: a new structure may share a tile with a Fort, but
 // is rejected ("tile already has structure") if the tile has an Observatory,
-// a Siege Outpost, or any other economic structure (economicStructureJson)
+// a Siege Battery, or any other economic structure (economicStructureJson)
 // already on it.
 export const ownedSettledSitesInViewport = (index: TileIndex, camera: CameraPosition, playerId: string): OwnedSettledSite[] => {
   const sites: OwnedSettledSite[] = [];
@@ -209,7 +209,7 @@ export const ownedSettledSitesInViewport = (index: TileIndex, camera: CameraPosi
         tile.ownershipState !== "SETTLED" ||
         tile.economicStructureJson ||
         tile.observatoryJson ||
-        tile.siegeOutpostJson
+        tile.siegeBatteryJson
       ) {
         continue;
       }

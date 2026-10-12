@@ -35,7 +35,7 @@ export const dispatchGenericBuild = (structureType: BuildableStructureType, tile
 };
 
 // Fires a build for a structure type, opening the placement overlay for
-// FOUNDRY/WATERWORKS (user confirms the exact tile) and dispatching the build
+// ORE_REFINERY/HYDROWORKS (user confirms the exact tile) and dispatching the build
 // directly for every other type.
 export const triggerBuildForStructureType = (
   structureType: BuildableStructureType,
@@ -43,7 +43,7 @@ export const triggerBuildForStructureType = (
   state: ClientState,
   deps: BuildDispatchDeps & { renderPlacementOverlay: () => void; renderHud: () => void }
 ): void => {
-  if (structureType === "FOUNDRY" || structureType === "WATERWORKS") {
+  if (structureType === "ORE_REFINERY" || structureType === "HYDROWORKS") {
     state.buildingPlacement = { active: true, structureType, x: tile.x, y: tile.y };
     deps.renderPlacementOverlay();
     deps.renderHud();

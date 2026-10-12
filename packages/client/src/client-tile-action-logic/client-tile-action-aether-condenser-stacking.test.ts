@@ -39,13 +39,13 @@ const baseDeps = {
   supportedOwnedDocksForTile: () => [],
   // Every other town-support type is one-per-town, so a naive baseDeps that
   // always answers "yes, town already has one" is a fine default there. It
-  // is NOT fine for CRYSTAL_SYNTHESIZER/ADVANCED_CRYSTAL_SYNTHESIZER, which
+  // is NOT fine for AETHER_CONDENSER/HIGH_YIELD_AETHER_CONDENSER, which
   // the server exempts from that cap (STACKING_TOWN_SUPPORT_STRUCTURE_TYPES,
   // runtime-structure-town-support-target.ts) -- this stub mirrors that by
   // reporting "true" for every type except the stacking Aether Condenser
   // family, same as a real support-ring lookup would.
   townHasSupportStructure: (_town: unknown, type: string) =>
-    type !== "CRYSTAL_SYNTHESIZER" && type !== "ADVANCED_CRYSTAL_SYNTHESIZER",
+    type !== "AETHER_CONDENSER" && type !== "HIGH_YIELD_AETHER_CONDENSER",
   activeTruceWithPlayer: () => undefined,
   pendingTruceWithPlayer: () => undefined,
   ownerSpawnShieldActive: () => false
@@ -54,12 +54,12 @@ const baseDeps = {
 const findAction = (actions: TileActionDef[], id: TileActionDef["id"]): TileActionDef | undefined =>
   actions.find((action) => action.id === id);
 
-// Regression: the Aether Condenser (CRYSTAL_SYNTHESIZER) build button stayed
+// Regression: the Aether Condenser (AETHER_CONDENSER) build button stayed
 // disabled with "Nearby town already has Aether Condenser" in a town that
 // already had one, even though the server exempts this building family from
 // the one-per-town cap entirely (a town can host as many as it has open
 // support tiles for). The client's build-availability check still gated on
-// townHasSupportStructure(..., "CRYSTAL_SYNTHESIZER") like every other
+// townHasSupportStructure(..., "AETHER_CONDENSER") like every other
 // one-per-town economic building, so Build stayed falsely disabled.
 describe("Aether Condenser build button (server-side stacking exemption)", () => {
   it("stays enabled in a town that already has an Aether Condenser", () => {
@@ -90,7 +90,7 @@ describe("Aether Condenser build button (server-side stacking exemption)", () =>
 
     const deps = { ...baseDeps, supportedOwnedTownsForTile: () => [townTile] };
     const actions = menuActionsForSingleTile(state, supportTile, deps as never);
-    const build = findAction(actions, "build_crystal_synthesizer" as TileActionDef["id"]);
+    const build = findAction(actions, "build_aether_condenser" as TileActionDef["id"]);
     expect(build).toBeDefined();
     expect(build?.disabled).not.toBe(true);
   });

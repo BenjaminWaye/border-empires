@@ -46,7 +46,7 @@ export const addFortificationInstancesForTile = (
   nowMs: number
 ): void => {
   const { x, z, surfaceY, wx, wy } = site;
-  const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
+  const siegeTowerVariant = tile.siegeBattery?.variant === "SIEGE_TOWER" || tile.siegeBattery?.variant === "DREAD_TOWER" ? tile.siegeBattery.variant : undefined;
   const beaconInactive = tile.economicStructure?.status === "inactive";
   // A beacon being built or removed is laid out in phases. `nowMs` is the rebuild's
   // performance.now(), used only to pace the owner's AFC index rescans (the construction
@@ -66,7 +66,7 @@ export const addFortificationInstancesForTile = (
   if (!fortKind) return;
   const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
   const opening = fortificationOpeningForTile(tile, fortDeps);
-  const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, nowMs) : undefined;
+  const facingRad = fortKind === "SIEGE_BATTERY" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, nowMs) : undefined;
   // A fort being built or removed rises in phases. A fort *upgrade* keeps the standing tier at full
   // height (it is still defending), so it only gets the ambient work around it.
   const fortSite = tile.fort ? constructionSiteForRebuild(deps.state, tile, "fort", nowMs) : undefined;

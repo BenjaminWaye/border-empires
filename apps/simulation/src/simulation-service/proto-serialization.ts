@@ -48,7 +48,7 @@ export type ProtoSimulationEvent = {
     town_population_tier?: string | undefined;
     fort_json?: string | undefined;
     observatory_json?: string | undefined;
-    siege_outpost_json?: string | undefined;
+    siege_battery_json?: string | undefined;
     economic_structure_json?: string | undefined;
     sabotage_json?: string | undefined;
     shard_site_json?: string | undefined;
@@ -79,7 +79,7 @@ export type ProtoSimulationEvent = {
     townPopulationTier?: string | undefined;
     fortJson?: string | undefined;
     observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
+    siegeBatteryJson?: string | undefined;
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
@@ -122,7 +122,7 @@ export type SimulationTileDelta = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   shardSiteJson?: string | undefined;
@@ -258,7 +258,7 @@ export const toFullSnapshotProtoTile = (tile: {
   reachOwnerId?: string | undefined;
   frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
-  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
+  fortJson?: string | undefined; observatoryJson?: string | undefined; siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
   naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;

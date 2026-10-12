@@ -36,7 +36,7 @@ export type PlayerSubscriptionSnapshot = {
       demand: Record<SlotResource, number>;
     };
     // §14.2: per-structure dormancy detail — which tile+field keys
-    // ("x,y:fort"/"observatory"/"siegeOutpost"/"economicStructure") are
+    // ("x,y:fort"/"observatory"/"siegeBattery"/"economicStructure") are
     // currently dormant, and which of their required resource(s) are short.
     // Feeds the client's greyed-out/"unpowered" structure indicator.
     dormantStructures?: Array<{ key: string; resources: SlotResource[] }>;
@@ -146,7 +146,7 @@ export type PlayerSubscriptionSnapshot = {
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     fortJson?: string | undefined;
     observatoryJson?: string | undefined;
-    siegeOutpostJson?: string | undefined;
+    siegeBatteryJson?: string | undefined;
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;

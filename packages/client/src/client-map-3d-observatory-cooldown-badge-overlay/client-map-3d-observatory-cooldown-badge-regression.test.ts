@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 
-import { TOWER } from "../client-map-3d-aether-tower-body.js";
+import { TOWER } from "../client-map-3d-ambaric-transformer-body.js";
 import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 
 const clientSource = (filename: string): string => {
@@ -56,7 +56,7 @@ describe("3d observatory-cooldown badge regression guard", () => {
 
   it("floats above the aether tower's opaque spire tip so it isn't depth-occluded", () => {
     // Regression for a bug where the badge (added correctly to the scene
-    // every frame) was invisible in-game because the aether-tower model
+    // every frame) was invisible in-game because the ambaric-transformer model
     // (PR #1695) is taller than this badge's float height, so the tower's
     // opaque geometry depth-tested the transparent badge plane away. The
     // badge must clear TOWER.spireTipY, not just the old short generic

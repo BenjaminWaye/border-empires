@@ -64,7 +64,7 @@ import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, mineResourceHintFor, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
-import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
+import { createAmbaricTransformerOverlay } from "../client-map-3d-ambaric-transformer-overlay.js";
 import {
   createContactShadowOverlay,
   DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
@@ -205,9 +205,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // One-shot effects live under a world-anchored root so they stay on their tile while the camera pans (client-map-3d-anchored-fx-layers.ts).
   const anchoredFx = createAnchoredFxLayers(scene, atmosphere.buildingEnvironmentTexture);
   const { floatingText, aetherLanceFx, surveySweepFx, siphonFx, retortRecastFx, revealEmpireFx, revealEmpireStatsFx, bombardFx, siegeBombardFx } = anchoredFx;
-  const { worldEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx } = anchoredFx;
+  const { sovereignSiegeEngineStrikeFx, imperialExchangeLevyFx, astralDockLaunchFx, aegisLockFx, unsettleFx, afcModuleDeliveryFx, afcDropFx } = anchoredFx;
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const onboardingChecklistHighlightOverlay = createOnboardingChecklistHighlightOverlay(scene);
-  const worldEngineShakeFx = createCameraShakeFx(camera);
+  const sovereignSiegeEngineShakeFx = createCameraShakeFx(camera);
   const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture); const dockRouteOverlay = createDockRouteOverlay(scene);
   const barbarianOverlay = createPlanetaryDefenseOverlay(scene); // Planetary Defense patrols on barbarian-owned tiles
@@ -223,7 +223,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const contactShadowOverlay = createContactShadowOverlay(scene, MAX_VISIBLE_TILES);
   const fortificationInstanceOverlays = { fortOverlay, relayBeaconOverlay, siegeTowerOverlay, contactShadowOverlay };
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay, atmosphere.buildingEnvironmentTexture);
-  const aetherTowerOverlay = createAetherTowerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
+  const ambaricTransformerOverlay = createAmbaricTransformerOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   const { isTownDemoTile, fortDemoSpec, structureDemoEntryFor } = createDemoTileSpecs();
@@ -627,8 +627,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncRevealEmpireFxQueue,
     syncRevealEmpireStatsFxQueue,
     syncBombardFxQueue, syncSiegeBombardFxQueue,
-    syncWorldEngineStrikeFxQueue,
-    syncWorldEngineStrikeShakeQueue,
+    syncSovereignSiegeEngineStrikeFxQueue,
+    syncSovereignSiegeEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
     syncUnsettleFxQueue, syncAfcModuleDeliveryFxQueue, syncAfcDropFxQueue,
     syncAstralDockLaunchFxQueue,
@@ -647,8 +647,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       revealEmpireFx,
       revealEmpireStatsFx,
       bombardFx, siegeBombardFx,
-      worldEngineStrikeFx,
-      worldEngineShakeFx,
+      sovereignSiegeEngineStrikeFx,
+      sovereignSiegeEngineShakeFx,
       imperialExchangeLevyFx,
       astralDockLaunchFx,
       aegisLockFx,
@@ -815,7 +815,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     // shared-ownership comment where contactShadowOverlay is constructed.
     contactShadowOverlay.clear();
     structureOverlay.clear();
-    aetherTowerOverlay.clear();
+    ambaricTransformerOverlay.clear();
     defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
@@ -1133,13 +1133,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           } else if (structureType === "UMBRITE_WEAPONS_FACTORY") {
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-          } else if (structureType === "CARAVANARY") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
+          } else if (structureType === "TRADE_NEXUS") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
             structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildStartAt));
           }
         }
         // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).
         if (tile?.observatory && terrain === "LAND") {
-          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") { aetherTowerOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } // Watchtower has its own wonder mesh below
+          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") { ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } // Watchtower has its own wonder mesh below
           // "Recharging" badge while our own active observatory's crystal-casting cooldown is still running (exact time is in the tile-menu overview).
           const cooldownActive = ownerId === deps.state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();
           if (cooldownActive) {
@@ -1329,7 +1329,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
-    aetherTowerOverlay.commit();
+    ambaricTransformerOverlay.commit();
     contactShadowOverlay.commit();
     defensibilityOverlay.commit();
     const commitMs = performance.now() - commitStartAt;
@@ -1512,14 +1512,14 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
     syncBombardFxQueue(); syncSiegeBombardFxQueue();
-    syncWorldEngineStrikeFxQueue();
-    syncWorldEngineStrikeShakeQueue(nowMs);
+    syncSovereignSiegeEngineStrikeFxQueue();
+    syncSovereignSiegeEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
     anchoredFx.root.follow(sceneOrigin); syncAegisLockFxQueue(); syncUnsettleFxQueue(); syncAfcModuleDeliveryFxQueue(); syncAfcDropFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs); syncArrowOverlayFrame(arrowOverlay, deps.state.arrowGesture, (t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) })); // F1: driven every frame (not just on terrain rebuild) so the arrow tracks the mouse smoothly mid-drag
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
-    const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget);
+    const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); ambaricTransformerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget);
     renderReachOverlay3DPylons(nowMs); afcOverlayGroup.update(nowMs);
     frontierDecayPulse.render(Date.now(), ownershipOverlay); barbarianFrontierTint.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
@@ -1529,8 +1529,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
     bombardFx.update(nowMs); siegeBombardFx.update(nowMs);
-    worldEngineStrikeFx.update(nowMs);
-    worldEngineShakeFx.update(nowMs);
+    sovereignSiegeEngineStrikeFx.update(nowMs);
+    sovereignSiegeEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs); unsettleFx.update(nowMs); afcModuleDeliveryFx.update(nowMs); afcDropFx.update(nowMs); borderDustFx.update(nowMs);
@@ -1616,7 +1616,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
     bombardFx.dispose(); siegeBombardFx.dispose();
-    worldEngineStrikeFx.dispose();
+    sovereignSiegeEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
     aegisLockFx.dispose(); unsettleFx.dispose(); afcModuleDeliveryFx.dispose(); afcDropFx.dispose(); borderDustFx.dispose();
@@ -1628,7 +1628,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
-    aetherTowerOverlay.dispose();
+    ambaricTransformerOverlay.dispose();
     contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
     forest.dispose(); tropicalForest.dispose();

@@ -138,7 +138,7 @@ export const filterReachToLand = (
  */
 export const isDormantFrontierTile = (tile: Tile | undefined): boolean => {
   if (!tile || tile.ownershipState !== "FRONTIER") return false;
-  return Boolean(tile.fort || tile.observatory || tile.economicStructure || tile.siegeOutpost);
+  return Boolean(tile.fort || tile.observatory || tile.economicStructure || tile.siegeBattery);
 };
 
 // --- Rendering ---------------------------------------------------------

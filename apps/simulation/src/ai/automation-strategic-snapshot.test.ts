@@ -57,7 +57,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
@@ -105,7 +105,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.primaryVictoryPath).toBe("DIPLOMATIC_DOMINANCE");
@@ -147,7 +147,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: true,
-      siegeOutpostBuildAvailable: true
+      siegeBatteryBuildAvailable: true
     });
 
     expect(snapshot.primaryVictoryPath).toBe("TOWN_CONTROL");
@@ -198,7 +198,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: true,
-      siegeOutpostBuildAvailable: false,
+      siegeBatteryBuildAvailable: false,
       previousVictoryPath: "ECONOMIC_HEGEMONY"
     });
 
@@ -248,7 +248,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: true,
       fortBuildAvailable: true,
-      siegeOutpostBuildAvailable: false,
+      siegeBatteryBuildAvailable: false,
       previousVictoryPath: "DIPLOMATIC_DOMINANCE"
     });
 
@@ -292,7 +292,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false,
+      siegeBatteryBuildAvailable: false,
       pathPopulationCounts: {
         TOWN_CONTROL: 6,
         ECONOMIC_HEGEMONY: 0,
@@ -341,7 +341,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.openingScoutAvailable).toBe(true);
@@ -378,7 +378,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: true,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.primaryVictoryPath).toBe("RESOURCE_MONOPOLY");
@@ -418,7 +418,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.primaryVictoryPath).toBe("MARITIME_SUPREMACY");
@@ -452,7 +452,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     } as const;
     const tooLow = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 14 });
     const sufficient = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 15 });
@@ -495,7 +495,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.underThreat).toBe(true);
@@ -538,7 +538,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     });
 
     expect(snapshot.threatCritical).toBe(true);
@@ -577,7 +577,7 @@ describe("automation strategic snapshot", () => {
       canExpand: true,
       economicBuildAvailable: false,
       fortBuildAvailable: false,
-      siegeOutpostBuildAvailable: false
+      siegeBatteryBuildAvailable: false
     } as const;
     const tooLow = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 9 });
     const sufficient = buildAutomationStrategicSnapshot({ ...baseInput, manpower: ATTACK_MANPOWER_MIN + 10 });

@@ -5,8 +5,8 @@ import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
 // §5.4 gap: isStructurePowered (runtime-ability-helpers.ts) only checks
 // Aether Tower proximity — it has no knowledge of resource-slot dormancy.
 // handleImperialExchangeLevyCommand/handleAegisLockCommand/
-// handleAstralDockLaunchCommand/handleAirportBombardCommand/
-// handleWorldEngineStrikeCommand, plus the passive
+// handleAstralDockLaunchCommand/handleSkyDockBombardCommand/
+// handleSovereignSiegeEngineStrikeCommand, plus the passive
 // isTileShieldedByEnemyAegisDome/isTileBombardBlockedByRadar checks, all
 // gated only on isStructurePowered — so a dormant (slot-starved) monument
 // could still fire its ability, or still shield/block, even though every
@@ -21,7 +21,7 @@ const player1 = (overrides: Parameters<typeof buildPlayer>[1] = {}) =>
   buildPlayer("player-1", { manpower: 10_000, points: 20_000, strategicResources: { CRYSTAL: 1_000 }, ...overrides });
 
 describe("§5.4 ability dormancy gate", () => {
-  it("AIRPORT_BOMBARD rejects a dormant airport even when Aether Tower-powered", async () => {
+  it("SKY_DOCK_BOMBARD rejects a dormant sky dock even when Aether Tower-powered", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -36,7 +36,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "SKY_DOCK", status: "active" }
           },
           {
             x: 1,
@@ -44,10 +44,10 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
           },
           { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          // 1 CRYSTAL spares the tower (key tie-break), leaves AIRPORT dormant; FISH spares the tower's FOOD slot.
+          // 1 CRYSTAL spares the tower (key tie-break), leaves SKY_DOCK dormant; FISH spares the tower's FOOD slot.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
@@ -62,20 +62,20 @@ describe("§5.4 ability dormancy gate", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
+      type: "SKY_DOCK_BOMBARD",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "bombard-dormant",
-      code: "AIRPORT_BOMBARD_INVALID",
+      code: "SKY_DOCK_BOMBARD_INVALID",
       message: "sky dock has no free resource slot"
     }));
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-dormant")).toBe(false);
   });
 
-  it("is not blocked by a dormant enemy Radar System", async () => {
+  it("is not blocked by a dormant enemy Resonance Grid", async () => {
     const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -91,7 +91,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "SKY_DOCK", status: "active" }
           },
           {
             x: 1,
@@ -99,11 +99,11 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
           },
-          // AIRPORT demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
+          // SKY_DOCK demands 3 CRYSTAL slots and AMBARIC_TRANSFORMER another 1 (see
           // packages/shared/src/structure-slots/structure-slots.ts) — 4 GEMS
-          // tiles needed so player-1's own airport/tower stay powered (this
+          // tiles needed so player-1's own sky dock/tower stay powered (this
           // test is about player-2's radar being dormant, not player-1's).
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
@@ -117,7 +117,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "RADAR_SYSTEM", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "RESONANCE_GRID", status: "active" }
           },
           {
             x: 4,
@@ -125,9 +125,9 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "AMBARIC_TRANSFORMER", status: "active" }
           }
-          // No FOOD/CRYSTAL supply for player-2: RADAR_SYSTEM demands both.
+          // No FOOD/CRYSTAL supply for player-2: RESONANCE_GRID demands both.
         ],
         activeLocks: []
       }
@@ -140,7 +140,7 @@ describe("§5.4 ability dormancy gate", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
+      type: "SKY_DOCK_BOMBARD",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
@@ -148,7 +148,7 @@ describe("§5.4 ability dormancy gate", () => {
     expect(events).not.toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "bombard-past-dormant-radar",
-      code: "AIRPORT_BOMBARD_INVALID",
+      code: "SKY_DOCK_BOMBARD_INVALID",
       message: "blocked by a Resonance Grid"
     }));
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-past-dormant-radar")).toBe(true);
@@ -164,7 +164,7 @@ describe("§5.4 ability dormancy gate", () => {
       initialState: {
         tiles: [
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" } },
           // 1 CRYSTAL spares the tower (key tie-break), leaves the exchange dormant; FISH spares the tower's FOOD slot.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -195,7 +195,7 @@ describe("§5.4 ability dormancy gate", () => {
     expect(p2?.points).toBe(100);
   });
 
-  it("WORLD_ENGINE_STRIKE rejects a dormant World Engine even when Aether Tower-powered", async () => {
+  it("SOVEREIGN_SIEGE_ENGINE_STRIKE rejects a dormant Sovereign Siege Engine even when Aether Tower-powered", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -210,7 +210,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "SOVEREIGN_SIEGE_ENGINE", status: "active" }
           },
           {
             x: 1,
@@ -218,7 +218,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
           },
           {
             x: 50,
@@ -228,7 +228,7 @@ describe("§5.4 ability dormancy gate", () => {
             ownershipState: "SETTLED",
             town: { type: "MARKET", populationTier: "CITY", population: 1_000 }
           },
-          // 1 CRYSTAL spares the tower (key tie-break), leaves World Engine dormant; FISH spares the tower's FOOD slot.
+          // 1 CRYSTAL spares the tower (key tie-break), leaves Sovereign Siege Engine dormant; FISH spares the tower's FOOD slot.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
         ],
@@ -243,14 +243,14 @@ describe("§5.4 ability dormancy gate", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "WORLD_ENGINE_STRIKE",
+      type: "SOVEREIGN_SIEGE_ENGINE_STRIKE",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "strike-dormant",
-      code: "WORLD_ENGINE_STRIKE_INVALID",
+      code: "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID",
       message: "Sovereign Siege Engine has no free resource slot"
     }));
     const target = runtime.exportState().tiles.find((tile) => tile.x === 50 && tile.y === 50);
@@ -274,7 +274,7 @@ describe("§5.4 ability dormancy gate", () => {
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+      economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
     },
     { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
     // AEGIS_DOME now demands 4 CRYSTAL slots (bumped from 1: it consumes
@@ -365,7 +365,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "INCUBATION_ENGINE", status: "active" }
           },
           {
             x: 6,
@@ -381,7 +381,7 @@ describe("§5.4 ability dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "AMBARIC_TRANSFORMER", status: "active" }
           },
           // §5.4: CRYSTAL supply so player-1's own Observatory isn't dormant
           // (Aether Lance is cast via a picked Observatory). player-2 gets
@@ -428,7 +428,7 @@ describe("§5.4 ability dormancy gate", () => {
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+      economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
     },
     { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
     // ASTRAL_DOCK now demands 4 CRYSTAL slots (bumped from 1: it consumes

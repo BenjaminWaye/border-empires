@@ -13,7 +13,7 @@ import type {
   ResourceType,
   RiverPath,
   Season,
-  SiegeOutpost,
+  SiegeBattery,
   Tile,
   TileKey
 } from "@border-empires/shared";
@@ -258,12 +258,12 @@ export interface ServerWorldgenTerrainDeps {
   townsByTile: Map<TileKey, TownDefinition>;
   docksByTile: Map<TileKey, Dock>;
   fortsByTile: Map<TileKey, Fort>;
-  siegeOutpostsByTile: Map<TileKey, SiegeOutpost>;
+  siegeBatteriesByTile: Map<TileKey, SiegeBattery>;
   observatoriesByTile: Map<TileKey, Observatory>;
   economicStructuresByTile: Map<TileKey, EconomicStructure>;
   playerTile: (x: number, y: number) => Tile;
-  AIRPORT_BOMBARD_MIN_FIELD_TILES: number;
-  AIRPORT_BOMBARD_MAX_FIELD_TILES: number;
+  SKY_DOCK_BOMBARD_MIN_FIELD_TILES: number;
+  SKY_DOCK_BOMBARD_MAX_FIELD_TILES: number;
   activeSeason: Pick<Season, "worldSeed">;
   clustersById: Map<string, ClusterDefinition>;
   ownership: Map<TileKey, string>;

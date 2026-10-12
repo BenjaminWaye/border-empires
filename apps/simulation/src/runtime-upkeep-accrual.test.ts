@@ -45,8 +45,8 @@ const emptyEconomyContext = (player: RuntimePlayer): RuntimeTileYieldEconomyCont
   townNetwork: new Map(),
   fedTownKeys: new Set(),
   firstThreeTownKeys: new Set(),
-  waterworksKeys: new Set(),
-  foundryKeys: new Set()
+  hydroworksKeys: new Set(),
+  oreRefineryKeys: new Set()
 });
 
 type HarnessOptions = {

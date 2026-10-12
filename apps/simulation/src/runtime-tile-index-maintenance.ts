@@ -32,12 +32,12 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
   }
   if (tile.economicStructure?.status === "active") {
     switch (tile.economicStructure.type) {
-      case "UMBRITE_SYNTHESIZER":
-      case "ADVANCED_UMBRITE_SYNTHESIZER":
+      case "UMBRITE_WORKS":
+      case "HIGH_YIELD_UMBRITE_WORKS":
       case "TITANIUM_WORKS":
-      case "ADVANCED_TITANIUM_WORKS":
-      case "CRYSTAL_SYNTHESIZER":
-      case "ADVANCED_CRYSTAL_SYNTHESIZER":
+      case "HIGH_YIELD_TITANIUM_WORKS":
+      case "AETHER_CONDENSER":
+      case "HIGH_YIELD_AETHER_CONDENSER":
         return true;
       default:
         break;
@@ -165,7 +165,7 @@ export const refreshPlayerCandidateIndexAnchorForTile = (input: {
 export const registerRuntimeTileAnchor = (input: {
   playerCandidateIndex: PlayerCandidateIndex;
   activeFortAnchorsByOwner: Map<string, Map<string, number>>;
-  activeSiegeOutpostsByOwner: Map<string, Set<string>>;
+  activeSiegeBatteriesByOwner: Map<string, Set<string>>;
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
   tiles: ReadonlyMap<string, DomainTileState>;
   tileKey: string;
@@ -177,7 +177,7 @@ export const registerRuntimeTileAnchor = (input: {
   if (candidateRadius > 0) input.playerCandidateIndex.registerAnchor(input.tileKey, ownerId, candidateRadius, (key) => input.tiles.get(key));
   const fortRadius = fortSupportAnchorMaxRadius(input.tile, ownerId);
   if (fortRadius > 0) registerFortSupportAnchor(input.activeFortAnchorsByOwner, input.tileKey, ownerId, fortRadius);
-  if (isSiegeOutpostActive(input.tile, ownerId)) addTileToOwnerSet(input.activeSiegeOutpostsByOwner, input.tileKey, ownerId);
+  if (isSiegeBatteryActive(input.tile, ownerId)) addTileToOwnerSet(input.activeSiegeBatteriesByOwner, input.tileKey, ownerId);
   if (isRelayBeaconActive(input.tile, ownerId)) addTileToOwnerSet(input.activeRelayBeaconsByOwner, input.tileKey, ownerId);
 };
 
@@ -189,16 +189,16 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   activeFortAnchorsByOwner: Map<string, Map<string, number>>;
   yieldBearingTilesByOwner: Map<string, Set<string>>;
   sortedYieldBearingKeysByOwner: Map<string, string[]>;
-  activeSiegeOutpostsByOwner: Map<string, Set<string>>;
+  activeSiegeBatteriesByOwner: Map<string, Set<string>>;
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
   activeObservatoriesByOwner: Map<string, Set<string>>;
   musterTilesByOwner: Map<string, Set<string>>;
-  railDepotTilesByOwner: Map<string, Set<string>>;
-  garrisonHallTilesByOwner: Map<string, Set<string>>;
-  assemblyWorksTilesByOwner: Map<string, Set<string>>;
-  logisticsGuildTilesByOwner: Map<string, Set<string>>;
+  neuralWorksTilesByOwner: Map<string, Set<string>>;
+  ancillaryDepotTilesByOwner: Map<string, Set<string>>;
+  reserveLatticeTilesByOwner: Map<string, Set<string>>;
+  ancillaryFactoryTilesByOwner: Map<string, Set<string>>;
   quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
-  granaryTilesByOwner: Map<string, Set<string>>;
+  incubationEngineTilesByOwner: Map<string, Set<string>>;
   censusHallTilesByOwner: Map<string, Set<string>>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
@@ -213,16 +213,16 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   }
   refreshFortAnchorIndexForTile(input);
   refreshYieldBearingIndexForTile(input);
-  refreshSiegeOutpostIndexForTile(input);
+  refreshSiegeBatteryIndexForTile(input);
   refreshRelayBeaconIndexForTile(input);
   refreshObservatoryIndexForTile(input);
   refreshMusterIndexForTile(input);
-  refreshRailDepotIndexForTile(input);
-  refreshGarrisonHallIndexForTile(input);
-  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ASSEMBLY_WORKS", index: input.assemblyWorksTilesByOwner });
-  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "LOGISTICS_GUILD", index: input.logisticsGuildTilesByOwner });
+  refreshNeuralWorksIndexForTile(input);
+  refreshAncillaryDepotIndexForTile(input);
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "RESERVE_LATTICE", index: input.reserveLatticeTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ANCILLARY_FACTORY", index: input.ancillaryFactoryTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "QUARTERMASTERS_OFFICE", index: input.quartermastersOfficeTilesByOwner });
-  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "GRANARY", index: input.granaryTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "INCUBATION_ENGINE", index: input.incubationEngineTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });
 };
 
@@ -304,8 +304,8 @@ const refreshYieldBearingIndexForTile = (input: {
   }
 };
 
-export const isSiegeOutpostActive = (tile: DomainTileState, ownerId: string): boolean =>
-  tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
+export const isSiegeBatteryActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.siegeBattery?.ownerId === ownerId && tile.siegeBattery.status === "active";
 
 export const isRelayBeaconActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.economicStructure?.ownerId === ownerId &&
@@ -315,7 +315,7 @@ export const isRelayBeaconActive = (tile: DomainTileState, ownerId: string): boo
 export const isObservatoryActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.observatory?.ownerId === ownerId && tile.observatory.status === "active";
 
-// Shared by refreshSiegeOutpostIndexForTile/refreshRelayBeaconIndexForTile/
+// Shared by refreshSiegeBatteryIndexForTile/refreshRelayBeaconIndexForTile/
 // refreshObservatoryIndexForTile below — each is "a single owned-tile
 // structure field is active for tile.ownerId", differing only in which
 // isXActive predicate and which per-owner index Map they maintain. Exported
@@ -338,12 +338,12 @@ export const refreshActiveStructureIndexForTile = (input: {
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.index, input.tileKey, nextOwnerId);
 };
 
-const refreshSiegeOutpostIndexForTile = (input: {
+const refreshSiegeBatteryIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
-  activeSiegeOutpostsByOwner: Map<string, Set<string>>;
-}): void => refreshActiveStructureIndexForTile({ ...input, index: input.activeSiegeOutpostsByOwner, isActive: isSiegeOutpostActive });
+  activeSiegeBatteriesByOwner: Map<string, Set<string>>;
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.activeSiegeBatteriesByOwner, isActive: isSiegeBatteryActive });
 
 const refreshRelayBeaconIndexForTile = (input: {
   tileKey: string;
@@ -372,45 +372,45 @@ const refreshMusterIndexForTile = (input: {
   if (nextOwnerId) addTileToOwnerSet(input.musterTilesByOwner, input.tileKey, nextOwnerId);
 };
 
-const isRailDepotActive = (tile: DomainTileState, ownerId: string): boolean =>
-  tile.economicStructure?.type === "RAIL_DEPOT" &&
+const isNeuralWorksActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.economicStructure?.type === "NEURAL_WORKS" &&
   tile.economicStructure.ownerId === ownerId &&
   tile.economicStructure.status === "active";
 
-const refreshRailDepotIndexForTile = (input: {
+const refreshNeuralWorksIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
-  railDepotTilesByOwner: Map<string, Set<string>>;
-}): void => refreshActiveStructureIndexForTile({ ...input, index: input.railDepotTilesByOwner, isActive: isRailDepotActive });
+  neuralWorksTilesByOwner: Map<string, Set<string>>;
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.neuralWorksTilesByOwner, isActive: isNeuralWorksActive });
 
-// Garrison Hall's flat manpower-cap bonus (§4.4) is a plain per-structure
-// count, not tied to any specific town — GARRISON_HALL uses "same_tile"
-// placement (structure-placement-metadata.json), unlike RAIL_DEPOT/
+// Ancillary Depot's flat manpower-cap bonus (§4.4) is a plain per-structure
+// count, not tied to any specific town — ANCILLARY_DEPOT uses "same_tile"
+// placement (structure-placement-metadata.json), unlike NEURAL_WORKS/
 // CLEARING_HOUSE's "town_support" mode, so it can sit on any settled/
 // resource/support/dock tile with no adjacency to a town at all. A
-// per-town, adjacency-based scan (like the Rail Depot/Clearing House
-// network membership check) would silently miss any Garrison Hall not
+// per-town, adjacency-based scan (like the Neural Works/Clearing House
+// network membership check) would silently miss any Ancillary Depot not
 // built next to a town.
-const isGarrisonHallActive = (tile: DomainTileState, ownerId: string): boolean =>
-  tile.economicStructure?.type === "GARRISON_HALL" &&
+const isAncillaryDepotActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.economicStructure?.type === "ANCILLARY_DEPOT" &&
   tile.economicStructure.ownerId === ownerId &&
   tile.economicStructure.status === "active";
 
-const refreshGarrisonHallIndexForTile = (input: {
+const refreshAncillaryDepotIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
-  garrisonHallTilesByOwner: Map<string, Set<string>>;
-}): void => refreshActiveStructureIndexForTile({ ...input, index: input.garrisonHallTilesByOwner, isActive: isGarrisonHallActive });
+  ancillaryDepotTilesByOwner: Map<string, Set<string>>;
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.ancillaryDepotTilesByOwner, isActive: isAncillaryDepotActive });
 
-// Same shape as refreshRailDepotIndexForTile/refreshGarrisonHallIndexForTile
+// Same shape as refreshNeuralWorksIndexForTile/refreshAncillaryDepotIndexForTile
 // above, parameterized by economicStructure.type instead of a fixed one —
 // used for the tech-tree redesign's new Manpower-branch buildings (Assembly
-// Works, Logistics Guild, Quartermaster's Office, Granary/Incubation Engine,
+// Works, Ancillary Factory, Quartermaster's Office, Incubation Engine,
 // Census Hall) so each new per-owner tile-set index doesn't need its own
 // hand-copied isXActive predicate. None of these are tied to a specific town
-// the way Rail Depot/Clearing House's "only one per connected-town network"
+// the way Neural Works/Clearing House's "only one per connected-town network"
 // uniqueness check is.
 const isEconomicStructureTypeActive = (tile: DomainTileState, ownerId: string, structureType: string): boolean =>
   tile.economicStructure?.type === structureType &&

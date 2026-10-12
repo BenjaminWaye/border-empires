@@ -64,8 +64,8 @@ const grassTownOverlayByTier = createTownOverlaySet({
 });
 
 const builtResourceOverlayVariants = {
-  FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
-  FISH_FARMSTEAD: createOverlayVariantSet(["fish-farmstead-overlay-1.svg", "fish-farmstead-overlay-2.svg", "fish-farmstead-overlay-3.svg"]),
+  FARM_HYDROGARDEN: createOverlayVariantSet(["farm-hydrogarden-overlay-1.svg", "farm-hydrogarden-overlay-2.svg", "farm-hydrogarden-overlay-3.svg"]),
+  FISH_HYDROGARDEN: createOverlayVariantSet(["fish-hydrogarden-overlay-1.svg", "fish-hydrogarden-overlay-2.svg", "fish-hydrogarden-overlay-3.svg"]),
   UMBRITE_RIG: createOverlayVariantSet(["umbrite-rig-overlay-1.svg", "umbrite-rig-overlay-2.svg", "umbrite-rig-overlay-3.svg"]),
   TITANIUM_MINE: createOverlayVariantSet(["titanium-mine-overlay-1.svg", "titanium-mine-overlay-2.svg", "titanium-mine-overlay-3.svg"]),
   GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
@@ -740,8 +740,8 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
   if (!tile.resource || !tile.economicStructure) return undefined;
   const key =
-    tile.resource === "FARM" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FARM_FARMSTEAD"
-    : tile.resource === "FISH" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FISH_FARMSTEAD"
+    tile.resource === "FARM" && (tile.economicStructure.type === "HYDROGARDEN" || tile.economicStructure.type === "HYDROWORKS") ? "FARM_HYDROGARDEN"
+    : tile.resource === "FISH" && (tile.economicStructure.type === "HYDROGARDEN" || tile.economicStructure.type === "HYDROWORKS") ? "FISH_HYDROGARDEN"
     : tile.resource === "UMBRITE" && tile.economicStructure.type === "UMBRITE_RIG" ? "UMBRITE_RIG"
     : tile.resource === "TITANIUM" && tile.economicStructure.type === "MINE" ? "TITANIUM_MINE"
     : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"

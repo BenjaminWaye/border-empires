@@ -39,8 +39,8 @@ const townTile = (isFed: boolean): Tile => ({
     connectedTownBonus: 0,
     hasMintworks: false,
     mintworksActive: false,
-    hasGranary: false,
-    granaryActive: false,
+    hasIncubationEngine: false,
+    incubationEngineActive: false,
   }
 });
 

@@ -49,8 +49,8 @@ code and update this document in the same branch when the rule changes.
 - Town regeneration weights: first five towns 100%, next ten 50%, later towns
   20%. The global regeneration floor is 0.15/minute.
 - Structures and networks can add cap or regeneration. The runtime calculator
-  is the source for those interactions (Ancillary Factory/Garrison Hall,
-  Assembly Works, Logistics Guild, Rail Depot, Population Bureau, seasonal
+  is the source for those interactions (Ancillary Factory/Ancillary Depot,
+  Reserve Lattice, Ancillary Factory, Neural Works, Census Directorate, seasonal
   bonuses).
 - Core action anchors: **EXPAND 10**, **SETTLE 20**, ordinary ATTACK **60**,
   and Deep Strike/Naval Infiltration **120** manpower. Structure costs are
@@ -70,9 +70,9 @@ demand is across its consumers. Gold and Shard do not use this system.
 | GEMS | 1 CRYSTAL slot |
 | UMBRITE | 1 UMBRITE slot |
 
-- Farmstead adds 2 FOOD slots to its FARM tile. Mine and Umbrite Rig each add
-  1 matching-resource slot. Waterworks adds 2 FOOD slots to Farmsteads in
-  range; Foundry adds 2 TITANIUM slots to Mines in range.
+- Hydrogarden adds 2 FOOD slots to its FARM tile. Mine and Umbrite Rig each add
+  1 matching-resource slot. Hydroworks adds 2 FOOD slots to Hydrogardens in
+  range; Ore Refinery adds 2 TITANIUM slots to Mines in range.
 - Agrarian Works adds 1 FOOD slot per owned, settled FISH tile.
 - A structure occupies its requirements from build start until removal
   completes, including while under construction or inactive. The full table is

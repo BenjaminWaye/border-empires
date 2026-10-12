@@ -30,13 +30,13 @@ describe("buildDetailTextForAction — build_mintworks", () => {
   });
 });
 
-describe("buildDetailTextForAction — build_farmstead (Hydrogarden)", () => {
+describe("buildDetailTextForAction — build_hydrogarden (Hydrogarden)", () => {
   it("says it adds +2 FOOD slots on grain resource tiles", () => {
-    const text = buildDetailTextForAction("build_farmstead", { ...baseTile, resource: "FARM" });
+    const text = buildDetailTextForAction("build_hydrogarden", { ...baseTile, resource: "FARM" });
     expect(text).toBe("Adds +2 FOOD slots on grain resource tiles.");
   });
 
   it("says it does not boost fish tiles", () => {
-    expect(buildDetailTextForAction("build_farmstead", { ...baseTile, resource: "FISH" })).toBe("Hydrogardens do not boost fish output.");
+    expect(buildDetailTextForAction("build_hydrogarden", { ...baseTile, resource: "FISH" })).toBe("Hydrogardens do not boost fish output.");
   });
 });

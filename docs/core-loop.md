@@ -101,7 +101,7 @@ somewhere in code):
 3. **Check in a couple of times a day, not all day.** Each town tier's own
    cap/regen pair is tuned so that town alone would fill its share in about
    12h (`TOWN_MANPOWER_BY_TIER`, regen = cap / 720 min). The empire's pool is
-   *not* a fixed 12h fill, though (see §5): Garrison Halls and rail-depot
+   *not* a fixed 12h fill, though (see §5): Ancillary Depots and neural-works
    networks raise the cap without matching regen, the starting capital takes
    about 30h, and towns beyond the fifth give reduced regen. Offline yield
    stops accruing at 12h, and so does passive gold for an inactive human. The design explicitly avoids decay mechanics
@@ -136,7 +136,7 @@ flowchart LR
     A -->|MP| F
     A -->|MP| MB[Military buildings<br/>forts, siege, observatory]
     E -->|TITANIUM / UMBRITE slots| MB
-    F -->|Granary: growth boost| D
+    F -->|Incubation Engine: growth boost| D
     D -->|higher tier = bigger cap and regen| A
     D -->|gold, more per tier| G[Gold]
     DK -->|gold per connected dock| G
@@ -173,7 +173,7 @@ flowchart LR
     H -.->|unlocks| SD[Sky Dock<br/>not a monument]
     SD -.->|Bombard| I
     MON[Monuments<br/>core loop] -.->|grant| MA[Monument abilities]
-    MA -.->|World Engine Strike, Aegis Lock| I
+    MA -.->|Sovereign Siege Engine Strike, Aegis Lock| I
     MA -.->|Imperial Exchange Levy| G[Gold<br/>core loop]
 ```
 
@@ -238,14 +238,14 @@ growing your economy *means* taking the land around you.
 | **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | First five owned: 50 MP, instant, no food slots; later: 100 MP, 100s, one food slot | `relayBeaconManpowerCost`, `relayBeaconBuildDurationMs`, `OUTPOST_REACH_RADIUS` |
 | **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles, per the player's opt-in (see below) | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
-| **Build** | Place one structure on a settled tile | MP (e.g. Farmstead 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
+| **Build** | Place one structure on a settled tile | MP (e.g. Hydrogarden 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
 | **Choose domain** | Pick one doctrine per tier (5 tiers) | 40 → 1,800 gold, plus shards from tier 2 | `domain-tree.json` |
 | **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | Depends on the target: 10 MP (barbarian) to 960 MP (Thunder Bastion). See §7. 30s combat lock | `requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | **Build military** | Forts (defense), Siege Battery/Tower/Dread Tower (attack), Observatory (vision, protection from abilities) | Fort ladder 150–960 MP plus TITANIUM slots. Siege ladder 60 MP plus UMBRITE/TITANIUM slots | `FORT_TIER_LADDER`, `SIEGE_TIER_LADDER` |
-| **Build monument** | One of six globally unique monuments (Imperial Exchange, World Engine, Aegis Dome, Astral Dock, Population Bureau, Titanium Levy). Built in 4 stages. Each is locked by a tech, and the first empire to build one locks everyone else out | 3 × (1,000 MP + 1 shard), then 1,600 MP + 2 shards: 4,600 MP and 5 shards in total | `MONUMENTAL_STRUCTURE_TYPES`, `structure-costs.ts` |
-| **Build Sky Dock** | Ability structure, not a monument. Needs a powered Aether Tower and grants Bombard (range 30, 20 min cooldown, 15% base miss chance, +25% against forts) | 150 MP, doubling per Sky Dock owned | `AIRPORT` in `structure-costs.ts`, `AIRPORT_BOMBARD_*` |
+| **Build monument** | One of six globally unique monuments (Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock, Census Directorate, Titanium Levy). Built in 4 stages. Each is locked by a tech, and the first empire to build one locks everyone else out | 3 × (1,000 MP + 1 shard), then 1,600 MP + 2 shards: 4,600 MP and 5 shards in total | `MONUMENTAL_STRUCTURE_TYPES`, `structure-costs.ts` |
+| **Build Sky Dock** | Ability structure, not a monument. Needs a powered Aether Tower and grants Bombard (range 30, 20 min cooldown, 15% base miss chance, +25% against forts) | 150 MP, doubling per Sky Dock owned | `SKY_DOCK` in `structure-costs.ts`, `SKY_DOCK_BOMBARD_*` |
 | **Collect** | Bank accrued tile yield (20s cooldown) | — | `COLLECT_VISIBLE` in `runtime.ts` |
 | **Rush-buy** | Finish an in-progress settle or build with gold | 0.5 gold × MP × fraction of time left | `rush-buy.ts` |
 | **Queue / Waypoint** | Plan settles, builds and routes that run while you're away | — | `dev-queue.ts`, `waypoint-planner.ts` |
@@ -314,7 +314,7 @@ away.
 
 - Manpower refills. Fill time varies by empire: each town adds cap and regen
   at a 12h ratio, but the starting capital (720 MP at 0.4/min, about 30h),
-  cap-only bonuses (Garrison Hall +150, rail-depot networks) and reduced
+  cap-only bonuses (Ancillary Depot +150, neural-works networks) and reduced
   regen from towns past the fifth all stretch it.
 - Town populations grow toward the next tier (10k → 100k → 1M → 5M). Settling
   plain land does *not* grow towns. Growth depends on the town itself
@@ -322,7 +322,7 @@ away.
   **fed** (its FOOD-slot demand met), there must be no combat within 10
   tiles in the last hour, and it must not be in the 10-minute capture shock.
   Growth follows a logistic curve toward the town's max population and is
-  multiplied by Granary, a 24h-peace bonus (×1.2), domains and empire
+  multiplied by Incubation Engine, a 24h-peace bonus (×1.2), domains and empire
   integrity. You upgrade with gold and an extra FOOD slot. A higher tier raises the manpower
   cap and regen (150 → 300 → 450 → 750 → 1,350 cap).
 - **Shard rain** at 08:00 and 21:00 UTC scatters 3–6 shard sites with a 30-min
@@ -339,7 +339,7 @@ the player arc:
 |---|---|---|
 | **Opening** (day 0–2) | Grab a town and 4 food slots, and push reach outward | Relay Beacons, Expand To a nearby town, first techs (Agrarian Works) |
 | **Build-up** | Grow town tiers, fill slots, pick domains | Structures, town upgrades, docks, clearing barbarians |
-| **Contact / war** | Borders meet. Take towns, docks and resource tiles from rivals | Muster, siege outposts, forts, truces and alliances |
+| **Contact / war** | Borders meet. Take towns, docks and resource tiles from rivals | Muster, siege batteries, forts, truces and alliances |
 | **Victory race** | Reach a threshold and hold it for 24h while everyone else turns on the leader | Defend the path you're on, or pivot to another |
 
 Victory thresholds (`SEASON_VICTORY_*`): towns ≥50%; income ≥1.33× the next
@@ -365,8 +365,8 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
-| **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Customs House adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
+| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min average paid in four-hour refills) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Ancillary Depot and neural-works bonuses | Expand 10, Garrison 20, Relay Beacon 50 for the first five / 100 later, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Harbor Exchange adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
 
@@ -476,7 +476,7 @@ loop at a named point.
 | **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by its cooldown (5 min to 24h). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Reveal Empire, terrain shaping; Siphon, which needs an Observatory within 30 tiles, zeroes the output of enemy town and resource tiles in a 3×3 area for 60 min) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
 | **Shards** | **Core (late-game currency)** | The gate on domains from tier 2 and on monuments. They only come from shard rain (08:00 and 21:00 UTC, 30-min TTL), the initial scatter and caches, so they give players a scheduled, contested reason to be online | Shards → Domains, Monuments |
 | **Waystations** | **Core (reward for expanding)** | About one per 400 tiles, world-generated. Expanding onto one activates it once, granting one random permanent reward: permanent vision around the nearest town, a +5,000 population burst to the nearest town you own (coin instead if you own none), a free tier-1 tech (coin if none are left), +1 resource slot, coin, or a manpower grant (`runtime-waystation-activation.ts`). They are a direct reason to push reach toward a particular spot | Reach → Waystations → Slots / Towns / Tech |
-| **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP and 5 shards, which makes them the biggest manpower and shard sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), World Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Population Bureau and Titanium Levy feed manpower instead | Manpower + Shards → Monuments → abilities |
+| **Monuments** | **Core as a late-game sink, supporting through their abilities** | Six globally unique buildings that cost 4,600 MP and 5 shards, which makes them the biggest manpower and shard sink in the game. Unlike economic or military buildings, they give *abilities*: Imperial Exchange Levy (takes 100% of a target's gold, 24h cooldown), Sovereign Siege Engine Strike (1,000 gold, 30% population loss, 10 min), Aegis Dome's Aegis Lock (blocks attacks for 15 min, 60 min cooldown), Astral Dock Launch (1,000 gold, 24h satellite). Census Directorate and Titanium Levy feed manpower instead | Manpower + Shards → Monuments → abilities |
 | **Sky Dock** | **Supporting (ability structure, not a monument)** | Works like a monument ability but isn't unique and has no stages: 150 MP (doubling per copy), and it needs a powered Aether Tower. Its Bombard hits tiles up to 30 away | Tech → Sky Dock → Attack |
 | **Diplomacy** | **Supporting (social layer)**, with one exception | Alliances and truces decide *who* you fight and when, not how you grow. Allies can't attack each other, and breaking a truce locks you out of truces for 24h. The exception: **Diplomatic Dominance** is a victory path, so for a player going for it, diplomacy moves into the season loop | Choice of attack target; the Victory path |
 
@@ -520,7 +520,7 @@ town-engine loop at small scale.
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |
 | MP cap by town tier | 150 / 300 / 450 / 750 / 1,350, each tier's regen = cap / 720 min | `TOWN_MANPOWER_BY_TIER` |
 | MP regen weight per town | ×1 for the first 5, ×0.5 up to 15, ×0.2 after | `manpowerRegenWeightForSettlementIndex` |
-| Cap-only MP bonuses | Garrison Hall +150, rail-depot network +300 per Garrison Hall | `GARRISON_HALL_*`, `RAIL_DEPOT_NETWORK_*` |
+| Cap-only MP bonuses | Ancillary Depot +150, neural-works network +300 per Ancillary Depot | `ANCILLARY_DEPOT_*`, `NEURAL_WORKS_NETWORK_*` |
 | Starting capital | 720 MP cap, 0.4/min | `STARTING_CAPITAL_*` |
 | Town tier population | 10k / 100k / 1M / 5M | `town-growth.ts` |
 | Town upgrade gold | 20 / 40 / 80 / 160 | `TOWN_TIER_UPGRADE_GOLD_COST` |
@@ -564,7 +564,7 @@ deliberately no decay for simply being offline.
 |---|---|---|---|
 | Out of manpower | Overspent | Can't act | Wait for regen or rush-buy with gold |
 | Dormant structure | Lost its slot-backing tile | Stops giving its bonus but stays standing | Retake the resource or free a slot |
-| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or build a Granary |
+| Unfed town | Not enough food support | Gold income pauses | Add FOOD slots or build a Incubation Engine |
 | Out-of-reach frontier | Lost the anchor | Decays in 5 min | Re-anchor with a beacon or recapture |
 | Eliminated | Last tile lost | Respawn (`respawnIfEliminated`) | Start again mid-season |
 | Lost the season | Someone held a path for 24h | Season ends, score graph | Next season; the galactic layer if you won |

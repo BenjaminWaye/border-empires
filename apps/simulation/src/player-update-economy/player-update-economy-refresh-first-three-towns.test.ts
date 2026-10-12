@@ -47,8 +47,8 @@ describe("refreshTownEconomyFields — first-three-towns (Mercantile Charter)", 
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
@@ -82,8 +82,8 @@ describe("refreshTownEconomyFields — first-three-towns (Mercantile Charter)", 
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         // Stale from a prior full rebuild while this town was still first-three.
         firstThreeTownGoldMult: 1.5,
         firstThreeTownPopGrowthMult: 1.25

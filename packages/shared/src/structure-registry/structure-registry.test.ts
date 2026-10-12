@@ -29,7 +29,7 @@ test("STRUCTURE_REGISTRY covers exactly 60 structure types", () => {
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
   // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
-  // WEAPONS_WORKSHOP above) = 61, minus SEED_GRANARY (removed from the
+  // WEAPONS_WORKSHOP above) = 61, minus SEED_INCUBATION_ENGINE (removed from the
   // game, Manifest/Coin rework) = 60.
   expect(STRUCTURE_REGISTRY_SIZE).toBe(60);
 });
@@ -59,7 +59,7 @@ test("covers OBSERVATORY", () => {
 });
 
 test("covers all outpost variants", () => {
-  const outpostTypes = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "RELAY_BEACON"];
+  const outpostTypes = ["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER", "RELAY_BEACON"];
   for (const t of outpostTypes) {
     const spec = STRUCTURE_REGISTRY[t];
     expect(spec, `missing ${t}`).toBeDefined();
@@ -67,13 +67,13 @@ test("covers all outpost variants", () => {
     if (t === "RELAY_BEACON") {
       expect(spec.tileField).toBe("economicStructure");
     } else {
-      expect(spec.tileField).toBe("siegeOutpost");
+      expect(spec.tileField).toBe("siegeBattery");
     }
   }
 });
 
-test("WOODEN_FORT (Palisade) is fort-ladder tier 0 stored in tile.fort", () => {
-  const spec = STRUCTURE_REGISTRY["WOODEN_FORT"];
+test("PALISADE (Palisade) is fort-ladder tier 0 stored in tile.fort", () => {
+  const spec = STRUCTURE_REGISTRY["PALISADE"];
   expect(spec).toBeDefined();
   expect(spec.kind).toBe("FORT");
   expect(spec.tileField).toBe("fort");
@@ -94,9 +94,9 @@ describe("fort cost parity against FORT_TIER_LADDER", () => {
   }
 });
 
-// ── Cost parity: siege outposts (against SIEGE_TIER_LADDER) ────────
+// ── Cost parity: siege batteries (against SIEGE_TIER_LADDER) ────────
 
-describe("siege outpost cost parity against SIEGE_TIER_LADDER", () => {
+describe("siege battery cost parity against SIEGE_TIER_LADDER", () => {
   for (const [variant, tier] of Object.entries(SIEGE_TIER_LADDER)) {
     test(`${variant}: cost matches tier ladder`, () => {
       const spec = STRUCTURE_REGISTRY[variant];
@@ -130,7 +130,7 @@ describe("economic structure cost parity against structureCostDefinition", () =>
 
     test(`${type}: cost matches structureCostDefinition`, () => {
       const def = structureCostDefinition(type as any);
-      // WOODEN_FORT and RELAY_BEACON are in EconomicStructureType but have
+      // PALISADE and RELAY_BEACON are in EconomicStructureType but have
       // their own STRUCTURE_COST_DEFINITIONS entries.
       expect(def, `${type} missing from STRUCTURE_COST_DEFINITIONS`).toBeDefined();
       if (!def) return;
@@ -169,7 +169,7 @@ describe("economic structure cost parity against structureCostDefinition", () =>
 // optimistic-UI/display paths), not a live source of truth.
 describe("structureBuildDurationMs derives from the real (existingCount=0) manpower cost", () => {
   // Tier-upgrade-only variants: never a structureType a BUILD_STRUCTURE
-  // command actually carries (the command always says "FORT"/"SIEGE_OUTPOST"
+  // command actually carries (the command always says "FORT"/"SIEGE_BATTERY"
   // and the server resolves the tier server-side via FORT_TIER_LADDER/
   // SIEGE_TIER_LADDER) -- structureBuildDurationMs/STRUCTURE_COST_DEFINITIONS
   // were never meant to be keyed by these, same as before this change.
@@ -232,8 +232,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(STRUCTURE_REGISTRY["OBSERVATORY"].techIds).toContain("crystal-lattices");
   });
 
-  test("SIEGE_OUTPOST requires leatherworking", () => {
-    expect(STRUCTURE_REGISTRY["SIEGE_OUTPOST"].techIds).toContain("leatherworking");
+  test("SIEGE_BATTERY requires leatherworking", () => {
+    expect(STRUCTURE_REGISTRY["SIEGE_BATTERY"].techIds).toContain("leatherworking");
   });
 
   test("SIEGE_TOWER requires leatherworking + siegecraft", () => {
@@ -253,41 +253,41 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(STRUCTURE_REGISTRY["RELAY_BEACON"].techIds).toEqual([]);
   });
 
-  test("WOODEN_FORT has no tech requirement", () => {
-    expect(STRUCTURE_REGISTRY["WOODEN_FORT"].techIds).toEqual([]);
+  test("PALISADE has no tech requirement", () => {
+    expect(STRUCTURE_REGISTRY["PALISADE"].techIds).toEqual([]);
   });
 });
 
 // ── Tech requirement regression tests ─────────────────────────────
 
 describe("tech requirement regression", () => {
-  test("GARRISON_HALL requires organized-supply (not organization)", () => {
-    const spec = STRUCTURE_REGISTRY["GARRISON_HALL"];
-    expect(spec, "GARRISON_HALL spec must exist").toBeDefined();
-    expect(spec.techIds, "GARRISON_HALL must require organized-supply").toContain("organized-supply");
-    expect(spec.techIds, "GARRISON_HALL must not require the legacy 'organization' key").not.toContain("organization");
+  test("ANCILLARY_DEPOT requires organized-supply (not organization)", () => {
+    const spec = STRUCTURE_REGISTRY["ANCILLARY_DEPOT"];
+    expect(spec, "ANCILLARY_DEPOT spec must exist").toBeDefined();
+    expect(spec.techIds, "ANCILLARY_DEPOT must require organized-supply").toContain("organized-supply");
+    expect(spec.techIds, "ANCILLARY_DEPOT must not require the legacy 'organization' key").not.toContain("organization");
   });
 });
 
 // ── Upgrade prerequisite parity ────────────────────────────────────
 
 describe("prerequisiteStructureTypes parity", () => {
-  test("ADVANCED_UMBRITE_SYNTHESIZER requires UMBRITE_SYNTHESIZER", () => {
+  test("HIGH_YIELD_UMBRITE_WORKS requires UMBRITE_WORKS", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_UMBRITE_SYNTHESIZER"].prerequisiteStructureTypes,
-    ).toEqual(["UMBRITE_SYNTHESIZER"]);
+      STRUCTURE_REGISTRY["HIGH_YIELD_UMBRITE_WORKS"].prerequisiteStructureTypes,
+    ).toEqual(["UMBRITE_WORKS"]);
   });
 
-  test("ADVANCED_TITANIUM_WORKS requires TITANIUM_WORKS", () => {
+  test("HIGH_YIELD_TITANIUM_WORKS requires TITANIUM_WORKS", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_TITANIUM_WORKS"].prerequisiteStructureTypes,
+      STRUCTURE_REGISTRY["HIGH_YIELD_TITANIUM_WORKS"].prerequisiteStructureTypes,
     ).toEqual(["TITANIUM_WORKS"]);
   });
 
-  test("ADVANCED_CRYSTAL_SYNTHESIZER requires CRYSTAL_SYNTHESIZER", () => {
+  test("HIGH_YIELD_AETHER_CONDENSER requires AETHER_CONDENSER", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_CRYSTAL_SYNTHESIZER"].prerequisiteStructureTypes,
-    ).toEqual(["CRYSTAL_SYNTHESIZER"]);
+      STRUCTURE_REGISTRY["HIGH_YIELD_AETHER_CONDENSER"].prerequisiteStructureTypes,
+    ).toEqual(["AETHER_CONDENSER"]);
   });
 
   test("IMPERIAL_EXCHANGE requires its 3 components", () => {
@@ -296,10 +296,10 @@ describe("prerequisiteStructureTypes parity", () => {
     ).toEqual(["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"]);
   });
 
-  test("WORLD_ENGINE requires its 3 components", () => {
+  test("SOVEREIGN_SIEGE_ENGINE requires its 3 components", () => {
     expect(
-      STRUCTURE_REGISTRY["WORLD_ENGINE"].prerequisiteStructureTypes,
-    ).toEqual(["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"]);
+      STRUCTURE_REGISTRY["SOVEREIGN_SIEGE_ENGINE"].prerequisiteStructureTypes,
+    ).toEqual(["SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3"]);
   });
 
   test("AEGIS_DOME requires its 3 components", () => {
@@ -314,10 +314,10 @@ describe("prerequisiteStructureTypes parity", () => {
     ).toEqual(["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"]);
   });
 
-  test("POPULATION_BUREAU requires its 3 components", () => {
+  test("CENSUS_DIRECTORATE requires its 3 components", () => {
     expect(
-      STRUCTURE_REGISTRY["POPULATION_BUREAU"].prerequisiteStructureTypes,
-    ).toEqual(["POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3"]);
+      STRUCTURE_REGISTRY["CENSUS_DIRECTORATE"].prerequisiteStructureTypes,
+    ).toEqual(["CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3"]);
   });
 
   test("TITANIUM_LEVY requires its 3 components", () => {
@@ -337,37 +337,37 @@ describe("upkeep parity", () => {
   // per-minute (÷1440).
   //
   // Fort ladder (FORT, TITANIUM_BASTION, THUNDER_BASTION), Siege ladder
-  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and RELAY_BEACON
+  // (SIEGE_BATTERY, SIEGE_TOWER, DREAD_TOWER), PALISADE and RELAY_BEACON
   // used to carry a fake FOOD/TITANIUM/UMBRITE per-minute upkeep that double-billed
   // the same cost already charged via their resource-slot occupation
-  // (structure-slots.ts) — removed, same as AIRPORT's CRYSTAL upkeep before
+  // (structure-slots.ts) — removed, same as SKY_DOCK's CRYSTAL upkeep before
   // it (§12.1). Their slot occupation is the upkeep now.
 
   const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>>> = {
-    UMBRITE_SYNTHESIZER: { GOLD: 30 / 1440 },
-    ADVANCED_UMBRITE_SYNTHESIZER: { GOLD: 45 / 1440 },
+    UMBRITE_WORKS: { GOLD: 30 / 1440 },
+    HIGH_YIELD_UMBRITE_WORKS: { GOLD: 45 / 1440 },
     TITANIUM_WORKS: { GOLD: 30 / 1440 },
-    ADVANCED_TITANIUM_WORKS: { GOLD: 45 / 1440 },
-    CRYSTAL_SYNTHESIZER: { GOLD: 40 / 1440 },
-    ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 60 / 1440 },
+    HIGH_YIELD_TITANIUM_WORKS: { GOLD: 45 / 1440 },
+    AETHER_CONDENSER: { GOLD: 40 / 1440 },
+    HIGH_YIELD_AETHER_CONDENSER: { GOLD: 60 / 1440 },
   };
 
   const noUpkeepTypes = new Set([
-    "WATERWORKS", "CENSUS_HALL", "CLEARING_HOUSE",
-    "AETHER_TOWER", "RAIL_DEPOT",
+    "HYDROWORKS", "CENSUS_HALL", "CLEARING_HOUSE",
+    "AMBARIC_TRANSFORMER", "NEURAL_WORKS",
     "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-    "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+    "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
     "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
     "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-    "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "FARMSTEAD", "UMBRITE_RIG", "MINE", "MINTWORKS", "GRANARY",
-    "CARAVANARY", "FOUNDRY",
-    "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
-    "AIRPORT", "OBSERVATORY",
-    "WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
-    "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
-    "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
-    "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3", "POPULATION_BUREAU",
+    "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
+    "HYDROGARDEN", "UMBRITE_RIG", "MINE", "MINTWORKS", "INCUBATION_ENGINE",
+    "TRADE_NEXUS", "ORE_REFINERY",
+    "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "MINISTRY_HALL", "RESONANCE_GRID",
+    "SKY_DOCK", "OBSERVATORY",
+    "PALISADE", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
+    "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER",
+    "ANCILLARY_FACTORY", "RESERVE_LATTICE",
+    "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3", "CENSUS_DIRECTORATE",
     "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3", "TITANIUM_LEVY",
     // WEAPONS_WORKSHOP and QUARTERMASTERS_OFFICE are retired (no longer in
     // STRUCTURE_REGISTRY, so these entries are inert) — kept here rather
@@ -437,7 +437,7 @@ describe("placement predicates", () => {
             town: undefined,
             fort: undefined,
             observatory: undefined,
-            siegeOutpost: undefined,
+            siegeBattery: undefined,
             economicStructure: { type },
           },
           actor: { techIds: new Set(), playerId: "p1" },
@@ -469,7 +469,7 @@ describe("structural properties", () => {
   });
 
   test("all specs have a valid tileField", () => {
-    const validFields = ["fort", "observatory", "siegeOutpost", "economicStructure"];
+    const validFields = ["fort", "observatory", "siegeBattery", "economicStructure"];
     for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
       expect(validFields, `${type} tileField`).toContain(spec.tileField);
     }

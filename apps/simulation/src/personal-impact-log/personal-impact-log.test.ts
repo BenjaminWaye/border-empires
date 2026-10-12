@@ -14,7 +14,7 @@ const event = (occurredAt: number, id: string = `impact:${occurredAt}`): Persona
   occurredAt,
   x: 4,
   y: 8,
-  structureType: "GRANARY",
+  structureType: "INCUBATION_ENGINE",
   populationBurst: 10_000
 });
 

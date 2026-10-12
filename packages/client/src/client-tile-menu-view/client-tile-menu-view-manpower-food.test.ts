@@ -59,8 +59,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 3.8 }
       },
@@ -100,8 +100,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 3.8 }
       },
@@ -138,8 +138,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 0 }
       },
@@ -186,8 +186,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 0.2 }
       },
@@ -224,8 +224,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 3.8 }
       },
@@ -265,8 +265,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 3.8 }
       },
@@ -310,8 +310,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         },
         yieldRate: { goldPerMinute: 3.8 }
       },
@@ -349,8 +349,8 @@ describe("menuOverviewForTile — town stat grid", () => {
           connectedTownBonus: 0.2,
           hasMintworks: false,
           mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false
+          hasIncubationEngine: false,
+          incubationEngineActive: false
         }
       },
       {

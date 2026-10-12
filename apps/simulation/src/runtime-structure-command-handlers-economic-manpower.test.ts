@@ -1,9 +1,9 @@
 /**
  * Regression tests for Step 4 of docs/manpower-economy-rewrite-plan.md
  * (§4.1/§4.4, §12): every economic structure now costs manpower as a
- * primary cost, not just gold — previously only FORT/SIEGE_OUTPOST/
- * WOODEN_FORT/RELAY_BEACON were manpower-gated; economic structures like
- * MINTWORKS, CARAVANARY, FARMSTEAD, etc. cost zero manpower.
+ * primary cost, not just gold — previously only FORT/SIEGE_BATTERY/
+ * PALISADE/RELAY_BEACON were manpower-gated; economic structures like
+ * MINTWORKS, TRADE_NEXUS, HYDROGARDEN, etc. cost zero manpower.
  */
 import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
@@ -106,27 +106,27 @@ describe("economic structure manpower cost (Step 4)", () => {
     expect(runtime.exportState().tiles.some((tile) => tile.x === 16 && tile.y === 17 && tile.economicStructureJson)).toBe(false);
   });
 
-  it("deducts FARMSTEAD's manpower cost (Tier 1, 80) on build", async () => {
+  it("deducts HYDROGARDEN's manpower cost (Tier 1, 80) on build", async () => {
     vi.useFakeTimers();
     try {
-      expect(structureBuildManpowerCost("FARMSTEAD")).toBe(80);
+      expect(structureBuildManpowerCost("HYDROGARDEN")).toBe(80);
       const runtime = buildRuntimeWithManpower(500, [{ x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }]);
 
       runtime.submitCommand({
-        commandId: "farmstead-manpower-1",
+        commandId: "hydrogarden-manpower-1",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 20, y: 20, structureType: "FARMSTEAD" })
+        payloadJson: JSON.stringify({ x: 20, y: 20, structureType: "HYDROGARDEN" })
       });
 
       await Promise.resolve();
       const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
       expect(player?.manpower).toBe(500 - 80);
 
-      vi.advanceTimersByTime(structureBuildDurationMs("FARMSTEAD"));
+      vi.advanceTimersByTime(structureBuildDurationMs("HYDROGARDEN"));
     } finally {
       vi.useRealTimers();
     }

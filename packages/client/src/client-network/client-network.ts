@@ -52,7 +52,7 @@ import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
-import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
+import { applySovereignSiegeEngineStrikeAnnouncement, backfillSovereignSiegeEngineStrikeHistory } from "../client-sovereign-siege-engine-strike-network/client-sovereign-siege-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
@@ -233,7 +233,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             case "SETTLE_INVALID":
             case "FORT_BUILD_INVALID":
             case "OBSERVATORY_BUILD_INVALID":
-            case "SIEGE_OUTPOST_BUILD_INVALID":
+            case "SIEGE_BATTERY_BUILD_INVALID":
             case "ECONOMIC_STRUCTURE_BUILD_INVALID":
             case "STRUCTURE_CANCEL_INVALID":
             case "TOWN_UNFED":
@@ -274,7 +274,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       town: tile.town
         ? {
             hasMintworks: tile.town.hasMintworks,
-            hasGranary: tile.town.hasGranary,
+            hasIncubationEngine: tile.town.hasIncubationEngine,
             populationTier: tile.town.populationTier
           }
         : undefined,
@@ -1143,7 +1143,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearQueuedDevelopmentDispatchPending,
         appendFeedEntry
       });
-      backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
+      backfillSovereignSiegeEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       applyInitActivitySeen(state, msg);
       // Only the true first INIT of this browser session -- handle-activity-timeline-messages.ts
       // is explicit that REQUEST_PERSONAL_ACTIVITY must never be wired into every
@@ -1658,12 +1658,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
-    if (msg.type === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
-      applyWorldEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
+    if (msg.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
+      applySovereignSiegeEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
       return;
     }
-    if (msg.type === "AIRPORT_BOMBARD_RESULT") {
+    if (msg.type === "SKY_DOCK_BOMBARD_RESULT") {
       const targetableTiles = Number(msg.targetableTiles ?? 0);
       const hitTiles = Number(msg.hitTiles ?? 0);
       const missedTiles = Number(msg.missedTiles ?? 0);
@@ -1845,7 +1845,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "townPopulationTier" in update ||
             "fortJson" in update ||
             "observatoryJson" in update ||
-            "siegeOutpostJson" in update ||
+            "siegeBatteryJson" in update ||
             "economicStructureJson" in update ||
             "sabotageJson" in update ||
             "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
@@ -2469,14 +2469,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const isStructureActionError =
         // Generic BUILD_INVALID is emitted for town-attached structure failures
-        // (e.g. "town already has granary", "needs an open support tile"). Without
+        // (e.g. "town already has incubation engine", "needs an open support tile"). Without
         // it here, the user's stale view of the tile is never reconciled and they
         // keep being told the action is invalid for an "empty" tile that already
         // has the structure server-side.
         errorCode === "BUILD_INVALID" ||
         errorCode === "FORT_BUILD_INVALID" ||
         errorCode === "OBSERVATORY_BUILD_INVALID" ||
-        errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
+        errorCode === "SIEGE_BATTERY_BUILD_INVALID" ||
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";

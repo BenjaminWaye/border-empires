@@ -1435,7 +1435,7 @@ describe("client gateway sync regression", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED",
             townType: "FARMING",
-            townName: "Remote Granary",
+            townName: "Remote Incubation Engine",
             townPopulationTier: "TOWN"
           },
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }

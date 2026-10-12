@@ -34,7 +34,7 @@ describe("runtime state export", () => {
         buildCandidateTileKeys: [],
         pendingSettlementTileKeys: []
       }),
-      ownedStructureCountsForPlayer: () => ({ FORT: 2, SIEGE_OUTPOST: 3 }),
+      ownedStructureCountsForPlayer: () => ({ FORT: 2, SIEGE_BATTERY: 3 }),
       estimatedIncomePerMinuteForPlayer: () => 0,
       reachTileKeysForPlayer: () => [],
       spatialFocusFrontForPlayer: () => [],
@@ -45,7 +45,7 @@ describe("runtime state export", () => {
       musterTilesByOwner: new Map()
     });
 
-    expect(view?.ownedStructureCounts).toEqual({ FORT: 2, SIEGE_OUTPOST: 3 });
+    expect(view?.ownedStructureCounts).toEqual({ FORT: 2, SIEGE_BATTERY: 3 });
     expect(view?.ownedTileCount).toBe(3);
     expect(view?.frontierTileCount).toBe(2);
   });

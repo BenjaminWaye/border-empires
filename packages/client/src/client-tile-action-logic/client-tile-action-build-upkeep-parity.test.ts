@@ -5,7 +5,7 @@
 // deps.structureCostText(type) plus a free-form suffix. Nothing stops a
 // future building from being added there without also calling the shared
 // upkeepSuffixFor/upkeepDescriptorFor helper (client-structure-upkeep-text.ts)
-// -- the exact gap that shipped Airport's fabricated "36 crystal/day" and
+// -- the exact gap that shipped Sky Dock's fabricated "36 crystal/day" and
 // left the Observatory's real progressive cost as one-off hand-rolled text.
 //
 // This scans the actual source of the three files that assemble a build
@@ -48,7 +48,7 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
   const allTypes = [...new Set([...literalCostTextTypes(logicSource), ...literalCostTextTypes(neutralSource)])];
 
   it("found at least the known buildable types (sanity check the scan itself works)", () => {
-    expect(allTypes).toEqual(expect.arrayContaining(["OBSERVATORY", "AIRPORT", "RELAY_BEACON", "FARMSTEAD", "TITANIUM_WORKS"]));
+    expect(allTypes).toEqual(expect.arrayContaining(["OBSERVATORY", "SKY_DOCK", "RELAY_BEACON", "HYDROGARDEN", "TITANIUM_WORKS"]));
   });
 
   for (const type of allTypes) {
@@ -77,9 +77,9 @@ describe("build-menu cost strings always label real upkeep (client-tile-action-l
     expect(lineContaining(siegeCampSource, "siegeVariant.summary")).toContain("siegeVariant.upkeepSuffix");
   });
 
-  it("Farmstead and Waterworks are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
-    expect(hasRealUpkeep("FARMSTEAD")).toBe(false);
-    expect(hasRealUpkeep("WATERWORKS")).toBe(false);
+  it("Hydrogarden and Hydroworks are the real zero-upkeep exceptions (sanity check the predicate itself)", () => {
+    expect(hasRealUpkeep("HYDROGARDEN")).toBe(false);
+    expect(hasRealUpkeep("HYDROWORKS")).toBe(false);
     expect(hasRealUpkeep("MINE")).toBe(true);
     expect(hasRealUpkeep("TITANIUM_WORKS")).toBe(true);
   });

@@ -1,7 +1,7 @@
 import {
   RELAY_BEACON_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_COST,
+  SIEGE_BATTERY_BUILD_MS,
+  SIEGE_BATTERY_BUILD_COST,
 } from "./config.js";
 import {
   SIEGE_TIER_LADDER,
@@ -15,17 +15,17 @@ import {
   tileIsLand,
   tileIsSettled,
 } from "./structure-registry/structure-registry.js";
-import type { SiegeOutpostVariant } from "./types.js";
+import type { SiegeBatteryVariant } from "./types.js";
 
 // ── Outpost family ─────────────────────────────────────────────────
-// Three siege variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) + RELAY_BEACON.
+// Three siege variants (SIEGE_BATTERY, SIEGE_TOWER, DREAD_TOWER) + RELAY_BEACON.
 // RELAY_BEACON lives on economicStructure in Phase 1 — acknowledged debt to
 // be unwound in Phase 4.
 
 /**
  * Placement check shared by all outpost variants.
  * Outposts do NOT require SETTLED — only owned.
- * Siege outpost handler checks ownerOwnsTile + tileIsLand + noConflictingStructure.
+ * Siege Battery handler checks ownerOwnsTile + tileIsLand + noConflictingStructure.
  * RELAY_BEACON goes through the economic handler which additionally
  * requires SETTLED (because the economic handler adds it).
  */
@@ -33,15 +33,15 @@ const outpostPlacement: StructureSpec["placement"] = [
   ownerOwnsTile,
   tileIsLand,
   noConflictingStructure,
-  // structureShowsOnTile("SIEGE_OUTPOST", ...) is applied by the handler.
+  // structureShowsOnTile("SIEGE_BATTERY", ...) is applied by the handler.
   // RELAY_BEACON uses structureShowsOnTile("RELAY_BEACON", ...) via the economic handler.
 ];
 
 // §12.1: the siege ladder's UMBRITE cost is already charged as a
 // resource-slot occupation (structure-slots.ts) — no separate per-minute
-// drain on top of that, same as Observatory/Airport.
+// drain on top of that, same as Observatory/Sky Dock.
 
-function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
+function siegeSpec(variant: SiegeBatteryVariant): StructureSpec {
   const tier = SIEGE_TIER_LADDER[variant];
   const techIds: string[] = ["leatherworking"];
   if (variant === "SIEGE_TOWER") techIds.push("siegecraft");
@@ -56,12 +56,12 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
       manpower: tier.manpower,
       strategic: { UMBRITE: tier.umbrite, ...(tier.titanium > 0 ? { TITANIUM: tier.titanium } : {}) },
     },
-    buildMs: SIEGE_OUTPOST_BUILD_MS,
+    buildMs: SIEGE_BATTERY_BUILD_MS,
     techIds,
     consumesDevelopmentSlot: true,
     placement: outpostPlacement,
     upkeep: [],
-    tileField: "siegeOutpost",
+    tileField: "siegeBattery",
   };
 }
 
@@ -101,8 +101,8 @@ export const RELAY_BEACON_SPEC: StructureSpec = {
   tileField: "economicStructure",
 };
 
-export const OUTPOST_SPECS: Record<SiegeOutpostVariant, StructureSpec> = {
-  SIEGE_OUTPOST: siegeSpec("SIEGE_OUTPOST"),
+export const OUTPOST_SPECS: Record<SiegeBatteryVariant, StructureSpec> = {
+  SIEGE_BATTERY: siegeSpec("SIEGE_BATTERY"),
   SIEGE_TOWER: siegeSpec("SIEGE_TOWER"),
   DREAD_TOWER: siegeSpec("DREAD_TOWER"),
 };

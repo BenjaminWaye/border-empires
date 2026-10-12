@@ -375,37 +375,37 @@ ${crystalReferenceGroup({ x: 78, y: 64, scale: 0.56, fill: "#71DAFF", side: "#33
 ${crystalReferenceGroup({ x: 20, y: 54, scale: 0.84, fill: "#3FB9FF", side: "#1879D2", top: "#D8F3FF" })}
 ${crystalReferenceGroup({ x: 72, y: 58, scale: 0.66, fill: "#5DCEFF", side: "#2488DC", top: "#E2F8FF" })}
 `),
-  "farm-farmstead-overlay-1.svg": svg(`
+  "farm-hydrogarden-overlay-1.svg": svg(`
 ${stylizedBarleyPatch({ x: 8, y: 38, scale: 5, gold: "#F2B319", light: "#FFE07A", mid: "#EA8E12", height: 0.9 })}
 ${stylizedBarleyPatch({ x: 32, y: 28, scale: 5, gold: "#F7BC1E", light: "#FFE78E", mid: "#F29114", height: 1.05 })}
 ${smallHut({ x: 60, y: 56, roof: "#C98B43" })}
 ${hay({ x: 56, y: 86, w: 18, h: 7, fill: "#CFB052" })}
 ${hay({ x: 82, y: 83, w: 16, h: 6, fill: "#DABC62" })}
 `),
-  "farm-farmstead-overlay-2.svg": svg(`
+  "farm-hydrogarden-overlay-2.svg": svg(`
 ${stylizedBarleyPatch({ x: 12, y: 42, scale: 5, gold: "#F2AF18", light: "#FFDD73", mid: "#E98711", height: 0.88 })}
 ${smallHut({ x: 42, y: 52, roof: "#D1964D" })}
 ${stylizedBarleyPatch({ x: 78, y: 32, scale: 5, gold: "#F8BF24", light: "#FFE892", mid: "#F49517", height: 1.08 })}
 ${barrel({ x: 82, y: 86, body: "#8B5D34" })}
 `),
-  "farm-farmstead-overlay-3.svg": svg(`
+  "farm-hydrogarden-overlay-3.svg": svg(`
 ${smallHut({ x: 18, y: 58, roof: "#CA8D46" })}
 ${stylizedBarleyPatch({ x: 56, y: 26, scale: 6, gold: "#F6B71B", light: "#FFE481", mid: "#EF9014", height: 1.06 })}
 ${stylizedBarleyPatch({ x: 86, y: 40, scale: 4.8, gold: "#F1A814", light: "#FFD967", mid: "#E58110", height: 0.86 })}
 ${hay({ x: 26, y: 88, w: 16, h: 6, fill: "#D3B55E" })}
 `),
-  "fish-farmstead-overlay-1.svg": svg(`
+  "fish-hydrogarden-overlay-1.svg": svg(`
 ${fishRack({ x: 18, y: 54, count: 4 })}
 ${smallHut({ x: 64, y: 56, roof: "#B9884A" })}
 ${barrel({ x: 86, y: 82, body: "#8B5D34" })}
 `),
-  "fish-farmstead-overlay-2.svg": svg(`
+  "fish-hydrogarden-overlay-2.svg": svg(`
 ${smallHut({ x: 18, y: 54, roof: "#C08C4A" })}
 ${fishRack({ x: 62, y: 50, count: 4 })}
 ${barrel({ x: 28, y: 84, body: "#875A32" })}
 ${barrel({ x: 40, y: 88, body: "#9B6A3A" })}
 `),
-  "fish-farmstead-overlay-3.svg": svg(`
+  "fish-hydrogarden-overlay-3.svg": svg(`
 ${fishRack({ x: 18, y: 48, count: 5 })}
 ${smallHut({ x: 60, y: 60, roof: "#C8924E" })}
 ${barrel({ x: 92, y: 86, body: "#8C5D34" })}

@@ -57,7 +57,7 @@ describe("revealResource highlight tag", () => {
 
   it("is included alongside structure/action tags, not just on its own", () => {
     const tags = techHighlightTags({
-      effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true, revealResource: "crystal" }
+      effects: { unlockObservatory: true, unlockAetherCondenser: true, unlockAetherLance: true, revealResource: "crystal" }
     });
     expect(tags.map((t) => t.label)).toEqual(["Aether Tower", "Aether Condenser", "Aether Purge", "Reveals Crystal"]);
   });
@@ -68,13 +68,13 @@ describe("revealResource highlight tag", () => {
   });
 });
 
-// Agrarian Works (unlockFarmstead) grants both the Farmstead structure and a
+// Agrarian Works (unlockHydrogarden) grants both the Hydrogarden structure and a
 // separate +1 FOOD slot on every owned fish tile (AGRICULTURE_FISH_FOOD_SLOT_BONUS,
 // client-tech-html.ts's full-sentence description already calls this out) --
-// the chip row only showed "Farmstead" and silently dropped the fish bonus.
-describe("unlockFarmstead highlight tags", () => {
-  it("renders both the Farmstead chip and the fish-tile food-slot chip", () => {
-    const tags = techHighlightTags({ effects: { unlockFarmstead: true } });
+// the chip row only showed "Hydrogarden" and silently dropped the fish bonus.
+describe("unlockHydrogarden highlight tags", () => {
+  it("renders both the Hydrogarden chip and the fish-tile food-slot chip", () => {
+    const tags = techHighlightTags({ effects: { unlockHydrogarden: true } });
     expect(tags).toEqual([
       { label: "Hydrogarden", tone: "structure" },
       { label: "Fish Tiles +1 Food Slot", tone: "upgrade" }
@@ -89,7 +89,7 @@ describe("unlockFarmstead highlight tags", () => {
 describe("renderTechHighlightTagsHtml default cap", () => {
   it("renders more than 2 tags by default, matching every call site", () => {
     const html = renderTechHighlightTagsHtml({
-      effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true }
+      effects: { unlockObservatory: true, unlockAetherCondenser: true, unlockAetherLance: true }
     });
     expect(html).toContain("Aether Tower");
     expect(html).toContain("Aether Condenser");

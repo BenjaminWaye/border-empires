@@ -1,6 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
-import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST, structureDisplayName } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST, structureDisplayName, upgradeLegacyStructureNames } from "@border-empires/shared";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
@@ -15,7 +15,7 @@ export type DevelopmentOwnedTileLike = {
   ownerId?: string;
   fort?: { status?: string };
   observatory?: { status?: string };
-  siegeOutpost?: { status?: string };
+  siegeBattery?: { status?: string };
   economicStructure?: { status?: string };
 };
 
@@ -125,8 +125,8 @@ export const busyDevelopmentProcessCount = (
       tile.fort?.status === "removing" ||
       tile.observatory?.status === "under_construction" ||
       tile.observatory?.status === "removing" ||
-      tile.siegeOutpost?.status === "under_construction" ||
-      tile.siegeOutpost?.status === "removing" ||
+      tile.siegeBattery?.status === "under_construction" ||
+      tile.siegeBattery?.status === "removing" ||
       tile.economicStructure?.status === "under_construction" ||
       tile.economicStructure?.status === "removing"
     ) {
@@ -206,7 +206,7 @@ const parsePersistedDevelopmentAction = (value: unknown): PersistedDevelopmentAc
     }
     else if (rawType === "BUILD_FORT") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "FORT"; }
     else if (rawType === "BUILD_OBSERVATORY") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "OBSERVATORY"; }
-    else if (rawType === "BUILD_SIEGE_OUTPOST") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "SIEGE_OUTPOST"; }
+    else if (rawType === "BUILD_SIEGE_BATTERY") { normalizedType = "BUILD_STRUCTURE"; normalizedStructureType = "SIEGE_BATTERY"; }
     else if (rawType === "BUILD_ECONOMIC_STRUCTURE" && typeof (value.payload as any).structureType === "string") {
       normalizedType = "BUILD_STRUCTURE";
       normalizedStructureType = (value.payload as any).structureType as string;
@@ -360,7 +360,7 @@ type QueueRestoreTileLike = {
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
   fort?: { status?: string };
   observatory?: { status?: string };
-  siegeOutpost?: { status?: string };
+  siegeBattery?: { status?: string };
   economicStructure?: { type?: string; status?: string };
 };
 
@@ -370,7 +370,7 @@ type QueueRestoreTileLike = {
 const tileAlreadyHasBuildStructure = (tile: QueueRestoreTileLike, structureType: string): boolean => {
   if (structureType === "FORT") return Boolean(tile.fort);
   if (structureType === "OBSERVATORY") return Boolean(tile.observatory);
-  if (structureType === "SIEGE_OUTPOST") return Boolean(tile.siegeOutpost);
+  if (structureType === "SIEGE_BATTERY") return Boolean(tile.siegeBattery);
   return tile.economicStructure?.type === structureType;
 };
 
@@ -408,7 +408,7 @@ export const restorePersistedDevelopmentQueueForPlayer = (
   const raw = readSessionStorage(DEVELOPMENT_QUEUE_SESSION_KEY);
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw) as { playerId?: unknown; queue?: unknown };
+    const parsed = upgradeLegacyStructureNames(JSON.parse(raw) as { playerId?: unknown; queue?: unknown }); // queue saved by a pre-rename bundle
     if (parsed.playerId !== playerId || !Array.isArray(parsed.queue)) {
       removeSessionStorage(DEVELOPMENT_QUEUE_SESSION_KEY);
       return [];

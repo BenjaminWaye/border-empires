@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildAiOpponent, buildPlayer } from "./runtime.test-helpers.js";
 
-// Regression: tile shedding, Aether Lance and airport bombardment all clear a
+// Regression: tile shedding, Aether Lance and sky dock bombardment all clear a
 // tile's owner but never re-ran the connectivity check, so frontier tiles that
 // hung off the lost tile stayed owned forever (out-of-reach decay never stamps
 // them while they sit inside the owner's reach, and encirclement only fires on
@@ -105,7 +105,7 @@ describe("encirclement after non-combat tile loss", () => {
     expect(ownerOf(runtime, "7,0")).toBeUndefined();
   });
 
-  it("cuts off a victim's stranded frontier tiles when airport bombardment strips the tiles they hung off", async () => {
+  it("cuts off a victim's stranded frontier tiles when sky dock bombardment strips the tiles they hung off", async () => {
     const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -115,14 +115,14 @@ describe("encirclement after non-combat tile loss", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "SKY_DOCK", status: "active" } },
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" } },
           { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 2, y: 21, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
           // Outside the 3x3 bombardment footprint; only connected via the bombed (2,21).
           { x: 2, y: 22, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
           { x: 2, y: 23, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          // Same CRYSTAL/FOOD supply as runtime-airport-bombardment.test.ts so the structures aren't dormant.
+          // Same CRYSTAL/FOOD supply as runtime-sky-dock-bombardment.test.ts so the structures aren't dormant.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
@@ -138,7 +138,7 @@ describe("encirclement after non-combat tile loss", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
+      type: "SKY_DOCK_BOMBARD",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();

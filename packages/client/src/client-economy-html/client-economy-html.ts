@@ -4,15 +4,15 @@ import {
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   BASE_SLOTS_BY_TILE_RESOURCE,
   TILE_SLOT_BOOST_STRUCTURES,
-  WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  FOUNDRY_MINE_SLOT_BONUS,
+  HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
+  ORE_REFINERY_MINE_SLOT_BONUS,
   isSlotSourceConverter,
   converterModeOf,
   wrappedChebyshevDistance,
   type EmpireStorageCap,
   type SlotResource
 } from "@border-empires/shared";
-import { FOUNDRY_RADIUS, WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
+import { ORE_REFINERY_RADIUS, HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
@@ -78,7 +78,7 @@ const resources: EconomyResource[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UM
 const isDormantOccupant = (
   args: EconomyPanelArgs,
   tile: Tile,
-  field: "fort" | "siegeOutpost" | "economicStructure" | "observatory",
+  field: "fort" | "siegeBattery" | "economicStructure" | "observatory",
   resource: SlotResource
 ): boolean => {
   if (tile.ownerId !== args.me) return false;
@@ -112,10 +112,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
       add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "fort", resource));
     }
-    if (tile.siegeOutpost && tile.siegeOutpost.status !== "removing") {
-      const variant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
+    if (tile.siegeBattery && tile.siegeBattery.status !== "removing") {
+      const variant = tile.siegeBattery.variant ?? "SIEGE_BATTERY";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
-      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
+      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "siegeBattery", resource));
     }
     if (tile.observatory && tile.observatory.status !== "removing" && tile.observatory.status !== "inactive") {
       const count = structureSlotRequirements("OBSERVATORY").find((r) => r.resource === resource)?.count ?? 0;
@@ -146,8 +146,8 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
 
 // Mirrors resourceSlotSupplyForPlayer (apps/simulation/src/resource-slot-view/
 // resource-slot-view.ts): base slots per owned settled resource tile, +1 for
-// a same-tile boost structure (Farmstead/Mine/Umbrite Rig), +2 for a Farmstead
-// within Waterworks radius or a Mine within Foundry radius, plus +1 per active
+// a same-tile boost structure (Hydrogarden/Mine/Umbrite Rig), +2 for a Hydrogarden
+// within Hydroworks radius or a Mine within Ore Refinery radius, plus +1 per active
 // SYNTHESIZE-mode converter of this resource. This is a client-side re-derivation
 // (same tradeoff as slotOccupantsForResource above) and does NOT see
 // domain/tech-effect supply grants (resourceSlotSupplyForPlayer's
@@ -201,14 +201,14 @@ const slotSourcesForResource = (args: EconomyPanelArgs, resource: SlotResource):
     if (!base || base.slotResource !== resource) continue;
     let slots = base.baseSlots;
     const label = args.prettyToken(args.resourceLabel(tile.resource));
-    const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
+    const boostBlockedOnFish = structureType === "HYDROGARDEN" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
-    if (structureType === "FARMSTEAD" && tile.resource === "FARM" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "WATERWORKS", WATERWORKS_RADIUS)) {
-      slots += WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS;
+    if (structureType === "HYDROGARDEN" && tile.resource === "FARM" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "HYDROWORKS", HYDROWORKS_RADIUS)) {
+      slots += HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS;
     }
-    if (structureType === "MINE" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "FOUNDRY", FOUNDRY_RADIUS)) {
-      slots += FOUNDRY_MINE_SLOT_BONUS;
+    if (structureType === "MINE" && isWithinRadiusOfActiveStructure(tiles, args.me, tile, "ORE_REFINERY", ORE_REFINERY_RADIUS)) {
+      slots += ORE_REFINERY_MINE_SLOT_BONUS;
     }
     add(label, slots);
     total += slots;
@@ -303,7 +303,7 @@ const upkeepBreakdownForResource = (
 };
 
 // The server labels a structure-driven bucket (e.g. a converter's EXCHANGE-mode
-// gold) with the raw persisted structure type (e.g. "CRYSTAL_SYNTHESIZER")
+// gold) with the raw persisted structure type (e.g. "AETHER_CONDENSER")
 // rather than its display name, since that's the source-of-truth identifier.
 // Only remap labels that are actually known structure types — other bucket
 // labels ("Towns", "Docks", "Live empire income", etc.) aren't structure

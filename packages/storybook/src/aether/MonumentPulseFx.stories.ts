@@ -76,5 +76,5 @@ const meta: Meta<Args> = {
 
 export default meta;
 type Story = StoryObj<Args>;
-export const WorldEngineStrike: Story = { args: { color: "#ff5533" } };
+export const SovereignSiegeEngineStrike: Story = { args: { color: "#ff5533" } };
 export const ImperialExchangeLevy: Story = { args: { color: "#ffd166" } };

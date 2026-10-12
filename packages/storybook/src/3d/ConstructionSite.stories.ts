@@ -21,7 +21,7 @@ type Args = {
   cameraDistance: number;
 };
 
-const KINDS: ReadonlyArray<StructureKind> = ["AETHER_TOWER", "WORLD_ENGINE", "FARMSTEAD", "WATERWORKS", "MINE", "GRANARY", "FOUNDRY", "ADVANCED_TITANIUM_WORKS", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "RADAR_SYSTEM", "AIRPORT", "WEAPONS_WORKSHOP"];
+const KINDS: ReadonlyArray<StructureKind> = ["AMBARIC_TRANSFORMER", "SOVEREIGN_SIEGE_ENGINE", "HYDROGARDEN", "HYDROWORKS", "MINE", "INCUBATION_ENGINE", "ORE_REFINERY", "HIGH_YIELD_TITANIUM_WORKS", "CLEARING_HOUSE", "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "RESONANCE_GRID", "SKY_DOCK", "WEAPONS_WORKSHOP"];
 const HOUR_MS = 3_600_000;
 
 // A tile whose in-flight record spans a virtual window positioned so that
@@ -200,7 +200,7 @@ const meta: Meta<Args> = {
     direction: { control: "inline-radio", options: ["build", "remove"] },
     cameraDistance: { control: { type: "range", min: 3, max: 16, step: 0.5 } }
   },
-  args: { kind: "FOUNDRY", hours: 8, progress: 0.1, direction: "build", cameraDistance: 8 }
+  args: { kind: "ORE_REFINERY", hours: 8, progress: 0.1, direction: "build", cameraDistance: 8 }
 };
 
 export default meta;

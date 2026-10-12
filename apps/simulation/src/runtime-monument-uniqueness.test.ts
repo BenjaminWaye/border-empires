@@ -58,7 +58,7 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
     economicStructureForSupportedTown: () => undefined,
     firstAvailableTownSupportTile: () => undefined,
     assignedTownKeyForSupportTile: () => undefined,
-    railDepotAlreadyInNetwork: () => false,
+    neuralWorksAlreadyInNetwork: () => false,
     replaceTileState: (tileKey: string, next: DomainTileState) => {
       tileMap.set(tileKey, next);
     },
@@ -98,7 +98,7 @@ function makeCommand(overrides: Partial<CommandEnvelope> = {}): CommandEnvelope 
   } as CommandEnvelope;
 }
 
-// §16: exactly one Imperial Exchange/World Engine/Aegis Dome/Astral Dock may
+// §16: exactly one Imperial Exchange/Sovereign Siege Engine/Aegis Dome/Astral Dock may
 // ever be completed globally in a season — once anyone's assembly is
 // active, nobody else may build another part or assembly of that type, and
 // a losing racer's sunk manpower is refunded rather than destroyed.
@@ -178,7 +178,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "WORLD_ENGINE_PART_1" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "SOVEREIGN_SIEGE_ENGINE_PART_1" }) }));
 
     expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
   });
@@ -264,18 +264,18 @@ describe("§16 monument global uniqueness", () => {
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
   });
 
-  // Tech-tree redesign: Population Bureau and Titanium Levy hook into the exact
+  // Tech-tree redesign: Census Directorate and Titanium Levy hook into the exact
   // same PART_TYPE_FOR_BASE/MONUMENTAL_STRUCTURE_TYPES generic mechanism as
   // the 4 pre-existing monuments -- no new uniqueness-enforcement code was
   // written for them, so this confirms the hookup actually works rather
   // than just compiling.
-  it("rejects a further POPULATION_BUREAU_PART_1 build once another player's Population Bureau is already active", () => {
+  it("rejects a further CENSUS_DIRECTORATE_PART_1 build once another player's Census Directorate is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
       [rival, actor],
       [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "POPULATION_BUREAU", status: "active" } },
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "CENSUS_DIRECTORATE", status: "active" } },
         {
           x: 5,
           y: 5,
@@ -287,7 +287,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART_1" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "CENSUS_DIRECTORATE_PART_1" }) }));
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
@@ -381,7 +381,7 @@ describe("§16 monument global uniqueness", () => {
     expect(tiles.get(simulationTileKey(6, 6))?.economicStructure).toMatchObject({ type: "IMPERIAL_EXCHANGE_PART_2", status: "under_construction" });
   });
 
-  it("does not block Population Bureau once Titanium Levy is claimed (different monument types)", () => {
+  it("does not block Census Directorate once Titanium Levy is claimed (different monument types)", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
@@ -392,7 +392,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART_1" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "CENSUS_DIRECTORATE_PART_1" }) }));
 
     expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
   });

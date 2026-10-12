@@ -10,7 +10,7 @@ import {
 } from "@border-empires/shared";
 import * as wonderEffects from "./runtime-natural-wonders.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { economicOrObservatoryCancelRefund, fortCancelRefund, siegeOutpostCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
+import { economicOrObservatoryCancelRefund, fortCancelRefund, siegeBatteryCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { frontierClaimDurationMsForCoords } from "./runtime-frontier-command.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
@@ -37,21 +37,21 @@ export type RuntimeRushBuyCommandContext = {
 
 // §6.3: which under_construction field (if any) owned by `playerId` sits on
 // `target`, and what structureType/completesAt to price/complete it with.
-// Checked in the same fort -> observatory -> siegeOutpost -> economicStructure
+// Checked in the same fort -> observatory -> siegeBattery -> economicStructure
 // order cancelStructureActionTile (runtime-structure-lifecycle-command-handlers.ts)
 // already uses, so the two "what's in progress on this tile" checks can't disagree.
 const rushBuyableFieldForPlayer = (
   target: DomainTileState,
   playerId: string
-): { tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"; structureType: string; completesAt: number } | undefined => {
+): { tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure"; structureType: string; completesAt: number } | undefined => {
   if (target.fort?.ownerId === playerId && target.fort.status === "under_construction" && typeof target.fort.completesAt === "number") {
     return { tileField: "fort", structureType: target.fort.variant ?? "FORT", completesAt: target.fort.completesAt };
   }
   if (target.observatory?.ownerId === playerId && target.observatory.status === "under_construction" && typeof target.observatory.completesAt === "number") {
     return { tileField: "observatory", structureType: "OBSERVATORY", completesAt: target.observatory.completesAt };
   }
-  if (target.siegeOutpost?.ownerId === playerId && target.siegeOutpost.status === "under_construction" && typeof target.siegeOutpost.completesAt === "number") {
-    return { tileField: "siegeOutpost", structureType: target.siegeOutpost.variant ?? "SIEGE_OUTPOST", completesAt: target.siegeOutpost.completesAt };
+  if (target.siegeBattery?.ownerId === playerId && target.siegeBattery.status === "under_construction" && typeof target.siegeBattery.completesAt === "number") {
+    return { tileField: "siegeBattery", structureType: target.siegeBattery.variant ?? "SIEGE_BATTERY", completesAt: target.siegeBattery.completesAt };
   }
   if (
     target.economicStructure?.ownerId === playerId &&
@@ -68,7 +68,7 @@ const rushBuyableFieldForPlayer = (
 // (rushBuyPriceGold, §6.3's anchor table extended per user direction to the
 // in-progress case) — structure prices are anchored off the SAME manpower
 // cost/refund figures cancel already uses (fortCancelRefund/
-// siegeOutpostCancelRefund/economicOrObservatoryCancelRefund), so a rush can
+// siegeBatteryCancelRefund/economicOrObservatoryCancelRefund), so a rush can
 // never price a tier differently than cancelling it would refund. Completion
 // reuses resolvePendingSettlement/resolveLock/completeStructureBuild — the
 // exact functions the original timer would have called — so there is no
@@ -136,7 +136,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   }
   const refund =
     tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
-    tileField === "siegeOutpost" ? siegeOutpostCancelRefund(target.siegeOutpost?.variant) :
+    tileField === "siegeBattery" ? siegeBatteryCancelRefund(target.siegeBattery?.variant) :
     economicOrObservatoryCancelRefund(context.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
   const spec = STRUCTURE_REGISTRY[structureType];
   if (!spec) {
@@ -145,7 +145,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   }
   const speedMultKey =
     tileField === "fort" ? "fortBuildSpeedMult" :
-    tileField === "siegeOutpost" && structureType !== "RELAY_BEACON" ? "outpostDeploymentSpeedMult" :
+    tileField === "siegeBattery" && structureType !== "RELAY_BEACON" ? "outpostDeploymentSpeedMult" :
     spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
     undefined;
   // Price against the real build window the build handler stamped

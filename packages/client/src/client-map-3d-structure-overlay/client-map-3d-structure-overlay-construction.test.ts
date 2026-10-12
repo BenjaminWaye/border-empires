@@ -193,7 +193,7 @@ describe("structure overlay under construction", () => {
   describe("tall structures grow instead of appearing whole", () => {
     // Highest point of the structure's own pieces (the construction scaffold, crates and
     // crew are meshes created after the overlay, so they are excluded).
-    const topAt = (kind: "AETHER_TOWER" | "FARMSTEAD" | "WORLD_ENGINE", bands: number | undefined): number => {
+    const topAt = (kind: "AMBARIC_TRANSFORMER" | "HYDROGARDEN" | "SOVEREIGN_SIEGE_ENGINE", bands: number | undefined): number => {
       const scene = new Scene();
       const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
       const own = new Set(scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh));
@@ -212,7 +212,7 @@ describe("structure overlay under construction", () => {
       return top;
     };
 
-    it.each(["AETHER_TOWER", "FARMSTEAD", "WORLD_ENGINE"] as const)("%s climbs roughly a quarter of its height per phase", (kind) => {
+    it.each(["AMBARIC_TRANSFORMER", "HYDROGARDEN", "SOVEREIGN_SIEGE_ENGINE"] as const)("%s climbs roughly a quarter of its height per phase", (kind) => {
       const full = topAt(kind, undefined);
       const ratios = [1, 2, 3, 4].map((bands) => topAt(kind, bands) / full);
       // Not stuck at full height from the first phase (the old whole-piece behaviour)...

@@ -44,7 +44,7 @@ const baseInputs: DecisionInputs = {
   needsFood: false,
   hasEconomicBuild: false,
   hasFortBuild: false,
-  hasSiegeOutpost: false,
+  hasSiegeBattery: false,
   hasRelayBeaconBuild: true,
   relayBeaconSiteValue: RICH_SITE_VALUE,
   beaconBoostActive: false,

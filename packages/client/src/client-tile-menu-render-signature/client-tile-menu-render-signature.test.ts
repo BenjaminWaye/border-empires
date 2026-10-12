@@ -24,7 +24,7 @@ describe("tile menu render signature", () => {
     const signatureB = tileMenuRenderSignature(
       {
         ...baseView(),
-        buildings: [{ id: "build_foundry", label: "Build Foundry", cost: "4500 gold • 5m • doubles mines within 5 tiles" }]
+        buildings: [{ id: "build_ore_refinery", label: "Build Ore Refinery", cost: "4500 gold • 5m • doubles mines within 5 tiles" }]
       },
       "buildings"
     );

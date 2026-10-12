@@ -58,7 +58,7 @@ type QueuedBuildPayload = Extract<QueuedDevelopmentAction, { kind: "BUILD" }>["p
 type GatewayBuildWirePayload =
   | { type: "BUILD_FORT"; x: number; y: number }
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+  | { type: "BUILD_SIEGE_BATTERY"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: string }
   | { type: "REMOVE_STRUCTURE"; x: number; y: number };
 
@@ -74,7 +74,7 @@ export const gatewayBuildWirePayload = (payload: QueuedBuildPayload): GatewayBui
   if (payload.type !== "BUILD_STRUCTURE") return payload;
   if (payload.structureType === "FORT") return { type: "BUILD_FORT", x: payload.x, y: payload.y };
   if (payload.structureType === "OBSERVATORY") return { type: "BUILD_OBSERVATORY", x: payload.x, y: payload.y };
-  if (payload.structureType === "SIEGE_OUTPOST") return { type: "BUILD_SIEGE_OUTPOST", x: payload.x, y: payload.y };
+  if (payload.structureType === "SIEGE_BATTERY") return { type: "BUILD_SIEGE_BATTERY", x: payload.x, y: payload.y };
   return { type: "BUILD_ECONOMIC_STRUCTURE", x: payload.x, y: payload.y, structureType: payload.structureType };
 };
 

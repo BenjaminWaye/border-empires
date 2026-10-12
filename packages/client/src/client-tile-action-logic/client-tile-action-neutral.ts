@@ -166,14 +166,14 @@ export const neutralTileActions = (
     });
   }
   out.push({
-    id: "build_foundry",
+    id: "build_ore_refinery",
     label: "Build Ore Refinery",
-    detail: deps.buildDetailTextForAction("build_foundry", tile),
+    detail: deps.buildDetailTextForAction("build_ore_refinery", tile),
     ...tileActionAvailabilityWithDevelopmentSlot(
       reachable &&
         state.techIds.includes("industrial-extraction") &&
-        state.gold >= deps.structureGoldCost("FOUNDRY") &&
-        state.manpower >= structureBuildManpowerCost("FOUNDRY") &&
+        state.gold >= deps.structureGoldCost("ORE_REFINERY") &&
+        state.manpower >= structureBuildManpowerCost("ORE_REFINERY") &&
         !tile.resource &&
         !tile.town &&
         !tile.dockId,
@@ -183,10 +183,10 @@ export const neutralTileActions = (
           ? "Requires Steam-Driven Extraction"
           : tile.resource || tile.town || tile.dockId
             ? "Needs empty land"
-            : state.gold < deps.structureGoldCost("FOUNDRY")
-              ? `Need ${deps.structureGoldCost("FOUNDRY")} coin`
-              : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${buildTimeLabel(economicBuildMsForState(state, "FOUNDRY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
+            : state.gold < deps.structureGoldCost("ORE_REFINERY")
+              ? `Need ${deps.structureGoldCost("ORE_REFINERY")} coin`
+              : `Need ${structureBuildManpowerCost("ORE_REFINERY")} manpower`,
+      `${deps.structureCostText("ORE_REFINERY")} • ${buildTimeLabel(economicBuildMsForState(state, "ORE_REFINERY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("ORE_REFINERY")}`,
       deps.developmentSlotSummary(),
       deps
     )

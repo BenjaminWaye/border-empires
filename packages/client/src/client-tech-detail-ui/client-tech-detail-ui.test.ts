@@ -87,15 +87,15 @@ describe("tech detail crystal ability previews", () => {
     expect(html).not.toContain(">Locked<");
   });
 
-  it("maps irrigation to Waterworks only", () => {
+  it("maps irrigation to Hydroworks only", () => {
     const irrigationTech: TechInfo = {
       id: "irrigation",
       tier: 2,
       name: "Irrigation",
-      description: "Unlocks Waterworks.",
+      description: "Unlocks Hydroworks.",
       mods: {},
       effects: {
-        unlockWaterworksUpgrade: true,
+        unlockHydroworksUpgrade: true,
         townFoodUpkeepMult: 0.95
       },
       requirements: {
@@ -108,7 +108,7 @@ describe("tech detail crystal ability previews", () => {
       }
     };
 
-    expect(relatedStructureTypesForTech(irrigationTech)).toEqual(["WATERWORKS"]);
+    expect(relatedStructureTypesForTech(irrigationTech)).toEqual(["HYDROWORKS"]);
   });
 
   it("maps organized supply and port infrastructure to their real structure unlocks", () => {
@@ -116,10 +116,10 @@ describe("tech detail crystal ability previews", () => {
       id: "organized-supply",
       tier: 4,
       name: "Organized Supply",
-      description: "Unlocks Garrison Halls.",
+      description: "Unlocks Ancillary Depots.",
       mods: {},
       effects: {
-        unlockGarrisonHall: true,
+        unlockAncillaryDepot: true,
         outpostUmbriteSlotWaiverCount: 3
       },
       requirements: {
@@ -131,7 +131,7 @@ describe("tech detail crystal ability previews", () => {
         canResearch: true
       }
     };
-    expect(relatedStructureTypesForTech(organizedSupply)).toEqual(["GARRISON_HALL"]);
+    expect(relatedStructureTypesForTech(organizedSupply)).toEqual(["ANCILLARY_DEPOT"]);
   });
 
   it("maps later structure unlocks to their real labels instead of stale legacy structures", () => {
@@ -139,10 +139,10 @@ describe("tech detail crystal ability previews", () => {
       id: "global-trade-networks",
       tier: 5,
       name: "Rail Networks",
-      description: "Unlocks Rail Depots.",
+      description: "Unlocks Neural Works.",
       mods: {},
       effects: {
-        unlockRailDepot: true
+        unlockNeuralWorks: true
       },
       requirements: { gold: 15000, resources: { UMBRITE: 160, CRYSTAL: 220, SHARD: 1 }, checklist: [], canResearch: true }
     };
@@ -153,7 +153,7 @@ describe("tech detail crystal ability previews", () => {
       description: "Unlocks ministry halls.",
       mods: {},
       effects: {
-        unlockGovernorsOffice: true,
+        unlockMinistryHall: true,
         townFoodUpkeepMult: 0.9,
         settledGoldUpkeepMult: 0.9
       },
@@ -166,7 +166,7 @@ describe("tech detail crystal ability previews", () => {
       description: "Unlocks aether condensers.",
       mods: {},
       effects: {
-        unlockCrystalSynthesizer: true
+        unlockAetherCondenser: true
       },
       requirements: { gold: 6500, resources: { TITANIUM: 60 }, checklist: [], canResearch: true }
     };
@@ -193,23 +193,23 @@ describe("tech detail crystal ability previews", () => {
       },
       requirements: { gold: 26000, resources: { CRYSTAL: 320, SHARD: 3 }, checklist: [], canResearch: true }
     };
-    const worldEngine: TechInfo = {
+    const sovereignSiegeEngine: TechInfo = {
       id: "world-engine",
       tier: 7,
       name: "Worldbreaker Cannon",
       description: "Unlocks the Worldbreaker Cannon.",
       mods: {},
       effects: {
-        unlockWorldEngine: true
+        unlockSovereignSiegeEngine: true
       },
       requirements: { gold: 26000, resources: { TITANIUM: 260, CRYSTAL: 280, SHARD: 3 }, checklist: [], canResearch: true }
     };
 
-    expect(relatedStructureTypesForTech(globalTradeNetworks)).toEqual(["RAIL_DEPOT"]);
-    expect(relatedStructureTypesForTech(civilService)).toEqual(["GOVERNORS_OFFICE"]);
-    expect(relatedStructureTypesForTech(crystalLattices)).toEqual(["CRYSTAL_SYNTHESIZER"]);
+    expect(relatedStructureTypesForTech(globalTradeNetworks)).toEqual(["NEURAL_WORKS"]);
+    expect(relatedStructureTypesForTech(civilService)).toEqual(["MINISTRY_HALL"]);
+    expect(relatedStructureTypesForTech(crystalLattices)).toEqual(["AETHER_CONDENSER"]);
     expect(relatedStructureTypesForTech(imperialExchange)).toEqual(["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3", "IMPERIAL_EXCHANGE"]);
-    expect(relatedStructureTypesForTech(worldEngine)).toEqual(["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3", "WORLD_ENGINE"]);
+    expect(relatedStructureTypesForTech(sovereignSiegeEngine)).toEqual(["SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3", "SOVEREIGN_SIEGE_ENGINE"]);
     expect(relatedStructureTypesForTech(aegisDome)).toEqual(["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3", "AEGIS_DOME"]);
   });
 
@@ -219,10 +219,10 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Hydroworks");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Neural Works");
-    expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
-    expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
+    expect(structureInfoForKey("HYDROWORKS", deps).title).toBe("Hydroworks");
+    expect(structureInfoForKey("NEURAL_WORKS", deps).title).toBe("Neural Works");
+    expect(structureInfoForKey("MINISTRY_HALL", deps).title).toBe("Ministry Hall");
+    expect(structureInfoForKey("AETHER_CONDENSER", deps).title).toBe("Aether Condenser");
     expect(structureInfoForKey("TITANIUM_BASTION", deps).title).toBe("Titanium Bastion");
     expect(structureInfoForKey("THUNDER_BASTION", deps).title).toBe("Thunder Bastion");
     expect(structureInfoForKey("SIEGE_TOWER", deps).title).toBe("Siege Tower");
@@ -237,12 +237,12 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).detail).toContain("+2 FOOD slots");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("50 tiles");
-    expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
+    expect(structureInfoForKey("HYDROWORKS", deps).detail).toContain("+2 FOOD slots");
+    expect(structureInfoForKey("NEURAL_WORKS", deps).detail).toContain("50 tiles");
+    expect(structureInfoForKey("AMBARIC_TRANSFORMER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("24 hours");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Sovereign Siege Engine");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
+    expect(structureInfoForKey("SOVEREIGN_SIEGE_ENGINE", deps).title).toBe("Sovereign Siege Engine");
+    expect(structureInfoForKey("SOVEREIGN_SIEGE_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     // Fort/siege multiplier numbers now live in `modifiers` (the shared
     // game-domain catalog), not the qualitative `effects` bullets.
@@ -273,11 +273,11 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toBe("/overlays/clearing-house-overlay.svg");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/assembly-works-overlay.svg");
+    expect(structureInfoForKey("NEURAL_WORKS", deps).image).toBe("/overlays/neural-works-overlay.svg");
     expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).image).toBe("/overlays/world-engine-overlay.svg");
+    expect(structureInfoForKey("SOVEREIGN_SIEGE_ENGINE", deps).image).toBe("/overlays/sovereign-siege-engine-overlay.svg");
   });
 });
 
@@ -295,7 +295,7 @@ describe("tech detail highlight tags replace the yellow unlock-summary text", ()
     name: "Supply Directorate",
     description: "Armies march on paperwork, then complain about the rations.",
     mods: {},
-    effects: { unlockGarrisonHall: true },
+    effects: { unlockAncillaryDepot: true },
     requirements: { gold: 10, resources: {}, checklist: [], canResearch: true }
   };
 

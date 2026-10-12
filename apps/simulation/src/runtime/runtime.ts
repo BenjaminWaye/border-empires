@@ -101,7 +101,7 @@ import {
 import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { neuralWorksNetworkAncillaryFactoryCountForPlayer, reserveLatticeNetworkAncillaryDepotCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { activeMonumentOnTile, refreshMonumentOwnerIndexForTile } from "../monument-uniqueness.js";
 import {
   cachedManpowerStructureBonusForPlayer as cachedManpowerStructureBonusForPlayerImpl,
@@ -268,10 +268,10 @@ import {
   fedTownKeysForPlayer as fedTownKeysForPlayerImpl,
   cachedTownNetworkForPlayer as cachedTownNetworkForPlayerImpl,
   rebuildTownNetworkUninstrumented as rebuildTownNetworkUninstrumentedImpl,
-  railDepotAlreadyInNetworkForPlayer as railDepotAlreadyInNetworkForPlayerImpl,
-  assemblyWorksAlreadyInNetworkForPlayer as assemblyWorksAlreadyInNetworkForPlayerImpl,
+  neuralWorksAlreadyInNetworkForPlayer as neuralWorksAlreadyInNetworkForPlayerImpl,
+  reserveLatticeAlreadyInNetworkForPlayer as reserveLatticeAlreadyInNetworkForPlayerImpl,
   hasNearbyQuartermastersOfficeForPlayer as hasNearbyQuartermastersOfficeForPlayerImpl,
-  censusHallConnectedGranaryBonusCountForPlayer as censusHallConnectedGranaryBonusCountForPlayerImpl,
+  censusHallConnectedIncubationEngineBonusCountForPlayer as censusHallConnectedIncubationEngineBonusCountForPlayerImpl,
   tileYieldEconomyContextForPlayer as tileYieldEconomyContextForPlayerImpl,
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
   type RuntimeTownNetworkContext
@@ -416,7 +416,7 @@ import {
   refreshActiveStructureIndexForTile,
   registerFortSupportAnchor as registerFortSupportAnchorImpl,
   removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl,
-  isSiegeOutpostActive,
+  isSiegeBatteryActive,
   isRelayBeaconActive,
   isObservatoryActive
 } from "../runtime-tile-index-maintenance.js";
@@ -476,7 +476,7 @@ import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
   handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
-  handleCancelSiegeOutpostBuildCommand as handleCancelSiegeOutpostBuildCommandImpl,
+  handleCancelSiegeBatteryBuildCommand as handleCancelSiegeBatteryBuildCommandImpl,
   handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
   handleClearMusterCommand as handleClearMusterCommandImpl,
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
@@ -584,11 +584,11 @@ export class SimulationRuntime {
   private readonly deltaBuffer = new CommandDeltaBuffer();
   // Part 2: index of fort/town anchors that grant frontier support per owner.
   private readonly activeFortAnchorsByOwner = new Map<string, Map<string, number>>();
-  // Index of active siege outpost tiles per owner (SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER).
-  // Key: ownerId, Value: Set of tileKeys with an active siegeOutpost owned by that player.
-  // Maintained in replaceTileState via refreshSiegeOutpostIndexForTile.
+  // Index of active siege battery tiles per owner (SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER).
+  // Key: ownerId, Value: Set of tileKeys with an active siegeBattery owned by that player.
+  // Maintained in replaceTileState via refreshSiegeBatteryIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
-  private readonly activeSiegeOutpostsByOwner = new Map<string, Set<string>>();
+  private readonly activeSiegeBatteriesByOwner = new Map<string, Set<string>>();
   // Index of active RELAY_BEACON economic structure tiles per owner.
   // Key: ownerId, Value: Set of tileKeys with an active RELAY_BEACON owned by that player.
   // Maintained in replaceTileState via refreshRelayBeaconIndexForTile.
@@ -602,12 +602,12 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
   // muster accumulation tick enumerate active musters without scanning the map.
   private readonly musterTilesByOwner = new Map<string, Set<string>>();
-  // Index of active Rail Depot tiles per owner (mustering logistics hub).
-  private readonly railDepotTilesByOwner = new Map<string, Set<string>>();
-  // Index of active Garrison Hall tiles per owner (§4.4 flat manpower-cap
+  // Index of active Neural Works tiles per owner (mustering logistics hub).
+  private readonly neuralWorksTilesByOwner = new Map<string, Set<string>>();
+  // Index of active Ancillary Depot tiles per owner (§4.4 flat manpower-cap
   // bonus) — a plain per-structure count, not town-adjacency-scoped, since
-  // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
-  private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
+  // ANCILLARY_DEPOT uses "same_tile" placement and can sit anywhere.
+  private readonly ancillaryDepotTilesByOwner = new Map<string, Set<string>>();
   // O(1) mirror of monumentClaimOwnerId (§16) — see
   // refreshMonumentOwnerIndexForTile in monument-uniqueness.ts for why.
   private readonly activeMonumentOwnerByType = new Map<MonumentalStructureType, { ownerId: string; tileKey: string }>();
@@ -615,13 +615,13 @@ export class SimulationRuntime {
   // SpawnPlacementIndex for why they are indexed rather than rescanned.
   private readonly spawnPlacementIndex = new SpawnPlacementIndex();
   // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
-  // buildings, maintained the same way as railDepotTilesByOwner/
-  // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
+  // buildings, maintained the same way as neuralWorksTilesByOwner/
+  // ancillaryDepotTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
   // in runtime-tile-index-maintenance.ts).
-  private readonly assemblyWorksTilesByOwner = new Map<string, Set<string>>();
-  private readonly logisticsGuildTilesByOwner = new Map<string, Set<string>>();
+  private readonly reserveLatticeTilesByOwner = new Map<string, Set<string>>();
+  private readonly ancillaryFactoryTilesByOwner = new Map<string, Set<string>>();
   private readonly quartermastersOfficeTilesByOwner = new Map<string, Set<string>>();
-  private readonly granaryTilesByOwner = new Map<string, Set<string>>();
+  private readonly incubationEngineTilesByOwner = new Map<string, Set<string>>();
   private readonly censusHallTilesByOwner = new Map<string, Set<string>>();
   // Tracks muster manpower reserved by in-flight attacks (remote muster).
   // Key: muster tileKey, Value: total reserved amount. Prevents two concurrent
@@ -743,22 +743,22 @@ export class SimulationRuntime {
   // townNetworkCacheByPlayer cache-miss can usually resolve via O(towns)
   // union-find lookups instead of a full O(settled tiles) BFS.
   private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
-  // §4.4 manpower structure bonuses (Garrison Hall flat cap + Rail Depot
+  // §4.4 manpower structure bonuses (Ancillary Depot flat cap + Neural Works
   // network cap/regen) — invalidated alongside townNetworkCacheByPlayer since
-  // it's derived from that same network plus a Garrison Hall/Rail Depot scan.
+  // it's derived from that same network plus a Ancillary Depot/Neural Works scan.
   private readonly manpowerStructureBonusCacheByPlayer = new Map<
     string,
     {
-      garrisonHallCount: number;
-      assemblyWorksNetworkGarrisonHallCount: number;
-      railDepotNetworkLogisticsGuildCount: number;
-      logisticsGuildCount: number;
-      populationBureauManpowerBuildingCount: number;
+      ancillaryDepotCount: number;
+      reserveLatticeNetworkAncillaryDepotCount: number;
+      neuralWorksNetworkAncillaryFactoryCount: number;
+      ancillaryFactoryCount: number;
+      censusDirectorateManpowerBuildingCount: number;
     }
   >();
   // Counts recovered players whose persisted manpowerCapSnapshot disagreed
   // with what boot hydration computed once this.state.tiles and every
-  // structure-by-owner index (garrisonHallTilesByOwner etc.) were fully
+  // structure-by-owner index (ancillaryDepotTilesByOwner etc.) were fully
   // populated — see the applyManpowerRegen loop near the end of the
   // constructor, and the "deploy just snapped my manpower to full" bug it
   // fixes (that loop used to run BEFORE this.state.tiles existed, computing a
@@ -778,8 +778,8 @@ export class SimulationRuntime {
   // would be a real per-tick cost at scale, unlike hasFreeResourceSlots'
   // once-per-build call. Supply only depends on SETTLED resource tiles, so
   // it's invalidated on the same SETTLED-gated trigger as
-  // economySnapshotCacheByPlayer. Demand depends on fort/siegeOutpost/
-  // economicStructure on ANY owned tile (Siege Outposts can be FRONTIER,
+  // economySnapshotCacheByPlayer. Demand depends on fort/siegeBattery/
+  // economicStructure on ANY owned tile (Siege Batteries can be FRONTIER,
   // resource-slot-view.ts), so it must invalidate unconditionally like
   // defensibilityMetricsCacheByPlayer does, not gated on SETTLED.
   private readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
@@ -949,8 +949,8 @@ export class SimulationRuntime {
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
     // loop here, immediately after this.state.players was built and BEFORE
-    // this.state.tiles existed. garrisonHallTilesByOwner/railDepotTilesByOwner/
-    // assemblyWorksTilesByOwner/logisticsGuildTilesByOwner (populated below,
+    // this.state.tiles existed. ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
+    // reserveLatticeTilesByOwner/ancillaryFactoryTilesByOwner (populated below,
     // from the tile-hydration loop) were all still empty at that point, so
     // that early call computed a structure-bonus-free (artificially LOW) cap
     // for every recovered player, cached it, AND — because refreshManpowerOnly
@@ -961,7 +961,7 @@ export class SimulationRuntime {
     // (replaceTileState -> refreshEconomyCachesForTileChange); at that point
     // refreshManpowerOnly recomputed the TRUE (higher) cap, saw
     // `cap > previousCap`, and handed the player their entire Garrison
-    // Hall/Rail Depot/Assembly Works/Logistics Guild cap bonus as free
+    // Hall/Neural Works/Reserve Lattice/Ancillary Factory cap bonus as free
     // manpower — indistinguishable from the intentional "build a Garrison
     // Hall, get the extra manpower immediately" mechanic that branch exists
     // for. This is what produced the ~4000 -> full-cap jump right after a
@@ -1042,7 +1042,7 @@ export class SimulationRuntime {
       // to mirror the original ownedStructureCountForPlayer semantics.
       if (tile.fort?.ownerId) this.adjustOwnedStructureCount(tile.fort.ownerId, "FORT", 1);
       if (tile.observatory?.ownerId) this.adjustOwnedStructureCount(tile.observatory.ownerId, "OBSERVATORY", 1);
-      if (tile.siegeOutpost?.ownerId) this.adjustOwnedStructureCount(tile.siegeOutpost.ownerId, "SIEGE_OUTPOST", 1);
+      if (tile.siegeBattery?.ownerId) this.adjustOwnedStructureCount(tile.siegeBattery.ownerId, "SIEGE_BATTERY", 1);
       if (tile.economicStructure?.ownerId) {
         this.adjustOwnedStructureCount(
           tile.economicStructure.ownerId,
@@ -1064,7 +1064,7 @@ export class SimulationRuntime {
         registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
       }
       // Populate active-structure indexes (previous: undefined — boot has no prior tile state).
-      refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeSiegeOutpostsByOwner, isActive: isSiegeOutpostActive });
+      refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeSiegeBatteriesByOwner, isActive: isSiegeBatteryActive });
       refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeRelayBeaconsByOwner, isActive: isRelayBeaconActive });
       refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeObservatoriesByOwner, isActive: isObservatoryActive });
       // Seed Outpost/Observatory/Waystation vision bonuses here — see the first-pass comment above.
@@ -1076,24 +1076,24 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
         set.add(tileKey);
       }
-      // Populate railDepotTilesByOwner index (mustering logistics hub).
-      if (tile.economicStructure?.type === "RAIL_DEPOT" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
-        let set = this.railDepotTilesByOwner.get(tile.economicStructure.ownerId);
-        if (!set) { set = new Set<string>(); this.railDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
+      // Populate neuralWorksTilesByOwner index (mustering logistics hub).
+      if (tile.economicStructure?.type === "NEURAL_WORKS" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.neuralWorksTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.neuralWorksTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
-      // Populate garrisonHallTilesByOwner index (§4.4 flat manpower-cap bonus).
-      if (tile.economicStructure?.type === "GARRISON_HALL" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
-        let set = this.garrisonHallTilesByOwner.get(tile.economicStructure.ownerId);
-        if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
+      // Populate ancillaryDepotTilesByOwner index (§4.4 flat manpower-cap bonus).
+      if (tile.economicStructure?.type === "ANCILLARY_DEPOT" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.ancillaryDepotTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.ancillaryDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
       }
       // Seed the tech-tree redesign's new per-owner structure indexes.
       for (const [structureType, index] of [
-        ["ASSEMBLY_WORKS", this.assemblyWorksTilesByOwner],
-        ["LOGISTICS_GUILD", this.logisticsGuildTilesByOwner],
+        ["RESERVE_LATTICE", this.reserveLatticeTilesByOwner],
+        ["ANCILLARY_FACTORY", this.ancillaryFactoryTilesByOwner],
         ["QUARTERMASTERS_OFFICE", this.quartermastersOfficeTilesByOwner],
-        ["GRANARY", this.granaryTilesByOwner],
+        ["INCUBATION_ENGINE", this.incubationEngineTilesByOwner],
         ["CENSUS_HALL", this.censusHallTilesByOwner]
       ] as const) {
         if (tile.economicStructure?.type === structureType && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
@@ -1121,8 +1121,8 @@ export class SimulationRuntime {
     }
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
-    // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
-    // assemblyWorksTilesByOwner/logisticsGuildTilesByOwner all reflect the
+    // first point where ancillaryDepotTilesByOwner/neuralWorksTilesByOwner/
+    // reserveLatticeTilesByOwner/ancillaryFactoryTilesByOwner all reflect the
     // recovered tiles, so playerManpowerCap sees the TRUE cap for every
     // recovered player on its very first read — the boot-order bug (manpower
     // silently clamped down at boot, then snapped back up to full cap on the
@@ -1349,7 +1349,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       now: () => this.now(),
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
-      connectedGranaryCountForTown: (playerId, townKey) => this.censusHallConnectedGranaryBonusCountForPlayer(playerId, townKey),
+      connectedIncubationEngineCountForTown: (playerId, townKey) => this.censusHallConnectedIncubationEngineBonusCountForPlayer(playerId, townKey),
       replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
@@ -1451,9 +1451,9 @@ export class SimulationRuntime {
     return buildMusterTickContext({
       players: this.state.players,
       tiles: this.state.tiles,
-      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeSiegeBatteriesByOwner: this.activeSiegeBatteriesByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
-      railDepotTilesByOwner: this.railDepotTilesByOwner,
+      neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
       locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
@@ -1467,7 +1467,7 @@ export class SimulationRuntime {
       requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
-      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
       isInReach: (playerId: string, x: number, y: number) => this.isPlayerTileInReach(playerId, x, y)
     });
   }
@@ -1754,12 +1754,12 @@ export class SimulationRuntime {
   }
 
   // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
-  // effect on Light/Siege Outpost vision rings) — sourced from the
+  // effect on Light/Siege Battery vision rings) — sourced from the
   // active-only outpost indexes rather than a full tile scan; see
   // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
   private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
     return this.tilesForKeys(
-      new Set<string>([...(this.activeRelayBeaconsByOwner.get(playerId) ?? []), ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])])
+      new Set<string>([...(this.activeRelayBeaconsByOwner.get(playerId) ?? []), ...(this.activeSiegeBatteriesByOwner.get(playerId) ?? [])])
     );
   }
 
@@ -1804,7 +1804,7 @@ export class SimulationRuntime {
       playerId,
       () =>
         (this.activeRelayBeaconsByOwner.get(playerId!)?.size ?? 0) > 0 ||
-        (this.activeSiegeOutpostsByOwner.get(playerId!)?.size ?? 0) > 0 ||
+        (this.activeSiegeBatteriesByOwner.get(playerId!)?.size ?? 0) > 0 ||
         (this.activeObservatoriesByOwner.get(playerId!)?.size ?? 0) > 0
     );
   }
@@ -2095,16 +2095,16 @@ export class SimulationRuntime {
       activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
       sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
-      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeSiegeBatteriesByOwner: this.activeSiegeBatteriesByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
       activeObservatoriesByOwner: this.activeObservatoriesByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
-      railDepotTilesByOwner: this.railDepotTilesByOwner,
-      garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
-      assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
-      logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
+      neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
+      ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
+      reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
+      ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
       quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
-      granaryTilesByOwner: this.granaryTilesByOwner,
+      incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner
     });
     this.maintainAutoSettleEligibilityForTileChange(tileKey, previous, tile);
@@ -2778,9 +2778,9 @@ export class SimulationRuntime {
 
   // Every reach anchor world-wide, right now: every player's town tiles,
   // every active outpost-family structure tile (RELAY_BEACON /
-  // SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
+  // SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
   // outpost-aura.ts uses, sourced from the already-maintained
-  // activeRelayBeaconsByOwner / activeSiegeOutpostsByOwner indexes), and
+  // activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
   // every owned dock tile. Used both for `liveReachForOwner`'s "can this
   // owner currently defend this tile" check during a contest, and once at
   // startup to seed `reachBorder`. `activatedAt` is unused by the current
@@ -2792,7 +2792,7 @@ export class SimulationRuntime {
       playerSummaries: this.playerSummaries,
       tiles: this.state.tiles,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
-      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      activeSiegeBatteriesByOwner: this.activeSiegeBatteriesByOwner,
       docks: this.state.docks,
       tileSettledAtByKey: this.tileSettledAtByKey,
       now: this.now()
@@ -2907,7 +2907,7 @@ export class SimulationRuntime {
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
-  // tiles too — Siege Outposts (structureShowsOnTile) can be built on an
+  // tiles too — Siege Batteries (structureShowsOnTile) can be built on an
   // owned, unsettled tile, so resourceSlotDemandForPlayer needs every tile
   // that could be carrying a structure, not just settled ones.
   private ownedTilesForPlayer(playerId: string): DomainTileState[] {
@@ -2973,9 +2973,9 @@ export class SimulationRuntime {
   // (economy-network.ts, runtime-combat-support.ts, runtime-muster-tick.ts)
   // all work in plain tile keys. A structure is dormant here iff it's short on ANY of its
   // required resources (matches isStructureDormant's own logic) — checked
-  // across all four resource sets, not just one, since e.g. GARRISON_HALL
+  // across all four resource sets, not just one, since e.g. ANCILLARY_DEPOT
   // requires both FOOD and CRYSTAL.
-  dormantFieldKeysForPlayer(playerId: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): ReadonlySet<string> {
+  dormantFieldKeysForPlayer(playerId: string, field: "fort" | "observatory" | "siegeBattery" | "economicStructure"): ReadonlySet<string> {
     return this.dormantContributorKeysForPlayer(playerId, `:${field}`, true);
   }
 
@@ -2993,7 +2993,7 @@ export class SimulationRuntime {
 
   // §5.4: dormant economicStructure tile keys ("x,y") for this player —
   // threaded into economy-network.ts's support-structure bonus checks
-  // (Mintworks/Bank/Caravanary/Clearing House/Garrison Hall/Rail Depot/Customs
+  // (Mintworks/Bank/Trade Nexus/Clearing House/Ancillary Depot/Neural Works/Customs
   // House) so a dormant instance stops granting its bonus without losing
   // its build-time uniqueness/existence.
   dormantEconomicStructureKeysForPlayer(playerId: string): ReadonlySet<string> {
@@ -3041,15 +3041,15 @@ export class SimulationRuntime {
     return cachedTownNetworkForPlayerImpl(this.townNetworkContext(), player, settledTiles, maxConnectedTownNames);
   }
 
-  // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
-  // bonus is a plain per-structure count (garrisonHallTilesByOwner) — NOT
-  // town-adjacency-scoped, because GARRISON_HALL uses "same_tile" placement
+  // §4.4 (docs/manpower-economy-rewrite-plan.md): Ancillary Depot's flat cap
+  // bonus is a plain per-structure count (ancillaryDepotTilesByOwner) — NOT
+  // town-adjacency-scoped, because ANCILLARY_DEPOT uses "same_tile" placement
   // (structure-placement-metadata.json) and can sit on any settled/resource/
-  // support/dock tile with no town nearby at all, unlike RAIL_DEPOT/
-  // CLEARING_HOUSE's "town_support" mode. The Rail Depot network bonus is
-  // separate: it only amplifies Garrison Halls built adjacent to (supporting)
-  // a town inside a Rail-Depot-having network — see
-  // railDepotNetworkGarrisonHallCountForPlayer. Cached and invalidated at the
+  // support/dock tile with no town nearby at all, unlike NEURAL_WORKS/
+  // CLEARING_HOUSE's "town_support" mode. The Neural Works network bonus is
+  // separate: it only amplifies Ancillary Depots built adjacent to (supporting)
+  // a town inside a Neural-Works-having network — see
+  // neuralWorksNetworkAncillaryDepotCountForPlayer. Cached and invalidated at the
   // same tile-mutation chokepoint as the town-network cache, so a manpower
   // read (called many times per tick, per the guardrails in
   // docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map lookup except on
@@ -3059,12 +3059,12 @@ export class SimulationRuntime {
       {
         tiles: this.state.tiles,
         manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
-        garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
-        railDepotTilesByOwner: this.railDepotTilesByOwner,
-        assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
-        logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
+        ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
+        neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
+        reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
+        ancillaryFactoryTilesByOwner: this.ancillaryFactoryTilesByOwner,
         quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
-        granaryTilesByOwner: this.granaryTilesByOwner,
+        incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
         censusHallTilesByOwner: this.censusHallTilesByOwner,
         townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
@@ -3087,18 +3087,18 @@ export class SimulationRuntime {
     return rebuildTownNetworkUninstrumentedImpl(this.townNetworkContext(), player, settledTiles);
   }
 
-  // §4.4: "only one Rail Depot may be built per connected-town network" —
+  // §4.4: "only one Neural Works may be built per connected-town network" —
   // checked at build time (see resolveTownSupportTarget in
   // runtime-structure-command-handlers.ts).
-  private railDepotAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
-    return railDepotAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
+  private neuralWorksAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
+    return neuralWorksAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
-  // Assembly Works (tech-tree redesign): "only one Assembly Works may be
-  // built per connected-town network" — mirrors railDepotAlreadyInNetworkForPlayer
+  // Reserve Lattice (tech-tree redesign): "only one Reserve Lattice may be
+  // built per connected-town network" — mirrors neuralWorksAlreadyInNetworkForPlayer
   // exactly, retargeted.
-  private assemblyWorksAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
-    return assemblyWorksAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
+  private reserveLatticeAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
+    return reserveLatticeAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
   // Quartermaster's Office (tech-tree redesign): true when the player owns
@@ -3112,9 +3112,9 @@ export class SimulationRuntime {
   }
 
   // Census Hall (tech-tree redesign): connected-network Incubation Engine
-  // (Granary) count, for the +20,000 population per connected city bonus.
-  private censusHallConnectedGranaryBonusCountForPlayer(playerId: string, townKey: string): number {
-    return censusHallConnectedGranaryBonusCountForPlayerImpl(this.townNetworkContext(), playerId, townKey);
+  // (Incubation Engine) count, for the +20,000 population per connected city bonus.
+  private censusHallConnectedIncubationEngineBonusCountForPlayer(playerId: string, townKey: string): number {
+    return censusHallConnectedIncubationEngineBonusCountForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
@@ -3935,8 +3935,8 @@ export class SimulationRuntime {
       economicStructureForSupportedTown: (playerId, townKey, structureType) => this.economicStructureForSupportedTown(playerId, townKey, structureType),
       firstAvailableTownSupportTile: (playerId, townKey, structureType) => this.firstAvailableTownSupportTile(playerId, townKey, structureType),
       assignedTownKeyForSupportTile: (playerId, x, y) => this.assignedTownKeyForSupportTile(playerId, x, y),
-      railDepotAlreadyInNetwork: (playerId, townKey) => this.railDepotAlreadyInNetworkForPlayer(playerId, townKey),
-      assemblyWorksAlreadyInNetwork: (playerId, townKey) => this.assemblyWorksAlreadyInNetworkForPlayer(playerId, townKey),
+      neuralWorksAlreadyInNetwork: (playerId, townKey) => this.neuralWorksAlreadyInNetworkForPlayer(playerId, townKey),
+      reserveLatticeAlreadyInNetwork: (playerId, townKey) => this.reserveLatticeAlreadyInNetworkForPlayer(playerId, townKey),
       hasNearbyQuartermastersOffice: (playerId, x, y) => this.hasNearbyQuartermastersOfficeForPlayer(playerId, x, y),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -4142,7 +4142,7 @@ export class SimulationRuntime {
       handleRushBuyCommand: (command) => handleRushBuyCommandImpl(this.rushBuyCommandContext(), command),
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
-      handleCancelSiegeOutpostBuildCommand: (command) => handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command),
+      handleCancelSiegeBatteryBuildCommand: (command) => handleCancelSiegeBatteryBuildCommandImpl(this.structureCommandContext(), command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),

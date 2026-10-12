@@ -1,6 +1,6 @@
 // Food-slot relief: when a player is fully out of FOOD slots (demand ≥
 // supply, nothing left over) and has no way to grow FOOD supply directly
-// (no FARMSTEAD/WATERWORKS/GRANARY build available — chooseBestEconomicBuild
+// (no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build available — chooseBestEconomicBuild
 // found nothing), the AI was previously just stuck: every FOOD-consuming
 // build stays illegal forever, RELAY_BEACON included (it costs its own FOOD
 // slot once the built-in waiver is used up), so an AI that reaches this
@@ -74,7 +74,7 @@ export type FoodSlotReenableTarget = { x: number; y: number };
  * uniquely-held FOOD-producing reach to disable.
  *
  * A beacon's reach can overlap a TOWN's, a DOCK's, or another active
- * beacon's/siege outpost's — losing this one specific anchor doesn't cost
+ * beacon's/siege battery's — losing this one specific anchor doesn't cost
  * anything real if every FARM/FISH tile it reaches is *also* covered by one
  * of the player's other active anchors (that tile stays claimed either way,
  * see reassessBorderOnAnchorDeactivation in reach.ts). Only a FARM/FISH tile
@@ -206,7 +206,7 @@ export const chooseManuallyDisabledBeaconToReenable = <TTile extends AutomationP
 
 /**
  * Number of this player's active reach anchors (TOWN, DOCK, active
- * RELAY_BEACON, active SIEGE_OUTPOST) covering each tile key. Used to tell
+ * RELAY_BEACON, active SIEGE_BATTERY) covering each tile key. Used to tell
  * whether a given beacon is the *sole* anchor reaching a tile (count === 1,
  * and since the tile is inside the beacon's own disk that sole anchor must
  * be it) versus redundantly covered (count > 1, safe to give up).
@@ -227,7 +227,7 @@ const anchorCoverCount = <TTile extends AutomationPlannerTile>(
     if (beacon && beacon.ownerId === playerId && beacon.type === "RELAY_BEACON" && beacon.status === "active") {
       addReach({ x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "OUTPOST" });
     }
-    if (tile.siegeOutpost?.ownerId === playerId && tile.siegeOutpost.status === "active") {
+    if (tile.siegeBattery?.ownerId === playerId && tile.siegeBattery.status === "active") {
       addReach({ x: tile.x, y: tile.y, ownerId: "", activatedAt: 0, kind: "OUTPOST" });
     }
   }

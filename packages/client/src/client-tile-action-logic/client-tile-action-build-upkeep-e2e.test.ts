@@ -1,6 +1,6 @@
 // End-to-end trace of the build-menu Upkeep segment through the real
 // menuActionsForSingleTile pipeline, matching the exact cases called out in
-// the "show building upkeep" task's own verification steps: Farmstead has no
+// the "show building upkeep" task's own verification steps: Hydrogarden has no
 // upkeep line, Titanium Works shows its TITANIUM slot + real gold/day drain,
 // and a player's Nth Observatory shows its real progressive CRYSTAL cost
 // instead of a flat 1.
@@ -63,13 +63,13 @@ const richState = (): ReturnType<typeof createInitialState> => {
 };
 
 describe("build-menu Upkeep segment — end-to-end verification cases", () => {
-  it("Farmstead shows no Upkeep segment at all", () => {
+  it("Hydrogarden shows no Upkeep segment at all", () => {
     const state = richState();
     const tile: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const build = findAction(actions, "build_farmstead");
+    const build = findAction(actions, "build_hydrogarden");
     expect(build?.cost).toBeDefined();
     expect(build?.cost).not.toContain("Upkeep");
   });
@@ -101,7 +101,7 @@ describe("build-menu Upkeep segment — end-to-end verification cases", () => {
     expect(build?.cost).toContain("Upkeep: 1 TITANIUM slot · 30 gold/day");
   });
 
-  it("Airport shows its real 3 CRYSTAL slots as Upkeep, not a fabricated crystal/day drain", () => {
+  it("Sky Dock shows its real 3 CRYSTAL slots as Upkeep, not a fabricated crystal/day drain", () => {
     const state = richState();
     const tile: Tile = {
       x: 3,
@@ -114,7 +114,7 @@ describe("build-menu Upkeep segment — end-to-end verification cases", () => {
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const build = findAction(actions, "build_airport");
+    const build = findAction(actions, "build_sky_dock");
     expect(build?.cost).toContain("Upkeep: 3 CRYSTAL slots");
     expect(build?.cost).not.toContain("crystal/day");
   });

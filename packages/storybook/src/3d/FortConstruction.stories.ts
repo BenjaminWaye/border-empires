@@ -9,11 +9,11 @@ import { addStoryAfc, withStoryAfc } from "./construction-story-afc.js";
 // overlay driven by a virtual build window. A fresh build (or a removal) has the walls
 // and corner towers rise from the ground in four bands; an upgrade keeps the standing
 // tier at full height (it is still defending) and only adds scaffold, crates and crew.
-type FortKind = "WOODEN_FORT" | "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION";
+type FortKind = "PALISADE" | "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION";
 type Args = { kind: FortKind; hours: number; progress: number; mode: "build" | "remove" | "upgrade"; cameraDistance: number };
 
 const HOUR_MS = 3_600_000;
-const UPGRADE_FROM: Record<FortKind, string | undefined> = { WOODEN_FORT: undefined, FORT: "WOODEN_FORT", TITANIUM_BASTION: "FORT", THUNDER_BASTION: "TITANIUM_BASTION" };
+const UPGRADE_FROM: Record<FortKind, string | undefined> = { PALISADE: undefined, FORT: "PALISADE", TITANIUM_BASTION: "FORT", THUNDER_BASTION: "TITANIUM_BASTION" };
 
 const tileAtProgress = (args: Args, progress: number): Tile => {
   const durationMs = args.hours * HOUR_MS;
@@ -26,7 +26,7 @@ const tileAtProgress = (args: Args, progress: number): Tile => {
       ownerId: "me",
       variant: args.kind,
       status: args.mode === "remove" ? "removing" : "under_construction",
-      ...(args.mode === "upgrade" ? { upgradingFrom: UPGRADE_FROM[args.kind] ?? "WOODEN_FORT" } : {}),
+      ...(args.mode === "upgrade" ? { upgradingFrom: UPGRADE_FROM[args.kind] ?? "PALISADE" } : {}),
       startedAt,
       completesAt: startedAt + durationMs
     }
@@ -41,7 +41,7 @@ const layout = (overlay: ReturnType<typeof createFortOverlay>, args: Args, entri
     const tile = entry.progress === undefined ? undefined : tileAtProgress(args, entry.progress);
     const site = tile ? withStoryAfc(constructionSiteForTile(tile, Date.now(), "fort"), entry.x, 0) : undefined;
     // Upgrade: the standing tier is what is drawn; otherwise the tier being built.
-    const kind = args.mode === "upgrade" && site ? ((tile?.fort?.upgradingFrom as FortKind | undefined) ?? "WOODEN_FORT") : args.kind;
+    const kind = args.mode === "upgrade" && site ? ((tile?.fort?.upgradingFrom as FortKind | undefined) ?? "PALISADE") : args.kind;
     overlay.addInstance(entry.x, 0, 0, kind, "CLOSED", i, 0, 0, site ? { site, keepStanding: args.mode === "upgrade" } : undefined);
   });
   overlay.commit();
@@ -116,7 +116,7 @@ const scrub = (args: Args): HTMLElement => {
 const meta: Meta<Args> = {
   title: "3D Library/FortConstruction",
   argTypes: {
-    kind: { control: "select", options: ["WOODEN_FORT", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] },
+    kind: { control: "select", options: ["PALISADE", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] },
     hours: { control: { type: "range", min: 1, max: 24, step: 1 } },
     progress: { control: { type: "range", min: 0, max: 0.999, step: 0.01 } },
     mode: { control: "inline-radio", options: ["build", "remove", "upgrade"] },

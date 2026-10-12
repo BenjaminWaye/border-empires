@@ -55,7 +55,7 @@ describe("§20 event log — Imperial Exchange Levy", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
           },
           // Five GEMS tiles: 1 CRYSTAL slot for the Aether Tower, 4 for the
           // Imperial Exchange's own permanent upkeep (§12, bumped from 1 to

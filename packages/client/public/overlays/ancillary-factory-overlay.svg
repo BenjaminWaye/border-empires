@@ -2,7 +2,7 @@
 
   <!-- Ancillary Factory: compact open-sided workshop with a tall hopper-tower
        (the lift where laborers come out). Built in quantity, deliberately
-       smaller and plainer than the rare Assembly Works. -->
+       smaller and plainer than the rare Reserve Lattice. -->
 
   <!-- Workshop floor, walls, roof deck -->
   <path d="M20 102L38 90H90L72 102H20Z" fill="#3E4248"/>

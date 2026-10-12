@@ -10,17 +10,17 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 
 export type ManpowerStructureKind =
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
-  | "POPULATION_BUREAU"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY"
-  | "GARRISON_HALL"
-  | "GRANARY"
-  | "AETHER_TOWER";
+  | "ANCILLARY_DEPOT"
+  | "INCUBATION_ENGINE"
+  | "AMBARIC_TRANSFORMER";
 
 export const MANPOWER_STRUCTURE_KINDS: ReadonlySet<ManpowerStructureKind> = new Set([
-  "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU",
-  "TITANIUM_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"
+  "QUARTERMASTERS_OFFICE", "ANCILLARY_FACTORY", "RESERVE_LATTICE", "CENSUS_DIRECTORATE",
+  "TITANIUM_LEVY", "ANCILLARY_DEPOT", "INCUBATION_ENGINE", "AMBARIC_TRANSFORMER"
 ]);
 
 export type ManpowerStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -246,7 +246,7 @@ export const registerManpowerStructures = (
     builder.addPiece("qmRailStub", sx, sy, sz, 0.20, 0.006, 0.12);
   };
 
-  const addLogisticsGuild: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addAncillaryDepot: ManpowerStructureLayout = (sx, sy, sz) => {
     // Taller civic hall crowned by a brass schedule-tower: a square
     // turret with an hour-drums dial face and a steam whistle stack.
     // A rail pylon at one corner reads "linked by rail"; a low train-hall
@@ -265,7 +265,7 @@ export const registerManpowerStructures = (
     builder.addPiece("lgAnnexRoof", sx, sy, sz, -0.02, 0.098, -0.13);
   };
 
-  const addAssemblyWorks: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addReserveLattice: ManpowerStructureLayout = (sx, sy, sz) => {
     // Industrial shed with an open front like a factory line: wide steel
     // roof on riveted columns, an overhead gantry running front-to-back
     // with a chain of small drive-wheels, and three identical gunmetal
@@ -304,7 +304,7 @@ export const registerManpowerStructures = (
     builder.addPiece("awValveCap", sx, sy, sz, 0.20, 0.175, -0.17);
   };
 
-  const addPopulationBureau: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addCensusDirectorate: ManpowerStructureLayout = (sx, sy, sz) => {
     // Monument: grand, vertical. Three stacked, shrinking civic-hall
     // tiers on a wide stepped base, twin brass census-columns flanking
     // them, crowned by a large brass tabulating-drum under a small dome.
@@ -437,16 +437,15 @@ export const registerManpowerStructures = (
   return {
     layouts: {
       QUARTERMASTERS_OFFICE: addQuartermastersOffice,
-      // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot")
-      // and LOGISTICS_GUILD ("Ancillary Factory") swap 3D art -- no new
-      // assets this pass, per user decision.
-      LOGISTICS_GUILD: addAncillaryFactory,
-      ASSEMBLY_WORKS: addAssemblyWorks,
-      POPULATION_BUREAU: addPopulationBureau,
+      // ANCILLARY_DEPOT draws the hall formerly built for the Logistics Guild
+      // (the manifest naming pass swapped the two names, not their art).
+      ANCILLARY_FACTORY: addAncillaryFactory,
+      RESERVE_LATTICE: addReserveLattice,
+      CENSUS_DIRECTORATE: addCensusDirectorate,
       TITANIUM_LEVY: addTitaniumLevy,
-      GARRISON_HALL: addLogisticsGuild,
-      GRANARY: addIncubationEngine,
-      AETHER_TOWER: addAmbaricTower
+      ANCILLARY_DEPOT: addAncillaryDepot,
+      INCUBATION_ENGINE: addIncubationEngine,
+      AMBARIC_TRANSFORMER: addAmbaricTower
     }
   };
 };

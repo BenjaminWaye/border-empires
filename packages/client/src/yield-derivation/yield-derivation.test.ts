@@ -13,25 +13,25 @@ import { describe, expect, it } from "vitest";
 import { deriveTileYieldRate, ensureTileYield } from "./yield-derivation.js";
 
 describe("deriveTileYieldRate — advanced converter parity with corrected server constants", () => {
-  it("returns the advanced UMBRITE constant (21.6) for ADVANCED_UMBRITE_SYNTHESIZER, not the basic one (18)", () => {
+  it("returns the advanced UMBRITE constant (21.6) for HIGH_YIELD_UMBRITE_WORKS, not the basic one (18)", () => {
     const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active" }
+      economicStructure: { type: "HIGH_YIELD_UMBRITE_WORKS", status: "active" }
     });
     expect(rate).toBeDefined();
     expect(rate!.strategicPerDay.UMBRITE).toBe(21.6);
   });
 
-  it("returns the advanced TITANIUM constant (21.6) for ADVANCED_TITANIUM_WORKS, not the basic one (18)", () => {
+  it("returns the advanced TITANIUM constant (21.6) for HIGH_YIELD_TITANIUM_WORKS, not the basic one (18)", () => {
     const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_TITANIUM_WORKS", status: "active" }
+      economicStructure: { type: "HIGH_YIELD_TITANIUM_WORKS", status: "active" }
     });
     expect(rate).toBeDefined();
     expect(rate!.strategicPerDay.TITANIUM).toBe(21.6);
   });
 
-  it("returns the advanced CRYSTAL constant (14.4) for ADVANCED_CRYSTAL_SYNTHESIZER, not the basic one (12)", () => {
+  it("returns the advanced CRYSTAL constant (14.4) for HIGH_YIELD_AETHER_CONDENSER, not the basic one (12)", () => {
     const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_CRYSTAL_SYNTHESIZER", status: "active" }
+      economicStructure: { type: "HIGH_YIELD_AETHER_CONDENSER", status: "active" }
     });
     expect(rate).toBeDefined();
     expect(rate!.strategicPerDay.CRYSTAL).toBe(14.4);
@@ -39,7 +39,7 @@ describe("deriveTileYieldRate — advanced converter parity with corrected serve
 
   it("inactive advanced converter contributes no yield", () => {
     const rate = deriveTileYieldRate({
-      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "building" }
+      economicStructure: { type: "HIGH_YIELD_UMBRITE_WORKS", status: "building" }
     });
     // No town, no resource, no dock, inactive converter → undefined
     expect(rate).toBeUndefined();

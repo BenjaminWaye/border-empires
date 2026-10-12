@@ -41,7 +41,7 @@ export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
 // reveal on instead -- falls back to the waystation's own tile if none is
 // within range. See grantWaystationVision in runtime-waystation-activation.ts.
 export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
-// Half of GRANARY_INSTANT_POPULATION_BURST (see below).
+// Half of INCUBATION_ENGINE_INSTANT_POPULATION_BURST (see below).
 export const WAYSTATION_POP_BURST = 5_000;
 // Pooled resource-slot supply bump granted once per activation.
 export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
@@ -246,8 +246,8 @@ export const LEVEL_CURVE_C = 2.2;
 export const FORT_BUILD_MS = 10 * 60_000;
 export const FORT_BUILD_COST = 900;
 export const FORT_DEFENSE_MULT = 2.5;
-export const WOODEN_FORT_BUILD_MS = 10 * 60_000;
-export const WOODEN_FORT_DEFENSE_MULT = 1.35;
+export const PALISADE_BUILD_MS = 10 * 60_000;
+export const PALISADE_DEFENSE_MULT = 1.35;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_VISION_BONUS = 5;
@@ -273,9 +273,9 @@ export const RELAY_BEACON_VISION_BONUS = 5;
 // (apps/simulation/src/tech-domain-bridge/slot-waivers.ts) — the player's
 // first N Relay Beacons (earliest build-order first) need zero FOOD slots.
 export const RELAY_BEACON_FREE_FOOD_SLOT_COUNT = 5;
-export const SIEGE_OUTPOST_BUILD_MS = 60_000;
-export const SIEGE_OUTPOST_BUILD_COST = 900;
-export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;
+export const SIEGE_BATTERY_BUILD_MS = 60_000;
+export const SIEGE_BATTERY_BUILD_COST = 900;
+export const SIEGE_BATTERY_ATTACK_MULT = 1.6;
 export const SIEGE_TOWER_ATTACK_MULT = 1.8;
 export const DREAD_TOWER_ATTACK_MULT = 2.0;
 export const OUTPOST_ATTACK_REACH = 2;
@@ -285,7 +285,7 @@ export const OUTPOST_ATTACK_REACH = 2;
 // deliberately not reach-gated. See packages/shared/src/reach/reach.ts.
 export const TOWN_REACH_RADIUS = 3;
 // Reuses OUTPOST_AURA_RADIUS's value for all four outpost-family variants
-// (RELAY_BEACON, SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) but kept as its own
+// (RELAY_BEACON, SIEGE_BATTERY, SIEGE_TOWER, DREAD_TOWER) but kept as its own
 // named constant so reach and the combat aura can be tuned independently.
 export const OUTPOST_REACH_RADIUS = 5;
 export const DOCK_REACH_RADIUS = 1;
@@ -380,27 +380,27 @@ export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 // 2026-09-26).
 export const SHIELD_RADIUS_TILES = 3;
 // Multiplier to muster inflow when the tile is inside an outpost depot zone
-// but NOT boosted by a nearby Rail Depot (base outpost speed).
+// but NOT boosted by a nearby Neural Works (base outpost speed).
 export const MUSTER_DEPOT_SPEED_MULT = 1.25;
 // Chebyshev radius of an outpost's mustering effect (matches attack aura).
 export const OUTPOST_DEPOT_RADIUS = 5;
 
-// --- Rail Depot mustering hub ---
-// docs/manpower-economy-rewrite-plan.md §4.4: Garrison Hall grants a flat,
+// --- Neural Works mustering hub ---
+// docs/manpower-economy-rewrite-plan.md §4.4: Ancillary Depot grants a flat,
 // unconditional manpower-cap bonus to the town it's built in, regardless of
-// network. Rail Depot no longer grants its own flat per-depot regen (the old
-// RAIL_DEPOT_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a
-// network-wide bonus: one Rail Depot per connected-town network amplifies
-// every Garrison Hall already in that network, uncapped in count.
-export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
-export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
-export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
-// Chebyshev radius within which a Rail Depot boosts outpost muster speed.
-// Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
+// network. Neural Works no longer grants its own flat per-depot regen (the old
+// NEURAL_WORKS_MANPOWER_REGEN_PER_MIN mechanic) — instead it's the enabler of a
+// network-wide bonus: one Neural Works per connected-town network amplifies
+// every Ancillary Depot already in that network, uncapped in count.
+export const ANCILLARY_DEPOT_MANPOWER_CAP_BONUS = 150;
+export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_DEPOT = 0.1;
+export const NEURAL_WORKS_NETWORK_MANPOWER_CAP_PER_ANCILLARY_DEPOT = 300;
+// Chebyshev radius within which a Neural Works boosts outpost muster speed.
+// Outposts inside this radius of a depot provide NEURAL_WORKS_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.
-export const RAIL_DEPOT_MUSTER_RADIUS = 50;
-// Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
-export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
+export const NEURAL_WORKS_MUSTER_RADIUS = 50;
+// Multiplier to muster inflow when the tile's outpost is backed by a nearby Neural Works.
+export const NEURAL_WORKS_BOOSTED_MUSTER_MULT = 2.0;
 // Weapons Workshop (retired — see structure-registry-economic.ts — replaced
 // by Titanium/Umbrite Weapons Factory below). Constants kept so any copy a
 // player already owns from before the retirement keeps granting its bonus.
@@ -433,32 +433,32 @@ export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
 export const NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT = 2.0;
 
 // --- Tech-tree redesign: new Manpower-branch buildings ---
-// Rail Depot's job narrows to Logistics Guild amplification only (Ancillary
-// Factory/Garrison Hall amplification moved to Assembly Works, below).
-export const LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05;
-export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD = 0.1;
-// Population Bureau monument: +0.1/min manpower regen per Manpower-branch
+// Neural Works's job narrows to Ancillary Factory amplification only (Ancillary
+// Factory/Ancillary Depot amplification moved to Reserve Lattice, below).
+export const ANCILLARY_FACTORY_STANDALONE_REGEN_PER_MINUTE = 0.05;
+export const NEURAL_WORKS_NETWORK_MANPOWER_REGEN_PER_ANCILLARY_FACTORY = 0.1;
+// Census Directorate monument: +0.1/min manpower regen per Manpower-branch
 // building owned, empire-wide, simple linear count.
-export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = 0.1;
+export const CENSUS_DIRECTORATE_REGEN_PER_MANPOWER_BUILDING = 0.1;
 // Quartermaster's Office: reduces manpower cost of War-branch structures
 // built within this radius by 33%. Deliberately non-stacking (a boolean
 // "any active Office in range" check, not a per-office count) — user
 // decision, to avoid multiple Offices driving manpower cost toward zero.
 export const QUARTERMASTERS_OFFICE_RADIUS = 20;
 export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.67;
-// Incubation Engine (Granary): instant one-time population burst on build
+// Incubation Engine: instant one-time population burst on build
 // completion.
-export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
-// Incubation Engine (Granary): ongoing population growth-rate multiplier for
+export const INCUBATION_ENGINE_INSTANT_POPULATION_BURST = 10_000;
+// Incubation Engine: ongoing population growth-rate multiplier for
 // its own town, on top of the instant burst above. Reintroduced 2026-08-26,
 // per explicit user decision, at a lower value than the pre-redesign flat
 // +15% that commit 7a51b06b ("fix: Incubation Engine double-dip") removed —
-// see granaryGrowthMultiplier's doc comment in game-domain for that history.
-export const GRANARY_ONGOING_GROWTH_MULT = 1.10;
-// Census Hall: population bonus per connected city with an active Granary
+// see incubationEngineGrowthMultiplier's doc comment in game-domain for that history.
+export const INCUBATION_ENGINE_ONGOING_GROWTH_MULT = 1.10;
+// Census Hall: population bonus per connected city with an active Incubation Engine
 // (Incubation Engine) — network-scoped, recomputed live (not a one-time
-// grant), so losing a connection or the neighbor's Granary shrinks it back.
-export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
+// grant), so losing a connection or the neighbor's Incubation Engine shrinks it back.
+export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE = 20_000;
 // Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
 export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;

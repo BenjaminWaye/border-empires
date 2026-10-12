@@ -18,7 +18,7 @@ describe("costBitsFor", () => {
     // FORT has resourceCost { TITANIUM, 45 } in structureCostDefinition, but that cost is stripped
     // before spend server-side (RETIRED_STOCKPILE_RESOURCE_KEYS) -- only its slot requirement is real.
     expect(costBitsFor("FORT")).toEqual(["300 manpower"]);
-    expect(costBitsFor("FARMSTEAD")).toEqual(["80 manpower"]);
+    expect(costBitsFor("HYDROGARDEN")).toEqual(["80 manpower"]);
   });
 
   // docs/replenishment-update-plan.md D17: these used to be hand-maintained

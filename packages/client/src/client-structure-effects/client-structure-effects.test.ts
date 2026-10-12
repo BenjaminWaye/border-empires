@@ -11,7 +11,7 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
+      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
     });
 
     expect(preview?.radius).toBe(5);
@@ -19,21 +19,21 @@ describe("client structure effects", () => {
   });
 
   it("shows percent-style area modifiers on affected tiles", () => {
-    const foundry: Tile = {
+    const oreRefinery: Tile = {
       x: 20,
       y: 20,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
+      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
     };
-    const garrisonHall: Tile = {
+    const ancillaryDepot: Tile = {
       x: 23,
       y: 20,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "GARRISON_HALL", status: "active" }
+      economicStructure: { ownerId: "me", type: "ANCILLARY_DEPOT", status: "active" }
     };
     const mine: Tile = {
       x: 25,
@@ -45,19 +45,19 @@ describe("client structure effects", () => {
       economicStructure: { ownerId: "me", type: "MINE", status: "active" }
     };
 
-    expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
+    expect(tileAreaEffectModifiersForTile(mine, [oreRefinery, ancillaryDepot, mine])).toEqual([
       { reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }
     ]);
   });
 
-  it("does not show Foundry modifiers beyond five tiles", () => {
-    const foundry: Tile = {
+  it("does not show Ore Refinery modifiers beyond five tiles", () => {
+    const oreRefinery: Tile = {
       x: 20,
       y: 20,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
+      economicStructure: { ownerId: "me", type: "ORE_REFINERY", status: "active" }
     };
     const mine: Tile = {
       x: 26,
@@ -69,7 +69,7 @@ describe("client structure effects", () => {
       economicStructure: { ownerId: "me", type: "MINE", status: "active" }
     };
 
-    expect(tileAreaEffectModifiersForTile(mine, [foundry, mine])).toEqual([]);
+    expect(tileAreaEffectModifiersForTile(mine, [oreRefinery, mine])).toEqual([]);
   });
 
   it("shows owned domain defense bonuses on settled land near active forts", () => {
@@ -134,14 +134,14 @@ describe("client structure effects", () => {
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
 
-  it("shows the near-fort bonus for adjacent wooden forts too", () => {
-    const woodenFort: Tile = {
+  it("shows the near-fort bonus for adjacent palisades too", () => {
+    const palisade: Tile = {
       x: 40,
       y: 40,
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" }
+      fort: { ownerId: "me", status: "active", variant: "PALISADE" }
     };
     const settledTile: Tile = {
       x: 41,
@@ -152,7 +152,7 @@ describe("client structure effects", () => {
     };
 
     expect(
-      tileAreaEffectModifiersForTile(settledTile, [woodenFort, settledTile], [
+      tileAreaEffectModifiersForTile(settledTile, [palisade, settledTile], [
         { reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" }
       ])
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });

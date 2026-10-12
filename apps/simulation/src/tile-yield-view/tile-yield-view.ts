@@ -7,8 +7,8 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE,
-  WATERWORKS_OUTPUT_MULT,
-  WATERWORKS_RADIUS
+  HYDROWORKS_OUTPUT_MULT,
+  HYDROWORKS_RADIUS
 } from "@border-empires/game-domain";
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "../economy-network/economy-network.js";
 import { supportedConverterGoldPerMinuteForTown } from "../economy-network/economy-network-converter-support.js";
@@ -37,7 +37,7 @@ export type TileYieldView = {
   yieldCap: TileYieldCapView;
 };
 
-const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
+const HYDROGARDEN_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
 // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
 // economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
@@ -45,11 +45,11 @@ const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
 // supply (structure-slots.ts), not a daily yield rate.
 const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});
 
-// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
-// stockpiled resource (§5.6), and Farmstead's old FOOD-yield bonus retired
+// TITANIUM_WORKS/UMBRITE_WORKS/AETHER_CONDENSER no longer produce a
+// stockpiled resource (§5.6), and Hydrogarden's old FOOD-yield bonus retired
 // alongside FOOD's own production (§5.4: FOOD is slot-based now, not
 // yield-based) — nothing is left to convert into a strategicPerDay entry.
-// Farmstead/Waterworks still boost FOOD *slot supply* (structure-slots.ts),
+// Hydrogarden/Hydroworks still boost FOOD *slot supply* (structure-slots.ts),
 // an entirely separate mechanism this function doesn't touch.
 const converterDailyOutput = (
   _structureType: DomainTileState["economicStructure"] extends { type: infer T } ? T : string | undefined
@@ -62,7 +62,7 @@ const converterDailyOutput = (
  * these (active) or a dockId must receive server-authoritative
  * `yieldRate`/`yieldCap` on the wire — see docs/plans/2026-07-06-radius-yield-delivery.md.
  */
-const STRATEGIC_AFFECTING_STRUCTURE_TYPES: ReadonlySet<string> = new Set(["FARMSTEAD"]);
+const STRATEGIC_AFFECTING_STRUCTURE_TYPES: ReadonlySet<string> = new Set(["HYDROGARDEN"]);
 
 /**
  * Predicate: does this tile need server-authoritative `yieldRate`/`yieldCap`
@@ -80,26 +80,26 @@ export const tileYieldNeedsServerAuthority = (tile: Pick<DomainTileState, "econo
 
 /**
  * Scans a player's settled tiles once and returns the "x,y" tile keys of
- * their active WATERWORKS and FOUNDRY structures — the radius-source
- * lookups `buildTileYieldView` needs for the Farmstead/Mine neighbor boosts.
+ * their active HYDROWORKS and ORE_REFINERY structures — the radius-source
+ * lookups `buildTileYieldView` needs for the Hydrogarden/Mine neighbor boosts.
  * Shared by the live runtime (`tileYieldEconomyContextForPlayer`) and the
  * snapshot-view builders (`live-snapshot-view.ts`) so both paths compute the
  * exact same sets from the exact same predicate.
  */
 export const radiusStructureKeysForSettledTiles = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "economicStructure">>
-): { waterworksKeys: Set<string>; foundryKeys: Set<string> } => {
-  const waterworksKeys = new Set<string>();
-  const foundryKeys = new Set<string>();
+): { hydroworksKeys: Set<string>; oreRefineryKeys: Set<string> } => {
+  const hydroworksKeys = new Set<string>();
+  const oreRefineryKeys = new Set<string>();
   for (const tile of settledTiles) {
     if (tile.economicStructure?.status !== "active") continue;
-    if (tile.economicStructure.type === "WATERWORKS") {
-      waterworksKeys.add(`${tile.x},${tile.y}`);
-    } else if (tile.economicStructure.type === "FOUNDRY") {
-      foundryKeys.add(`${tile.x},${tile.y}`);
+    if (tile.economicStructure.type === "HYDROWORKS") {
+      hydroworksKeys.add(`${tile.x},${tile.y}`);
+    } else if (tile.economicStructure.type === "ORE_REFINERY") {
+      oreRefineryKeys.add(`${tile.x},${tile.y}`);
     }
   }
-  return { waterworksKeys, foundryKeys };
+  return { hydroworksKeys, oreRefineryKeys };
 };
 
 const roundPositive = (value: number, digits: number): number => {
@@ -117,30 +117,30 @@ const wrappedAxisDistance = (a: number, b: number, span: number): number => {
 };
 
 /**
- * Farmstead's empire-wide FOOD contribution (used by the "food detailed
+ * Hydrogarden's empire-wide FOOD contribution (used by the "food detailed
  * production" breakdown / strategicProductionPerMinute in
  * player-update-economy.ts). Mirrors the per-tile logic in
  * `converterDailyOutput`/`buildTileYieldView` below: +50% food, FARM tiles
- * only (FISH gets nothing), doubled again when within WATERWORKS_RADIUS of
- * an active Waterworks. Exported here — rather than duplicated — so both
+ * only (FISH gets nothing), doubled again when within HYDROWORKS_RADIUS of
+ * an active Hydroworks. Exported here — rather than duplicated — so both
  * the per-tile yield view and the empire-wide production total can never
  * drift out of sync again.
  */
-export const farmsteadFoodBonusPerMinute = (
+export const hydrogardenFoodBonusPerMinute = (
   // Structural param (not Pick<DomainTileState>) so both live-runtime DomainTiles
   // and snapshot-path tiles carrying a loosely-parsed economicStructure
   // ({ type?, status? } from economicStructureJson) can call this one helper.
   tile: { x: number; y: number; resource?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined },
-  waterworksKeys: ReadonlySet<string>
+  hydroworksKeys: ReadonlySet<string>
 ): number => {
   if (tile.resource !== "FARM") return 0;
-  if (tile.economicStructure?.type !== "FARMSTEAD" || tile.economicStructure.status !== "active") return 0;
-  const withinWaterworksRadius = waterworksKeys.size > 0 && withinRadiusOfAnyKey(tile.x, tile.y, waterworksKeys, WATERWORKS_RADIUS);
-  const dailyBonus = withinWaterworksRadius ? FARMSTEAD_FOOD_BONUS_PER_DAY * WATERWORKS_OUTPUT_MULT : FARMSTEAD_FOOD_BONUS_PER_DAY;
+  if (tile.economicStructure?.type !== "HYDROGARDEN" || tile.economicStructure.status !== "active") return 0;
+  const withinHydroworksRadius = hydroworksKeys.size > 0 && withinRadiusOfAnyKey(tile.x, tile.y, hydroworksKeys, HYDROWORKS_RADIUS);
+  const dailyBonus = withinHydroworksRadius ? HYDROGARDEN_FOOD_BONUS_PER_DAY * HYDROWORKS_OUTPUT_MULT : HYDROGARDEN_FOOD_BONUS_PER_DAY;
   return dailyBonus / 1440;
 };
 
-// Exported for reuse by resource-slot-view.ts (§5.3's Waterworks->Farmstead
+// Exported for reuse by resource-slot-view.ts (§5.3's Hydroworks->Hydrogarden
 // FOOD-slot bonus needs the exact same wrapped-radius test as the legacy
 // gold/strategic yield bonus, to avoid the two ever drifting apart).
 export const withinRadiusOfAnyKey = (x: number, y: number, candidateKeys: ReadonlySet<string>, radius: number): boolean => {
@@ -162,10 +162,10 @@ export const buildTileYieldView = (
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
-    /** Precomputed set of active Waterworks positions (tileKey) owned by the tile's player. */
-    waterworksKeys?: ReadonlySet<string> | undefined;
-    /** Precomputed set of active Foundry positions (tileKey) owned by the tile's player. */
-    foundryKeys?: ReadonlySet<string> | undefined;
+    /** Precomputed set of active Hydroworks positions (tileKey) owned by the tile's player. */
+    hydroworksKeys?: ReadonlySet<string> | undefined;
+    /** Precomputed set of active Ore Refinery positions (tileKey) owned by the tile's player. */
+    oreRefineryKeys?: ReadonlySet<string> | undefined;
   }
 ): TileYieldView | undefined => {
   if (tile.ownerId === undefined || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return undefined;
@@ -203,34 +203,34 @@ export const buildTileYieldView = (
   const goldPerMinute = (townGoldPerMinute + dockGoldPerMinute) * outputMultiplier;
   const resourceDaily = strategicDailyFromResource(tile.resource);
   const converterDaily = converterDailyOutput(tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined);
-  // Farmstead only boosts FARM tiles — strip the structure food bonus on
+  // Hydrogarden only boosts FARM tiles — strip the structure food bonus on
   // non-FARM tiles (e.g. FISH) but keep the base resource food rate intact.
   if (
     tile.resource !== "FARM" &&
     tile.economicStructure?.status === "active" &&
-    tile.economicStructure.type === "FARMSTEAD"
+    tile.economicStructure.type === "HYDROGARDEN"
   ) {
     delete converterDaily.FOOD;
   }
-  // Merge resource and converter output additively so a farmstead on a
+  // Merge resource and converter output additively so a hydrogarden on a
   // FARM tile gives 48 + 24 = 72/day, not 24/day (overwrite).
   const strategicPerDay = { ...resourceDaily };
   for (const [key, value] of Object.entries(converterDaily) as Array<[StrategicYieldKey, number]>) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
   }
-  // Waterworks radius boost: a FARM tile with an active Farmstead within
-  // WATERWORKS_RADIUS of an active Waterworks gets +100% on its total FOOD
-  // output (base + farmstead combined).
+  // Hydroworks radius boost: a FARM tile with an active Hydrogarden within
+  // HYDROWORKS_RADIUS of an active Hydroworks gets +100% on its total FOOD
+  // output (base + hydrogarden combined).
   if (
     tile.resource === "FARM" &&
-    tile.economicStructure?.type === "FARMSTEAD" &&
+    tile.economicStructure?.type === "HYDROGARDEN" &&
     tile.economicStructure.status === "active" &&
     typeof strategicPerDay.FOOD === "number" &&
-    economyContext?.waterworksKeys &&
-    economyContext.waterworksKeys.size > 0 &&
-    withinRadiusOfAnyKey(tile.x, tile.y, economyContext.waterworksKeys, WATERWORKS_RADIUS)
+    economyContext?.hydroworksKeys &&
+    economyContext.hydroworksKeys.size > 0 &&
+    withinRadiusOfAnyKey(tile.x, tile.y, economyContext.hydroworksKeys, HYDROWORKS_RADIUS)
   ) {
-    strategicPerDay.FOOD *= WATERWORKS_OUTPUT_MULT;
+    strategicPerDay.FOOD *= HYDROWORKS_OUTPUT_MULT;
   }
   for (const key of Object.keys(strategicPerDay) as StrategicYieldKey[]) {
     strategicPerDay[key] = (strategicPerDay[key] ?? 0) * outputMultiplier;

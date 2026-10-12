@@ -3,8 +3,8 @@ import { MONUMENT_UNLOCK_TECH_ID, monumentTypeForUnlockTechId, type MonumentalSt
 
 import { monumentClaimOwnerIdFromTiles } from "../monument-uniqueness.js";
 
-// A monument (Imperial Exchange/World Engine/Aegis Dome/Astral Dock/
-// Population Bureau/Titanium Levy) is a single, season-unique prize
+// A monument (Imperial Exchange/Sovereign Siege Engine/Aegis Dome/Astral Dock/
+// Census Directorate/Titanium Levy) is a single, season-unique prize
 // (monument-uniqueness.ts) — once anyone's assembly stands, its unlock tech
 // is pointless to research for every player who doesn't already have it.
 // Split out of tech-domain-bridge.ts (already over the repo's 500-line soft

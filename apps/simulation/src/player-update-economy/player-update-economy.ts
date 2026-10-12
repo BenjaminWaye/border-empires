@@ -141,7 +141,7 @@ export const supportSummaryForTown = (
 export const buildStrategicProductionForSettledTiles = (
   summary: PlayerRuntimeSummary,
   settledTiles: readonly DomainTileState[],
-  waterworksKeys: ReadonlySet<string> = radiusStructureKeysForSettledTiles(settledTiles).waterworksKeys
+  hydroworksKeys: ReadonlySet<string> = radiusStructureKeysForSettledTiles(settledTiles).hydroworksKeys
 ): Record<StrategicResourceKey, number> => {
   const strategicProductionPerMinute = {
     ...summary.strategicProductionPerMinute
@@ -168,7 +168,7 @@ export const townGoldPerMinuteForPlayer = (
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
   connectedClearingHouseKeys?: readonly string[],
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Caravanary/Clearing House stops granting its gold
+  // dormant Mintworks/Trade Nexus/Clearing House stops granting its gold
   // bonus, same as hasSupportedStructure's matching param.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
   // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
@@ -258,9 +258,9 @@ export const buildPlayerUpdateEconomySnapshot = (
     .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === player.id && tile.ownershipState === "SETTLED"));
   // radiusStructureKeysForSettledTiles is a radius scan over every settled
   // tile; compute it once and thread it through both the empire-wide
-  // production total and the per-tile Farmstead breakdown below.
-  const { waterworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-  const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, waterworksKeys);
+  // production total and the per-tile Hydrogarden breakdown below.
+  const { hydroworksKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+  const strategicProductionPerMinute = buildStrategicProductionForSettledTiles(summary, settledTiles, hydroworksKeys);
 
   const fedTownKeys = buildFedTownKeys(player.id, summary, tiles, foodDormantTownKeys);
   const goldSources = new Map<string, EconomyBucket>();
@@ -370,7 +370,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
     }
-    // Observatory's CRYSTAL slot is still its only upkeep; Fort/Siege Outpost now also drain FOOD + their resource (below).
+    // Observatory's CRYSTAL slot is still its only upkeep; Fort/Siege Battery now also drain FOOD + their resource (below).
     const structure = tile.economicStructure;
     if (structure?.ownerId === player.id && structure.status === "active") {
       const mode = converterModeOf(structure);
@@ -393,7 +393,7 @@ export const buildPlayerUpdateEconomySnapshot = (
         addBucket(goldSources, structure.type, output.GOLD * incomeMultiplier * PASSIVE_INCOME_MULT, { count: 1 });
       }
     }
-    for (const military of [tile.fort, tile.siegeOutpost]) {
+    for (const military of [tile.fort, tile.siegeBattery]) {
       if (military?.ownerId === player.id && military.status === "active" && military.variant) {
         addUpkeepSinks(military.variant, structureUpkeepPerMinute(military.variant));
       }
