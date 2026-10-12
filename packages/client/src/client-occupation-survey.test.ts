@@ -36,12 +36,11 @@ describe("occupation survey client parity", () => {
 
   it("turns current local intelligence into a Good pick reason on the matching Manifest", () => {
     const fit = manifestFit(tech("masonry"), {
-      me: "me",
       manpower: 0,
       resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } },
-      tiles: [],
+      clueNearTerritory: () => false,
       surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
     });
-    expect(fit.goodPickReasons).toContain("Titanium likely west of a town you took (occupation survey)");
+    expect(fit.goodPickReasons).toContain("A town you garrisoned turned up signs of Titanium nearby");
   });
 });

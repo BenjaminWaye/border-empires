@@ -67,10 +67,11 @@ const RESOURCE_LABEL: Record<SlotResource, string> = { FOOD: "Food", TITANIUM: "
 export const CLUE_NEARBY_RADIUS = 4;
 
 export type ManifestFitInput = {
-  me: string;
   manpower: number;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
-  tiles: Iterable<Tile>;
+  // hasProspectClueNearTerritory over the client's tiles; injected so the
+  // caller can memoise it per tile revision (it scans every known tile).
+  clueNearTerritory: (signature: ProspectSignature) => boolean;
   surveyReportFor: (resource: OccupationSurveyResource) => OccupationSurveyReport | undefined;
 };
 
@@ -79,59 +80,29 @@ export type ManifestFit = {
   notUsefulYet?: string;
 };
 
-const wrappedDelta = (delta: number, size: number): number => {
-  const d = ((delta % size) + size) % size;
-  return d > size / 2 ? d - size : d;
-};
-
-const COMPASS = ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"] as const;
-
-const compassFor = (dx: number, dy: number): string => {
-  const angle = Math.atan2(dy, dx);
-  const index = Math.round(angle / (Math.PI / 4));
-  return COMPASS[((index % 8) + 8) % 8] ?? "nearby";
-};
-
-export type NearbyClues = { count: number; direction?: string };
-
-// Clue tiles you can see that sit within CLUE_NEARBY_RADIUS of any tile you
-// own (including clue tiles inside your own land). Runs only when a
-// resource-revealing Manifest's detail is open, over tiles the client
-// already holds -- it never reveals anything the map does not show.
-export const prospectCluesNearTerritory = (tiles: Iterable<Tile>, me: string, signature: ProspectSignature): NearbyClues => {
+// True when a clue tile you can see sits within CLUE_NEARBY_RADIUS of a tile
+// you own (clue tiles inside your own land count). Runs only when a
+// resource-revealing Manifest's detail is open, over tiles the client already
+// holds -- it never reveals anything the map does not show, and the badge
+// deliberately says only "nearby", not where.
+export const hasProspectClueNearTerritory = (tiles: Iterable<Tile>, me: string, signature: ProspectSignature): boolean => {
   const owned = new Set<string>();
   const clues: Tile[] = [];
-  let ownedSumX = 0;
-  let ownedSumY = 0;
   for (const tile of tiles) {
-    if (tile.ownerId === me && tile.terrain === "LAND") {
-      owned.add(`${tile.x},${tile.y}`);
-      ownedSumX += tile.x;
-      ownedSumY += tile.y;
-    }
+    if (tile.ownerId === me && tile.terrain === "LAND") owned.add(`${tile.x},${tile.y}`);
     if (tile.prospectSignature === signature) clues.push(tile);
   }
-  if (owned.size === 0 || clues.length === 0) return { count: 0 };
   const r = CLUE_NEARBY_RADIUS;
-  const near: Tile[] = [];
-  for (const clue of clues) {
-    let found = false;
-    for (let dy = -r; dy <= r && !found; dy += 1) {
-      for (let dx = -r; dx <= r && !found; dx += 1) {
+  return clues.some((clue) => {
+    for (let dy = -r; dy <= r; dy += 1) {
+      for (let dx = -r; dx <= r; dx += 1) {
         const x = (((clue.x + dx) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
         const y = (((clue.y + dy) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-        if (owned.has(`${x},${y}`)) found = true;
+        if (owned.has(`${x},${y}`)) return true;
       }
     }
-    if (found) near.push(clue);
-  }
-  if (near.length === 0) return { count: 0 };
-  const centerX = ownedSumX / owned.size;
-  const centerY = ownedSumY / owned.size;
-  const avgDx = near.reduce((sum, tile) => sum + wrappedDelta(tile.x - centerX, WORLD_WIDTH), 0) / near.length;
-  const avgDy = near.reduce((sum, tile) => sum + wrappedDelta(tile.y - centerY, WORLD_HEIGHT), 0) / near.length;
-  const direction = Math.hypot(avgDx, avgDy) < 1 ? undefined : compassFor(avgDx, avgDy);
-  return { count: near.length, ...(direction ? { direction } : {}) };
+    return false;
+  });
 };
 
 // Synthesizers (Titanium Works and friends) are left out of both slot rules:
@@ -152,13 +123,15 @@ const resourceLeadReason = (tech: Pick<TechInfo, "effects">, input: ManifestFitI
   if (!signature) return undefined;
   const resource = prospectSignatureResource(signature);
   const label = resource === "GEMS" ? "Crystal" : RESOURCE_LABEL[resource];
-  const report = input.surveyReportFor(resource);
-  if (report) return `${label} likely ${report.bearing.toLowerCase()} of a town you took (occupation survey)`;
-  const clues = prospectCluesNearTerritory(input.tiles, input.me, signature);
-  if (clues.count === 0) return undefined;
-  const where = clues.direction ? `, mostly to the ${clues.direction}` : "";
-  return `${label} likely nearby: ${clues.count} clue tile${clues.count === 1 ? "" : "s"} within ${CLUE_NEARBY_RADIUS} tiles of your land${where}`;
+  if (input.surveyReportFor(resource)) return `A town you garrisoned turned up signs of ${label} nearby`;
+  if (input.clueNearTerritory(signature)) return `Signs of ${label} near your land`;
+  return undefined;
 };
+
+const REVEAL_SLOT_RESOURCE: Readonly<Record<string, SlotResource>> = { titanium: "TITANIUM", crystal: "CRYSTAL", umbrite: "UMBRITE", food: "FOOD" };
+
+const revealedSlotResource = (tech: Pick<TechInfo, "effects">): SlotResource | undefined =>
+  typeof tech.effects?.revealResource === "string" ? REVEAL_SLOT_RESOURCE[tech.effects.revealResource.toLowerCase()] : undefined;
 
 const freeSlots = (input: ManifestFitInput, resource: SlotResource): number =>
   (input.resourceSlots.supply[resource] ?? 0) - (input.resourceSlots.demand[resource] ?? 0);
@@ -174,9 +147,15 @@ export const manifestFit = (tech: TechInfo, input: ManifestFitInput): ManifestFi
       structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count)
   );
   if (buildNow) reasons.push(`You can build a ${structureName(buildNow)} right away`);
+  // The resource this Manifest reveals never counts as missing: the Manifest
+  // is how you find it (e.g. Aether Resonance Core reveals Crystal and
+  // unlocks Crystal-slot Aether Towers).
+  const revealed = revealedSlotResource(tech);
   const starved = buildables.map((type) => ({
     type,
-    missing: structureSlotRequirements(type).find((requirement) => (input.resourceSlots.supply[requirement.resource] ?? 0) === 0)
+    missing: structureSlotRequirements(type).find(
+      (requirement) => requirement.resource !== revealed && (input.resourceSlots.supply[requirement.resource] ?? 0) === 0
+    )
   }));
   const allStarved = starved.length > 0 && starved.every((entry) => entry.missing);
   const firstStarved = starved[0];

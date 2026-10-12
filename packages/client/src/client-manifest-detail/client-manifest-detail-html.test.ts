@@ -100,29 +100,25 @@ describe("renderManifestDetailHtml", () => {
     const html = renderManifestDetailHtml(
       context({
         fit: {
-          me: "me",
           manpower: 0,
           resourceSlots: { supply: emptySlots, demand: emptySlots },
-          tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "me" },
-            { x: 12, y: 10, terrain: "LAND", prospectSignature: "FERROUS_DUST" }
-          ],
+          clueNearTerritory: (signature) => signature === "FERROUS_DUST",
           surveyReportFor: () => undefined
         }
       })
     );
     expect(html).toContain("Good pick");
-    expect(html).toContain("Titanium likely nearby: 1 clue tile within 4 tiles of your land, mostly to the east");
-    expect(html).toContain("Heads-up: Fort needs Titanium slots");
+    expect(html).toContain("Signs of Titanium near your land");
     expect(html).not.toContain("Not useful yet");
+    expect(html).not.toContain("Heads-up");
   });
 
   it("calls it 'Not useful yet' when nothing argues for it", () => {
     const html = renderManifestDetailHtml(
-      context({ fit: { me: "me", manpower: 0, resourceSlots: { supply: emptySlots, demand: emptySlots }, tiles: [], surveyReportFor: () => undefined } })
+      context({ tech: mining, fit: { manpower: 0, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
     );
     expect(html).not.toContain("Good pick");
-    expect(html).toContain("Not useful yet: Fort needs Titanium slots");
+    expect(html).toContain("Not useful yet: Mine needs Food slots");
   });
 
   it("shows no badge without live player state", () => {

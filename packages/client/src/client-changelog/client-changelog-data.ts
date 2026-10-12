@@ -479,7 +479,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
       "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
       "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
-      "A Good pick badge appears when it fits your empire right now -- e.g. Titanium clues near your land, a survey report from a town you took, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
+      "A Good pick badge appears when it fits your empire right now -- signs of its resource near your land, a survey from a neutral town you garrisoned, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
       "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
       "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
       "Rigging Works Module now lists the Umbrite Rig it unlocks"
