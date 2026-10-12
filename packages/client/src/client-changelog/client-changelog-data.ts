@@ -444,6 +444,24 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  {
+    createdAt: 1791750801000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.11.2",
+    title: "Docks link to nearby docks, with a way to jump along their routes",
+    why: "Dock routes often led to a far-away dock instead of a close one, and following a long dashed route meant a lot of scrolling while the line broke up along the way.",
+    changes: [
+      "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
+      "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
+      "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
+    ]
+  },
+  {
+    createdAt: 1791805200000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "No more floating blue slabs after a long camera jump",
+    why: "After jumping the camera from your coast to an area with no explored sea, the edge of your old coastline's water stayed behind as floating blue slabs in the dark.",
+    changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
