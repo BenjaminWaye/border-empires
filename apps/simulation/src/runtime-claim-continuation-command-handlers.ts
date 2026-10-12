@@ -91,8 +91,8 @@ const buildOriginFor = (structureType: string): ServerDevQueueEntry["origin"] =>
  * BUILD tail from ever being queued. Hands back any manpower it was holding
  * on the way out.
  */
-const clearCompletedSettleEntry = (
-  context: RuntimeDevQueueCommandContext,
+export const clearCompletedSettleEntry = (
+  context: Pick<RuntimeDevQueueCommandContext, "refundManpowerReservation">,
   playerId: string,
   summary: PlayerRuntimeSummary,
   tileKey: string

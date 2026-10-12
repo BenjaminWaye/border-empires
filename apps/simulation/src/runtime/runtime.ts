@@ -1,4 +1,4 @@
-import { resolvePendingSettlement as resolvePendingSettlementImpl, retireCompletedSettlementQueueEntry, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
+import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -206,7 +206,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, clearCompletedSettleEntry, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
@@ -3351,7 +3351,10 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       removePendingSettlement: (key) => this.removePendingSettlement(key),
       drainDevQueue: (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId),
-      retireQueuedSettlement: (ownerId, key) => retireCompletedSettlementQueueEntry(this.devQueueCommandContext(), ownerId, key),
+      retireQueuedSettlement: (ownerId, key) => {
+        const context = this.devQueueCommandContext();
+        clearCompletedSettleEntry(context, ownerId, context.summaryForPlayer(ownerId), key);
+      },
       drainAutoSettle: (ownerId) => this.autoSettleEligibilityRuntime().drainForOwner(ownerId),
       drainBuildTail: (ownerId, key, x, y) => tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), ownerId, key, x, y),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),

@@ -1,5 +1,3 @@
-import type { RuntimeDevQueueCommandContext } from "../runtime-dev-queue-command-handlers.js";
-import { devQueueCancel } from "../runtime-dev-queue.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
@@ -81,17 +79,4 @@ export const resolvePendingSettlement = (context: SettlementResolutionContext, i
   context.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
   context.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
-};
-
-/** A mirrored SETTLE is already fulfilled; release its reservation without dispatching it again. */
-export const retireCompletedSettlementQueueEntry = (
-  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation">,
-  ownerId: string,
-  tileKey: string
-): void => {
-  const summary = context.summaryForPlayer(ownerId);
-  const entry = summary.devQueue.find((candidate) => candidate.tileKey === tileKey && candidate.kind === "SETTLE");
-  if (!entry) return;
-  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
-  if (entry.reservedManpower) context.refundManpowerReservation(ownerId, entry.reservedManpower);
 };
