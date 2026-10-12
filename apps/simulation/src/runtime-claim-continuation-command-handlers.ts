@@ -242,7 +242,7 @@ export const tryDrainClaimContinuationBuildTail = (
  * delta in sync with whatever the build tail did.
  */
 export const resolveTileAfterBuildTail = (
-  tiles: Map<string, DomainTileState>,
+  tiles: ReadonlyMap<string, DomainTileState>,
   tileKey: string,
   settledTileFallback: DomainTileState
 ): DomainTileState => tiles.get(tileKey) ?? settledTileFallback;

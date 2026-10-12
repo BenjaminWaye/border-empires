@@ -1,3 +1,4 @@
+import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
 // client-changelog.ts sorts by createdAt.
@@ -31,6 +32,7 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   {
     createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.3",
