@@ -3,18 +3,13 @@
 // HINT_STATE_SET handler added alongside it.
 export type HandleCollectResultMessageDeps = {
   state: { pendingShardCollect: unknown };
-  keyFor: (x: number, y: number) => string;
-  clearPendingCollectTileDelta: (key: string) => void;
   pushFeed: (text: string, kind: string, severity: string) => void;
   renderHud: () => void;
 };
 
 export const handleCollectResultMessage = (msg: Record<string, unknown>, deps: HandleCollectResultMessageDeps): void => {
-  const { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud } = deps;
+  const { state, pushFeed, renderHud } = deps;
   state.pendingShardCollect = undefined;
-  if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
-    clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
-  }
   const gold = Number(msg.gold ?? 0);
   const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
   const strategicParts = Object.entries(strategic)

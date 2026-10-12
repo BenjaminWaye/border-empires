@@ -198,11 +198,7 @@ const {
 });
 const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, manhattanToroid } = createClientMapMath({ state });
 
-const {
-  hasCollectableYield,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta
-} = createClientCollectSupport({
+const { hasCollectableYield } = createClientCollectSupport({
   state,
   tileVisibilityStateAt,
   keyFor: key
@@ -423,8 +419,6 @@ bootstrapClientApp({
   wasPredictedCombatAlreadyShown,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,

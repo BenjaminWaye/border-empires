@@ -123,8 +123,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     wasPredictedCombatAlreadyShown,
     showCaptureAlert,
     notifyInsufficientGoldForFrontierAction,
-    clearPendingCollectTileDelta,
-    revertOptimisticTileCollectDelta,
     applyOptimisticTileState,
     applyOptimisticStructureBuild,
     applyOptimisticStructureCancel, applyOptimisticStructureRemoval,
@@ -489,8 +487,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearSettlementProgressByKey: actionFlow.clearSettlementProgressByKey,
     formatCooldownShort: actionFlow.formatCooldownShort,
     reconcileActionQueue: actionFlow.reconcileActionQueue,
-    revertOptimisticTileCollectDelta,
-    clearPendingCollectTileDelta,
     playerNameForOwner,
     settlementProgressForTile: actionFlow.settlementProgressForTile,
     shouldResetFrontierActionStateForError: actionFlow.shouldResetFrontierActionStateForError
