@@ -19,6 +19,7 @@ import { CLIENT_CHANGELOG_ENTRIES_MUSTER_SAVE_UP } from "./client-changelog-must
 import { CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE } from "./client-changelog-new-player-experience.js";
 import { CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS } from "./client-changelog-2d-settle-dots.js";
 import { CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME } from "./client-changelog-garrison-rename.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_LANDING } from "./client-changelog-afc-landing.js";
 import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sept-24-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
@@ -316,34 +317,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791434436666,
-    introducedIn: "2026.10.08.1",
-    title: "Your AFC's landing has sound",
-    why: "The orbital landing of your Automated Fabrication Complex played in silence.",
-    changes: [
-      "A rocket roar now plays as your AFC starts its landing from orbit, in both the 3D map and the 2D fallback",
-      "The landing now follows the sound: thrusters at full burn as it comes in, winding down as it slows, cutting out just above the ground, then touchdown on the impact",
-      "It follows your music mute and volume settings and plays over the soundtrack without interrupting it"
-    ]
-  },
-  {
-    createdAt: 1791437889049,
-    introducedIn: "2026.10.08.2",
-    title: "AFC landing stays put when you pan",
-    why: "Panning the 3D map while your AFC was landing from orbit made the landing slide along with your view instead of staying on its tile.",
-    changes: ["Your AFC's orbital landing now stays on its tile in the 3D map while you pan the camera"]
-  },
-  {
-    createdAt: 1791450095409,
-    introducedIn: "2026.10.08.3",
-    title: "Tips wait for your AFC to land",
-    why: "The \"First Town Discovered!\" tooltip and the New empire checklist popped up on top of the tutorial and over your AFC's landing from orbit.",
-    changes: [
-      "Discovery tooltips and the New empire checklist now stay hidden while the tutorial or another dialog covers the map",
-      "When you join a season they appear only once your AFC has finished landing, and nothing discovered in the meantime is lost"
-    ]
-  },
-  {
     createdAt: 1791462529729,
     introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
@@ -360,13 +333,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your AFC always sees 4 tiles around itself",
       "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
     ]
-  },
-  {
-    createdAt: 1791469348919,
-    introducedIn: "2026.10.08.6",
-    title: "Quieter AFC landing",
-    why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
-    changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
   },
   {
     createdAt: 1791488967000,
@@ -462,6 +428,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "After jumping the camera from your coast to an area with no explored sea, the edge of your old coastline's water stayed behind as floating blue slabs in the dark.",
     changes: ["Water edges are now cleared properly when the camera moves somewhere without explored sea"]
   },
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
