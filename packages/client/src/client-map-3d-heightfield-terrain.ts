@@ -26,7 +26,10 @@ export const HEIGHTFIELD_SAND_ELEVATION = 0.07;
 export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
 // Slightly raised over GRASS — reads as frost-heaved permafrost ground.
 export const HEIGHTFIELD_TUNDRA_ELEVATION = 0.20;
-export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
+// Only a slight rise: the mountain models (client-map-3d-mountain-massif.ts)
+// supply a mountain's bulk. A tall
+// plateau here made its own beige slopes under and around them.
+export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 0.3;
 // v8 cosmetic-only biomes (visualLandBiomeAt promotions) sit at their
 // mechanical parent's elevation: PLAINS/JUNGLE/MARSH promote from GRASS,
 // SNOW promotes from TUNDRA -- only ground color changes, not terrain shape.
@@ -71,8 +74,11 @@ export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): numb
   }
 };
 
-const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [128, 120, 124];
-const MOUNTAIN_ROCK_DARK: [number, number, number] = [98, 92, 96];
+// Ground under and round a mountain mesh's foot: a muted olive-grey earth
+// that sits with both the grassy temperate and the stony alpine mountain
+// models (client-map-3d-mountain-models.ts) and their surroundings.
+const MOUNTAIN_ROCK_LIGHT: [number, number, number] = [122, 130, 100];
+const MOUNTAIN_ROCK_DARK: [number, number, number] = [110, 118, 90];
 const GRASS_TINT_DEEP: [number, number, number] = legacy3DTerrainPalette.grassDark;
 const GRASS_TINT_LIGHT: [number, number, number] = legacy3DTerrainPalette.grassLight;
 // Pale frost blue-grey-green — matches the 2D minimap's TUNDRA tone (client-map-facade.ts).
