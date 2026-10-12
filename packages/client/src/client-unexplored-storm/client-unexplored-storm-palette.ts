@@ -15,11 +15,10 @@ export const UNEXPLORED_STORM_INK = "#120d08";
 // Lantern light glowing in the storm just behind the brass edge, and the
 // flash when the clouds roll back off newly explored tiles.
 export const UNEXPLORED_LANTERN = "#d9852e";
-// Brass survey edge where the fog ring's clear ground meets the storm: a bright brass line, a darker brass edge on the storm
-// side, and rivet dots where it crosses tile edges.
+// Brass survey edge where the fog ring's clear ground meets the storm: a
+// bright brass line with a darker brass edge on the storm side.
 export const UNEXPLORED_BRASS = "#d8b25a";
 export const UNEXPLORED_BRASS_DARK = "#6e4e1e";
-export const UNEXPLORED_RIVET = "#f6dc94";
 
 // Remembered ("fogged") tiles -- explored but not currently in sight -- read
 // as a pale, faded survey print rather than a dark hole -- light enough to

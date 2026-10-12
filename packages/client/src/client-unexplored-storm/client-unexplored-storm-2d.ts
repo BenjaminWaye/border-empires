@@ -165,8 +165,7 @@ export const drawUnexploredStormTile = (
 //      the tile, leaving a glimpse;
 //   2. lantern light glowing in the storm just behind that line;
 //   3. a brass survey edge along that line (bright brass, a darker storm-side
-//      edge). No rivets in 2D: at corners where two sides meet they landed
-//      off the visible line.
+//      edge).
 // Explored tiles themselves are never drawn on. The waves are keyed to world
 // coordinates along the edge, so they run continuously between tiles.
 

@@ -6,7 +6,7 @@
 //      edge out to a rounded, noise-wobbled contour only ~0.2-0.35 of the
 //      way across -- the shroud covers the rest, Civ-style, leaving a glimpse.
 //   2. A brass survey edge on that contour (bright line, darker storm-side
-//      edge, rivets at tile edges), with lantern light glowing in the storm
+//      edge), with lantern light glowing in the storm
 //      behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
 //      rain streaks, with the hidden tile grid faintly showing through.
@@ -42,7 +42,6 @@ uniform vec3 uInk;
 uniform vec3 uBrass;
 uniform vec3 uLantern;
 uniform vec3 uBrassDark;
-uniform vec3 uRivet;
 uniform sampler2D uMask;
 uniform vec2 uMaskMin;
 uniform vec2 uMaskSize;
@@ -183,19 +182,16 @@ void main() {
   float coverAlpha = stormCover;
 
   // --- brass survey edge on the cloud's edge ---
-  // A bright brass line on the contour, a darker brass edge just on the
-  // storm side, and rivets where the line crosses a tile edge.
+  // A bright brass line on the contour and a darker brass edge just on the
+  // storm side. (No tick marks at tile crossings: they read as a
+  // scatter of glowing lines along the border.)
   float dRim = s - EDGE;
   float rimHalf = max(0.012, sw * 1.5);
   float brass = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(dRim)));
   float brassEdge = (1.0 - deep) * (1.0 - smoothstep(rimHalf * 0.6, rimHalf * 0.6 + sw, abs(dRim - rimHalf * 1.6)));
-  vec2 gridDist = abs(fract(w + 0.5) - 0.5);
-  float onGrid = 1.0 - smoothstep(0.035, 0.035 + max(fwScene.x, fwScene.y), min(gridDist.x, gridDist.y));
-  float rivet = (1.0 - deep) * onGrid * (1.0 - smoothstep(rimHalf * 1.8, rimHalf * 1.8 + sw, abs(dRim)));
   col = mix(col, uBrassDark, brassEdge * 0.9);
   col = mix(col, uBrass, brass);
-  col = mix(col, uRivet, rivet);
-  coverAlpha = max(coverAlpha, max(max(brass, brassEdge * 0.9), rivet));
+  coverAlpha = max(coverAlpha, max(brass, brassEdge * 0.9));
 
   // Lantern light: the storm glows warm just behind the brass edge.
   float lantern = (1.0 - deep) * stormCover * exp(-max(dRim, 0.0) * 9.0);
