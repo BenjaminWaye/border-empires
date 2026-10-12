@@ -6,7 +6,8 @@
 // half, and the two meet on the shared border. Only v9+ seasons have edge
 // rivers (riverEdgeKeysForCurrentSeed is empty before that), so v1-v8 seasons
 // render exactly as before.
-import { riverEdgeKey, riverEdgeKeysForCurrentSeed } from "@border-empires/shared";
+import { riverEdgeKey, riverEdgeKeysForCurrentSeed, riverHeadsForCurrentSeed, WORLD_HEIGHT, WORLD_WIDTH, type RiverHead } from "@border-empires/shared";
+import { riverCascadeEdges } from "../client-map-river-mountains/client-map-river-mountains.js";
 
 // Same deep blue-teal as the 3D river water (client-map-3d-river-water-material.ts RIVER_WATER_CORE).
 const RIVER_WATER = "rgba(22, 72, 96, 0.97)";
@@ -47,7 +48,13 @@ export const drawRiverEdges = (
   const bottom = edges.has(riverEdgeKey(wx, wy + 1, "H"));
   const left = edges.has(riverEdgeKey(wx, wy, "V"));
   const right = edges.has(riverEdgeKey(wx + 1, wy, "V"));
-  if (!top && !right && !bottom && !left) return;
+  drawCascadeEdges(ctx, wx, wy, px, py, w, h);
+  // A river's head corner can also touch a tile none of whose edges carry
+  // the river (the two tiles behind its first edge).
+  if (!top && !right && !bottom && !left) {
+    drawSpringPools(ctx, wx, wy, px, py, w, h, layers);
+    return;
+  }
   const water = Math.max(2, Math.round(w * 0.1)); // this tile's half of the channel
   const bank = Math.max(1, Math.round(w * 0.05));
   const band = (x: number, y: number, bw: number, bh: number, color: string): void => {
@@ -60,4 +67,82 @@ export const drawRiverEdges = (
   if (bottom) { band(px, py + h - water - bank, w, bank, RIVER_BANK); band(px, py + h - water, w, water, RIVER_WATER); }
   if (left) { band(px + water, py, bank, h, RIVER_BANK); band(px, py, water, h, RIVER_WATER); }
   if (right) { band(px + w - water - bank, py, bank, h, RIVER_BANK); band(px + w - water, py, water, h, RIVER_WATER); }
+  // Pools last, so the edge bands' bank stripe doesn't cross them.
+  drawSpringPools(ctx, wx, wy, px, py, w, h, layers);
+};
+
+// Spring pool at each river head (same idea as the 3D renderer's pool:
+// client-map-3d-rivers-channel.ts SPRING_HALF_WIDTH), as a fraction of the
+// tile size. Each of the four tiles round the head corner draws its quarter.
+const SPRING_WATER_RADIUS = 0.2;
+const SPRING_BANK_WIDTH = 0.06;
+
+const headAtCorner = (heads: ReadonlyMap<number, RiverHead>, cx: number, cy: number): boolean =>
+  heads.has(((cy % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT * WORLD_WIDTH + (((cx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH));
+
+/** Draws this tile's quarter of any spring pool centred on one of its four corners. */
+export const drawSpringPools = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  w: number,
+  h: number,
+  layers: "bank-and-water" | "water" = "bank-and-water",
+  heads: ReadonlyMap<number, RiverHead> = riverHeadsForCurrentSeed()
+): void => {
+  if (heads.size === 0) return;
+  for (const [ox, oy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+    if (!headAtCorner(heads, wx + ox, wy + oy)) continue;
+    const cx = px + ox * w;
+    const cy = py + oy * h;
+    const r = w * SPRING_WATER_RADIUS;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(px, py, w, h);
+    ctx.clip();
+    if (layers === "bank-and-water") {
+      ctx.fillStyle = RIVER_BANK;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + w * SPRING_BANK_WIDTH, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = RIVER_WATER;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+};
+
+// River mountain cascades (client-map-river-mountains.ts) run from the
+// mountain's corner to the river head along one tile edge: each tile beside
+// it draws its half as a narrow, foamy rapids band.
+const CASCADE_FOAM = "rgba(196, 226, 236, 0.95)";
+
+/** Draws this tile's half of any river mountain cascade on its borders. */
+export const drawCascadeEdges = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  w: number,
+  h: number,
+  cascades: ReadonlySet<number> = riverCascadeEdges()
+): void => {
+  if (cascades.size === 0) return;
+  const band = Math.max(2, Math.round(w * 0.07));
+  const core = Math.max(1, Math.round(band * 0.4));
+  const draw = (x: number, y: number, bw: number, bh: number, coreX: number, coreY: number, cw: number, ch: number): void => {
+    ctx.fillStyle = CASCADE_FOAM;
+    ctx.fillRect(x, y, bw, bh);
+    ctx.fillStyle = RIVER_WATER;
+    ctx.fillRect(coreX, coreY, cw, ch);
+  };
+  if (cascades.has(riverEdgeKey(wx, wy, "H"))) draw(px, py, w, band, px, py, w, core);
+  if (cascades.has(riverEdgeKey(wx, wy + 1, "H"))) draw(px, py + h - band, w, band, px, py + h - core, w, core);
+  if (cascades.has(riverEdgeKey(wx, wy, "V"))) draw(px, py, band, h, px, py, core, h);
+  if (cascades.has(riverEdgeKey(wx + 1, wy, "V"))) draw(px + w - band, py, band, h, px + w - core, py, core, h);
 };

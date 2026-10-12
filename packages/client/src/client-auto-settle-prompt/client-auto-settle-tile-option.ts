@@ -12,9 +12,9 @@ export type AutoSettleOption = { category: AutoSettleCategory; checked: boolean;
 const RESOURCE_LABELS: Record<string, string> = { TITANIUM: "titanium", UMBRITE: "umbrite", CRYSTAL: "crystal", GEMS: "gems" };
 
 const OPTION_LABELS: Record<AutoSettleCategory, string> = {
-  towns: "Settle towns, docks and the tiles around them automatically from now on",
-  food: "Settle farms and fish automatically from now on",
-  resources: "Settle resource tiles automatically from now on"
+  towns: "Garrison towns, docks and the tiles around them automatically from now on",
+  food: "Garrison farms and fish automatically from now on",
+  resources: "Garrison resource tiles automatically from now on"
 };
 
 const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`;

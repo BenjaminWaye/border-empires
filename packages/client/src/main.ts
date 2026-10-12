@@ -38,6 +38,7 @@ import "./client-steampunk-settings-style.css";
 import "./client-steampunk-economy-domain-tech-style.css";
 import "./client-steampunk-alliance-style.css";
 import "./client-steampunk-tile-menu-style.css";
+import "./client-afc-module-tab/client-afc-module-tab.css";
 import "./client-steampunk-stat-chips-style.css";
 import "./client-tile-ownership-help-style.css";
 import "./client-activity-dashboard-style.css";

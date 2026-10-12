@@ -43,7 +43,7 @@ describe("Aether Tower toggle menu entries", () => {
 
   it("blocks Enable on an unsettled tile with the reason shown", () => {
     const entries = observatoryToggleMenuEntries(towerTile("inactive", { ownershipState: "FRONTIER" } as Partial<Tile>), deps);
-    expect(entries[0]).toMatchObject({ disabled: true, disabledReason: "Tile is not settled" });
+    expect(entries[0]).toMatchObject({ disabled: true, disabledReason: "Tile is not garrisoned" });
   });
 
   it("offers nothing while the tower is building or being removed", () => {
