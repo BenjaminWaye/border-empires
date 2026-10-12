@@ -51,8 +51,8 @@ const MUTABLE_TILE_FIELDS = [
   "sabotage",
   "afc",
   // Worldgen seeds watchtowers/waystations dormant; activation must survive a
-  // restart or the boot dormant-claim sweep re-activates them and re-grants
-  // their one-shot reward (a fresh +1000 manpower roll on every deploy).
+  // restart or the site reloads dormant and pays its one-shot reward again
+  // (see dormant-claim-sweep.ts: this re-rolled +1000 manpower per deploy).
   "watchtower",
   "waystation",
   // Player/runtime state with no worldgen value: without these a restart
