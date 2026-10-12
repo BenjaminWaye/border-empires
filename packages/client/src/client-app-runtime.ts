@@ -99,7 +99,8 @@ import { createInitialState, storageSet } from "./client-state/client-state.js";
 import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
-import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
+import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
+import { techOwnedHtml } from "./client-manifest-detail/client-manifest-owned-html.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,
