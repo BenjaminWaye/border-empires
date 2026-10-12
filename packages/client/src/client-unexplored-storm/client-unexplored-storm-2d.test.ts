@@ -32,6 +32,21 @@ describe("unexplored storm 2D texture", () => {
     expect(red).toBeGreaterThan(blue * 1.15); // warm, not the cool grey that clashed
   });
 
+  it("keeps the rain streaks faint: they read as rain, not diagonal hatching stripes", () => {
+    // Same streak spacing as the texture: 45 lines across 256 px, along px - py.
+    let onSum = 0, onCount = 0, offSum = 0, offCount = 0;
+    for (let y = 0; y < SIZE; y += 1) {
+      for (let x = 0; x < SIZE; x += 1) {
+        const coord = ((x - y) / SIZE) * 45;
+        const dist = Math.abs(coord - Math.round(coord));
+        const [r, g, b] = pixel(data, x, y);
+        const luma = (r! + g! + b!) / 3;
+        if (dist < 0.04) { onSum += luma; onCount += 1; } else if (dist > 0.3) { offSum += luma; offCount += 1; }
+      }
+    }
+    expect(offSum / offCount - onSum / onCount).toBeLessThan(4);
+  });
+
   it("tiles seamlessly: the wrap seam is no rougher than any interior column step", () => {
     const columnStep = (x0: number, x1: number): number => {
       let diff = 0;

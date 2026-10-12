@@ -4,6 +4,7 @@ import {
   Mesh,
   PlaneGeometry,
   LinearFilter,
+  type Material,
   RGBAFormat,
   ShaderMaterial,
   UnsignedByteType,
@@ -25,6 +26,7 @@ import {
   UNEXPLORED_STORM_MID
 } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
+import { applyUnexploredStormClipToScene, type StormClipUniforms } from "./client-map-3d-unexplored-storm-clip.js";
 import { buildUnexploredStormMask, countNewlyExplored, type UnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
@@ -112,6 +114,16 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
     vertexShader: STORM_VERTEX_SHADER,
     fragmentShader: STORM_FRAGMENT_SHADER
   });
+  // Same uniform objects, so features clipped under the storm
+  // (client-map-3d-unexplored-storm-clip.ts) follow its mask and drift.
+  const clipUniforms: StormClipUniforms = {
+    uStormClipMask: material.uniforms.uMask!,
+    uStormClipMaskMin: material.uniforms.uMaskMin!,
+    uStormClipMaskSize: material.uniforms.uMaskSize!,
+    uStormClipOrigin: material.uniforms.uWorldOrigin!,
+    uStormClipTime: material.uniforms.uTime!
+  };
+  const clipPatched = new WeakSet<Material>();
   const mesh = new Mesh(geometry, material);
   mesh.position.y = UNEXPLORED_STORM_Y;
   mesh.frustumCulled = false;
@@ -150,6 +162,7 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
     material.uniforms.uPrevMask!.value = prevMask;
     (material.uniforms.uMaskMin!.value as Vector2).set(-window.halfW - 1, -window.halfH - 1);
     (material.uniforms.uMaskSize!.value as Vector2).set(next.mask.width, next.mask.height);
+    applyUnexploredStormClipToScene(scene, clipUniforms, clipPatched);
   };
 
   return {

@@ -19,6 +19,8 @@
 // inward only. All derivatives and texture reads happen before the single
 // `discard`.
 
+import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
+
 export const STORM_VERTEX_SHADER = `
 varying vec2 vSceneXZ;
 varying vec2 vWorldXZ;
@@ -51,19 +53,7 @@ uniform vec2 uPrevMaskSize;
 uniform vec2 uPrevOffset;
 uniform float uRevealT;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
-float fbm(vec2 p) {
-  float v = 0.0;
-  float a = 0.5;
-  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + vec2(17.3, 9.1); a *= 0.5; }
-  return v / 0.9375;
-}
+${STORM_FIELD_GLSL}
 // Thin anti-aliased line on every integer of x; fades once lines would
 // crowd closer than a few pixels.
 float lines(float x, float halfWidth) {
@@ -72,10 +62,6 @@ float lines(float x, float halfWidth) {
   float l = 1.0 - smoothstep(halfWidth, halfWidth + fw * 1.2, d);
   return l * clamp(1.6 - fw * 5.0, 0.0, 1.0);
 }
-
-// Contour level in the deep-fog field: ~0.2-0.35 tile into a ring tile, so
-// the shroud covers most of it and leaves only a glimpse of its ground.
-const float EDGE = 0.24;
 
 float maskR(vec2 tile) {
   vec2 uv = (tile + 0.5 - uMaskMin) / uMaskSize;
@@ -96,9 +82,9 @@ vec2 prevMaskAt(vec2 sceneXZ) {
 void main() {
   vec2 w = vWorldXZ;
   vec2 drift = vec2(uTime * 0.09, uTime * 0.035);
-  float body = fbm(w * 0.17 + drift * 0.17);
-  float mass = fbm(w * 0.08 - drift * 0.05 + body * 0.6);
-  float edgeNoise = fbm(w * 0.9 + drift * 0.3);
+  float body = stormFbm(w * 0.17 + drift * 0.17);
+  float mass = stormFbm(w * 0.08 - drift * 0.05 + body * 0.6);
+  float edgeNoise = stormEdgeNoise(w, uTime);
 
   // R: 1 = unexplored, for this tile and its 4 edge neighbours.
   vec2 tile = floor(vSceneXZ);
@@ -122,10 +108,7 @@ void main() {
   vec2 uvTile = (tile + 0.5 - uMaskMin) / uMaskSize;
   bool outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
   float deep = outside ? 1.0 : step(0.99, texture2D(uMask, uvTile).g);
-  vec2 tap = 0.32 / uMaskSize;
-  float soft = outside ? 1.0 : (texture2D(uMask, uv).g * 2.0
-    + texture2D(uMask, uv + vec2(tap.x, tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, tap.y)).g
-    + texture2D(uMask, uv + vec2(tap.x, -tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, -tap.y)).g) / 6.0;
+  float soft = outside ? 1.0 : stormSoftField(uMask, uv, uMaskSize);
   // Reveal: the clouds roll back off newly explored land instead of
   // popping. The soft field (and so the cloud contour, brass edge and
   // lantern glow) moves from the previous mask to the new one in a noisy
@@ -138,7 +121,7 @@ void main() {
   vec2 prev = vec2(hard, soft);
   if (uRevealT < 1.0) {
     prev = prevMaskAt(vSceneXZ);
-    float order = clamp(prev.y * 0.7 + fbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);
+    float order = clamp(prev.y * 0.7 + stormFbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);
     revealLocal = smoothstep(order - 0.12, order + 0.12, uRevealT * 1.24 - 0.12);
     // Lantern light rides the front wherever the cloud field is receding --
     // smooth across tiles, unlike the per-tile cover change.
@@ -160,24 +143,24 @@ void main() {
   vec3 storm = mix(uLight, uDark, density);
   float bright = smoothstep(0.62, 0.85, body) * (1.0 - density);
   storm = mix(storm, uLight * 1.12, bright * 0.6);
-  storm *= 0.97 + hash(floor(w)) * 0.06;
+  storm *= 0.97 + stormHash(floor(w)) * 0.06;
   float grid = max(lines(w.x, 0.012), lines(w.y, 0.012));
   storm = mix(storm, uInk, grid * (0.32 - density * 0.14));
-  // Engraved hatching: straight, ~3 lines per tile, gathering under the
-  // dense cloud and thinning out in the lighter breaks, sliding slowly like
-  // falling rain.
+  // Rain: fine straight streaks, ~3 per tile, sliding slowly. Kept faint
+  // and thin -- heavier, wider strokes read as diagonal hatching stripes
+  // across the whole fog at normal play zoom.
   float hatchCoord = (w.x - w.y) * 2.8 - uTime * 0.25;
-  float hatch = lines(hatchCoord, 0.06 + density * 0.14);
-  storm = mix(storm, uInk, hatch * (0.06 + smoothstep(0.25, 0.85, density) * 0.6));
+  float hatch = lines(hatchCoord, 0.04);
+  storm = mix(storm, uInk, hatch * (0.03 + smoothstep(0.25, 0.85, density) * 0.12));
   // Lit lip just inside the cloud's edge, so the bank reads as having a top.
-  float lip = 1.0 - smoothstep(EDGE, EDGE + 0.14, s);
+  float lip = 1.0 - smoothstep(STORM_EDGE, STORM_EDGE + 0.14, s);
   storm = mix(storm, uLight * 1.2, lip * 0.6);
 
   // --- the ring tile's own ground, left clear up to the cloud's edge ---
   // Its terrain is drawn underneath (client-map-3d-terrain-tile-rules.ts),
   // printed like the remembered land it borders, so the ring simply
   // continues that land until the brass edge -- no wash over it.
-  float stormCover = max(deep, smoothstep(EDGE - sw, EDGE + sw, s));
+  float stormCover = max(deep, smoothstep(STORM_EDGE - sw, STORM_EDGE + sw, s));
   vec3 col = storm;
   float coverAlpha = stormCover;
 
@@ -185,7 +168,7 @@ void main() {
   // A bright brass line on the contour and a darker brass edge just on the
   // storm side. (No tick marks at tile crossings: they read as a
   // scatter of glowing lines along the border.)
-  float dRim = s - EDGE;
+  float dRim = s - STORM_EDGE;
   float rimHalf = max(0.012, sw * 1.5);
   float brass = (1.0 - deep) * (1.0 - smoothstep(rimHalf, rimHalf + sw, abs(dRim)));
   float brassEdge = (1.0 - deep) * (1.0 - smoothstep(rimHalf * 0.6, rimHalf * 0.6 + sw, abs(dRim - rimHalf * 1.6)));

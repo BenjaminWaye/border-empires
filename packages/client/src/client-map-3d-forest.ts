@@ -10,6 +10,7 @@ import {
 } from "three";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 // Upper bound on trees per forest tile (the per-tile instance budget). The
 // layouts below hold 7-9 trees each so adjacent tiles vary in density too.
@@ -103,11 +104,11 @@ export type Forest = {
 export const createForest = (scene: Scene, maxTiles: number): Forest => {
   // Pine: 5-sided cone, lighter teal-green.
   const pineCanopyGeometry = new ConeGeometry(0.15, PINE_CANOPY_HEIGHT, 5, 1, false);
-  const pineCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
+  const pineCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true }));
 
   // Spruce: taller, narrower, deeper green.
   const spruceCanopyGeometry = new ConeGeometry(0.12, SPRUCE_CANOPY_HEIGHT, 5, 1, false);
-  const spruceCanopyMaterial = new MeshStandardMaterial({ color: "#52735c", roughness: 0.9, metalness: 0, flatShading: true });
+  const spruceCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#52735c", roughness: 0.9, metalness: 0, flatShading: true }));
 
   // Leaf/deciduous: a broad, rounded canopy (low-poly icosahedron, matching
   // the rest of the forest's flat-shaded look) in a warmer, lighter green --
@@ -116,10 +117,10 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
   // size the extra subdivision is invisible, and with 7-9 trees per tile the
   // canopy triangle count (drawn twice -- color + shadow pass) adds up.
   const leafCanopyGeometry = new IcosahedronGeometry(LEAF_CANOPY_RADIUS, 0);
-  const leafCanopyMaterial = new MeshStandardMaterial({ color: "#7a9c4e", roughness: 0.86, metalness: 0, flatShading: true });
+  const leafCanopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#7a9c4e", roughness: 0.86, metalness: 0, flatShading: true }));
 
   const trunkGeometry = new CylinderGeometry(0.03, 0.04, TRUNK_HEIGHT, 5);
-  const trunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
+  const trunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true }));
 
   const maxInstances = maxTiles * TREES_PER_TILE;
   const pineCanopyMesh = new InstancedMesh(pineCanopyGeometry, pineCanopyMaterial, maxInstances);

@@ -333,6 +333,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Faint tile outlines show through the clouds, and distant terrain fades into them instead of into black"
     ]
   },
+  {
+    createdAt: 1791820475352,
+    introducedIn: "2026.10.12.1",
+    title: "No error when pressing Esc with nothing to cancel",
+    why: "Pressing Esc to close a menu, with no capture running, popped up an \"Action failed: no active capture to cancel\" warning.",
+    changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
+  },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_NEW_PLAYER_EXPERIENCE,

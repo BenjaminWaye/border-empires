@@ -8,6 +8,7 @@ import {
   Scene
 } from "three";
 import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 const ROCK_BASE_HEIGHT = 0.62;
 const ROCK_BASE_RADIUS_TOP = 0.42;
@@ -48,19 +49,19 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
   const peakGeometry = new ConeGeometry(PEAK_RADIUS, PEAK_HEIGHT, PEAK_SIDES, 1, false);
   const snowCapGeometry = new ConeGeometry(SNOW_CAP_RADIUS, SNOW_CAP_HEIGHT, PEAK_SIDES, 1, false);
 
-  const rockBaseMaterial = new MeshStandardMaterial({
+  const rockBaseMaterial = markUnexploredStormClip(new MeshStandardMaterial({
     color: "#7b7479",
     roughness: 0.94,
     metalness: 0,
     flatShading: true
-  });
-  const peakMaterial = new MeshStandardMaterial({
+  }));
+  const peakMaterial = markUnexploredStormClip(new MeshStandardMaterial({
     color: "#535760",
     roughness: 0.9,
     metalness: 0,
     flatShading: true
-  });
-  const snowCapMaterial = new MeshStandardMaterial({
+  }));
+  const snowCapMaterial = markUnexploredStormClip(new MeshStandardMaterial({
     color: "#f3f7ff",
     roughness: 0.62,
     metalness: 0,
@@ -68,7 +69,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2
-  });
+  }));
 
   const rockBaseMesh = new InstancedMesh(rockBaseGeometry, rockBaseMaterial, maxInstances);
   const peakMesh = new InstancedMesh(peakGeometry, peakMaterial, maxInstances);

@@ -77,6 +77,11 @@ describe("unexplored storm layer (3D)", () => {
     expect(STORM_FRAGMENT_SHADER).not.toMatch(/uParchment|parchHatch|parchAlpha/);
   });
 
+  it("keeps the rain streaks thin and faint, not diagonal hatching stripes", () => {
+    expect(STORM_FRAGMENT_SHADER).toContain("float hatch = lines(hatchCoord, 0.04);");
+    expect(STORM_FRAGMENT_SHADER).toContain("storm = mix(storm, uInk, hatch * (0.03 + smoothstep(0.25, 0.85, density) * 0.12));");
+  });
+
   it("cuts the coastline from the deep-fog field and keeps deep fog solid storm", () => {
     expect(STORM_FRAGMENT_SHADER).toMatch(/float stormCover = max\(deep, /);
     // The brass edge never draws inside deep fog; the
@@ -125,7 +130,7 @@ describe("unexplored storm layer (3D)", () => {
     // deep's per-tile steps cut square holes when blended; it isn't.
     expect(STORM_FRAGMENT_SHADER).not.toMatch(/deep = mix\(/);
     // Sweeps outward from the old land (old soft field), broken up by noise.
-    expect(STORM_FRAGMENT_SHADER).toContain("float order = clamp(prev.y * 0.7 + fbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);");
+    expect(STORM_FRAGMENT_SHADER).toContain("float order = clamp(prev.y * 0.7 + stormFbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);");
     expect(STORM_FRAGMENT_SHADER).toContain("col += uLantern * revealFront * 0.5;");
   });
 });

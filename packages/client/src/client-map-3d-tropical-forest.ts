@@ -18,6 +18,7 @@ import {
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
 import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 const PALM_TRUNK_HEIGHT = 0.5;
 // Trunk base sits a touch below the surface so it never floats on slopes.
@@ -38,10 +39,10 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
   // without needing individual leaf geometry.
   // Sized like createForest's trees: roughly half a mountain massif's height.
   const canopyGeometry = new ConeGeometry(0.17, PALM_CANOPY_HEIGHT, 6, 1, false);
-  const canopyMaterial = new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true });
+  const canopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true }));
 
   const trunkGeometry = new CylinderGeometry(0.022, 0.04, PALM_TRUNK_HEIGHT, 5);
-  const trunkMaterial = new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true });
+  const trunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true }));
 
   const maxInstances = maxTiles * TREES_PER_TILE;
   const canopyMesh = new InstancedMesh(canopyGeometry, canopyMaterial, maxInstances);

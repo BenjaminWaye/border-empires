@@ -10,7 +10,7 @@ import {
 
 // 2D canvas counterpart of client-map-3d-unexplored-storm.ts: unexplored
 // tiles are filled from one seamlessly tiling storm-cloud texture (soft
-// cloud masses under straight engraved hatching), anchored to world coordinates so
+// cloud masses under faint straight rain streaks), anchored to world coordinates so
 // the clouds stay put under the map while the camera pans.
 export const UNEXPLORED_STORM_TEXTURE_PX = 256;
 // World tiles one copy of the texture spans. Large enough that the repeat
@@ -82,12 +82,13 @@ export const buildUnexploredStormPixels = (sizePx: number = UNEXPLORED_STORM_TEX
       const mass = periodicFbm(u, v, MASS_LATTICE, 11);
       let color = mixRgb(dark, mid, smoothstep(0.3, 0.75, (body + mass) / 2));
       color = mixRgb(color, light, smoothstep(0.6, 0.85, body) * 0.55);
-      // Straight engraved hatching, top-left to bottom-right, heavier under
-      // the densest cloud.
+      // Rain: fine straight streaks, top-left to bottom-right, a touch
+      // stronger under the densest cloud. Kept faint and thin -- heavier,
+      // wider strokes read as diagonal hatching stripes across the fog.
       const hatchCoord = ((px - py) / sizePx) * HATCH_LINES_PER_TEXTURE;
       const hatchDist = Math.abs(hatchCoord - Math.round(hatchCoord));
-      const hatch = 1 - smoothstep(0.1 + mass * 0.12, 0.22 + mass * 0.12, hatchDist);
-      color = mixRgb(color, ink, hatch * (0.25 + smoothstep(0.35, 0.75, mass) * 0.45));
+      const hatch = 1 - smoothstep(0.06, 0.14, hatchDist);
+      color = mixRgb(color, ink, hatch * (0.04 + smoothstep(0.35, 0.75, mass) * 0.12));
       const i = (py * sizePx + px) * 4;
       out[i] = color[0];
       out[i + 1] = color[1];
