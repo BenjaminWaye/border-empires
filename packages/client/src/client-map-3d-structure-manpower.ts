@@ -7,7 +7,7 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
-import { createAncillaryDepotLayout } from "./client-map-3d-structure-ancillary-depot.js";
+import { createAncillaryDepotLayout } from "./client-map-3d-structure-ancillary-depot/client-map-3d-structure-ancillary-depot.js";
 
 export type ManpowerStructureKind =
   | "QUARTERMASTERS_OFFICE"

@@ -9,12 +9,8 @@ type Args = {
   cameraDistance: number;
 };
 
-// The Ancillary Depot (GARRISON_HALL) is a ring structure: a squat blackened-iron
-// drum of dormant bodies with two brass bands and a glowing cyan core, surrounded
-// by eight body-pods standing like cartridges in a revolver cylinder — each with
-// a recessed brass plaque, a pale humanoid silhouette, and a small cyan aether
-// visor on its front. The whole asset reads as bodies "on the shelf, ready for
-// the hive", so the ring (not the drum) is the silhouette to hero in the shots.
+// The map uses the twelve-pod replacement: sealed blackened-iron drum,
+// brass collars and small cyan seam lights. Preview the actual runtime layout.
 const buildDepot = (content: Scene): { layout: () => void; commit: () => void; dispose: () => void } => {
   const { builder, commit, dispose } = createStructurePieceBuilder(content, 4);
   const manpower = registerManpowerStructures(builder);
@@ -56,10 +52,10 @@ export default meta;
 type Story = StoryObj<Args>;
 
 // The hero asset shot: the ring of body-pods facing the camera on a light neutral
-// studio backdrop, the drum's brass bands and cyan core glowing between them.
+// studio backdrop, the pods' brass collars and cyan seams glowing between them.
 export const AncillaryDepotHero: Story = {
   render: () => {
-    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 1, background: "#a6a3a1" });
+    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 0.42, background: "#a6a3a1" });
     const cleanups = buildStage(stage, { grassRadius: 0 });
     return wrapWithCleanup(stage, cleanups);
   }
@@ -67,7 +63,7 @@ export const AncillaryDepotHero: Story = {
 
 export const AncillaryDepotHeroDark: Story = {
   render: () => {
-    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 1, background: "#15161b" });
+    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 0.42, background: "#15161b" });
     const cleanups = buildStage(stage, { grassRadius: 0 });
     return wrapWithCleanup(stage, cleanups);
   }
@@ -77,7 +73,7 @@ export const AncillaryDepotHeroDark: Story = {
 // quarter turn puts a fresh pair of pods and the drum's brass bands in view.
 export const Turntable: Story = {
   render: () => {
-    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 1.15, background: "#15161b" });
+    const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 0.46, background: "#15161b" });
     const inner = new Scene();
     const { layout, commit, dispose } = buildDepot(inner);
     layout();

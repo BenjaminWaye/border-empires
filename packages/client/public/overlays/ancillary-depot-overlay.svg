@@ -1,69 +1,64 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-
-  <!-- Ancillary Depot: a circular storage drum of dormant Ancillary bodies,
-       ringed by vertical body-pods set like cartridges in a revolver cylinder.
-       Blackened iron, aged brass, small cyan aether lights. -->
-
-  <!-- Base plinth -->
-  <ellipse cx="64" cy="103" rx="36" ry="9" fill="#171410"/>
-
-  <!-- Back pods (peeking above the drum rim) -->
-  <path d="M57.5 20H70.5A6.5 6.5 0 0 1 77 26.5V56A6.5 6.5 0 0 1 70.5 62.5H57.5A6.5 6.5 0 0 1 51 56V26.5A6.5 6.5 0 0 1 57.5 20Z" fill="#2B2620"/>
-  <path d="M59 27H69V53H59Z" fill="#6E5020"/>
-  <circle cx="64" cy="30" r="3.2" fill="#C3C9CF"/>
-  <path d="M61.5 34H66.5V51H61.5Z" fill="#C3C9CF"/>
-  <circle cx="65.2" cy="30" r="1.3" fill="#5CE1F5"/>
-
-  <path d="M40.5 29H53.5A6.5 6.5 0 0 1 60 35.5V65A6.5 6.5 0 0 1 53.5 71.5H40.5A6.5 6.5 0 0 1 34 65V35.5A6.5 6.5 0 0 1 40.5 29Z" fill="#2B2620"/>
-  <path d="M42 36H52V62H42Z" fill="#6E5020"/>
-  <path d="M34 55H60" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="47" cy="39" r="3.2" fill="#C3C9CF"/>
-  <path d="M44.5 43H49.5V60H44.5Z" fill="#C3C9CF"/>
-  <circle cx="48.2" cy="39" r="1.3" fill="#5CE1F5"/>
-
-  <path d="M74.5 29H87.5A6.5 6.5 0 0 1 94 35.5V65A6.5 6.5 0 0 1 87.5 71.5H74.5A6.5 6.5 0 0 1 68 65V35.5A6.5 6.5 0 0 1 74.5 29Z" fill="#2B2620"/>
-  <path d="M76 36H86V62H76Z" fill="#6E5020"/>
-  <path d="M68 55H94" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="81" cy="39" r="3.2" fill="#C3C9CF"/>
-  <path d="M78.5 43H83.5V60H78.5Z" fill="#C3C9CF"/>
-  <circle cx="82.2" cy="39" r="1.3" fill="#5CE1F5"/>
-
-  <!-- Storage drum -->
-  <path d="M40 50V88Q40 100 64 100Q88 100 88 88V50Z" fill="#2B2620"/>
-  <ellipse cx="64" cy="50" rx="24" ry="8" fill="#A97D33"/>
-  <ellipse cx="64" cy="50" rx="16" ry="5.2" fill="#171410"/>
-  <ellipse cx="64" cy="50" rx="9" ry="3" fill="#2FBFD9"/>
-  <ellipse cx="64" cy="50" rx="4.5" ry="1.6" fill="#5CE1F5"/>
-  <path d="M40 62Q64 68 88 62V67Q64 73 40 67Z" fill="#A97D33"/>
-  <path d="M40 78Q64 84 88 78V83Q64 89 40 83Z" fill="#A97D33"/>
-
-  <!-- Foreground pods -->
-  <path d="M26 40H40A6.5 6.5 0 0 1 46.5 46.5V77.5A6.5 6.5 0 0 1 40 84H26A6.5 6.5 0 0 1 19.5 77.5V46.5A6.5 6.5 0 0 1 26 40Z" fill="#2B2620"/>
-  <path d="M27.5 48H38.5V76H27.5Z" fill="#6E5020"/>
-  <path d="M19.5 66H46.5" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="33" cy="51" r="3.6" fill="#C3C9CF"/>
-  <path d="M30.3 55.5H35.7V72H30.3Z" fill="#C3C9CF"/>
-  <circle cx="34.2" cy="51" r="1.5" fill="#5CE1F5"/>
-
-  <path d="M88 40H102A6.5 6.5 0 0 1 108.5 46.5V77.5A6.5 6.5 0 0 1 102 84H88A6.5 6.5 0 0 1 81.5 77.5V46.5A6.5 6.5 0 0 1 88 40Z" fill="#2B2620"/>
-  <path d="M89.5 48H100.5V76H89.5Z" fill="#6E5020"/>
-  <path d="M81.5 66H108.5" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="95" cy="51" r="3.6" fill="#C3C9CF"/>
-  <path d="M92.3 55.5H97.7V72H92.3Z" fill="#C3C9CF"/>
-  <circle cx="96.2" cy="51" r="1.5" fill="#5CE1F5"/>
-
-  <path d="M39 48H53A6.5 6.5 0 0 1 59.5 54.5V85.5A6.5 6.5 0 0 1 53 92H39A6.5 6.5 0 0 1 32.5 85.5V54.5A6.5 6.5 0 0 1 39 48Z" fill="#2B2620"/>
-  <path d="M40.5 56H51.5V84H40.5Z" fill="#6E5020"/>
-  <path d="M32.5 74H59.5" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="46" cy="59" r="3.6" fill="#C3C9CF"/>
-  <path d="M43.3 63.5H48.7V80H43.3Z" fill="#C3C9CF"/>
-  <circle cx="47.2" cy="59" r="1.5" fill="#5CE1F5"/>
-
-  <path d="M75 48H89A6.5 6.5 0 0 1 95.5 54.5V85.5A6.5 6.5 0 0 1 89 92H75A6.5 6.5 0 0 1 68.5 85.5V54.5A6.5 6.5 0 0 1 75 48Z" fill="#2B2620"/>
-  <path d="M76.5 56H87.5V84H76.5Z" fill="#6E5020"/>
-  <path d="M68.5 74H95.5" stroke="#A97D33" stroke-width="2"/>
-  <circle cx="82" cy="59" r="3.6" fill="#C3C9CF"/>
-  <path d="M79.3 63.5H84.7V80H79.3Z" fill="#C3C9CF"/>
-  <circle cx="83.2" cy="59" r="1.5" fill="#5CE1F5"/>
-
+  <!-- Top-down counterpart of the twelve-pod 3D depot. -->
+  <circle cx="64" cy="64" r="37.5" fill="#0F1113" stroke="#BFA46A" stroke-width="2.4"/>
+  <g transform="rotate(0 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(30 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(60 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(90 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(120 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(150 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(180 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(210 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(240 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(270 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(300 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
+  <g transform="rotate(330 64 64)">
+    <path d="M58.6 14.8H69.4L69.2 27.4H58.8Z" fill="#0F1113"/>
+    <rect x="57.85" y="13.6" width="12.3" height="2.4" fill="#BFA46A"/>
+    <circle cx="64" cy="27.1" r="1.05" fill="#3DF9FF"/>
+  </g>
 </svg>

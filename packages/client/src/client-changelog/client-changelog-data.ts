@@ -400,12 +400,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791815066622, // frozen Date.now() value for this release
+    createdAt: 1791831898352, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
     title: "The Ancillary Depot is now a dormant-body storehouse",
     why: "The Ancillary Depot was still borrowing the Logistics Guild's civic-hall art, so it didn't read as the AI Hive's body storehouse either on the 3D map or on the 2D map.",
     changes: [
-      "Ancillary Depots now show as a circular storage drum of dormant Ancillary bodies, ringed by large body-shaped pods like cartridges in a revolver cylinder, on the 3D map",
+      "Ancillary Depots now show as a circular storage drum of dormant Ancillary bodies, ringed by twelve blackened-iron storage pods with brass collars and small cyan seam lights, on the 3D map",
       "The 2D map's Ancillary Depot icon and its info-card art match the new storage-drum look",
       "The Ancillary Factory keeps its hopper-tower manufactory"
     ]
