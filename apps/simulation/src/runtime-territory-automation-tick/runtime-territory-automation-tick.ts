@@ -38,6 +38,13 @@ export type TickTerritoryAutomationInput = {
   emitPlayerStateUpdate: (input: { commandId: string; playerId: string }) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   emitEvent: (event: SimulationEvent) => void;
+  /**
+   * Runs once per auto-claimed tile AFTER the batched claim delta has been
+   * emitted, so a dormant waystation/watchtower on the tile activates and its
+   * own delta (carrying the activation result) lands after, not before, the
+   * plain FRONTIER claim delta. Same contract as applyReachAutoClaim's hook.
+   */
+  onTileClaimed?: (tileKey: string, ownerId: string, claimCommandId: string) => void;
   /** When provided, yields the event loop between major phases and between
    *  players so the 30s watchdog never fires on a busy tick. */
   yieldToEventLoop?: () => Promise<void>;
@@ -70,6 +77,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
     _playersProcessed++;
 
     const claimDeltas: Array<ReturnType<TickTerritoryAutomationInput["tileDeltaFromState"]>> = [];
+    const claimedKeys: string[] = [];
     let claimsThisPlayer = 0;
     let claimCommandId: string | undefined;
     const scanAnchors = () => {
@@ -134,6 +142,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           _claimReplaceTileStateMs += _replaceDuration;
           _claimAnchorScanMs -= _replaceDuration;
           claimDeltas.push(input.tileDeltaFromState(claimedTile));
+          claimedKeys.push(targetKey);
           _tilesActuallyClaimed++;
           claimsThisPlayer++;
         }
@@ -157,6 +166,8 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           goldCost: FRONTIER_CLAIM_COST * claimDeltas.length,
           tileDeltas: claimDeltas
         });
+        // Activate before the player-state push so a waystation's gold/manpower/tech grant is in it.
+        for (const claimedKey of claimedKeys) input.onTileClaimed?.(claimedKey, playerId, cmdId);
         input.emitPlayerStateUpdate({ commandId: cmdId, playerId });
         _claimEmitMs += Date.now() - _tEmit;
       };
