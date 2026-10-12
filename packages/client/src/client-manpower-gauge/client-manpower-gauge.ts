@@ -43,9 +43,9 @@ const refillText = (input: ManpowerGaugeInput): RefillText => {
   if (input.regenPerMinute <= 0) return { long: "Paused", short: "Paused", quiet: true };
   if (input.nextRefillAtMs === undefined) return { long: "", short: "", quiet: true };
   const remaining = input.nextRefillAtMs - input.nowMs;
-  if (remaining <= 0) return { long: "Refilling…", short: "now", quiet: false };
+  if (remaining <= 0) return { long: "Installing…", short: "now", quiet: false };
   const eta = formatRefillCountdown(remaining);
-  return { long: `Refill in ${eta}`, short: eta, quiet: false };
+  return { long: `Next batch in ${eta}`, short: eta, quiet: false };
 };
 
 export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {
@@ -56,7 +56,7 @@ export const manpowerGaugeChipHtml = (input: ManpowerGaugeInput): string => {
   const windowHours = MANPOWER_REFILL_WINDOW_MS / 3_600_000;
   const logistics = input.logisticsPerMinute > 0 ? ` Muster logistics throughput: ${input.logisticsPerMinute.toFixed(1)}/min.` : "";
   const staged = input.staged > 0 ? ` ${formatAmount(input.staged)} is staged in muster flags.` : "";
-  const title = `Manpower gates attacks and refills every ${windowHours}h.${staged}${logistics} Tap for cap and regen breakdown.`;
+  const title = `Manpower gates attacks. Locals are converted into a new batch of ancillaries every ${windowHours}h.${staged}${logistics} Tap for cap and regen breakdown.`;
   return `<button class="stat-chip stat-chip-manpower mp-gauge ${stateClass(manpower, manpowerCap)}" type="button" data-panel="manpower" title="${title}">
       <b class="mp-gauge-row"><b class="mp-gauge-label"><b class="mp-gauge-label-long">Manpower</b><b class="mp-gauge-label-short">MP</b></b><i class="mp-gauge-refill${refill.quiet ? " is-quiet" : ""}"><i class="mp-gauge-refill-long">${refill.long}</i><i class="mp-gauge-refill-short">${refill.short}</i></i></b>
       <b class="mp-gauge-row">
