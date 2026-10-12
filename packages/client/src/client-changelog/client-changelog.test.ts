@@ -19,14 +19,12 @@ const createState = (overrides?: {
   profileSetupRequired?: boolean;
   seenAt?: number;
   open?: boolean;
-  guideCompleted?: boolean;
 }) => ({
-  guide: { completed: overrides?.guideCompleted ?? true },
   authSessionReady: overrides?.authSessionReady ?? true,
   profileSetupRequired: overrides?.profileSetupRequired ?? false,
   changelog: {
     open: overrides?.open ?? false,
-    seenAt: overrides?.seenAt ?? 0,
+    seenAt: overrides?.seenAt ?? 1,
     scrollTop: 0
   }
 });
@@ -47,8 +45,8 @@ describe("client changelog", () => {
     expect(shouldShowClientChangelog(createState({ seenAt: latestAt }), latestAt)).toBe(false);
     expect(shouldShowClientChangelog(createState({ authSessionReady: false }), latestAt)).toBe(false);
     expect(shouldShowClientChangelog(createState({ profileSetupRequired: true }), latestAt)).toBe(false);
-    // New players (tutorial not completed) never get release notes.
-    expect(shouldShowClientChangelog(createState({ guideCompleted: false }), latestAt)).toBe(false);
+    // First-time visitors (no stored changelog timestamp) never get release notes.
+    expect(shouldShowClientChangelog(createState({ seenAt: 0 }), latestAt)).toBe(false);
   });
 
   it("persists the seen timestamp when the popup is dismissed", () => {
@@ -146,7 +144,7 @@ describe("client changelog", () => {
     // overlay update never happens even though the click was otherwise
     // handled correctly (seen-timestamp persisted). The close handler must
     // now hide the overlay itself first, independent of renderHud() succeeding.
-    const state = createState({ seenAt: 0 });
+    const state = createState({ seenAt: 1 });
     const changelogOverlayEl = document.createElement("div");
     const persistSeenAt = vi.fn();
     const throwingRenderHud = vi.fn(() => {
@@ -178,7 +176,7 @@ describe("client changelog", () => {
   });
 
   it("baselines a brand-new player at the latest release instead of showing the backlog", () => {
-    const state = createState({ seenAt: 0, guideCompleted: false });
+    const state = createState({ seenAt: 0 });
     const changelogOverlayEl = document.createElement("div");
     const persistSeenAt = vi.fn();
     const args = { state: state as any, changelogOverlayEl: changelogOverlayEl as any, buildVersion: "deadbeef", persistSeenAt, renderHud: vi.fn() };
@@ -189,8 +187,7 @@ describe("client changelog", () => {
     expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
     expect(persistSeenAt).toHaveBeenCalledWith(CLIENT_CHANGELOG_STORAGE_KEY, String(latestClientChangelogTimestamp()));
 
-    // Finishing the tutorial must not surface the backlog they were baselined past.
-    state.guide.completed = true;
+    // Re-rendering must not surface the backlog they were baselined past.
     renderClientChangelogOverlay(args);
     expect(changelogOverlayEl.style.display).toBe("none");
   });
