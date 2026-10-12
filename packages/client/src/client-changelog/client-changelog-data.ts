@@ -342,6 +342,26 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
   },
   {
+    createdAt: 1791832192120,
+    introducedIn: "2026.10.12.2",
+    title: "Storm clouds over unexplored land",
+    why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
+    changes: [
+      "Unexplored territory is now a bank of warm iron storm clouds, lit by lantern light along the edge of your known world, in both the 3D map and the 2D map",
+      "Unexplored tiles bordering your land are mostly shrouded, giving just a glimpse of their terrain up to a brass edge, while every tile you've explored stays completely clear",
+      "When you explore new land the clouds roll back off it with a lantern-lit glow instead of vanishing instantly",
+      "Land you've explored but can't currently see now looks like a faded survey print, keeping its forests and mountains, instead of turning near-black",
+      "Faint tile outlines show through the clouds, and distant terrain fades into them instead of into black"
+    ]
+  },
+  {
+    createdAt: 1791832192121,
+    introducedIn: "2026.10.12.2",
+    title: "No error when pressing Esc with nothing to cancel",
+    why: "Pressing Esc to close a menu, with no capture running, popped up an \"Action failed: no active capture to cancel\" warning.",
+    changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",

@@ -1,0 +1,329 @@
+import {
+  UNEXPLORED_BRASS,
+  UNEXPLORED_BRASS_DARK,
+  UNEXPLORED_LANTERN,
+  UNEXPLORED_STORM_DARK,
+  UNEXPLORED_STORM_INK,
+  UNEXPLORED_STORM_LIGHT,
+  UNEXPLORED_STORM_MID
+} from "./client-unexplored-storm-palette.js";
+
+// 2D canvas counterpart of client-map-3d-unexplored-storm.ts: unexplored
+// tiles are filled from one seamlessly tiling storm-cloud texture (soft
+// cloud masses under faint straight rain streaks), anchored to world coordinates so
+// the clouds stay put under the map while the camera pans.
+export const UNEXPLORED_STORM_TEXTURE_PX = 256;
+// World tiles one copy of the texture spans. Large enough that the repeat
+// isn't obvious, with cloud features sized like the 3D shader's (~5 tiles).
+export const UNEXPLORED_STORM_TEXTURE_TILES = 16;
+// Hatch lines per texture along x. Integer so they wrap seamlessly at the
+// texture edge; 45 / 16 tiles ~= the 3D shader's 2.8 lines per tile.
+const HATCH_LINES_PER_TEXTURE = 45;
+// Base noise cells per texture for the fine cloud body and the broad masses.
+const BODY_LATTICE = 3;
+const MASS_LATTICE = 2;
+
+type Rgb = readonly [number, number, number];
+const hexRgb = (hex: string): Rgb => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+const mixRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const smoothstep = (e0: number, e1: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+
+const latticeHash = (x: number, y: number, period: number, seed: number): number => {
+  const wx = ((x % period) + period) % period;
+  const wy = ((y % period) + period) % period;
+  const s = Math.sin(wx * 127.1 + wy * 311.7 + seed * 74.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+
+// Value noise on a lattice that wraps every `period` cells, so the octave
+// tiles seamlessly across the texture edge.
+const periodicNoise = (u: number, v: number, period: number, seed: number): number => {
+  const x0 = Math.floor(u);
+  const y0 = Math.floor(v);
+  const fx = u - x0;
+  const fy = v - y0;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = latticeHash(x0, y0, period, seed);
+  const b = latticeHash(x0 + 1, y0, period, seed);
+  const c = latticeHash(x0, y0 + 1, period, seed);
+  const d = latticeHash(x0 + 1, y0 + 1, period, seed);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+};
+
+// u, v in [0, 1): position across the texture.
+const periodicFbm = (u: number, v: number, lattice: number, seed: number): number => {
+  let sum = 0;
+  let amp = 0.5;
+  let period = lattice;
+  for (let octave = 0; octave < 4; octave += 1) {
+    sum += amp * periodicNoise(u * period, v * period, period, seed + octave);
+    period *= 2;
+    amp *= 0.5;
+  }
+  return sum / 0.9375;
+};
+
+/** RGBA pixels of the seamless storm texture (exported for tests). */
+export const buildUnexploredStormPixels = (sizePx: number = UNEXPLORED_STORM_TEXTURE_PX): Uint8ClampedArray => {
+  const dark = hexRgb(UNEXPLORED_STORM_DARK);
+  const mid = hexRgb(UNEXPLORED_STORM_MID);
+  const light = hexRgb(UNEXPLORED_STORM_LIGHT);
+  const ink = hexRgb(UNEXPLORED_STORM_INK);
+  const out = new Uint8ClampedArray(sizePx * sizePx * 4);
+  for (let py = 0; py < sizePx; py += 1) {
+    for (let px = 0; px < sizePx; px += 1) {
+      const u = px / sizePx;
+      const v = py / sizePx;
+      const body = periodicFbm(u, v, BODY_LATTICE, 1);
+      const mass = periodicFbm(u, v, MASS_LATTICE, 11);
+      let color = mixRgb(dark, mid, smoothstep(0.3, 0.75, (body + mass) / 2));
+      color = mixRgb(color, light, smoothstep(0.6, 0.85, body) * 0.55);
+      // Rain: fine straight streaks, top-left to bottom-right, a touch
+      // stronger under the densest cloud. Kept faint and thin -- heavier,
+      // wider strokes read as diagonal hatching stripes across the fog.
+      const hatchCoord = ((px - py) / sizePx) * HATCH_LINES_PER_TEXTURE;
+      const hatchDist = Math.abs(hatchCoord - Math.round(hatchCoord));
+      const hatch = 1 - smoothstep(0.06, 0.14, hatchDist);
+      color = mixRgb(color, ink, hatch * (0.04 + smoothstep(0.35, 0.75, mass) * 0.12));
+      const i = (py * sizePx + px) * 4;
+      out[i] = color[0];
+      out[i + 1] = color[1];
+      out[i + 2] = color[2];
+      out[i + 3] = 255;
+    }
+  }
+  return out;
+};
+
+export const UNEXPLORED_STORM_EDGE_COLOR = "rgba(40, 44, 46, 0.35)";
+const UNEXPLORED_STORM_EDGE_MIN_TILE_PX = 8;
+
+let cachedPattern: { ctx: CanvasRenderingContext2D; pattern: CanvasPattern } | undefined;
+
+const stormPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefined => {
+  if (cachedPattern?.ctx === ctx) return cachedPattern.pattern;
+  if (typeof document === "undefined" || typeof ctx.createPattern !== "function") return undefined;
+  const source = document.createElement("canvas");
+  source.width = UNEXPLORED_STORM_TEXTURE_PX;
+  source.height = UNEXPLORED_STORM_TEXTURE_PX;
+  const sourceCtx = source.getContext("2d");
+  if (!sourceCtx || typeof sourceCtx.createImageData !== "function") return undefined;
+  const image = sourceCtx.createImageData(UNEXPLORED_STORM_TEXTURE_PX, UNEXPLORED_STORM_TEXTURE_PX);
+  image.data.set(buildUnexploredStormPixels());
+  sourceCtx.putImageData(image, 0, 0);
+  const pattern = ctx.createPattern(source, "repeat");
+  if (!pattern) return undefined;
+  cachedPattern = { ctx, pattern };
+  return pattern;
+};
+
+/**
+ * Sets fillStyle to the storm, world-anchored so tile (wx, wy) lands at
+ * screen (px, py); a solid storm grey where patterns aren't available.
+ */
+// The pattern's current transform. World-anchored, it's the same for every
+// tile in a frame (bar the world-wrap seam), so it's only rebuilt when it
+// changes -- not a fresh DOMMatrix per fog tile per frame.
+let patternTransform: { pattern: CanvasPattern; scale: number; tx: number; ty: number } | undefined;
+const sameTransform = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6;
+
+export const setUnexploredStormFill = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
+  const pattern = stormPatternFor(ctx);
+  if (pattern && typeof pattern.setTransform === "function" && typeof DOMMatrix !== "undefined") {
+    const scale = (size * UNEXPLORED_STORM_TEXTURE_TILES) / UNEXPLORED_STORM_TEXTURE_PX;
+    const tx = px - wx * size;
+    const ty = py - wy * size;
+    const last = patternTransform;
+    if (!last || last.pattern !== pattern || !sameTransform(last.scale, scale) || !sameTransform(last.tx, tx) || !sameTransform(last.ty, ty)) {
+      pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, tx, ty]));
+      patternTransform = { pattern, scale, tx, ty };
+    }
+    ctx.fillStyle = pattern;
+  } else {
+    ctx.fillStyle = UNEXPLORED_STORM_MID;
+  }
+};
+
+/** Fills one unexplored tile's screen square with the world-anchored storm clouds. */
+export const drawUnexploredStormTile = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number
+): void => {
+  setUnexploredStormFill(ctx, wx, wy, px, py, size);
+  ctx.fillRect(px, py, size, size);
+  // Faint tile edges under the cloud (top + left, so each shared edge is
+  // drawn once), matching the 3D layer's hinted grid. Skipped once tiles
+  // are too small for a line to read as anything but noise.
+  if (size >= UNEXPLORED_STORM_EDGE_MIN_TILE_PX) {
+    ctx.fillStyle = UNEXPLORED_STORM_EDGE_COLOR;
+    ctx.fillRect(px, py, size, 1);
+    ctx.fillRect(px, py + 1, 1, size - 1);
+  }
+};
+
+// 2D counterpart of the 3D storm shader's fog coast
+// (client-map-3d-unexplored-storm-shader.ts), for the first ring of fog:
+// unexplored tiles with an explored tile among their 8 neighbours. The
+// caller draws the ring tile's own ground first (left clear); this then lays
+//   1. the storm, beyond a wavy line only ~0.2-0.35 tile in from every side
+//      (or corner) that touches explored land -- the shroud covers most of
+//      the tile, leaving a glimpse;
+//   2. lantern light glowing in the storm just behind that line;
+//   3. a brass survey edge along that line (bright brass, a darker storm-side
+//      edge).
+// Explored tiles themselves are never drawn on. The waves are keyed to world
+// coordinates along the edge, so they run continuously between tiles.
+
+type Side = {
+  readonly ox: number;
+  readonly oy: number;
+  /** Screen point at fraction `t` along the side, `depth` px into the tile. */
+  readonly at: (px: number, py: number, size: number, t: number, depth: number) => readonly [number, number];
+  /** World coordinate along the side at t = 0, and of the side's own line. */
+  readonly along: (wx: number, wy: number) => number;
+  readonly line: (wx: number, wy: number) => number;
+};
+
+const SIDES: readonly Side[] = [
+  { ox: 0, oy: -1, at: (px, py, size, t, d) => [px + t * size, py + d], along: (wx) => wx, line: (_wx, wy) => wy },
+  { ox: 0, oy: 1, at: (px, py, size, t, d) => [px + t * size, py + size - d], along: (wx) => wx, line: (_wx, wy) => wy + 1 },
+  { ox: -1, oy: 0, at: (px, py, size, t, d) => [px + d, py + t * size], along: (_wx, wy) => wy, line: (wx) => wx },
+  { ox: 1, oy: 0, at: (px, py, size, t, d) => [px + size - d, py + t * size], along: (_wx, wy) => wy, line: (wx) => wx + 1 }
+];
+const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const;
+
+const WAVE_STEPS = 8;
+// Below this the border would be a sub-pixel smear; skip it (and its 8
+// neighbour lookups per tile) entirely on a zoomed-out 2D map.
+const EDGE_MIN_TILE_PX = 6;
+// Below this tile size the band is a few pixels wide; a straight one reads better.
+const EDGE_DETAIL_MIN_TILE_PX = 12;
+
+const rgba = (hex: string, alpha: number): string =>
+  `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
+
+// Clear ground before the storm, in tiles, wherever the fog's edge isn't
+// wobbling: the radius of the arcs around explored corners, and the depth
+// every side's wave settles to at each tile corner.
+export const UNEXPLORED_BAND_BASE = 0.27;
+
+/**
+ * Depth of the clear ground before the storm, in tiles, at world position
+ * `a` along a fog edge on line `l`. The wobble fades to nothing at whole
+ * tiles, so a side's wave meets the next tile's wave -- or a corner's arc --
+ * at exactly UNEXPLORED_BAND_BASE: no step in the brass line at a corner.
+ */
+export const unexploredBandDepth = (a: number, l: number): number => {
+  const envelope = Math.sin(Math.PI * (a - Math.floor(a)));
+  return UNEXPLORED_BAND_BASE + envelope * (0.05 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.03 * Math.sin(a * Math.PI * 4.6 + l * 0.9));
+};
+
+// Lantern glow falloff, in tiles from the explored edge: the same for a
+// side's straight band and a corner's arc, so the glow doesn't change
+// abruptly where a side tile meets a corner tile.
+const GLOW_FROM = 0.2;
+const GLOW_TO = 0.6;
+
+export { isUnexploredCoastRing } from "./client-unexplored-fog-ring.js";
+
+/** Whether a fog tile this large gets the coast treatment (else plain storm). */
+export const unexploredCoastVisibleAt = (size: number): boolean => size >= EDGE_MIN_TILE_PX;
+
+/**
+ * Coast treatment for a first-ring fog tile at (wx, wy), drawn over its
+ * already-drawn dimmed ground; neighbours at offset (ox, oy) may be
+ * explored. Draws only inside this tile's square.
+ */
+export const drawUnexploredStormEdge2D = (
+  ctx: CanvasRenderingContext2D,
+  wx: number,
+  wy: number,
+  px: number,
+  py: number,
+  size: number,
+  isExploredAt: (ox: number, oy: number) => boolean
+): void => {
+  const sides = SIDES.filter((side) => isExploredAt(side.ox, side.oy));
+  // A diagonal-only contact gets an arc; beside an explored side it would
+  // lie inside that side's band (and double its glow).
+  const corners = CORNERS.filter(([ox, oy]) => isExploredAt(ox, oy) && !isExploredAt(ox, 0) && !isExploredAt(0, oy));
+  const detailed = size >= EDGE_DETAIL_MIN_TILE_PX;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, py, size, size);
+  ctx.clip();
+
+  // 1. Storm beyond every band: clip to the intersection of "past this
+  // side's wave" / "outside this corner's arc" for each one.
+  ctx.save();
+  const edges: Array<() => void> = [];
+  const glows: Array<() => CanvasGradient> = [];
+  for (const side of sides) {
+    const a0 = side.along(wx, wy);
+    const l = side.line(wx, wy);
+    const steps = detailed ? WAVE_STEPS : 1;
+    const wave: Array<readonly [number, number]> = [];
+    for (let k = 0; k <= steps; k += 1) {
+      const t = k / steps;
+      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : UNEXPLORED_BAND_BASE)));
+    }
+    const [fx1, fy1] = side.at(px, py, size, 1, size);
+    const [fx0, fy0] = side.at(px, py, size, 0, size);
+    ctx.beginPath();
+    wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey)));
+    ctx.lineTo(fx1, fy1);
+    ctx.lineTo(fx0, fy0);
+    ctx.closePath();
+    ctx.clip();
+    edges.push(() => wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey))));
+    const [g0x, g0y] = side.at(px, py, size, 0.5, size * GLOW_FROM);
+    const [g1x, g1y] = side.at(px, py, size, 0.5, size * GLOW_TO);
+    glows.push(() => ctx.createLinearGradient(g0x, g0y, g1x, g1y));
+  }
+  for (const [ox, oy] of corners) {
+    const cx = px + (ox > 0 ? size : 0);
+    const cy = py + (oy > 0 ? size : 0);
+    const r = size * UNEXPLORED_BAND_BASE;
+    ctx.beginPath();
+    ctx.rect(px, py, size, size);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip("evenodd");
+    edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
+    glows.push(() => ctx.createRadialGradient(cx, cy, size * GLOW_FROM, cx, cy, size * GLOW_TO));
+  }
+  setUnexploredStormFill(ctx, wx, wy, px, py, size);
+  ctx.fillRect(px, py, size, size);
+  // Lantern light glowing in the storm just behind the brass edge.
+  for (const glow of glows) {
+    const gradient = glow();
+    gradient.addColorStop(0, rgba(UNEXPLORED_LANTERN, 0.35));
+    gradient.addColorStop(1, rgba(UNEXPLORED_LANTERN, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(px, py, size, size);
+  }
+
+  // 2. Brass edge, still clipped to the storm region so each stroke shows
+  // only its storm-side half (and never crosses another side's band): a
+  // wide dark-brass stroke under a narrower bright one.
+  const rimWidth = Math.max(1, size * 0.04);
+  for (const [style, width] of [[UNEXPLORED_BRASS_DARK, rimWidth * 3.4], [UNEXPLORED_BRASS, rimWidth * 2]] as const) {
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    for (const edge of edges) {
+      ctx.beginPath();
+      edge();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  ctx.restore();
+};

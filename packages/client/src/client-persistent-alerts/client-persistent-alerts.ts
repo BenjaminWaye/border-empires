@@ -82,6 +82,10 @@ export const serverStartingBusyMessages = (backlogDegraded: boolean): { detail: 
 export const notificationCategoryForServerError = (code: string): NotificationCategory => {
   if (code === "TOWN_UNFED") return "persistent_alert";
   if (code === "SIMULATION_UNAVAILABLE" || code === "SERVER_STARTING") return "debug";
+  // Esc / "Cancel" sends CANCEL_CAPTURE whether or not a capture is running
+  // (client-selected-actions.ts); "nothing to cancel" is the state the
+  // player asked for, not a failure worth a toast.
+  if (code === "NO_ACTIVE_CAPTURE") return "debug";
   if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
   if (code === "COLLECT_EMPTY" || code === "COLLECT_COOLDOWN") return "action_feedback";
   return "action_feedback";
