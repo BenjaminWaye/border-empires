@@ -143,8 +143,8 @@ const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   SHARD: 0
 });
 
-// TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced (docs/manpower-economy-
-// rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
+// TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced —
+// only FARM/FISH still feed FOOD here.
 // Resource slots: FOOD joined
 // TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced — there's only one food
 // mechanic now (§5.4 dormancy on FOOD slot shortfall, replacing the old

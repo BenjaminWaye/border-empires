@@ -820,7 +820,7 @@ export {
 } from "./economy-network-first-three-towns.js";
 
 
-// a town is "fed" (produces
+// A town is "fed" (produces
 // gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
 // — FOOD no longer has a separate stockpile/flow gate (there's only one food
 // mechanic now: slots). `foodDormantTownKeys` is the FOOD-resource dormancy

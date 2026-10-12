@@ -72,7 +72,7 @@ export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;
 export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
-// a structure's slot
+// A structure's slot
 // occupation IS its upkeep now — there is nothing left to meter per-minute
 // on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
 // were never retired to 0 when their build cost moved to manpower + slots
@@ -128,7 +128,7 @@ export const TITANIUM_LEVY_REGEN_FREEZE_MS = SHARED_TITANIUM_LEVY_REGEN_FREEZE_M
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
-// synthesizers are the ONE
+// Synthesizers are the ONE
 // structure family gold still gates on an ongoing basis — everything else
 // is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
 // comment above). Decided figures: 30 gold/day (Umbrite/Titanium), 40 gold/day

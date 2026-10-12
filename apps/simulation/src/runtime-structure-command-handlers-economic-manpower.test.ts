@@ -1,5 +1,6 @@
 /**
- * Regression tests for the manpower-economy rewrite: every economic structure now costs manpower as a
+ * Regression tests for the manpower-economy rewrite: every economic
+ * structure now costs manpower as a
  * primary cost, not just gold — previously only FORT/SIEGE_OUTPOST/
  * WOODEN_FORT/RELAY_BEACON were manpower-gated; economic structures like
  * MINTWORKS, CARAVANARY, FARMSTEAD, etc. cost zero manpower.
@@ -15,7 +16,8 @@ type RawPlayerRef = { manpower: number };
 /**
  * Constructs a runtime and normalizes the actor's manpower to exactly
  * `startingManpower`, sidestepping the unrelated "cap grew" migration grant
- * (see tick-territory-automation-ai-manpower-reserve.test.ts's fuller writeup of
+ * (see tick-territory-automation-ai-manpower-reserve.test.ts's fuller
+ * writeup of
  * the same quirk): reading a snapshot once lets that one-time grant settle
  * before the raw value under test is set directly.
  */

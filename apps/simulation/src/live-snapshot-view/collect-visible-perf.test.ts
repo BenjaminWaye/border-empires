@@ -350,8 +350,8 @@ describe("yield-bearing tile index: correctness", () => {
     //   2. tiles > 0 (at least some tiles yielded)
     // FOOD/TITANIUM are NOT asserted here: FARM/FISH's food contribution and
     // TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER's output are
-    // both slot-based now, not a stockpiled per-minute yield (docs/manpower-
-    // economy-rewrite-plan.md §5.4/§5.6) — passive collection on these tile
+    // both slot-based now, not a stockpiled per-minute yield —
+    // passive collection on these tile
     // types is 0 by design, not a bug. See strategicDailyFromResource
     // (tile-yield-view.ts) and strategicProductionPerMinuteForResource
     // (player-runtime-summary.ts) for the same documented retirement.

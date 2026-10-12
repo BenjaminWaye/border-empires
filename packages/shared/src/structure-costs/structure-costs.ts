@@ -15,7 +15,7 @@ export type StructureCostDefinition = {
   scaling?: StructureScaling;
 };
 
-// Build gold costs are zeroed throughout this table per
+// Build gold costs are zeroed throughout this table:
 // manpower (and, where noted,
 // strategic resources) is the sole build cost now — gold only gates
 // synthesizers (and, separately, a few structures) on an ONGOING per-minute

@@ -100,8 +100,8 @@ const addBucket = (
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => (right.amountPerMinute - left.amountPerMinute) || left.label.localeCompare(right.label));
 
-// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
-// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced —
+// there's only one food mechanic now (slot
 // dormancy). FARM/FISH still grant FOOD *slot supply* (structure-slots.ts),
 // a separate, untouched mechanism.
 const strategicProductionPerMinuteForResource = (_resource: DomainTileState["resource"] | undefined): number => 0;

@@ -1,5 +1,6 @@
 /**
- * Regression tests for rush-buy, extended per user direction to also cover an
+ * Regression tests for rush-buy, extended per user direction to also
+ * cover an
  * already-in-progress SETTLE/build: pay gold to finish it instantly,
  * priced by rushBuyPriceGold (time-proportional, anchored on the action's
  * manpower cost at 0.5 gold/manpower).

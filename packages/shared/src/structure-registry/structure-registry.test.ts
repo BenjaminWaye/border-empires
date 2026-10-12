@@ -116,7 +116,7 @@ test("OBSERVATORY cost matches existing constants", () => {
   const spec = STRUCTURE_REGISTRY["OBSERVATORY"];
   // Build gold cost is zeroed.
   expect(spec.cost.gold).toBe(0);
-  // Manpower-economy rewrite Step 4:
+  // Manpower-economy rewrite:
   // Observatory is a Tier 1 economic sink, now 80 manpower.
   expect(spec.cost.manpower).toBe(80);
   // No build-time CRYSTAL figure — its CRYSTAL cost is the permanent slot
@@ -332,7 +332,7 @@ describe("prerequisiteStructureTypes parity", () => {
 // ── Upkeep parity (per-minute rates from structureUpkeepPerMinute) ─
 
 describe("upkeep parity", () => {
-  // a structure's slot
+  // A structure's slot
   // occupation is its upkeep now, so every structure except synthesizers
   // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
   // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed

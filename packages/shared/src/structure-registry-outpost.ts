@@ -90,7 +90,7 @@ export const RELAY_BEACON_SPEC: StructureSpec = {
     noConflictingStructure,
     noDuplicateStructureType,
   ],
-  // retired to 0 like the
+  // Retired to 0 like the
   // rest of the non-synthesizer structure roster — RELAY_BEACON_GOLD_UPKEEP
   // is 0 now, gold's only remaining jobs are tech/rush-buys/synthesizer upkeep.
   // Food cost is already represented as a FOOD resource slot (see

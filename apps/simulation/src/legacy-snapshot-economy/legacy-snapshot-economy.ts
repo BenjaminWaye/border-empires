@@ -257,7 +257,7 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "UMBRITE_RIG": return UMBRITE_RIG_GOLD_UPKEEP / 10;
     case "MINE": return MINE_GOLD_UPKEEP / 10;
     case "GRANARY": return GRANARY_GOLD_UPKEEP / 10;
-    // this switch previously
+    // This switch previously
     // had BOTH the base and Advanced Umbrite Synthesizer cases returning
     // UMBRITE_RIG_GOLD_UPKEEP instead of their own rate — a third, previously-
     // unfound instance of the exact "Advanced synthesizer costs less to
@@ -569,7 +569,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     if (townIncome > 0) addBucket(sourceBuckets.GOLD, "Towns", townIncome, { count: ownedTowns.length, note: `${ownedTowns.length} garrisoned towns` });
     if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} garrisoned docks` });
 
-    // gold's only remaining
+    // Gold's only remaining
     // jobs post-rewrite are tech/rush-buys/synthesizer upkeep — a flat
     // per-settled-tile gold drain isn't one of those, so it's retired
     // rather than rescaled.

@@ -1,7 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { MONUMENTAL_STRUCTURE_TYPES, type MonumentalStructureType } from "@border-empires/shared";
 
-// exactly one of each monument
+// Exactly one of each monument
 // type may ever be completed in a season — a runtime instance is one season
 // (see season-winner-stats.ts), so there is no separate "season id" to track
 // against. Base type -> its 3 uniquely-named assembly-stage component types,

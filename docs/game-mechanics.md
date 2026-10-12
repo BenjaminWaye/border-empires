@@ -48,8 +48,6 @@ When something here drifts from code, fix the code reference and update this doc
 
 For detailed live rules and a code-owner map for manpower, resource slots,
 coin, and dormancy, use [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md).
-The older manpower-economy rewrite plan is historical rationale, not a source
-of executable rules.
 
 - **Resource model**: tile resource kinds and player-economy resources are distinct. FOOD, TITANIUM, CRYSTAL, and UMBRITE power global resource-slot pools rather than being stockpiled currencies; SHARD does not use slots. See the focused economy reference for supply, demand, and converter rules. `packages/shared/src/structure-slots/structure-slots.ts`
 - **Coin and support**: coin is passive per-minute income and is rescaled by `GOLD_RESCALE_DIVISOR = 288`; town/network and structure modifiers apply in the simulation economy module. An unfed town produces no coin until its separate support system recovers. Coin above a town-linked cap is lost. `packages/game-domain/src/server-game-constants/server-game-constants.ts`, `apps/simulation/src/player-update-economy/`
