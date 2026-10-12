@@ -69,8 +69,8 @@ const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
 });
 
 // Rounding precision here (and on every other .toFixed(...) in this file)
-// was bumped from 4 to 6 decimal places for the gold rescope (docs/
-// manpower-economy-rewrite-plan.md §6.1): gold amounts are now ~288x
+// was bumped from 4 to 6 decimal places for the gold rescope: gold
+// amounts are now ~288x
 // smaller, and 4dp rounding on intermediate bucket sums was coarse enough
 // relative to the new magnitudes that two independently-accumulated chains
 // could round to different 4th-decimal values despite being mathematically
@@ -100,8 +100,8 @@ const addBucket = (
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => (right.amountPerMinute - left.amountPerMinute) || left.label.localeCompare(right.label));
 
-// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
-// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced —
+// there's only one food mechanic now (slot
 // dormancy). FARM/FISH still grant FOOD *slot supply* (structure-slots.ts),
 // a separate, untouched mechanism.
 const strategicProductionPerMinuteForResource = (_resource: DomainTileState["resource"] | undefined): number => 0;

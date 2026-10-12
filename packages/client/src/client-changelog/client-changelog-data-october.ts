@@ -317,6 +317,13 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The sign-in loading card is now centered in the visible screen while the session finishes connecting"
     ]
+  },
+  {
+    createdAt: 1791818783839, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.2",
+    title: "Aether Towers see farther",
+    why: "An Aether Tower revealed no more than a cheap Relay Beacon, so it was not worth building for vision.",
+    changes: ["Aether Towers now reveal 10 tiles around themselves, up from 5"]
   }
 ];
 

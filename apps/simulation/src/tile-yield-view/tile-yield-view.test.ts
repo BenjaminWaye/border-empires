@@ -45,7 +45,7 @@ describe("buildTileYieldView", () => {
     });
 
     // 0.75 was the pre-gold-rescope figure; DOCK_INCOME_PER_MIN is now cut
-    // 288x (docs/manpower-economy-rewrite-plan.md §6.1), and both fields
+    // 288x, and both fields
     // round to their own fixed precision (roundPositive, tile-yield-view.ts)
     // — 4 digits for the rate, 3 for the 1-minute-elapsed accumulated yield.
     expect(view?.yieldRate.goldPerMinute).toBe(0.0026);
@@ -95,7 +95,7 @@ describe("buildTileYieldView", () => {
     });
 
     // buildTileYieldView rounds the displayed rate (roundPositive, 4 digits)
-    // — under the gold rescope (docs/manpower-economy-rewrite-plan.md §6.1)
+    // — under the gold rescope
     // the raw computed value now has many more significant decimals than
     // before, so the rounded display and the raw formula output are no
     // longer byte-identical; toBeCloseTo asserts they round to the same

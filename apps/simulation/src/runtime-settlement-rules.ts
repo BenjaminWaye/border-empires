@@ -7,7 +7,7 @@ import { creditManpower } from "./runtime-manpower-ceiling.js";
 export type SettleActorLike = { points: number; manpower: number };
 export type SettleRejection = { code: "INSUFFICIENT_MANPOWER" | "INSUFFICIENT_GOLD"; message: string };
 
-// Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.1-4.3):
+// Manpower-economy rewrite:
 // Settle is now gated on manpower as its primary cost — check manpower first
 // so a manpower-poor player sees INSUFFICIENT_MANPOWER, not a stale gold
 // rejection, even though the (now-nominal) gold cost still applies too.

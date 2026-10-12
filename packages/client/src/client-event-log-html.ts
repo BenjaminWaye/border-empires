@@ -1,4 +1,4 @@
-// §20 of the manpower-economy-rewrite plan: server-pushed "what happened
+// Server-pushed "what happened
 // while I was away" events. These no longer render their own panel — every
 // entry is folded into the Activity Feed (see appendFeedEntry usage in
 // client-network.ts) so players have one place to look, not two.

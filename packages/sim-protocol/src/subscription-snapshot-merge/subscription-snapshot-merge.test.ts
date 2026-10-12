@@ -36,7 +36,7 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
 // tests cover every regression either copy
 // independently accumulated, now against the single merged implementation.
 describe("applyPlayerMessageToSnapshot", () => {
-  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): the client
+  // Resource slots: the client
   // build-affordability gate reads resourceSlots off ClientState, sourced
   // from this cached PlayerSubscriptionSnapshot on reconnect -- a merge gap
   // here would serve stale slot data and reintroduce the exact bug the

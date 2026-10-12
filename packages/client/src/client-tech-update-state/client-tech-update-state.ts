@@ -32,7 +32,7 @@ const normalizeTechCatalog = (catalog: ClientState["techCatalog"] | undefined): 
     tier: typeof tech.tier === "number" && Number.isFinite(tech.tier) ? Math.max(1, Math.min(7, Math.round(tech.tier))) : tech.tier
   }));
 
-// "Reward is ready" pulse (docs/manpower-economy-rewrite-plan.md §7.3): glow a tech card
+// "Reward is ready" pulse: glow a tech card
 // the instant it crosses from unaffordable to affordable. A tech seen for the first time
 // (no prior value tracked) never pulses, so a fresh load/reconnect doesn't light up everything.
 export const TECH_AFFORDABILITY_PULSE_MS = 2200;
