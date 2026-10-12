@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
-import { FOGGED_PRINT_SEPIA } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
+import { FOGGED_PRINT_SEPIA, UNEXPLORED_LANTERN } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { drawTileGround2D, type TileGround2DInput } from "./client-map-render-2d-tile-ground.js";
+import { createUnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
 
 const makeCtx = () => {
   const fills: string[] = [];
@@ -93,5 +94,17 @@ describe("drawTileGround2D", () => {
     expect(args.drawTerrainTile).not.toHaveBeenCalled();
     expect(deep.raw.stroke).not.toHaveBeenCalled();
     expect(args.drawTerrainDetail).not.toHaveBeenCalled();
+  });
+
+  it("fades the storm off a tile, with a lantern flash, when it becomes explored", () => {
+    const tracker = createUnexploredRevealTracker();
+    const before = makeCtx();
+    drawTileGround2D(before.ctx, input({ tile: undefined, vis: "unexplored", neighbourVisibility: () => "unexplored", nowMs: 0 }), tracker);
+    const after = makeCtx();
+    drawTileGround2D(after.ctx, input({ vis: "visible", nowMs: 10 }), tracker);
+    expect(after.fills).toContain(UNEXPLORED_LANTERN);
+    const later = makeCtx();
+    drawTileGround2D(later.ctx, input({ vis: "visible", nowMs: 5000 }), tracker);
+    expect(later.fills).not.toContain(UNEXPLORED_LANTERN);
   });
 });

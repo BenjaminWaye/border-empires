@@ -3,12 +3,16 @@
 // fog's coastline lives in the first ring of unexplored tiles (those
 // touching explored land, diagonals included):
 //   1. The ring tile's own ground, left clear (no wash) from the explored
-//      edge out to a rounded, noise-wobbled contour ~0.7-0.85 of the way
-//      across the ring tile.
+//      edge out to a rounded, noise-wobbled contour only ~0.2-0.35 of the
+//      way across -- the shroud covers the rest, Civ-style, leaving a glimpse.
 //   2. A brass survey edge on that contour (bright line, darker storm-side
-//      edge, rivets at tile edges), with a lit lip on the cloud behind it.
+//      edge, rivets at tile edges), with lantern light glowing in the storm
+//      behind it.
 //   3. The storm beyond: drifting cloud masses under straight engraved
 //      rain streaks, with the hidden tile grid faintly showing through.
+// When tiles become explored it dissolves from the previous mask over
+// UNEXPLORED_REVEAL_MS (uRevealT): a noisy front sweeping outward from the
+// land already known, lantern light riding it, instead of a pop.
 // The contour is cut from a blurred field of "deep fog" (unexplored tiles
 // with no explored neighbour), so it rounds corners instead of following
 // tile squares. Tiles' own edges against explored land are anti-aliased
@@ -36,11 +40,17 @@ uniform vec3 uMid;
 uniform vec3 uLight;
 uniform vec3 uInk;
 uniform vec3 uBrass;
+uniform vec3 uLantern;
 uniform vec3 uBrassDark;
 uniform vec3 uRivet;
 uniform sampler2D uMask;
 uniform vec2 uMaskMin;
 uniform vec2 uMaskSize;
+uniform sampler2D uPrevMask;
+uniform vec2 uPrevMaskMin;
+uniform vec2 uPrevMaskSize;
+uniform vec2 uPrevOffset;
+uniform float uRevealT;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -64,11 +74,24 @@ float lines(float x, float halfWidth) {
   return l * clamp(1.6 - fw * 5.0, 0.0, 1.0);
 }
 
-const float EDGE = 0.47;
+// Contour level in the deep-fog field: ~0.2-0.35 tile into a ring tile, so
+// the shroud covers most of it and leaves only a glimpse of its ground.
+const float EDGE = 0.24;
 
 float maskR(vec2 tile) {
   vec2 uv = (tile + 0.5 - uMaskMin) / uMaskSize;
   return (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? 1.0 : texture2D(uMask, uv).r;
+}
+
+// The previous mask at this point (scene coords of the current mask), for
+// the reveal: x = unexplored (R at the tile centre), y = the soft field
+// (single bilinear tap). Outside it: all storm.
+vec2 prevMaskAt(vec2 sceneXZ) {
+  vec2 p = sceneXZ + uPrevOffset;
+  vec2 tileUv = (floor(p) + 0.5 - uPrevMaskMin) / uPrevMaskSize;
+  vec2 uv = (p - uPrevMaskMin) / uPrevMaskSize;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return vec2(1.0);
+  return vec2(texture2D(uPrevMask, tileUv).r, texture2D(uPrevMask, uv).g);
 }
 
 void main() {
@@ -104,6 +127,32 @@ void main() {
   float soft = outside ? 1.0 : (texture2D(uMask, uv).g * 2.0
     + texture2D(uMask, uv + vec2(tap.x, tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, tap.y)).g
     + texture2D(uMask, uv + vec2(tap.x, -tap.y)).g + texture2D(uMask, uv + vec2(-tap.x, -tap.y)).g) / 6.0;
+  // Reveal: the clouds roll back off newly explored land instead of
+  // popping. The soft field (and so the cloud contour, brass edge and
+  // lantern glow) moves from the previous mask to the new one in a noisy
+  // front sweeping outward from the land already known (low old soft field
+  // first); the per-tile cover only switches at the very end, so new land is
+  // uncovered by that moving contour, in step with the new border tiles'
+  // glimpse, never cut square against them.
+  float revealLocal = 1.0;
+  float revealFront = 0.0;
+  vec2 prev = vec2(hard, soft);
+  if (uRevealT < 1.0) {
+    prev = prevMaskAt(vSceneXZ);
+    float order = clamp(prev.y * 0.7 + fbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);
+    revealLocal = smoothstep(order - 0.12, order + 0.12, uRevealT * 1.24 - 0.12);
+    // Lantern light rides the front wherever the cloud field is receding --
+    // smooth across tiles, unlike the per-tile cover change.
+    float bell = 1.0 - abs(revealLocal * 2.0 - 1.0);
+    revealFront = smoothstep(0.1, 0.5, prev.y - soft) * bell * bell;
+  }
+  hard = mix(prev.x, hard, smoothstep(0.9, 1.0, revealLocal));
+  // The edge AA reads the new mask, so it would cut the new tiles' outlines
+  // out of still-dissolving cloud; it blends in with the reveal too.
+  edgeAa = mix(1.0, edgeAa, revealLocal);
+  // deep is NOT blended: exploring only ever clears it, so the new value is
+  // right, and blending its per-tile steps cut square holes in the cloud.
+  soft = mix(prev.y, soft, revealLocal);
   float s = soft + edgeNoise * 0.1;
   float sw = clamp(fwidth(s), 0.004, 0.04);
 
@@ -147,6 +196,13 @@ void main() {
   col = mix(col, uBrass, brass);
   col = mix(col, uRivet, rivet);
   coverAlpha = max(coverAlpha, max(max(brass, brassEdge * 0.9), rivet));
+
+  // Lantern light: the storm glows warm just behind the brass edge.
+  float lantern = (1.0 - deep) * stormCover * exp(-max(dRim, 0.0) * 9.0);
+  col += uLantern * lantern * 0.35;
+
+  // Lantern flash on the clouds as they roll back off newly explored tiles.
+  col += uLantern * revealFront * 0.5;
 
   // Explored tiles are never drawn on.
   float alpha = hard * edgeAa * coverAlpha;

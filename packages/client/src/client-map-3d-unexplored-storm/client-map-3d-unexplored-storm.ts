@@ -12,11 +12,13 @@ import {
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
+import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import type { TileVisibilityState } from "../client-types.js";
 import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
+  UNEXPLORED_LANTERN,
   UNEXPLORED_RIVET,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
@@ -24,7 +26,7 @@ import {
   UNEXPLORED_STORM_MID
 } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
-import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
+import { buildUnexploredStormMask, countNewlyExplored, type UnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
 // lying level with the land (flat ground tops out at ~0.26), so the
@@ -32,7 +34,7 @@ import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
 // same plane as the ground it hides. A per-tile explored mask (rebuilt with
 // the terrain window) restricts the storm to unexplored tiles: tiles in
 // sight are never drawn over. The first ring of unexplored tiles is the fog's
-// "coast": its ground shows clear up to a rounded brass survey edge and the storm's edge
+// "coast": a glimpse of its ground shows up to a rounded brass survey edge and the storm's edge
 // running through its outer part. Faint tile-edge lines show through the
 // cloud so the hidden grid is still hinted. Look and layering:
 // client-map-3d-unexplored-storm-shader.ts.
@@ -46,6 +48,8 @@ export const UNEXPLORED_STORM_Y = 0.27;
 const STORM_PLANE_SIZE = 3600;
 // Wraps the animation clock so float precision never degrades the drift.
 const STORM_TIME_WRAP_SECONDS = 3600;
+// How long the clouds take to roll back off newly explored tiles.
+export const UNEXPLORED_REVEAL_MS = 900;
 
 export type UnexploredStormLayer = {
   readonly mesh: Mesh;
@@ -74,6 +78,12 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
   let mask = createMaskTexture(1, 1, new Uint8Array([255, 255, 0, 255]));
+  // The previous mask, kept so newly explored tiles can cross-fade from
+  // storm to clear (the reveal) instead of popping. Same texture as `mask`
+  // when there's nothing to animate.
+  let prevMask = mask;
+  let current: { window: TerrainWindow; mask: UnexploredStormMask } | undefined;
+  let revealStartMs = -Infinity;
   const material = new ShaderMaterial({
     toneMapped: false,
     fog: false,
@@ -89,9 +99,17 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       uBrass: { value: new Color(UNEXPLORED_BRASS) },
       uBrassDark: { value: new Color(UNEXPLORED_BRASS_DARK) },
       uRivet: { value: new Color(UNEXPLORED_RIVET) },
+      uLantern: { value: new Color(UNEXPLORED_LANTERN) },
       uMask: { value: mask },
       uMaskMin: { value: new Vector2(-1e6, -1e6) },
-      uMaskSize: { value: new Vector2(2e6, 2e6) }
+      uMaskSize: { value: new Vector2(2e6, 2e6) },
+      uPrevMask: { value: mask },
+      uPrevMaskMin: { value: new Vector2(-1e6, -1e6) },
+      uPrevMaskSize: { value: new Vector2(2e6, 2e6) },
+      // Current scene coords + this = the previous mask's scene coords.
+      uPrevOffset: { value: new Vector2(0, 0) },
+      // 0 -> 1 across a reveal; 1 = show only the current mask.
+      uRevealT: { value: 1 }
     },
     vertexShader: STORM_VERTEX_SHADER,
     fragmentShader: STORM_FRAGMENT_SHADER
@@ -101,19 +119,39 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   mesh.frustumCulled = false;
   mesh.renderOrder = RENDER_ORDER.unexploredStorm;
   mesh.onBeforeRender = () => {
-    material.uniforms.uTime!.value = (nowMs() / 1000) % STORM_TIME_WRAP_SECONDS;
+    const now = nowMs();
+    material.uniforms.uTime!.value = (now / 1000) % STORM_TIME_WRAP_SECONDS;
+    material.uniforms.uRevealT!.value = Math.min(1, Math.max(0, (now - revealStartMs) / UNEXPLORED_REVEAL_MS));
   };
   scene.add(mesh);
 
   const rebuild = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     (material.uniforms.uWorldOrigin!.value as Vector2).set(window.camX, window.camY);
     // Tile (dx, dy) spans scene [dx, dx + 1] x [dy, dy + 1].
-    const { width, height, data } = buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt);
-    mask.dispose();
-    mask = createMaskTexture(width, height, data);
+    const next = { window, mask: buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt) };
+    const revealing = current !== undefined && countNewlyExplored(current, next, WORLD_WIDTH, WORLD_HEIGHT) > 0;
+    if (prevMask !== mask) prevMask.dispose();
+    if (revealing && current) {
+      // Fade from the mask on screen now to the new one.
+      prevMask = mask;
+      (material.uniforms.uPrevMaskMin!.value as Vector2).copy(material.uniforms.uMaskMin!.value as Vector2);
+      (material.uniforms.uPrevMaskSize!.value as Vector2).copy(material.uniforms.uMaskSize!.value as Vector2);
+      (material.uniforms.uPrevOffset!.value as Vector2).set(
+        toroidDelta(current.window.camX, window.camX, WORLD_WIDTH),
+        toroidDelta(current.window.camY, window.camY, WORLD_HEIGHT)
+      );
+      revealStartMs = nowMs();
+    } else {
+      mask.dispose();
+      revealStartMs = -Infinity;
+    }
+    mask = createMaskTexture(next.mask.width, next.mask.height, next.mask.data);
+    if (!revealing) prevMask = mask;
+    current = next;
     material.uniforms.uMask!.value = mask;
+    material.uniforms.uPrevMask!.value = prevMask;
     (material.uniforms.uMaskMin!.value as Vector2).set(-window.halfW - 1, -window.halfH - 1);
-    (material.uniforms.uMaskSize!.value as Vector2).set(width, height);
+    (material.uniforms.uMaskSize!.value as Vector2).set(next.mask.width, next.mask.height);
   };
 
   return {
@@ -128,6 +166,7 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       scene.remove(mesh);
       geometry.dispose();
       material.dispose();
+      if (prevMask !== mask) prevMask.dispose();
       mask.dispose();
     }
   };

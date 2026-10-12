@@ -19,12 +19,17 @@ const pixel = (data: Uint8ClampedArray, x: number, y: number): number[] => {
 describe("unexplored storm 2D texture", () => {
   const data = buildUnexploredStormPixels(SIZE);
 
-  it("is grey cloud, not the old near-black void", () => {
-    let sum = 0;
-    for (let i = 0; i < data.length; i += 4) sum += (data[i]! + data[i + 1]! + data[i + 2]!) / 3;
+  it("is warm iron smoke (the HUD's iron palette), not the old near-black void or a cool grey", () => {
+    let sum = 0, red = 0, blue = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      sum += (data[i]! + data[i + 1]! + data[i + 2]!) / 3;
+      red += data[i]!;
+      blue += data[i + 2]!;
+    }
     const mean = sum / (data.length / 4);
-    // The previous fill was #06090f (luma ~8).
-    expect(mean).toBeGreaterThan(60);
+    // The original fill was #06090f (luma ~8).
+    expect(mean).toBeGreaterThan(30);
+    expect(red).toBeGreaterThan(blue * 1.15); // warm, not the cool grey that clashed
   });
 
   it("tiles seamlessly: the wrap seam is no rougher than any interior column step", () => {
@@ -87,7 +92,7 @@ describe("unexplored storm 2D texture", () => {
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 0 && oy === -1);
     // tile clip + one "beyond this side's wave" clip
     expect(ops.filter((op) => op === "clip")).toHaveLength(2);
-    expect(ops.filter((op) => op === "fillRect")).toHaveLength(1); // the storm only -- no wash
+    expect(ops.filter((op) => op === "fillRect")).toHaveLength(2); // the storm + its lantern glow -- no wash
     expect(ops.indexOf("stroke")).toBeGreaterThan(ops.indexOf("fillRect"));
   });
 
@@ -98,11 +103,11 @@ describe("unexplored storm 2D texture", () => {
     expect(ops.filter((op) => op === "clip")).toHaveLength(2);
   });
 
-  it("puts the foam ~0.6-0.85 of the way across the first fog tile", () => {
+  it("shrouds most of the first fog tile, leaving a ~0.2-0.35 tile glimpse", () => {
     for (let a = 0; a < 4; a += 0.05) {
       const d = unexploredBandDepth(a, 7);
-      expect(d).toBeGreaterThan(0.6);
-      expect(d).toBeLessThan(0.85);
+      expect(d).toBeGreaterThan(0.15);
+      expect(d).toBeLessThan(0.4);
     }
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildUnexploredStormMask } from "./client-unexplored-storm-mask.js";
+import { buildUnexploredStormMask, countNewlyExplored } from "./client-unexplored-storm-mask.js";
 
 const at = (mask: ReturnType<typeof buildUnexploredStormMask>, i: number, j: number) => ({
   unexplored: mask.data[(j * mask.width + i) * 4]!,
@@ -43,5 +43,32 @@ describe("buildUnexploredStormMask", () => {
     });
     expect(Math.min(...seen)).toBeGreaterThanOrEqual(0);
     expect(seen).toContain(98);
+  });
+});
+
+describe("countNewlyExplored", () => {
+  const vis = (explored: (wx: number, wy: number) => boolean) => (wx: number, wy: number) => (explored(wx, wy) ? "visible" as const : "unexplored" as const);
+  const build = (camX: number, explored: (wx: number, wy: number) => boolean) => {
+    const window = { camX, camY: 50, halfW: 3, halfH: 3 };
+    return { window, mask: buildUnexploredStormMask(window, 1000, 1000, vis(explored)) };
+  };
+
+  it("counts tiles that flipped from unexplored to explored", () => {
+    const before = build(50, (wx) => wx < 50);
+    const after = build(50, (wx, wy) => wx < 50 || (wx === 50 && wy === 50));
+    expect(countNewlyExplored(before, after, 1000, 1000)).toBe(1);
+  });
+
+  it("ignores a pure camera pan (same tiles, shifted window)", () => {
+    const explored = (wx: number) => wx < 50;
+    expect(countNewlyExplored(build(50, explored), build(52, explored), 1000, 1000)).toBe(0);
+  });
+
+  it("matches tiles across the world seam", () => {
+    const before = build(0, (wx) => wx > 500);
+    const after = build(1, (wx, wy) => wx > 500 || (wx === 1 && wy === 50));
+    expect(countNewlyExplored(before, after, 1000, 1000)).toBe(1);
+    // ...and a world-seam tile explored before stays explored (not counted).
+    expect(countNewlyExplored(build(0, (wx) => wx > 500), build(1, (wx) => wx > 500), 1000, 1000)).toBe(0);
   });
 });

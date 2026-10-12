@@ -60,3 +60,34 @@ export const buildUnexploredStormMask = (
   }
   return { width, height, data };
 };
+
+/**
+ * How many tiles are explored in `next` but were unexplored in `prev`
+ * (matched by world position across the two windows, toroidally wrapped;
+ * tiles outside `prev`'s window don't count -- they're new to the window,
+ * not newly explored). Drives the 3D storm's reveal animation, so plain
+ * camera pans (same tiles, new window) never trigger it.
+ */
+export const countNewlyExplored = (
+  prev: { readonly window: TerrainWindow; readonly mask: UnexploredStormMask },
+  next: { readonly window: TerrainWindow; readonly mask: UnexploredStormMask },
+  worldWidth: number,
+  worldHeight: number
+): number => {
+  const wrapDelta = (d: number, size: number): number => ((((d % size) + size + size / 2) % size) - size / 2);
+  const shiftX = wrapDelta(next.window.camX - next.window.halfW - (prev.window.camX - prev.window.halfW), worldWidth);
+  const shiftY = wrapDelta(next.window.camY - next.window.halfH - (prev.window.camY - prev.window.halfH), worldHeight);
+  let count = 0;
+  for (let j = 0; j < next.mask.height; j += 1) {
+    const pj = j + shiftY;
+    if (pj < 0 || pj >= prev.mask.height) continue;
+    for (let i = 0; i < next.mask.width; i += 1) {
+      const pi = i + shiftX;
+      if (pi < 0 || pi >= prev.mask.width) continue;
+      const nowExplored = next.mask.data[(j * next.mask.width + i) * 4] === 0;
+      const wasUnexplored = prev.mask.data[(pj * prev.mask.width + pi) * 4] === 255;
+      if (nowExplored && wasUnexplored) count += 1;
+    }
+  }
+  return count;
+};

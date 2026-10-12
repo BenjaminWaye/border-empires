@@ -1,4 +1,5 @@
 import type { Tile, TileVisibilityState } from "../client-types.js";
+import { createUnexploredRevealTracker, drawUnexploredReveal2D, type UnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
 import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   drawUnexploredStormEdge2D,
@@ -14,8 +15,9 @@ import {
 // land) shows its own ground (printed like the remembered land it borders
 // unless it touches land in sight) up to a brass edge,
 // with the storm beyond. Explored tiles get only their own terrain -- the
-// fog never draws on them. Overlays (forest, ownership tint, structures...)
-// draw on top of this.
+// fog never draws on them. A tile that has just become explored gets the
+// storm fading off it with a lantern flash (client-unexplored-reveal-2d.ts).
+// Overlays (forest, ownership tint, structures...) draw on top of this.
 export type TileGround2DInput = {
   readonly wx: number;
   readonly wy: number;
@@ -31,6 +33,8 @@ export type TileGround2DInput = {
   readonly drawTerrainTile: (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number) => void;
   /** Natural terrain detail (forest, hills) for a land tile -- drawn on the fog's first ring too. */
   readonly drawTerrainDetail: (wx: number, wy: number, px: number, py: number, size: number) => void;
+  /** Frame time, for the reveal animation (defaults to performance.now()). */
+  readonly nowMs?: number;
   /** Visibility of the tile at offset (ox, oy) from this one. */
   readonly neighbourVisibility: (ox: number, oy: number) => TileVisibilityState;
 };
@@ -51,7 +55,17 @@ const touchesLandInSight = (neighbourVisibility: (ox: number, oy: number) => Til
   return false;
 };
 
-export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput): void => {
+// One tracker for the 2D map: tiles are drawn once per frame each.
+const revealTracker = createUnexploredRevealTracker();
+
+export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput, tracker: UnexploredRevealTracker = revealTracker): void => {
+  drawTileGroundBase2D(ctx, input);
+  if (!unexploredCoastVisibleAt(input.size)) return;
+  const progress = tracker.observe(`${input.wx},${input.wy}`, input.vis === "unexplored", input.nowMs ?? performance.now());
+  if (progress !== undefined) drawUnexploredReveal2D(ctx, input.wx, input.wy, input.px, input.py, input.size, progress);
+};
+
+const drawTileGroundBase2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput): void => {
   const { wx, wy, px, py, size, tile, vis } = input;
   if (vis === "unexplored") {
     const isExploredAt = (ox: number, oy: number): boolean => input.neighbourVisibility(ox, oy) !== "unexplored";

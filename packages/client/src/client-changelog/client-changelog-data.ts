@@ -326,11 +326,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Storm clouds over unexplored land",
     why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
     changes: [
-      "Unexplored territory is now a streaked storm-cloud bank, drawn like weather on an old map, in both the 3D map and the 2D map",
-      "Unexplored tiles bordering your land give a glimpse of their terrain (ground, forests, hills and mountains), matching the land next to them, up to a brass edge where the storm begins, while every tile you've explored stays completely clear",
-      "Land you've explored but can't currently see now looks like a pale, faded survey print, keeping its forests and mountains, instead of turning near-black",
-      "The clouds lie level with the land, and faint tile outlines show through them so you can still see the grid you haven't explored",
-      "Distant terrain fades into the clouds instead of into black"
+      "Unexplored territory is now a bank of warm iron storm clouds, lit by lantern light along the edge of your known world, in both the 3D map and the 2D map",
+      "Unexplored tiles bordering your land are mostly shrouded, giving just a glimpse of their terrain up to a brass edge, while every tile you've explored stays completely clear",
+      "When you explore new land the clouds roll back off it with a lantern-lit glow instead of vanishing instantly",
+      "Land you've explored but can't currently see now looks like a faded survey print, keeping its forests and mountains, instead of turning near-black",
+      "Faint tile outlines show through the clouds, and distant terrain fades into them instead of into black"
     ]
   },
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,

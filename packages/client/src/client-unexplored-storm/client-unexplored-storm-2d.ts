@@ -1,6 +1,7 @@
 import {
   UNEXPLORED_BRASS,
   UNEXPLORED_BRASS_DARK,
+  UNEXPLORED_LANTERN,
   UNEXPLORED_STORM_DARK,
   UNEXPLORED_STORM_INK,
   UNEXPLORED_STORM_LIGHT,
@@ -159,9 +160,11 @@ export const drawUnexploredStormTile = (
 // (client-map-3d-unexplored-storm-shader.ts), for the first ring of fog:
 // unexplored tiles with an explored tile among their 8 neighbours. The
 // caller draws the ring tile's own ground first (left clear); this then lays
-//   1. the storm, only beyond a wavy line ~0.6-0.8 tile in from every side
-//      (or corner) that touches explored land;
-//   2. a brass survey edge along that line (bright brass, a darker storm-side
+//   1. the storm, beyond a wavy line only ~0.2-0.35 tile in from every side
+//      (or corner) that touches explored land -- the shroud covers most of
+//      the tile, leaving a glimpse;
+//   2. lantern light glowing in the storm just behind that line;
+//   3. a brass survey edge along that line (bright brass, a darker storm-side
 //      edge). No rivets in 2D: at corners where two sides meet they landed
 //      off the visible line.
 // Explored tiles themselves are never drawn on. The waves are keyed to world
@@ -197,7 +200,7 @@ const rgba = (hex: string, alpha: number): string =>
 
 /** Depth of the clear ground before the storm, in tiles, at world position `a` along a fog edge on line `l`. */
 export const unexploredBandDepth = (a: number, l: number): number =>
-  0.72 + 0.06 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.035 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
+  0.27 + 0.05 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.03 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
 
 /** Whether (from the 8 neighbours) a fog tile is on the fog's first ring. */
 export const isUnexploredCoastRing = (isExploredAt: (ox: number, oy: number) => boolean): boolean => {
@@ -235,6 +238,7 @@ export const drawUnexploredStormEdge2D = (
   // side's wave" / "outside this corner's arc" for each one.
   ctx.save();
   const edges: Array<() => void> = [];
+  const glows: Array<() => CanvasGradient> = [];
   for (const side of sides) {
     const a0 = side.along(wx, wy);
     const l = side.line(wx, wy);
@@ -242,7 +246,7 @@ export const drawUnexploredStormEdge2D = (
     const wave: Array<readonly [number, number]> = [];
     for (let k = 0; k <= steps; k += 1) {
       const t = k / steps;
-      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.72)));
+      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.27)));
     }
     const [fx1, fy1] = side.at(px, py, size, 1, size);
     const [fx0, fy0] = side.at(px, py, size, 0, size);
@@ -253,19 +257,31 @@ export const drawUnexploredStormEdge2D = (
     ctx.closePath();
     ctx.clip();
     edges.push(() => wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey))));
+    const [g0x, g0y] = side.at(px, py, size, 0.5, size * 0.2);
+    const [g1x, g1y] = side.at(px, py, size, 0.5, size * 0.6);
+    glows.push(() => ctx.createLinearGradient(g0x, g0y, g1x, g1y));
   }
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
     const cy = py + (oy > 0 ? size : 0);
-    const r = size * 0.72;
+    const r = size * 0.3;
     ctx.beginPath();
     ctx.rect(px, py, size, size);
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip("evenodd");
     edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
+    glows.push(() => ctx.createRadialGradient(cx, cy, r, cx, cy, r + size * 0.35));
   }
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
+  // Lantern light glowing in the storm just behind the brass edge.
+  for (const glow of glows) {
+    const gradient = glow();
+    gradient.addColorStop(0, rgba(UNEXPLORED_LANTERN, 0.35));
+    gradient.addColorStop(1, rgba(UNEXPLORED_LANTERN, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(px, py, size, size);
+  }
 
   // 2. Brass edge, still clipped to the storm region so each stroke shows
   // only its storm-side half (and never crosses another side's band): a
