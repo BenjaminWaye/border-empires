@@ -263,7 +263,7 @@ export const executeCrystalTargeting = (
     state.crystalTargeting.ability !== "imperial_exchange_levy" &&
     deps.hostileObservatoryProtectingTile(tile)
   ) {
-    deps.pushFeed("Blocked by observatory field.", "combat", "warn");
+    deps.pushFeed("Blocked by aether tower field.", "combat", "warn");
     return false;
   }
   if (!deps.requireAuthedSession()) return false;

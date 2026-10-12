@@ -293,8 +293,8 @@ export const tileAreaEffectModifiersForTile = (
 
   if (isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
     modifiers.push({
-      reason: "Radar System",
-      effect: "Protected from airport strikes",
+      reason: "Resonance Grid",
+      effect: "Protected from sky dock strikes",
       tone: "positive"
     });
   }

@@ -111,9 +111,9 @@ export const crystalAbilityInfoForKey = (
   if (key === "survey_sweep") {
     return {
       title: "Survey Sweep",
-      detail: "Pulses one of your active observatories to mark hidden resource sites and towns without revealing tile details.",
+      detail: "Pulses one of your active aether towers to mark hidden resource sites and towns without revealing tile details.",
       glyph: "⌖",
-      target: "Owned active observatory. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
+      target: "Owned active aether tower. Pings towns and resource sites outside current vision in a centered 50x50 survey area.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS)
     };
@@ -123,7 +123,7 @@ export const crystalAbilityInfoForKey = (
       title: "Aether Purge",
       detail: "Purge enemy control from a tile, turning it neutral.",
       glyph: "✦",
-      target: "Enemy garrisoned or frontier tile within observatory range.",
+      target: "Enemy garrisoned or frontier tile within aether tower range.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
     };
@@ -144,7 +144,7 @@ export const crystalAbilityInfoForKey = (
       title: "Retort Transmutation",
       detail: "Rewrites one exposed resource vein into a different industrial class, turning food, umbrite, titanium, or crystal ground into whatever your empire needs next.",
       glyph: "⚗",
-      target: "Any land resource tile within observatory range that has no town, dock, fort, observatory, siege line, or economic structure on it.",
+      target: "Any land resource tile within aether tower range that has no town, dock, fort, aether tower, siege line, or economic structure on it.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(RETORT_RECAST_COOLDOWN_MS)
     };
@@ -187,7 +187,7 @@ export const crystalAbilityInfoForKey = (
       title: "Aether EMP",
       detail: "Blasts an enemy tile with a crystal surge, knocking out every Ambaric Transformer that empire holds nearby -- and everything those Transformers power (Sky Docks, Resonance Grids, monuments) with them.",
       glyph: "⚡",
-      target: "Enemy owned tile within observatory range, near one or more Ambaric Transformers.",
+      target: "Enemy owned tile within aether tower range, near one or more Ambaric Transformers.",
       costBits: [],
       cooldownLabel: deps.formatCooldownShort(AETHER_EMP_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_EMP_DURATION_MS)
@@ -207,7 +207,7 @@ export const crystalAbilityInfoForKey = (
   if (key === "stormfront") {
     return {
       title: "Stormfront",
-      detail: "Drops an aether storm over a region, blinding vision and shutting down hostile bombardment and observatory pressure inside it.",
+      detail: "Drops an aether storm over a region, blinding vision and shutting down hostile bombardment and aether tower pressure inside it.",
       glyph: "☈",
       target: "Cast from an active Resonance Grid to cover a 30-tile region around the target grid.",
       costBits: [],

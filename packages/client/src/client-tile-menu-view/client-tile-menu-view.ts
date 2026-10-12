@@ -228,7 +228,7 @@ export const menuOverviewForTile = (
     }
     // Unified building modifier display (stage 3): one "<count> <Building>"
     // heading per support-ring building type, with that building's own
-    // stat lines nested under it (e.g. "3 Garrison Halls" → Manpower cap:
+    // stat lines nested under it (e.g. "3 Ancillary Depots" → Manpower cap:
     // +450) — see pushModifierGroup above.
     if (isSettled && hasOwnerEconomyData) {
       for (const group of tile.town.townModifierTotals ?? []) {
@@ -294,8 +294,8 @@ export const menuOverviewForTile = (
         const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
         pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
-      if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
-      if (!tile.economicStructure) pushLine("Town buildings like mintworks and granaries must be built on support tiles.");
+      if (town.town?.hasGranary) pushLine("Nearby town already has an Incubation Engine.");
+      if (!tile.economicStructure) pushLine("Town buildings like mintworks and incubation engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
@@ -390,7 +390,7 @@ export const menuOverviewForTile = (
     pushLine("Aether Tower removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
   }
   if (tile.siegeOutpost?.status === "removing") {
-    pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
+    pushLine("Siege Battery removal is underway. Attack bonuses from this tile are currently disabled.");
   }
   const construction = deps.constructionCountdownLineForTile(tile);
   if (construction) pushLine(construction);

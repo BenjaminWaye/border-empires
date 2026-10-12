@@ -47,6 +47,18 @@ describe("deriveDevelopmentPanelData", () => {
     expect(data.activeSlots.some((slot) => slot.label === "Aether Tower")).toBe(true);
   });
 
+  it("labels in-progress builds by their player-facing name, not the backend id", () => {
+    const tiles = new Map<string, Tile>();
+    const base = { terrain: "LAND" as const, ownerId: "me", ownershipState: "SETTLED" as const };
+    tiles.set(keyFor(1, 1), { x: 1, y: 1, ...base, economicStructure: { ownerId: "me", type: "CARAVANARY", status: "under_construction" } });
+    tiles.set(keyFor(2, 2), { x: 2, y: 2, ...base, fort: { ownerId: "me", variant: "WOODEN_FORT", status: "under_construction" } });
+    tiles.set(keyFor(3, 3), { x: 3, y: 3, ...base, siegeOutpost: { ownerId: "me", variant: "SIEGE_TOWER", status: "under_construction" } });
+
+    const labels = deriveDevelopmentPanelData(tiles, "me", new Map(), [], 3, 3).activeSlots.map((slot) => slot.label);
+
+    expect(labels).toEqual(expect.arrayContaining(["Trade Nexus", "Palisade", "Siege Tower"]));
+  });
+
   it("freezes a paused build's remaining time at the pause and labels it as paused by the attack", () => {
     const tiles = new Map<string, Tile>();
     tiles.set(keyFor(1, 1), {

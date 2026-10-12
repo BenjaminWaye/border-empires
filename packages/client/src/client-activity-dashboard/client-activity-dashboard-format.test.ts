@@ -122,6 +122,7 @@ describe("activityCardText / activityCardCoordinates", () => {
   it("renders a waystation's specific grant and keeps its Center location", () => {
     const card = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "TECH" as const, grantedTechId: "CARTOGRAPHY", x: 5, y: 9 };
     expect(activityCardText(card as any, "me", noNames)).toContain("CARTOGRAPHY granted");
+    expect(activityCardText(card as any, "me", noNames, (id) => (id === "CARTOGRAPHY" ? "Star Charts" : undefined))).toContain("Star Charts granted");
     expect(activityCardCoordinates(card as any)).toEqual({ x: 5, y: 9 });
   });
 

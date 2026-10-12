@@ -1,3 +1,4 @@
+import { structureDisplayName } from "@border-empires/shared";
 import type { Tile, TileTimedProgress } from "../client-types.js";
 
 type QueuedDevelopmentAction = {
@@ -56,19 +57,19 @@ const activeStructureEntries = (tiles: Map<string, Tile>, me: string): Structure
     if (tile.ownerId !== me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     const fort = tile.fort;
     if (fort && (fort.status === "under_construction" || fort.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: fort.variant ?? "Fort", completesAt: fort.completesAt, ...(fort.pausedAt !== undefined ? { pausedAt: fort.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(fort.variant ?? "FORT"), completesAt: fort.completesAt, ...(fort.pausedAt !== undefined ? { pausedAt: fort.pausedAt } : {}) });
     }
     const obs = tile.observatory;
     if (obs && (obs.status === "under_construction" || obs.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: "Aether Tower", completesAt: obs.completesAt, ...(obs.pausedAt !== undefined ? { pausedAt: obs.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName("OBSERVATORY"), completesAt: obs.completesAt, ...(obs.pausedAt !== undefined ? { pausedAt: obs.pausedAt } : {}) });
     }
     const siege = tile.siegeOutpost;
     if (siege && (siege.status === "under_construction" || siege.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: siege.variant ?? "Siege Battery", completesAt: siege.completesAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(siege.variant ?? "SIEGE_OUTPOST"), completesAt: siege.completesAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
     }
     const econ = tile.economicStructure;
     if (econ && (econ.status === "under_construction" || econ.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: econ.type, completesAt: econ.completesAt, ...(econ.pausedAt !== undefined ? { pausedAt: econ.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(econ.type), completesAt: econ.completesAt, ...(econ.pausedAt !== undefined ? { pausedAt: econ.pausedAt } : {}) });
     }
   }
   return entries;

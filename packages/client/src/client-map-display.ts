@@ -427,7 +427,7 @@ export const structureInfoForKey = (
   if (type === "GRANARY") {
     return structure({
       title: "Incubation Engine",
-      detail: "Granaries are built on a town support tile. They strengthen nearby farmsteads within 10 tiles and reduce the supported town's food upkeep.",
+      detail: "Incubation Engines are built on a town support tile. They strengthen nearby Hydrogardens within 10 tiles and reduce the supported town's food upkeep.",
       glyph: "🍞",
       placement: "Build on an open garrisoned support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -890,7 +890,7 @@ export const structureInfoForKey = (
   }
   return structure({
     title: "Siege Battery",
-    detail: "Siege outposts are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
+    detail: "Siege Batteries are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
     glyph: "⚔",
     placement: "Build on a garrisoned border tile you own.",
     costBits: costBitsFor(type),

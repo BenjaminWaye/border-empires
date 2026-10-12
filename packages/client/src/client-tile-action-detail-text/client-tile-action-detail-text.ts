@@ -58,10 +58,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       // DREAD_TOWER shouldn't expose this action; fall through for safety.
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
-      ? `Upgrade this Relay Beacon into a full siege outpost. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
+      ? `Upgrade this Relay Beacon into a full siege battery. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
       : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
-  if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
+  if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege battery.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
@@ -91,7 +91,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
   }
   if (actionId === "build_waterworks") {
-    return `Build on this support tile for ${supportedTownLabel}. Every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
+    return `Build on this support tile for ${supportedTownLabel}. Every Hydrogarden within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
   }
   if (actionId === "build_census_hall") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade coin cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
@@ -107,7 +107,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return converterStructureDetailText(actionId, tile);
   if (actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") return observatoryToggleDetailText(actionId);
   if (actionId === "abandon_territory")
-    return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege outposts and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
+    return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege Batteries and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
   if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
   if (actionId === "build_customs_house") return "Build on a garrisoned dock tile. Adds +5 coin / day per connected owned dock.";
@@ -158,7 +158,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       return `Remove this ${structureName}. Its income, upkeep, and structure effects stay disabled until removal finishes.`;
     }
     if (tile.fort) return `Remove this ${structureNameForTile(tile)}. Its defense bonus is disabled until removal finishes.`;
-    if (tile.observatory) return "Remove this Observatory. Its vision and protection effects are disabled until removal finishes.";
+    if (tile.observatory) return "Remove this Aether Tower. Its vision and protection effects are disabled until removal finishes.";
     if (tile.siegeOutpost) return `Remove this ${structureNameForTile(tile)}. Its attack bonus is disabled until removal finishes.`;
   }
   return undefined;

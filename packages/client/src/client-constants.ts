@@ -76,7 +76,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on garrisoned tiles. Siege Batteries near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on garrisoned tiles. Siege Batteries near borders boost your attack. Aether Towers expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, incubation engines) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",
@@ -84,11 +84,11 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; a Granary enables population growth. Connecting towns with garrisoned land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
+    body: "Towns grow in size with increasing population (Town → City → Great City → Metropolis). A Mintworks enables a town's coin income; an Incubation Engine enables population growth. Connecting towns with garrisoned land creates a road network that boosts coin income. Population is what raises your manpower cap for war, so growing towns matters as much as growing coin. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear Planetary Defense tiles for coin."
   },
   {
     title: "Win the Season",
-    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead the field by a wide margin once your income clears a minimum bar), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, World Engine, Aegis Dome, Astral Dock) for powerful end-game abilities — only one of each exists per season, so the first empire to finish one claims it for good."
+    body: "Track 5 victory races in the Victory panel. Town Control (50% of towns), Economic Hegemony (lead the field by a wide margin once your income clears a minimum bar), Resource Monopoly (80% of one resource type), Maritime Supremacy (55% of docks), and Diplomatic Dominance (your alliance holds 66% of land). Hold any condition for 24 hours to win. Build wonders (Imperial Exchange, Sovereign Siege Engine, Aegis Dome, Astral Dock) for powerful end-game abilities — only one of each exists per season, so the first empire to finish one claims it for good."
   }
 ];
 

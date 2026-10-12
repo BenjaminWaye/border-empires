@@ -36,7 +36,7 @@ export const applyWorldEngineStrikeAnnouncement = (msg: Record<string, unknown>,
   deps.state.worldEngineStrikeAnnouncements = deps.state.worldEngineStrikeAnnouncements.slice(0, 50);
   deps.state.worldEngineStrikeShakeQueue.push({ strikeId, queuedAt: Date.now() });
   deps.appendFeedEntry({
-    text: `${casterName} struck ${targetOwnerName}'s ${townName || "city"} with the World Engine — ${populationLost.toLocaleString()} lives lost.`,
+    text: `${casterName} struck ${targetOwnerName}'s ${townName || "city"} with the Sovereign Siege Engine — ${populationLost.toLocaleString()} lives lost.`,
     type: "combat",
     severity: "error",
     at: Date.now(),

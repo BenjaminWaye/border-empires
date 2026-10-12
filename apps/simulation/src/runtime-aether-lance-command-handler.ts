@@ -46,7 +46,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   const lanceNow = context.now();
   const lanceObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, lanceNow);
   if (!lanceObservatoryKey) {
-    reject("AETHER_LANCE_INVALID", "no ready observatory in range");
+    reject("AETHER_LANCE_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(

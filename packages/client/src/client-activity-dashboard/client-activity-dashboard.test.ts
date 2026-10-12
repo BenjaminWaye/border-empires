@@ -35,7 +35,8 @@ const makeState = () => ({
   guide: { completed: true },
   authSessionReady: true,
   profileSetupRequired: false,
-  playerNames: new Map<string, string>([["player-2", "Rival Name"]])
+  playerNames: new Map<string, string>([["player-2", "Rival Name"]]),
+  techCatalog: []
 });
 
 const makeDeps = (state: ReturnType<typeof makeState>) => ({

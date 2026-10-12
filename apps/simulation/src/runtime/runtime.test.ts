@@ -2999,7 +2999,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       expect(events).toHaveLength(1);
       expect(events[0].code).toBe("BUILD_INVALID");
-      expect(events[0].message).toBe("siege outpost already at maximum tier");
+      expect(events[0].message).toBe("siege battery already at maximum tier");
     } finally {
       vi.useRealTimers();
     }
@@ -6160,7 +6160,7 @@ describe("simulation runtime", () => {
         eventType: "COMMAND_REJECTED",
         commandId: "bombard-unpowered",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "airport requires a nearby Ambaric Transformer"
+        message: "sky dock requires a nearby Ambaric Transformer"
       })
     );
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
@@ -7992,7 +7992,7 @@ describe("worldbreaker shot", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "World Engine requires a nearby Ambaric Transformer"
+      message: "Sovereign Siege Engine requires a nearby Ambaric Transformer"
     }));
   });
 

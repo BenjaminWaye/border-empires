@@ -1,5 +1,5 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
-import { structureDisplayNameForId } from "../client-structure-display-names.js";
+import { structureDisplayName } from "@border-empires/shared";
 
 // Materiality gate for the manpower-spent-attacking headline (plan §2.3):
 // only surface it up top when it's both a large absolute number and a
@@ -63,6 +63,10 @@ const timeLabel = (occurredAt: number): string => {
 // (e.g. a player who left before ever being seen) falls back to the raw id.
 export type PlayerNameLookup = (playerId: string) => string | undefined;
 
+// Resolves a tech id to its player-facing name (ClientState.techCatalog);
+// an unknown id falls back to the raw id.
+export type TechNameLookup = (techId: string) => string | undefined;
+
 const nameOf = (playerId: string, playerNames: PlayerNameLookup): string => playerNames(playerId) ?? playerId;
 
 const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>, playerId: string, playerNames: PlayerNameLookup): string => {
@@ -89,8 +93,8 @@ const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITOR
     : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
 };
 
-const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>): string => {
-  if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${card.grantedTechId} granted` : "Waystation activated · no unowned technology remained";
+const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>, techName: TechNameLookup): string => {
+  if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${techName(card.grantedTechId) ?? card.grantedTechId} granted` : "Waystation activated · no unowned technology remained";
   if (card.grantedEffect === "RESOURCE_SLOT") return `Waystation activated · +1 ${card.grantedResource?.toLowerCase() ?? "resource"} slot`;
   if (card.grantedEffect === "GOLD") return `Waystation activated · +${roundedAmount(card.grantedGold ?? 0)} Coin`;
   if (card.grantedEffect === "MANPOWER") return `Waystation activated · +${roundedAmount(card.grantedManpower ?? 0)} manpower`;
@@ -106,17 +110,17 @@ const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED
 };
 
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
-  const parts = [`${structureDisplayNameForId(card.structureType)} completed`];
+  const parts = [`${structureDisplayName(card.structureType)} completed`];
   if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} gold`);
   if (card.populationBurst && card.populationBurst > 0) parts.push(`+${roundedAmount(card.populationBurst)} population`);
   return parts.join(" · ");
 };
 
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
-export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup): string => {
+export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup, techName: TechNameLookup = () => undefined): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
-  if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card);
+  if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card, techName);
   if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
   if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
