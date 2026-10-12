@@ -11,6 +11,7 @@ import {
 import type { Tile } from "./client-types.js";
 import { resourceIconGlyph, resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
+import { structureInfoArtUrl } from "./client-structure-art/client-structure-art.js";
 import { costBitsFor, structureBaseKey } from "./client-structure-cost-bits.js";
 import { upkeepDescriptorFor } from "./client-structure-upkeep-text/client-structure-upkeep-text.js";
 
@@ -277,64 +278,7 @@ export const structureInfoForKey = (
       ? { ...base, effects: effectsFor(type), modifiers: modifiersFor(type), upkeepBits: upkeepBitsFor(type), image, ...(branch ? { branch } : {}) }
       : { ...base, effects: effectsFor(type), modifiers: modifiersFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
   };
-  const imageFor = (key: StructureInfoKey): string | undefined => {
-    if (key === "MINTWORKS") return "/overlays/mintworks-overlay.svg";
-    if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
-    if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
-    if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
-    if (key === "CARAVANARY") return "/overlays/trade-nexus-overlay.svg";
-    if (key === "UMBRITE_SYNTHESIZER") return "/overlays/umbrite-synthesizer-overlay.svg";
-    if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return "/overlays/advanced-umbrite-synthesizer-overlay.svg";
-    if (key === "TITANIUM_WORKS") return "/overlays/titanium-works-overlay.svg";
-    if (key === "ADVANCED_TITANIUM_WORKS") return "/overlays/advanced-titanium-works-overlay.svg";
-    if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
-    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
-    if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
-    if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
-    if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
-    if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    // GARRISON_HALL ("Ancillary Depot") has its own storage-drum art;
-    // LOGISTICS_GUILD ("Ancillary Factory") keeps the hopper manufactory.
-    if (key === "GARRISON_HALL") return "/overlays/ancillary-depot-overlay.svg";
-    if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
-    if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
-    if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
-    if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
-    if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
-    if (key === "RAIL_DEPOT") return "/overlays/assembly-works-overlay.svg";
-    if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
-    if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
-    if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
-    if (key === "LOGISTICS_GUILD") return "/overlays/ancillary-factory-overlay.svg";
-    if (key === "ASSEMBLY_WORKS") return "/overlays/rail-depot-overlay.svg";
-    if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
-    if (key === "TITANIUM_LEVY") return "/overlays/titanium-levy-overlay.svg";
-    // Each of the 18 monument components gets its own distinct overlay,
-    // named after the component (not the monument) since each is a unique
-    // structure now, not 3 identical copies of one "Part" icon.
-    if (key === "IMPERIAL_EXCHANGE_PART_1") return "/overlays/golden-ledger-overlay.svg";
-    if (key === "IMPERIAL_EXCHANGE_PART_2") return "/overlays/counting-engine-overlay.svg";
-    if (key === "IMPERIAL_EXCHANGE_PART_3") return "/overlays/sovereign-seal-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_1") return "/overlays/long-barrel-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_2") return "/overlays/fracture-core-overlay.svg";
-    if (key === "WORLD_ENGINE_PART_3") return "/overlays/sky-marking-array-overlay.svg";
-    if (key === "AEGIS_DOME_PART_1") return "/overlays/shield-lattice-overlay.svg";
-    if (key === "AEGIS_DOME_PART_2") return "/overlays/ward-anchor-overlay.svg";
-    if (key === "AEGIS_DOME_PART_3") return "/overlays/aegis-crown-overlay.svg";
-    if (key === "ASTRAL_DOCK_PART_1") return "/overlays/launch-cradle-overlay.svg";
-    if (key === "ASTRAL_DOCK_PART_2") return "/overlays/orbital-array-overlay.svg";
-    if (key === "ASTRAL_DOCK_PART_3") return "/overlays/aether-sail-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_1") return "/overlays/census-engine-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_2") return "/overlays/registry-vault-overlay.svg";
-    if (key === "POPULATION_BUREAU_PART_3") return "/overlays/levy-charter-overlay.svg";
-    if (key === "TITANIUM_LEVY_PART_1") return "/overlays/muster-klaxon-overlay.svg";
-    if (key === "TITANIUM_LEVY_PART_2") return "/overlays/titanium-standard-overlay.svg";
-    if (key === "TITANIUM_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
-    if (key === "WEAPONS_WORKSHOP") return "/overlays/weapons-workshop-overlay.svg";
-    if (key === "TITANIUM_WEAPONS_FACTORY") return "/overlays/titanium-weapons-factory-overlay.svg";
-    if (key === "UMBRITE_WEAPONS_FACTORY") return "/overlays/umbrite-weapons-factory-overlay.svg";
-    return undefined;
-  };
+  const imageFor = (key: StructureInfoKey): string | undefined => structureInfoArtUrl(key);
   if (type === "FORT") {
     return structure({
       title: "Fort",

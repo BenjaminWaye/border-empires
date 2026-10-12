@@ -23,6 +23,7 @@ import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
 import "./client-resource-icons/client-resource-icons-style.css";
 import "./client-nav-icons/client-nav-icons-style.css";
+import "./client-build-menu-icons/client-build-menu-icons-style.css";
 import "./client-hud-settings-discord-style.css";
 import "./client-founding-engineer-style.css";
 import "./client-duke-title-style.css";
