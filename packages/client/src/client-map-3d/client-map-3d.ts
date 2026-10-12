@@ -32,7 +32,9 @@ import { FOGGED_PRINT_FEATURE_TINT, FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACIT
 import { FOG_OVERLAY_RENDER_ORDERS, RENDER_ORDER } from "../client-map-3d-render-order.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
-import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
+import { createTownSupportTileSync } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile-sync.js";
+import type { RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import { townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js"; import { tileSurfaceHeights } from "../client-map-3d-tile-surface-y/client-map-3d-tile-surface-y.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js"; import { createBarbarianFrontierTintTracker, observeBarbarianFrontierTint } from "../client-map-3d-barbarian-frontier-tint.js";
@@ -465,28 +467,11 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       markerIndex += 1;
     }
   };
-  const syncTownSupportTiles = (): void => {
-    townSupportTiles.clear();
-    const selectedCoord = deps.state.selected;
-    if (!selectedCoord) { townSupportTiles.commit(); return; }
-    const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    const anchor = supportPlotAnchorTown(selected, townSupportLookupDeps);
-    if (!anchor) { townSupportTiles.commit(); return; }
-    for (const { wx, wy, dx, dy, settled } of townSupportPlotEntries(anchor, townSupportLookupDeps)) {
-      const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
-      const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
-      const wxNext = deps.wrapX(wx + 1);
-      const wyNext = deps.wrapY(wy + 1);
-      const surfaceY = Math.max(
-        heightfield.cornerYAt(wx, wy),
-        heightfield.cornerYAt(wxNext, wy),
-        heightfield.cornerYAt(wx, wyNext),
-        heightfield.cornerYAt(wxNext, wyNext)
-      ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
-      townSupportTiles.addInstance(sx + TILE_CENTER_OFFSET, sy + TILE_CENTER_OFFSET, surfaceY, dx, dy, settled);
-    }
-    townSupportTiles.commit();
-  };
+  let latestHillCutAt: (x: number, y: number) => RoadCutDirections | undefined = () => undefined; // set by each terrain rebuild; read by the per-frame hatch sync
+  const syncTownSupportTiles = createTownSupportTileSync({
+    overlay: townSupportTiles, lookupDeps: townSupportLookupDeps, selected: () => deps.state.selected, sceneOrigin, toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
+    cornerYAt: (x, y) => heightfield.cornerYAt(x, y), isHillsAt: isHillsTile, hillCutAt: () => latestHillCutAt, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD
+  });
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
   };
@@ -766,6 +751,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const roadNetworkStartAt = performance.now(); // moved up (was after the heightfield rebuild): hillTerrain.rebuild needs roadDirsAt
     // roadDirsAt: where roads are drawn; hillCutAt: roads + AFC levelled pads, for everything tracing a hill dome
     const { roadDirsAt, hillCutAt } = buildTerrainCutLookups({ tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, afcJoinDrop: deps.state.afcJoinDrop });
+    latestHillCutAt = hillCutAt;
     const roadNetworkMs = performance.now() - roadNetworkStartAt;
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: (x, y) => isForestTileWithAfcLandingHold(deps.state.afcJoinDrop, x, y), isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
