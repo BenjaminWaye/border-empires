@@ -6,6 +6,7 @@ import {
   drawUnexploredStormTile,
   isUnexploredCoastRing,
   unexploredBandDepth,
+  UNEXPLORED_BAND_BASE,
   unexploredCoastVisibleAt
 } from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_STORM_MID } from "./client-unexplored-storm-palette.js";
@@ -116,6 +117,33 @@ describe("unexplored storm 2D texture", () => {
     drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 40, (ox, oy) => ox === 1 && oy === 1);
     expect(ops).toContain("arc");
     expect(ops.filter((op) => op === "clip")).toHaveLength(2);
+  });
+
+  it("meets the corner arcs exactly at every tile corner, so the brass line has no step there", () => {
+    for (const l of [3, 7, 12]) {
+      for (const a of [0, 1, 2, 5, -3]) expect(unexploredBandDepth(a, l)).toBeCloseTo(UNEXPLORED_BAND_BASE, 10);
+      // Continuous across the whole-tile seam too.
+      expect(unexploredBandDepth(4 - 1e-6, l)).toBeCloseTo(unexploredBandDepth(4 + 1e-6, l), 4);
+    }
+  });
+
+  it("uses the band base for the corner arc radius and one glow falloff for sides and corners", () => {
+    const arcs: number[][] = [];
+    const radial: number[][] = [];
+    const linear: number[][] = [];
+    const { ctx } = recordingCtx();
+    const gradient = { addColorStop: () => {} };
+    Object.assign(ctx, {
+      arc: (...args: number[]) => arcs.push(args),
+      createRadialGradient: (...args: number[]) => (radial.push(args), gradient),
+      createLinearGradient: (...args: number[]) => (linear.push(args), gradient)
+    });
+    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 100, (ox, oy) => ox === 1 && oy === 1);
+    expect(arcs[0]![2]).toBeCloseTo(100 * UNEXPLORED_BAND_BASE);
+    expect([radial[0]![2], radial[0]![5]]).toEqual([20, 60]);
+    drawUnexploredStormEdge2D(ctx, 5, 5, 0, 0, 100, (ox, oy) => ox === 1 && oy === 0);
+    // Right side: from 0.2 to 0.6 tile in from x = 100.
+    expect([linear[0]![0], linear[0]![2]]).toEqual([80, 40]);
   });
 
   it("shrouds most of the first fog tile, leaving a ~0.2-0.35 tile glimpse", () => {

@@ -92,8 +92,8 @@ export type HillTerrain = {
 // see the module comment above.
 export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial: MeshStandardMaterial): HillTerrain => {
   // Shared with the main heightfield: hill domes on the fog's first ring
-  // would rise through the storm, so its ground is clipped under it too.
-  markUnexploredStormClip(sharedMaterial);
+  // would rise through the storm, so its ground is pressed under it too.
+  markUnexploredStormClip(sharedMaterial, "ground");
   const vertsPerTile = (SUBDIV + 1) * (SUBDIV + 1);
   const indicesPerTile = SUBDIV * SUBDIV * 6;
   const positions = new Float32Array(maxTiles * vertsPerTile * 3);
@@ -170,7 +170,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     roughness: 1,
     metalness: 0,
     side: DoubleSide
-  }));
+  }), "ground");
   const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
   skirtMesh.frustumCulled = false;
   skirtMesh.receiveShadow = false;

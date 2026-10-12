@@ -4,7 +4,6 @@ import {
   Mesh,
   PlaneGeometry,
   LinearFilter,
-  type Material,
   RGBAFormat,
   ShaderMaterial,
   UnsignedByteType,
@@ -90,6 +89,12 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
     fog: false,
     transparent: true,
     depthWrite: false,
+    // Wins near-ties against ground pressed just under the sheet at the brass
+    // line (client-map-3d-unexplored-storm-clip.ts), so the line never
+    // depth-fights it at a distance. Safe: it never draws on explored tiles.
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -4,
     uniforms: {
       uTime: { value: 0 },
       uWorldOrigin: { value: new Vector2(0, 0) },
@@ -121,9 +126,10 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
     uStormClipMaskMin: material.uniforms.uMaskMin!,
     uStormClipMaskSize: material.uniforms.uMaskSize!,
     uStormClipOrigin: material.uniforms.uWorldOrigin!,
-    uStormClipTime: material.uniforms.uTime!
+    uStormClipTime: material.uniforms.uTime!,
+    uStormClipPlaneY: { value: UNEXPLORED_STORM_Y }
   };
-  const clipPatched = new WeakSet<Material>();
+  const clipPatched = new WeakSet<object>();
   const mesh = new Mesh(geometry, material);
   mesh.position.y = UNEXPLORED_STORM_Y;
   mesh.frustumCulled = false;

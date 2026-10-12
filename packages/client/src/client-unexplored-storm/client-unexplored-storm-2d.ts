@@ -198,9 +198,27 @@ const EDGE_DETAIL_MIN_TILE_PX = 12;
 const rgba = (hex: string, alpha: number): string =>
   `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
 
-/** Depth of the clear ground before the storm, in tiles, at world position `a` along a fog edge on line `l`. */
-export const unexploredBandDepth = (a: number, l: number): number =>
-  0.27 + 0.05 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.03 * Math.sin(a * Math.PI * 4.6 + l * 0.9);
+// Clear ground before the storm, in tiles, wherever the fog's edge isn't
+// wobbling: the radius of the arcs around explored corners, and the depth
+// every side's wave settles to at each tile corner.
+export const UNEXPLORED_BAND_BASE = 0.27;
+
+/**
+ * Depth of the clear ground before the storm, in tiles, at world position
+ * `a` along a fog edge on line `l`. The wobble fades to nothing at whole
+ * tiles, so a side's wave meets the next tile's wave -- or a corner's arc --
+ * at exactly UNEXPLORED_BAND_BASE: no step in the brass line at a corner.
+ */
+export const unexploredBandDepth = (a: number, l: number): number => {
+  const envelope = Math.sin(Math.PI * (a - Math.floor(a)));
+  return UNEXPLORED_BAND_BASE + envelope * (0.05 * Math.sin(a * Math.PI * 2 + l * 1.7) + 0.03 * Math.sin(a * Math.PI * 4.6 + l * 0.9));
+};
+
+// Lantern glow falloff, in tiles from the explored edge: the same for a
+// side's straight band and a corner's arc, so the glow doesn't change
+// abruptly where a side tile meets a corner tile.
+const GLOW_FROM = 0.2;
+const GLOW_TO = 0.6;
 
 /** Whether (from the 8 neighbours) a fog tile is on the fog's first ring. */
 export const isUnexploredCoastRing = (isExploredAt: (ox: number, oy: number) => boolean): boolean => {
@@ -226,6 +244,8 @@ export const drawUnexploredStormEdge2D = (
   isExploredAt: (ox: number, oy: number) => boolean
 ): void => {
   const sides = SIDES.filter((side) => isExploredAt(side.ox, side.oy));
+  // A diagonal-only contact gets an arc; beside an explored side it would
+  // lie inside that side's band (and double its glow).
   const corners = CORNERS.filter(([ox, oy]) => isExploredAt(ox, oy) && !isExploredAt(ox, 0) && !isExploredAt(0, oy));
   const detailed = size >= EDGE_DETAIL_MIN_TILE_PX;
 
@@ -246,7 +266,7 @@ export const drawUnexploredStormEdge2D = (
     const wave: Array<readonly [number, number]> = [];
     for (let k = 0; k <= steps; k += 1) {
       const t = k / steps;
-      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : 0.27)));
+      wave.push(side.at(px, py, size, t, size * (detailed ? unexploredBandDepth(a0 + t, l) : UNEXPLORED_BAND_BASE)));
     }
     const [fx1, fy1] = side.at(px, py, size, 1, size);
     const [fx0, fy0] = side.at(px, py, size, 0, size);
@@ -257,20 +277,20 @@ export const drawUnexploredStormEdge2D = (
     ctx.closePath();
     ctx.clip();
     edges.push(() => wave.forEach(([ex, ey], k) => (k === 0 ? ctx.moveTo(ex, ey) : ctx.lineTo(ex, ey))));
-    const [g0x, g0y] = side.at(px, py, size, 0.5, size * 0.2);
-    const [g1x, g1y] = side.at(px, py, size, 0.5, size * 0.6);
+    const [g0x, g0y] = side.at(px, py, size, 0.5, size * GLOW_FROM);
+    const [g1x, g1y] = side.at(px, py, size, 0.5, size * GLOW_TO);
     glows.push(() => ctx.createLinearGradient(g0x, g0y, g1x, g1y));
   }
   for (const [ox, oy] of corners) {
     const cx = px + (ox > 0 ? size : 0);
     const cy = py + (oy > 0 ? size : 0);
-    const r = size * 0.3;
+    const r = size * UNEXPLORED_BAND_BASE;
     ctx.beginPath();
     ctx.rect(px, py, size, size);
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip("evenodd");
     edges.push(() => ctx.arc(cx, cy, r, 0, Math.PI * 2));
-    glows.push(() => ctx.createRadialGradient(cx, cy, r, cx, cy, r + size * 0.35));
+    glows.push(() => ctx.createRadialGradient(cx, cy, size * GLOW_FROM, cx, cy, size * GLOW_TO));
   }
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);

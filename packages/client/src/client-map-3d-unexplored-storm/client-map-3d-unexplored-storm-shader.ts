@@ -119,8 +119,11 @@ void main() {
   float revealLocal = 1.0;
   float revealFront = 0.0;
   vec2 prev = vec2(hard, soft);
+  float clearance = stormExploredDistance(uMask, uMaskMin, uMaskSize, vSceneXZ);
+  float prevClearance = clearance;
   if (uRevealT < 1.0) {
     prev = prevMaskAt(vSceneXZ);
+    prevClearance = stormExploredDistance(uPrevMask, uPrevMaskMin, uPrevMaskSize, vSceneXZ + uPrevOffset);
     float order = clamp(prev.y * 0.7 + stormFbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);
     revealLocal = smoothstep(order - 0.12, order + 0.12, uRevealT * 1.24 - 0.12);
     // Lantern light rides the front wherever the cloud field is receding --
@@ -135,7 +138,7 @@ void main() {
   // deep is NOT blended: exploring only ever clears it, so the new value is
   // right, and blending its per-tile steps cut square holes in the cloud.
   soft = mix(prev.y, soft, revealLocal);
-  float s = soft + edgeNoise * 0.1;
+  float s = stormClearanceField(soft + edgeNoise * 0.1, mix(prevClearance, clearance, revealLocal));
   float sw = clamp(fwidth(s), 0.004, 0.04);
 
   // --- storm ---

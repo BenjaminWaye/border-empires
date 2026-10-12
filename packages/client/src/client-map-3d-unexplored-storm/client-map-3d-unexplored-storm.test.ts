@@ -3,6 +3,7 @@ import { DataTexture, Scene, Vector2 } from "three";
 import { HEIGHTFIELD_GRASS_ELEVATION, HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terrain.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { UNEXPLORED_REVEAL_MS, UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
+import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
 import { STORM_FRAGMENT_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 
 const vec = (storm: { material: { uniforms: Record<string, { value: unknown }> } }, name: string): number[] =>
@@ -91,6 +92,20 @@ describe("unexplored storm layer (3D)", () => {
     // No rivets: their per-tile ticks read as glowing lines along the border.
     expect(STORM_FRAGMENT_SHADER).not.toMatch(/rivet|uRivet|onGrid/);
     expect(STORM_FRAGMENT_SHADER).toMatch(/float sw = clamp\(fwidth\(s\), 0\.004, 0\.04\);/);
+  });
+
+  it("pulls the storm forward in depth so the brass line never depth-fights the ground pressed under it", () => {
+    const storm = createUnexploredStormLayer(new Scene());
+    expect(storm.material.polygonOffset).toBe(true);
+    expect(storm.material.polygonOffsetFactor).toBeLessThan(0);
+    expect(storm.material.polygonOffsetUnits).toBeLessThan(0);
+    storm.dispose();
+  });
+
+  it("keeps the contour clear of explored land, so a tile's square corner never pokes past the brass edge", () => {
+    expect(STORM_FIELD_GLSL).toContain("const float STORM_CLEARANCE = 0.2;");
+    expect(STORM_FIELD_GLSL).toContain("return min(s, STORM_EDGE * exploredDistance / STORM_CLEARANCE);");
+    expect(STORM_FRAGMENT_SHADER).toContain("float s = stormClearanceField(soft + edgeNoise * 0.1, mix(prevClearance, clearance, revealLocal));");
   });
 
   it("keeps backticks out of the GLSL template (they would end the string)", () => {
