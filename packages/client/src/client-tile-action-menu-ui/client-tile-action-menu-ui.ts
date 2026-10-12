@@ -5,6 +5,7 @@ import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/cl
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
+import { injectDockNavigatorRow, wireDockNavigatorButtons } from "../client-dock-navigator/client-dock-navigator.js";
 import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
@@ -12,6 +13,7 @@ import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
+import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -93,6 +95,7 @@ export const renderTileActionMenu = (
         pickOriginForTarget: deps.pickOriginForTarget
       });
       injectDebugDownloadRow(view, menuTile, state.authEmail);
+      injectDockNavigatorRow(view, menuTile, state);
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
@@ -103,6 +106,7 @@ export const renderTileActionMenu = (
   state.tileActionMenu.activeTab = activeTab;
   const signature = tileMenuRenderSignature(view, activeTab);
   const shouldReuseRenderedMenu = state.tileActionMenu.visible && state.tileActionMenu.renderSignature === signature;
+  const afcPickerState = !shouldReuseRenderedMenu && state.tileActionMenu.visible && activeTab === "modules" ? afcModulePickerStateForTitle(deps.tileActionMenuEl, view.title) : undefined;
   if (!shouldReuseRenderedMenu) {
     deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
     state.tileActionMenu.renderSignature = signature;
@@ -122,6 +126,7 @@ export const renderTileActionMenu = (
   if (!shouldReuseRenderedMenu) {
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
+    wireDockNavigatorButtons(deps.tileActionMenuEl, state);
     // The tile owner's name (tileOwnerLabelHtml) opens their player profile.
     // Wired here, not via the general wirePlayerProfileOverlay pass, since
     // this menu can re-render outside a full renderClientHud cycle (e.g. the
@@ -160,6 +165,7 @@ export const renderTileActionMenu = (
       };
     });
     const actionButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
+    bindAfcModulePicker(deps.tileActionMenuEl, afcPickerState);
     actionButtons.forEach((btn) => {
       btn.onclick = () => {
         const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
@@ -406,6 +412,7 @@ export const renderTileActionMenu = (
       };
     }
   }
+  fitAfcModulePicker(deps.tileActionMenuEl);
 };
 
 export const openSingleTileActionMenu = (
@@ -461,7 +468,7 @@ export const openBulkTileActionMenu = (
   if (neutralCount > 0) {
     actions.push({
       id: "settle_land",
-      label: `Settle Land (${neutralCount})`,
+      label: `Garrison (${neutralCount})`,
       cost: `${FRONTIER_CLAIM_COST} coin, ${EXPAND_MANPOWER_COST} manpower each`
     });
   }

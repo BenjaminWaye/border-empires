@@ -146,6 +146,18 @@ describe("syncAuthOverlay", () => {
     expect(authBusyDiagnosticsBtn.style.display).toBe("none");
   });
 
+  it("scrolls the overlay back to the top when it goes busy so the busy card is not left below the fold", () => {
+    const authOverlayEl = Object.assign(makeElement(), { scrollTop: 640 });
+    syncAuthOverlay(baseState(), { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authOverlayEl });
+    expect(authOverlayEl.scrollTop).toBe(0);
+  });
+
+  it("leaves the overlay scroll position alone while not busy", () => {
+    const authOverlayEl = Object.assign(makeElement(), { scrollTop: 640 });
+    syncAuthOverlay({ ...baseState(), authBusy: false }, { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authOverlayEl });
+    expect(authOverlayEl.scrollTop).toBe(640);
+  });
+
   it("disables Play now together with the other sign-in buttons while busy or unconfigured", () => {
     const authPlayNowBtn = makeButton();
     const deps = { ...baseDeps(), authBusyDiagnosticsBtn: makeButton(), authPlayNowBtn };

@@ -17,7 +17,7 @@ export const naturalWonderOverviewLine = (tile: Tile, ownerKind: TileOwnerKind):
   if (!tile.naturalWonder) return undefined;
   const { name, boon } = NATURAL_WONDER_LABELS[tile.naturalWonder.type];
   if (ownerKind === "mine-settled") return `Natural wonder: ${name} — active. Boon: ${boon}.`;
-  if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Settle this tile to activate: ${boon}.`;
+  if (ownerKind === "mine-frontier") return `Natural wonder: ${name}. Garrison this tile to activate: ${boon}.`;
   return `Natural wonder: ${name}. Boon: ${boon}.`;
 };
 
@@ -116,7 +116,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     if (inCaptureShock) {
       modifiers.push({
         reason: "Recently captured",
-        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until settled",
+        effect: tile.ownershipState === "SETTLED" ? "population growth paused" : "town manpower and production paused until garrisoned",
         tone: "negative"
       });
     }

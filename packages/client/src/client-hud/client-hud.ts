@@ -3,8 +3,10 @@ import type { ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
+import { manpowerGaugeChipHtml, ownStagedManpower } from "../client-manpower-gauge/client-manpower-gauge.js";
+import { nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
+import { devGearsChipHtml } from "../client-dev-gears/client-dev-gears.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
@@ -20,7 +22,6 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
-import { renderClientGuideOverlay } from "../client-guide-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
@@ -241,18 +242,6 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const replayPanelHtml = (): string => "";
 
-  if (
-    !state.guide.completed &&
-    !state.guide.autoOpened &&
-    state.connection === "initialized" &&
-    state.firstChunkAt > 0 &&
-    dom.authOverlayEl.style.display !== "grid"
-  ) {
-    state.guide.open = true;
-    state.guide.autoOpened = true;
-    storageSet(GUIDE_AUTO_OPEN_STORAGE_KEY, "1");
-  }
-
   const development = safeValue("developmentSlotSummary", { busy: 0, limit: 0, available: 0 }, () => developmentSlotSummary());
   const mobile = isMobile();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
@@ -270,21 +259,17 @@ export const renderClientHud = (deps: HudDeps): void => {
   const goldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(1)}/day`;
   const mobileGoldRateText = `${netGoldPerDay > 0 ? "+" : ""}${netGoldPerDay.toFixed(0)}/day`;
   const goldRateClass = rateToneClass(netGoldPerDay);
-  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(1)}/m`;
-  const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
-  const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
-  const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
   const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
   const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
+    ${manpowerGaugeChipHtml({ manpower: state.manpower, manpowerCap: state.manpowerCap, staged: ownStagedManpower(state.tiles.values(), state.me, Date.now()), regenPerMinute: state.manpowerRegenPerMinute, logisticsPerMinute: state.logisticsThroughputPerMinute, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now()), nowMs: Date.now(), formatAmount: formatManpowerAmount })}
     <div class="stat-chip-def-wrap">
       <button class="stat-chip stat-chip-def${defClass}${showIntegrityWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
       ${integrityWarningHtml}
     </div>
-    <button class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" type="button" data-panel="development" title="Development slots limit how many settles and constructions can run at once. Tap for breakdown."><span>${mobile ? "Dev" : "Development"}</span><strong>${development.busy}/${development.limit}</strong></button>
+    ${devGearsChipHtml({ busy: development.busy, limit: development.limit, mobile })}
     ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Integrity</span><strong>Hide Weak</strong></button>` : ""}
     ${imperialWardChipHtml(state)}
     ${strategicRibbonHtml(
@@ -367,7 +352,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="targeting-card tone-amber">
         <div class="targeting-kicker">Crystal Action Armed</div>
         <div class="targeting-title">Aether Wall</div>
-        <div class="targeting-detail">Select one of your settled border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
+        <div class="targeting-detail">Select one of your garrisoned border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
         <div class="targeting-status">${status}</div>
         <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
       </div>
@@ -388,7 +373,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
       ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
+        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane."
         : ability === "siphon"
           ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
@@ -853,7 +838,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
-      rateToneClass, formatDuration: deps.formatCooldownShort
+      rateToneClass, formatDuration: deps.formatCooldownShort, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
@@ -1025,13 +1010,6 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
-
-  renderClientGuideOverlay({
-    state,
-    guideOverlayEl: dom.guideOverlayEl,
-    storageSet,
-    renderHud: () => renderClientHud(deps)
-  });
 
   renderClientActivityDashboardOverlay({
     state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,

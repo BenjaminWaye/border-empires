@@ -137,10 +137,12 @@ describe("simulation seed state", () => {
     // detail (see worldgen-coastline-style.ts) -- more tile-scale jaggedness
     // on every coastline style, including bay, occasionally pinches off a
     // few more small landmasses at the margin; actual is a stable 41 for
-    // this seed. Banded rather than pinned to stay resilient to minor
-    // unrelated worldgen tuning.
+    // this seed. Widened again (45 -> 60) for worldgen v10, whose coastal
+    // island chains (worldgen-island-chain.ts) add strings of 20-100 tile
+    // islands along continents; actual is a stable 52 for this seed. Banded
+    // rather than pinned to stay resilient to minor unrelated worldgen tuning.
     expect(countSignificantIslands(world, 20)).toBeGreaterThanOrEqual(5);
-    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(45);
+    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(60);
     expect(world.summary.perPlayer.filter((player) => player.isAi)).toHaveLength(20);
     expect(world.summary.perPlayer.every((player) => player.settledTiles === 1 && player.towns === 1)).toBe(true);
     expect(world.players.has("barbarian-1")).toBe(true);

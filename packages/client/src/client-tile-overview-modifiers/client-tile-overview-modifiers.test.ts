@@ -150,7 +150,7 @@ describe("tileOverviewModifiersForTile", () => {
     ).toContainEqual({ reason: "Defense", effect: "6.5x", tone: "positive" });
   });
 
-  it("shows recently captured frontier towns as paused until settled", () => {
+  it("shows recently captured frontier towns as paused until garrisoned", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-09T12:00:00Z"));
 
@@ -184,7 +184,7 @@ describe("tileOverviewModifiersForTile", () => {
       } satisfies Tile)
     ).toContainEqual({
       reason: "Recently captured",
-      effect: "town manpower and production paused until settled",
+      effect: "town manpower and production paused until garrisoned",
       tone: "negative"
     });
 

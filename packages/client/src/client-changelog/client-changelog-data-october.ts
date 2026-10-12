@@ -308,6 +308,15 @@ const OCTOBER_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Capturing an enemy AFC also plunders 33% of their Coin",
       "Fixed: AFCs disappeared after a server restart and a new one appeared somewhere else"
     ]
+  },
+  {
+    createdAt: 1791579776000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.09.1",
+    title: "Sign-in loading screen stays in view",
+    why: "On shorter screens the \"Securing session\" loading card could be centered below the fold, so it looked like nothing was happening.",
+    changes: [
+      "The sign-in loading card is now centered in the visible screen while the session finishes connecting"
+    ]
   }
 ];
 

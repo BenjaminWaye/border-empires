@@ -1,3 +1,4 @@
+import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -40,7 +41,7 @@ import {
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
-  SETTLE_COST, isAutoSettleAllowed,
+  SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -89,7 +90,6 @@ import {
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
   createPlayerRuntimeSummaryFromRecovered,
-  pendingSettlementMatches,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -160,7 +160,6 @@ import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.
 import { refreshSpatialFocusForSummary, recordSpatialFocusOutcome, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
 import {
   InMemorySimulationPersistence,
-  TERRITORY_AUTO_COMMAND_PREFIX,
   type ActiveAetherBridgeView,
   type ActiveAetherWallView,
   type AetherWallDirection,
@@ -206,7 +205,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, clearCompletedSettleEntry, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
@@ -440,6 +439,8 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
+import { createTerritoryAutomationCommandIdGenerator } from "../runtime-territory-automation-tick/territory-automation-command-id.js";
+import { dormantOwnedActivatables } from "../runtime-territory-automation-tick/dormant-claim-sweep.js";
 import {
   seedEligibleFrontierQueueForOwner as seedEligibleFrontierQueueForOwnerImpl,
   seedGrownTownSupportRingForTownTile as seedGrownTownSupportRingForTownTileImpl,
@@ -831,7 +832,8 @@ export class SimulationRuntime {
   private readonly lastShardRainHelloByPlayer = new Map<string, number>();
   private readonly recentShardRainTileKeys = new Set<string>();
   private readonly activeShardFallSiteKeys = new Set<string>();
-  private territoryAutomationCounter = 0;
+  private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
+  private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
@@ -1407,6 +1409,7 @@ export class SimulationRuntime {
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
+    if (!this.dormantClaimSweepDone) { this.dormantClaimSweepDone = true; const sweepOwners = new Set<string>(); for (const { tileKey, ownerId } of dormantOwnedActivatables(this.state.tiles)) { this.activateReachClaimedTile(tileKey, ownerId, `dormant-claim-sweep:${tileKey}`); sweepOwners.add(ownerId); } for (const playerId of sweepOwners) this.emitPlayerStateUpdate({ commandId: `dormant-claim-sweep:${playerId}`, playerId }); }
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -1424,6 +1427,7 @@ export class SimulationRuntime {
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      onTileClaimed: (tileKey, ownerId, claimCommandId) => this.activateReachClaimedTile(tileKey, ownerId, claimCommandId),
       runtimeLogInfo: (payload, message) => runtimeLogInfo(payload, message),
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
@@ -1445,7 +1449,7 @@ export class SimulationRuntime {
 
   tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options) }); }
   private registerFrontierAutoHeal(tileKey: string, deadlineAt: number): void { enqueueFrontierAutoHeal(this.frontierAutoHealQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)); }
-  tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y) }); }
+  tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) }); }
 
   private musterTickContext(): MusterTickContext {
     return buildMusterTickContext({
@@ -3288,11 +3292,6 @@ export class SimulationRuntime {
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
-  private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
-    this.territoryAutomationCounter += 1;
-    return `${TERRITORY_AUTO_COMMAND_PREFIX}${label}:${playerId}:${tileKey}:${nowMs}:${this.territoryAutomationCounter}`;
-  }
-
   private startSettlementProcess(input: {
     commandId: string;
     playerId: string;
@@ -3345,64 +3344,26 @@ export class SimulationRuntime {
   // this already ran (rush-buy) by the time the original timer fires, the
   // match check fails and the timer's call is a no-op — same pattern
   // completeStructureBuild already relies on for its own status guard.
-  private resolvePendingSettlement(input: {
-    ownerId: string;
-    tileKey: string;
-    startedAt: number;
-    resolvesAt: number;
-    commandId: string;
-  }): void {
-    const expectedSettlement = {
-      ownerId: input.ownerId,
-      tileKey: input.tileKey,
-      startedAt: input.startedAt,
-      resolvesAt: input.resolvesAt,
-      goldCost: SETTLE_COST,
-      commandId: input.commandId
-    };
-    const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
-    if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
-    this.removePendingSettlement(input.tileKey);
-    tryDrainDevQueueImpl(this.devQueueCommandContext(), input.ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
-    const latest = this.state.tiles.get(input.tileKey);
-    if (
-      !latest ||
-      latest.ownerId !== input.ownerId ||
-      latest.ownershipState !== "FRONTIER"
-    ) {
-      this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
-      // Slot-freed drain (Design §5) even when the settlement itself didn't
-      // land (tile lost FRONTIER/ownership before this fired) -- the dev
-      // slot is still freed either way.
-      this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
-      return;
-    }
-    const settledTile: DomainTileState = {
-      ...latest,
-      ownerId: input.ownerId,
-      ownershipState: "SETTLED",
-      ...(latest.town ? { town: latest.town } : {})
-    };
-    this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
-    this.replaceTileState(input.tileKey, settledTile);
-    // Slot-freed drain (Design §5): replaceTileState above already removed
-    // this now-SETTLED tile from eligibleFrontierByOwner (it's no longer
-    // FRONTIER), so draining here can't immediately re-consume the slot it
-    // just freed by re-settling the SAME tile -- the next QUEUED eligible
-    // tile starts this same tick instead of waiting for the next 30s pass.
-    this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
-    tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
-    const tileAfterBuildTail = resolveTileAfterBuildTail(this.state.tiles, input.tileKey, settledTile); // see doc comment at definition
-    this.emitEvent({ eventType: "TILE_DELTA_BATCH",
-      commandId: input.commandId,
-      playerId: input.ownerId,
-      // ownerId/ownershipState forced regardless of the sparse-diff cache; see
-      // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-      tileDeltas: [{ ...this.tileDeltaFromState(tileAfterBuildTail), ownerId: tileAfterBuildTail.ownerId ?? undefined, ownershipState: tileAfterBuildTail.ownershipState ?? undefined }]
-    });
-    this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
-    this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
+  private resolvePendingSettlement(input: SettlementResolutionInput): void {
+    resolvePendingSettlementImpl({
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      tiles: this.state.tiles,
+      removePendingSettlement: (key) => this.removePendingSettlement(key),
+      drainDevQueue: (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId),
+      retireQueuedSettlement: (ownerId, key) => {
+        const context = this.devQueueCommandContext();
+        clearCompletedSettleEntry(context, ownerId, context.summaryForPlayer(ownerId), key);
+      },
+      drainAutoSettle: (ownerId) => this.autoSettleEligibilityRuntime().drainForOwner(ownerId),
+      drainBuildTail: (ownerId, key, x, y) => tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), ownerId, key, x, y),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      setTileYieldCollectedAt: (commandId, ownerId, key, nowMs) => this.setTileYieldCollectedAt(commandId, ownerId, key, nowMs),
+      now: () => this.now(),
+      replaceTileState: (key, tile) => this.replaceTileState(key, tile),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
+      emitEvent: (event) => this.emitEvent(event),
+      emitAutoFillForSettlement: (tile, ownerId, key) => this.emitAutoFillForSettlement(tile, ownerId, key)
+    }, input);
   }
 
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
@@ -3436,13 +3397,13 @@ export class SimulationRuntime {
     // disconnected tile would let a player convert an encircled pocket into
     // permanent territory, defeating the encirclement mechanic. Natural
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
-    if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
+    if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be garrisoned"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
     // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
-    // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce
-    // their own reach once settled, so requiring pre-existing reach here is
-    // circular (mirrors isAutoSettlementEligibleTarget's exemption).
-    if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    // EXPAND's OUT_OF_REACH check. Town/dock tiles and tiles holding a captured
+    // building are exempt (settleIgnoresReach) -- the same tiles the sim
+    // auto-settles out of reach on capture, so manual Garrison must accept them.
+    if (!settleIgnoresReach(target) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
@@ -3465,7 +3426,7 @@ export class SimulationRuntime {
     const targetKey = simulationTileKey(payload.x, payload.y);
     const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
     if (!pendingSettlement || pendingSettlement.ownerId !== command.playerId) {
-      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no settlement in progress on tile");
+      this.rejectCommand(command, "SETTLE_CANCEL_INVALID", "no garrisoning in progress on tile");
       return;
     }
     this.removePendingSettlement(targetKey);

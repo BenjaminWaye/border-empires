@@ -57,7 +57,7 @@ describe("applyAutoSettlementQueueFromServer manpower budget", () => {
     );
 
     expect(added).toBe(1);
-    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Settlement at (9, 10)" }]);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 9, y: 10, tileKey: "9,10", label: "Garrison at (9, 10)" }]);
   });
 
   it("queues both settlements when manpower and gold both cover them", () => {

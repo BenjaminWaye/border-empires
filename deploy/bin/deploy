@@ -5,6 +5,10 @@
 #   <40-char git sha>   deploy that sha (pull image, fetch config, switch, health-gate)
 #   rollback            redeploy the previous image
 #   snapshot            stream a consistent VACUUM INTO copy of the DB to stdout
+#   logs [<since>]      print the app container's logs since <since> (e.g. 30m,
+#                       6h; default 15m). The read-only logs key's forced command
+#                       is `deploy --logs-only`, which refuses every other verb
+#                       (scripts/ops/backend-logs.sh).
 #
 # Admins can also run it directly: `/opt/border-empires/bin/deploy <sha>`.
 set -euo pipefail
@@ -23,7 +27,11 @@ HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"   # boot replay can be s
 SETTLE_MIN_UPTIME_SECONDS="${SETTLE_MIN_UPTIME_SECONDS:-120}"
 SETTLE_STREAK="${SETTLE_STREAK:-8}"
 SETTLE_TIMEOUT_SECONDS="${SETTLE_TIMEOUT_SECONDS:-300}"
-ARG="${SSH_ORIGINAL_COMMAND:-${1:-}}"
+LOGS_ONLY=0
+if [ "${1:-}" = "--logs-only" ]; then LOGS_ONLY=1; shift; fi
+ARG="${SSH_ORIGINAL_COMMAND:-$*}"
+# "<verb> [<arg>]" -- only `logs` takes an argument; EXTRA must stay empty.
+read -r VERB VERB_ARG EXTRA <<<"$ARG" || true
 
 log() { echo "[deploy] $*" >&2; }
 cd "$APP_DIR"
@@ -97,7 +105,18 @@ prune_images() { # keep current + 2 newest others
   done
 }
 
-case "$ARG" in
+[ -z "${EXTRA:-}" ] || { log "too many arguments"; exit 2; }
+[ "$LOGS_ONLY" = 0 ] || [ "$VERB" = "logs" ] || { log "this key may only run: logs [<since>]"; exit 2; }
+[ "$VERB" = "logs" ] || [ -z "${VERB_ARG:-}" ] || { log "${VERB} takes no arguments"; exit 2; }
+
+case "$VERB" in
+  logs)
+    since="${VERB_ARG:-15m}"
+    # Strict allowlist: this string reaches docker's argv, never a shell.
+    [[ "$since" =~ ^[1-9][0-9]{0,3}[smh]$ ]] || { log "usage: logs [<1-9999><s|m|h>]"; exit 2; }
+    exec docker compose logs --no-color --since "$since" app 2>&1
+    ;;
+
   snapshot)
     # stdout is the DB file: every other message above/below goes to stderr.
     out="/data/snapshots/transfer.db"
@@ -120,8 +139,8 @@ new DatabaseSync("/data/border-empires.db").exec("VACUUM INTO \x27/data/snapshot
     ;;
 
   *)
-    sha="$ARG"
-    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { log "usage: <40-char sha> | rollback | snapshot"; exit 2; }
+    sha="$VERB"
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { log "usage: <40-char sha> | rollback | snapshot | logs [<since>]"; exit 2; }
     image="${IMAGE_REPO}:${sha}"
     prev="$(read_var IMAGE)"
     log "deploying ${image} (was ${prev:-<none>})"

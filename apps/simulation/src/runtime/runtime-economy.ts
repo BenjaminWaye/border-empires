@@ -4,12 +4,14 @@
 // that take their dependencies explicitly via RuntimeManpowerEconomyContext,
 // mirroring the build*CommandContext pattern used in Stage 1/2. No numeric
 // formula or rounding behavior was changed — only moved.
+import { MANPOWER_EPSILON } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { ManpowerStructureBonus } from "../runtime-manpower-structure-bonus.js";
 import {
+  accrueManpower,
   effectiveManpowerAt as effectiveManpowerAtImpl,
   playerManpowerBreakdownFromSummary,
   playerManpowerCapFromSummary,
@@ -131,6 +133,7 @@ export function refreshManpowerOnlyForPlayer(
   const cap = playerManpowerCap(ctx, player);
   if (!Number.isFinite(player.manpower)) {
     player.manpower = cap;
+    delete player.manpowerBanked;
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
@@ -146,7 +149,10 @@ export function refreshManpowerOnlyForPlayer(
     player.manpowerCapSnapshot = cap;
     return;
   }
-  player.manpower = effectiveManpowerAtForPlayer(ctx, player, nowMs);
+  const { manpower, banked } = accrueManpower(player, cap, playerManpowerRegenPerMinute(ctx, player), nowMs);
+  player.manpower = manpower;
+  if (banked > MANPOWER_EPSILON) player.manpowerBanked = banked;
+  else delete player.manpowerBanked;
   settleWaystationManpowerOverflow(player, cap);
   player.manpowerUpdatedAt = nowMs;
   player.manpowerCapSnapshot = cap;

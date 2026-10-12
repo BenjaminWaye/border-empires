@@ -22,6 +22,17 @@ import { wrapX, wrapY } from "../math/math.js";
 import { seeded01, terrainAt } from "./worldgen.js";
 import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import type { RiverPath, RiverPoint } from "./worldgen-rivers.js";
+import { headwaterMountainAt } from "./worldgen-river-headwater.js";
+import { worldgenVersion } from "./worldgen-version.js";
+
+// v11+: rivers start at a headwater corner -- a mountain in the ring of tiles
+// just outside it -- so the client can draw them falling out of that
+// mountain (docs/river-mountains-plan.md, PR D). Only the choice of start
+// corner changes (no new random draws); a river with no headwater candidate
+// falls back to the v9 start, so no world gets fewer rivers. v10 seasons
+// (already running on staging) keep the v9 start pick.
+export const HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 11;
+const headwaterRiversActive = (): boolean => worldgenVersion() >= HEADWATER_RIVERS_MIN_WORLDGEN_VERSION;
 
 const RIVER_COUNT_TARGET = 10;
 const RIVER_START_ATTEMPTS = 60;
@@ -186,7 +197,8 @@ const findEdgeRiverStart = (
   dist: Uint16Array,
   seed: number,
   riverIndex: number,
-  usedCorners: ReadonlySet<number>
+  usedCorners: ReadonlySet<number>,
+  headwaterOnly = false
 ): { x: number; y: number } | undefined => {
   let best: { x: number; y: number } | undefined;
   let bestDistance = 0;
@@ -200,6 +212,7 @@ const findEdgeRiverStart = (
       const ci = cy * WORLD_WIDTH + cx;
       const d = dist[ci]!;
       if (d === UNREACHED || usedCorners.has(ci) || d <= bestDistance) continue;
+      if (headwaterOnly && !headwaterMountainAt(cx, cy, 0, 0)) continue;
       bestDistance = d;
       best = { x: cx, y: cy };
     }
@@ -286,13 +299,14 @@ const toroidDelta = (a: number, b: number, size: number): number => {
   return d > size / 2 ? d - size : d < -size / 2 ? d + size : d;
 };
 
-/** v9+ river generation: deterministic per seed, every step is one tile edge. */
+/** v9+ river generation: deterministic per seed, every step is one tile edge; v11+ starts at headwater corners where it can. */
 export const generateEdgeRiverPaths = (seed: number): readonly RiverPath[] => {
   const dist = buildCornerDistanceToSea();
   const rivers: RiverPath[] = [];
   const usedCorners = new Set<number>();
   for (let i = 0; i < RIVER_START_ATTEMPTS && rivers.length < RIVER_COUNT_TARGET; i += 1) {
-    const start = findEdgeRiverStart(dist, seed, i, usedCorners);
+    const start =
+      (headwaterRiversActive() ? findEdgeRiverStart(dist, seed, i, usedCorners, true) : undefined) ?? findEdgeRiverStart(dist, seed, i, usedCorners);
     if (!start) continue;
     const path = walkEdgeRiver(start, dist, seed, i);
     if (!path) continue;

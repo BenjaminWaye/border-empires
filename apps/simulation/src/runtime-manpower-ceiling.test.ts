@@ -1,4 +1,5 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
+import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { effectiveManpowerAt } from "./runtime-manpower.js";
 import { creditManpower, grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflow } from "./runtime-manpower-ceiling.js";
@@ -36,7 +37,7 @@ describe("waystation manpower overflow", () => {
     p.manpower = 600; // spent below the cap
     settleWaystationManpowerOverflow(p, CAP);
     expect(p.waystationManpowerOverflow).toBeUndefined();
-    expect(effectiveManpowerAt(p, CAP, 10, 60 * 60_000)).toBe(CAP);
+    expect(effectiveManpowerAt(p, CAP, 10, 2 * MANPOWER_REFILL_WINDOW_MS)).toBe(CAP); // 10/min over a whole window refills it
     creditManpower(p, 5_000, CAP);
     expect(p.manpower).toBe(CAP);
   });

@@ -9,6 +9,8 @@ import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { boundaryConvergentStressCachedAt, continentField, getInlandThresholds } from "./worldgen-continent-score.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
+import { isNaturalRangeCore } from "./worldgen-natural-ranges.js";
+import { naturalRangeShapeActive } from "./worldgen-version.js";
 import { TAU, worldSeed, worldStyle } from "./worldgen.js";
 
 const toroidDx = (a: number, b: number): number => {
@@ -109,6 +111,9 @@ export const isInMountainPass = (x: number, y: number): boolean => {
 // happens to pass near.
 const TECTONIC_MOUNTAIN_STRESS_THRESHOLD = 0.32;
 const isTectonicMountainRange = (x: number, y: number): boolean => {
+  // v10+: thin wandering skeleton instead of a stress-threshold band, with the
+  // surrounding zone turned into hills -- see worldgen-natural-ranges.ts.
+  if (naturalRangeShapeActive()) return isNaturalRangeCore(x, y) && !isInMountainPass(x, y);
   if (continentField(x, y) <= getInlandThresholds().mountainRangeInland) return false;
   if (boundaryConvergentStressCachedAt(x, y) < TECTONIC_MOUNTAIN_STRESS_THRESHOLD) return false;
   return !isInMountainPass(x, y);

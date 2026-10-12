@@ -6,7 +6,6 @@ import { createInitialShardRainState } from "./client-state-shard-rain-defaults.
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -15,7 +14,7 @@ import { checkServerDeployingSession } from "../client-server-deploying-session/
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
-import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
+import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
@@ -290,10 +289,8 @@ export const createInitialState = () => ({
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
   outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean; winChance?: number }>(),
-  // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
-  // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
-  musterTransitByTile: new Map<string, MusterTransitEntry>(),
-  deferredAttackByTile: new Map<string, DeferredMusterAttack>(),
+  // See client-state-attack-dispatch-defaults.ts: muster transits, deferred attacks, chosen attack effort.
+  ...createInitialAttackDispatchState(),
   pendingCombatReveal: undefined as
     | {
         targetKey: string;
@@ -553,7 +550,6 @@ export const createInitialState = () => ({
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
-  ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),
   changelog: {
     open: false,

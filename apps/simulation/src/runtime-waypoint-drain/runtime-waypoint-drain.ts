@@ -74,7 +74,8 @@ const buildDrainCommand = (
   fromY: number,
   toX: number,
   toY: number,
-  actionType: FrontierCommandType
+  actionType: FrontierCommandType,
+  commitManpower?: number
 ): CommandEnvelope => ({
   commandId,
   sessionId: "system-runtime:waypoint-queue",
@@ -82,8 +83,29 @@ const buildDrainCommand = (
   clientSeq: 0,
   issuedAt: nowMs,
   type: actionType,
-  payloadJson: JSON.stringify({ fromX, fromY, toX, toY })
+  payloadJson: JSON.stringify({ fromX, fromY, toX, toY, ...(commitManpower != null ? { commitManpower } : {}) })
 });
+
+/**
+ * The player's Expand To & Attack effort choice (docs/replenishment-update-
+ * plan.md D6) applies only to the plan's final ATTACK on the waypoint's own
+ * target, and only while that target is SETTLED and non-barbarian -- the
+ * only case the commit actually improves odds for (runtime-combat-support.ts
+ * isCommitEligible); anywhere else it would just overpay.
+ */
+const commitManpowerForStep = (
+  entry: ServerWaypointQueueEntry,
+  step: { target: { x: number; y: number }; action: FrontierCommandType },
+  targetTile: DomainTileState | undefined
+): number | undefined =>
+  entry.commitManpower != null &&
+  step.action === "ATTACK" &&
+  step.target.x === entry.target.x &&
+  step.target.y === entry.target.y &&
+  targetTile?.ownershipState === "SETTLED" &&
+  targetTile.ownerId !== "barbarian-1"
+    ? entry.commitManpower
+    : undefined;
 
 /**
  * Drain a single plan-carrying (steps[]/cursor) entry by one leg. Returns
@@ -145,7 +167,8 @@ const drainPlanEntry = (
     step.origin.y,
     step.target.x,
     step.target.y,
-    step.action
+    step.action,
+    commitManpowerForStep(entry, step, stepTargetTile)
   );
   const result = context.dispatchFrontierCommand(cmd, step.action);
   console.log("[waypoint-diag] drain-dispatch-result", JSON.stringify({ playerId, target: entry.target, step: cursor, action: step.action, accepted: result.accepted, code: result.code }));

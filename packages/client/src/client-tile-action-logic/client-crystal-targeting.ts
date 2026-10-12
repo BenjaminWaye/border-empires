@@ -221,7 +221,7 @@ export const beginCrystalTargeting = (
     }
     const validOrigins = collectValidAetherWallOrigins(state, deps);
     if (validOrigins.size === 0) {
-      deps.pushFeed(`Aether Wall has no valid ${localhostOverride ? "owned" : "settled border"} origins in view.`, "combat", "warn");
+      deps.pushFeed(`Aether Wall has no valid ${localhostOverride ? "owned" : "garrisoned border"} origins in view.`, "combat", "warn");
       return;
     }
     state.aetherWallTargeting.active = true;

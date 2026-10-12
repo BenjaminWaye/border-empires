@@ -43,7 +43,7 @@ export const observatoryToggleMenuEntries = (tile: Tile, deps: ConverterMenuDeps
       detail: deps.buildDetailTextForAction("enable_observatory", tile),
       ...deps.tileActionAvailability(
         !tileNotSettled,
-        tileNotSettled ? "Tile is not settled" : "",
+        tileNotSettled ? "Tile is not garrisoned" : "",
         "Vision, crystal casting, and CRYSTAL slot upkeep resume"
       )
     }

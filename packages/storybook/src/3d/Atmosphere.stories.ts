@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createAtmosphere } from "@client/client-map-3d-atmosphere.js";
 import { createForest } from "@client/client-map-3d-forest.js";
-import { createMountainMassifs } from "@client/client-map-3d-mountain-massif.js";
+import { createMountainMassifs, type MountainMassifDeps } from "@client/client-map-3d-mountain-massif.js";
 import { createStage, forEachGridCell, wrapWithCleanup } from "../three-stage.js";
+
+const LONE_MOUNTAINS: MountainMassifDeps = { isMountainAt: () => false, isColdAt: () => false, wrapX: (x) => x, wrapY: (y) => y };
 
 type Args = {
   showForeground: boolean;
@@ -19,8 +21,8 @@ const render = (args: Args): HTMLElement => {
     forest.commit();
     cleanups.push(forest.dispose);
 
-    const massifs = createMountainMassifs(stage.scene, 9);
-    forEachGridCell({ radius: 1, spacing: 4 }, (x, z) => massifs.addInstance(x, 6 + z, 0));
+    const massifs = createMountainMassifs(stage.scene, 9, LONE_MOUNTAINS);
+    forEachGridCell({ radius: 1, spacing: 4 }, (x, z) => massifs.addInstance(x, 6 + z, 0, x, z));
     massifs.commit();
     cleanups.push(massifs.dispose);
   }

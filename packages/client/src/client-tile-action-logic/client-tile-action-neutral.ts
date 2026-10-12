@@ -5,16 +5,16 @@
 import {
   EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST,
-  RELAY_BEACON_BUILD_MS,
   RELAY_BEACON_VISION_BONUS,
   SETTLE_COST,
   SETTLE_MANPOWER_COST,
   structureBuildManpowerCost
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constants.js";
-import { economicStructureBuildMs } from "../client-map-display.js";
+import { economicBuildMsForState } from "../client-build-speed/client-build-speed.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { buildTimeLabel, relayBeaconBuildDurationMsForState, relayBeaconManpowerCostForState } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -144,8 +144,8 @@ export const neutralTileActions = (
   // same policy as everything below.
   if (targetInReach) {
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-    const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
+    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + relayBeaconManpowerCostForState(state);
+    const totalExploreMs = settleDurationMsForState(state, tile) + relayBeaconBuildDurationMsForState(state);
     const exploreEnabled =
       canAffordCost(state.gold, totalExploreGold) &&
       state.manpower >= totalExploreManpower &&
@@ -161,7 +161,7 @@ export const neutralTileActions = (
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} coin`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + garrison + build • ${buildTimeLabel(totalExploreMs)} total`
       )
     });
   }
@@ -186,7 +186,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("FOUNDRY")
               ? `Need ${deps.structureGoldCost("FOUNDRY")} coin`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
+      `${deps.structureCostText("FOUNDRY")} • ${buildTimeLabel(economicBuildMsForState(state, "FOUNDRY"))} • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
       deps.developmentSlotSummary(),
       deps
     )

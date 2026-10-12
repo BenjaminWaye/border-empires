@@ -230,6 +230,7 @@ export const createSeasonSeedWorldAsync = async (
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
+  let acceptedStarterWorld = false;
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
     setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
@@ -265,13 +266,15 @@ export const createSeasonSeedWorldAsync = async (
     const worldAccepted =
       islandDistributionAccepted &&
       !worldLooksBlandResult &&
-      countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile }) >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM;
-    if (worldAccepted) break;
+      countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM;
+    if (worldAccepted) { acceptedStarterWorld = true; break; }
     if (iteration < 15) {
       worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
     }
     await onYield?.();
   }
+  // Island preferences remain best-effort; the starter economy is mandatory.
+  if (!acceptedStarterWorld && countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile, docksByTile }) < FAIR_SPAWN_SITE_WORLDGEN_MINIMUM) throw new Error("worldgen could not secure 50 qualified starter sites after 16 seeds");
   activeSeason.worldSeed = worldSeed;
   // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here -- see the
   // matching comment in season-seed-world.ts (the sync sibling of this

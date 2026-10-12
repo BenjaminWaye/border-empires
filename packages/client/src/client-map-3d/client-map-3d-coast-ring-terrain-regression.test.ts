@@ -43,7 +43,7 @@ describe("first fog ring loads its natural terrain in 3D", () => {
     // A normal-blend wash, not a multiply: a multiply can only darken, which left remembered grass dark olive.
     expect(source).toContain('{ settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }');
     expect(source).toContain("const featureTint = printAsFogged ? fogFeatureTint : undefined;");
-    expect(source).toContain("mountainMassifs.addInstance(x, z, surfaceY, featureTint)");
+    expect(source).toContain("mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint)");
     expect(source).not.toContain("tmpBlack");
     expect(source).toContain("deps.wrapX, deps.wrapY), wx, wy, printAsFogged);");
   });

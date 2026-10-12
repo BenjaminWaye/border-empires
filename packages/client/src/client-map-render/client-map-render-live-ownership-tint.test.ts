@@ -10,7 +10,17 @@ const recordingCtx = (): { ctx: CanvasRenderingContext2D; fills: Fill[] } => {
     globalAlpha: 1,
     fillRect(): void {
       fills.push({ style: String(this.fillStyle), alpha: this.globalAlpha });
-    }
+    },
+    // Spring pools (river heads) are drawn as clipped arcs.
+    fill(): void {
+      fills.push({ style: String(this.fillStyle), alpha: this.globalAlpha });
+    },
+    save(): void {},
+    restore(): void {},
+    beginPath(): void {},
+    rect(): void {},
+    clip(): void {},
+    arc(): void {}
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, fills };
 };

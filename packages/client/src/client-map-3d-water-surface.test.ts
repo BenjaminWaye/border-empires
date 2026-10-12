@@ -217,4 +217,22 @@ describe("createWaterSurface", () => {
     expect(Array.from(pos).filter((_, i) => i % 3 === 1).filter((y) => Math.abs(y - WATER_SURFACE_Y) > 0.01).length).toBeGreaterThan(5);
     water.dispose();
   });
+  // Regression: commit() returned early when no sea was in view *before*
+  // tearing down the previous skirt, so after the camera jumped from a coast
+  // to somewhere with no explored sea, the old coastline's skirt strips stayed
+  // in the scene at their old scene-relative coordinates -- floating blue
+  // slabs in the middle of unexplored black.
+  it("removes the previous skirt when a rebuild has no sea in view", () => {
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4);
+    water.addTile(0.5, 0.5, false, 0, 0);
+    water.commit();
+    expect(scene.children.filter((child) => child instanceof Mesh).length).toBe(2);
+
+    water.clear();
+    water.commit();
+
+    expect(scene.children.filter((child) => child instanceof Mesh)).toEqual([]);
+    water.dispose();
+  });
 });

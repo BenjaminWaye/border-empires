@@ -99,8 +99,9 @@ describe("heightfield mountain ridge averaging", () => {
     const isolatedMax = findMaxY(isolatedPositions);
     const ridgeMax = findMaxY(ridgePositions);
     expect(ridgeMax).toBeGreaterThan(isolatedMax);
-    expect(ridgeMax).toBeGreaterThan(0.5 * HEIGHTFIELD_MOUNTAIN_ELEVATION);
-    expect(isolatedMax).toBeLessThan(0.5 * HEIGHTFIELD_MOUNTAIN_ELEVATION);
+    // Mountain tiles only rise slightly now -- the mountain meshes supply the
+    // bulk -- so the terrain itself never stands taller than that rise.
+    expect(ridgeMax).toBeLessThanOrEqual(HEIGHTFIELD_MOUNTAIN_ELEVATION + 0.1);
 
     heightfield.dispose();
   });

@@ -10,12 +10,20 @@
 // state, matching the split rationale already used for
 // worldgen-continents.ts / worldgen-mountain-rings.ts.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
-import { TAU, seeded01, worldSeed } from "./worldgen.js";
+import { POLAR_BAND, TAU, seeded01, worldSeed } from "./worldgen.js";
+import { continentSeparationActive } from "./worldgen-version.js";
 
 export type Plate = {
   cx: number;
   cy: number;
   isContinental: boolean;
+  /**
+   * Index of the continent cluster this plate belongs to (-1 for oceanic
+   * plates). Continental plates in different clusters are separate
+   * continents: worldgen-continent-score.ts rifts a seaway between them
+   * instead of letting their Voronoi cells fuse into one landmass.
+   */
+  clusterId: number;
   driftAngle: number;
   driftSpeed: number;
   baseElevation: number;
@@ -79,6 +87,7 @@ const toroidalDx = (a: number, b: number): number => {
 };
 
 let cachedPlatesSeed = Number.NaN;
+let cachedPlatesSeparation = false;
 let cachedPlates: Plate[] = [];
 
 type ClusterCenter = { cx: number; cy: number };
@@ -103,50 +112,111 @@ const buildContinentClusters = (seed: number): ClusterCenter[] => {
   return clusters;
 };
 
-const nearestClusterDist = (cx: number, cy: number, clusters: ClusterCenter[]): number => {
-  let best = Infinity;
-  for (const c of clusters) {
+const nearestCluster = (cx: number, cy: number, clusters: ClusterCenter[]): { index: number; dist: number } => {
+  let index = -1;
+  let dist = Infinity;
+  clusters.forEach((c, i) => {
     const d = Math.hypot(toroidalDx(cx, c.cx), cy - c.cy);
-    if (d < best) best = d;
+    if (d < dist) {
+      dist = d;
+      index = i;
+    }
+  });
+  return { index, dist };
+};
+
+// v10+: how much of the (non-polar) map continental plates must cover. The
+// radius-only rule above typically marked ~6 of 16 plates (~37% of the map)
+// continental, but land is calibrated to TARGET_LAND_FRACTION (45%) in
+// worldgen-continent-score.ts -- so the sea threshold had to drop until the
+// highest OCEANIC plates surfaced as land, and those land bridges fused
+// otherwise-separate continents into one supercontinent. Covering the land
+// target plus a margin (coasts, rift seaways) keeps oceanic plates as ocean.
+const CONTINENTAL_AREA_TARGET = 0.65;
+const AREA_SAMPLE_STEP = 8;
+
+// Share of the non-polar map whose nearest (undistorted) plate centre is
+// each plate -- a cheap estimate of each Voronoi cell's area.
+const plateAreaShares = (centers: Array<{ cx: number; cy: number }>): number[] => {
+  const counts = centers.map(() => 0);
+  let total = 0;
+  for (let y = POLAR_BAND; y < WORLD_HEIGHT - POLAR_BAND; y += AREA_SAMPLE_STEP) {
+    for (let x = 0; x < WORLD_WIDTH; x += AREA_SAMPLE_STEP) {
+      let best = 0;
+      let bestDist = Infinity;
+      centers.forEach((c, i) => {
+        const d = Math.hypot(toroidalDx(x, c.cx), y - c.cy);
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      });
+      counts[best] = (counts[best] ?? 0) + 1;
+      total += 1;
+    }
   }
-  return best;
+  return counts.map((n) => n / Math.max(1, total));
+};
+
+// Returns each plate's cluster id, or -1 for oceanic plates.
+const assignContinents = (centers: Array<{ cx: number; cy: number }>, clusters: ClusterCenter[]): number[] => {
+  const nearest = centers.map((c) => nearestCluster(c.cx, c.cy, clusters));
+  if (!continentSeparationActive()) {
+    // Legacy: continental only within a cluster's radius (see note above buildPlates).
+    return nearest.map((n) => (n.dist < CONTINENT_CLUSTER_RADIUS ? n.index : -1));
+  }
+  const shares = plateAreaShares(centers);
+  const order = centers.map((_, i) => i).sort((a, b) => nearest[a]!.dist - nearest[b]!.dist);
+  const ids = centers.map(() => -1);
+  let covered = 0;
+  for (const i of order) {
+    if (covered >= CONTINENTAL_AREA_TARGET && nearest[i]!.dist >= CONTINENT_CLUSTER_RADIUS) break;
+    // Plates inside a cluster's radius fuse into that cluster's continent;
+    // plates only added to reach the area target are continents of their own.
+    ids[i] = nearest[i]!.dist < CONTINENT_CLUSTER_RADIUS ? nearest[i]!.index : clusters.length + i;
+    covered += shares[i]!;
+  }
+  return ids;
 };
 
 export const buildPlates = (): Plate[] => {
   const seed = worldSeed();
-  if (seed === cachedPlatesSeed && cachedPlates.length > 0) return cachedPlates;
+  const separation = continentSeparationActive();
+  if (seed === cachedPlatesSeed && separation === cachedPlatesSeparation && cachedPlates.length > 0) return cachedPlates;
   cachedPlatesSeed = seed;
+  cachedPlatesSeparation = separation;
 
   const clusters = buildContinentClusters(seed);
-  const plates: Plate[] = [];
+  const centers: Array<{ cx: number; cy: number }> = [];
   for (let i = 0; i < PLATE_COUNT; i += 1) {
     let cx = 0;
     let cy = 0;
     for (let attempt = 0; attempt < PLACEMENT_ATTEMPTS_PER_PLATE; attempt += 1) {
       const candX = Math.floor(seeded01(i, attempt, seed + 130001) * WORLD_WIDTH);
       const candY = Math.floor(seeded01(i, attempt, seed + 140002) * WORLD_HEIGHT);
-      const farEnough = plates.every(
+      const farEnough = centers.every(
         (p) => Math.hypot(toroidalDx(candX, p.cx), candY - p.cy) >= MIN_PLATE_SPACING
       );
       cx = candX;
       cy = candY;
       if (farEnough || attempt === PLACEMENT_ATTEMPTS_PER_PLATE - 1) break;
     }
-    // A plate is continental only if it falls within one continent cluster's
-    // radius -- this is what actually guarantees several separate landmasses
-    // instead of leaving it to chance (see the note above buildPlates).
-    const isContinental = nearestClusterDist(cx, cy, clusters) < CONTINENT_CLUSTER_RADIUS;
-    plates.push({
+    centers.push({ cx, cy });
+  }
+  const clusterIds = assignContinents(centers, clusters);
+  cachedPlates = centers.map(({ cx, cy }, i) => {
+    const isContinental = clusterIds[i]! >= 0;
+    return {
       cx,
       cy,
       isContinental,
+      clusterId: clusterIds[i]!,
       driftAngle: seeded01(i, 1, seed + 160004) * TAU,
       driftSpeed: 0.5 + seeded01(i, 2, seed + 170005) * 0.5,
       baseElevation: isContinental
         ? 0.55 + seeded01(i, 3, seed + 180006) * 0.25
         : 0.1 + seeded01(i, 4, seed + 190007) * 0.2,
-    });
-  }
-  cachedPlates = plates;
-  return plates;
+    };
+  });
+  return cachedPlates;
 };

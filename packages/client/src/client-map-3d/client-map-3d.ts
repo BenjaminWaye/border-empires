@@ -1,3 +1,4 @@
+import { addBuildingInstancesForTile } from "./client-map-3d-building-instances.js";
 import {
   BufferGeometry,
   Color,
@@ -64,8 +65,7 @@ import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createFarmlandOverlay } from "../client-map-3d-farmland/client-map-3d-farmland.js"; import { createFishingOverlay, fishingWaterDirection } from "../client-map-3d-fishing/client-map-3d-fishing.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
-import { createStructureOverlay, mineResourceHintFor, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
-import { constructionSiteForRebuild } from "../client-construction-afc-offset/client-construction-afc-offset.js";
+import { createStructureOverlay } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
 import {
   createContactShadowOverlay,
@@ -147,9 +147,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   scene.add(heightfield.skirtMesh);
   scene.add(heightfield.gridlines);
   heightfield.setGridlinesVisible(true);
-  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
+  const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES, { isMountainAt: (x, y) => terrainForWorldTile(x, y) === "MOUNTAIN", isColdAt: (x, y) => { const k = heightfieldKindAt(x, y); return k === "TUNDRA" || k === "SNOW"; }, wrapX: deps.wrapX, wrapY: deps.wrapY }); // lambdas: both lookups are declared further down
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
-  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
+  const { waterSurface, riverOverlay } = createMapWater(scene, MAX_VISIBLE_TILES, { heightfield, mountainLookup: mountainMassifs.lookup, wrapX: deps.wrapX, wrapY: deps.wrapY, terrainAt: deps.terrainAt });
   const villageEffects = createVillageEffects(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
@@ -963,7 +963,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           }
           // Natural terrain is not live data, so it stays -- printed like its ground.
           const featureTint = printAsFogged ? fogFeatureTint : undefined;
-          if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, featureTint);
+          if (terrain === "MOUNTAIN") mountainMassifs.addInstance(x, z, surfaceY, wx, wy, featureTint);
           else if (shouldDrawForestInstance(forestTile, tile)) (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, featureTint);
           else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, featureTint);
           continue;
@@ -1007,7 +1007,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "MOUNTAIN") {
-          mountainMassifs.addInstance(x, z, surfaceY);
+          mountainMassifs.addInstance(x, z, surfaceY, wx, wy);
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
@@ -1106,27 +1106,10 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         if (incomingAttack && incomingAttack.resolvesAt > Date.now() && terrain === "LAND") {
           attackOverlay.addInstance(x, z, flatOverlayY, incomingAttack.resolvesAt);
         }
-        if (tile?.economicStructure && terrain === "LAND") {
-          const structureType = tile.economicStructure.type as string;
-          if (structureType === "UMBRITE_RIG") {
-            umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
-            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-          } else if (structureType === "UMBRITE_WEAPONS_FACTORY") {
-            umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
-            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
-          } else if (structureType === "CARAVANARY") { tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
-            structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHintFor(structureType, tileResource), constructionSiteForRebuild(deps.state, tile, "economicStructure", rebuildStartAt));
-          }
-        }
-        // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).
-        if (tile?.observatory && terrain === "LAND") {
-          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") { aetherTowerOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } // Watchtower has its own wonder mesh below
-          // "Recharging" badge while our own active observatory's crystal-casting cooldown is still running (exact time is in the tile-menu overview).
-          const cooldownActive = ownerId === deps.state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();
-          if (cooldownActive) {
-            observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
-          } else if (tile.observatory.siphon) observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY); // Siphon lock badge, any owner (no cooldown runs while it lasts)
-        }
+        if (tile && terrain === "LAND") addBuildingInstancesForTile(tile, { x, z, surfaceY, wx, wy }, {
+          structureOverlay, umbriteExtractionRigOverlay, umbriteWeaponsFactoryOverlay,
+          tradeNexusOverlay, aetherTowerOverlay, contactShadowOverlay, observatoryCooldownBadgeOverlay
+        }, deps.state, rebuildStartAt, tileResource);
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is
         // set, so it's harmless in production. The MINE entry passes a
@@ -1482,7 +1465,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     syncWaypointMarkers();
     syncMarchTargetMarkers();
     syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
-    selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
+    selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
     syncAetherLanceFxQueue();

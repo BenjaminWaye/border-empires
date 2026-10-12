@@ -43,7 +43,12 @@ export const drawSelectedDockSeaRoute2D = (deps: {
     deps.ctx.lineDashOffset = -((deps.nowMs / 140) % 17);
     deps.ctx.strokeStyle = "rgba(255, 246, 176, 0.9)";
     deps.ctx.lineWidth = 2;
+    // One path per route, stroked once, so the dash pattern runs unbroken
+    // along it instead of restarting at every tile hop. Wrapped/offscreen
+    // hops lift the pen (moveTo) rather than ending the path.
+    deps.ctx.beginPath();
     let prevScreen = deps.worldToScreen(route[0]!.x, route[0]!.y, deps.size, deps.halfW, deps.halfH);
+    let penDown = false;
     for (let i = 1; i < route.length; i += 1) {
       const b = route[i]!;
       const sb = deps.worldToScreen(b.x, b.y, deps.size, deps.halfW, deps.halfH);
@@ -54,15 +59,16 @@ export const drawSelectedDockSeaRoute2D = (deps: {
         (prevScreen.sx > deps.canvas.width + deps.size && sb.sx > deps.canvas.width + deps.size) ||
         (prevScreen.sy > deps.canvas.height + deps.size && sb.sy > deps.canvas.height + deps.size);
       if (segmentWraps || offscreen) {
+        penDown = false;
         prevScreen = sb;
         continue;
       }
-      deps.ctx.beginPath();
-      deps.ctx.moveTo(prevScreen.sx, prevScreen.sy);
+      if (!penDown) deps.ctx.moveTo(prevScreen.sx, prevScreen.sy);
       deps.ctx.lineTo(sb.sx, sb.sy);
-      deps.ctx.stroke();
+      penDown = true;
       prevScreen = sb;
     }
+    deps.ctx.stroke();
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
   }

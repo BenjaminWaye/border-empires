@@ -5,6 +5,8 @@
 // on the tech-detail card/modal logic it used to sit beside.
 import type { StructureModifier } from "@border-empires/game-domain";
 import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
+import { structureInfoRemovalMs } from "../client-structure-time-labels/client-structure-time-labels.js";
+import { buildTimeLabel } from "../client-relay-beacon-build-time/client-relay-beacon-build-time.js";
 
 export const renderStructureInfoOverlay = (
   structureInfoKey: string,
@@ -96,6 +98,7 @@ export const renderStructureInfoOverlay = (
           ${costHtml}
           ${upkeepHtml}
           <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
+          <div class="structure-info-meta-card"><span>Removal time</span><strong>${buildTimeLabel(structureInfoRemovalMs(type))}</strong></div>
           <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
         </div>
       </div>

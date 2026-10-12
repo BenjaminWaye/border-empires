@@ -82,7 +82,7 @@ describe("unexplored storm clip", () => {
     const scene = new Scene();
     const forest = createForest(scene, 4);
     const tropical = createTropicalForest(scene, 4);
-    const mountains = createMountainMassifs(scene, 4);
+    const mountains = createMountainMassifs(scene, 4, { isMountainAt: () => true, isColdAt: () => false, wrapX: (x) => x, wrapY: (y) => y });
     const groundMaterial = new MeshStandardMaterial();
     createHillTerrain(scene, 4, groundMaterial);
     // The ground mesh's skirt wall at the ring's outer edge.
@@ -107,7 +107,12 @@ describe("unexplored storm clip", () => {
     });
     expect(casters).toBeGreaterThan(3);
     expect(groundMaterial.customProgramCacheKey()).toContain("unexploredStormClip:ground");
-    for (const mesh of [mountains.rockBaseMesh, mountains.peakMesh, mountains.snowCapMesh]) expect(isPatched(mesh.material as MeshStandardMaterial)).toBe(true);
+    // Mountains: one shared model material, and their shadows too.
+    expect(mountains.meshes.length).toBeGreaterThan(0);
+    for (const mesh of mountains.meshes) {
+      expect(isPatched(mesh.material as MeshStandardMaterial)).toBe(true);
+      expect(mesh.customDepthMaterial && isPatched(mesh.customDepthMaterial)).toBe(true);
+    }
     // The clip reads the storm's own uniform objects, so it follows each mask rebuild.
     const shader = compile(groundMaterial);
     expect(shader.uniforms.uStormClipMask).toBe(storm.material.uniforms.uMask);

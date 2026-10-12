@@ -1,5 +1,6 @@
-import { structureBuildDurationMs } from "@border-empires/shared";
+import { fortRemovalDurationMs, siegeOutpostRemovalDurationMs, structureBuildDurationMs, structureRemovalDurationMs } from "@border-empires/shared";
 import { writeOptimisticStructureBuild, writeOptimisticStructureCancel } from "./client-optimistic-structure-writes.js";
+import { buildMsWithSpeedForState } from "../client-build-speed/client-build-speed.js";
 import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/client-frontier-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
@@ -159,34 +160,39 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       for (const t of state.tiles.values()) if (t.ownerId === state.me && t.economicStructure?.type === "RELAY_BEACON") ownedBeacons += 1;
     }
     const startedAt = Date.now();
-    const completesAt = startedAt + structureBuildDurationMs(kind, ownedBeacons);
+    const adjustBuildMs = (type: string, baseMs: number): number => buildMsWithSpeedForState(state, type, baseMs);
+    const completesAt = startedAt + adjustBuildMs(kind, structureBuildDurationMs(kind, ownedBeacons));
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
-      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt);
+      writeOptimisticStructureBuild(tile, kind, state.me, (id) => state.techIds.includes(id), completesAt, startedAt, adjustBuildMs);
     });
   };
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
     if (!enabled) return;
+    // Mirrors the server's removal window (0.5s per manpower point of the
+    // structure being torn down) so the progress bar doesn't jump on confirm.
+    const startedAt = Date.now();
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";
       if (tile.fort) {
-        tile.fort = { ...tile.fort, status: "removing", completesAt: Date.now() + structureBuildDurationMs("FORT") };
+        tile.fort = { ...tile.fort, status: "removing", startedAt, completesAt: startedAt + fortRemovalDurationMs(tile.fort.variant) };
         return;
       }
       if (tile.observatory) {
-        tile.observatory = { ...tile.observatory, status: "removing", completesAt: Date.now() + structureBuildDurationMs("OBSERVATORY") };
+        tile.observatory = { ...tile.observatory, status: "removing", startedAt, completesAt: startedAt + structureRemovalDurationMs("OBSERVATORY") };
         return;
       }
       if (tile.siegeOutpost) {
-        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", completesAt: Date.now() + structureBuildDurationMs("SIEGE_OUTPOST") };
+        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", startedAt, completesAt: startedAt + siegeOutpostRemovalDurationMs(tile.siegeOutpost.variant) };
         return;
       }
       if (tile.economicStructure) {
         tile.economicStructure = {
           ...tile.economicStructure,
           status: "removing",
-          completesAt: Date.now() + structureBuildDurationMs(tile.economicStructure.type)
+          startedAt,
+          completesAt: startedAt + structureRemovalDurationMs(tile.economicStructure.type)
         };
       }
     });
