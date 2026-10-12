@@ -117,6 +117,9 @@ const unlockedBuildables = (tech: Pick<TechInfo, "effects">): BuildableStructure
 
 const structureName = (type: BuildableStructureType): string => STRUCTURE_DISPLAY_NAMES[type] ?? type;
 
+// "an Ambaric Transformer", "an Umbrite Rig", but "a Mine".
+const withArticle = (name: string): string => `${/^[aeiou]/i.test(name) ? "an" : "a"} ${name}`;
+
 const resourceLeadReason = (tech: Pick<TechInfo, "effects">, input: ManifestFitInput): string | undefined => {
   const reveal = typeof tech.effects?.revealResource === "string" ? tech.effects.revealResource.toLowerCase() : undefined;
   const signature = reveal ? SIGNATURE_BY_REVEAL[reveal] : undefined;
@@ -146,7 +149,7 @@ export const manifestFit = (tech: TechInfo, input: ManifestFitInput): ManifestFi
       input.manpower >= structureBuildManpowerCost(type) &&
       structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count)
   );
-  if (buildNow) reasons.push(`You can build a ${structureName(buildNow)} right away`);
+  if (buildNow) reasons.push(`You can build ${withArticle(structureName(buildNow))} right away`);
   // The resource this Manifest reveals never counts as missing: the Manifest
   // is how you find it (e.g. Aether Resonance Core reveals Crystal and
   // unlocks Crystal-slot Aether Towers).

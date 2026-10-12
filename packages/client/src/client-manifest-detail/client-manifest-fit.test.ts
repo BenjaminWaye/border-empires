@@ -54,6 +54,13 @@ describe("manifestFit", () => {
     expect(fit.goodPickReasons).toEqual(["You can build a Mine right away"]);
   });
 
+  // Regression: the reason always said "a", giving "a Ambaric Transformer".
+  it("uses 'an' before a building name that starts with a vowel", () => {
+    const plenty = slots({ FOOD: 9, TITANIUM: 9, CRYSTAL: 9, UMBRITE: 9 });
+    const fit = manifestFit(tech({ unlockAetherTower: true }), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
+    expect(fit.goodPickReasons).toEqual(["You can build an Ambaric Transformer right away"]);
+  });
+
   it("does not claim build-right-away when every slot of that resource is in use", () => {
     const fit = manifestFit(tech({ unlockMine: true }), input({ manpower: 10_000, resourceSlots: { supply: slots({ FOOD: 2 }), demand: slots({ FOOD: 2 }) } }));
     expect(fit.goodPickReasons).toEqual([]);
