@@ -91,8 +91,8 @@ const buildOriginFor = (structureType: string): ServerDevQueueEntry["origin"] =>
  * BUILD tail from ever being queued. Hands back any manpower it was holding
  * on the way out.
  */
-const clearCompletedSettleEntry = (
-  context: RuntimeDevQueueCommandContext,
+export const clearCompletedSettleEntry = (
+  context: Pick<RuntimeDevQueueCommandContext, "refundManpowerReservation">,
   playerId: string,
   summary: PlayerRuntimeSummary,
   tileKey: string
@@ -242,7 +242,7 @@ export const tryDrainClaimContinuationBuildTail = (
  * delta in sync with whatever the build tail did.
  */
 export const resolveTileAfterBuildTail = (
-  tiles: Map<string, DomainTileState>,
+  tiles: ReadonlyMap<string, DomainTileState>,
   tileKey: string,
   settledTileFallback: DomainTileState
 ): DomainTileState => tiles.get(tileKey) ?? settledTileFallback;
