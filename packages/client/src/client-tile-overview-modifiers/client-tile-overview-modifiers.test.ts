@@ -402,7 +402,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       observatory: { ownerId: "me", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Aether Tower — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Aether Tower — Local vision", effect: "+10", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Aether Tower — Crystal range")).toBe(true);
   });
 

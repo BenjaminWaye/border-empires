@@ -1,4 +1,4 @@
-// Resource slots — docs/manpower-economy-rewrite-plan.md §5 (Pillar 2, Step 5).
+// Resource slots.
 //
 // TITANIUM/CRYSTAL/UMBRITE/FOOD stop being stockpiled quantities. Each settled
 // resource tile provides a small number of discrete SLOTS; a structure that

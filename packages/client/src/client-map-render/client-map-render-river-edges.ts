@@ -10,8 +10,8 @@ import { riverEdgeKey, riverEdgeKeysForCurrentSeed, riverHeadsForCurrentSeed, WO
 import { riverCascadeEdges } from "../client-map-river-mountains/client-map-river-mountains.js";
 
 // Same deep blue-teal as the 3D river water (client-map-3d-river-water-material.ts RIVER_WATER_CORE).
-const RIVER_WATER = "rgba(22, 72, 96, 0.97)";
-const RIVER_BANK = "rgba(28, 26, 18, 0.6)"; // dark wet bank so the edge reads as cut into the ground
+export const RIVER_WATER = "rgba(22, 72, 96, 0.97)";
+export const RIVER_BANK = "rgba(28, 26, 18, 0.6)"; // dark wet bank so the edge reads as cut into the ground
 const MIN_TILE_PX = 10;
 
 export type TileRiverEdges = { top: boolean; right: boolean; bottom: boolean; left: boolean };
@@ -116,10 +116,10 @@ export const drawSpringPools = (
   }
 };
 
-// River mountain cascades (client-map-river-mountains.ts) run from the
-// mountain's corner to the river head along one tile edge: each tile beside
-// it draws its half as a narrow, foamy rapids band.
-const CASCADE_FOAM = "rgba(196, 226, 236, 0.95)";
+// River mountains (client-map-river-mountains.ts): the stream from the
+// spring at the mountain's foot (client-map-render-river-mountain.ts) runs on
+// from the mountain's corner to the river head along one tile edge; each tile
+// beside it draws its half as a narrow banked stream, like the river itself.
 
 /** Draws this tile's half of any river mountain cascade on its borders. */
 export const drawCascadeEdges = (
@@ -136,7 +136,7 @@ export const drawCascadeEdges = (
   const band = Math.max(2, Math.round(w * 0.07));
   const core = Math.max(1, Math.round(band * 0.4));
   const draw = (x: number, y: number, bw: number, bh: number, coreX: number, coreY: number, cw: number, ch: number): void => {
-    ctx.fillStyle = CASCADE_FOAM;
+    ctx.fillStyle = RIVER_BANK;
     ctx.fillRect(x, y, bw, bh);
     ctx.fillStyle = RIVER_WATER;
     ctx.fillRect(coreX, coreY, cw, ch);

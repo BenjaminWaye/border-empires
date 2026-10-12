@@ -44,8 +44,8 @@ describe("frontier queue regressions", () => {
   });
 
   it("shows a visible settlement warning when a frontier tile's manpower cannot be afforded, even with plenty of gold", () => {
-    // Regression for the client manpower-gate fix (docs/manpower-economy-rewrite-plan.md
-    // §4.1-§4.2): SETTLE now costs manpower too, and the client must check it
+    // Regression for the client manpower-gate fix: SETTLE now costs
+    // manpower too, and the client must check it
     // before dispatching, not just gold — otherwise it shows the action as
     // available when the server would reject it with INSUFFICIENT_MANPOWER.
     const state = createInitialState();

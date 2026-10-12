@@ -1,6 +1,7 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
+import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type {
   ActiveTruceView,
   ActiveAllianceBreakView,
@@ -326,15 +327,14 @@ export const strategicRibbonHtml = (
   const nowMs = Date.now();
   const allEntries: Array<{
     key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
-    icon: string;
     label: string;
     source: string;
     className: string;
   }> = [
-    { key: "FOOD", icon: "🍞", label: "Food", source: "From Farms + Fish", className: "res-food" },
-    { key: "TITANIUM", icon: "⛏", label: "Titanium", source: "From Titanium nodes", className: "res-titanium" },
-    { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
-    { key: "UMBRITE", icon: "🟣", label: "Umbrite", source: "From Umbrite deposits", className: "res-umbrite" }
+    { key: "FOOD", label: "Food", source: "From Farms + Fish", className: "res-food" },
+    { key: "TITANIUM", label: "Titanium", source: "From Titanium nodes", className: "res-titanium" },
+    { key: "CRYSTAL", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
+    { key: "UMBRITE", label: "Umbrite", source: "From Umbrite deposits", className: "res-umbrite" }
   ];
   const entries = allEntries.filter((entry) => (isRevealed ? isRevealed(entry.key) : true));
   return `<div class="resource-ribbon">${entries
@@ -345,7 +345,7 @@ export const strategicRibbonHtml = (
       const deltaClass =
         nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
       return `<button class="resource-pill ${entry.className} ${deltaClass}" type="button" data-economy-open="${entry.key}" title="${entry.label} · ${entry.source}">
-        <span class="resource-icon" aria-hidden="true">${entry.icon}</span>
+        <span class="resource-icon" aria-hidden="true">${resourceIconHtml(entry.key)}</span>
         <span class="resource-value-row">
           <span class="resource-value">${demand}/${supply}</span>
         </span>

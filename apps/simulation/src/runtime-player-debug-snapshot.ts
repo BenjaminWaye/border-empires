@@ -15,8 +15,8 @@ export type RuntimePlayerDebugSnapshot = Array<{
   manpowerRegenPerMinute: number;
   techIds: string[];
   domainIds: string[];
-  // FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
-  // (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar:
+  // supply from settled resource
   // tiles vs. demand occupied by existing structures, not a spendable
   // stockpile. `strategicResources` on DomainPlayer stays ~0 for these post-
   // rewrite; report slot supply/demand instead so this reflects how the

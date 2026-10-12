@@ -59,7 +59,6 @@ import {
   formatUpkeepSummary,
   formatYieldSummary,
   resourceColor,
-  resourceIconForKey,
   resourceLabel,
   storedYieldSummary,
   strategicResourceKeyForTile,
@@ -67,6 +66,7 @@ import {
   tileUpkeepHtml
 } from "./client-map-display.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
@@ -362,7 +362,7 @@ bootstrapClientApp({
   pushFeedEntry,
   requestViewRefresh,
   prettyToken,
-  resourceIconForKey,
+  resourceIconHtml,
   resourceLabel,
   economicStructureName,
   leaderboardHtml,

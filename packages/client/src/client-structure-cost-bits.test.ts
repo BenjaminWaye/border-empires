@@ -24,8 +24,8 @@ describe("costBitsFor", () => {
   // docs/replenishment-update-plan.md D17: these used to be hand-maintained
   // literals here, independent of FORT_TIER_LADDER/SIEGE_TIER_LADDER (the
   // tables the server actually charges from) -- and had already drifted:
-  // gold is 0 in both real ladders (manpower-economy-rewrite-plan.md §12
-  // zeroed build gold costs), not the 1,800/4,200 these used to claim. Now
+  // gold is 0 in both real ladders (build gold costs were zeroed),
+  // not the 1,800/4,200 these used to claim. Now
   // read live from the same ladders, so there's nothing left to drift.
   it("reads the fort tier upgrades' real cost from FORT_TIER_LADDER, no gold shown since build gold is zeroed", () => {
     expect(costBitsFor("TITANIUM_BASTION")).toEqual(["480 manpower"]);

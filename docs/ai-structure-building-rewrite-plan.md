@@ -1,11 +1,10 @@
 # AI Structure Building Rewrite Plan
 
 Status: active proposal with delivered sections. Numbered sections (§) are stable reference anchors — code
-comments introduced by this work should cite them the way the codebase already
-cites historical rationale in `docs/manpower-economy-rewrite-plan.md` §4.1/§5/§12.
+comments introduced by this work should cite them.
 
 Companion docs: `docs/product/resource-and-manpower-economy.md` (current economy
-rules), `docs/manpower-economy-rewrite-plan.md` (historical rationale),
+rules),
 `docs/agents/topics/ai-planner.md` (planner architecture and CPU budget), and
 `docs/AI_DEBUGGING.md` (the admin endpoints this plan extends).
 

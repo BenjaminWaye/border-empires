@@ -7,6 +7,7 @@
 // shared abstraction, since the two only share the layout/hash constants,
 // not the geometry or per-tile logic.
 import {
+  type Color,
   ConeGeometry,
   CylinderGeometry,
   InstancedMesh,
@@ -16,6 +17,8 @@ import {
 } from "three";
 import { LAYOUTS, TREES_PER_TILE, tileHash } from "./client-map-3d-forest.js";
 import { riverBankTreeFilter } from "./client-map-3d-rivers/client-map-3d-river-bank-trees.js";
+import { commitInstanceTint, setInstanceTint } from "./client-map-3d-instance-tint.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 const PALM_TRUNK_HEIGHT = 0.5;
 // Trunk base sits a touch below the surface so it never floats on slopes.
@@ -26,7 +29,7 @@ const PALM_CANOPY_Y = PALM_TRUNK_HEIGHT - 0.03 + PALM_CANOPY_HEIGHT / 2 - 0.02;
 
 export type TropicalForest = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -36,10 +39,10 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
   // without needing individual leaf geometry.
   // Sized like createForest's trees: roughly half a mountain massif's height.
   const canopyGeometry = new ConeGeometry(0.17, PALM_CANOPY_HEIGHT, 6, 1, false);
-  const canopyMaterial = new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true });
+  const canopyMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#4f9a4a", roughness: 0.85, metalness: 0, flatShading: true }));
 
   const trunkGeometry = new CylinderGeometry(0.022, 0.04, PALM_TRUNK_HEIGHT, 5);
-  const trunkMaterial = new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true });
+  const trunkMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#8a6b45", roughness: 0.82, metalness: 0, flatShading: true }));
 
   const maxInstances = maxTiles * TREES_PER_TILE;
   const canopyMesh = new InstancedMesh(canopyGeometry, canopyMaterial, maxInstances);
@@ -61,7 +64,7 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
     count = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, tint?: Color): void => {
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
     const inRiverBank = riverBankTreeFilter(worldX, worldZ);
@@ -77,6 +80,8 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + tree.ox, surfaceY + PALM_CANOPY_Y * tree.scale, sceneZ + tree.oz);
       canopyMesh.setMatrixAt(count, tempMatrix);
+      setInstanceTint(trunkMesh, count, tint);
+      setInstanceTint(canopyMesh, count, tint);
       count += 1;
     }
   };
@@ -90,6 +95,8 @@ export const createTropicalForest = (scene: Scene, maxTiles: number): TropicalFo
     trunkMesh.instanceMatrix.clearUpdateRanges();
     trunkMesh.instanceMatrix.addUpdateRange(0, trunkMesh.count * 16);
     trunkMesh.instanceMatrix.needsUpdate = true;
+    commitInstanceTint(canopyMesh);
+    commitInstanceTint(trunkMesh);
   };
 
   const dispose = (): void => {

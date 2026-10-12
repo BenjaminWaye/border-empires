@@ -1,0 +1,20 @@
+/* Steampunk resource PNGs (client-resource-icons.ts) sit inline where the emoji
+   glyph used to be, so they size to the surrounding text. */
+.resource-icon-img {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Large slots (structure info art, resource reveal swatch) render the
+   48-96 px exports at their full size instead of text size. */
+.structure-info-glyph .resource-icon-img,
+.resource-reveal-swatch .resource-icon-img {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+}

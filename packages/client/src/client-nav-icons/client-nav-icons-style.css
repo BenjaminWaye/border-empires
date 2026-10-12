@@ -1,0 +1,17 @@
+/* Nav tab icons (client-nav-icons.ts). The emoji tabs were tinted with CSS
+   filters; the painted art carries its own colour, so drop them. */
+.tab-icon.tab-icon-art,
+#mobile-nav .tab-icon.tab-icon-art {
+  filter: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon-img {
+  width: 1.3em;
+  height: 1.3em;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}

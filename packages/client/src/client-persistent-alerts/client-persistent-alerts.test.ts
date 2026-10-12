@@ -71,6 +71,10 @@ describe("persistent alerts", () => {
     expect(notificationCategoryForServerError("ATTACK_COOLDOWN")).toBe("action_feedback");
   });
 
+  it("keeps a cancel with nothing to cancel (Esc with no capture running) out of the action-failed toasts", () => {
+    expect(notificationCategoryForServerError("NO_ACTIVE_CAPTURE")).toBe("debug");
+  });
+
   it("creates a persistent alert only for owned unresolved unfed towns", () => {
     const state = {
       me: "me",

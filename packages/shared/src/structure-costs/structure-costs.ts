@@ -15,8 +15,8 @@ export type StructureCostDefinition = {
   scaling?: StructureScaling;
 };
 
-// Build gold costs are zeroed throughout this table per
-// docs/manpower-economy-rewrite-plan.md §12: manpower (and, where noted,
+// Build gold costs are zeroed throughout this table:
+// manpower (and, where noted,
 // strategic resources) is the sole build cost now — gold only gates
 // synthesizers (and, separately, a few structures) on an ONGOING per-minute
 // upkeep basis (player-upkeep-incremental.ts), never on the build itself.
@@ -64,7 +64,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   OBSERVATORY: {
     baseGoldCost: 0,
     manpowerCost: 80,
-    resourceCost: { resource: "CRYSTAL", amount: 45 },
     scaling: { kind: "doubling" }
   },
   SIEGE_OUTPOST: {
@@ -73,8 +72,8 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     resourceCost: { resource: "UMBRITE", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  // Manpower costs below implement docs/manpower-economy-rewrite-plan.md §4.1/§4.4
-  // and the full table in §12: every economic structure now costs manpower as
+  // Manpower costs below follow the manpower-economy rewrite: every
+  // economic structure now costs manpower as
   // its primary cost, in round tiers (80/100/150/300/400) anchored to Settle's
   // 20 (acquisition always a little cheaper than optimization, §4.2's ordering
   // rule). Resource costs are left as-is here — converting them to the slot

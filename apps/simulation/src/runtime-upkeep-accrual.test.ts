@@ -147,8 +147,8 @@ describe("consumeUpkeepFromTileYield", () => {
     tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
     const summary = createEmptyPlayerRuntimeSummary();
     summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    // 0.1, not the old 3: SETTLEMENT_BASE_GOLD_PER_MIN is now cut 288x
-    // (docs/manpower-economy-rewrite-plan.md §6.1), so 60 buffered minutes
+    // 0.1, not the old 3: SETTLEMENT_BASE_GOLD_PER_MIN is now cut 288x,
+    // so 60 buffered minutes
     // yields ~0.208 gold, not ~60 — need must fit under that to still prove
     // "fully drains, need becomes 0".
     const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
@@ -374,7 +374,7 @@ describe("applyEconomyAccrual", () => {
     const player = testPlayer("player-1", { points: 100 });
     const tile = goldTownTile(0, 0, "player-1");
     // upkeep.gold lowered from 2 to 0.1: SETTLEMENT_BASE_GOLD_PER_MIN is now
-    // cut 288x (docs/manpower-economy-rewrite-plan.md §6.1), so an hour of
+    // cut 288x, so an hour of
     // buffered yield is ~0.208 gold, not ~60 — need must fit under that to
     // still prove "fully covered by buffered yield, points untouched".
     const { ctx, playerSummaries, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile], upkeep: { gold: 0.1 } });
