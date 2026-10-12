@@ -27,6 +27,8 @@ export type ChannelPathPoint = {
   readonly halfWidth: number;
   readonly mouth?: number;
   readonly descent?: number;
+  /** Set on a river's very first sample (its head): water and bank close it with a round cap. */
+  readonly source?: boolean;
 };
 
 // Fully descended, the water surface sits this far below the sea surface
@@ -52,6 +54,13 @@ const CHAIKIN_CUT = 0.25;
 const MAX_SAMPLE_SPACING = 0.2;
 const WOBBLE_AMPLITUDE = 0.05;
 const SOURCE_TAPER_LENGTH = 1.5;
+// A river's head opens into a small spring pool: the channel bulges to
+// SPRING_HALF_WIDTH at its first sample (the trench then carves a round bowl
+// there -- nearest-segment distance is radial past the end) and narrows back
+// to the stream over SPRING_LENGTH. Stays under MAX_CHANNEL_HALF_WIDTH so the
+// pool keeps inside RIVER_BANK_REACH like the rest of the channel.
+export const SPRING_HALF_WIDTH = 0.16;
+const SPRING_LENGTH = 0.45;
 
 // Rendered width. Worldgen half-widths run 0.1 (source) to 0.24 (mouth);
 // drawn at that size the water reached ~0.34 tile into river-adjacent tiles,
@@ -182,10 +191,14 @@ export const heightfieldSurfaceY = (
   return c11 + (c01 - c11) * (1 - fx) + (c10 - c11) * (1 - fz);
 };
 
+/** Half-width of the spring pool `arc` along the river from its head (0 past SPRING_LENGTH). */
+export const springHalfWidth = (arc: number): number => SPRING_HALF_WIDTH * (1 - smoothstep(0, SPRING_LENGTH, arc));
+
 /**
  * Smoothed, densified, wobbled centreline for a run of an edge river (scene
  * coords). `phase` decorrelates the wobble between rivers; a run that starts
- * at the river's source tapers in over SOURCE_TAPER_LENGTH.
+ * at the river's source tapers in over SOURCE_TAPER_LENGTH, out of a spring
+ * pool at its first sample (marked `source`).
  */
 export const channelCenterline = (path: readonly ChannelPathPoint[], phase: number, isSource: boolean): ChannelPathPoint[] => {
   const dense = densify(chaikinSmooth(path));
@@ -200,7 +213,9 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
     const endFade = i === 0 || i === dense.length - 1 ? 0 : 1;
     const wobble = endFade * WOBBLE_AMPLITUDE * (Math.sin(arc * 2.1 + phase) * 0.7 + Math.sin(arc * 5.3 + phase * 1.7) * 0.3);
     const taper = isSource ? Math.min(1, 0.35 + (0.65 * arc) / SOURCE_TAPER_LENGTH) : 1;
-    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth: renderedChannelHalfWidth(p.halfWidth) * taper };
+    const stream = renderedChannelHalfWidth(p.halfWidth) * taper;
+    const halfWidth = isSource ? Math.max(stream, springHalfWidth(arc)) : stream;
+    return { x: p.x + (-tz / tlen) * wobble, z: p.z + (tx / tlen) * wobble, halfWidth, ...(isSource && i === 0 ? { source: true } : {}) };
   });
 };
 
@@ -347,6 +362,7 @@ export const appendWater = (
       );
     }
   }
+  appendSourceCap(buffers, run, waterYAt, sides?.[0]);
   for (let i = 0; i + 1 < run.length; i += 1) {
     for (let k = 0; k + 1 < WATER_COLUMN_COUNT; k += 1) {
       const a = base + i * WATER_COLUMN_COUNT + k;
@@ -354,6 +370,52 @@ export const appendWater = (
       const c = a + WATER_COLUMN_COUNT;
       const d = c + 1;
       buffers.indices.push(a, c, b, b, c, d);
+    }
+  }
+};
+
+const CAP_SEGMENTS = 10;
+
+/**
+ * Rounds off the water at a river's head (`run[0].source`): a half-disc
+ * behind the first sample, banded like the strip (core, shallow, soft edge)
+ * so it meets the strip's first row exactly. Skipped at a fog edge (either
+ * half undrawable), where the strip itself already stops at the border.
+ */
+const appendSourceCap = (
+  buffers: WaterBuffers,
+  run: readonly ChannelPathPoint[],
+  waterYAt: (point: ChannelPathPoint) => number,
+  side: WaterSides | undefined
+): void => {
+  const head = run[0]!;
+  const next = run[1]!;
+  if (!head.source || (side && (!side.left || !side.right))) return;
+  const tlen = Math.hypot(next.x - head.x, next.z - head.z) || 1;
+  const tx = (next.x - head.x) / tlen;
+  const tz = (next.z - head.z) / tlen;
+  const w = riverWaterHalfWidth(head.halfWidth);
+  const y = waterYAt(head);
+  const centre = buffers.positions.length / 3;
+  buffers.positions.push(head.x, y, head.z);
+  buffers.colors.push(...RIVER_WATER_CORE);
+  // Rings at the strip's shallow and edge columns; angle 0 is the +normal
+  // side, PI the -normal side, sweeping round the back (against the flow).
+  const rings = WATER_COLUMNS.filter(([f]) => f > 0);
+  for (const [f, color] of rings) {
+    for (let k = 0; k <= CAP_SEGMENTS; k += 1) {
+      const a = (k / CAP_SEGMENTS) * Math.PI;
+      const nx = -tz * Math.cos(a) - tx * Math.sin(a);
+      const nz = tx * Math.cos(a) - tz * Math.sin(a);
+      buffers.positions.push(head.x + nx * w * f, y, head.z + nz * w * f);
+      buffers.colors.push(...color);
+    }
+  }
+  const ring = (r: number, k: number): number => centre + 1 + r * (CAP_SEGMENTS + 1) + k;
+  for (let k = 0; k < CAP_SEGMENTS; k += 1) {
+    buffers.indices.push(centre, ring(0, k), ring(0, k + 1));
+    for (let r = 0; r + 1 < rings.length; r += 1) {
+      buffers.indices.push(ring(r, k), ring(r + 1, k), ring(r, k + 1), ring(r, k + 1), ring(r + 1, k), ring(r + 1, k + 1));
     }
   }
 };

@@ -1,4 +1,5 @@
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
+import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
@@ -238,6 +239,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
 
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "overview") return "Overview";
+  if (tab === "modules") return "Modules";
   if (tab === "actions") return "Actions";
   if (tab === "buildings") return "Buildings";
   if (tab === "crystal") return "Crystal";
@@ -266,6 +268,7 @@ const BUILDING_GROUP_THRESHOLD = 6;
 const recommendedFirst = (actions: TileActionDef[]): TileActionDef[] => [...actions.filter((a) => a.recommended), ...actions.filter((a) => !a.recommended)];
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
+  if (activeTab === "modules") return view.modules ? afcModuleTabHtml(view.modules, tileActionButtonHtml) : "";
   const actionsForTab =
     activeTab === "actions" ? view.actions : activeTab === "buildings" ? view.buildings : activeTab === "crystal" ? view.crystal : undefined;
   if (actionsForTab) {
