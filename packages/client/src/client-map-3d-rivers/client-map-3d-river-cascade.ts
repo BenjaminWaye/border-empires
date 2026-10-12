@@ -128,10 +128,9 @@ const wrapW = (x: number): number => ((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_W
 const wrapH = (y: number): number => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
 
 /**
- * The cascade's centreline for one river mountain, in scene coords relative
- * to (camX, camY): down the mountain's face, then along the edge from
- * the mountain's exit corner into the pool at the head, ending at the pool's
- * water level.
+ * The stream's centreline for one river mountain, in scene coords relative
+ * to (camX, camY): from the spring at the drawn mountain's base, meandering
+ * over the ground into the pool at the head, ending at the pool's water level.
  */
 export const cascadeCenterline = (
   face: RiverMountainFace,
