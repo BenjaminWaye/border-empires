@@ -1,0 +1,15 @@
+import type { ClientChangelogEntry } from "./client-changelog-data.js";
+
+export const RIVER_SPRING_CHANGELOG: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
+    introducedIn: "2026.10.10.3",
+    title: "Rivers start at a spring",
+    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
+    changes: [
+      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
+      "Trees no longer stand in the pool",
+      "Shown on both the 3D map and the 2D map"
+    ]
+  },
+];

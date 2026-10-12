@@ -444,7 +444,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
-  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  {
+    createdAt: 1791827518951, // Date.now() captured once for this release.
+    introducedIn: "2026.10.12.1",
+    title: "Building machinery waits for construction to finish",
+    why: "Fully visible moving parts could start running while their 3D building was still being built.",
+    changes: ["Mintworks flywheels and Relay Beacon mirrors stay still during construction and removal, then animate when complete"]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
