@@ -276,7 +276,7 @@ export const renderCaptureProgress = (
   }
 };
 
-// Held (not dropped) while What's New / the tutorial / lobby is open or about
+// Held (not dropped) while What's New / the dashboard / lobby is open or about
 // to open, so it appears once the player is back on the map.
 const shardAlertGate = createPopupBlockedCheck();
 

@@ -4,10 +4,10 @@ import { isMapUnobstructed, type MapUnobstructedState } from "../client-map-unob
 
 // Holds back the new-player corner UI -- the discovery-tip toast ("First Town
 // Discovered!") and the "New empire checklist" bubble -- while a dialog
-// (changelog, tutorial, Activity dashboard, ...) covers the map, and while
+// (changelog, Activity dashboard, ...) covers the map, and while
 // the join-time AFC drop is still pending or playing. A new player then
-// gets: tutorial -> AFC lands -> tips/checklist, instead of the toast and
-// the force-opened checklist painting over the tutorial and the landing.
+// gets: dialogs closed -> AFC lands -> tips/checklist, instead of the toast and
+// the force-opened checklist painting over those dialogs and the landing.
 
 export type OnboardingUiGateState = MapUnobstructedState & Pick<ClientState, "afcJoinDrop">;
 
@@ -21,7 +21,7 @@ export const isOnboardingUiDeferred = (state: OnboardingUiGateState): boolean =>
 /**
  * Per-frame edge detector: calls `onChange` once each time the deferral
  * flips, so the corner UI is shown the moment the drop finishes (or the
- * tutorial closes) instead of waiting for the next tile-delta batch, and
+ * dialog closes) instead of waiting for the next tile-delta batch, and
  * hidden again if a dialog reopens over it.
  */
 export const createOnboardingUiGateTicker = (): ((state: OnboardingUiGateState, onChange: (deferred: boolean) => void) => void) => {
