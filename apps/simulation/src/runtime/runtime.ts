@@ -1,4 +1,4 @@
-import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
+import { resolvePendingSettlement as resolvePendingSettlementImpl, retireCompletedSettlementQueueEntry, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
@@ -3351,6 +3351,7 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       removePendingSettlement: (key) => this.removePendingSettlement(key),
       drainDevQueue: (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId),
+      retireQueuedSettlement: (ownerId, key) => retireCompletedSettlementQueueEntry(this.devQueueCommandContext(), ownerId, key),
       drainAutoSettle: (ownerId) => this.autoSettleEligibilityRuntime().drainForOwner(ownerId),
       drainBuildTail: (ownerId, key, x, y) => tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), ownerId, key, x, y),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),

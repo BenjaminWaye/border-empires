@@ -1,3 +1,5 @@
+import type { RuntimeDevQueueCommandContext } from "../runtime-dev-queue-command-handlers.js";
+import { devQueueCancel } from "../runtime-dev-queue.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
@@ -12,6 +14,7 @@ export interface SettlementResolutionContext {
   tiles: ReadonlyMap<string, DomainTileState>;
   removePendingSettlement(tileKey: string): void;
   drainDevQueue(ownerId: string): void;
+  retireQueuedSettlement(ownerId: string, tileKey: string): void;
   drainAutoSettle(ownerId: string): number;
   drainBuildTail(ownerId: string, tileKey: string, x: number, y: number): void;
   emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">): void;
@@ -57,6 +60,7 @@ export const resolvePendingSettlement = (context: SettlementResolutionContext, i
   };
   context.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, context.now());
   context.replaceTileState(input.tileKey, settledTile);
+  context.retireQueuedSettlement(input.ownerId, input.tileKey);
   // Commit ownership before a freed slot can dispatch another queued action.
   context.drainDevQueue(input.ownerId);
   // Slot-freed drain (Design §5): replaceTileState above already removed
@@ -77,4 +81,17 @@ export const resolvePendingSettlement = (context: SettlementResolutionContext, i
   context.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
   context.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
+};
+
+/** A mirrored SETTLE is already fulfilled; release its reservation without dispatching it again. */
+export const retireCompletedSettlementQueueEntry = (
+  context: Pick<RuntimeDevQueueCommandContext, "summaryForPlayer" | "refundManpowerReservation">,
+  ownerId: string,
+  tileKey: string
+): void => {
+  const summary = context.summaryForPlayer(ownerId);
+  const entry = summary.devQueue.find((candidate) => candidate.tileKey === tileKey && candidate.kind === "SETTLE");
+  if (!entry) return;
+  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
+  if (entry.reservedManpower) context.refundManpowerReservation(ownerId, entry.reservedManpower);
 };

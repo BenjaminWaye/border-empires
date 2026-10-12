@@ -3,10 +3,11 @@ import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
 describe("auto-garrison completion with a mirrored queue entry", () => {
-  it("does not start the same tile again when its slot frees", async () => {
+  it.each([false, true])("retires the earlier queued order without restarting the tile (online=%s)", async (online) => {
     const scheduled: Array<() => void> = [];
     const runtime = new SimulationRuntime({
       now: () => 1_000,
+      isPlayerSubscribed: () => online,
       scheduleAfter: (_delay, task) => { scheduled.push(task); },
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 100_000, manpower: 100_000, manpowerUpdatedAt: 1_000 })]]),
       seedTiles: new Map(),
@@ -31,6 +32,8 @@ describe("auto-garrison completion with a mirrored queue entry", () => {
     expect(runtime.exportState().players.find((player) => player.id === "player-1")?.devQueue).toHaveLength(1);
     scheduled[0]!();
     expect(starts()).toHaveLength(3);
+    expect(events.filter((event) => event.eventType === "COMMAND_REJECTED")).toEqual([]);
+    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.devQueue ?? []).toEqual([]);
     expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(manpowerBeforeMirror);
     expect(runtime.exportState().pendingSettlements.map((entry) => entry.tileKey)).not.toContain("48,50");
     expect(runtime.exportState().tiles.find((tile) => tile.x === 48 && tile.y === 50)?.ownershipState).toBe("SETTLED");
