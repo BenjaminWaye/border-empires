@@ -9,6 +9,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
+import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
@@ -23,6 +24,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-bu
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
+import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -33,39 +35,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  {
-    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.3",
-    title: "Rivers start at a spring",
-    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
-    changes: [
-      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
-      "Trees no longer stand in the pool",
-      "Shown on both the 3D map and the 2D map"
-    ]
-  },
-  {
-    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.5",
-    title: "Rivers rise in the mountains (new seasons)",
-    why: "Rivers began wherever the generator happened to start them, often on open plains.",
-    changes: [
-      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
-      "Running seasons keep their rivers, towns and resources exactly as they are"
-    ]
-  },
-  {
-    createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.2",
-    title: "New-look mountains",
-    why: "Every mountain was the same blocky cone, so ranges read as a row of identical copies.",
-    changes: [
-      "Mountains are now crowds of sharp, faceted slate-grey peaks that mass together into jagged ranges",
-      "In a range, the highest tiles get the tallest peaks and the rest lower ones, so ranges have clear summits",
-      "Mountains in cold country are paler and snow-capped, and most tall summits elsewhere have white peaks too",
-      "Mountains are matte, with clean facets"
-    ]
-  },
+  ...RIVERS_MOUNTAINS_CHANGELOG,
   {
     createdAt: 1791663768009, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.4",
@@ -488,7 +458,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
-  ...AFC_MODULE_TAB_CHANGELOG
+  ...AFC_MODULE_TAB_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
