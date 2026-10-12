@@ -12,7 +12,6 @@ import {
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { RENDER_ORDER } from "../client-map-3d-render-order.js";
-import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import type { TileVisibilityState } from "../client-types.js";
 import {
@@ -26,7 +25,10 @@ import {
 } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 import { applyUnexploredStormClipToScene, type StormClipUniforms } from "./client-map-3d-unexplored-storm-clip.js";
-import { buildUnexploredStormMask, countNewlyExplored, maskHasExplored, type UnexploredStormMask } from "./client-unexplored-storm-mask.js";
+import { sampleUnexploredStormGrid } from "./client-unexplored-storm-mask.js";
+import { createUnexploredStormReveal, UNEXPLORED_REVEAL_MAX_TILES, UNEXPLORED_REVEAL_MS } from "./client-map-3d-unexplored-storm-reveal.js";
+
+export { UNEXPLORED_REVEAL_MAX_TILES, UNEXPLORED_REVEAL_MS };
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
 // lying level with the land (flat ground tops out at ~0.26), so the
@@ -48,11 +50,6 @@ export const UNEXPLORED_STORM_Y = 0.27;
 const STORM_PLANE_SIZE = 3600;
 // Wraps the animation clock so float precision never degrades the drift.
 const STORM_TIME_WRAP_SECONDS = 3600;
-// How long the clouds take to roll back off newly explored tiles.
-export const UNEXPLORED_REVEAL_MS = 900;
-// More tiles than this explored in one rebuild is a bulk load (a jump across
-// the map, a long-missed sync), not exploring: it shows without the reveal.
-export const UNEXPLORED_REVEAL_MAX_TILES = 400;
 
 export type UnexploredStormLayer = {
   readonly mesh: Mesh;
@@ -81,12 +78,11 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   const geometry = new PlaneGeometry(STORM_PLANE_SIZE, STORM_PLANE_SIZE);
   geometry.rotateX(-Math.PI / 2);
   let mask = createMaskTexture(1, 1, new Uint8Array([255, 255, 0, 255]));
-  // The previous mask, kept so newly explored tiles can cross-fade from
-  // storm to clear (the reveal) instead of popping. Same texture as `mask`
-  // when there's nothing to animate.
-  let prevMask = mask;
-  let current: { window: TerrainWindow; mask: UnexploredStormMask } | undefined;
-  let revealStartMs = -Infinity;
+  // Rolls the clouds back off newly explored tiles, per tile
+  // (client-map-3d-unexplored-storm-reveal.ts); the mask is re-encoded each
+  // frame while it runs, and once more when it ends.
+  const reveal = createUnexploredStormReveal();
+  let revealWasAnimating = false;
   const material = new ShaderMaterial({
     toneMapped: false,
     fog: false,
@@ -110,14 +106,7 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       uLantern: { value: new Color(UNEXPLORED_LANTERN) },
       uMask: { value: mask },
       uMaskMin: { value: new Vector2(-1e6, -1e6) },
-      uMaskSize: { value: new Vector2(2e6, 2e6) },
-      uPrevMask: { value: mask },
-      uPrevMaskMin: { value: new Vector2(-1e6, -1e6) },
-      uPrevMaskSize: { value: new Vector2(2e6, 2e6) },
-      // Current scene coords + this = the previous mask's scene coords.
-      uPrevOffset: { value: new Vector2(0, 0) },
-      // 0 -> 1 across a reveal; 1 = show only the current mask.
-      uRevealT: { value: 1 }
+      uMaskSize: { value: new Vector2(2e6, 2e6) }
     },
     vertexShader: STORM_VERTEX_SHADER,
     fragmentShader: STORM_FRAGMENT_SHADER
@@ -140,53 +129,28 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   mesh.onBeforeRender = () => {
     const now = nowMs();
     material.uniforms.uTime!.value = (now / 1000) % STORM_TIME_WRAP_SECONDS;
-    material.uniforms.uRevealT!.value = Math.min(1, Math.max(0, (now - revealStartMs) / UNEXPLORED_REVEAL_MS));
+    const animating = reveal.isAnimating(now);
+    if (animating || revealWasAnimating) {
+      reveal.encode(now, mask.image.data as Uint8Array);
+      mask.needsUpdate = true;
+    }
+    revealWasAnimating = animating;
   };
   scene.add(mesh);
 
-  // The window the previous mask was built for, while a reveal is running.
-  let prevWindow: TerrainWindow | undefined;
   const rebuild = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     (material.uniforms.uWorldOrigin!.value as Vector2).set(window.camX, window.camY);
     // Tile (dx, dy) spans scene [dx, dx + 1] x [dy, dy + 1].
-    const next = { window, mask: buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt) };
+    const grid = sampleUnexploredStormGrid(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt);
     const now = nowMs();
-    // No reveal on the first rebuild with land in it (login, reconnect: every
-    // tile reads unexplored until the first chunk lands) or for a bulk load.
-    const newlyExplored = current && maskHasExplored(current.mask) ? countNewlyExplored(current, next, WORLD_WIDTH, WORLD_HEIGHT) : 0;
-    const revealing = current !== undefined && newlyExplored > 0 && newlyExplored <= UNEXPLORED_REVEAL_MAX_TILES;
-    // A rebuild with nothing new (a pan, a tile update) mid-reveal keeps the
-    // fade running against the same previous mask instead of snapping it.
-    const midReveal = !revealing && prevMask !== mask && now - revealStartMs < UNEXPLORED_REVEAL_MS;
-    if (revealing && current) {
-      // Fade from the mask on screen now to the new one.
-      if (prevMask !== mask) prevMask.dispose();
-      prevMask = mask;
-      prevWindow = current.window;
-      (material.uniforms.uPrevMaskMin!.value as Vector2).copy(material.uniforms.uMaskMin!.value as Vector2);
-      (material.uniforms.uPrevMaskSize!.value as Vector2).copy(material.uniforms.uMaskSize!.value as Vector2);
-      revealStartMs = now;
-    } else if (midReveal) {
-      mask.dispose();
-    } else {
-      if (prevMask !== mask) prevMask.dispose();
-      mask.dispose();
-      prevWindow = undefined;
-      revealStartMs = -Infinity;
-    }
-    mask = createMaskTexture(next.mask.width, next.mask.height, next.mask.data);
-    if (!prevWindow) prevMask = mask;
-    else {
-      (material.uniforms.uPrevOffset!.value as Vector2).set(
-        toroidDelta(prevWindow.camX, window.camX, WORLD_WIDTH),
-        toroidDelta(prevWindow.camY, window.camY, WORLD_HEIGHT)
-      );
-    }
-    current = next;
+    reveal.onGrid(grid, now);
+    const next = reveal.encode(now);
+    mask.dispose();
+    mask = createMaskTexture(next.width, next.height, next.data);
+    revealWasAnimating = reveal.isAnimating(now);
     material.uniforms.uMask!.value = mask;
-    material.uniforms.uPrevMask!.value = prevMask;
     (material.uniforms.uMaskMin!.value as Vector2).set(-window.halfW - 1, -window.halfH - 1);
-    (material.uniforms.uMaskSize!.value as Vector2).set(next.mask.width, next.mask.height);
+    (material.uniforms.uMaskSize!.value as Vector2).set(next.width, next.height);
     applyUnexploredStormClipToScene(scene, clipUniforms, clipPatched);
   };
 
@@ -202,7 +166,6 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
       scene.remove(mesh);
       geometry.dispose();
       material.dispose();
-      if (prevMask !== mask) prevMask.dispose();
       mask.dispose();
     }
   };

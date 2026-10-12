@@ -58,7 +58,7 @@ float stormClipField(vec2 sceneXZ) {
   vec2 uvTile = (floor(sceneXZ) + 0.5 - uStormClipMaskMin) / uStormClipMaskSize;
   if (uvTile.x < 0.0 || uvTile.y < 0.0 || uvTile.x > 1.0 || uvTile.y > 1.0) return -1.0;
   vec4 m = texture2D(uStormClipMask, uvTile);
-  if (m.r < 0.5) return -1.0;
+  if (m.r < 0.002) return -1.0; // fully explored; a tile still rolling back stays fitted under the cloud
   if (m.g > 0.99) return 2.0;
   vec2 uv = (sceneXZ - uStormClipMaskMin) / uStormClipMaskSize;
   float s = stormSoftField(uStormClipMask, uv, uStormClipMaskSize) + stormEdgeNoise(sceneXZ + uStormClipOrigin, uStormClipTime) * 0.1;

@@ -33,8 +33,10 @@ float stormSoftField(sampler2D mask, vec2 uv, vec2 maskSize) {
 }
 
 // Distance (tiles) from a scene point to the nearest explored tile among its
-// 3x3 neighbourhood (R < 0.5 at the tile's centre), capped at 1. Outside the
-// mask counts as unexplored.
+// 3x3 neighbourhood, capped at 1. A tile counts in proportion to how
+// explored it is: its R (1 = unexplored) is added to the distance, so a tile
+// rolling back pulls the contour in smoothly rather than all at once.
+// Outside the mask counts as unexplored.
 float stormExploredDistance(sampler2D mask, vec2 maskMin, vec2 maskSize, vec2 sceneXZ) {
   vec2 tile = floor(sceneXZ);
   float best = 1.0;
@@ -43,9 +45,10 @@ float stormExploredDistance(sampler2D mask, vec2 maskMin, vec2 maskSize, vec2 sc
       vec2 t = tile + vec2(float(i), float(j));
       vec2 uv = (t + 0.5 - maskMin) / maskSize;
       if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) continue;
-      if (texture2D(mask, uv).r >= 0.5) continue;
+      float unexplored = texture2D(mask, uv).r;
+      if (unexplored > 0.998) continue;
       vec2 q = max(max(t - sceneXZ, sceneXZ - (t + 1.0)), 0.0);
-      best = min(best, length(q));
+      best = min(best, length(q) + unexplored);
     }
   }
   return best;
