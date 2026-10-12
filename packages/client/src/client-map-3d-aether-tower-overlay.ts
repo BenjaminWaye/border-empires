@@ -341,7 +341,10 @@ export const createAetherTowerOverlay = (
 
     // 1. Derive the network graph so towers know their bridge status.
     const pts: Array<{ x: number; z: number }> = instances.map((t) => ({ x: t.x, z: t.z }));
-    const links = computeLinks(pts).filter((link) => !instances[link.a]!.frozen && !instances[link.b]!.frozen);
+    const active = instances.flatMap((tower, index) => tower.frozen ? [] : [index]);
+    const links = computeLinks(active.map((index) => pts[index]!)).map((link) => ({
+      ...link, a: active[link.a]!, b: active[link.b]!
+    }));
     const clusters = computeClusters(pts, links);
     const linkDegree = new Array<number>(instances.length).fill(0);
     for (const l of links) {

@@ -73,3 +73,15 @@ it("does not link or synchronize an observatory under construction", () => {
   expect(snapshot(scene)).not.toEqual(before);
   overlay.dispose();
 });
+
+it("construction observatories cannot consume finished towers' link capacity", () => {
+  const scene = new Scene();
+  const overlay = createAetherTowerOverlay(scene, 8);
+  overlay.addInstance(0, 0, 0, 0, 0);
+  overlay.addInstance(1.2, 0, 0, 1, 0);
+  for (let i = 0; i < 6; i++) overlay.addInstance(0.04 + i * 0.04, 0, 0, i + 2, 0, true);
+  overlay.commit();
+  const nodes = scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh && child.geometry.type === "IcosahedronGeometry" && (child.geometry as IcosahedronGeometry).parameters.radius === 0.026)!;
+  expect(nodes.count).toBe(3);
+  overlay.dispose();
+});
