@@ -192,7 +192,7 @@ const render = (state: OnboardingChecklistState): void => {
  * map or the join-time AFC drop hasn't finished) the bubble and its map
  * highlights are hidden, and the once-per-account force-open is held back
  * so a new player's first look at the checklist is after the AFC lands
- * rather than underneath the tutorial.
+ * rather than underneath a dialog.
  */
 export const renderOnboardingChecklistOverlay = (
   tiles: ReadonlyMap<string, Tile>,

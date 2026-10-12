@@ -68,7 +68,6 @@ export const createState = () =>
     seasonWinner: undefined,
     // Read by the onboarding UI gate (client-onboarding-ui-gate.ts) when the checklist refreshes.
     changelog: { open: false },
-    guide: { open: false },
     activityDashboard: { open: false, loading: false },
     afcJoinDrop: { phase: "done" },
     leaderboard: {},

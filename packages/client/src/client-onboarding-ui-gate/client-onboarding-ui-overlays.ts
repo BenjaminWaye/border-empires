@@ -29,7 +29,7 @@ const tickGate = createOnboardingUiGateTicker();
 
 /**
  * Called once per frame, after the AFC join drop has ticked: re-renders the
- * toast and checklist as soon as the deferral lifts (drop landed, tutorial
+ * toast and checklist as soon as the deferral lifts (drop landed, dialog
  * closed) or returns (a dialog reopened), rather than on the next tile delta.
  */
 export const tickOnboardingUiGateForFrame = (state: DiscoveryTipUiState & OnboardingChecklistUiState, renderHud: () => void): void =>
