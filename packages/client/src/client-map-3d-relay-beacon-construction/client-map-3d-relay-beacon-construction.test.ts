@@ -117,6 +117,23 @@ describe("relay beacon under construction", () => {
     overlay.dispose();
   });
 
+  it.each(["build", "remove"] as const)("freezes the visible array during %s and starts it after completion", (direction) => {
+    const { scene, overlay } = build(siteAt(CONSTRUCTION_PHASES, { direction }), undefined);
+    const mirror = mirrors(scene)!;
+    const before = Array.from(mirror.instanceMatrix.array.slice(0, 12 * 16));
+    overlay.update(500);
+    overlay.update(2500);
+    expect(Array.from(mirror.instanceMatrix.array.slice(0, 6 * 16))).toEqual(before.slice(0, 6 * 16));
+    expect(Array.from(mirror.instanceMatrix.array.slice(6 * 16, 12 * 16))).not.toEqual(before.slice(6 * 16));
+    overlay.clear();
+    overlay.addInstance(0, 0, 0, 0, 0);
+    overlay.commit();
+    const completed = matrixAt(mirror, 0).elements;
+    overlay.update(5000);
+    expect(matrixAt(mirror, 0).elements).not.toEqual(completed);
+    overlay.dispose();
+  });
+
   it("does not leave the cut on for the next, finished beacon", () => {
     const scene = new Scene();
     const overlay = createRelayBeaconOverlay(scene, 4);

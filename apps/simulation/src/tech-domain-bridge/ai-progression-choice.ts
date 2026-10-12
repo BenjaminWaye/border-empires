@@ -61,8 +61,8 @@ export const chooseAiTechChoiceForPlayer = (
     })
     // Affordable techs win over unaffordable ones regardless of score, so a
     // cheaper fallback is preferred over a pricier higher-scored option the
-    // player can't pay for (techs below tier 5 are gold-only now, §6.2/§13
-    // of manpower-economy-rewrite-plan.md — per-tier gold scarcity is the
+    // player can't pay for (techs below tier 5 are gold-only now —
+    // per-tier gold scarcity is the
     // trigger). When nothing is affordable, score order is preserved so the
     // diagnostic still surfaces the most-wanted-but-blocked tech.
     .sort((left, right) =>

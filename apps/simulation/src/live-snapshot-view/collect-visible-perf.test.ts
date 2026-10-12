@@ -6,8 +6,8 @@ import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
  *   - 250,000 owned tiles, handleCollectVisibleCommand < 100ms wall time
  *   - Correctness: gold is credited and the yield-bearing index contains
  *     exactly the expected tiles. Strategic resources (FOOD/TITANIUM/CRYSTAL/
- *     UMBRITE) are slot-based, not a stockpiled per-minute yield (docs/
- *     manpower-economy-rewrite-plan.md §5.4/§5.6) — see the correctness test
+ *     UMBRITE) are slot-based, not a stockpiled per-minute yield
+ *     — see the correctness test
  *     below for why they are deliberately not asserted here.
  */
 import { describe, expect, it } from "vitest";
@@ -350,8 +350,8 @@ describe("yield-bearing tile index: correctness", () => {
     //   2. tiles > 0 (at least some tiles yielded)
     // FOOD/TITANIUM are NOT asserted here: FARM/FISH's food contribution and
     // TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER's output are
-    // both slot-based now, not a stockpiled per-minute yield (docs/manpower-
-    // economy-rewrite-plan.md §5.4/§5.6) — passive collection on these tile
+    // both slot-based now, not a stockpiled per-minute yield —
+    // passive collection on these tile
     // types is 0 by design, not a bug. See strategicDailyFromResource
     // (tile-yield-view.ts) and strategicProductionPerMinuteForResource
     // (player-runtime-summary.ts) for the same documented retirement.

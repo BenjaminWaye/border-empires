@@ -1,5 +1,5 @@
 import { BASE_SLOTS_BY_TILE_RESOURCE, TILE_SLOT_BOOST_STRUCTURES, type SlotResource } from "@border-empires/shared";
-import { resourceIconForKey } from "../client-map-display.js";
+import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type { Tile } from "../client-types.js";
 
 const SLOT_RESOURCE_LABEL: Record<SlotResource, string> = {
@@ -24,5 +24,5 @@ export const resourceSlotProductionHtml = (tile: Tile): string => {
     : 0;
   const totalSlots = slotInfo.baseSlots + boost;
   const label: string = SLOT_RESOURCE_LABEL[slotInfo.slotResource];
-  return `${resourceIconForKey(slotInfo.slotResource)} ${label} +${totalSlots}`;
+  return `${resourceIconHtml(slotInfo.slotResource)} ${label} +${totalSlots}`;
 };

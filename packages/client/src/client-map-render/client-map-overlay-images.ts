@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260912a";
+const overlayAssetVersion = "20261012a";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -53,10 +53,11 @@ export const structureOverlayImages = {
   CARAVANARY: loadOverlayImage("trade-nexus-overlay.svg"),
   FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
   // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot") and
-  // LOGISTICS_GUILD ("Ancillary Factory") swap art, as do RAIL_DEPOT
-  // ("Neural Works") and ASSEMBLY_WORKS ("Reserve Lattice") -- no new
-  // 3D/2D assets this pass, per user decision.
-  GARRISON_HALL: loadOverlayImage("logistics-guild-overlay.svg"),
+  // LOGISTICS_GUILD ("Ancillary Factory") had their art swapped; the Depot
+  // since got its own dedicated storage-drum overlay (and the Factory keeps
+  // the hopper-tower manufactory). RAIL_DEPOT ("Neural Works") and
+  // ASSEMBLY_WORKS ("Reserve Lattice") still swap.
+  GARRISON_HALL: loadOverlayImage("ancillary-depot-overlay.svg"),
   CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
   RAIL_DEPOT: loadOverlayImage("assembly-works-overlay.svg"),
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),

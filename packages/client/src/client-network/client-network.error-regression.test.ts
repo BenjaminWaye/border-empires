@@ -98,7 +98,7 @@ describe("client network regression guards", () => {
     }
   });
 
-  it("routes INSUFFICIENT_SLOT build rejections to the capture alert and rolls back the optimistic build (docs/manpower-economy-rewrite-plan.md §5)", () => {
+  it("routes INSUFFICIENT_SLOT build rejections to the capture alert and rolls back the optimistic build", () => {
     const state = createState();
     state.lastDevelopmentAttempt = {
       kind: "BUILD",

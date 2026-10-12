@@ -1,6 +1,6 @@
 /**
- * Regression tests for §4.4 of docs/manpower-economy-rewrite-plan.md: the
- * manpower-boosting structure tree. An Ancillary Factory grants +150
+ * Regression tests for the manpower-boosting structure tree. An Ancillary
+ * Factory grants +150
  * manpower cap plus 10% of its town's terrain-adjusted base capacity;
  * Assembly Works changes that local percentage to 35%; and a second Rail
  * Depot in an already-covered network

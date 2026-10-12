@@ -1,35 +1,87 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
-import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { DockRouteOverlay } from "./client-map-3d-dock-route-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair } from "./client-types.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
+type RoutePoint = { x: number; y: number };
+
+// Converts a world-space route into continuous scene-space polylines.
+//
+// Each point used to be placed independently via toroidDelta from the scene
+// origin, which wraps at half the world. That broke long routes in two ways:
+// a hop crossing the world seam (x 639 -> 0) was dropped, leaving a gap; and
+// a hop straddling the point opposite the scene origin flipped from +W/2 to
+// -W/2, drawing a stray line across the map. Instead, walk the route as
+// unwrapped steps from one anchor, choosing the anchor as the route point
+// nearest the scene origin so the part the player is looking at lands in
+// its true place. A hop that is not an adjacent step (malformed route)
+// starts a new polyline rather than being bridged.
+export const dockRouteScenePaths = (
+  route: readonly RoutePoint[],
+  sceneOrigin: { readonly camX: number; readonly camY: number }
+): Array<Array<{ x: number; z: number }>> => {
+  const runs: RoutePoint[][] = [];
+  let current: RoutePoint[] = [];
+  for (const point of route) {
+    const prev = current[current.length - 1];
+    if (prev) {
+      const stepX = toroidDelta(prev.x, point.x, WORLD_WIDTH);
+      const stepY = toroidDelta(prev.y, point.y, WORLD_HEIGHT);
+      if (Math.abs(stepX) > 1 || Math.abs(stepY) > 1) {
+        runs.push(current);
+        current = [];
+      }
+    }
+    current.push(point);
+  }
+  runs.push(current);
+
+  const paths: Array<Array<{ x: number; z: number }>> = [];
+  for (const run of runs) {
+    if (run.length < 2) continue;
+    const unwrapped: Array<{ x: number; y: number }> = [{ x: 0, y: 0 }];
+    for (let i = 1; i < run.length; i += 1) {
+      const prev = unwrapped[i - 1]!;
+      unwrapped.push({
+        x: prev.x + toroidDelta(run[i - 1]!.x, run[i]!.x, WORLD_WIDTH),
+        y: prev.y + toroidDelta(run[i - 1]!.y, run[i]!.y, WORLD_HEIGHT)
+      });
+    }
+    let anchor = 0;
+    let anchorDistance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < run.length; i += 1) {
+      const distance =
+        Math.abs(toroidDelta(sceneOrigin.camX, run[i]!.x, WORLD_WIDTH)) + Math.abs(toroidDelta(sceneOrigin.camY, run[i]!.y, WORLD_HEIGHT));
+      if (distance < anchorDistance) {
+        anchorDistance = distance;
+        anchor = i;
+      }
+    }
+    const baseX = toroidDelta(sceneOrigin.camX, run[anchor]!.x, WORLD_WIDTH) - unwrapped[anchor]!.x;
+    const baseZ = toroidDelta(sceneOrigin.camY, run[anchor]!.y, WORLD_HEIGHT) - unwrapped[anchor]!.y;
+    paths.push(unwrapped.map((u) => ({ x: baseX + u.x + TILE_CENTER_OFFSET, z: baseZ + u.y + TILE_CENTER_OFFSET })));
+  }
+  return paths;
+};
+
 // True-3D counterpart of client-dock-route-draw.ts. Populates the sea-route
 // overlay for every pairing that has the selected tile as an endpoint (a
 // dock can have several connectedDockIds, not just one pairedDockId, so this
 // must not stop after the first match) using the same server-authoritative/
-// A*-fallback route data as the 2D renderer -- see resolveDockSeaRoute --
-// placed via toroidDelta + the live heightfield surface instead of the 2D
-// flat-grid worldToScreen projection, so it actually follows the 3D terrain
-// instead of floating misaligned over it.
+// A*-fallback route data as the 2D renderer -- see resolveDockSeaRoute.
 //
-// This sync only re-runs when the selection/dockPairs key changes (see the
-// call site in client-map-3d.ts), not every frame -- so its segment
+// This sync only re-runs when the selection/dockPairs/sceneOrigin key
+// changes (see the call site in client-map-3d.ts), not every frame -- so
 // positions must be anchored to sceneOrigin.camX/camY (the terrain's stable
 // rebuild anchor, which every other overlay in that module uses), not the
-// live state.camX/camY. state.camX/camY change continuously while the user
-// pans (the camera moves smoothly against sceneOrigin every frame -- see
-// applyCamera's offsetX/offsetZ), so anchoring segments to it baked in
-// whatever pan offset happened to be live at the moment the dock was
-// selected, then left that offset fixed: the line stayed glued to the
-// screen instead of the terrain and visibly drifted as the camera panned.
+// live state.camX/camY, which moves continuously while the user pans and
+// would leave the line glued to the screen instead of the terrain.
 export function syncDockRouteOverlay(
   state: ClientState,
   sceneOrigin: { readonly camX: number; readonly camY: number },
-  heightfield: Heightfield,
   dockRouteOverlay: DockRouteOverlay,
   resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>,
   isDockRouteVisibleForPlayer: (pair: DockPair) => boolean
@@ -43,20 +95,6 @@ export function syncDockRouteOverlay(
     if (!isEndpoint) continue;
     const route = resolveDockSeaRoute(pair);
     if (route.length < 2) continue;
-    const surfaceYAt = (x: number, y: number): number => Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y));
-    for (let i = 1; i < route.length; i += 1) {
-      const a = route[i - 1]!;
-      const b = route[i]!;
-      // A hop that jumps more than half the world across is the route
-      // wrapping the toroidal seam, not an adjacent step -- skip it rather
-      // than drawing a line clear across the map (mirrors the 2D renderer's
-      // segmentWraps check in client-dock-route-draw.ts).
-      if (Math.abs(a.x - b.x) > WORLD_WIDTH / 2 || Math.abs(a.y - b.y) > WORLD_HEIGHT / 2) continue;
-      const aDx = toroidDelta(sceneOrigin.camX, a.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const aDy = toroidDelta(sceneOrigin.camY, a.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      const bDx = toroidDelta(sceneOrigin.camX, b.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const bDy = toroidDelta(sceneOrigin.camY, b.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      dockRouteOverlay.addSegment(aDx, aDy, surfaceYAt(a.x, a.y), bDx, bDy, surfaceYAt(b.x, b.y));
-    }
+    for (const path of dockRouteScenePaths(route, sceneOrigin)) dockRouteOverlay.addPath(path);
   }
 }
