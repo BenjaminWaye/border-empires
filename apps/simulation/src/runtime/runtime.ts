@@ -1409,7 +1409,7 @@ export class SimulationRuntime {
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
-    if (!this.dormantClaimSweepDone) { this.dormantClaimSweepDone = true; for (const { tileKey, ownerId } of dormantOwnedActivatables(this.state.tiles)) this.activateReachClaimedTile(tileKey, ownerId, `dormant-claim-sweep:${tileKey}`); }
+    if (!this.dormantClaimSweepDone) { this.dormantClaimSweepDone = true; const sweepOwners = new Set<string>(); for (const { tileKey, ownerId } of dormantOwnedActivatables(this.state.tiles)) { this.activateReachClaimedTile(tileKey, ownerId, `dormant-claim-sweep:${tileKey}`); sweepOwners.add(ownerId); } for (const playerId of sweepOwners) this.emitPlayerStateUpdate({ commandId: `dormant-claim-sweep:${playerId}`, playerId }); }
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
