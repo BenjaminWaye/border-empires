@@ -2,7 +2,7 @@
 // (client-map-3d-mountain-massif.ts) and the 2D canvas peaks
 // (client-map-render/client-map-render-mountain-peaks.ts), so both renderers
 // agree on which mountains are tall, summits or snow-capped
-// (docs/river-mountains-plan.md, PR A).
+// (docs/rivers-remake-plan.md, "River mountains").
 //
 // Everything is derived from an integer hash of the *world* tile, never of
 // scene/camera coordinates, so a mountain looks the same wherever the camera

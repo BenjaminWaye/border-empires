@@ -1,4 +1,4 @@
-// 2D half of the river mountain (docs/river-mountains-plan.md, PR C; the 3D
+// 2D half of the river mountain (docs/rivers-remake-plan.md, "River mountains"; the 3D
 // version lives in client-map-3d-river-cascade.ts): as in 3D, the river wells
 // up at the mountain's foot -- a spring between two boulders at the base of
 // the main peak, on the side facing the river head -- and a short banked
