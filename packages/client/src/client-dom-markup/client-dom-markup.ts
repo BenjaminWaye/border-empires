@@ -3,7 +3,7 @@ export const hudMarkup = `
     <div id="stats-chips"></div>
     <div id="panel-actions">
       <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-      <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
+      <button class="icon-btn icon-only" data-panel="tech" title="Manifest" aria-label="Manifest"><span class="tab-icon">⚡</span></button>
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
       <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts"><span class="tab-icon">🔔</span></button>
@@ -244,7 +244,7 @@ export const hudMarkup = `
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
     <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-    <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
+    <button data-mobile-panel="tech" title="Manifest" aria-label="Manifest"><span class="tab-icon">⚡</span></button>
     <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard"><span class="tab-icon">🏆</span></button>
     <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>

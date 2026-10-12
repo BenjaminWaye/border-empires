@@ -23,6 +23,7 @@ import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-bu
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
+import { RIVER_SOURCES_CHANGELOG } from "./client-changelog-river-sources.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -33,27 +34,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
-  {
-    createdAt: 1791663119915, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.3",
-    title: "Rivers start at a spring",
-    why: "Rivers began with a flat, square cut on open ground, as if chopped off.",
-    changes: [
-      "Rivers that run along tile borders (newer seasons) now begin in a small spring pool with a wet bank around it, narrowing into the stream",
-      "Trees no longer stand in the pool",
-      "Shown on both the 3D map and the 2D map"
-    ]
-  },
-  {
-    createdAt: 1791665034483, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.10.5",
-    title: "Rivers rise in the mountains (new seasons)",
-    why: "Rivers began wherever the generator happened to start them, often on open plains.",
-    changes: [
-      "In seasons started from now on, nearly every river begins right beside a mountain and runs down to the sea",
-      "Running seasons keep their rivers, towns and resources exactly as they are"
-    ]
-  },
+  ...RIVER_SOURCES_CHANGELOG,
   {
     createdAt: 1791662241708, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.2",
@@ -488,7 +469,22 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
-  ...AFC_MODULE_TAB_CHANGELOG
+  ...AFC_MODULE_TAB_CHANGELOG,
+  {
+    createdAt: 1791804620000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.2",
+    title: "Manifest panel: clearer details, Good pick badge, clickable owned list",
+    why: "The tech details were boxes inside boxes, listed the same unlocks three times, scrolled the whole panel so the name and Unlock button slid out of view, and never said whether a pick fit your empire. Your owned techs were a list you couldn't click.",
+    changes: [
+      "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
+      "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
+      "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
+      "A Good pick badge appears when it fits your empire right now -- e.g. Titanium clues near your land, a survey report from a town you took, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
+      "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
+      "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
+      "Rigging Works Module now lists the Umbrite Rig it unlocks"
+    ]
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

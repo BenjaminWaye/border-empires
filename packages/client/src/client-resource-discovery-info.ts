@@ -11,7 +11,6 @@
 import { resourceColor, resourceIconForKey, resourceLabel } from "./client-map-display.js";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips/client-discovery-tips.js";
 import type { TechInfo } from "./client-types.js";
-import { occupationSurveyController, occupationSurveyResourceLabel, techIdForOccupationSurveyResource } from "./client-occupation-survey.js";
 
 export type StrategicResourceKey = "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
@@ -68,36 +67,4 @@ export const resourceDiscoveryInfo = (key: StrategicResourceKey): ResourceDiscov
 export const relatedStrategicResourcesForTech = (tech: TechInfo): StrategicResourceKey[] => {
   const revealed = typeof tech.effects?.revealResource === "string" ? tech.effects.revealResource.toUpperCase() : undefined;
   return (["TITANIUM", "CRYSTAL", "UMBRITE"] as const).filter((key) => key === revealed);
-};
-
-// "Resource revealed" card: glyph/color swatch + what it's for + where to
-// find it, for the strategic resource this tech reveals. Reuses the same
-// structure-info-* classes as the structure-info overlay so this reads as
-// part of the same design system instead of a one-off card.
-export const renderResourceRevealHtml = (tech: TechInfo): string => {
-  const resources = relatedStrategicResourcesForTech(tech);
-  if (resources.length === 0) return "";
-  const cardsHtml = resources
-    .map((key) => {
-      const info = resourceDiscoveryInfo(key);
-      return `<div class="structure-info-meta-card resource-reveal-card">
-        <div class="resource-reveal-swatch" style="background:${info.color}22;color:${info.color}" aria-hidden="true">${info.glyph}</div>
-        <div class="resource-reveal-copy">
-          <strong>${info.label}</strong>
-          <span>${info.whatItsFor}</span>
-          <span class="muted">${info.whereToFind}</span>
-        </div>
-      </div>`;
-    })
-    .join("");
-  const surveyHtml = resources.map((key) => {
-    const resource = key === "CRYSTAL" ? "GEMS" : key;
-    const report = occupationSurveyController.currentForResource(resource);
-    const detail = report ? `Occupation Survey: ${report.signature === "FERROUS_DUST" ? "ferrous terrain" : report.signature === "BLACKWOOD_CANOPY" ? "blackwood canopy" : "refractive ground"} identified ${report.bearing.toLowerCase()} of recent holdings.` : "No local signal in occupied territory. Further conquests may yield intelligence.";
-    return `<div class="resource-survey-card" data-resource-survey-tech="${techIdForOccupationSurveyResource(resource)}"><strong>Occupation intelligence</strong><span>${occupationSurveyResourceLabel(resource)}: ${detail}</span></div>`;
-  }).join("");
-  return `<section class="structure-info-section">
-    <span class="structure-info-section-label">Resource revealed</span>
-    <div class="resource-reveal-list">${cardsHtml}${surveyHtml}</div>
-  </section>`;
 };

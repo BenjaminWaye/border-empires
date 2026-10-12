@@ -7,11 +7,11 @@ import {
   renderDomainDetailCard as renderDomainDetailCardFromModule,
   renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
-  renderTechDetailCard as renderTechDetailCardFromModule,
-  renderTechDetailModal as renderTechDetailModalFromModule,
   renderTechDetailPrompt as renderTechDetailPromptFromModule,
   selectedTechInfo as selectedTechInfoFromModule
 } from "./client-tech-detail-ui/client-tech-detail-ui.js";
+import { renderManifestDetailHtml, type ManifestDetailMode } from "./client-manifest-detail/client-manifest-detail-html.js";
+import { occupationSurveyController } from "./client-occupation-survey.js";
 import { renderStructureInfoOverlay as renderStructureInfoOverlayFromModule } from "./client-structure-info-overlay/client-structure-info-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DomainInfo, TechInfo } from "./client-types.js";
@@ -199,20 +199,35 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
 
   const renderTechDetailPrompt = (): string => renderTechDetailPromptFromModule();
 
-  const renderTechDetailCard = (): string =>
-    renderTechDetailCardFromModule({
-      tech: selectedTechInfo(),
-      techDetailOpen: state.techDetailOpen,
+  // One Manifest detail view for both layouts: the desktop side panel
+  // ("inline") and the mobile overlay ("overlay").
+  const renderManifestDetail = (mode: ManifestDetailMode): string => {
+    const tech = selectedTechInfo();
+    if (!tech) return "";
+    return renderManifestDetailHtml({
+      tech,
+      mode,
       techCatalog: state.techCatalog,
       ownedTechIds: state.techIds,
-      techPrereqIds,
-      unlockedByTech,
-      isPendingTechUnlock,
       pendingTechUnlockId: state.pendingTechUnlockId,
+      isPendingTechUnlock,
+      techPrereqIds,
       techNameList,
+      techTier,
       structureInfoButtonHtml: deps.structureInfoButtonHtml,
-      techTier
+      structureDetail: (type) => deps.structureInfoForKey(type).detail,
+      coin: state.gold,
+      fit: {
+        me: state.me,
+        manpower: state.manpower,
+        resourceSlots: state.resourceSlots,
+        tiles: state.tiles.values(),
+        surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
+      }
     });
+  };
+
+  const renderTechDetailCard = (): string => (state.techDetailOpen ? renderManifestDetail("inline") : "");
 
   const renderStructureInfoOverlay = (): string => {
     const ownedComponentTypes = new Set<string>();
@@ -225,22 +240,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes);
   };
 
-  const renderTechDetailModal = (): string => {
-    const tech = selectedTechInfo();
-    if (!tech) return "";
-    return renderTechDetailModalFromModule({
-      tech,
-      techCatalog: state.techCatalog,
-      ownedTechIds: state.techIds,
-      techPrereqIds,
-      unlockedByTech,
-      isPendingTechUnlock,
-      pendingTechUnlockId: state.pendingTechUnlockId,
-      techNameList,
-      structureInfoButtonHtml: deps.structureInfoButtonHtml,
-      techTier
-    });
-  };
+  const renderTechDetailModal = (): string => renderManifestDetail("overlay");
 
   const techDetailsUseOverlay = (): boolean => deps.isMobile();
 

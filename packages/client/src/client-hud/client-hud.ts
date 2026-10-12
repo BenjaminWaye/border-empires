@@ -504,11 +504,11 @@ export const renderClientHud = (deps: HudDeps): void => {
     if (selectedTechValue && catalogById.has(selectedTechValue)) state.techUiSelectedId = selectedTechValue;
   }
 
-  dom.techPointsEl.textContent = "Tech unlocks use coin + strategic resources";
-  dom.mobileTechPointsEl.textContent = "Tech unlocks use coin + strategic resources";
+  dom.techPointsEl.textContent = "Manifests cost coin + strategic resources";
+  dom.mobileTechPointsEl.textContent = "Manifests cost coin + strategic resources";
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
-    fallbackCard("Technology modifiers"),
+    fallbackCard("Manifest bonuses"),
     () =>
       deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown, {
         techCatalog: state.techCatalog,
@@ -518,14 +518,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       })
   );
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
-  dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Technology choices"), () => renderTechChoiceGrid());
+  dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
   dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
   dom.techDetailCardEl.innerHTML = safeValue(
     "renderTechDetailCard",
-    fallbackCard("Technology detail"),
+    fallbackCard("Manifest details"),
     () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
   );
-  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Technology detail"), () => deps.renderTechDetailPrompt());
+  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
     : state.crystalAbilityInfoKey
@@ -546,7 +546,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
-    fallbackCard("Owned technologies"),
+    fallbackCard("Your Manifests"),
     () => deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock)
   );
   dom.mobileTechOwnedEl.innerHTML = dom.techOwnedEl.innerHTML;

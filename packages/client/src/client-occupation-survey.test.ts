@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { feedEntryForEventLogEntry } from "./client-event-log-html.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
-import { renderResourceRevealHtml } from "./client-resource-discovery-info.js";
+import { manifestFit } from "./client-manifest-detail/client-manifest-fit.js";
 
 const tech = (id: string) => ({
   id,
@@ -34,9 +34,14 @@ describe("occupation survey client parity", () => {
     expect(occupationSurveyController.currentForResource("TITANIUM")).toMatchObject({ x: 31, y: 42, signature: "FERROUS_DUST" });
   });
 
-  it("adds current local intelligence to the matching research card", () => {
-    const html = renderResourceRevealHtml(tech("masonry"));
-    expect(html).toContain("Occupation intelligence");
-    expect(html).toContain("ferrous terrain");
+  it("turns current local intelligence into a Good pick reason on the matching Manifest", () => {
+    const fit = manifestFit(tech("masonry"), {
+      me: "me",
+      manpower: 0,
+      resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } },
+      tiles: [],
+      surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
+    });
+    expect(fit.goodPickReasons).toContain("Titanium likely west of a town you took (occupation survey)");
   });
 });
