@@ -8,6 +8,7 @@
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
+import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -469,15 +470,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Plain land outside your reach still can't be garrisoned"
     ]
   },
-  {
-    createdAt: 1791749603910, // frozen Date.now() value for this release
-    introducedIn: "2026.10.11.2",
-    title: "Manpower now counts down to your next batch",
-    why: "The manpower chip said \"Refill in 1h 20m\", but manpower isn't a tank topping up, it arrives as a batch of locals converted into ancillaries all at once.",
-    changes: [
-      "The manpower chip and panel now read \"Next batch in ...\" and \"+N per batch\" instead of \"Refill in ...\" and \"per refill\""
-    ]
-  },
+  ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
