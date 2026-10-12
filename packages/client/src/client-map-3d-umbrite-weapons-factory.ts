@@ -32,7 +32,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 
 export type UmbriteWeaponsFactoryOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -378,7 +378,7 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
   // partial GPU re-upload (reactorCore, coreFissure, ember).
   const pulseMeshes: readonly InstancedMesh[] = [...new Set(pulsePieces.map((p) => p.mesh))];
 
-  type FactoryRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number };
+  type FactoryRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number; readonly frozen: boolean };
   const records: FactoryRecord[] = [];
 
   // ─── Public API ─────────────────────────────────────────────────────
@@ -387,14 +387,14 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): void => {
     // The pulse slots are capped at C factories (1 core, 2 fissures, 2 embers
     // per factory); drop factories beyond that up front so `records` and the
     // piece buffers stay in lockstep (same trick as the relay beacon).
     if (records.length >= C) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
     addFactory(sceneX, surfaceY, sceneZ);
   };
 
@@ -414,6 +414,7 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
     if (count === 0) return;
     for (let i = 0; i < count; i += 1) {
       const rec = records[i]!;
+      if (rec.frozen) continue;
       const pulse = Math.sin(nowMs * PULSE_SPEED + rec.phase);
       for (const piece of pulsePieces) {
         const breathe = 1 + piece.amp * pulse;

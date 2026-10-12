@@ -450,7 +450,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.12.1",
     title: "Building machinery waits for construction to finish",
     why: "Fully visible moving parts could start running while their 3D building was still being built.",
-    changes: ["Mintworks flywheels and Relay Beacon mirrors stay still during construction and removal, then animate when complete"]
+    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
   }
 ];
 
