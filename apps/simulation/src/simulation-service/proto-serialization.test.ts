@@ -164,3 +164,26 @@ describe("toProtoEvent — natural wonder propagation", () => {
     expect(proto.natural_wonder_json).toBe('{"type":"FOUNDRY_HEART"}');
   });
 });
+
+// Regression: neither serializer mapped prospectSignature, so the worldgen
+// resource clue never crossed the sim -> gateway wire on login or in live
+// tile updates, even though the proto's TileDelta has prospect_signature.
+describe("prospectSignature over the wire", () => {
+  it("toProtoEvent forwards prospectSignature in both arrays", () => {
+    const event = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-prospect",
+      playerId: "player-1",
+      tileDeltas: [{ x: 3, y: 4, terrain: "LAND", prospectSignature: "FERROUS_DUST" }]
+    } as unknown as SimulationEvent;
+
+    const proto = toProtoEvent(event);
+
+    expect(proto.tile_deltas?.[0]?.prospect_signature).toBe("FERROUS_DUST");
+    expect(proto.tileDeltas?.[0]?.prospectSignature).toBe("FERROUS_DUST");
+  });
+
+  it("toFullSnapshotProtoTile forwards prospectSignature", () => {
+    expect(toFullSnapshotProtoTile({ x: 3, y: 4, terrain: "LAND", prospectSignature: "FERROUS_DUST" })).toMatchObject({ prospect_signature: "FERROUS_DUST" });
+  });
+});
