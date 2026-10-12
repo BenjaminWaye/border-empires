@@ -49,21 +49,17 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped town overlay (createTownOverlay) — a single steampunk civilization evolving through five tiers,",
-          "from a frontier settlement around an aether workshop to a Monumental City crowned by a three-part brass wonder.",
-          "Every tier shares one architectural language (dark iron, weathered brass, timber, stone, amber lamps and",
-          "luminous aether), filling its strategic map tile with a cohesive miniature city rather than scattered huts.",
+          "The shipped procedural town overlay (createTownOverlay): one sunlit low-poly town growing through five tiers,",
+          "in the same flat-shaded, vertex-coloured language as the rest of the map -- cream plaster, terracotta and slate",
+          "roofs, pale stone walls, timber, with brass clock faces, verdigris copper domes and lit windows as the steampunk",
+          "accents. See TownOnTerrain for the towns on the real terrain at the game's camera tilt.",
           "",
-          "SETTLEMENT · Frontier Spark — a compact aether-powered workshop with brass machinery, pressure tanks,",
-          "timber cottages and warm lamps.",
-          "TOWN · Growing Industry — the aether hall rises with a clockwork turret, crane, elevated walkway and",
-          "pipe networks.",
-          "CITY · Industrial Metropolis — a dense civic engine, factories, brass towers, elevated bridges and",
-          "steam vents.",
-          "GREAT_CITY · Imperial Powerhouse — a domed civic complex with an elevated transit loop, beacon and",
-          "clock tower.",
-          "METROPOLIS · Wonder of the World — the colossal three-part Monument dominates districts, transit",
-          "bridges and glowing aether conduits."
+          "SETTLEMENT · a farming hamlet: cottages, a barn and haystacks round a well.",
+          "TOWN · a market town: terraces round a square with a fountain, market stalls and a clock-towered town hall.",
+          "CITY · a walled city: curtain wall, corner towers and gatehouse, church spire, domed guild hall, workshop stack.",
+          "GREAT_CITY · taller walls ringed with towers, a domed palace, cathedral, clock tower and an industrial corner.",
+          "METROPOLIS · a central citadel spire crowned with an aether crystal, copper domes, an aether-lit avenue and",
+          "dense three-storey districts."
         ].join("\n")
       }
     }

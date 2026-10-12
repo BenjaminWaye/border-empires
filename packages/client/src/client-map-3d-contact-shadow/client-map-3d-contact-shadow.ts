@@ -87,8 +87,8 @@ export type ContactShadowOverlay = {
 
 // Three size tiers, picked by measuring each family's own geometry rather
 // than assumed — the previous single DEFAULT radius (0.42, diameter 0.84)
-// was invisible under towns because their own opaque foundation slab is
-// 0.78-0.92 tiles wide (town-tier-capitals.ts / town-tier-cities.ts):
+// was invisible under towns because their own opaque ground pad is
+// 0.72-0.96 tiles wide (groundPad in client-map-3d-town-overlay/town-tier-*.ts):
 // equal to or *larger* than the decal, so it fully occluded the shadow with
 // no rim showing outside it. A contact shadow only reads if it extends
 // past the opaque footprint sitting on top of it.
@@ -100,8 +100,8 @@ export type ContactShadowOverlay = {
 // onto a neighbouring tile.
 export const DEFAULT_CONTACT_SHADOW_RADIUS_TILES = 0.42;
 
-// Wide-footprint occupants: town foundation slabs run up to 0.92 tiles wide
-// at the capital tier, and fort walls (WALL_LENGTH in
+// Wide-footprint occupants: town ground pads run up to 0.96 tiles wide at
+// the walled tiers, and fort walls (WALL_LENGTH in
 // client-map-3d-fort-overlay.ts) run 0.86. Diameter 0.96 clears both with a
 // visible rim while staying inside the tile.
 export const LARGE_CONTACT_SHADOW_RADIUS_TILES = 0.48;
