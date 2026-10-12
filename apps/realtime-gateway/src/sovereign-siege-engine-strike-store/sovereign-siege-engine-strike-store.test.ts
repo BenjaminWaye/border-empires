@@ -121,22 +121,22 @@ describe("readSovereignSiegeEngineStrikeAnnouncement", () => {
 });
 
 describe("SqliteSovereignSiegeEngineStrikeStore", () => {
-  it("keeps strike history recorded under the pre-rename sovereign_siege_engine_strikes table", async () => {
+  it("keeps strike history recorded under the pre-rename world_engine_strikes table", async () => {
     const db = new DatabaseSync(":memory:");
     db.exec(`
-      CREATE TABLE sovereign_siege_engine_strikes (
+      CREATE TABLE world_engine_strikes (
         strike_id TEXT PRIMARY KEY, occurred_at INTEGER NOT NULL, caster_name TEXT NOT NULL,
         target_x INTEGER NOT NULL, target_y INTEGER NOT NULL, town_name TEXT NOT NULL,
         population_tier TEXT NOT NULL, population_lost INTEGER NOT NULL, target_owner_name TEXT NOT NULL
       );
-      CREATE INDEX sovereign_siege_engine_strikes_occurred_at_idx ON sovereign_siege_engine_strikes(occurred_at);
-      INSERT INTO sovereign_siege_engine_strikes VALUES ('strike-1', 1000, 'player-1', 50, 50, 'Ashford', 'CITY', 300000, 'player-2');
+      CREATE INDEX world_engine_strikes_occurred_at_idx ON world_engine_strikes(occurred_at);
+      INSERT INTO world_engine_strikes VALUES ('strike-1', 1000, 'player-1', 50, 50, 'Ashford', 'CITY', 300000, 'player-2');
     `);
     const store = new SqliteSovereignSiegeEngineStrikeStore(db, () => 1_000);
     await store.applySchema();
     await store.applySchema(); // idempotent on the next boot
 
     expect(await store.listSince(0)).toEqual([record()]);
-    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'sovereign_siege_engine_strikes'").get()).toBeUndefined();
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'world_engine_strikes'").get()).toBeUndefined();
   });
 });

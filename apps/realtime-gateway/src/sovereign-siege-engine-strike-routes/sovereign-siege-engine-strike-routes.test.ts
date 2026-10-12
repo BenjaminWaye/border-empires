@@ -52,7 +52,7 @@ describe("sovereign siege engine strike routes", () => {
     await store.insert(record());
     const app = Fastify();
     registerSovereignSiegeEngineStrikeRoutes(app, { sovereignSiegeEngineStrikeStore: store, now: () => 1_000 });
-    const response = await app.inject({ method: "GET", url: "/world-events/sovereign-siege-engine-strikes" });
+    const response = await app.inject({ method: "GET", url: "/world-events/world-engine-strikes" });
     expect(response.json()).toEqual({ ok: true, strikes: [record()] });
   });
 });
