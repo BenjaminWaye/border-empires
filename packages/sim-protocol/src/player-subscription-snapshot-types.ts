@@ -26,7 +26,7 @@ export type PlayerSubscriptionSnapshot = {
     incomePerMinute: number;
     strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
     strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-    // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+    // Resource slots: global
     // per-resource supply/demand pool (§5.6 v1 scope) — the same numbers
     // hasFreeResourceSlots gates BUILD_STRUCTURE on server-side. Lets the
     // client check real slot availability for FOOD/TITANIUM/CRYSTAL/UMBRITE

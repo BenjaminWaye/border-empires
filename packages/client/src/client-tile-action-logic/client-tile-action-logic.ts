@@ -81,7 +81,7 @@ type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
 type AetherWallLength = 1 | 2 | 3;
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): the real
+// Resource slots: the real
 // build-time affordability gate for FOOD/TITANIUM/CRYSTAL/UMBRITE now that Step 5
 // item 4 Slice A retired their build-time stockpile spend server-side
 // (hasFreeResourceSlots, runtime-structure-command-handlers.ts). Mirrors

@@ -104,7 +104,7 @@ pnpm build
 pnpm dev
 ```
 
-`pnpm dev` builds `@border-empires/shared` then starts `apps/realtime-gateway`, `apps/simulation`, and `packages/client` in parallel.
+`pnpm dev` builds the workspace packages the apps import (`shared`, `game-domain`, `sim-protocol`, `client-protocol`) then starts `apps/realtime-gateway`, `apps/simulation`, and `packages/client` in parallel.
 
 - Client: http://localhost:5173
 - Gateway health: http://localhost:3101/health

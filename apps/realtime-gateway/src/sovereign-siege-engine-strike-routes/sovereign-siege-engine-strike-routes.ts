@@ -28,5 +28,5 @@ export const registerSovereignSiegeEngineStrikeRoutes = (app: FastifyInstance, d
   app.get("/world-events/sovereign-siege-engine-strikes", listStrikes);
   // Path used before the structure id rename; clients still running an older
   // bundle keep loading strike history until they reload.
-  app.get("/world-events/world-engine-strikes", listStrikes);
+  app.get("/world-events/sovereign-siege-engine-strikes", listStrikes);
 };

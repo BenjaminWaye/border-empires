@@ -54,15 +54,15 @@ export class SqliteSovereignSiegeEngineStrikeStore implements SovereignSiegeEngi
     `);
   }
 
-  // The table was created as world_engine_strikes before the structure id
+  // The table was created as sovereign_siege_engine_strikes before the structure id
   // rename; move existing history over instead of starting an empty table.
   private renameLegacyTable(): void {
     const tableExists = (name: string): boolean =>
       this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== undefined;
-    if (!tableExists("world_engine_strikes") || tableExists("sovereign_siege_engine_strikes")) return;
+    if (!tableExists("sovereign_siege_engine_strikes") || tableExists("sovereign_siege_engine_strikes")) return;
     this.db.exec(`
-      ALTER TABLE world_engine_strikes RENAME TO sovereign_siege_engine_strikes;
-      DROP INDEX IF EXISTS world_engine_strikes_occurred_at_idx;
+      ALTER TABLE sovereign_siege_engine_strikes RENAME TO sovereign_siege_engine_strikes;
+      DROP INDEX IF EXISTS sovereign_siege_engine_strikes_occurred_at_idx;
     `);
   }
 

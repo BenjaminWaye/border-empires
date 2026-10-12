@@ -5,7 +5,7 @@
  * FRONTIER-tile SETTLE variant) only ever checked gold affordability
  * (state.gold >= FRONTIER_CLAIM_COST / SETTLE_COST) — never manpower. Once
  * EXPAND/SETTLE started costing EXPAND_MANPOWER_COST/SETTLE_MANPOWER_COST
- * manpower (§4.1-§4.2 of docs/manpower-economy-rewrite-plan.md), this meant
+ * manpower, this meant
  * the client could show these actions as available (and let a player click
  * them) when the server would actually reject the command with
  * INSUFFICIENT_MANPOWER.

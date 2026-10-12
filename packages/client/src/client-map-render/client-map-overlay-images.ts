@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260912a";
+const overlayAssetVersion = "20261012a";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -53,9 +53,10 @@ export const structureOverlayImages = {
   TRADE_NEXUS: loadOverlayImage("trade-nexus-overlay.svg"),
   ORE_REFINERY: loadOverlayImage("ore-refinery-overlay.svg"),
   // Manifest tree naming/lore pass: ANCILLARY_DEPOT ("Ancillary Depot") and
-  // ANCILLARY_FACTORY ("Ancillary Factory") swap art, as do NEURAL_WORKS
-  // ("Neural Works") and RESERVE_LATTICE ("Reserve Lattice") -- no new
-  // 3D/2D assets this pass, per user decision.
+  // ANCILLARY_FACTORY ("Ancillary Factory") had their art swapped; the Depot
+  // since got its own dedicated storage-drum overlay (and the Factory keeps
+  // the hopper-tower manufactory). NEURAL_WORKS ("Neural Works") and
+  // RESERVE_LATTICE ("Reserve Lattice") still swap.
   ANCILLARY_DEPOT: loadOverlayImage("ancillary-depot-overlay.svg"),
   HARBOR_EXCHANGE: loadOverlayImage("harbor-exchange-overlay.svg"),
   NEURAL_WORKS: loadOverlayImage("neural-works-overlay.svg"),

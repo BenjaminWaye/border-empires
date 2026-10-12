@@ -30,11 +30,11 @@ describe("startup recovery reads pre-rename structure ids", () => {
     const legacyPayload = {
       initialState: {
         tiles: [
-          { x: 1, y: 1, economicStructure: { type: "CARAVANARY", status: "active" } },
-          { x: 2, y: 1, siegeOutpost: { variant: "SIEGE_OUTPOST", status: "active" }, fort: { variant: "WOODEN_FORT", status: "active" } },
-          { x: 3, y: 1, economicStructure: { type: "AETHER_TOWER", status: "active" }, observatory: { status: "active" } }
+          { x: 1, y: 1, economicStructure: { type: "TRADE_NEXUS", status: "active" } },
+          { x: 2, y: 1, siegeBattery: { variant: "SIEGE_BATTERY", status: "active" }, fort: { variant: "PALISADE", status: "active" } },
+          { x: 3, y: 1, economicStructure: { type: "AMBARIC_TRANSFORMER", status: "active" }, observatory: { status: "active" } }
         ],
-        players: [{ id: "p1", name: "AIRPORT", techIds: ["world-engine"] }]
+        players: [{ id: "p1", name: "SKY_DOCK", techIds: ["world-engine"] }]
       },
       commandEvents: []
     };
@@ -49,18 +49,18 @@ describe("startup recovery reads pre-rename structure ids", () => {
 
     expect(tiles[0]).toMatchObject({ economicStructure: { type: "TRADE_NEXUS" } });
     expect(tiles[1]).toMatchObject({ siegeBattery: { variant: "SIEGE_BATTERY" }, fort: { variant: "PALISADE" } });
-    expect(tiles[1]).not.toHaveProperty("siegeOutpost");
+    expect(tiles[1]).not.toHaveProperty("siegeBattery");
     // The Ambaric Transformer's old id; OBSERVATORY keeps its id this release.
     expect(tiles[2]).toMatchObject({ economicStructure: { type: "AMBARIC_TRANSFORMER" }, observatory: { status: "active" } });
     // Player names and tech ids are not structure ids.
-    expect(loaded?.snapshotPayload.initialState.players[0]).toMatchObject({ name: "AIRPORT", techIds: ["world-engine"] });
+    expect(loaded?.snapshotPayload.initialState.players[0]).toMatchObject({ name: "SKY_DOCK", techIds: ["world-engine"] });
   });
 
   it("upgrades event types and payloads replayed from the event log", async () => {
     const { db, events } = await openDb();
     db.prepare(
       "INSERT INTO world_events (command_id, player_id, event_type, event_payload, created_at) VALUES (?, ?, ?, ?, ?)"
-    ).run("c1", "p1", "TILE_DELTA", JSON.stringify({ eventType: "TILE_DELTA", tileDeltas: [{ x: 1, y: 1, economicStructureJson: '{"type":"GRANARY"}' }] }), 1);
+    ).run("c1", "p1", "TILE_DELTA", JSON.stringify({ eventType: "TILE_DELTA", tileDeltas: [{ x: 1, y: 1, economicStructureJson: '{"type":"INCUBATION_ENGINE"}' }] }), 1);
 
     const [event] = await events.loadEventsAfter(0, 10);
 
@@ -71,11 +71,11 @@ describe("startup recovery reads pre-rename structure ids", () => {
     const { db, commands } = await openDb();
     db.prepare(
       "INSERT INTO commands (command_id, session_id, player_id, client_seq, command_type, payload_json, queued_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("c1", "s1", "p1", 1, "BUILD_SIEGE_OUTPOST", JSON.stringify({ x: 4, y: 5 }), 1);
+    ).run("c1", "s1", "p1", 1, "BUILD_SIEGE_BATTERY", JSON.stringify({ x: 4, y: 5 }), 1);
     db.prepare("INSERT INTO command_results (command_id, status) VALUES (?, ?)").run("c1", "QUEUED");
     db.prepare(
       "INSERT INTO commands (command_id, session_id, player_id, client_seq, command_type, payload_json, queued_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("c2", "s1", "p1", 2, "BUILD_ECONOMIC_STRUCTURE", JSON.stringify({ x: 4, y: 6, structureType: "FOUNDRY" }), 2);
+    ).run("c2", "s1", "p1", 2, "BUILD_ECONOMIC_STRUCTURE", JSON.stringify({ x: 4, y: 6, structureType: "ORE_REFINERY" }), 2);
     db.prepare("INSERT INTO command_results (command_id, status) VALUES (?, ?)").run("c2", "QUEUED");
 
     const [siege, economic] = await commands.loadRecoverableCommands();

@@ -219,6 +219,8 @@ function visibleTileProjection(
     y: tile.y,
     terrain: tile.terrain,
     ...(resourceValue ? { resource: resourceValue } : {}),
+    // Public terrain clue, never resource-gated (see prospect-signatures.ts).
+    ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
     ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),

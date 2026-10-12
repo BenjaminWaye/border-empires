@@ -186,7 +186,7 @@ export const menuOverviewForTile = (
       // all-or-nothing per town, so "satisfied" is either the full demand
       // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
       // base demand — a nearby Ministry Hall can reduce it further, but
-      // that isn't visible client-side, so a fed Governor's-Office town may
+      // that isn't visible client-side, so a fed Ministry-Hall town may
       // show a demand slightly higher than what it's actually clearing.
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;

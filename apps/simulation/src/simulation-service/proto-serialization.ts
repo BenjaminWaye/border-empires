@@ -1,4 +1,4 @@
-import { type FrontierDecayKind, type Terrain } from "@border-empires/shared";
+import { type FrontierDecayKind, type ProspectSignature, type Terrain } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
@@ -67,6 +67,7 @@ export type ProtoSimulationEvent = {
     y: number;
     terrain?: string | undefined;
     resource?: string | undefined;
+    prospectSignature?: ProspectSignature | undefined;
     dockId?: string | undefined;
     ownerId?: string | null | undefined;
     ownershipState?: string | null | undefined;
@@ -195,6 +196,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
           ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.prospectSignature ? { prospect_signature: tile.prospectSignature } : {}),
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
           ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
@@ -223,6 +225,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           y: tile.y,
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
           ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
           ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
           ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
@@ -254,6 +257,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
 export const toFullSnapshotProtoTile = (tile: {
   x: number; y: number;
   terrain?: string | undefined; resource?: string | undefined; dockId?: string | undefined;
+  prospectSignature?: string | undefined;
   ownerId?: string | undefined; ownershipState?: string | undefined;
   reachOwnerId?: string | undefined;
   frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
@@ -272,6 +276,7 @@ export const toFullSnapshotProtoTile = (tile: {
   y: tile.y,
   ...(tile.terrain ? { terrain: tile.terrain } : {}),
   ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.prospectSignature ? { prospect_signature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dock_id: tile.dockId } : {}),
   ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),

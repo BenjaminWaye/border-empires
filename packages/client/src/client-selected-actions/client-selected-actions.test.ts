@@ -85,6 +85,19 @@ describe("cancelOngoingCapture", () => {
     expect(state.pendingMusterAttacks).toEqual([{ targetX: 1, targetY: 1, fromX: 0, fromY: 0, musterTileKey: "0,0" }]);
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "CANCEL_CAPTURE" });
   });
+
+  it("sends nothing when nothing is in flight (Esc closing a menu), but still cancels an in-flight expansion", () => {
+    const idle = createInitialState();
+    const idleSend = vi.fn(() => true);
+    cancelOngoingCapture(idle, idleSend);
+    expect(idleSend).not.toHaveBeenCalled();
+
+    const expanding = createInitialState();
+    expanding.actionInFlight = true;
+    const expandingSend = vi.fn(() => true);
+    cancelOngoingCapture(expanding, expandingSend);
+    expect(expandingSend).toHaveBeenCalledWith({ type: "CANCEL_CAPTURE" });
+  });
 });
 
 describe("dismissOngoingCapture", () => {

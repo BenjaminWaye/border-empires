@@ -119,7 +119,7 @@ export const registerEconomicStructures = (
   const oreGeo = new IcosahedronGeometry(0.04, 0);
   // Titanium Works-as-synthesizer geometries: industrial chamber on a small
   // base, hot-metal glow window on the front, exhaust tube + vent cap.
-  // Same chamber idiom as UMBRITE/CRYSTAL synthesizers in industrial.ts.
+  // Same chamber idiom as Umbrite Works / Aether Condenser in industrial.ts.
   const titaniumBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
   const titaniumChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
   const titaniumChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);

@@ -204,7 +204,7 @@ export const placementRadius = (structureType: PlacementStructureType): number =
 
 export type PlacementAvailability = { available: true } | { available: false; reason: string };
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
+// Resource slots: FOOD/TITANIUM/
 // CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step 5
 // item 4 Slice A) -- structureCostDefinition's resourceCost field for these
 // four keys is stale. structureSlotRequirements is the real gate now,

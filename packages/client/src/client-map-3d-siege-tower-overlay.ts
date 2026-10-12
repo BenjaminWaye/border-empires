@@ -45,7 +45,7 @@ export type SiegeTowerBattleTarget = { readonly x: number; readonly y: number };
 
 export type SiegeTowerOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant, frozen?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number, latestBattleTarget?: SiegeTowerBattleTarget) => void;
   /** Whether any real siege tower is currently on the map — callers (e.g.
@@ -207,6 +207,7 @@ const slots = new Map<string, Slot>();
     readonly wx: number;
     readonly wy: number;
     readonly variant: SiegeTowerVariant;
+    readonly frozen: boolean;
     readonly shape: TowerShape;
     readonly phase: number;
     readonly bases: Record<string, number>;
@@ -227,6 +228,7 @@ const slots = new Map<string, Slot>();
     }
     position.set(target.x + ox, target.y + oy, target.z + oz);
     scale.set(sx, sy, sz);
+    if (target.frozen && key === "halo") scale.setScalar(0);
     matrix.compose(position, quat, scale);
     slot.mesh.setMatrixAt(target.bases[key]! + rel, matrix);
     if (!isAppend) touched.add(slotKey);
@@ -240,6 +242,8 @@ const slots = new Map<string, Slot>();
       if (rel === 0) target.bases[key] = slot.count;
       slot.count += 1;
     }
+    // Shared effect materials animate; hide combat effects on construction instances.
+    if (target.frozen && ["beam", "beamCore", "sky"].includes(key)) matrixToWrite.scale(scale.setScalar(0));
     slot.mesh.setMatrixAt(target.bases[key]! + rel, matrixToWrite);
     if (!isAppend) touched.add(slotKey);
   };
@@ -409,11 +413,11 @@ const slots = new Map<string, Slot>();
     instances.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant, frozen = false): void => {
     if (instances.length >= CAP) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    const target: SiegeTowerInstance = { x: sceneX, y: surfaceY, z: sceneZ, wx: worldTileX, wy: worldTileY, variant, shape: SHAPES[variant], phase, bases: {}, yaw: 0 };
+    const target: SiegeTowerInstance = { x: sceneX, y: surfaceY, z: sceneZ, wx: worldTileX, wy: worldTileY, variant, frozen, shape: SHAPES[variant], phase, bases: {}, yaw: 0 };
     writeStatic(target, true, 0);
     writeLens(target, true, 0, Math.PI / 2, target.shape.emitterY, 0);
     instances.push(target);
@@ -460,6 +464,7 @@ const slots = new Map<string, Slot>();
     dreadMats.sky.opacity = 0.08 + 0.1 * beamOp + 0.05 * Math.sin(nowMs * 0.003);
 
     for (const target of instances) {
+      if (target.frozen) continue;
       let yawTarget = target.yaw;
       // Idle pose matches the spawn pose (writeLens(…, Math.PI / 2, emitterY))
       // so the cradle doesn't snap on the first frame of no battle.

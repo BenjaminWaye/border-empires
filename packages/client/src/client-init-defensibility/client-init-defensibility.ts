@@ -1,8 +1,8 @@
 // Extracted from client-network-init-message.ts (which is at the 500-line
 // file cap) purely to keep that file's growth budget available for new
 // state fields -- no behavior change. integrityPct is the server-
-// authoritative empire-integrity percentage (local-support model,
-// docs/manpower-economy-rewrite-plan.md §7.2) -- use it directly when
+// authoritative empire-integrity percentage (local-support model)
+// -- use it directly when
 // present so the display matches the real mechanic rather than an
 // approximation recomputed client-side from just two aggregate T/E numbers.
 // Falls back to the legacy T/E-ratio recompute for any server payload that

@@ -53,7 +53,7 @@ export const addFortificationInstancesForTile = (
   // window itself is in epoch ms, which the site lookup reads from the wall clock).
   const beaconSite = tile.economicStructure?.type === "RELAY_BEACON" ? constructionSiteForRebuild(deps.state, tile, "economicStructure", nowMs) : undefined;
   if (siegeTowerVariant) {
-    overlays.siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant);
+    overlays.siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant, tile.siegeBattery?.status === "under_construction" || tile.siegeBattery?.status === "removing");
     overlays.contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
     return;
   }

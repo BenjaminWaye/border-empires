@@ -62,7 +62,7 @@ import {
 
 export type AmbaricTransformerOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -73,6 +73,7 @@ type AmbaricTransformerInstance = {
   readonly y: number;
   readonly z: number;
   readonly phase: number;
+  readonly frozen: boolean;
 };
 
 type CapSpec = {
@@ -325,11 +326,11 @@ export const createAmbaricTransformerOverlay = (
     clusterAnims.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, frozen = false): void => {
     if (instances.length >= CAPACITY) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, frozen });
   };
 
   const commit = (): void => {
@@ -340,7 +341,10 @@ export const createAmbaricTransformerOverlay = (
 
     // 1. Derive the network graph so towers know their bridge status.
     const pts: Array<{ x: number; z: number }> = instances.map((t) => ({ x: t.x, z: t.z }));
-    const links = computeLinks(pts);
+    const active = instances.flatMap((tower, index) => tower.frozen ? [] : [index]);
+    const links = computeLinks(active.map((index) => pts[index]!)).map((link) => ({
+      ...link, a: active[link.a]!, b: active[link.b]!
+    }));
     const clusters = computeClusters(pts, links);
     const linkDegree = new Array<number>(instances.length).fill(0);
     for (const l of links) {
@@ -366,7 +370,7 @@ export const createAmbaricTransformerOverlay = (
       };
       const placement: TowerPlacement = { x: t.x, z: t.z, phase: t.phase, level, nexus };
       writeTowerPieces(writer, placement);
-      towerAnims.push({ ...placement, bases });
+      if (!t.frozen) towerAnims.push({ ...placement, bases });
     }
 
     // 3. Write link strands + their animated bands. Link pieces are already in

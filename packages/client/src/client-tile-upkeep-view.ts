@@ -1,5 +1,6 @@
 import { structureSlotRequirements, SYNTHESIZER_STRUCTURE_TYPES, converterModeOf, type BuildableStructureType, type SlotStructureType } from "@border-empires/shared";
-import { economicStructureName, resourceIconForKey } from "./client-map-display.js";
+import { economicStructureName } from "./client-map-display.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js";
 
 const upkeepResourceOrder = ["GOLD", "FOOD", "TITANIUM", "UMBRITE", "CRYSTAL"] as const;
@@ -7,7 +8,7 @@ const upkeepResourceOrder = ["GOLD", "FOOD", "TITANIUM", "UMBRITE", "CRYSTAL"] a
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);
 
-// §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's CRYSTAL
+// Observatory's CRYSTAL
 // slot occupation is its upkeep now — no separate per-minute drain left
 // to show here.
 const fallbackUpkeepEntriesForTile = (tile: Tile): TileUpkeepEntry[] => {
@@ -23,7 +24,7 @@ const formatUpkeepEntry = (entry: TileUpkeepEntry): string => {
     .map((resource) => {
       const amount = Number(entry.perMinute[resource] ?? 0) * 1440;
       if (amount <= 0.01) return undefined;
-      return `${resourceIconForKey(resource)} ${amount.toFixed(1)}/day`;
+      return `${resourceIconHtml(resource)} ${amount.toFixed(1)}/day`;
     })
     .filter((part): part is string => Boolean(part));
   return parts.join(" · ");

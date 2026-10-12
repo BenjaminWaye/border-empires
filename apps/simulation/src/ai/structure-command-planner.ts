@@ -154,7 +154,7 @@ export const playerTechSet = (player: StructurePlannerPlayer): ReadonlySet<strin
 const canAffordGold = (player: StructurePlannerPlayer, goldCost: number): boolean => player.points >= goldCost;
 
 // Build gold costs are globally zeroed (structure-costs.ts's
-// STRUCTURE_COST_DEFINITIONS header, manpower-economy-rewrite-plan.md §12) —
+// STRUCTURE_COST_DEFINITIONS header) —
 // manpower is the real build cost, so canAffordGold above is now a no-op gate
 // and this is the one that decides affordability. Without it every selector in
 // this file happily proposed builds the player could not pay for, which the

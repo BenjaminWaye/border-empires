@@ -3,9 +3,7 @@
 Status: canonical reference
 
 This is the current-rule reference for manpower, resource slots, gold,
-structures, and economic dormancy. It replaces the delivered parts of
-[`../manpower-economy-rewrite-plan.md`](../manpower-economy-rewrite-plan.md),
-which remains a historical design and implementation record. Verify a rule in
+structures, and economic dormancy. Verify a rule in
 code and update this document in the same branch when the rule changes.
 
 ## Rule sources

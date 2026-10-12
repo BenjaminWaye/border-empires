@@ -13,11 +13,14 @@ off tile borders. Rev 2 replaces it with a draped ribbon (below).
 | Phase 0 -- reproduce, versions, overlay heights, look target | Done (findings below) |
 | Phase 1a -- water fix on existing meshes (v8 prod + v9 staging) | Implemented (PR #2262); verified locally on v9, needs review on staging/prod |
 | Phase 1b -- draped ribbon rebuild (1.0-1.8) | After 1a is reviewed in game |
-| Phase 2 -- worldgen v10 river networks + FARM bias | Next season |
+| River heads, springs, river mountains and the mountain remake | Shipped 2026-10-12 (#2300, #2299, #2321; see "River mountains" below). Open: phone profiling |
+| Phase 2 -- worldgen v12 river networks + FARM bias (v10 is the continents/ranges rework, v11 the headwater rule) | Unscheduled |
 | Phase 3 -- optional extras | Unscheduled |
 
-Separate from this plan: the local seed-profile season `worldgenVersion`
-stamping bug (Phase 0 findings) gets its own branch and regression test.
+The local seed-profile season `worldgenVersion` stamping bug (Phase 0
+findings) is fixed: the season-20ai profile's season now carries the
+generated world's seed and version (`seedProfileWorldgen`, seed-state.ts),
+with a regression test in `simulation-service.startup.test.ts`.
 
 ## Owner decisions (2026-10-07)
 
@@ -412,16 +415,16 @@ Cache is per seed, bounded to one seed.
   heightfield surface for synthetic `cornerYAt`.
 - Changelog entry.
 
-## Phase 2 -- better river networks (worldgen v10, next season)
+## Phase 2 -- better river networks (worldgen v12)
 
-Still on the corner lattice; every step one tile edge. v1-v9 seasons keep
+Still on the corner lattice; every step one tile edge. v1-v11 seasons keep
 their exact paths (dispatch in `worldgen-rivers.ts`, as today).
 
 ### 2.1 Integer-only, engine-independent generation
 
 `seeded01` uses `Math.sin` (`worldgen-noise.ts`), and rivers are computed on
 both client (rendering) and server (town placement); `Math.sin` is not
-guaranteed bit-identical across JS engines. v10 river code uses an integer
+guaranteed bit-identical across JS engines. v12 river code uses an integer
 hash (`Math.imul`-based) and integer elevations only. Determinism test:
 fixed seeds -> stored path hash, run in Node; plus a v9 snapshot test proving
 v9 output is unchanged.
@@ -445,7 +448,7 @@ v9 output is unchanged.
   Tributaries merge at confluence corners; half-width grows ~sqrt(flow),
   clamped to the Phase 1.2 width cap.
 - Lakes are sinks only. Lake outlets (rivers leaving a lake) are out of
-  scope for v10 -- listed in Phase 3.
+  scope for v12 -- listed in Phase 3.
 
 ### 2.4 Shape rules (post-process, after a guaranteed-terminating path)
 
@@ -469,11 +472,11 @@ Towns keep their 35% river share over the bigger network. Add a FARM bias in
 `server-worldgen-clusters.ts`: a share of FARM cluster centres (start ~35%, to
 mirror towns; tuned in 2.7) is drawn from shuffled river-adjacent tiles first,
 same pattern as `riverAdjacentTilesFor` for towns, before the existing
-placement fills the rest. Gated on worldgen v10 so running seasons keep their
+placement fills the rest. Gated on worldgen v12 so running seasons keep their
 exact resources. Total FARM count unchanged -- only where they land moves.
 Knock-on: FARM is first in `clusterPlan` and every later cluster (UMBRITE,
 GEMS, TITANIUM, FISH) is spaced against the `centers` placed before it, so
-moving FARM centres moves all resource clusters in v10 seeds. 2.7 compares
+moving FARM centres moves all resource clusters in v12 seeds. 2.7 compares
 the full resource distribution, not just FARM.
 
 ### 2.7 Validation
@@ -492,8 +495,69 @@ effect" in practice:
 ## Phase 3 -- optional
 
 Lake outlets, bridges where roads cross rivers (road network exists),
-rapids where a river leaves high ground, reeds/rocks along banks, relaxing
-the no-hills rule now that the patch mesh is gone.
+reeds/rocks along banks, relaxing the no-hills rule now that the patch mesh
+is gone. (Rivers leaving high ground shipped as river mountains -- below.)
+
+## River mountains
+
+Shipped 2026-10-12: #2300 (with #2296 and #2298), #2299 (worldgen v11) and
+#2321 (2D parity, shared snow rule, local seed worlds on the current
+worldgen, measurements; it also retired the separate
+`river-mountains-plan.md` into this section). Rivers are still
+purely visual: a river mountain is not a terrain type -- the tile stays
+`MOUNTAIN` for gameplay, the server and the AI.
+
+- **River heads.** `riverHeadsForCurrentSeed` (shared,
+  `worldgen-river-heads.ts`): the first corner of every v9+ edge river, its
+  first edge's heading, and -- when a mountain sits in the ring of tiles just
+  outside that corner (`worldgen-river-headwater.ts`) -- that mountain.
+  Static worldgen terrain; one entry per river, memoised per seed.
+- **Spring pools.** A round pool with a bank ring at every head, both
+  renderers (3D `client-map-3d-rivers-channel.ts`; 2D quarter pools per tile
+  in `client-map-render-river-edges.ts`).
+- **Headwater rule (worldgen v11).** The edge-river start pick only takes
+  clear corners with a mountain in their ring, still farthest from the sea,
+  falling back to the v9 pick (`worldgen-rivers-edge.ts`,
+  `HEADWATER_RIVERS_MIN_WORLDGEN_VERSION = 11`; v10 was already the
+  continents/ranges rework, and staging runs v10 seasons). No new random
+  draws. v9 and v10 river paths are pinned by fingerprint tests.
+  Before/after on six sample worlds (seeds 555, 42, 9001, 22, 1234
+  continents; 4242 islands; full season seeding with 20 AI): rivers
+  starting beside a mountain 1-7 -> 9-10 of 10; no seed re-rolled either way
+  (all kept >= 50 fair spawn sites); generation time, town count (+-3) and
+  towns on a river (24-25) unchanged; total river edges move both ways
+  (v10 279-378, v11 214-404).
+- **River mountains, 3D.** For a head with a live mountain
+  (`client-map-river-mountains.ts`), the river wells up where the drawn
+  model meets the ground on the side facing the head, between two boulders,
+  and meanders into the pool in a shallow channel of low banks (tan earth,
+  slate where they touch rock; the instanced models can't be cut)
+  -- `client-map-3d-river-cascade.ts`, `client-map-3d-river-cascade-banks.ts`.
+  Nothing is drawn on the rock itself (owner decision). The route is shared
+  with the forest filter (`client-map-river-cascade-route.ts`).
+- **River mountains, 2D.** Same idea: a spring between two boulders at the
+  main peak's foot on the head's side and a banked stream to the corner
+  nearest the head -- round the tile's side for a far corner, never over the
+  peak (`client-map-render-river-mountain.ts`); the edge from that corner to
+  the head draws a banked stream.
+- **Mountains.** 3D: six authored low-poly models of 3-4 sharp slate peaks
+  (`client-map-3d-mountain-models.ts`), always broadest at the base; a tile
+  higher than its mountain neighbours (by hash) is a summit with a tall
+  model, the rest filler (`isSummitTile`). Snow, one rule for both renderers
+  (`mountainSnowAt`, `client-map-mountain-variation.ts`): every mountain in
+  cold country, ~2/3 of summits elsewhere, never filler. 2D draws per-tile
+  peaks with the same variation and snow rule.
+- **Rendering budget.** 232 triangles per mountain tile in 12 instanced
+  draws (6 models x 2 climates), versus ~40 triangles in 3 draws for the old
+  cone. The worst view on the season-20ai world (the 115x115-tile budget)
+  holds ~2,000 mountain tiles: ~460k triangles plus the shadow pass, up from
+  ~80k.
+
+**Still open:** frame time with a mountain range in view on a mid-range
+phone (no device was available; the numbers above are the budget, not a
+profile). If it is too heavy, the rocks' icosahedron subdivision is the
+first thing to cut. Production gets all of this when `develop` is promoted
+to `main`; river mountains there need a new (v11) season.
 
 ## Risks and trade-offs
 

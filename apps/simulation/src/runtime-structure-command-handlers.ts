@@ -75,7 +75,7 @@ export type RuntimeStructureCommandContext = {
   economicStructureForSupportedTown: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   firstAvailableTownSupportTile: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   assignedTownKeyForSupportTile: (playerId: string, x: number, y: number) => string | undefined;
-  // §4.4 (docs/manpower-economy-rewrite-plan.md): "only one Neural Works may be
+  // "only one Neural Works may be
   // built per connected-town network" — true when townKey's own network
   // already has an active Neural Works, at that town or any town it's connected to.
   neuralWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;

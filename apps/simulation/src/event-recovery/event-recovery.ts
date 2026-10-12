@@ -16,6 +16,7 @@ type RecoveredTileState = {
   terrain: DomainTileState["terrain"];
   landBiome?: DomainTileState["landBiome"];
   resource?: DomainTileState["resource"];
+  prospectSignature?: DomainTileState["prospectSignature"];
   dockId?: DomainTileState["dockId"];
   shardSite?: DomainTileState["shardSite"];
   naturalWonder?: DomainTileState["naturalWonder"];
@@ -89,6 +90,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   terrain: tile.terrain,
   ...(tile.landBiome ? { landBiome: tile.landBiome } : {}),
   ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
   ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
@@ -147,6 +149,7 @@ const applyTileDeltaToRecoveredAccumulator = (
     terrain: tileDelta.terrain ?? existing?.terrain ?? "LAND",
     ...(existing?.landBiome ? { landBiome: existing.landBiome } : {}),
     ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
+    ...(tileDelta.prospectSignature ? { prospectSignature: tileDelta.prospectSignature } : existing?.prospectSignature ? { prospectSignature: existing.prospectSignature } : {}),
     ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
     ...("shardSiteJson" in tileDelta
       ? (tileDelta.shardSiteJson

@@ -1,5 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, isChosenTrickleResource, landBiomeAt, normalizeAutoSettlePrefs, resetForestClearings } from "@border-empires/shared";
+import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -98,7 +99,15 @@ export const createTilesFromInitialState = (
   initialState: RecoveredSimulationState | undefined,
   seedTiles: Map<string, DomainTileState>,
   mergeSeedTilesWithInitialState: boolean
-): Map<string, DomainTileState> => withAfcForestClearings(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState));
+): Map<string, DomainTileState> => withAfcForestClearings(withProspectClues(createTilesFromInitialStateUncleared(initialState, seedTiles, mergeSeedTilesWithInitialState)));
+
+// Seasons generated before clues were carried through recovery have none at
+// all; re-derive them once per boot (see prospect-clue-backfill.ts).
+const withProspectClues = (tiles: Map<string, DomainTileState>): Map<string, DomainTileState> => {
+  const assigned = backfillProspectClues(tiles, WORLD_WIDTH, WORLD_HEIGHT);
+  if (assigned > 0) console.info(JSON.stringify({ event: "prospect_clue_backfill", tilesAssigned: assigned }));
+  return tiles;
+};
 
 // AFC landing sites clear forest from their 3x3 footprint, and towns/docks
 // clear the forest on their own tile; neither is persisted itself --
@@ -143,6 +152,7 @@ const createTilesFromInitialStateUncleared = (
             ? { landBiome: landBiomeAt(tile.x, tile.y) }
             : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
+      ...((tile.prospectSignature ?? seededTile?.prospectSignature) ? { prospectSignature: tile.prospectSignature ?? seededTile?.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),

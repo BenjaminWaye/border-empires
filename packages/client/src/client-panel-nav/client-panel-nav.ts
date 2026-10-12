@@ -1,5 +1,7 @@
 import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
+import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 
@@ -9,7 +11,7 @@ export const isMobileDevice = (): boolean =>
   (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
-  if (panel === "tech") return "Technology Tree";
+  if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Sharding";
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
@@ -45,29 +47,29 @@ export const mobileNavLabelHtml = (
     pendingAllyCount?: number;
   }
 ): string => {
-  if (panel === "core") return '<span class="tab-icon">⌂</span>';
+  if (panel === "core") return navTabIconHtml("core");
   if (panel === "tech") {
     return opts?.techReady
-      ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-      : '<span class="tab-icon">⚡</span>';
+      ? navTabIconHtml("tech") + '<span class="tech-ready-dot" aria-label="upgrade available"></span>'
+      : navTabIconHtml("tech");
   }
-  if (panel === "domains") return '<span class="tab-icon">✦</span>';
+  if (panel === "domains") return navTabIconHtml("domains");
   if (panel === "social") {
     const pendingAllyCount = opts?.pendingAllyCount ?? 0;
     return pendingAllyCount > 0
-      ? `<span class="tab-icon">👥</span><span class="social-alert-dot" aria-label="${pendingAllyCount} pending alliance/truce request${pendingAllyCount === 1 ? "" : "s"}">${Math.min(9, pendingAllyCount)}</span>`
-      : '<span class="tab-icon">👥</span>';
+      ? `${navTabIconHtml("alliance")}<span class="social-alert-dot" aria-label="${pendingAllyCount} pending alliance/truce request${pendingAllyCount === 1 ? "" : "s"}">${Math.min(9, pendingAllyCount)}</span>`
+      : navTabIconHtml("alliance");
   }
   if (panel === "leaderboard") {
     return opts?.victoryHoldAlertUnacknowledged
-      ? '<span class="tab-icon">🏆</span><span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
-      : '<span class="tab-icon">🏆</span>';
+      ? navTabIconHtml("leaderboard") + '<span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
+      : navTabIconHtml("leaderboard");
   }
-  if (panel === "settings") return '<span class="tab-icon">⚙</span>';
+  if (panel === "settings") return navTabIconHtml("settings");
   const feedUnreadCount = opts?.feedUnreadCount ?? 0;
   return opts?.attackAlertUnread || feedUnreadCount > 0
-    ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${opts?.attackAlertUnread ? "under attack" : "new activity"}">${opts?.attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
-    : '<span class="tab-icon">🔔</span>';
+    ? `${navTabIconHtml("feed")}<span class="feed-alert-dot" aria-label="${opts?.attackAlertUnread ? "under attack" : "new activity"}">${opts?.attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
+    : navTabIconHtml("feed");
 };
 
 export const viewportSize = (): { width: number; height: number } => {
@@ -169,6 +171,7 @@ export const renderMobilePanels = (
     section.style.display = section.id === `panel-${state.activePanel}` ? "grid" : "none";
   });
   deps.sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
+  deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
 
@@ -203,7 +206,7 @@ export const renderMobilePanels = (
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
   }
 
-  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = "Technology Tree";
+  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = MANIFEST_PANEL_TITLE;
   else if (state.mobilePanel === "domains") deps.mobileSheetHeadEl.textContent = "Sharding";
   else if (state.mobilePanel === "social") deps.mobileSheetHeadEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Empire Integrity";
@@ -219,11 +222,11 @@ export const renderMobilePanels = (
   buttons.forEach((button) => {
     const panel = button.dataset.mobilePanel as ClientState["mobilePanel"] | undefined;
     if (panel) {
-      button.innerHTML = mobileNavLabelHtml(panel, {
+      setTabButtonHtml(button, mobileNavLabelHtml(panel, {
         attackAlertUnread: state.unreadAttackAlerts > 0,
         feedUnreadCount: state.feedUnreadCount,
         pendingAllyCount
-      });
+      }));
     }
     button.classList.toggle("active", panel === state.mobilePanel);
   });

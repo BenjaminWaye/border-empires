@@ -5,13 +5,13 @@ import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import {
   BUILDING_CATEGORIES_HIDDEN_WHEN_EMPTY,
   BUILDING_CATEGORY_EMPTY_REASON,
-  BUILDING_CATEGORY_ICONS,
   BUILDING_CATEGORY_LABELS,
   BUILDING_CATEGORY_ORDER,
   buildingActionCategory,
   type BuildingCategory
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
+import { buildActionIconHtml, buildingCategoryIconHtml } from "./client-build-menu-icons/client-build-menu-icons.js";
 import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
 
 // Two-color versus bar shown on the "Battle in progress" / "Under attack"
@@ -72,7 +72,7 @@ const groupedBuildingActionListHtml = (actions: TileActionDef[]): string => {
     const inputId = `tbc-${uid}-${category}`;
     return `
       <label for="${inputId}" class="tile-building-category-square cat-${category}${isEmpty ? " is-empty" : ""}" title="${isEmpty ? BUILDING_CATEGORY_EMPTY_REASON[category] : `${BUILDING_CATEGORY_LABELS[category]} (${count})`}">
-        <span class="tile-building-category-icon">${BUILDING_CATEGORY_ICONS[category]}</span>
+        <span class="tile-building-category-icon">${buildingCategoryIconHtml(category)}</span>
         <span class="tile-building-category-label">${BUILDING_CATEGORY_LABELS[category]}</span>
         <span class="tile-building-category-count">${count}</span>
       </label>
@@ -251,7 +251,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
 const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
-          <span class="tile-action-icon">${actionIcon(action.id)}</span>
+          <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}${action.recommended ? '<span class="tile-action-recommended-badge">★ Recommended</span>' : ""}</span>
             ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}

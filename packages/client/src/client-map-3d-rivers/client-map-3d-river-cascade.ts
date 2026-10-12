@@ -1,4 +1,4 @@
-// River mountain springs (docs/river-mountains-plan.md, PR C): the river
+// River mountain springs (docs/rivers-remake-plan.md, "River mountains"): the river
 // wells up at the base of its mountain's drawn model (client-map-3d-mountain-
 // massif.ts, client-map-3d-mountain-models.ts) on the side facing the river
 // head, between two boulders, and meanders over the ground into the spring

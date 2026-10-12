@@ -15,9 +15,8 @@
 //     structure-slots.ts): the real build-time gate for FOOD/TITANIUM/
 //     CRYSTAL/UMBRITE structures is a global per-resource slot supply/demand
 //     pool, NOT the retired strategicResources stockpile amounts in
-//     structure-costs.ts's resourceCost field (§5 of docs/manpower-economy-
-//     rewrite-plan.md; apps/simulation/src/runtime-structure-command-
-//     handlers.ts's hasFreeResourceSlots is the server's real gate). Notably
+//     structure-costs.ts's resourceCost field (apps/simulation/src/
+//     runtime-structure-command-handlers.ts's hasFreeResourceSlots is the server's real gate). Notably
 //     HYDROGARDEN needs no slot at all, MINE needs a free FOOD slot (not a
 //     TITANIUM one), and PALISADE also needs a free FOOD slot -- none of
 //     this matches what structure-costs.ts's resourceCost field would

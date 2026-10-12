@@ -26,7 +26,7 @@ describe("renderEconomyPanelHtml — Observatory counts toward Occupied by", () 
     economyBreakdown: undefined,
     isMobile: true,
     prettyToken: (value: string) => value,
-    resourceIconForKey: (resource: string) => resource,
+    resourceIconHtml: (resource: string) => resource,
     rateToneClass: () => "positive",
     resourceLabel: (resource: string) => resource,
     economicStructureName: () => "Aether Condenser"

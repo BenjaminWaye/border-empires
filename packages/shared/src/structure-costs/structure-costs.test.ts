@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconBuildDurationMs, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, economicStructureBuildDurationMs, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
-// Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
-// §12: manpower is the sole build cost now; gold only gates a few structures
+// Build gold costs are zeroed across the board (manpower is the sole build
+// cost now; gold only gates a few structures
 // on ongoing upkeep, never on the build itself) — scaling still multiplies
 // zero by the same factor, so it stays at zero regardless of existing count.
 describe("structureBuildGoldCost", () => {

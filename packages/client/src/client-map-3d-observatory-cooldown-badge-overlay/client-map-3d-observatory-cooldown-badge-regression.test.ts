@@ -16,18 +16,19 @@ describe("3d observatory-cooldown badge regression guard", () => {
   it("wires the cooldown badge overlay into the 3D renderer lifecycle", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
     expect(source).toContain("createObservatoryCooldownBadgeOverlay");
-    expect(source).toContain("observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY)");
+    expect(source).toContain("addBuildingInstancesForTile(tile");
+    expect(clientSource("../client-map-3d/client-map-3d-building-instances.ts")).toContain("overlays.observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY)");
     expect(source).toContain("observatoryCooldownBadgeOverlay.clear()");
     expect(source).toContain("observatoryCooldownBadgeOverlay.commit()");
     expect(source).toContain("observatoryCooldownBadgeOverlay.dispose()");
   });
 
   it("only paints over our own active observatory whose cooldown is still running", () => {
-    const source = clientSource("../client-map-3d/client-map-3d.ts");
+    const source = clientSource("../client-map-3d/client-map-3d-building-instances.ts");
     // Parity with the tile-menu overview: the badge is owner-scoped,
     // active-only, and gated on a live cooldownUntil > now check so it
     // disappears the instant the observatory can cast again.
-    expect(source).toContain("ownerId === deps.state.me");
+    expect(source).toContain("ownerId === state.me");
     expect(source).toContain('tile.observatory.status === "active"');
     expect(source).toContain("(tile.observatory.cooldownUntil ?? 0) > Date.now()");
   });
@@ -78,9 +79,9 @@ describe("3d observatory-cooldown badge regression guard", () => {
   });
 
   it("paints a siphon-mode badge over ANY tower locked into siphon mode, on its own mesh (Siphon redesign)", () => {
-    const source = clientSource("../client-map-3d/client-map-3d.ts");
+    const source = clientSource("../client-map-3d/client-map-3d-building-instances.ts");
     // Not owner-scoped: the victim needs to see which tower is draining them.
-    expect(source).toContain("else if (tile.observatory.siphon) observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY)");
+    expect(source).toContain("else if (tile.observatory.siphon) overlays.observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY)");
 
     const overlay = createObservatoryCooldownBadgeOverlay(new Scene(), 8);
     const byName = (name: string): InstancedMesh =>

@@ -35,14 +35,6 @@ export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   monument: "Monuments"
 };
 
-export const BUILDING_CATEGORY_ICONS: Record<BuildingCategory, string> = {
-  military: "⚔",
-  resource: "⛏",
-  town_support: "⚑",
-  infrastructure: "⚙",
-  monument: "♛"
-};
-
 // Fort/siege families, Sky Dock (bombardment), and the defensive detection
 // structures (Observatory blocks hostile crystal actions, Resonance Grid blocks
 // sky bombardment). Ancillary Depot (a manpower hub), Aether Tower (a power

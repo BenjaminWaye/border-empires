@@ -66,4 +66,13 @@ describe("tileDeltaRevealOnly", () => {
     const delta = tileDeltaRevealOnly(tile, cache);
     expect(delta.resource).toBeUndefined();
   });
+
+  // Regression: this fog-reveal path dropped prospectSignature, so a clue
+  // tile scrolling into vision never told the client about its clue.
+  it("includes prospectSignature regardless of the viewer's techs", () => {
+    const cache = new TileDeltaStringifyCache();
+    const tile = makeTile({ ownerId: undefined, ownershipState: undefined, prospectSignature: "FERROUS_DUST" });
+    const delta = tileDeltaRevealOnly(tile, cache, { techIds: new Set() });
+    expect(delta.prospectSignature).toBe("FERROUS_DUST");
+  });
 });

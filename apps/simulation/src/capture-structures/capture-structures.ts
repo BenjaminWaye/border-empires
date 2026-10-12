@@ -4,8 +4,8 @@ import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
 type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeBattery" | "economicStructure" | "afc">;
 
 // activatedAt is refreshed to the capture moment (not just carried over from
-// the previous owner) — the dormancy tie-break rule (docs/manpower-economy-
-// rewrite-plan.md §5.4) is "newest built OR captured loses power first," so a
+// the previous owner) — the dormancy tie-break rule
+// is "newest built OR captured loses power first," so a
 // freshly-captured structure needs to read as freshly-activated too.
 const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["fort"] => {
   if (!tile?.fort) return undefined;

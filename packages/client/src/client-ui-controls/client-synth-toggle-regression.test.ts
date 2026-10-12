@@ -37,10 +37,10 @@ describe("converter toggle regression guard", () => {
       ["SKY_DOCK", "sky-dock-overlay.svg"],
       ["TRADE_NEXUS", "trade-nexus-overlay.svg"],
       ["ORE_REFINERY", "ore-refinery-overlay.svg"],
-      // Manifest tree naming/lore pass: ANCILLARY_DEPOT ("Ancillary Depot")
-      // and ANCILLARY_FACTORY ("Ancillary Factory") swap art, as do
-      // NEURAL_WORKS ("Neural Works") and RESERVE_LATTICE ("Reserve
-      // Lattice") -- no new 3D/2D assets this pass, per user decision.
+      // ANCILLARY_DEPOT ("Ancillary Depot") got its own storage-drum overlay;
+      // ANCILLARY_FACTORY ("Ancillary Factory") keeps the hopper manufactory.
+      // NEURAL_WORKS ("Neural Works") and RESERVE_LATTICE ("Reserve Lattice")
+      // still swap.
       ["ANCILLARY_DEPOT", "ancillary-depot-overlay.svg"],
       ["HARBOR_EXCHANGE", "harbor-exchange-overlay.svg"],
       ["NEURAL_WORKS", "neural-works-overlay.svg"],

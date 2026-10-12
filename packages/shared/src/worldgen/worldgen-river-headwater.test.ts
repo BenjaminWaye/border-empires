@@ -1,6 +1,6 @@
 // v11 rivers start at headwater corners (a mountain in the ring of tiles
 // just outside the start corner) so the client can draw them falling out of
-// that mountain (docs/river-mountains-plan.md, PR D). v9 and v10 paths feed
+// that mountain (docs/rivers-remake-plan.md, "River mountains"). v9 and v10 paths feed
 // town placement in running seasons (v10 on staging) and must not change.
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";

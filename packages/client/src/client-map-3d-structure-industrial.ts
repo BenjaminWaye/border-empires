@@ -77,7 +77,7 @@ export const registerIndustrialStructures = (
 
   // ─── Geometries ─────────────────────────────────────────────────────
   // HIGH_YIELD_TITANIUM_WORKS uses the synthesizer-chamber idiom (same as
-  // TITANIUM_WORKS in economic.ts and UMBRITE/CRYSTAL synthesizers here) so
+  // TITANIUM_WORKS in economic.ts and Umbrite Works / Aether Condenser here) so
   // the titanium-works family stays visually coherent.
   const titaniumSynthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
   const titaniumSynthChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);

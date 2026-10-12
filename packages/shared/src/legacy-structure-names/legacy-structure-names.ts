@@ -1,5 +1,5 @@
 // Structure ids were renamed to match their player-facing names (e.g.
-// CARAVANARY -> TRADE_NEXUS, AETHER_TOWER -> AMBARIC_TRANSFORMER). Saved
+// TRADE_NEXUS -> TRADE_NEXUS, AMBARIC_TRANSFORMER -> AMBARIC_TRANSFORMER). Saved
 // worlds, the event log, queued commands and clients still running an older
 // bundle can carry the old spellings, so every boundary that reads such data
 // passes it through upgradeLegacyStructureNames before use.
@@ -13,49 +13,49 @@ type Rule = { readonly old: readonly string[]; readonly neu: readonly string[] }
 // [old words, new words], lowercase. Plurals are listed explicitly because
 // identifiers like `oldPluralByOwner` appear in persisted keys.
 const RULE_TABLE: ReadonlyArray<readonly [string, string]> = [
-  ["advanced umbrite synthesizer", "high yield umbrite works"],
-  ["advanced umbrite synthesizers", "high yield umbrite works"],
-  ["advanced titanium works", "high yield titanium works"],
-  ["advanced crystal synthesizer", "high yield aether condenser"],
-  ["advanced crystal synthesizers", "high yield aether condensers"],
-  ["umbrite synthesizer", "umbrite works"],
-  ["umbrite synthesizers", "umbrite works"],
-  ["crystal synthesizer", "aether condenser"],
-  ["crystal synthesizers", "aether condensers"],
+  ["high yield umbrite works", "high yield umbrite works"],
+  ["high yield umbrite works", "high yield umbrite works"],
+  ["high yield titanium works", "high yield titanium works"],
+  ["high yield aether condenser", "high yield aether condenser"],
+  ["high yield aether condensers", "high yield aether condensers"],
+  ["umbrite works", "umbrite works"],
+  ["umbrite works", "umbrite works"],
+  ["aether condenser", "aether condenser"],
+  ["aether condensers", "aether condensers"],
   ["aether tower", "ambaric transformer"],
   ["aether towers", "ambaric transformers"],
-  ["siege outpost", "siege battery"],
-  ["siege outposts", "siege batteries"],
-  ["farmstead", "hydrogarden"],
-  ["farmsteads", "hydrogardens"],
-  ["waterworks", "hydroworks"],
-  ["granary", "incubation engine"],
-  ["granaries", "incubation engines"],
-  ["airport", "sky dock"],
-  ["airports", "sky docks"],
-  ["wooden fort", "palisade"],
-  ["wooden forts", "palisades"],
-  ["caravanary", "trade nexus"],
-  ["caravanaries", "trade nexuses"],
-  ["foundry", "ore refinery"],
-  ["foundries", "ore refineries"],
-  ["garrison hall", "ancillary depot"],
-  ["garrison halls", "ancillary depots"],
-  ["customs house", "harbor exchange"],
-  ["customs houses", "harbor exchanges"],
-  ["governors office", "ministry hall"],
-  ["governors offices", "ministry halls"],
-  ["radar system", "resonance grid"],
-  ["radar systems", "resonance grids"],
-  ["logistics guild", "ancillary factory"],
-  ["logistics guilds", "ancillary factories"],
-  ["assembly works", "reserve lattice"],
-  ["rail depot", "neural works"],
-  ["rail depots", "neural works"],
-  ["world engine", "sovereign siege engine"],
-  ["world engines", "sovereign siege engines"],
-  ["population bureau", "census directorate"],
-  ["population bureaus", "census directorates"]
+  ["siege battery", "siege battery"],
+  ["siege batteries", "siege batteries"],
+  ["hydrogarden", "hydrogarden"],
+  ["hydrogardens", "hydrogardens"],
+  ["hydroworks", "hydroworks"],
+  ["incubationEngine", "incubation engine"],
+  ["incubationEngines", "incubation engines"],
+  ["skyDock", "sky dock"],
+  ["skyDocks", "sky docks"],
+  ["palisade", "palisade"],
+  ["palisades", "palisades"],
+  ["tradeNexus", "trade nexus"],
+  ["tradeNexuses", "trade nexuses"],
+  ["oreRefinery", "ore refinery"],
+  ["oreRefineries", "ore refineries"],
+  ["ancillary depot", "ancillary depot"],
+  ["ancillary depots", "ancillary depots"],
+  ["harbor exchange", "harbor exchange"],
+  ["harbor exchanges", "harbor exchanges"],
+  ["ministry hall", "ministry hall"],
+  ["ministry halls", "ministry halls"],
+  ["resonance grid", "resonance grid"],
+  ["resonance grids", "resonance grids"],
+  ["ancillary factory", "ancillary factory"],
+  ["ancillary factories", "ancillary factories"],
+  ["reserve lattice", "reserve lattice"],
+  ["neural works", "neural works"],
+  ["neural works", "neural works"],
+  ["sovereign siege engine", "sovereign siege engine"],
+  ["sovereign siege engines", "sovereign siege engines"],
+  ["census directorate", "census directorate"],
+  ["census directorates", "census directorates"]
 ];
 
 const RULES: readonly Rule[] = RULE_TABLE.map(([old, neu]) => ({ old: old.split(" "), neu: neu.split(" ") })).sort(
@@ -64,10 +64,10 @@ const RULES: readonly Rule[] = RULE_TABLE.map(([old, neu]) => ({ old: old.split(
 
 // Same words, different meaning: the Foundry Heart natural wonder, the
 // "Siege Lens Foundry" AFC module and the Cogwork/War Foundries domains.
-const BLOCKED_AFTER: Readonly<Record<string, ReadonlySet<string>>> = { foundry: new Set(["heart", "module"]) };
+const BLOCKED_AFTER: Readonly<Record<string, ReadonlySet<string>>> = { oreRefinery: new Set(["heart", "module"]) };
 const BLOCKED_BEFORE: Readonly<Record<string, ReadonlySet<string>>> = {
-  foundry: new Set(["lens"]),
-  foundries: new Set(["cogwork", "war"])
+  oreRefinery: new Set(["lens"]),
+  oreRefineries: new Set(["cogwork", "war"])
 };
 
 // Tech and domain ids are not structure ids and were not renamed.

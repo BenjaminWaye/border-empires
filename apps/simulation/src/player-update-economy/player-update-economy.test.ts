@@ -77,7 +77,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     });
 
     // 1.5 was the pre-gold-rescope figure; DOCK_INCOME_PER_MIN is now cut
-    // 288x (docs/manpower-economy-rewrite-plan.md §6.1), with each dock's
+    // 288x, with each dock's
     // contribution rounded to 6dp as it's accumulated into the bucket.
     expect(economy.incomePerMinute).toBe(0.005208);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
@@ -126,7 +126,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
 
     // 6 was the pre-gold-rescope figure; TOWN_BASE_GOLD_PER_MIN is now cut
-    // 288x (docs/manpower-economy-rewrite-plan.md §6.1).
+    // 288x.
     expect(economy.incomePerMinute).toBe(0.020834);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
       expect.objectContaining({ label: "Towns", amountPerMinute: 0.020834, count: 2 })
@@ -170,7 +170,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
 
     // 15.4 was the pre-gold-rescope figure (town/settlement base gold income
-    // is cut 288x, docs/manpower-economy-rewrite-plan.md §6.1); 13.2 is the
+    // is cut 288x); 13.2 is the
     // §upgrade-bonus-rebalance figure reflecting METROPOLIS's halved-per-tier
     // townPopulationMultiplier (2.1, was 3.2).
     expect(economy.incomePerMinute).toBeCloseTo(13.2 / 288, 5);

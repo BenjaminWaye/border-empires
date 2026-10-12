@@ -6,7 +6,6 @@ import { createInitialShardRainState } from "./client-state-shard-rain-defaults.
 import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { createInitialGuideState } from "./client-state-guide-defaults.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -113,7 +112,7 @@ export const createInitialState = () => ({
   strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
   strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
-  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
+  // Resource slots: global
   // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
   // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
   // signal for FOOD/TITANIUM/CRYSTAL/UMBRITE now that stockpiles are retired at
@@ -551,7 +550,6 @@ export const createInitialState = () => ({
   skyDockTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
-  ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),
   changelog: {
     open: false,

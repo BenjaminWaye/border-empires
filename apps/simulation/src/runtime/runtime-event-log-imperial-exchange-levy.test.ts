@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 
-// §20 of the manpower-economy-rewrite plan: Imperial Exchange Levy hits/casts
+// Imperial Exchange Levy hits/casts
 // are the second launch event type for the durable per-player event log —
 // both sides of the interaction get their own entry (§15/§20).
 describe("§20 event log — Imperial Exchange Levy", () => {

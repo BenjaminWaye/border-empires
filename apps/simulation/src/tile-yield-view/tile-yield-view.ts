@@ -39,8 +39,8 @@ export type TileYieldView = {
 
 const HYDROGARDEN_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
-// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
-// economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced —
+// there's only one food mechanic now (slot
 // dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
 // supply (structure-slots.ts), not a daily yield rate.
 const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});

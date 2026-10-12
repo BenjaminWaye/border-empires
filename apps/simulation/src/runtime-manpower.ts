@@ -19,7 +19,7 @@ import type { RuntimePlayer } from "./runtime-types.js";
 
 type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
 
-// Starting capital (docs/manpower-economy-rewrite-plan.md §4.3) is a separate,
+// Starting capital is a separate,
 // always-present manpower source — distinct from TOWN_MANPOWER_BY_TIER.SETTLEMENT
 // — and is added on top of every owned town's contribution rather than acting
 // as a Math.max floor. A floor would mask a captured town's own contribution
@@ -27,7 +27,7 @@ type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
 // floor); additive keeps "capture a town -> visibly more manpower" true from
 // town #1 onward.
 // §4.4: Ancillary Depot grants a flat, unconditional manpower-cap bonus to
-// the town it's built in (docs/manpower-economy-rewrite-plan.md §4.4) —
+// the town it's built in —
 // ancillaryDepotCount is a simple count of the player's own Ancillary Depots,
 // regardless of network. neuralWorksNetworkAncillaryDepotCount is the sum,
 // across every one of the player's Neural-Works-anchored connected-town

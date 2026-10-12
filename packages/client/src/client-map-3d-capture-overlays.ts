@@ -457,6 +457,20 @@ export function syncMusterTransitOverlay(
     if (!outgoing.isExpand && !claimKeys.has(targetKey)) continue;
     addMarch(outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, outgoing.transitEndsAt, outgoing.transitEndsAt + CLAIM_STEP_IN_MS, outgoing.resolvesAt);
   }
+  // Same claim-phase step-in for this client's own manually-dispatched ATTACK
+  // on a known-FRONTIER tile (the single state.capture slot, which never
+  // reaches outgoingMusterAttacksByTile above). The skirmish FX skips these
+  // targets, so without this the plate sweep ran with no soldiers at all.
+  const manualClaim = state.capture;
+  if (
+    manualClaim?.actionType === "ATTACK" &&
+    manualClaim.origin &&
+    !manualClaim.fromMusterAdvance &&
+    manualClaim.resolvesAt > nowEpochMs &&
+    claimKeys.has(keyFor(manualClaim.target.x, manualClaim.target.y))
+  ) {
+    addMarch(manualClaim.origin.x, manualClaim.origin.y, manualClaim.target.x, manualClaim.target.y, manualClaim.startAt, manualClaim.startAt + CLAIM_STEP_IN_MS, manualClaim.resolvesAt);
+  }
   // Defending side of the same capture: the attacker's company steps onto
   // this player's FRONTIER tile, in the attacker's colour, and holds it until
   // the claim resolves -- the skirmish FX deliberately skips these tiles.

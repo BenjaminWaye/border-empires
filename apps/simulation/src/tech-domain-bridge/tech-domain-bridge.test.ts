@@ -290,7 +290,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
   // Originally reproduced a prod state (Freja Sund, ai-4) where an AI sitting
   // on gold but zero TITANIUM/CRYSTAL/UMBRITE got stuck wanting a higher-scored
   // tech it couldn't pay the strategic-resource cost for. Under the gold
-  // rescope (docs/manpower-economy-rewrite-plan.md §6.2, §13) every tech
+  // rescope every tech
   // below tier 5 costs gold only now — that specific starvation scenario is
   // structurally impossible below tier 5 (and tier 5+ needs SHARD, a
   // separately event-gated resource, not a strategy-starvable one). The

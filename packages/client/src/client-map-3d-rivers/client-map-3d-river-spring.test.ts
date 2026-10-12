@@ -1,5 +1,5 @@
 // River heads open out of a small spring pool instead of a flat cut-off
-// (docs/river-mountains-plan.md, PR B): the channel bulges at its first
+// (docs/rivers-remake-plan.md, "River mountains"): the channel bulges at its first
 // sample (the trench carves a round bowl there) and the water and the wet
 // bank close round it with a rounded cap.
 import { describe, expect, it } from "vitest";

@@ -63,12 +63,17 @@ if [[ -f "${SQLITE_PATH}" ]]; then
   rm -f "${SQLITE_PATH}" "${SQLITE_PATH}-shm" "${SQLITE_PATH}-wal"
 fi
 
+# A SQLite path makes the simulation require durable state by default (so a
+# deployed sim never silently starts a fresh world over an empty DB). Locally
+# an empty DB should seed the season-20ai world instead; existing state is
+# still recovered, and recovery errors still fail loudly.
 echo "Booting durable rewrite localhost stack against ${SQLITE_PATH} (fresh seed)"
 GATEWAY_SQLITE_PATH="${SQLITE_PATH}" \
 GATEWAY_DB_APPLY_SCHEMA=1 \
 SIMULATION_SQLITE_PATH="${SQLITE_PATH}" \
 SIMULATION_DB_APPLY_SCHEMA=1 \
 SIMULATION_SEED_PROFILE=season-20ai \
+SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 \
 SIMULATION_ENABLE_AI_AUTOPILOT=1 \
 SIMULATION_AI_TICK_MS=25 \
 SIMULATION_ENABLE_SYSTEM_AUTOPILOT=1 \

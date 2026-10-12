@@ -29,14 +29,14 @@ export type ConnectedTownNetworkEntry = {
   // by the actual number of Clearing Houses nearby, not by connectedTownCount.
   connectedClearingHouseKeys?: string[];
   // Same precomputation, for Ancillary Depot — feeds the Neural Works network
-  // manpower bonus (docs/manpower-economy-rewrite-plan.md §4.4): a Neural Works
+  // manpower bonus: a Neural Works
   // amplifies every Ancillary Depot in its connected-town network, uncapped.
   connectedAncillaryDepotKeys?: string[];
   // Same precomputation, for Neural Works — used to enforce "only one Rail
   // Depot per connected-town network" at build time (§4.4).
   connectedNeuralWorksKeys?: string[];
   // Census Hall (tech-tree redesign): every connected town with an active
-  // Incubation Engine — feeds Census Hall's +20,000 population
+  // Incubation Engine (Incubation Engine) — feeds Census Hall's +20,000 population
   // per connected Incubation Engine bonus.
   connectedIncubationEngineKeys?: string[];
   // Reserve Lattice (tech-tree redesign): mirrors connectedNeuralWorksKeys'
@@ -260,7 +260,7 @@ export const buildConnectedTownNetworkForPlayer = (
     return tile ? hasSupportedStructure(player.id, tile, "NEURAL_WORKS", tiles, true) : false;
   };
 
-  // Incubation Engine — used for Census Hall's connected-network
+  // Incubation Engine (Incubation Engine) — used for Census Hall's connected-network
   // population bonus. Active-only (a dormant Incubation Engine already granted its
   // one-time burst, but shouldn't keep counting toward the live bonus).
   const hasIncubationEngineAt = (townKey: string): boolean => {
@@ -632,7 +632,7 @@ export const buildConnectedTownNetworkForPlayer = (
 };
 
 /**
- * docs/manpower-economy-rewrite-plan.md §4.4: Neural Works is the enabler of a
+ * Neural Works is the enabler of a
  * network-wide manpower bonus. For every one of the player's own towns that
  * itself hosts an active Neural Works, count that town's own Ancillary Depot (if
  * any) plus every Ancillary Depot in its connected-town network — summed
@@ -820,7 +820,7 @@ export {
 } from "./economy-network-first-three-towns.js";
 
 
-// §5.4/§5.3 (docs/manpower-economy-rewrite-plan.md): a town is "fed" (produces
+// A town is "fed" (produces
 // gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
 // — FOOD no longer has a separate stockpile/flow gate (there's only one food
 // mechanic now: slots). `foodDormantTownKeys` is the FOOD-resource dormancy

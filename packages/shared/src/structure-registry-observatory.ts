@@ -15,7 +15,6 @@ export const OBSERVATORY_SPEC: StructureSpec = {
   cost: {
     gold: 0,
     manpower: 80,
-    strategic: { CRYSTAL: 45 },
   },
   buildMs: OBSERVATORY_BUILD_MS,
   techIds: ["crystal-lattices"],
@@ -27,12 +26,8 @@ export const OBSERVATORY_SPEC: StructureSpec = {
     noConflictingStructure,
     // structureShowsOnTile("OBSERVATORY", ...) is applied by the handler.
   ],
-  // cost.strategic.CRYSTAL above is a retired build-time figure (mirrors
-  // structureCostDefinition("OBSERVATORY").resourceCost in structure-costs.ts)
-  // — it is stripped before spend by stripRetiredStockpileCost and never
-  // actually charged. It is NOT the same number as, and has no runtime
-  // connection to, Observatory's real ongoing cost: permanently occupying
-  // 1 CRYSTAL slot, declared independently in
+  // No build-time CRYSTAL stockpile cost: Observatory's only CRYSTAL cost is
+  // permanently occupying 1 CRYSTAL slot, declared in
   // STRUCTURE_SLOT_REQUIREMENTS.OBSERVATORY (structure-slots.ts). That slot
   // occupation is a build-capacity gate, not a per-minute drain. Observatory
   // has zero per-minute upkeep of any resource — confirmed by the absence of

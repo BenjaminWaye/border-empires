@@ -50,7 +50,7 @@ import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snaps
 import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, seedProfileWorldgen, type SimulationSeedProfile } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
@@ -686,7 +686,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     createInitialSeasonState({
       seasonSequence: 1,
       rulesetId: rulesetId ?? `seed:${options.seedProfile ?? "default"}`,
-      worldSeed: 0,
+      ...(seedProfileWorldgen(options.seedProfile) ?? { worldSeed: 0 }), // season-20ai: the generated world's seed + version
       mapStyle,
       startedAt: Date.now()
     });

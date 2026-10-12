@@ -124,7 +124,7 @@ export type DomainPlayer = {
   // a Waystation's MANPOWER reward (see runtime-manpower-ceiling.ts). Shrinks
   // as the player spends back down; only waystation manpower may overflow.
   waystationManpowerOverflow?: number;
-  // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
+  // A durable, append-only "what
   // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
   // an ephemeral live toast a player only sees if they're online at the
   // moment it fires. Bounded to PLAYER_EVENT_LOG_MAX_ENTRIES (oldest entries
@@ -310,7 +310,7 @@ const manpowerRequirements = (
 ): { manpowerMin: number; manpowerCost: number } => {
   const attackMultiplier = actionType === "ATTACK" ? fortAttackManpowerMultiplier(target) : 1;
   if (actionType === "EXPAND") {
-    // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2):
+    // Manpower-economy rewrite:
     // claiming a frontier tile is the cheapest manpower-gated action.
     return { manpowerMin: EXPAND_MANPOWER_COST, manpowerCost: EXPAND_MANPOWER_COST };
   }

@@ -117,7 +117,7 @@ export const computeCrystalTargets = (
   return { validTargets, originByTarget };
 };
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
+// Resource slots: FOOD/TITANIUM/
 // CRYSTAL/UMBRITE stockpile spend was retired server-side, and passive income
 // no longer credits those four keys (runtime-empire-storage.ts caps only GOLD/
 // FOOD/SHARD), so every player's CRYSTAL balance sits at 0 forever. The crystal

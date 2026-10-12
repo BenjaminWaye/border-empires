@@ -63,7 +63,7 @@ describe("game domain frontier validation", () => {
     });
   });
 
-  // Manpower-economy rewrite (docs/manpower-economy-rewrite-plan.md §4.2): EXPAND
+  // Manpower-economy rewrite: EXPAND
   // now costs EXPAND_MANPOWER_COST manpower — it is no longer free.
   it("allows EXPAND onto neutral land when manpower covers EXPAND_MANPOWER_COST", () => {
     const result = validateFrontierCommand({

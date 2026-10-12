@@ -67,8 +67,8 @@ describe("deriveTileYieldRate — MINE/UMBRITE_RIG output multiplier (Phase 5 lo
 });
 
 describe("deriveTileYieldRate — income multiplier (PR #440, Issue 1)", () => {
-  // Expected values below rescaled for the gold rescope
-  // (docs/manpower-economy-rewrite-plan.md §6.1): SETTLEMENT_BASE_GOLD_PER_MIN
+  // Expected values below rescaled for the gold rescope:
+  // SETTLEMENT_BASE_GOLD_PER_MIN
   // and DOCK_INCOME_PER_MIN are now cut 288x, then rounded to 4dp
   // (roundPositive, yield-derivation.ts) same as before.
   it("produces correct yield with incomeMultiplier=1 (enemy-tile path)", () => {

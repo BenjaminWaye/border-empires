@@ -114,12 +114,14 @@ describe("siege battery cost parity against SIEGE_TIER_LADDER", () => {
 
 test("OBSERVATORY cost matches existing constants", () => {
   const spec = STRUCTURE_REGISTRY["OBSERVATORY"];
-  // Build gold cost is zeroed (docs/manpower-economy-rewrite-plan.md §12).
+  // Build gold cost is zeroed.
   expect(spec.cost.gold).toBe(0);
-  // Manpower-economy rewrite Step 4 (docs/manpower-economy-rewrite-plan.md §4.1/§4.4, §12):
+  // Manpower-economy rewrite:
   // Observatory is a Tier 1 economic sink, now 80 manpower.
   expect(spec.cost.manpower).toBe(80);
-  expect(spec.cost.strategic).toEqual({ CRYSTAL: 45 });
+  // No build-time CRYSTAL figure — its CRYSTAL cost is the permanent slot
+  // occupation in STRUCTURE_SLOT_REQUIREMENTS.OBSERVATORY.
+  expect(spec.cost.strategic).toBeUndefined();
 });
 
 // ── Cost parity: economic structures (against structureCostDefinition) ─
@@ -330,7 +332,7 @@ describe("prerequisiteStructureTypes parity", () => {
 // ── Upkeep parity (per-minute rates from structureUpkeepPerMinute) ─
 
 describe("upkeep parity", () => {
-  // §12.1/§5.1 (docs/manpower-economy-rewrite-plan.md): a structure's slot
+  // A structure's slot
   // occupation is its upkeep now, so every structure except synthesizers
   // carries zero ongoing upkeep. Synthesizer rates are the §6.4-decided
   // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
