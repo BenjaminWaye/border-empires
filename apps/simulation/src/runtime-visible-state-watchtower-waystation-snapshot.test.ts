@@ -92,3 +92,59 @@ describe("SimulationRuntime exportVisibleStateForPlayer — watchtower/waystatio
     expect(tile && "waystationJson" in tile).toBe(false);
   });
 });
+
+// Regression: visibleTileProjection (SubscribePlayer -- every login and
+// reconnect) never included prospectSignature, the worldgen clue marking
+// land near a strategic-resource cluster. The only path that carried it was
+// the full tile delta, which fires when a tile *changes* -- and unclaimed
+// clue tiles almost never change -- so players never saw the clues and the
+// client could not tell whether Titanium was likely nearby.
+const makeProspectPlayer = (id: string) => ({
+  id,
+  isAi: false,
+  points: 0,
+  manpower: 100,
+  techIds: new Set<string>(),
+  domainIds: new Set<string>(),
+  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  techRootId: "rewrite-local",
+  allies: new Set<string>()
+});
+
+describe("SimulationRuntime exportVisibleStateForPlayer — prospect clue snapshot parity", () => {
+  it("includes prospectSignature for a visible clue tile", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makeProspectPlayer("player-1")]]),
+      initialState: {
+        tiles: [
+          { x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 6, y: 5, terrain: "LAND", prospectSignature: "FERROUS_DUST" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const exported = runtime.exportVisibleStateForPlayer("player-1");
+    const tile = exported.tiles.find((entry) => entry.x === 6 && entry.y === 5);
+
+    expect(tile?.prospectSignature).toBe("FERROUS_DUST");
+  });
+
+  it("omits prospectSignature for a tile with no clue", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makeProspectPlayer("player-1")]]),
+      initialState: {
+        tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    });
+
+    const exported = runtime.exportVisibleStateForPlayer("player-1");
+    const tile = exported.tiles.find((entry) => entry.x === 5 && entry.y === 5);
+
+    expect(tile).toBeDefined();
+    expect(tile && "prospectSignature" in tile).toBe(false);
+  });
+});

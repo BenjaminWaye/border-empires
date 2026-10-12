@@ -143,6 +143,7 @@ const createTilesFromInitialStateUncleared = (
             ? { landBiome: landBiomeAt(tile.x, tile.y) }
             : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
+      ...((tile.prospectSignature ?? seededTile?.prospectSignature) ? { prospectSignature: tile.prospectSignature ?? seededTile?.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),

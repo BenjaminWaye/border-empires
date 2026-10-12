@@ -20,6 +20,7 @@ export const recoveredStateFromSeedWorld = (
       terrain: tile.terrain,
       ...(tile.landBiome ? { landBiome: tile.landBiome } : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
+      ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}), ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),

@@ -406,4 +406,23 @@ describe("recoverSimulationStateFromEvents", () => {
     expect(tile?.frontierDecayAt).toBe(60_000);
     expect(tile?.frontierDecayKind).toBe("OUT_OF_REACH");
   });
+
+  // Regression: recovery rebuilt tiles field by field and dropped
+  // prospectSignature, so every restart erased the worldgen resource clues
+  // (and with them every occupation-survey hit).
+  it("keeps prospectSignature through recovery and an unrelated tile delta", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [{ x: 30, y: 30, terrain: "LAND", prospectSignature: "FERROUS_DUST" }],
+        activeLocks: [],
+        players: [],
+        pendingSettlements: [],
+        tileYieldCollectedAtByTile: [],
+        playerYieldCollectionEpochByPlayer: []
+      },
+      [{ eventType: "TILE_DELTA_BATCH", commandId: "claim-2", playerId: "player-1", tileDeltas: [{ x: 30, y: 30, ownerId: "player-1", ownershipState: "FRONTIER" }] }]
+    );
+
+    expect(recovered.tiles.find((t) => t.x === 30 && t.y === 30)?.prospectSignature).toBe("FERROUS_DUST");
+  });
 });
