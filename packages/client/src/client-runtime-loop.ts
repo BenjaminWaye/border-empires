@@ -778,6 +778,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
     };
     const tileStartAt = performance.now();
+    const drawTerrainDetail = (dwx: number, dwy: number, dpx: number, dpy: number, dsize: number): void => { deps.drawForestOverlay(dwx, dwy, dpx, dpy, dsize); deps.drawHillsOverlay(dwx, dwy, dpx, dpy, dsize); }; // per frame, not per tile
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
         const wx = deps.wrapX(state.camX + x);
@@ -793,7 +794,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (!isTrue3DRendererActive()) {
           const terrainWhenMissing = !t && (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) ? terrainAt(wx, wy) : undefined;
           const neighbourVisibility = (ox: number, oy: number): TileVisibilityState => deps.tileVisibilityStateAt(deps.wrapX(wx + ox), deps.wrapY(wy + oy));
-          const drawTerrainDetail = (dwx: number, dwy: number, dpx: number, dpy: number, dsize: number): void => { deps.drawForestOverlay(dwx, dwy, dpx, dpy, dsize); deps.drawHillsOverlay(dwx, dwy, dpx, dpy, dsize); };
           drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility });
         }
 

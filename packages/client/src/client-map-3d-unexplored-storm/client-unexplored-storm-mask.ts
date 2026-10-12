@@ -1,3 +1,4 @@
+import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import type { TileVisibilityState } from "../client-types.js";
 
@@ -74,9 +75,8 @@ export const countNewlyExplored = (
   worldWidth: number,
   worldHeight: number
 ): number => {
-  const wrapDelta = (d: number, size: number): number => ((((d % size) + size + size / 2) % size) - size / 2);
-  const shiftX = wrapDelta(next.window.camX - next.window.halfW - (prev.window.camX - prev.window.halfW), worldWidth);
-  const shiftY = wrapDelta(next.window.camY - next.window.halfH - (prev.window.camY - prev.window.halfH), worldHeight);
+  const shiftX = toroidDelta(prev.window.camX - prev.window.halfW, next.window.camX - next.window.halfW, worldWidth);
+  const shiftY = toroidDelta(prev.window.camY - prev.window.halfH, next.window.camY - next.window.halfH, worldHeight);
   let count = 0;
   for (let j = 0; j < next.mask.height; j += 1) {
     const pj = j + shiftY;
@@ -90,4 +90,10 @@ export const countNewlyExplored = (
     }
   }
   return count;
+};
+
+/** Whether any tile in the mask is explored (R = 0). */
+export const maskHasExplored = (mask: UnexploredStormMask): boolean => {
+  for (let i = 0; i < mask.data.length; i += 4) if (mask.data[i] === 0) return true;
+  return false;
 };

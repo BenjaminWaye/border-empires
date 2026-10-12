@@ -171,8 +171,10 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number, options: Wat
   // The water is only 78% opaque and nothing is drawn under it, so without a
   // floor the grey unexplored-storm sheet (client-map-3d-unexplored-storm.ts)
   // would wash every sea grey. An unlit black copy of the surface just above
-  // the skirt bottom keeps the deep-water look it was tuned against.
-  const floorMaterial = new MeshBasicMaterial({ toneMapped: false, color: 0x000000, fog: false });
+  // the skirt bottom keeps the deep-water look it was tuned against. It takes
+  // the scene fog like everything else, so distant seas haze toward the storm
+  // with the land around them instead of staying a black void.
+  const floorMaterial = new MeshBasicMaterial({ toneMapped: false, color: 0x000000, fog: true });
   let skirtMesh: Mesh | null = null;
   let skirtGeometry: BufferGeometry | null = null;
 

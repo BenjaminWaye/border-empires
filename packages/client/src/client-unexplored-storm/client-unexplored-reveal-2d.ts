@@ -7,10 +7,19 @@ import { UNEXPLORED_LANTERN } from "./client-unexplored-storm-palette.js";
 // lantern flash, instead of popping. The canvas redraws every frame, so
 // this remembers each recently drawn tile's last explored state; both maps
 // are capped (oldest entries evicted first) so a long session panning a big
-// world can't grow them without bound.
+// world can't grow them without bound. Only tiles of at least
+// UNEXPLORED_REVEAL_MIN_TILE_PX are tracked -- smaller, a fade barely reads,
+// and a zoomed-out screen would hold more tiles than the cap.
+//
+// A tile only counts as revealed if it was seen unexplored while the map
+// already showed explored land: on login or reconnect every tile reads as
+// unexplored until the first chunk lands, and that must not play the reveal
+// over the whole known map.
 
 export const UNEXPLORED_REVEAL_2D_MS = 900;
-const MAX_TRACKED_TILES = 20_000;
+export const UNEXPLORED_REVEAL_MIN_TILE_PX = 16;
+// Comfortably above a 4K screen of 16 px tiles (240 x 135 = 32,400).
+const MAX_TRACKED_TILES = 50_000;
 
 export type UnexploredRevealTracker = {
   /** Records this frame's state for a tile; returns reveal progress 0..1 while it is animating, else undefined. */
@@ -19,19 +28,25 @@ export type UnexploredRevealTracker = {
 };
 
 export const createUnexploredRevealTracker = (maxTracked: number = MAX_TRACKED_TILES): UnexploredRevealTracker => {
-  const lastUnexplored = new Map<string, boolean>();
+  // Per tile: when it was (last) seen unexplored, or false once explored.
+  const lastUnexplored = new Map<string, number | false>();
   const revealedAt = new Map<string, number>();
+  let firstExploredSeenAt = Infinity;
   const evictOldest = (map: Map<string, unknown>): void => {
     const oldest = map.keys().next();
     if (!oldest.done) map.delete(oldest.value);
   };
   const observe = (key: string, unexplored: boolean, nowMs: number): number | undefined => {
+    if (!unexplored && firstExploredSeenAt === Infinity) firstExploredSeenAt = nowMs;
     const was = lastUnexplored.get(key);
-    if (was !== unexplored) {
+    // Unexplored since before any explored land was on the map: restamp it
+    // now that there is some, so a later reveal of it does count.
+    const stale = typeof was === "number" && was < firstExploredSeenAt && firstExploredSeenAt <= nowMs;
+    if ((was === undefined || was === false) !== !unexplored || stale) {
       lastUnexplored.delete(key);
-      lastUnexplored.set(key, unexplored);
+      lastUnexplored.set(key, unexplored ? nowMs : false);
       if (lastUnexplored.size > maxTracked) evictOldest(lastUnexplored);
-      if (was === true && !unexplored) {
+      if (typeof was === "number" && !unexplored && was >= firstExploredSeenAt) {
         revealedAt.set(key, nowMs);
         if (revealedAt.size > maxTracked) evictOldest(revealedAt);
       }

@@ -1,5 +1,7 @@
+import { isSeaTerrain } from "@border-empires/shared";
+import { touchesLandInSight } from "../client-unexplored-storm/client-unexplored-fog-ring.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { createUnexploredRevealTracker, drawUnexploredReveal2D, type UnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
+import { createUnexploredRevealTracker, drawUnexploredReveal2D, UNEXPLORED_REVEAL_MIN_TILE_PX, type UnexploredRevealTracker } from "../client-unexplored-storm/client-unexplored-reveal-2d.js";
 import { FOGGED_PRINT_SEPIA, FOGGED_PRINT_WASH_OPACITY, FOGGED_PRINT_WATER, FOGGED_PRINT_WATER_BLEND } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import {
   drawUnexploredStormEdge2D,
@@ -39,7 +41,7 @@ export type TileGround2DInput = {
   readonly neighbourVisibility: (ox: number, oy: number) => TileVisibilityState;
 };
 
-const isWater = (terrain: Tile["terrain"]): boolean => terrain === "SEA" || terrain === "COASTAL_SEA";
+const isWater = isSeaTerrain;
 // Remembered (fogged) tiles as a faded survey print, matching the 3D fog
 // overlay exactly: a see-through wash of the print tone over the terrain.
 const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
@@ -50,17 +52,12 @@ const drawFoggedPrint = (ctx: CanvasRenderingContext2D, terrain: Tile["terrain"]
   ctx.restore();
 };
 
-const touchesLandInSight = (neighbourVisibility: (ox: number, oy: number) => TileVisibilityState): boolean => {
-  for (let k = 0; k < 9; k += 1) if (k !== 4 && neighbourVisibility((k % 3) - 1, Math.floor(k / 3) - 1) === "visible") return true;
-  return false;
-};
-
 // One tracker for the 2D map: tiles are drawn once per frame each.
 const revealTracker = createUnexploredRevealTracker();
 
 export const drawTileGround2D = (ctx: CanvasRenderingContext2D, input: TileGround2DInput, tracker: UnexploredRevealTracker = revealTracker): void => {
   drawTileGroundBase2D(ctx, input);
-  if (!unexploredCoastVisibleAt(input.size)) return;
+  if (input.size < UNEXPLORED_REVEAL_MIN_TILE_PX) return;
   const progress = tracker.observe(`${input.wx},${input.wy}`, input.vis === "unexplored", input.nowMs ?? performance.now());
   if (progress !== undefined) drawUnexploredReveal2D(ctx, input.wx, input.wy, input.px, input.py, input.size, progress);
 };
@@ -82,7 +79,16 @@ const drawTileGroundBase2D = (ctx: CanvasRenderingContext2D, input: TileGround2D
     drawUnexploredStormEdge2D(ctx, wx, wy, px, py, size, isExploredAt);
     return;
   }
-  if (!tile) {
+  if (!tile && vis === "fogged" && input.terrainWhenMissing === undefined) {
+    // Remembered, but its tile data isn't loaded (yet, or evicted): its
+    // natural terrain is still known from the world seed, so print that --
+    // as the 3D map does -- rather than storm, which the fog ring beside it
+    // would face with a brass edge as if it were explored land.
+    const terrain = input.terrainAt(wx, wy);
+    input.drawTerrainTile(wx, wy, isWater(terrain) || terrain === "MOUNTAIN" ? terrain : "LAND", px, py, size);
+    if (terrain === "LAND") input.drawTerrainDetail(wx, wy, px, py, size);
+    drawFoggedPrint(ctx, terrain, px, py, size);
+  } else if (!tile) {
     if (input.terrainWhenMissing === undefined) drawUnexploredStormTile(ctx, wx, wy, px, py, size);
     else input.drawTerrainTile(wx, wy, input.terrainWhenMissing, px, py, size);
   } else if (vis === "fogged") {

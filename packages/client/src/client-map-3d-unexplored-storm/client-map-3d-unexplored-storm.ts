@@ -26,7 +26,7 @@ import {
 } from "../client-unexplored-storm/client-unexplored-storm-palette.js";
 import { STORM_FRAGMENT_SHADER, STORM_VERTEX_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 import { applyUnexploredStormClipToScene, type StormClipUniforms } from "./client-map-3d-unexplored-storm-clip.js";
-import { buildUnexploredStormMask, countNewlyExplored, type UnexploredStormMask } from "./client-unexplored-storm-mask.js";
+import { buildUnexploredStormMask, countNewlyExplored, maskHasExplored, type UnexploredStormMask } from "./client-unexplored-storm-mask.js";
 
 // Unexplored territory in the true-3D map is a bank of hatched storm cloud
 // lying level with the land (flat ground tops out at ~0.26), so the
@@ -50,6 +50,9 @@ const STORM_PLANE_SIZE = 3600;
 const STORM_TIME_WRAP_SECONDS = 3600;
 // How long the clouds take to roll back off newly explored tiles.
 export const UNEXPLORED_REVEAL_MS = 900;
+// More tiles than this explored in one rebuild is a bulk load (a jump across
+// the map, a long-missed sync), not exploring: it shows without the reveal.
+export const UNEXPLORED_REVEAL_MAX_TILES = 400;
 
 export type UnexploredStormLayer = {
   readonly mesh: Mesh;
@@ -141,28 +144,44 @@ export const createUnexploredStormLayer = (scene: Scene, nowMs: () => number = (
   };
   scene.add(mesh);
 
+  // The window the previous mask was built for, while a reveal is running.
+  let prevWindow: TerrainWindow | undefined;
   const rebuild = (window: TerrainWindow, visibilityAt: (wx: number, wy: number) => TileVisibilityState): void => {
     (material.uniforms.uWorldOrigin!.value as Vector2).set(window.camX, window.camY);
     // Tile (dx, dy) spans scene [dx, dx + 1] x [dy, dy + 1].
     const next = { window, mask: buildUnexploredStormMask(window, WORLD_WIDTH, WORLD_HEIGHT, visibilityAt) };
-    const revealing = current !== undefined && countNewlyExplored(current, next, WORLD_WIDTH, WORLD_HEIGHT) > 0;
-    if (prevMask !== mask) prevMask.dispose();
+    const now = nowMs();
+    // No reveal on the first rebuild with land in it (login, reconnect: every
+    // tile reads unexplored until the first chunk lands) or for a bulk load.
+    const newlyExplored = current && maskHasExplored(current.mask) ? countNewlyExplored(current, next, WORLD_WIDTH, WORLD_HEIGHT) : 0;
+    const revealing = current !== undefined && newlyExplored > 0 && newlyExplored <= UNEXPLORED_REVEAL_MAX_TILES;
+    // A rebuild with nothing new (a pan, a tile update) mid-reveal keeps the
+    // fade running against the same previous mask instead of snapping it.
+    const midReveal = !revealing && prevMask !== mask && now - revealStartMs < UNEXPLORED_REVEAL_MS;
     if (revealing && current) {
       // Fade from the mask on screen now to the new one.
+      if (prevMask !== mask) prevMask.dispose();
       prevMask = mask;
+      prevWindow = current.window;
       (material.uniforms.uPrevMaskMin!.value as Vector2).copy(material.uniforms.uMaskMin!.value as Vector2);
       (material.uniforms.uPrevMaskSize!.value as Vector2).copy(material.uniforms.uMaskSize!.value as Vector2);
-      (material.uniforms.uPrevOffset!.value as Vector2).set(
-        toroidDelta(current.window.camX, window.camX, WORLD_WIDTH),
-        toroidDelta(current.window.camY, window.camY, WORLD_HEIGHT)
-      );
-      revealStartMs = nowMs();
-    } else {
+      revealStartMs = now;
+    } else if (midReveal) {
       mask.dispose();
+    } else {
+      if (prevMask !== mask) prevMask.dispose();
+      mask.dispose();
+      prevWindow = undefined;
       revealStartMs = -Infinity;
     }
     mask = createMaskTexture(next.mask.width, next.mask.height, next.mask.data);
-    if (!revealing) prevMask = mask;
+    if (!prevWindow) prevMask = mask;
+    else {
+      (material.uniforms.uPrevOffset!.value as Vector2).set(
+        toroidDelta(prevWindow.camX, window.camX, WORLD_WIDTH),
+        toroidDelta(prevWindow.camY, window.camY, WORLD_HEIGHT)
+      );
+    }
     current = next;
     material.uniforms.uMask!.value = mask;
     material.uniforms.uPrevMask!.value = prevMask;

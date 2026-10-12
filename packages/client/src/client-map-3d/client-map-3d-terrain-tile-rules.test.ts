@@ -9,6 +9,16 @@ describe("withUnexploredCoastRingAsFogged", () => {
   const raw = (wx: number, wy: number): TileVisibilityState => (wx === 10 && wy === 10 ? "visible" : "unexplored");
   const vis = withUnexploredCoastRingAsFogged(raw, wrap, wrap);
 
+  it("looks each tile up once per rebuild, however often the rebuild asks", () => {
+    let calls = 0;
+    const counted = withUnexploredCoastRingAsFogged((wx, wy) => (calls += 1, raw(wx, wy)), wrap, wrap);
+    for (let pass = 0; pass < 3; pass += 1) for (let x = 5; x < 15; x += 1) for (let y = 5; y < 15; y += 1) counted(x, y);
+    // 10x10 queried tiles plus their one-tile border: 12 x 12 raw lookups, ever.
+    expect(calls).toBe(144);
+    expect(counted(11, 11)).toBe("fogged");
+    expect(counted(13, 13)).toBe("unexplored");
+  });
+
   it("reports the first ring of fog (diagonals included) as fogged so its ground draws", () => {
     expect(vis(11, 10)).toBe("fogged");
     expect(vis(9, 9)).toBe("fogged");

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeAll, describe, expect, it } from "vitest";
-import { DoubleSide, Mesh, Scene } from "three";
+import { DoubleSide, Mesh, MeshBasicMaterial, Scene } from "three";
 import { BufferGeometry } from "three";
 import { WORLD_WIDTH } from "@border-empires/shared";
 import { createWaterSurface, WATER_SURFACE_Y } from "./client-map-3d-water-surface.js";
@@ -34,6 +34,20 @@ describe("createWaterSurface", () => {
     const material = mesh!.material as { side: number };
     expect(material.side).toBe(DoubleSide);
 
+    water.dispose();
+  });
+
+  it("gives the water a black floor that still hazes into the scene fog at a distance", () => {
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4);
+    water.addTile(0.5, 0.5, false, 0, 0);
+    water.commit();
+    const floors: Mesh[] = [];
+    scene.traverse((child) => {
+      if (child instanceof Mesh && child.material instanceof MeshBasicMaterial && child.material.color.getHex() === 0x000000) floors.push(child);
+    });
+    expect(floors.length).toBeGreaterThan(0);
+    for (const floor of floors) expect((floor.material as MeshBasicMaterial).fog).toBe(true);
     water.dispose();
   });
 

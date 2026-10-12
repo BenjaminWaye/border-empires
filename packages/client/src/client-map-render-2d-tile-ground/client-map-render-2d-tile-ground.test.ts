@@ -41,6 +41,15 @@ describe("drawTileGround2D", () => {
     expect(hidden.drawTerrainTile).not.toHaveBeenCalled();
   });
 
+  it("prints a remembered tile whose data isn't loaded from its seed terrain, like the 3D map, not as storm", () => {
+    const { ctx, fills } = makeCtx();
+    const remembered = input({ tile: undefined, vis: "fogged", terrainAt: () => "LAND" });
+    drawTileGround2D(ctx, remembered);
+    expect(remembered.drawTerrainTile).toHaveBeenCalledWith(3, 4, "LAND", 0, 0, 40);
+    expect(remembered.drawTerrainDetail).toHaveBeenCalled();
+    expect(fills).toContain(FOGGED_PRINT_SEPIA);
+  });
+
   it("prints fogged tiles in sepia with their natural detail, and draws visible land as LAND", () => {
     const fogged = makeCtx();
     const foggedArgs = input({ vis: "fogged" });
@@ -98,6 +107,7 @@ describe("drawTileGround2D", () => {
 
   it("fades the storm off a tile, with a lantern flash, when it becomes explored", () => {
     const tracker = createUnexploredRevealTracker();
+    tracker.observe("99,99", false, 0); // explored land already on the map (not a first load)
     const before = makeCtx();
     drawTileGround2D(before.ctx, input({ tile: undefined, vis: "unexplored", neighbourVisibility: () => "unexplored", nowMs: 0 }), tracker);
     const after = makeCtx();

@@ -125,11 +125,23 @@ const stormPatternFor = (ctx: CanvasRenderingContext2D): CanvasPattern | undefin
  * Sets fillStyle to the storm, world-anchored so tile (wx, wy) lands at
  * screen (px, py); a solid storm grey where patterns aren't available.
  */
+// The pattern's current transform. World-anchored, it's the same for every
+// tile in a frame (bar the world-wrap seam), so it's only rebuilt when it
+// changes -- not a fresh DOMMatrix per fog tile per frame.
+let patternTransform: { pattern: CanvasPattern; scale: number; tx: number; ty: number } | undefined;
+const sameTransform = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6;
+
 export const setUnexploredStormFill = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   const pattern = stormPatternFor(ctx);
   if (pattern && typeof pattern.setTransform === "function" && typeof DOMMatrix !== "undefined") {
     const scale = (size * UNEXPLORED_STORM_TEXTURE_TILES) / UNEXPLORED_STORM_TEXTURE_PX;
-    pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, px - wx * size, py - wy * size]));
+    const tx = px - wx * size;
+    const ty = py - wy * size;
+    const last = patternTransform;
+    if (!last || last.pattern !== pattern || !sameTransform(last.scale, scale) || !sameTransform(last.tx, tx) || !sameTransform(last.ty, ty)) {
+      pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, tx, ty]));
+      patternTransform = { pattern, scale, tx, ty };
+    }
     ctx.fillStyle = pattern;
   } else {
     ctx.fillStyle = UNEXPLORED_STORM_MID;
@@ -220,11 +232,7 @@ export const unexploredBandDepth = (a: number, l: number): number => {
 const GLOW_FROM = 0.2;
 const GLOW_TO = 0.6;
 
-/** Whether (from the 8 neighbours) a fog tile is on the fog's first ring. */
-export const isUnexploredCoastRing = (isExploredAt: (ox: number, oy: number) => boolean): boolean => {
-  for (let k = 0; k < 9; k += 1) if (k !== 4 && isExploredAt((k % 3) - 1, Math.floor(k / 3) - 1)) return true;
-  return false;
-};
+export { isUnexploredCoastRing } from "./client-unexplored-fog-ring.js";
 
 /** Whether a fog tile this large gets the coast treatment (else plain storm). */
 export const unexploredCoastVisibleAt = (size: number): boolean => size >= EDGE_MIN_TILE_PX;
