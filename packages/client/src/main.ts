@@ -1,3 +1,4 @@
+import "./client-muster-combat-reports/client-muster-combat-reports-style.css";
 // Client entrypoint:
 // 1. install the global error guard first (must be the first import so its
 //    listeners are registered before any other module's top-level code runs)
