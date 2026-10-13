@@ -482,6 +482,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Combat reports for each muster flag",
     why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
+  },
+  {
+    createdAt: 1791922549550, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Economy panel says Coin",
+    why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
+    changes: ["The economy panel's currency card and detail heading now read Coin"]
   }
 ];
 

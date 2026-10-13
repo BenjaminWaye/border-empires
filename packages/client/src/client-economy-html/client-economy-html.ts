@@ -347,7 +347,7 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
         : args.strategicProductionPerMinute[resource];
     if (gross > 0.0001) {
       sourceBuckets.push({
-        label: resource === "GOLD" ? "Live empire income" : `${args.prettyToken(resource)} production`,
+        label: resource === "GOLD" ? "Live empire income" : `${economyResourceName(args, resource)} production`,
         amountPerMinute: gross,
         count: 1,
         note: "Detailed source rows are still catching up on this session."
@@ -360,9 +360,13 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
   };
 };
 
+// The currency key stays "GOLD" internally; players see it as "Coin".
+const economyResourceName = (args: EconomyPanelArgs, resource: string): string =>
+  resource === "GOLD" ? "Coin" : args.prettyToken(resource);
+
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
   const icon = args.resourceIconHtml(resource);
-  const label = args.prettyToken(resource);
+  const label = economyResourceName(args, resource);
   const head = `<div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>`;
   if (isSlotResource(resource)) {
     const supply = args.resourceSlots.supply[resource];
@@ -400,7 +404,7 @@ const economyBucketAmountLabel = (
   const prefix = positive ? "+" : "-";
   const perDay = bucket.amountPerMinute * 1440;
   if (bucket.resourceKey && bucket.resourceKey !== resource) {
-    return `${prefix}${perDay.toFixed(1)} ${args.prettyToken(bucket.resourceKey)}/day`;
+    return `${prefix}${perDay.toFixed(1)} ${economyResourceName(args, bucket.resourceKey)}/day`;
   }
   return `${prefix}${perDay.toFixed(1)}/day`;
 };
@@ -437,7 +441,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${economyResourceName(args, resource)}</div>
                 <strong>${demand} / ${supply} slots used</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
@@ -445,11 +449,11 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             <div class="economy-detail-columns">
               <div class="economy-detail-column">
                 <h4>Slot Sources</h4>
-                ${sources.length > 0 ? sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No ${args.prettyToken(resource)} slots yet</span></div>`}
+                ${sources.length > 0 ? sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No ${economyResourceName(args, resource)} slots yet</span></div>`}
               </div>
               <div class="economy-detail-column">
                 <h4>Occupied by</h4>
-                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${args.prettyToken(resource)} slot yet</span></div>`}
+                ${occupants.length > 0 ? occupants.map((bucket) => `<div class="economy-line${bucket.dormantCount ? " is-dormant" : ""}"><span>${bucket.label}${bucket.dormantCount ? ` <small class="economy-dormant-flag">⚠ ${bucket.dormantCount > 1 ? `${bucket.dormantCount} dormant` : "dormant"}</small>` : ""}</span><strong>${bucket.amountPerMinute} slot${bucket.amountPerMinute === 1 ? "" : "s"}</strong></div>`).join("") : `<div class="economy-line muted"><span>No structures using a ${economyResourceName(args, resource)} slot yet</span></div>`}
               </div>
             </div>
             ${foodFootnote}
@@ -460,7 +464,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${economyResourceName(args, resource)}</div>
                 <strong>${args.gold.toFixed(1)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
