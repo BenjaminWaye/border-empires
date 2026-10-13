@@ -3,22 +3,25 @@
  * theme files so the --sp-* tokens exist.
  *
  * Available: the choice grid. Owned: the bonus chips + "Your Manifests".
- * The expanded tree already shows every Manifest, so tabs step aside there
- * and the existing tree-expanded rules decide what is visible.
+ * Tree (data-manifest-tab="tree") is the expanded tree; the existing
+ * .tech-tree-expanded rules in style.css decide what is visible there.
  */
 
-#panel-tech.tech-tree-expanded [data-manifest-tab-btn],
-#mobile-panel-tech.tech-tree-expanded [data-manifest-tab-btn] {
+#panel-tech[data-manifest-tab="available"] #tech-current-mods,
+#panel-tech[data-manifest-tab="available"] #tech-owned,
+#panel-tech[data-manifest-tab="owned"] #tech-choices-grid,
+#mobile-panel-tech[data-manifest-tab="available"] #mobile-tech-current-mods,
+#mobile-panel-tech[data-manifest-tab="available"] #mobile-tech-owned,
+#mobile-panel-tech[data-manifest-tab="owned"] #mobile-tech-choices-grid {
   display: none;
 }
 
-#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #tech-current-mods,
-#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #tech-owned,
-#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="owned"] #tech-choices-grid,
-#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #mobile-tech-current-mods,
-#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #mobile-tech-owned,
-#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="owned"] #mobile-tech-choices-grid {
-  display: none;
+/* Three equal tabs. style.css collapses .tech-section-tabs to one column
+   while the tree is expanded; the tabs stay put so you can leave the tree. */
+#panel-tech .tech-section-tabs.manifest-tabs,
+#mobile-panel-tech .tech-section-tabs.manifest-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 440px;
 }
 
 .manifest-tab {
@@ -37,9 +40,3 @@
   color: var(--sp-brass-100);
 }
 
-/* The mobile sheet gives Expand Tree its own row (style.css); with the tabs
-   beside it, one row of three keeps the list higher up the sheet. */
-#mobile-panel-tech:not(.tech-tree-expanded) .tech-tree-expand-toggle {
-  grid-column: auto;
-  padding: 0 10px;
-}

@@ -514,8 +514,8 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   return `<article class="card tech-tree-shell expanded" data-tech-tree-shell>
     <div class="tech-tree-shell-head">
       <div>
-        <div class="domain-summary-kicker">Research</div>
-        <strong>Technology tree</strong>
+        <div class="domain-summary-kicker">Manifest</div>
+        <strong>Manifest tree</strong>
         <p>Drag across the six ages to see how frontier survival becomes machine empire, then sky power.</p>
       </div>
       <div class="tech-tree-shell-actions">
@@ -524,7 +524,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           <span><strong>${args.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
           <span><strong>${args.techCatalog.length}</strong> total</span>
         </div>
-        <div class="tech-tree-zoom-controls" aria-label="Technology tree zoom controls">
+        <div class="tech-tree-zoom-controls" aria-label="Manifest tree zoom controls">
           <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="out" aria-label="Zoom out">-</button>
           <button class="panel-btn tech-tree-zoom-btn tech-tree-zoom-readout" type="button" data-tech-tree-zoom="reset" aria-label="Reset zoom">${Math.round(
             zoom * 100

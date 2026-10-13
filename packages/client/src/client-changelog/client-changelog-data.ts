@@ -488,7 +488,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.13.2",
     title: "Manifest panel tabs",
     why: "Your Manifests sat at the very bottom of the panel, below every choice.",
-    changes: ["The Manifest panel has Available and Owned tabs", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch"]
+    changes: ["The Manifest panel has Available, Owned and Tree tabs; Tree replaces the Expand Tree button", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch"]
   }
 ];
 

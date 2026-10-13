@@ -109,7 +109,6 @@ export const initClientDom = () => {
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
-  const techTreeExpandToggleEl = requireElement<HTMLButtonElement>("#tech-tree-expand-toggle");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
   const mobileSheetHeadEl = requireElement<HTMLDivElement>("#mobile-sheet-head");
   const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
@@ -122,7 +121,6 @@ export const initClientDom = () => {
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
   const mobileTechPickEl = requireElement<HTMLSelectElement>("#mobile-tech-pick");
   const mobileTechChooseBtn = requireElement<HTMLButtonElement>("#mobile-tech-choose");
-  const mobileTechTreeExpandToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-tree-expand-toggle");
   const mobileTechPointsEl = requireElement<HTMLDivElement>("#mobile-tech-points");
   const mobileTechCurrentModsEl = requireElement<HTMLDivElement>("#mobile-tech-current-mods");
   const mobileTechChoicesGridEl = requireElement<HTMLDivElement>("#mobile-tech-choices-grid");
@@ -293,11 +291,9 @@ export const initClientDom = () => {
     techChooseBtn,
     techCurrentModsEl,
     techDetailCardEl,
-    techTreeExpandToggleEl,
     techOwnedEl,
     techPickEl,
     techPointsEl,
-    tileActionMenuEl,
-    mobileTechTreeExpandToggleEl
+    tileActionMenuEl
   };
 };
