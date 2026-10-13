@@ -181,6 +181,11 @@ describe("createPlayersFromRecoveredState", () => {
     expect(createPlayersFromRecoveredState(state)?.get("p1")?.techIds).toEqual(new Set(["crystal-lattices", "beacon-towers"]));
   });
 
+  it("keeps an Augury Office owner's Manifest count when they also owned the retired Echo-Reader Crew", () => {
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", techIds: ["crystal-lattices", "surveying", "beacon-towers"] }] };
+    expect(createPlayersFromRecoveredState(state)?.get("p1")?.techIds.size).toBe(3);
+  });
+
   it("defaults to an empty truces set when the snapshot has none", () => {
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1" }] };
     const result = createPlayersFromRecoveredState(state);

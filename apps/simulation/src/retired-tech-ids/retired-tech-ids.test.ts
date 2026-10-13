@@ -14,13 +14,20 @@ describe("migrateRetiredTechIds", () => {
     expect(playerHasAbilityTech(migrated, "survey_sweep")).toBe(true);
   });
 
-  it("collapses to one entry when the player already owns the replacement", () => {
-    expect([...migrateRetiredTechIds(["surveying", "beacon-towers"])]).toEqual(["beacon-towers"]);
+  it("keeps the retired id as a counted placeholder when the player already owns the replacement", () => {
+    // The old tree made Augury Office require Echo-Reader Crew, so every
+    // Augury Office owner has both; collapsing them would drop the owned
+    // count that prices their next Manifest.
+    const owned = ["crystal-lattices", "surveying", "beacon-towers"];
+    const migrated = migrateRetiredTechIds(owned);
+    expect(migrated.size).toBe(owned.length);
+    expect([...migrated].sort()).toEqual(["beacon-towers", "crystal-lattices", "surveying"]);
+    expect(playerHasAbilityTech(migrated, "survey_sweep")).toBe(true);
   });
 
   it("leaves live Manifest ids alone and only maps ids that left the tree onto ids still in it", () => {
     expect([...migrateRetiredTechIds(liveTechIds)].sort()).toEqual([...liveTechIds].sort());
     expect(liveTechIds.has("surveying")).toBe(false);
-    for (const id of migrateRetiredTechIds(["surveying"])) expect(liveTechIds.has(id)).toBe(true);
+    expect([...migrateRetiredTechIds(["surveying"])].every((id) => liveTechIds.has(id))).toBe(true);
   });
 });
