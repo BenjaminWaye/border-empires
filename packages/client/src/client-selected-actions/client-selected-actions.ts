@@ -145,6 +145,11 @@ export const cancelOngoingCapture = (
     state.pendingMusterAttacks = state.pendingMusterAttacks.slice(0, -1);
     return;
   }
+  // Only something already sent can be locked on the server. Esc runs this
+  // on every press (closing a menu included), and a CANCEL_CAPTURE with
+  // nothing to cancel comes back as a NO_ACTIVE_CAPTURE error that runs the
+  // whole server-error path (view refresh, optimistic rollback).
+  const serverMayHoldCapture = state.capture !== undefined || state.actionInFlight || state.actionCurrent !== undefined;
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
@@ -160,8 +165,8 @@ export const cancelOngoingCapture = (
   }
   // Anything already sent (a fired muster attack awaiting resolution, or
   // any other in-flight capture) is a real server-side lock — cancelled
-  // via CANCEL_CAPTURE, which is harmless to send even if nothing is active.
-  sendGameMessage({ type: "CANCEL_CAPTURE" });
+  // via CANCEL_CAPTURE.
+  if (serverMayHoldCapture) sendGameMessage({ type: "CANCEL_CAPTURE" });
 };
 
 // Hides the capture overlay for the currently-displayed instance without

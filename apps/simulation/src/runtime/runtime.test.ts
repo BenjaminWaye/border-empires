@@ -2548,8 +2548,7 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toBeDefined();
       expect(tile?.fortJson).toContain("\"variant\":\"TITANIUM_BASTION\"");
-      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
-      // §12) — the fort tier ladder no longer charges gold at all, just the
+      // Build gold costs are zeroed: the fort tier ladder charges no gold, just the
       // manpower/iron already asserted above via the fort variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
       expect(player.points).toBe(10_000);
@@ -2952,8 +2951,7 @@ describe("simulation runtime", () => {
       const tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
       expect(tile?.siegeOutpostJson).toBeDefined();
       expect(tile?.siegeOutpostJson).toContain("\"variant\":\"SIEGE_TOWER\"");
-      // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
-      // §12) — the siege tier ladder no longer charges gold at all, just the
+      // Build gold costs are zeroed: the siege tier ladder charges no gold, just the
       // manpower/supply/iron already asserted above via the siege variant.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
       expect(player.points).toBe(10_000);
@@ -2999,7 +2997,7 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       expect(events).toHaveLength(1);
       expect(events[0].code).toBe("BUILD_INVALID");
-      expect(events[0].message).toBe("siege outpost already at maximum tier");
+      expect(events[0].message).toBe("siege battery already at maximum tier");
     } finally {
       vi.useRealTimers();
     }
@@ -6160,7 +6158,7 @@ describe("simulation runtime", () => {
         eventType: "COMMAND_REJECTED",
         commandId: "bombard-unpowered",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "airport requires a nearby Ambaric Transformer"
+        message: "sky dock requires a nearby Ambaric Transformer"
       })
     );
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
@@ -6791,8 +6789,8 @@ describe("simulation runtime", () => {
   it("CRYSTAL_SYNTHESIZER no longer produces CRYSTAL regen (slot-based, not yield-based — §5.6)", () => {
     // Was: "subscription snapshot includes synthesizer crystal regen without
     // COLLECT_VISIBLE" — CRYSTAL_SYNTHESIZER's tile-production accrual was
-    // retired under the manpower-economy rewrite (docs/manpower-economy-
-    // rewrite-plan.md §5.6); the field/spend stays live for abilities/tech,
+    // retired under the manpower-economy rewrite;
+    // the field/spend stays live for abilities/tech,
     // but nothing feeds it from this structure anymore.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -7992,7 +7990,7 @@ describe("worldbreaker shot", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "World Engine requires a nearby Ambaric Transformer"
+      message: "Sovereign Siege Engine requires a nearby Ambaric Transformer"
     }));
   });
 

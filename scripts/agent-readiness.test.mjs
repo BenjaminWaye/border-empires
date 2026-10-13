@@ -17,3 +17,17 @@ test("agent entrypoints and local gates remain discoverable", () => {
   assert.match(docsMap, /documentation-maintenance\.md/);
   assert.match(docsMap, /agent-work-readiness-plan\.md/);
 });
+
+test("local stack boots from a clean checkout and an empty DB", () => {
+  // pnpm dev must build every workspace package the apps import (sim-protocol
+  // ships simulation.proto in dist/), not just shared.
+  const devScript = JSON.parse(text("package.json")).scripts.dev;
+  for (const app of ["@border-empires/simulation", "@border-empires/realtime-gateway", "@border-empires/client"]) {
+    assert.ok(devScript.includes(`"${app}^..."`), `pnpm dev must build ${app}'s dependencies`);
+  }
+  // A SQLite path requires durable state by default; the local seed scripts
+  // must opt out so an empty DB seeds the world instead of crashing.
+  for (const file of ["scripts/restart-rewrite-stack-20ai-seed.sh", "scripts/restart-rewrite-stack-20ai.sh"]) {
+    assert.match(text(file), /SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 \\/, `${file} must allow seeding an empty DB`);
+  }
+});

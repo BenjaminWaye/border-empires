@@ -3,15 +3,16 @@
 // resource, players who haven't found it yet need to know what it looks
 // like (glyph/color, matching the map/HUD) and roughly where to look.
 // Deliberately reuses the glyph/color already defined for the map/HUD
-// (resourceIconForKey/strategicResourceColor in client-map-display.ts) and
+// (resourceIconHtml in client-resource-icons.ts, resourceColor in
+// client-map-display.ts) and
 // the "what it's for" copy already written for the map-discovery toast
 // (DISCOVERY_TIPS in client-discovery-tips/client-discovery-tips.ts) instead
 // of duplicating either, so this panel can't drift out of sync with what the
 // map itself shows.
-import { resourceColor, resourceIconForKey, resourceLabel } from "./client-map-display.js";
+import { resourceColor, resourceLabel } from "./client-map-display.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips/client-discovery-tips.js";
 import type { TechInfo } from "./client-types.js";
-import { occupationSurveyController, occupationSurveyResourceLabel, techIdForOccupationSurveyResource } from "./client-occupation-survey.js";
 
 export type StrategicResourceKey = "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
@@ -39,7 +40,7 @@ const WHERE_TO_FIND: Record<StrategicResourceKey, string> = {
 // Map's raw deposit key (GEMS) differs from the strategic-resource key used
 // by tech requirements/HUD (CRYSTAL) — mirrors strategicResourceKeyForTile
 // in client-map-display.ts. resourceColor/resourceLabel take the raw
-// deposit key; resourceIconForKey takes the strategic-resource key.
+// deposit key; resourceIconHtml takes the strategic-resource key.
 const MAP_RESOURCE_KEY_BY_STRATEGIC: Record<StrategicResourceKey, string> = {
   TITANIUM: "TITANIUM",
   CRYSTAL: "GEMS",
@@ -51,7 +52,7 @@ export const resourceDiscoveryInfo = (key: StrategicResourceKey): ResourceDiscov
   return {
     key,
     label: resourceLabel(mapKey),
-    glyph: resourceIconForKey(key),
+    glyph: resourceIconHtml(key, "large"),
     color: resourceColor(mapKey) ?? "#888",
     whatItsFor: DISCOVERY_TIPS[DISCOVERY_TIP_ID_BY_RESOURCE[key]].body,
     whereToFind: WHERE_TO_FIND[key]
@@ -68,36 +69,4 @@ export const resourceDiscoveryInfo = (key: StrategicResourceKey): ResourceDiscov
 export const relatedStrategicResourcesForTech = (tech: TechInfo): StrategicResourceKey[] => {
   const revealed = typeof tech.effects?.revealResource === "string" ? tech.effects.revealResource.toUpperCase() : undefined;
   return (["TITANIUM", "CRYSTAL", "UMBRITE"] as const).filter((key) => key === revealed);
-};
-
-// "Resource revealed" card: glyph/color swatch + what it's for + where to
-// find it, for the strategic resource this tech reveals. Reuses the same
-// structure-info-* classes as the structure-info overlay so this reads as
-// part of the same design system instead of a one-off card.
-export const renderResourceRevealHtml = (tech: TechInfo): string => {
-  const resources = relatedStrategicResourcesForTech(tech);
-  if (resources.length === 0) return "";
-  const cardsHtml = resources
-    .map((key) => {
-      const info = resourceDiscoveryInfo(key);
-      return `<div class="structure-info-meta-card resource-reveal-card">
-        <div class="resource-reveal-swatch" style="background:${info.color}22;color:${info.color}" aria-hidden="true">${info.glyph}</div>
-        <div class="resource-reveal-copy">
-          <strong>${info.label}</strong>
-          <span>${info.whatItsFor}</span>
-          <span class="muted">${info.whereToFind}</span>
-        </div>
-      </div>`;
-    })
-    .join("");
-  const surveyHtml = resources.map((key) => {
-    const resource = key === "CRYSTAL" ? "GEMS" : key;
-    const report = occupationSurveyController.currentForResource(resource);
-    const detail = report ? `Occupation Survey: ${report.signature === "FERROUS_DUST" ? "ferrous terrain" : report.signature === "BLACKWOOD_CANOPY" ? "blackwood canopy" : "refractive ground"} identified ${report.bearing.toLowerCase()} of recent holdings.` : "No local signal in occupied territory. Further conquests may yield intelligence.";
-    return `<div class="resource-survey-card" data-resource-survey-tech="${techIdForOccupationSurveyResource(resource)}"><strong>Occupation intelligence</strong><span>${occupationSurveyResourceLabel(resource)}: ${detail}</span></div>`;
-  }).join("");
-  return `<section class="structure-info-section">
-    <span class="structure-info-section-label">Resource revealed</span>
-    <div class="resource-reveal-list">${cardsHtml}${surveyHtml}</div>
-  </section>`;
 };

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  isSummitTile,
   mountainHash01,
   mountainNeighbourhoodAt,
+  mountainSnowAt,
   mountainVariationAt,
-  SNOW_HEIGHT_SCALE,
+  SUMMIT_SNOW_SHARE,
   type MountainNeighbourhood
 } from "./client-map-mountain-variation.js";
 
@@ -64,16 +66,23 @@ describe("mountainVariationAt", () => {
     expect(twins).toBeLessThan(900 * 0.6);
   });
 
-  it("snows on tall peaks, and on every peak in cold country", () => {
-    for (let x = 0; x < 30; x += 1) {
-      for (let y = 0; y < 30; y += 1) {
-        const warm = mountainVariationAt(x, y, LONE);
-        expect(warm.snow).toBe(warm.heightScale >= SNOW_HEIGHT_SCALE);
-        // The range bonus raises the peak but doesn't add snow.
-        expect(mountainVariationAt(x, y, { ...LONE, north: true, south: true, east: true }).snow).toBe(warm.snow);
-        expect(mountainVariationAt(x, y, { ...LONE, cold: true }).snow).toBe(true);
-      }
+  it("snows on every mountain in cold country, on most lone summits elsewhere, and never on a range's filler", () => {
+    const lone = { isMountainAt: (x: number, y: number) => x === 5 && y === 5, isColdAt: () => false, wrapX: (v: number) => v, wrapY: (v: number) => v };
+    let snowyLone = 0;
+    for (let i = 0; i < 200; i += 1) {
+      const at = { ...lone, isMountainAt: (x: number, y: number) => x === i && y === i * 3 };
+      // A lone mountain is always its own summit.
+      expect(isSummitTile(i, i * 3, at)).toBe(true);
+      expect(mountainSnowAt(i, i * 3, at, true)).toBe(true);
+      if (mountainSnowAt(i, i * 3, at, false)) snowyLone += 1;
     }
+    expect(snowyLone / 200).toBeGreaterThan(SUMMIT_SNOW_SHARE - 0.12);
+    expect(snowyLone / 200).toBeLessThan(SUMMIT_SNOW_SHARE + 0.12);
+    // A long east-west range: tiles lower than a neighbour are filler, always bare outside cold country.
+    const range = { ...lone, isMountainAt: (x: number, y: number) => y === 0 && x >= 0 && x < 60 };
+    const fillers = Array.from({ length: 60 }, (_, x) => x).filter((x) => !isSummitTile(x, 0, range));
+    expect(fillers.length).toBeGreaterThan(15);
+    for (const x of fillers) expect(mountainSnowAt(x, 0, range, false)).toBe(false);
   });
 
   it("raises the spine of a range above the same tile standing alone", () => {

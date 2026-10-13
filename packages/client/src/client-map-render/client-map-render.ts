@@ -10,7 +10,6 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 import {
   aetherBridgeAnchorImage,
   aetherWallPylonImage,
-  createOverlayVariantSet,
   dockOverlayVariants,
   fortificationOverlayImages,
   overlaySrc,
@@ -30,6 +29,7 @@ export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-t
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
 import { drawSeaCoast2D } from "./client-map-render-shore-foam.js";
 import { useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
+import { depositIconKey, drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -62,30 +62,6 @@ const grassTownOverlayByTier = createTownOverlaySet({
   GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
   METROPOLIS: overlaySrc("metropolis-overlay-grass.svg")
 });
-
-const builtResourceOverlayVariants = {
-  FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
-  FISH_FARMSTEAD: createOverlayVariantSet(["fish-farmstead-overlay-1.svg", "fish-farmstead-overlay-2.svg", "fish-farmstead-overlay-3.svg"]),
-  UMBRITE_RIG: createOverlayVariantSet(["umbrite-rig-overlay-1.svg", "umbrite-rig-overlay-2.svg", "umbrite-rig-overlay-3.svg"]),
-  TITANIUM_MINE: createOverlayVariantSet(["titanium-mine-overlay-1.svg", "titanium-mine-overlay-2.svg", "titanium-mine-overlay-3.svg"]),
-  GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
-} as const;
-const resourceOverlayVariants = {
-  FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
-  FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
-  UMBRITE: createOverlayVariantSet(["umbrite-overlay-1.svg", "umbrite-overlay-2.svg", "umbrite-overlay-3.svg"]),
-  TITANIUM: createOverlayVariantSet(["titanium-overlay-1.svg", "titanium-overlay-2.svg", "titanium-overlay-3.svg"]),
-  GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
-} as const;
-const shardOverlayVariants = {
-  CACHE: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"]),
-  FALL: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"])
-} as const;
-
-export const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
-  const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
-  return hash % count;
-};
 
 type VisualStyleLookup = (ownerId: string) => EmpireVisualStyle | undefined;
 
@@ -437,19 +413,8 @@ export {
 } from "./client-map-render-centered-overlay.js";
 
 const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
-  const icon =
-    resource === "FARM" || resource === "FISH" ? "🍞"
-    : resource === "TITANIUM" ? "⛏"
-    : resource === "GEMS" ? "💎"
-    : resource === "UMBRITE" ? "🟣"
-    : "";
-  if (!icon) return;
-  ctx.font = `${Math.max(8, badge * 0.8)}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(icon, x + badge / 2, y + badge / 2 + 0.5);
-  ctx.textAlign = "start";
-  ctx.textBaseline = "alphabetic";
+  const key = depositIconKey(resource);
+  if (key) drawResourceIconOnCanvas(ctx, key, x + badge / 2, y + badge / 2, badge, `${Math.max(8, badge * 0.8)}px system-ui`);
 };
 
 export const drawResourceCornerMarker = (
@@ -730,38 +695,16 @@ export { drawPlanetaryDefenseOverlay } from "./client-map-render-planetary-defen
 // the colossus overlay above). Re-exported so existing importers keep working.
 export { drawIncomingAttackOverlay } from "./client-map-render-incoming-attack-overlay.js";
 
-export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.resource) return undefined;
-  const variants = resourceOverlayVariants[tile.resource as keyof typeof resourceOverlayVariants];
-  if (!variants) return undefined;
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-
-export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.resource || !tile.economicStructure) return undefined;
-  const key =
-    tile.resource === "FARM" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FARM_FARMSTEAD"
-    : tile.resource === "FISH" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FISH_FARMSTEAD"
-    : tile.resource === "UMBRITE" && tile.economicStructure.type === "UMBRITE_RIG" ? "UMBRITE_RIG"
-    : tile.resource === "TITANIUM" && tile.economicStructure.type === "MINE" ? "TITANIUM_MINE"
-    : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"
-    : undefined;
-  if (!key) return undefined;
-  const variants = builtResourceOverlayVariants[key];
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-
-export const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.shardSite) return undefined;
-  const variants = shardOverlayVariants[tile.shardSite.kind];
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-
-export const resourceOverlayScaleForTile = (tile: Tile): number => {
-  if (tile.resource === "FISH") return 1.3;
-  if (tile.resource === "TITANIUM") return 1.2;
-  return 1.08;
-};
+// Resource / built-structure overlay selection was extracted to
+// client-map-render-resource-overlays.ts (same file-size reason as the
+// overlays above). Re-exported so existing importers keep working unchanged.
+export {
+  overlayVariantIndexAt,
+  resourceOverlayForTile,
+  builtResourceOverlayForTile,
+  shardOverlayForTile,
+  resourceOverlayScaleForTile
+} from "./client-map-render-resource-overlays.js";
 
 export const economicStructureOverlayAlpha = (tile: Tile): number => {
   const status = tile.economicStructure?.status;

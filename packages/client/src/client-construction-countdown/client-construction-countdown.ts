@@ -16,10 +16,10 @@ export const constructionCountdownLineForTile = (
     return `Removing Fort... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
   }
   if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-    return `Building Observatory... ${formatCountdownClock(tile.observatory.completesAt - constructionClockMs(tile.observatory))}${tile.observatory.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;
+    return `Building Aether Tower... ${formatCountdownClock(tile.observatory.completesAt - constructionClockMs(tile.observatory))}${tile.observatory.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;
   }
   if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
-    return `Removing Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
+    return `Removing Aether Tower... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
   }
   if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
     return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - constructionClockMs(tile.siegeOutpost))}${tile.siegeOutpost.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;

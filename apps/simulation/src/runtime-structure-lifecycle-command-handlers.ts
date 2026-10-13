@@ -478,7 +478,7 @@ export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCo
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!target?.siegeOutpost || target.siegeOutpost.ownerId !== command.playerId || target.siegeOutpost.status !== "under_construction") {
-    rejectCommand(context, command, "SIEGE_OUTPOST_CANCEL_INVALID", "no siege outpost under construction on tile");
+    rejectCommand(context, command, "SIEGE_OUTPOST_CANCEL_INVALID", "no siege battery under construction on tile");
     return;
   }
   applyStructureCancelRefund(context, actor, siegeOutpostCancelRefund(target.siegeOutpost.variant));

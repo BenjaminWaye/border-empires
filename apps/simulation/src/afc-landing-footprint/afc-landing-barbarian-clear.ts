@@ -62,6 +62,7 @@ export const clearBarbariansAroundAfcLanding = (
       y: tile.y,
       terrain: tile.terrain,
       ...(tile.resource ? { resource: tile.resource } : {}),
+      ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.town ? { town: tile.town } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),

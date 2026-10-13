@@ -37,7 +37,7 @@ const flush = (state: WaystationPopupGateState): void => {
 
 /**
  * Shows the activation popup now, or holds it (latest wins, matching how a
- * second popup replaces the first) until the dashboard/tutorial/lobby is gone.
+ * second popup replaces the first) until the dashboard/lobby is gone.
  */
 export const showWaystationActivationOverlayWhenClear = (info: WaystationActivationInfo, state: WaystationPopupGateState): void => {
   if (!isWaystationPopupBlocked(state)) {

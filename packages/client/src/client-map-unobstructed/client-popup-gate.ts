@@ -1,4 +1,4 @@
-import { isNewPlayerStillOnboarding } from "../client-changelog/client-changelog.js";
+import { isFirstTimeVisitor } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { isMapUnobstructed, type MapUnobstructedState } from "./client-map-unobstructed.js";
 
@@ -8,7 +8,7 @@ import { isMapUnobstructed, type MapUnobstructedState } from "./client-map-unobs
 // the personal-activity response -- paints it on top of What's New. Each
 // popup holds itself until nothing else is open or about to open.
 
-export type PopupGateState = MapUnobstructedState & Pick<ClientState, "guide"> & { activityDashboard: { open: boolean; loading: boolean } };
+export type PopupGateState = MapUnobstructedState & Pick<ClientState, "changelog"> & { activityDashboard: { open: boolean; loading: boolean } };
 
 /** Upper bound on waiting for the personal-activity response, so a dropped request can't suppress a popup forever. */
 export const POPUP_PENDING_DASHBOARD_GRACE_MS = 10_000;
@@ -21,7 +21,7 @@ export const createPopupBlockedCheck = (): { isBlocked: (state: PopupGateState, 
   let pendingDashboardSince: number | null = null;
   /** The dashboard auto-opens for returning players once REQUEST_PERSONAL_ACTIVITY answers; until then it is pending. */
   const dashboardAboutToOpen = (state: PopupGateState, nowMs: number): boolean => {
-    if (isNewPlayerStillOnboarding(state) || !state.activityDashboard.loading) {
+    if (isFirstTimeVisitor(state) || !state.activityDashboard.loading) {
       pendingDashboardSince = null;
       return false;
     }

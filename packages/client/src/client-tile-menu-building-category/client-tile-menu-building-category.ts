@@ -35,14 +35,6 @@ export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   monument: "Monuments"
 };
 
-export const BUILDING_CATEGORY_ICONS: Record<BuildingCategory, string> = {
-  military: "⚔",
-  resource: "⛏",
-  town_support: "⚑",
-  infrastructure: "⚙",
-  monument: "♛"
-};
-
 // Fort/siege families, Airport (bombardment), and the defensive detection
 // structures (Observatory blocks hostile crystal actions, Radar System blocks
 // sky bombardment). Garrison Hall (a manpower hub), Aether Tower (a power

@@ -1,6 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind } from "../client-types.js";
-import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST, structureDisplayName } from "@border-empires/shared";
 import { applyAutoSettlePrefsFromServer, isClientAutoSettleAllowedForTile } from "../client-auto-settle-prompt/client-auto-settle-prefs.js";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
@@ -82,7 +82,7 @@ export const applyAutoSettlementQueueFromServer = (
     state.developmentQueue.filter((entry) => entry.kind === "SETTLE").map((entry) => entry.tileKey)
   );
   let settlementBudget = Math.max(0, state.gold - queuedSettlementTileKeys.size * SETTLE_COST);
-  // Manpower is also a real SETTLE cost (§4.2 of docs/manpower-economy-rewrite-plan.md)
+  // Manpower is also a real SETTLE cost
   // — bulk-filling this queue against gold alone over-queues settlements a
   // manpower-poor player can't actually afford, each of which then gets
   // rejected server-side one at a time.
@@ -457,7 +457,7 @@ const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEn
     x: entry.x,
     y: entry.y,
     tileKey: entry.tileKey,
-    label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${entry.structureType ?? "structure"} at (${entry.x}, ${entry.y})`,
+    label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${entry.structureType ? structureDisplayName(entry.structureType) : "structure"} at (${entry.x}, ${entry.y})`,
     payload: isRemoval
       ? { type: "REMOVE_STRUCTURE", x: entry.x, y: entry.y }
       : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "" },

@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -74,6 +74,8 @@ export type Tile = {
   detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: string;
+  /** Public worldgen clue: land near a Titanium/Umbrite/Crystal cluster (see client-prospect-clue). */
+  prospectSignature?: ProspectSignature;
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
   /** Persistent-border reach owner (Runtime.reachBorder on the server), independent of ownerId/ownershipState. */
@@ -410,10 +412,6 @@ export type FeedEntry = {
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
 export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
-export type GuideStep = {
-  title: string;
-  body: string;
-};
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 

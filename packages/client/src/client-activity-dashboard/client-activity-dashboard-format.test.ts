@@ -122,6 +122,7 @@ describe("activityCardText / activityCardCoordinates", () => {
   it("renders a waystation's specific grant and keeps its Center location", () => {
     const card = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "TECH" as const, grantedTechId: "CARTOGRAPHY", x: 5, y: 9 };
     expect(activityCardText(card as any, "me", noNames)).toContain("CARTOGRAPHY granted");
+    expect(activityCardText(card as any, "me", noNames, (id) => (id === "CARTOGRAPHY" ? "Star Charts" : undefined))).toContain("Star Charts granted");
     expect(activityCardCoordinates(card as any)).toEqual({ x: 5, y: 9 });
   });
 
@@ -137,5 +138,14 @@ describe("activityCardText / activityCardCoordinates", () => {
     const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MINTWORKS", instantGold: 100, x: 4, y: 7 };
     expect(activityCardText(town as any, "me", noNames)).toContain("settlement razed");
     expect(activityCardText(building as any, "me", noNames)).toContain("+100 gold");
+  });
+
+  it("names completed buildings by their player-facing name, not the backend id", () => {
+    const caravanary = { kind: "BUILDING_COMPLETED" as const, structureType: "CARAVANARY", x: 4, y: 7 };
+    const granary = { kind: "BUILDING_COMPLETED" as const, structureType: "GRANARY", x: 4, y: 7 };
+    const unknown = { kind: "BUILDING_COMPLETED" as const, structureType: "SOME_FUTURE_HALL", x: 4, y: 7 };
+    expect(activityCardText(caravanary as any, "me", noNames)).toBe("Trade Nexus completed");
+    expect(activityCardText(granary as any, "me", noNames)).toBe("Incubation Engine completed");
+    expect(activityCardText(unknown as any, "me", noNames)).toBe("Some future hall completed");
   });
 });

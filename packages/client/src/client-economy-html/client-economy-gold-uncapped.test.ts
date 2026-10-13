@@ -26,7 +26,7 @@ describe("renderEconomyPanelHtml gold display", () => {
       economyBreakdown: emptyEconomyBreakdown(),
       isMobile: true,
       prettyToken: (value) => value,
-      resourceIconForKey: (resource) => resource,
+      resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
       economicStructureName: (type) => type

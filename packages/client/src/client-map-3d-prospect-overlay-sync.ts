@@ -1,5 +1,5 @@
 import type { Tile, TileVisibilityState } from "./client-types.js";
-import type { ProspectSignature } from "@border-empires/shared";
+import { prospectClueColor } from "./client-prospect-clue/client-prospect-clue.js";
 import { Color } from "three";
 import type { OwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 import { hillNeighborFlagsAt } from "./client-map-3d-hill-shape.js";
@@ -23,11 +23,13 @@ type ProspectTileArgs = {
   roadDirsAt: (x: number, y: number) => RoadDirections | undefined;
 };
 
-const prospectColor = (signature: ProspectSignature): string =>
-  signature === "BLACKWOOD_CANOPY" ? "#3b2550" : signature === "FERROUS_DUST" ? "#806f66" : "#8edce8";
+
+// Was 0.18 with muted hues, which read as no tint at all on grass/sand: players
+// never noticed a clue. Strong enough to spot, still below territory tints.
+export const PROSPECT_CLUE_OPACITY = 0.4;
 
 export const addProspectTile = (args: ProspectTileArgs): void => {
-  const signature = (args.tile as (Tile & { prospectSignature?: ProspectSignature }) | undefined)?.prospectSignature;
+  const signature = args.tile?.prospectSignature;
   if (!signature || args.terrain !== "LAND" || args.visibility !== "visible") return;
   const corner00Y = args.cornerYAt(args.wx, args.wy) + 0.012;
   const corner10Y = args.cornerYAt(args.wxNext, args.wy) + 0.012;
@@ -37,7 +39,7 @@ export const addProspectTile = (args: ProspectTileArgs): void => {
   const x1 = args.x + 0.5;
   const z0 = args.z - 0.5;
   const z1 = args.z + 0.5;
-  const threeColor = new Color(prospectColor(signature));
+  const threeColor = new Color(prospectClueColor(signature));
   if (isHillsTile(args.wx, args.wy)) {
     args.overlay.addHillTile(x0, x1, z0, z1, corner00Y, corner10Y, corner01Y, corner11Y, threeColor, false, hillNeighborFlagsAt(args.wx, args.wy, isHillsTile, args.wrapX, args.wrapY), args.wx, args.wy, args.roadDirsAt(args.wx, args.wy));
   } else {

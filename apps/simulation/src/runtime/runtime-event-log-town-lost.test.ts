@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { COMBAT_LOCK_MS, DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
 
-// §20 of the manpower-economy-rewrite plan: the durable per-player event log's
+// The durable per-player event log's
 // "town lost" launch event type. Deliberately keyed on ownership changing
 // hands on a town tile (not the narrower `townLost` structural-loss flag —
 // see the comment at the call site in runtime.ts for why), so this covers a

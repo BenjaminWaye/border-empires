@@ -4,6 +4,7 @@ import { resourceSlotProductionHtml } from "./client-tile-resource-slot-producti
 import { menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "../client-types.js";
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 
 const deps = {
   state: { me: "me" },
@@ -26,11 +27,11 @@ const deps = {
 
 describe("resourceSlotProductionHtml", () => {
   it("returns the base FOOD slot count for a bare FARM tile", () => {
-    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FARM" })).toBe("🍞 Food +1");
+    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FARM" })).toBe(`${resourceIconHtml("FOOD")} Food +1`);
   });
 
   it("returns the higher FISH base slot count", () => {
-    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FISH" })).toBe("🍞 Food +2");
+    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FISH" })).toBe(`${resourceIconHtml("FOOD")} Food +2`);
   });
 
   it("adds a Farmstead's +2 own-tile boost on top of the FARM base", () => {
@@ -41,13 +42,13 @@ describe("resourceSlotProductionHtml", () => {
       resource: "FARM",
       economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" }
     };
-    expect(resourceSlotProductionHtml(tile)).toBe("🍞 Food +3");
+    expect(resourceSlotProductionHtml(tile)).toBe(`${resourceIconHtml("FOOD")} Food +3`);
   });
 
   it("returns TITANIUM/CRYSTAL/UMBRITE slot counts for the corresponding tile resources", () => {
-    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "TITANIUM" })).toBe("⛏ Titanium +1");
-    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "GEMS" })).toBe("💎 Crystal +1");
-    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "UMBRITE" })).toBe("🟣 Umbrite +1");
+    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "TITANIUM" })).toBe(`${resourceIconHtml("TITANIUM")} Titanium +1`);
+    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "GEMS" })).toBe(`${resourceIconHtml("CRYSTAL")} Crystal +1`);
+    expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "UMBRITE" })).toBe(`${resourceIconHtml("UMBRITE")} Umbrite +1`);
   });
 
   it("returns an empty string for a tile with no recognized resource", () => {
@@ -60,12 +61,12 @@ describe("menuOverviewForTile — settled resource node production line", () => 
     const farmTile: Tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" };
     const html = menuOverviewForTile(farmTile, deps).map((line) => line.html).join(" ");
     expect(html).not.toContain("once developed and collected");
-    expect(html).toContain("Production: 🍞 Food +1");
+    expect(html).toContain(`Production: ${resourceIconHtml("FOOD")} Food +1`);
   });
 
   it("does not show a Production: slot line for a FRONTIER (unsettled) resource tile", () => {
     const farmTile: Tile = { x: 4, y: 4, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" };
     const html = menuOverviewForTile(farmTile, deps).map((line) => line.html).join(" ");
-    expect(html).not.toContain("Production: 🍞 Food");
+    expect(html).not.toContain(`Production: ${resourceIconHtml("FOOD")} Food`);
   });
 });

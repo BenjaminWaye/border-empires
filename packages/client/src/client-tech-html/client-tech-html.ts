@@ -49,8 +49,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
-  if (key === "unlockObservatory" && value === true) return "Unlocks aether towers";
-  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
+  if (key === "unlockObservatory" && value === true) return "Unlocks Aether Towers";
+  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks Siege Batteries";
   if (key === "unlockGranary" && value === true) return `Unlocks the ${economicStructureName("GRANARY")}`;
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
@@ -65,7 +65,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
   if (key === "unlockGarrisonHall" && value === true) return "Unlocks Ancillary Depot";
-  if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
+  if (key === "unlockAirport" && value === true) return "Unlocks Sky Docks";
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
   if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
@@ -132,8 +132,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;
   if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks coin cap +${Math.round(value * 100)} pts`;
   if (key === "mintworksBonusMult" && typeof value === "number") return `Mintworks bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
+  if (key === "granaryBonusMult" && typeof value === "number") return `Incubation Engine growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Incubation Engine growth +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationIncomeMult" && typeof value === "number") return `Town income from population ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "connectedTownStepBonusAdd" && typeof value === "number") {
@@ -221,22 +221,6 @@ export const formatTechBenefitSummary = (tech: TechInfo): string => {
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
   const lines = formatEffectSummaryLines(domain.effects);
   return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
-};
-
-export const techOwnedHtml = (
-  techCatalog: TechInfo[],
-  ownedTechIds: string[],
-  isPendingTechUnlock: (techId: string) => boolean
-): string => {
-  if (ownedTechIds.length === 0) return `<article class="card"><p>No techs selected yet.</p></article>`;
-  const catalogById = new Map(techCatalog.map((tech) => [tech.id, tech]));
-  return ownedTechIds
-    .map((id) => {
-      const tech = catalogById.get(id);
-      const pending = isPendingTechUnlock(id) ? `<p class="muted">Unlocking...</p>` : "";
-      return `<article class="card"><strong>${tech?.name ?? id}</strong>${pending}<p>${tech?.description ?? id}</p><p>${tech ? formatTechBenefitSummary(tech) : id}</p></article>`;
-    })
-    .join("");
 };
 
 // Returns the set of valid resource keys offered by this domain's
@@ -552,53 +536,6 @@ const domainCardBlockedReason = (
   if (currentTier !== undefined && domain.tier < currentTier && !owned) return "Tier no longer available";
   const unmet = (domain.requirements.checklist ?? []).find((check) => !check.met);
   return unmet?.label;
-};
-
-export const renderTechDetailCardHtml = (args: {
-  tech: TechInfo | undefined;
-  statusText: string | undefined;
-  buttonLabel: string;
-  buttonDisabled: boolean;
-  prereqs: string[];
-  prereqText: string;
-  unlocks: Array<{ id: string; name: string; tier: number }>;
-  payoffHtml?: string;
-  blockedSummary?: { label: string; tone: "missing" | "blocked" } | null;
-  relatedStructuresHtml: string;
-  relatedCrystalAbilitiesHtml: string;
-}): string => {
-  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, payoffHtml = "", blockedSummary, relatedStructuresHtml, relatedCrystalAbilitiesHtml } = args;
-  if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
-  const checklist = effectiveRequirementChecklist(tech.requirements);
-  return `<article class="card tech-detail-card">
-    <div class="tech-detail-head">
-      <div>
-        <div class="tech-detail-title">${tech.name}${techBranchTagHtml(tech.branch)}</div>
-        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
-        ${statusText ? `<p class="muted">${statusText}</p>` : ""}
-      </div>
-    </div>
-    <div class="tech-detail-section-stack">
-      <p class="tech-detail-flavor">${tech.description}</p>
-      ${payoffHtml}
-      ${
-        blockedSummary
-          ? `<section class="tech-block-state tech-block-state-${blockedSummary.tone}">
-              <span class="structure-info-section-label">${blockedSummary.tone === "missing" ? "Missing to unlock" : "Locked by"}</span>
-              <strong>${blockedSummary.label}</strong>
-            </section>`
-          : ""
-      }
-    </div>
-    ${relatedStructuresHtml}
-    ${relatedCrystalAbilitiesHtml}
-    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `<button class="inline-info-link" type="button" data-tech-card="${next.id}">${next.name} (T${next.tier})</button>`).join(", ")}</p>` : ""}
-    <p><strong>Requirements:</strong></p>
-    ${checklistHtml(checklist)}
-    <div class="tech-detail-actions">
-      <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal${blockedSummary ? ` tech-unlock-btn-${blockedSummary.tone}` : ""}" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
-    </div>
-  </article>`;
 };
 
 export const renderDomainChoiceGridHtml = (args: {

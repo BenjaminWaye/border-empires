@@ -9,6 +9,7 @@ export * from "./afc-build-cost.js";
 export * from "./afc-module-call-down.js";
 export * from "./empire-storage-cap.js";
 export * from "./natural-wonder-labels.js";
+export * from "./structure-display-names/structure-display-names.js";
 export * from "./types.js";
 export * from "./waystation-types.js";
 export * from "./waystation-rewards.js";

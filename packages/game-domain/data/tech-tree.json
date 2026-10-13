@@ -53,7 +53,7 @@
       "tier": 1,
       "branch": "war",
       "name": "Rigging Works Module",
-      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks Umbrite Rig, Siege Outpost, and the Umbrite Weapons Factory.",
+      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks Umbrite Rig, Siege Battery, and the Umbrite Weapons Factory.",
       "cost": {
         "gold": 10
       },
@@ -231,7 +231,7 @@
       "tier": 2,
       "branch": "war",
       "name": "Siege Lens Foundry Module",
-      "description": "AFC module: precision optics and targeting apparatus for siege works. Unlocks Siege Tower upgrades for existing Siege Outposts.",
+      "description": "AFC module: precision optics and targeting apparatus for siege works. Unlocks Siege Tower upgrades for existing Siege Batteries.",
       "prereqIds": [
         "leatherworking"
       ],
@@ -447,7 +447,7 @@
       "tier": 5,
       "branch": "manpower",
       "name": "Population Registry Dossier",
-      "description": "Reserves an offworld Registry Engine Core for the Population Bureau project.",
+      "description": "Reserves an offworld Registry Engine Core for the Census Directorate project.",
       "prereqIds": [
         "global-trade-networks"
       ],

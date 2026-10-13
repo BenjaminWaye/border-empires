@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CylinderGeometry, InstancedMesh, Scene } from "three";
+import { CONSTRUCTION_PHASES, type ConstructionSite } from "./client-construction-phase/client-construction-phase.js";
 import { createContactShadowOverlay } from "./client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 
@@ -28,6 +29,34 @@ describe("mintworks structure overlay", () => {
     expect(renderedPieces).toBeGreaterThan(0);
     expect(flywheelMesh(scene)?.count).toBe(3);
 
+    overlay.dispose();
+  });
+
+  it.each(["build", "remove"] as const)("keeps fully visible flywheels frozen during %s and spins after completion", (direction) => {
+    const scene = new Scene();
+    const overlay = createStructureOverlay(scene, 3, createContactShadowOverlay(scene, 3));
+    const site: ConstructionSite = {
+      x: 0, y: 0, afcOffset: undefined, direction, field: "economicStructure",
+      structureType: "MINTWORKS", ownerId: "me", fraction: 0.9,
+      visibleBands: CONSTRUCTION_PHASES, phase: CONSTRUCTION_PHASES - 1,
+      startedAtMs: 0, completesAtMs: 60_000, crew: 2, stalled: false,
+      nextPhaseAtMs: undefined
+    };
+    overlay.addInstance(0, 0, 0, "MINTWORKS", undefined, site);
+    overlay.addInstance(2, 0, 0, "MINTWORKS");
+    overlay.commit();
+    const wheel = flywheelMesh(scene)!;
+    const before = Array.from(wheel.instanceMatrix.array.slice(0, 32));
+    overlay.update(1000);
+    overlay.update(2500);
+    expect(Array.from(wheel.instanceMatrix.array.slice(0, 16))).toEqual(before.slice(0, 16));
+    expect(Array.from(wheel.instanceMatrix.array.slice(16, 32))).not.toEqual(before.slice(16, 32));
+    overlay.clear();
+    overlay.addInstance(0, 0, 0, "MINTWORKS");
+    overlay.commit();
+    const completed = Array.from(wheel.instanceMatrix.array.slice(0, 16));
+    overlay.update(5000);
+    expect(Array.from(wheel.instanceMatrix.array.slice(0, 16))).not.toEqual(completed);
     overlay.dispose();
   });
 

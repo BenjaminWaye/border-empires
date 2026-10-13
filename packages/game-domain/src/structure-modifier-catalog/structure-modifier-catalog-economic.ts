@@ -157,7 +157,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // playerManpowerCapFromSummary: assemblyWorksNetworkGarrisonHallCount,
   // "Rail Depot no longer touches it"). Don't add a manpower-cap line here.
   if (type === "RAIL_DEPOT") {
-    return [{ statLabel: "Manpower/min per Logistics Guild in network", valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD}`, tone: "positive", isTownWide: true }];
+    return [{ statLabel: "Manpower/min per Ancillary Factory in network", valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD}`, tone: "positive", isTownWide: true }];
   }
   if (type === "QUARTERMASTERS_OFFICE") return [{ statLabel: "War-structure manpower cost (20-tile radius)", valueText: percentLabel(-(1 - QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT) * 100), tone: "positive", isTownWide: true }];
   if (type === "LOGISTICS_GUILD") {

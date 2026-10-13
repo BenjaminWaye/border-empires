@@ -1,6 +1,6 @@
 // Where each v9+ edge river begins: the corner its path starts on, the
 // direction it sets off in, and -- when it starts right next to one -- the
-// mountain it can be drawn flowing out of (docs/river-mountains-plan.md).
+// mountain it can be drawn flowing out of (docs/rivers-remake-plan.md, "River mountains").
 // Read-only over the existing river paths; changes no worldgen output.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";

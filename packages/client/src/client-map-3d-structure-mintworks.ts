@@ -214,11 +214,11 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
     return builder.addPiece(key, sx2, sy2, sz2, ox * SCALE, oy * SCALE, oz * SCALE, sx3 * SCALE, sy3 * SCALE, sz3 * SCALE, rotY, rotX, rotZ);
   };
 
-  // A flywheel piece the spin animates. One cut short mid-construction keeps its growing pose
-  // instead (index -1: update() leaves it alone), or the spin would redraw it at full height.
+  // Construction pieces keep their placed pose, even when fully visible in a late band.
+  // Index -1 excludes them from the spin until rebuilt without a construction gate.
   const addSpinning = (...args: Parameters<typeof add>): number => {
     const index = add(...args);
-    return builder.lastPieceWasCut() ? -1 : index;
+    return builder.isConstructionGated() ? -1 : index;
   };
 
   // ─── Flywheel animation ──────────────────────────────────────────────

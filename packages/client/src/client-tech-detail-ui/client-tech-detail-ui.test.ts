@@ -1,90 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { relatedStructureTypesForTech, renderTechDetailCard, renderTechDetailModal, renderTechDetailPrompt } from "./client-tech-detail-ui.js";
+import { relatedStructureTypesForTech, renderTechDetailPrompt } from "./client-tech-detail-ui.js";
 import { structureInfoForKey } from "../client-map-display.js";
 import type { TechInfo } from "../client-types.js";
 
-const cryptographyTech: TechInfo = {
-  id: "cryptography",
-  tier: 5,
-  name: "Cipher Bureaus",
-  description: "Spies improve dramatically once given clerks and a budget.",
-  mods: {},
-  effects: {
-    unlockAetherEmp: true,
-    revealUpkeepMult: 0.8,
-    sabotageCooldownMult: 0.85
-  },
-  requirements: {
-    gold: 14500,
-    resources: {
-      CRYSTAL: 200,
-      SHARD: 1
-    },
-    checklist: [],
-    canResearch: true
-  }
-};
-
-describe("tech detail crystal ability previews", () => {
+describe("tech detail structure mapping", () => {
   it("does not render the tech detail helper placeholder", () => {
     expect(renderTechDetailPrompt()).toBe("");
   });
 
-  it("shows crystal ability preview buttons in the inline tech detail card", () => {
-    const html = renderTechDetailCard({
-      tech: cryptographyTech,
-      techDetailOpen: true,
-      techCatalog: [cryptographyTech],
-      ownedTechIds: [],
-      techPrereqIds: () => [],
-      unlockedByTech: () => [],
-      isPendingTechUnlock: () => false,
-      pendingTechUnlockId: "",
-      techNameList: () => "",
-      structureInfoButtonHtml: () => "",
-      techTier: () => 5
-    });
-
-    expect(html).toContain("Abilities & actions:");
-    expect(html).toContain('data-crystal-ability-info="aether_emp"');
-  });
-
-  it("shows crystal ability preview buttons in the modal tech detail view", () => {
-    const html = renderTechDetailModal({
-      tech: cryptographyTech,
-      techCatalog: [cryptographyTech],
-      ownedTechIds: [],
-      techPrereqIds: () => [],
-      unlockedByTech: () => [],
-      isPendingTechUnlock: () => false,
-      pendingTechUnlockId: "",
-      techNameList: () => "",
-      structureInfoButtonHtml: () => "",
-      techTier: () => 5
-    });
-
-    expect(html).toContain("Abilities & actions");
-    expect(html).toContain('data-crystal-ability-info="aether_emp"');
-  });
-
-  it("shows owned techs as unlocked instead of locked", () => {
-    const html = renderTechDetailCard({
-      tech: cryptographyTech,
-      techDetailOpen: true,
-      techCatalog: [cryptographyTech],
-      ownedTechIds: ["cryptography"],
-      techPrereqIds: () => [],
-      unlockedByTech: () => [],
-      isPendingTechUnlock: () => false,
-      pendingTechUnlockId: "",
-      techNameList: () => "",
-      structureInfoButtonHtml: () => "",
-      techTier: () => 5
-    });
-
-    expect(html).toContain("Already unlocked.");
-    expect(html).toContain(">Unlocked<");
-    expect(html).not.toContain(">Locked<");
+  // Regression: the catalog's key is unlockUmbriteRig, but this mapper only
+  // knew the retired unlockCamp, so Rigging Works never listed its rig.
+  it("maps the Umbrite Rig unlock key to the Umbrite Rig", () => {
+    expect(relatedStructureTypesForTech({ effects: { unlockUmbriteRig: true } })).toEqual(["UMBRITE_RIG"]);
   });
 
   it("maps irrigation to Waterworks only", () => {
@@ -288,46 +215,3 @@ describe("tech detail crystal ability previews", () => {
 //   Directorate -> Ancillary Depot) used to render NO tags at all
 //   (shouldRenderUnlockHighlights suppressed them), leaving just the yellow
 //   text -- now it always shows its tag(s).
-describe("tech detail highlight tags replace the yellow unlock-summary text", () => {
-  const supplyDirectorate: TechInfo = {
-    id: "organized-supply",
-    tier: 1,
-    name: "Supply Directorate",
-    description: "Armies march on paperwork, then complain about the rations.",
-    mods: {},
-    effects: { unlockGarrisonHall: true },
-    requirements: { gold: 10, resources: {}, checklist: [], canResearch: true }
-  };
-
-  const commonDeps = {
-    techCatalog: [supplyDirectorate],
-    ownedTechIds: [],
-    techPrereqIds: () => [],
-    unlockedByTech: () => [],
-    isPendingTechUnlock: () => false,
-    pendingTechUnlockId: "",
-    techNameList: () => "",
-    structureInfoButtonHtml: () => "",
-    techTier: () => 1
-  };
-
-  it("shows the Ancillary Depot tag on the inline card instead of only yellow text", () => {
-    const html = renderTechDetailCard({ tech: supplyDirectorate, techDetailOpen: true, ...commonDeps });
-    expect(html).toContain("Ancillary Depot");
-    expect(html).toContain("tech-payoff-chip");
-    expect(html).not.toContain("tech-detail-effect");
-  });
-
-  it("shows the Ancillary Depot tag on the modal instead of only yellow text", () => {
-    const html = renderTechDetailModal({ tech: supplyDirectorate, ...commonDeps });
-    expect(html).toContain("Ancillary Depot");
-    expect(html).toContain("tech-payoff-chip");
-    expect(html).not.toContain("tech-detail-effect");
-    expect(html).not.toContain("Unlocks Ancillary Depot");
-  });
-
-  it("shows every highlight tag on the inline card, not capped at 2", () => {
-    const html = renderTechDetailCard({ tech: cryptographyTech, techDetailOpen: true, ...commonDeps, techCatalog: [cryptographyTech] });
-    expect(html).toContain("Aether EMP");
-  });
-});

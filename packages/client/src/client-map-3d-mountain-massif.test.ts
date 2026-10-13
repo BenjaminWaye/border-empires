@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Matrix4, Scene } from "three";
+import { Color, InstancedMesh, Matrix4, Scene } from "three";
 import { createMountainMassifs, isSummitTile, mountainModelIndexAt, type MountainMassifDeps } from "./client-map-3d-mountain-massif.js";
 import { LONE_MOUNTAIN_LOOKUP } from "./client-map-3d-mountain-massif.test-helpers.js";
 import { MOUNTAIN_MODELS } from "./client-map-3d-mountain-models.js";
@@ -32,6 +32,25 @@ describe("mountain massif (one rock cluster per tile)", () => {
       return shape;
     };
     expect(shapeAt(3, -2)).toEqual(shapeAt(-17, 9));
+  });
+
+  it("prints a remembered mountain in the fogged tint, on top of its own per-tile shade", () => {
+    const colourAt = (tint?: Color): Color => {
+      const scene = new Scene();
+      const massifs = createMountainMassifs(scene, 2, LONE_MOUNTAIN_LOOKUP);
+      massifs.addInstance(0, 0, 0.3, 40, 12, tint);
+      massifs.commit();
+      const mesh = massifs.meshes.find((m) => m.count > 0)!;
+      const colour = new Color();
+      mesh.getColorAt(0, colour);
+      massifs.dispose();
+      return colour;
+    };
+    const plain = colourAt();
+    const tinted = colourAt(new Color(0.5, 0.25, 1));
+    expect(tinted.r).toBeCloseTo(plain.r * 0.5, 5);
+    expect(tinted.g).toBeCloseTo(plain.g * 0.25, 5);
+    expect(tinted.b).toBeCloseTo(plain.b, 5);
   });
 
   it("draws one model per mountain tile: summits for local highs, fillers for the rest of a range", () => {

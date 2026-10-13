@@ -24,7 +24,7 @@ const route = [
 ];
 
 describe("drawSelectedDockSeaRoute2D", () => {
-  it("draws a stroke per route segment when the pairing is selected and visible", () => {
+  it("draws the route as one continuous stroke when the pairing is selected and visible", () => {
     const ctx = makeCtx();
     drawSelectedDockSeaRoute2D({
       ctx,
@@ -39,7 +39,9 @@ describe("drawSelectedDockSeaRoute2D", () => {
       resolveDockSeaRoute: () => route,
       worldToScreen: (wx, wy) => ({ sx: wx * 32, sy: wy * 32 })
     });
-    expect(ctx.stroke).toHaveBeenCalledTimes(route.length - 1);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.moveTo).toHaveBeenCalledTimes(1);
+    expect(ctx.lineTo).toHaveBeenCalledTimes(route.length - 1);
   });
 
   it("draws nothing when the pairing is not selected", () => {

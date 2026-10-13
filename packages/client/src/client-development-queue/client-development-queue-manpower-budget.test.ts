@@ -3,8 +3,8 @@
  *
  * Bug: applyAutoSettlementQueueFromServer bulk-filled the development queue
  * with SETTLE entries against a gold budget only — no manpower budget was
- * tracked at all. Once SETTLE started costing SETTLE_MANPOWER_COST manpower
- * (§4.2 of docs/manpower-economy-rewrite-plan.md), this meant the client
+ * tracked at all. Once SETTLE started costing SETTLE_MANPOWER_COST manpower,
+ * this meant the client
  * over-queued settlements a manpower-poor player couldn't actually afford,
  * each of which then got rejected server-side one at a time.
  *

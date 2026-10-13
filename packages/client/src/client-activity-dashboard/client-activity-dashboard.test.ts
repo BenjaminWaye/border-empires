@@ -31,11 +31,11 @@ const makeState = () => ({
   manpowerCap: 1000,
   bridgeDebugSeasonId: "season-1",
   authEmail: "a@example.com",
-  changelog: { open: false, seenAt: 0, scrollTop: 0 },
-  guide: { completed: true },
+  changelog: { open: false, seenAt: 1, scrollTop: 0 },
   authSessionReady: true,
   profileSetupRequired: false,
-  playerNames: new Map<string, string>([["player-2", "Rival Name"]])
+  playerNames: new Map<string, string>([["player-2", "Rival Name"]]),
+  techCatalog: []
 });
 
 const makeDeps = (state: ReturnType<typeof makeState>) => ({

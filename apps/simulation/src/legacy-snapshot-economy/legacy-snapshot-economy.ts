@@ -43,7 +43,7 @@ import {
   type DomainStrategicResourceKey,
   type TownDefinition
 } from "@border-empires/game-domain";
-import { OBSERVATORY_UPKEEP_PER_MIN, terrainAt } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, structureDisplayName, terrainAt } from "@border-empires/shared";
 
 type EconomyResourceKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
@@ -257,7 +257,7 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
     case "UMBRITE_RIG": return UMBRITE_RIG_GOLD_UPKEEP / 10;
     case "MINE": return MINE_GOLD_UPKEEP / 10;
     case "GRANARY": return GRANARY_GOLD_UPKEEP / 10;
-    // §6.4 (docs/manpower-economy-rewrite-plan.md): this switch previously
+    // This switch previously
     // had BOTH the base and Advanced Umbrite Synthesizer cases returning
     // UMBRITE_RIG_GOLD_UPKEEP instead of their own rate — a third, previously-
     // unfound instance of the exact "Advanced synthesizer costs less to
@@ -289,13 +289,8 @@ const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   return 0;
 };
 
-const structureLabel = (structureType: string): string => {
-  return structureType
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-};
+// Player-facing name ("Trade Nexus"), never the title-cased internal id.
+const structureLabel = (structureType: string): string => structureDisplayName(structureType);
 
 const sourceLabelForTile = (args: {
   tileKey: string;
@@ -569,7 +564,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     if (townIncome > 0) addBucket(sourceBuckets.GOLD, "Towns", townIncome, { count: ownedTowns.length, note: `${ownedTowns.length} garrisoned towns` });
     if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} garrisoned docks` });
 
-    // §6 (docs/manpower-economy-rewrite-plan.md): gold's only remaining
+    // Gold's only remaining
     // jobs post-rewrite are tech/rush-buys/synthesizer upkeep — a flat
     // per-settled-tile gold drain isn't one of those, so it's retired
     // rather than rescaled.
@@ -590,7 +585,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       }
       if (structure.type === "AIRPORT") {
         upkeep.crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN;
-        addBucket(sinkBuckets.CRYSTAL, "Airport upkeep", AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
+        addBucket(sinkBuckets.CRYSTAL, `${structureLabel("AIRPORT")} upkeep`, AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
       }
     }
 

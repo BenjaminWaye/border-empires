@@ -1,6 +1,7 @@
 import { isSeaTerrain, type Dock } from "@border-empires/shared";
 
 import type { ServerWorldgenDocksDeps, ServerWorldgenDocksRuntime } from "../server-world-runtime-types.js";
+import { planDockLinks } from "./server-worldgen-dock-links.js";
 
 type DockCandidate = { x: number; y: number; componentId: number; seaX: number; seaY: number };
 type LandComponent = {
@@ -282,22 +283,13 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       connectedDockIds: [] as string[],
       cooldownUntil: 0
     }));
-    const dockIndicesByComponent = new Map<number, number[]>();
-    for (let index = 0; index < selected.length; index += 1) {
-      const componentId = selected[index]!.componentId;
-      const indices = dockIndicesByComponent.get(componentId) ?? [];
-      indices.push(index);
-      dockIndicesByComponent.set(componentId, indices);
-    }
-
-    const edgeKeys = new Set<string>();
+    // Links are planned from the docks' real positions and sea distances
+    // (see server-worldgen-dock-links.ts). The component graph above only
+    // sizes how many docks a large landmass gets; it no longer decides
+    // which dock pairs are linked.
     const addDockConnection = (aIdx: number, bIdx: number): void => {
-      if (aIdx === bIdx) return;
       const a = docks[aIdx]!;
       const b = docks[bIdx]!;
-      const edgeKey = a.dockId < b.dockId ? `${a.dockId}|${b.dockId}` : `${b.dockId}|${a.dockId}`;
-      if (edgeKeys.has(edgeKey)) return;
-      edgeKeys.add(edgeKey);
       const aConnectedDockIds = a.connectedDockIds ?? [];
       const bConnectedDockIds = b.connectedDockIds ?? [];
       if (!aConnectedDockIds.includes(b.dockId)) a.connectedDockIds = [...aConnectedDockIds, b.dockId];
@@ -305,57 +297,8 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       if (!a.pairedDockId) a.pairedDockId = b.dockId;
       if (!b.pairedDockId) b.pairedDockId = a.dockId;
     };
-
-    const nextDockOffsetByComponent = new Map<number, number>();
-    const dockIndexForEdge = (componentId: number): number | undefined => {
-      const indices = dockIndicesByComponent.get(componentId);
-      if (!indices || indices.length === 0) return undefined;
-      const component = eligibleComponents.find((candidate) => candidate.id === componentId);
-      if (!component || component.tileCount < LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) return indices[0];
-      const offset = nextDockOffsetByComponent.get(componentId) ?? 0;
-      nextDockOffsetByComponent.set(componentId, offset + 1);
-      return indices[Math.min(offset, indices.length - 1)];
-    };
-
-    for (const [aComponentId, bComponentId] of componentEdges) {
-      const aIdx = dockIndexForEdge(aComponentId);
-      const bIdx = dockIndexForEdge(bComponentId);
-      if (aIdx === undefined || bIdx === undefined) continue;
-      addDockConnection(aIdx, bIdx);
-    }
-
-    const seaDistanceBetweenDockIndices = (aIdx: number, bIdx: number): number => {
-      const a = selected[aIdx]!;
-      const b = selected[bIdx]!;
-      const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
-      const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
-      return dx + dy;
-    };
-
-    for (const component of eligibleComponents) {
-      if (component.tileCount < LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) continue;
-      const indices = dockIndicesByComponent.get(component.id) ?? [];
-      let offset = nextDockOffsetByComponent.get(component.id) ?? 0;
-      while (offset < indices.length) {
-        const localIdx = indices[offset]!;
-        offset += 1;
-        nextDockOffsetByComponent.set(component.id, offset);
-        let bestRemoteIdx: number | undefined;
-        let bestDist = Number.POSITIVE_INFINITY;
-        for (const otherComponent of eligibleComponents) {
-          if (otherComponent.id === component.id) continue;
-          for (const remoteIdx of dockIndicesByComponent.get(otherComponent.id) ?? []) {
-            const distance = seaDistanceBetweenDockIndices(localIdx, remoteIdx);
-            if (distance < bestDist) {
-              bestDist = distance;
-              bestRemoteIdx = remoteIdx;
-            }
-          }
-        }
-        if (bestRemoteIdx === undefined) break;
-        addDockConnection(localIdx, bestRemoteIdx);
-      }
-    }
+    const plannedLinks = planDockLinks(selected, { worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt });
+    for (const [aIdx, bIdx] of plannedLinks) addDockConnection(aIdx, bIdx);
 
     // Every dock produced above came from an eligible component (one with at
     // least one sea-adjacent land tile), so it always belongs on the map —

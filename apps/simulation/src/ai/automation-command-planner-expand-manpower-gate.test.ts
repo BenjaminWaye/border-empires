@@ -5,7 +5,7 @@
  * capability flag in runtime.ts) only ever checked `points >= FRONTIER_CLAIM_COST`
  * — never `manpower >= EXPAND_MANPOWER_COST` — unlike its sibling `canAttack`,
  * which correctly combined both resources. Once EXPAND started costing
- * EXPAND_MANPOWER_COST manpower (§4.2 of docs/manpower-economy-rewrite-plan.md),
+ * EXPAND_MANPOWER_COST manpower,
  * this meant the AI kept scoring/proposing EXPAND while manpower-starved,
  * which the server (game-domain's validateFrontierCommand) now correctly
  * rejects — wasted planning cycles and rejected commands every tick until

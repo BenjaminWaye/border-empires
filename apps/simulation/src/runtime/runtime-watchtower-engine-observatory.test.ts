@@ -85,7 +85,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "lance-2",
       code: "AETHER_LANCE_INVALID",
-      message: "no ready observatory in range"
+      message: "no ready aether tower in range"
     }));
   });
 
@@ -158,7 +158,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "lance-too-far",
       code: "AETHER_LANCE_INVALID",
-      message: "no ready observatory in range"
+      message: "no ready aether tower in range"
     }));
   });
 

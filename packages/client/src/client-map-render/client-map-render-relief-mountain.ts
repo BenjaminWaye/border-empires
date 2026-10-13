@@ -1,7 +1,7 @@
 // Split out of client-map-render.ts (over the repo's 500-line file cap) so
 // adding 2D river edges to drawTerrainTile didn't grow that file. The 2D
 // relief renderer's stylized mountain tile, drawn by drawTerrainTile.
-import { mountainVariationForWorldTile } from "./client-map-render-mountain-peaks.js";
+import { mountainSnowForWorldTile, mountainVariationForWorldTile } from "./client-map-render-mountain-peaks.js";
 
 const mountainPeakOffset = (wx: number, wy: number): { x: number; y: number } => {
   const nx = Math.sin(wx * 12.7 + wy * 4.9) * 0.5 + 0.5;
@@ -124,7 +124,7 @@ export const drawReliefMountainTile = (
   }
 
   // Snow cap: tall or cold-country peaks only (same rule as 3D).
-  if (variation.snow) drawReliefSnowCap(ctx, peakX, peakY, size);
+  if (mountainSnowForWorldTile(wx, wy)) drawReliefSnowCap(ctx, peakX, peakY, size);
 
   ctx.fillStyle = "rgba(255, 245, 208, 0.1)";
   ctx.fillRect(px + 1, py + 1, size - 2, Math.max(1, Math.floor(size * 0.06)));

@@ -75,7 +75,7 @@ export type RuntimeStructureCommandContext = {
   economicStructureForSupportedTown: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   firstAvailableTownSupportTile: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   assignedTownKeyForSupportTile: (playerId: string, x: number, y: number) => string | undefined;
-  // §4.4 (docs/manpower-economy-rewrite-plan.md): "only one Rail Depot may be
+  // "only one Rail Depot may be
   // built per connected-town network" — true when townKey's own network
   // already has an active Rail Depot, at that town or any town it's connected to.
   railDepotAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
@@ -209,7 +209,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
         (tile) => tile.ownerId === command.playerId && tile.ownershipState === "SETTLED" && tile.afc?.status === "active" && tile.afc.modules?.includes(techId)
       );
       if (!accessible) {
-        rejectCommand(context, command, "BUILD_INVALID", `Requires an active AFC with ${techId} installed`);
+        rejectCommand(context, command, "BUILD_INVALID", `Requires an active AFC with ${techEntryById.get(techId)?.name ?? techId} installed`);
         return;
       }
     }
@@ -337,7 +337,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     return;
   }
   if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost && !nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)) {
-    rejectCommand(context, command, "BUILD_INVALID", target.siegeOutpost.variant === "DREAD_TOWER" ? "siege outpost already at maximum tier" : "research the next tier first");
+    rejectCommand(context, command, "BUILD_INVALID", target.siegeOutpost.variant === "DREAD_TOWER" ? "siege battery already at maximum tier" : "research the next tier first");
     return;
   }
   if (context.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
