@@ -514,7 +514,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   return `<article class="card tech-tree-shell expanded" data-tech-tree-shell>
     <div class="tech-tree-shell-head">
       <div>
-        <div class="domain-summary-kicker">Manifest</div>
+        <div class="domain-summary-kicker">All Manifests</div>
         <strong>Manifest tree</strong>
         <p>Drag across the six ages to see how frontier survival becomes machine empire, then sky power.</p>
       </div>

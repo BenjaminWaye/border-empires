@@ -267,6 +267,7 @@ export const hudMarkup = `
   <aside id="side-panel">
     <div id="side-panel-head">
       <h3 id="panel-title">Panel</h3>
+      <button id="tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
       <button id="panel-close">Close</button>
     </div>
     <div id="side-panel-body">
@@ -275,7 +276,6 @@ export const hudMarkup = `
         <div class="tech-section-tabs manifest-tabs" role="tablist">
           <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
           <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
-          <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="tree">Tree</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
           <div id="tech-current-mods"></div>
@@ -319,13 +319,15 @@ export const hudMarkup = `
   </aside>
 
   <div id="mobile-sheet">
-    <div id="mobile-sheet-head">Panel</div>
+    <div id="mobile-sheet-head">
+      <span id="mobile-sheet-title">Panel</span>
+      <button id="mobile-tech-view-toggle" class="panel-btn manifest-view-toggle" type="button">Tree view</button>
+    </div>
     <section id="mobile-panel-missions" class="mobile-panel" hidden></section>
     <section id="mobile-panel-tech" class="mobile-panel" data-manifest-tab="available">
       <div class="tech-section-tabs manifest-tabs" role="tablist">
         <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
         <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
-        <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="tree">Tree</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">
         <div id="mobile-tech-current-mods"></div>
