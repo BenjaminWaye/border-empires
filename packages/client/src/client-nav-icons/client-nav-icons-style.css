@@ -9,7 +9,7 @@
 }
 
 /* 30px fills the 44x40 desktop tab button (and the 44px-tall mobile nav
-   buttons) with room to spare; smaller and the painted art stops reading. */
+   buttons) with room to spare. */
 .tab-icon-img {
   width: 30px;
   height: 30px;

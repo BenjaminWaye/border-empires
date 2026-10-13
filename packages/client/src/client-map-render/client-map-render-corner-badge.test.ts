@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { CORNER_BADGE_ICON_MIN_TILE_PX, drawCornerBadge } from "./client-map-render-corner-badge.js";
 
@@ -38,5 +40,11 @@ describe("drawCornerBadge", () => {
     expect(strokes).toEqual(["#c9c9c9"]);
     expect(fills.map((f) => f.style)).not.toContain("#c9c9c9");
     expect(drawIcon).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("dock badge icon", () => {
+  it("ships the brass anchor SVG the dock marker draws when zoomed in", () => {
+    expect(existsSync(fileURLToPath(new URL("../../public/icons/simple/dock.svg", import.meta.url)))).toBe(true);
   });
 });
