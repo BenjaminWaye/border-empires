@@ -136,6 +136,26 @@ describe("PLAYER_UPDATE integrityPct handling", () => {
     expect(defensibilityPctFromTE).toHaveBeenCalled();
   });
 
+  it("leaves integrity alone on a partial PLAYER_UPDATE that carries no integrity data", () => {
+    // Playtest regression: profile/colour changes, auto-settle toggles and
+    // ability/map commands send PLAYER_UPDATEs with no integrityPct/Ts/Es;
+    // each one used to recompute integrity from cached counts without the
+    // new-empire grace floor, dropping a ~20-tile empire to ~80%.
+    const state = createState();
+    state.me = "player-1";
+    const ws = new FakeWebSocket();
+    const defensibilityPctFromTE = vi.fn(() => 80);
+    bind(state, ws, defensibilityPctFromTE);
+
+    ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", Ts: 20, Es: 60, integrityPct: 92 }) });
+    expect(state.defensibilityPct).toBe(92);
+
+    ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", autoSettle: { enabled: true } }) });
+    ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", tileColor: "#ff0000" }) });
+    expect(state.defensibilityPct).toBe(92);
+    expect(defensibilityPctFromTE).not.toHaveBeenCalled();
+  });
+
   it("clamps an out-of-range integrityPct into [0,100]", () => {
     const state = createState();
     state.me = "player-1";

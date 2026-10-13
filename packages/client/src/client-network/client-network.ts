@@ -1267,7 +1267,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
+      if ("integrityPct" in msg || "Ts" in msg || "Es" in msg) state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
       if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
       if (state.defensibilityPct > prevDefensibility + 0.05) {
         state.defensibilityAnimUntil = Date.now() + 550;
