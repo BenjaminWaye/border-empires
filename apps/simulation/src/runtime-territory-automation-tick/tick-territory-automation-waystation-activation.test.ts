@@ -3,8 +3,9 @@
  * be free-claimed by tickTerritoryAutomation without ever activating, leaving it
  * "Dormant" under its owner forever (activation is one-shot and only the
  * lock-resolution and reach-auto-claim paths called it). The same tick now
- * activates it, and a one-shot sweep on the first tick repairs waystations that
- * were already claimed-but-dormant in an existing world.
+ * activates it. The boot sweep must NOT activate an already-owned dormant
+ * waystation: a restart used to erase activation (see snapshot-compaction.ts),
+ * so the sweep re-rolled every owned waystation's reward on every deploy.
  */
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
@@ -75,12 +76,12 @@ describe("tickTerritoryAutomation waystation activation", () => {
     expect(tile.waystation?.grantedEffect).toBeDefined();
   });
 
-  it("repairs an already-owned dormant waystation on the first tick", () => {
+  it("does not re-roll an already-owned dormant waystation on the first tick (regression: +1000 manpower per deploy)", () => {
     const runtime = buildRuntime(PLAYER_ID);
     expect(waystationAt(runtime).waystation?.activated).toBe(false);
 
     runtime.tickTerritoryAutomation(NOW_MS);
 
-    expect(waystationAt(runtime).waystation?.activated).toBe(true);
+    expect(waystationAt(runtime).waystation?.activated).toBe(false);
   });
 });
