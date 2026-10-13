@@ -5,7 +5,7 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   TOWN_TIER_UPGRADE_GOLD_COST,
-  WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   observatoryCrystalSlotCostForOwnedCount,
   structureSlotRequirements,
   townFoodSlotDemandForTier
@@ -37,7 +37,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("matches §12's Siege tier ladder exactly", () => {
-    expect(structureSlotRequirements("SIEGE_OUTPOST")).toEqual([{ resource: "UMBRITE", count: 1 }]);
+    expect(structureSlotRequirements("SIEGE_BATTERY")).toEqual([{ resource: "UMBRITE", count: 1 }]);
     expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([
       { resource: "UMBRITE", count: 2 },
       { resource: "TITANIUM", count: 1 }
@@ -49,35 +49,35 @@ describe("structureSlotRequirements", () => {
   });
 
   it("gives every Tier 3 'crystal fix' structure both a FOOD and a CRYSTAL slot", () => {
-    for (const type of ["FOUNDRY", "RAIL_DEPOT", "RADAR_SYSTEM", "AETHER_TOWER"] as const) {
+    for (const type of ["ORE_REFINERY", "NEURAL_WORKS", "RESONANCE_GRID", "AMBARIC_TRANSFORMER"] as const) {
       expect(structureSlotRequirements(type)).toEqual(
         expect.arrayContaining([{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }])
       );
     }
   });
 
-  it("gives Garrison Hall (Ancillary Factory) just FOOD — CRYSTAL slot removed per tech-tree redesign", () => {
-    expect(structureSlotRequirements("GARRISON_HALL")).toEqual([
+  it("gives Ancillary Depot (Ancillary Factory) just FOOD — CRYSTAL slot removed per tech-tree redesign", () => {
+    expect(structureSlotRequirements("ANCILLARY_DEPOT")).toEqual([
       { resource: "FOOD", count: 1 }
     ]);
   });
 
   it("gives every synthesizer (base and advanced) exactly 1 slot of its own resource, no FOOD slot", () => {
-    expect(structureSlotRequirements("UMBRITE_SYNTHESIZER")).toEqual([{ resource: "UMBRITE", count: 1 }]);
-    expect(structureSlotRequirements("ADVANCED_UMBRITE_SYNTHESIZER")).toEqual([{ resource: "UMBRITE", count: 1 }]);
+    expect(structureSlotRequirements("UMBRITE_WORKS")).toEqual([{ resource: "UMBRITE", count: 1 }]);
+    expect(structureSlotRequirements("HIGH_YIELD_UMBRITE_WORKS")).toEqual([{ resource: "UMBRITE", count: 1 }]);
     expect(structureSlotRequirements("TITANIUM_WORKS")).toEqual([{ resource: "TITANIUM", count: 1 }]);
-    expect(structureSlotRequirements("ADVANCED_TITANIUM_WORKS")).toEqual([{ resource: "TITANIUM", count: 1 }]);
-    expect(structureSlotRequirements("CRYSTAL_SYNTHESIZER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
-    expect(structureSlotRequirements("ADVANCED_CRYSTAL_SYNTHESIZER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
+    expect(structureSlotRequirements("HIGH_YIELD_TITANIUM_WORKS")).toEqual([{ resource: "TITANIUM", count: 1 }]);
+    expect(structureSlotRequirements("AETHER_CONDENSER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
+    expect(structureSlotRequirements("HIGH_YIELD_AETHER_CONDENSER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
   });
 
   it("gives every monument component exactly 1 CRYSTAL slot (SHARD stays a separate flow cost, not modeled here)", () => {
     for (const type of [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-      "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+      "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
       "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-      "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+      "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
       "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
     ] as const) {
       expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 1 }]);
@@ -85,20 +85,20 @@ describe("structureSlotRequirements", () => {
   });
 
   it("gives every finished monument assembly 4 CRYSTAL slots (1 for itself + 3 absorbing its consumed components' slots)", () => {
-    for (const type of ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const) {
+    for (const type of ["IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"] as const) {
       expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 4 }]);
     }
   });
 
-  it("gives structures with an existing 'other' slot requirement no FOOD slot (Observatory, Airport)", () => {
+  it("gives structures with an existing 'other' slot requirement no FOOD slot (Observatory, Sky Dock)", () => {
     expect(structureSlotRequirements("OBSERVATORY")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
-    // AIRPORT's CRYSTAL slot requirement is 3, not 1 (bumped alongside its
+    // SKY_DOCK's CRYSTAL slot requirement is 3, not 1 (bumped alongside its
     // bombard ability going free-to-fire — see server-game-constants.ts).
-    expect(structureSlotRequirements("AIRPORT")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
+    expect(structureSlotRequirements("SKY_DOCK")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
   });
 
   it("returns an empty array for a structure with no entry, rather than throwing", () => {
-    expect(structureSlotRequirements("FARMSTEAD")).toEqual([]);
+    expect(structureSlotRequirements("HYDROGARDEN")).toEqual([]);
   });
 
   it("every entry in the table has at least one requirement with a positive count", () => {
@@ -108,8 +108,8 @@ describe("structureSlotRequirements", () => {
     }
   });
 
-  it("Wooden Fort requires FOOD slot (same as Relay Beacon), not TITANIUM like the upgraded Fort", () => {
-    expect(structureSlotRequirements("WOODEN_FORT")).toEqual([{ resource: "FOOD", count: 1 }]);
+  it("Palisade requires FOOD slot (same as Relay Beacon), not TITANIUM like the upgraded Fort", () => {
+    expect(structureSlotRequirements("PALISADE")).toEqual([{ resource: "FOOD", count: 1 }]);
   });
 });
 
@@ -126,15 +126,15 @@ describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
   });
 });
 
-describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
-  it("Farmstead adds +2 slots, Mine/Umbrite Rig each add +1 slot, to their own tile", () => {
-    expect(TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD).toBe(2);
+describe("TILE_SLOT_BOOST_STRUCTURES / Hydroworks bonus", () => {
+  it("Hydrogarden adds +2 slots, Mine/Umbrite Rig each add +1 slot, to their own tile", () => {
+    expect(TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN).toBe(2);
     expect(TILE_SLOT_BOOST_STRUCTURES.MINE).toBe(1);
     expect(TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG).toBe(1);
   });
 
-  it("Waterworks adds +2 FOOD slots to Farmsteads in its radius, on top of Farmstead's own +2", () => {
-    expect(WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS).toBe(2);
+  it("Hydroworks adds +2 FOOD slots to Hydrogardens in its radius, on top of Hydrogarden's own +2", () => {
+    expect(HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS).toBe(2);
   });
 });
 
@@ -167,9 +167,9 @@ describe("SYNTHESIZER_STRUCTURE_TYPES", () => {
   it("lists all three base + three advanced synthesizer types", () => {
     expect(SYNTHESIZER_STRUCTURE_TYPES).toEqual(
       expect.arrayContaining([
-        "UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER",
-        "TITANIUM_WORKS", "ADVANCED_TITANIUM_WORKS",
-        "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"
+        "UMBRITE_WORKS", "HIGH_YIELD_UMBRITE_WORKS",
+        "TITANIUM_WORKS", "HIGH_YIELD_TITANIUM_WORKS",
+        "AETHER_CONDENSER", "HIGH_YIELD_AETHER_CONDENSER"
       ])
     );
     expect(SYNTHESIZER_STRUCTURE_TYPES.length).toBe(6);

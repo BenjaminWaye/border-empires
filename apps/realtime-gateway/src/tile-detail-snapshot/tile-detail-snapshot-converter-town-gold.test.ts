@@ -59,7 +59,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" })
         },
         ...baseTiles()
       ]
@@ -81,7 +81,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active" })
         },
         ...baseTiles()
       ]
@@ -97,7 +97,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
       tiles: [
         {
           x: 240, y: 149, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" })
         },
         ...baseTiles()
       ]

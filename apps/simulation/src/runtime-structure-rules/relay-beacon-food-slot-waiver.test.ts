@@ -61,7 +61,7 @@ describe("BUILD_STRUCTURE parity — RELAY_BEACON FOOD-slot waiver", () => {
     }
   });
 
-  // Regression for a double-count found in review of the WOODEN_FORT-over-
+  // Regression for a double-count found in review of the PALISADE-over-
   // RELAY_BEACON build carve-out: hasFreeResourceSlots credits back a
   // replaced tile's occupant via its raw, unwaived FOOD requirement. A
   // waived Relay Beacon (one of the player's free first 5, 0 counted FOOD
@@ -100,7 +100,7 @@ describe("BUILD_STRUCTURE parity — RELAY_BEACON FOOD-slot waiver", () => {
       runtime.submitCommand({
         commandId: "build-palisade-over-waived-beacon", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: Date.now(),
         type: "BUILD_STRUCTURE" as any,
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "WOODEN_FORT" }),
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "PALISADE" }),
       });
       await Promise.resolve();
 

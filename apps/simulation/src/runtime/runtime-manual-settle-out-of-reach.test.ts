@@ -55,7 +55,7 @@ describe("manual Garrison on out-of-reach frontier tiles", () => {
   });
 
   it("accepts a captured economic structure tile outside reach", async () => {
-    const seen = await settleAt({ economicStructure: { ownerId: "player-1", type: "FARMSTEAD", status: "active" } });
+    const seen = await settleAt({ economicStructure: { ownerId: "player-1", type: "HYDROGARDEN", status: "active" } });
     expect(rejection(seen)).toBeUndefined();
     expect(seen.some((event) => event.eventType === "SETTLEMENT_STARTED")).toBe(true);
   });

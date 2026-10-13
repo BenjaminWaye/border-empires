@@ -288,7 +288,7 @@ export class VisibilityCoverageTracker {
   // be removed exactly — including when the source's base radius changes and
   // the +1 ring must move outward/inward.
   private readonly townBonusRadiusBySourceAndTile = new Map<string, Map<string, number>>();
-  // Light/Siege Outpost vision bonuses (runtime-outpost-vision.ts) and
+  // Light/Siege Battery vision bonuses (runtime-outpost-vision.ts) and
   // Observatory's flat local vision bonus (runtime-observatory-vision.ts) —
   // same "flat extra radius around one owned tile" shape as each other, kept
   // in separate SourceBonusRadiusTracker instances (distinct reason tags and
@@ -511,7 +511,7 @@ export class VisibilityCoverageTracker {
    * Adds a permanent vision bonus for an owned active Relay Beacon or Siege
    * Outpost (runtime-outpost-vision.ts) — Relay Beacon's flat base plus
    * Survey Corps's outpostVisionRadiusBonus tech effect on either. A Light
-   * Outpost upgrading to a Siege Outpost, or a tech unlock moving the ring,
+   * Outpost upgrading to a Siege Battery, or a tech unlock moving the ring,
    * can always be removed/re-set exactly regardless of which structure
    * granted it — see SourceBonusRadiusTracker.
    */

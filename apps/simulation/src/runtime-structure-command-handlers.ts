@@ -60,7 +60,7 @@ export type RuntimeStructureCommandContext = {
   // Used by the outpost-family OUT_OF_REACH gate below to tell "no one's
   // reach reaches here at all" (still blocked -- true leapfrogging) apart
   // from "another player's reach currently covers this tile I own" (allowed
-  // -- a siege outpost's whole point is projecting into contested/enemy
+  // -- a siege battery's whole point is projecting into contested/enemy
   // territory, not just your own settled core).
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
   // §5 (resource slots): the player's current global slot supply/demand
@@ -75,13 +75,13 @@ export type RuntimeStructureCommandContext = {
   economicStructureForSupportedTown: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   firstAvailableTownSupportTile: (playerId: string, townKey: string, type: EconomicStructureType) => DomainTileState | undefined;
   assignedTownKeyForSupportTile: (playerId: string, x: number, y: number) => string | undefined;
-  // "only one Rail Depot may be
+  // "only one Neural Works may be
   // built per connected-town network" — true when townKey's own network
-  // already has an active Rail Depot, at that town or any town it's connected to.
-  railDepotAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
-  // Same shape, retargeted at Assembly Works (tech-tree redesign): "only one
-  // Assembly Works may be built per connected-town network."
-  assemblyWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // already has an active Neural Works, at that town or any town it's connected to.
+  neuralWorksAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
+  // Same shape, retargeted at Reserve Lattice (tech-tree redesign): "only one
+  // Reserve Lattice may be built per connected-town network."
+  reserveLatticeAlreadyInNetwork: (playerId: string, townKey: string) => boolean;
   // Quartermaster's Office (tech-tree redesign): true when the player has an
   // active Quartermaster's Office within QUARTERMASTERS_OFFICE_RADIUS tiles
   // of (x, y) -- reduces manpower cost for War-branch structures built
@@ -113,9 +113,9 @@ export type RuntimeStructureCommandContext = {
 type StrategicCost = Partial<Record<StrategicResourceKey, number>>;
 
 function upgradeBaseType(structureType: BuildableStructureType): string | undefined {
-  if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
-  if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
-  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
+  if (structureType === "HIGH_YIELD_UMBRITE_WORKS") return "UMBRITE_WORKS";
+  if (structureType === "HIGH_YIELD_TITANIUM_WORKS") return "TITANIUM_WORKS";
+  if (structureType === "HIGH_YIELD_AETHER_CONDENSER") return "AETHER_CONDENSER";
   return undefined;
 }
 
@@ -215,7 +215,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     }
   }
 
-  // §16: each monument type (Imperial Exchange/World Engine/Aegis Dome/
+  // §16: each monument type (Imperial Exchange/Sovereign Siege Engine/Aegis Dome/
   // Astral Dock) is a single, global, season-unique prize — once anyone's
   // assembly is complete, nobody (including the winner, since only one can
   // ever stand) may build another part or assembly of that type.
@@ -310,16 +310,16 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
-    (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
+    (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery?.ownerId === command.playerId);
   // A fortification (Palisade or any Fort tier, all in tile.fort) may share a
-  // tile with a Relay Beacon or a Harbor Exchange (CUSTOMS_HOUSE): a fort
+  // tile with a Relay Beacon or a Harbor Exchange (HARBOR_EXCHANGE): a fort
   // build ignores either one in economicStructure, and a Relay Beacon build
   // ignores an existing fortification.
   const economicConflict = !!target.economicStructure &&
     !(buildingFort &&
-      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "CUSTOMS_HOUSE"));
+      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "HARBOR_EXCHANGE"));
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
-  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
+  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeBattery || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }
@@ -330,14 +330,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
       context,
       command,
       "BUILD_INVALID",
-      structureType === "WOODEN_FORT"
+      structureType === "PALISADE"
         ? "tile already has a fortification"
         : target.fort?.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first"
     );
     return;
   }
-  if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost && !nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)) {
-    rejectCommand(context, command, "BUILD_INVALID", target.siegeOutpost.variant === "DREAD_TOWER" ? "siege battery already at maximum tier" : "research the next tier first");
+  if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeBattery && !nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)) {
+    rejectCommand(context, command, "BUILD_INVALID", target.siegeBattery.variant === "DREAD_TOWER" ? "siege battery already at maximum tier" : "research the next tier first");
     return;
   }
   if (context.rejectIfNoDevelopmentSlot(command, "BUILD_INVALID", "development slots are busy")) return;
@@ -352,7 +352,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    const siegeTier = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)! : bestSiegeTierForTech(hasTech);
+    const siegeTier = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)! : bestSiegeTierForTech(hasTech);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
     strategicCost = { UMBRITE: siegeTier.umbrite, ...(siegeTier.titanium > 0 ? { TITANIUM: siegeTier.titanium } : {}) };
@@ -421,7 +421,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   if (fortTier) {
     resolvedVariant = fortTier.variant;
   } else if (isSiegeFamily) {
-    resolvedVariant = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)?.variant : bestSiegeTierForTech(hasTech).variant;
+    resolvedVariant = target.siegeBattery ? nextSiegeTierForUpgrade(target.siegeBattery.variant, hasTech)?.variant : bestSiegeTierForTech(hasTech).variant;
   }
 
   // A fort upgrade leaves the current fort standing (and defending) until the

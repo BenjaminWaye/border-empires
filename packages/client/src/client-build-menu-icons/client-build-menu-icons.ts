@@ -20,9 +20,9 @@ export const buildingCategoryIconHtml = (category: BuildingCategory): string => 
 // produce: upgrades show the Advanced building, the frontier beacon is the
 // same Relay Beacon.
 const ART_STRUCTURE_FOR_ACTION: Partial<Record<TileActionDef["id"], string>> = {
-  upgrade_titanium_works: "ADVANCED_TITANIUM_WORKS",
-  upgrade_crystal_synthesizer: "ADVANCED_CRYSTAL_SYNTHESIZER",
-  upgrade_umbrite_synthesizer: "ADVANCED_UMBRITE_SYNTHESIZER",
+  upgrade_titanium_works: "HIGH_YIELD_TITANIUM_WORKS",
+  upgrade_aether_condenser: "HIGH_YIELD_AETHER_CONDENSER",
+  upgrade_umbrite_works: "HIGH_YIELD_UMBRITE_WORKS",
   build_relay_beacon_frontier: "RELAY_BEACON"
 };
 

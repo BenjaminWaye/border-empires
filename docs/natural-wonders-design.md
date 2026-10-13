@@ -66,7 +66,7 @@ copper piping, water spouts, and rising bubbles.
 ### 2.3 — The Conscription Engine
 
 **Effect:** +2000 flat manpower cap modifier (additive, applied after all
-town/garrison-hall/rail-depot contributions). On first claim each season, the
+town/ancillary-depot/neural-works contributions). On first claim each season, the
 controlling player receives an instant +2000 manpower to their pool.
 
 **Spawn:** BROKEN_HIGHLANDS region. LAND tile.
@@ -82,7 +82,7 @@ tower. Smoke particles rising.
 ### 2.4 — The Warpress
 
 **Effect:** Mustering flags fill at 2× the normal rate (multiplicative with
-existing outpost/rail depot speed bonuses). One additional flag beyond the
+existing outpost/neural works speed bonuses). One additional flag beyond the
 normal cap (max flags becomes 6 instead of 5).
 
 **Spawn:** FERTILE_PLAINS region. LAND tile.

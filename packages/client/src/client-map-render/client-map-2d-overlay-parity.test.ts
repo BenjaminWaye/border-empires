@@ -13,15 +13,15 @@ describe("2D overlay parity with the 3D renderer", () => {
     ["WEAPONS_WORKSHOP", "weapons-workshop-overlay.svg"],
     ["TITANIUM_WEAPONS_FACTORY", "titanium-weapons-factory-overlay.svg"],
     ["UMBRITE_WEAPONS_FACTORY", "umbrite-weapons-factory-overlay.svg"],
-    ["WORLD_ENGINE_PART_1", "long-barrel-overlay.svg"],
-    ["WORLD_ENGINE_PART_2", "fracture-core-overlay.svg"],
-    ["WORLD_ENGINE_PART_3", "sky-marking-array-overlay.svg"],
+    ["SOVEREIGN_SIEGE_ENGINE_PART_1", "long-barrel-overlay.svg"],
+    ["SOVEREIGN_SIEGE_ENGINE_PART_2", "fracture-core-overlay.svg"],
+    ["SOVEREIGN_SIEGE_ENGINE_PART_3", "sky-marking-array-overlay.svg"],
     ["IMPERIAL_EXCHANGE_PART_1", "golden-ledger-overlay.svg"],
     ["IMPERIAL_EXCHANGE_PART_2", "counting-engine-overlay.svg"],
     ["IMPERIAL_EXCHANGE_PART_3", "sovereign-seal-overlay.svg"],
-    ["POPULATION_BUREAU_PART_1", "census-engine-overlay.svg"],
-    ["POPULATION_BUREAU_PART_2", "registry-vault-overlay.svg"],
-    ["POPULATION_BUREAU_PART_3", "levy-charter-overlay.svg"]
+    ["CENSUS_DIRECTORATE_PART_1", "census-engine-overlay.svg"],
+    ["CENSUS_DIRECTORATE_PART_2", "registry-vault-overlay.svg"],
+    ["CENSUS_DIRECTORATE_PART_3", "levy-charter-overlay.svg"]
   ] as const;
 
   const naturalWonderEntries = [

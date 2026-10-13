@@ -6,7 +6,7 @@ const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
 
 // Regression for a live bug: createFortOverlay's addInstance only emitted
-// FORT / WOODEN_FORT / SIEGE_OUTPOST pieces, so a built Titanium or Thunder
+// FORT / PALISADE / SIEGE_BATTERY pieces, so a built Titanium or Thunder
 // Bastion went completely unrendered on the 3D map even though the tile state
 // had the active structure. Each handled fort variant must draw its own
 // wall/tower silhouette (closed = 4 walls + 4 towers; a gate omits 1 wall).
@@ -33,17 +33,17 @@ describe("createFortOverlay variant wiring", () => {
     for (const mesh of rendered) {
       const color = (mesh.material as MeshStandardMaterial).color.getHexString();
       expect(color).not.toBe("aea99c"); // stone fort wall/tower
-      expect(color).not.toBe("8a6a47"); // wooden fort wall/tower
+      expect(color).not.toBe("8a6a47"); // palisade wall/tower
     }
     overlay.dispose();
   });
 });
 
-// SIEGE_OUTPOST renders as a single armored siege machine (black-iron hull,
+// SIEGE_BATTERY renders as a single armored siege machine (black-iron hull,
 // brass trim, forward cannon, rotating aether targeting head) built by the
 // dedicated client-map-3d-siege-machine-overlay.ts module and parented under
 // a "siege-machine-overlay" group — not the old watchtower/catapult pieces.
-describe("createFortOverlay siege outpost machine", () => {
+describe("createFortOverlay siege battery machine", () => {
   const MACHINE_GROUP = "siege-machine-overlay";
 
   const machineMeshes = (scene: Scene): InstancedMesh[] => {
@@ -52,10 +52,10 @@ describe("createFortOverlay siege outpost machine", () => {
     return group!.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
   };
 
-  it("places a full 49-part machine with shadows for one SIEGE_OUTPOST instance", () => {
+  it("places a full 49-part machine with shadows for one SIEGE_BATTERY instance", () => {
     const scene = new Scene();
     const overlay = createFortOverlay(scene, 4);
-    overlay.addInstance(0, 0, 0, "SIEGE_OUTPOST", "CLOSED", 5, 9);
+    overlay.addInstance(0, 0, 0, "SIEGE_BATTERY", "CLOSED", 5, 9);
     overlay.commit();
     const meshes = machineMeshes(scene);
     expect(meshes.length).toBeGreaterThan(0);
@@ -73,7 +73,7 @@ describe("createFortOverlay siege outpost machine", () => {
   it("spins the aether head on tick() and leaves the static hull parked", () => {
     const scene = new Scene();
     const overlay = createFortOverlay(scene, 4);
-    overlay.addInstance(0, 0, 0, "SIEGE_OUTPOST", "CLOSED", 1, 2);
+    overlay.addInstance(0, 0, 0, "SIEGE_BATTERY", "CLOSED", 1, 2);
     overlay.commit();
     const headMesh = scene.getObjectByName("siege-headRing:violet") as InstancedMesh | undefined;
     const hullMesh = scene.getObjectByName("siege-box:darkIron") as InstancedMesh | undefined;

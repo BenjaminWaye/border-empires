@@ -15,13 +15,13 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../packages/shared/dist/config.js";
 
 export const tileKey = (x, y) => `${x},${y}`;
 
-// Wire tiles never carry nested `town`/`siegeOutpost`/`economicStructure`
+// Wire tiles never carry nested `town`/`siegeBattery`/`economicStructure`
 // objects (see domainTileToWireDelta in
 // apps/simulation/src/runtime-tile-deltas.ts, the source of both INIT's
 // initialState.tiles and TILE_DELTA_BATCH): town is flattened straight to
-// scalar townType/townName/townPopulationTier fields, while siegeOutpost and
+// scalar townType/townName/townPopulationTier fields, while siegeBattery and
 // economicStructure only ever arrive as JSON-stringified blobs
-// (siegeOutpostJson/economicStructureJson) that must be parsed to reach
+// (siegeBatteryJson/economicStructureJson) that must be parsed to reach
 // their .status/.ownerId. Parse defensively — a malformed blob should be
 // treated as "no structure", not crash the soak.
 const tryParseJson = (raw) => {
@@ -34,7 +34,7 @@ const tryParseJson = (raw) => {
 };
 
 export const normalizeTile = (tile) => {
-  const siegeOutpost = tryParseJson(tile.siegeOutpostJson);
+  const siegeBattery = tryParseJson(tile.siegeBatteryJson);
   const economicStructure = tryParseJson(tile.economicStructureJson);
   return {
     x: Number(tile.x),
@@ -51,7 +51,7 @@ export const normalizeTile = (tile) => {
     // approximation, not a bug.
     ...(typeof tile.townType === "string" ? { townType: tile.townType } : {}),
     ...(typeof tile.dockId === "string" ? { dockId: tile.dockId } : {}),
-    ...(siegeOutpost ? { siegeOutpostStatus: siegeOutpost.status, siegeOutpostOwnerId: siegeOutpost.ownerId } : {}),
+    ...(siegeBattery ? { siegeBatteryStatus: siegeBattery.status, siegeBatteryOwnerId: siegeBattery.ownerId } : {}),
     ...(economicStructure
       ? {
           economicStructureType: economicStructure.type,
@@ -76,7 +76,7 @@ const collectOwnReachAnchors = (tilesByKey, playerId) => {
     if (settled && tile.townType) {
       anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "TOWN" });
     }
-    if (settled && tile.siegeOutpostStatus === "active" && tile.siegeOutpostOwnerId === playerId) {
+    if (settled && tile.siegeBatteryStatus === "active" && tile.siegeBatteryOwnerId === playerId) {
       anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" });
     }
     if (

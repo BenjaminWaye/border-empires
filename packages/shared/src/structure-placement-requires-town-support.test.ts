@@ -3,21 +3,21 @@ import { isTownSupportPlacementStructure, structureRequiresTownOrSupportTile } f
 
 describe("structureRequiresTownOrSupportTile", () => {
   it("is true for one-per-town support-ring structures", () => {
-    expect(structureRequiresTownOrSupportTile("CARAVANARY")).toBe(true);
-    expect(structureRequiresTownOrSupportTile("GRANARY")).toBe(true);
+    expect(structureRequiresTownOrSupportTile("TRADE_NEXUS")).toBe(true);
+    expect(structureRequiresTownOrSupportTile("INCUBATION_ENGINE")).toBe(true);
   });
 
-  // Mintworks / Garrison Hall / the two Weapons Factories are placementMode
+  // Mintworks / Ancillary Depot / the two Weapons Factories are placementMode
   // "same_tile" so they can stack per town, but are still support-ring-only.
   it("is true for stacking same_tile structures that are still support-ring-only", () => {
-    for (const type of ["MINTWORKS", "GARRISON_HALL", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"] as const) {
+    for (const type of ["MINTWORKS", "ANCILLARY_DEPOT", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"] as const) {
       expect(isTownSupportPlacementStructure(type)).toBe(false);
       expect(structureRequiresTownOrSupportTile(type)).toBe(true);
     }
   });
 
   it("is false for structures buildable on any owned settled tile", () => {
-    for (const type of ["OBSERVATORY", "RELAY_BEACON", "WATERWORKS", "AIRPORT", "FOUNDRY", "GOVERNORS_OFFICE"] as const) {
+    for (const type of ["OBSERVATORY", "RELAY_BEACON", "HYDROWORKS", "SKY_DOCK", "ORE_REFINERY", "MINISTRY_HALL"] as const) {
       expect(structureRequiresTownOrSupportTile(type)).toBe(false);
     }
   });

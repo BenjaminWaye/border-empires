@@ -17,7 +17,7 @@ as of this branch:
   — AFC tile schema, spawn wiring, reach, economy, and capture/reassignment
   are done (see below); per-Module docking state is in progress; delivery
   events/dormancy-on-capture not started.
-- Step 5 (rename/re-map buildings, remove Seed Granary) — done.
+- Step 5 (rename/re-map buildings, remove Seed Incubation Engine) — done.
 - Step 6 (apply target tech-to-Manifest mapping) — done.
 - Step 7 (split Matterwright Retort from Catalyst Fabricator) — done.
 - Step 8 (move Harbor Exchange to Trade Circuit Charter) — done.
@@ -38,7 +38,7 @@ node is called, how it's classified, and what it delivers.
 This supersedes the Economy/Manpower/War/Aether Manifest names and card-copy
 direction used earlier in the Phase 5/6 planning notes for this PR. It does
 not change Phases 1–4, which are already implemented and merged into this
-branch (Coin rename, synthesizer upkeep, structure renames, Seed Granary
+branch (Coin rename, synthesizer upkeep, structure renames, Seed Incubation Engine
 deletion).
 
 ## Core rules
@@ -90,7 +90,7 @@ deletion).
 | Grand Levy Doctrine | Titanium Levy Dossier |
 | Titanium-Clad Masonry | Titanium Forge Module |
 | Reinforced Plating | Bastion Master-Die Module |
-| Steel Foundries | Thunderplate Induction Module |
+| Steel Ore Refineries | Thunderplate Induction Module |
 | Rigging Works | Rigging Works Module |
 | Siege Engineering | Siege Lens Foundry Module |
 | Standing Legion | Dread Tower Cadre |
@@ -133,7 +133,7 @@ deletion).
 - **Trade Circuit Charter** — offworld trade/freight settlement arrangement; unlocks Trade Nexus and Harbor Exchange.
 - **Imperial Tender Warrant** — makes this planet's Coin accepted by Imperial factors; unlocks Clearing House.
 - **Provincial Provisioning Charter / Stewardship Corps** — final preferred name TBD, but it must be an offworld administrative capability that unlocks Provincial Provisioning Office and its food-demand effect.
-- **Catalyst Fabricator Module** — AFC module; unlocks Advanced Umbrite Works, Advanced Titanium Works, and Advanced Aether Condensers. It manufactures sealed catalyst hearts; advanced converters produce 20% more and retain their higher Coin refining cost.
+- **Catalyst Fabricator Module** — AFC module; unlocks Advanced Umbrite Works, High Yield Titanium Works, and Advanced Aether Condensers. It manufactures sealed catalyst hearts; advanced converters produce 20% more and retain their higher Coin refining cost.
 - **Imperial Exchange Dossier** — unique project dossier.
 
 ## Manpower
@@ -142,9 +142,9 @@ deletion).
 - **Incubation Corps** — imported biological/medical contingent; unlocks Incubation Engine.
 - **Census Office** — imported census administrators and systems; unlocks Census Hall.
 - **Ancillary Control Core** — AFC module; unlocks Ancillary Factory (+0.05 Manpower/min).
-- **Reserve Lattice Module** — AFC module; unlocks Reserve Lattice (+150 cap and +35% terrain-adjusted base capacity; former Assembly Works stats).
+- **Reserve Lattice Module** — AFC module; unlocks Reserve Lattice (+150 cap and +35% terrain-adjusted base capacity; former Reserve Lattice stats).
 - **Neural Assembly Core** — AFC module; unlocks Neural Works (+0.1 Manpower/min per Ancillary Factory in its connected town network).
-- **Population Registry Dossier** — Population Bureau project.
+- **Population Registry Dossier** — Census Directorate project.
 - **Titanium Levy Dossier** — Titanium Levy project.
 
 ## War
@@ -152,7 +152,7 @@ deletion).
 - **Titanium Forge Module** — AFC module; unlocks Fort and Titanium Weapons Factory.
 - **Bastion Master-Die Module** — AFC module; unlocks Titanium Bastion. It is the massive forming die that makes interlocking Bastion shells from Forge-produced plate.
 - **Thunderplate Induction Module** — AFC module; unlocks Thunder Bastion. It contains the induction coils/discharge rails required for live Thunderplate armour.
-- **Rigging Works Module** — AFC module; unlocks Umbrite Rig, Siege Outpost, and Umbrite Weapons Factory.
+- **Rigging Works Module** — AFC module; unlocks Umbrite Rig, Siege Battery, and Umbrite Weapons Factory.
 - **Siege Lens Foundry Module** — AFC module; unlocks Siege Tower.
 - **Dread Tower Cadre** — imported permanent operating crew; unlocks Dread Tower.
 - **Hive Mind Module I / II** — AFC modules, each delivers another offworld half-mind and unlocks one additional regional Muster commander.

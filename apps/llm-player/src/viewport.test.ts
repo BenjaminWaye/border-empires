@@ -133,7 +133,7 @@ describe("buildBeaconSites", () => {
 
   // Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's
   // actual RELAY_BEACON build rejection ("tile already has structure"),
-  // which fires on an existing Observatory or Siege Outpost even when
+  // which fires on an existing Observatory or Siege Battery even when
   // economicStructureJson is empty -- offering such a tile as a beaconSite
   // would send the LLM into a build that can never succeed.
   it("excludes a settled edge tile with an observatory", () => {
@@ -146,9 +146,9 @@ describe("buildBeaconSites", () => {
     expect(sites).toHaveLength(0);
   });
 
-  it("excludes a settled edge tile with a siege outpost", () => {
+  it("excludes a settled edge tile with a siege battery", () => {
     const tiles: GameTile[] = [
-      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", siegeOutpostJson: "{}" },
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", siegeBatteryJson: "{}" },
       { x: 1, y: 0 }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));

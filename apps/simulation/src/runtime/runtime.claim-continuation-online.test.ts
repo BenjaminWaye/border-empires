@@ -147,14 +147,14 @@ describe("claim continuation while the player is online", () => {
     );
   });
 
-  // A placement-overlay structure (FOUNDRY/WATERWORKS) is dispatched by the
+  // A placement-overlay structure (ORE_REFINERY/HYDROWORKS) is dispatched by the
   // client once the player picks the exact tile, which may not be the tile
   // that was settled. Queueing a build tail for it while they're online would
   // leave an entry keyed to the settled tile that drains on logout and puts up
   // a structure at coordinates the player may have explicitly declined.
   // Offline there's no overlay to answer it, so the best-effort build stays.
   it("leaves placement-overlay builds to an online client, but still queues them offline", async () => {
-    const runFoundrySettleBuild = async (online: boolean) => {
+    const runOreRefinerySettleBuild = async (online: boolean) => {
       const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -177,16 +177,16 @@ describe("claim continuation while the player is online", () => {
       runtime.onEvent((event) => commandIds.push((event as SimulationEvent as unknown as Seen).commandId));
 
       runtime.submitCommand({
-        commandId: `claim-continuation-foundry-${online}`,
+        commandId: `claim-continuation-ore-refinery-${online}`,
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "CLAIM_CONTINUATION_SET",
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "FOUNDRY" })
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "ORE_REFINERY" })
       });
       runtime.submitCommand({
-        commandId: `settle-foundry-${online}`,
+        commandId: `settle-ore-refinery-${online}`,
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 2,
@@ -205,14 +205,14 @@ describe("claim continuation while the player is online", () => {
 
     // Online: the client owns the placement, so no build is queued or
     // dispatched against the settled tile to fire behind the player's back.
-    const online = await runFoundrySettleBuild(true);
+    const online = await runOreRefinerySettleBuild(true);
     expect(online.summary.devQueue.filter((entry) => entry.tileKey === "10,10" && entry.kind === "BUILD")).toEqual([]);
     expect(online.summary.claimContinuations.has("10,10")).toBe(false);
     expect(online.commandIds.some((id) => id?.includes("dev-queue-drain"))).toBe(false);
 
     // Offline: no overlay can answer, so the best-effort build on the settled
     // tile is still queued and dispatched, exactly as before.
-    const offline = await runFoundrySettleBuild(false);
+    const offline = await runOreRefinerySettleBuild(false);
     expect(offline.commandIds.some((id) => id?.includes("dev-queue-drain"))).toBe(true);
   });
 

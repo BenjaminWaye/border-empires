@@ -16,7 +16,7 @@ describe("sweepExpiredFrontierRecovery", () => {
       actionTargetKey: "",
       capture: undefined,
       autoSettleTargets: new Set(["12,18"]),
-      autoBuildTargets: new Map([["12,18", "FARMSTEAD"]])
+      autoBuildTargets: new Map([["12,18", "HYDROGARDEN"]])
     } as any;
 
     const changed = sweepExpiredFrontierRecovery(

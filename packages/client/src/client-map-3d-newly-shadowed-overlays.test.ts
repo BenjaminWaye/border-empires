@@ -43,7 +43,7 @@ describe("newly shadow-wired overlays", () => {
     overlay.dispose();
   });
 
-  it("fort walls/towers and siege outpost pieces cast and receive shadows", () => {
+  it("fort walls/towers and siege battery pieces cast and receive shadows", () => {
     const scene = new Scene();
     const overlay = createFortOverlay(scene, 4);
     const meshes = instancedMeshesIn(scene);

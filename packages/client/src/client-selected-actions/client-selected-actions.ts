@@ -69,7 +69,7 @@ export const settleSelected = (
   if (!deps.requestSettlement(selected.x, selected.y)) return;
 };
 
-export const buildSiegeOutpostOnSelected = (
+export const buildSiegeBatteryOnSelected = (
   state: Pick<ClientState, "selected" | "tiles">,
   deps: SelectedActionDepsBase & {
     keyFor: (x: number, y: number) => string;
@@ -88,7 +88,7 @@ export const buildSiegeOutpostOnSelected = (
     deps.renderHud();
     return;
   }
-  deps.sendGameMessage(gatewayBuildWirePayload({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "SIEGE_OUTPOST" }));
+  deps.sendGameMessage(gatewayBuildWirePayload({ type: "BUILD_STRUCTURE", x: selected.x, y: selected.y, structureType: "SIEGE_BATTERY" }));
 };
 
 export const uncaptureSelected = (

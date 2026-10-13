@@ -20,7 +20,7 @@ const makeBaseTile = (): DomainTileState => ({
 const makeFort = () => ({ ownerId: "p1", status: "active" as const });
 const makeTown = () => ({ populationTier: "TOWN" as const, type: "FARMING" as const, name: "TestTown" });
 const makeObservatory = () => ({ ownerId: "p1", status: "active" as const });
-const makeSiegeOutpost = () => ({ ownerId: "p1", status: "active" as const });
+const makeSiegeBattery = () => ({ ownerId: "p1", status: "active" as const });
 const makeEconomicStructure = () => ({ ownerId: "p1", status: "active" as const, type: "MINTWORKS" as const });
 const makeSabotage = () => ({ ownerId: "p2", status: "active" as const });
 const makeShardSite = () => ({ kind: "FALL" as const, expiresAt: 9999 });
@@ -33,7 +33,7 @@ describe("TileDeltaStringifyCache", () => {
     expect(result.townJson).toBeUndefined();
     expect(result.fortJson).toBeUndefined();
     expect(result.observatoryJson).toBeUndefined();
-    expect(result.siegeOutpostJson).toBeUndefined();
+    expect(result.siegeBatteryJson).toBeUndefined();
     expect(result.economicStructureJson).toBeUndefined();
     expect(result.sabotageJson).toBeUndefined();
     expect(result.shardSiteJson).toBeUndefined();
@@ -53,7 +53,7 @@ describe("TileDeltaStringifyCache", () => {
     const cache = new TileDeltaStringifyCache();
     const result = cache.getOrComputeAll("1,1", makeBaseTile());
     const fields: (keyof typeof result)[] = [
-      "townJson", "fortJson", "observatoryJson", "siegeOutpostJson",
+      "townJson", "fortJson", "observatoryJson", "siegeBatteryJson",
       "economicStructureJson", "sabotageJson", "shardSiteJson"
     ];
     for (const field of fields) {
@@ -160,7 +160,7 @@ describe("TileDeltaStringifyCache", () => {
       town: makeTown(),
       fort: makeFort(),
       observatory: makeObservatory(),
-      siegeOutpost: makeSiegeOutpost(),
+      siegeBattery: makeSiegeBattery(),
       economicStructure: makeEconomicStructure(),
     } as const;
 
@@ -174,14 +174,14 @@ describe("TileDeltaStringifyCache", () => {
         ...(mask & 1 ? { town: allSubstructures.town } : {}),
         ...(mask & 2 ? { fort: allSubstructures.fort } : {}),
         ...(mask & 4 ? { observatory: allSubstructures.observatory } : {}),
-        ...(mask & 8 ? { siegeOutpost: allSubstructures.siegeOutpost } : {}),
+        ...(mask & 8 ? { siegeBattery: allSubstructures.siegeBattery } : {}),
         ...(mask & 16 ? { economicStructure: allSubstructures.economicStructure } : {}),
       };
       const result = cache.getOrComputeAll(tileKey, tile);
       expect(result.townJson).toBe(tile.town ? JSON.stringify(tile.town) : undefined);
       expect(result.fortJson).toBe(tile.fort ? JSON.stringify(tile.fort) : undefined);
       expect(result.observatoryJson).toBe(tile.observatory ? JSON.stringify(tile.observatory) : undefined);
-      expect(result.siegeOutpostJson).toBe(tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined);
+      expect(result.siegeBatteryJson).toBe(tile.siegeBattery ? JSON.stringify(tile.siegeBattery) : undefined);
       expect(result.economicStructureJson).toBe(tile.economicStructure ? JSON.stringify(tile.economicStructure) : undefined);
     }
   });
@@ -191,7 +191,7 @@ describe("TileDeltaStringifyCache", () => {
     const fort = makeFort();
     const town = makeTown();
     const obs = makeObservatory();
-    const siege = makeSiegeOutpost();
+    const siege = makeSiegeBattery();
     const econ = makeEconomicStructure();
     const sab = makeSabotage();
     const shard = makeShardSite();
@@ -200,7 +200,7 @@ describe("TileDeltaStringifyCache", () => {
       fort,
       town,
       observatory: obs,
-      siegeOutpost: siege,
+      siegeBattery: siege,
       economicStructure: econ,
       sabotage: sab,
       shardSite: shard
@@ -209,7 +209,7 @@ describe("TileDeltaStringifyCache", () => {
     expect(result.fortJson).toBe(JSON.stringify(fort));
     expect(result.townJson).toBe(JSON.stringify(town));
     expect(result.observatoryJson).toBe(JSON.stringify(obs));
-    expect(result.siegeOutpostJson).toBe(JSON.stringify(siege));
+    expect(result.siegeBatteryJson).toBe(JSON.stringify(siege));
     expect(result.economicStructureJson).toBe(JSON.stringify(econ));
     expect(result.sabotageJson).toBe(JSON.stringify(sab));
     expect(result.shardSiteJson).toBe(JSON.stringify(shard));

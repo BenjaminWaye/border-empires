@@ -2,7 +2,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type WaystationGrantedEffect } from "@border-empires/shared";
 import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { grantAetherTowerUnlockIfLinked } from "./tech-domain-bridge/tech-aether-tower-unlock.js";
+import { grantAmbaricTransformerUnlockIfLinked } from "./tech-domain-bridge/tech-ambaric-transformer-unlock.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
@@ -174,7 +174,7 @@ const grantWaystationVision = (
 
 /**
  * Grants the population-burst effect to the player's nearest owned town, if
- * any. Mirrors grantGranaryPopulationBurst (runtime-structure-build-completion.ts)
+ * any. Mirrors grantIncubationEnginePopulationBurst (runtime-structure-build-completion.ts)
  * but keyed off the nearest town rather than a specific support-ring town.
  * Returns the town's name and coordinates (for the client popup's copy and
  * its "Jump to Town" button) so the caller can record them on the
@@ -204,7 +204,7 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
  * Grants the TECH effect: picks a random tier-1 tech (a tree root -- no
  * prereqIds) the player does not already own, via the injected `random`, and
  * adds it to the player's techIds -- applying the same side effects a paid
- * research grant applies via chooseTechForPlayer (aether-tower unlock
+ * research grant applies via chooseTechForPlayer (ambaric-transformer unlock
  * linkage and a mods recompute) so a live client's cached multipliers never
  * go stale, and emits a TECH_UPDATE event so an already-connected client's
  * tech list/UI picks up the grant immediately.
@@ -222,7 +222,7 @@ const grantWaystationTech = (input: WaystationActivationInput, player: DomainPla
   const techId = unownedTierOneIds[Math.floor(random() * unownedTierOneIds.length) % unownedTierOneIds.length];
   if (!techId) return undefined;
   player.techIds.add(techId);
-  grantAetherTowerUnlockIfLinked(player, techId);
+  grantAmbaricTransformerUnlockIfLinked(player, techId);
   player.mods = recomputeMods(player);
   input.emitEvent({
     eventType: "TECH_UPDATE",

@@ -77,5 +77,5 @@ export const terrainAdjustedTownManpower = (tier: PopulationTier, profile: TownT
   return { cap: base.cap * terrain.manpowerCapacityMultiplier, regenPerMinute: base.regenPerMinute * terrain.manpowerRegenerationMultiplier };
 };
 export const arsenalMultiplierForFactoryCount = (count: number): number => Math.min(2.25, 1 + 0.15 * Math.max(0, count - 1));
-export const ancillaryFactoryCapacityBonus = (terrainAdjustedBaseCapacity: number, count: number, assemblyWorksActive: boolean): number =>
-  Math.max(0, count) * (150 + terrainAdjustedBaseCapacity * (assemblyWorksActive ? 0.35 : 0.1));
+export const ancillaryFactoryCapacityBonus = (terrainAdjustedBaseCapacity: number, count: number, reserveLatticeActive: boolean): number =>
+  Math.max(0, count) * (150 + terrainAdjustedBaseCapacity * (reserveLatticeActive ? 0.35 : 0.1));

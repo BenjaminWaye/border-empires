@@ -90,10 +90,10 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.umbrite).toBe(0);
   });
 
-  it("charges no WOODEN_FORT upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
+  it("charges no PALISADE upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "WOODEN_FORT" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "PALISADE" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -115,9 +115,9 @@ describe("tileUpkeepContribution", () => {
 
   it("charges no siege-ladder upkeep (§12.1: UMBRITE slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    for (const variant of ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]) {
+    for (const variant of ["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]) {
       const tile = settledTile(0, 0, {
-        siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant }
+        siegeBattery: { ownerId: PLAYER_ID, status: "active", variant }
       });
       const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
       expect(contrib.gold).toBe(0);
@@ -135,10 +135,10 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.crystal).toBe(0);
   });
 
-  it("charges no airport upkeep (§12.1: CRYSTAL slot occupation is the upkeep)", () => {
+  it("charges no sky dock upkeep (§12.1: CRYSTAL slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "AIRPORT" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "SKY_DOCK" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.crystal).toBe(0);
@@ -244,7 +244,7 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
         ownershipState: "SETTLED",
         ...(hasClearingHouse ? { economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CLEARING_HOUSE" } } : {}),
         ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active", variant: "TITANIUM_BASTION" } } : {}),
-        ...(hasSiege && isOwned ? { siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant: "SIEGE_TOWER" } } : {})
+        ...(hasSiege && isOwned ? { siegeBattery: { ownerId: PLAYER_ID, status: "active", variant: "SIEGE_TOWER" } } : {})
       });
     }
     const incremental = buildUpkeepAccrualSnapshot(PLAYER_ID, player, tiles);
@@ -277,16 +277,16 @@ const makeRng = (seed: number) => {
 type SimpleTile = DomainTileState;
 
 const STRUCTURE_TYPES = [
-  "FARMSTEAD", "UMBRITE_RIG", "MINE", "MINTWORKS", "GRANARY", "CLEARING_HOUSE",
-  "WOODEN_FORT", "RELAY_BEACON", "CARAVANARY",
-  "UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER",
-  "FOUNDRY", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE",
-  "RADAR_SYSTEM", "AIRPORT"
+  "HYDROGARDEN", "UMBRITE_RIG", "MINE", "MINTWORKS", "INCUBATION_ENGINE", "CLEARING_HOUSE",
+  "PALISADE", "RELAY_BEACON", "TRADE_NEXUS",
+  "UMBRITE_WORKS", "TITANIUM_WORKS", "AETHER_CONDENSER",
+  "ORE_REFINERY", "HARBOR_EXCHANGE", "ANCILLARY_DEPOT", "MINISTRY_HALL",
+  "RESONANCE_GRID", "SKY_DOCK"
 ] as const;
 
 const POPULATION_TIERS = ["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"] as const;
 const FORT_VARIANTS = ["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const;
-const SIEGE_VARIANTS = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"] as const;
+const SIEGE_VARIANTS = ["SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"] as const;
 
 const randomTile = (rng: () => number, x: number, y: number): SimpleTile => {
   const isOwned = rng() < 0.8;
@@ -306,7 +306,7 @@ const randomTile = (rng: () => number, x: number, y: number): SimpleTile => {
     ownerId,
     ownershipState,
     ...(hasFort ? { fort: { ownerId, status: "active" as const, variant: fortVariant } } : {}),
-    ...(hasSiege ? { siegeOutpost: { ownerId, status: "active" as const, variant: siegeVariant } } : {}),
+    ...(hasSiege ? { siegeBattery: { ownerId, status: "active" as const, variant: siegeVariant } } : {}),
     ...(hasObservatory ? { observatory: { ownerId, status: "active" as const } } : {}),
     ...(hasStructure ? { economicStructure: { ownerId, status: "active" as const, type: structureType } } : {}),
     ...(hasTown ? { town: { populationTier, connectedTownBonus: 0, goldPerMinute: 0 } } : {})

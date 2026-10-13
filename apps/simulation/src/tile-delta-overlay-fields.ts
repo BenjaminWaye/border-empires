@@ -37,7 +37,7 @@ export const OVERLAY_JSON_FIELDS: readonly OverlayFieldName[] = [
   "naturalWonderJson",
   "fortJson",
   "observatoryJson",
-  "siegeOutpostJson",
+  "siegeBatteryJson",
   "economicStructureJson",
   "sabotageJson",
   "watchtowerJson",

@@ -29,7 +29,7 @@ import { structureModifiersFor } from "./structure-modifier-catalog-core.js";
 import { percentLabel, type ModifierStructureType, type TownModifierTotal } from "./structure-modifier-catalog-types.js";
 
 // Buildings without a numeric rawValue (Census Hall scaling off connected
-// Incubation Engines, Customs House off connected docks, Rail Depot/Assembly
+// Incubation Engines, Harbor Exchange off connected docks, Neural Works/Assembly
 // Works off other network buildings, one-time bursts, etc.) are
 // intentionally left out — their effect doesn't reduce to "count x a
 // constant for this town alone", so summing them here would just be wrong,
@@ -45,30 +45,30 @@ import { percentLabel, type ModifierStructureType, type TownModifierTotal } from
 // townModifierTotalsFromCounts's CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
 // handling below).
 export const CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
-  "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
-  "TITANIUM_WORKS", "ADVANCED_TITANIUM_WORKS",
-  "UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER"
+  "AETHER_CONDENSER", "HIGH_YIELD_AETHER_CONDENSER",
+  "TITANIUM_WORKS", "HIGH_YIELD_TITANIUM_WORKS",
+  "UMBRITE_WORKS", "HIGH_YIELD_UMBRITE_WORKS"
 ];
 
 export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
-  "GARRISON_HALL", "LOGISTICS_GUILD", "MINTWORKS",
+  "ANCILLARY_DEPOT", "ANCILLARY_FACTORY", "MINTWORKS",
   "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ...CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
 ];
 
 const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
-  GARRISON_HALL: { singular: "Ancillary Depot", plural: "Ancillary Depots" },
-  LOGISTICS_GUILD: { singular: "Ancillary Factory", plural: "Ancillary Factories" },
+  ANCILLARY_DEPOT: { singular: "Ancillary Depot", plural: "Ancillary Depots" },
+  ANCILLARY_FACTORY: { singular: "Ancillary Factory", plural: "Ancillary Factories" },
   MINTWORKS: { singular: "Mintworks", plural: "Mintworks" },
   WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },
   UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" },
-  CRYSTAL_SYNTHESIZER: { singular: "Aether Condenser", plural: "Aether Condensers" },
-  ADVANCED_CRYSTAL_SYNTHESIZER: { singular: "High-Yield Aether Condenser", plural: "High-Yield Aether Condensers" },
+  AETHER_CONDENSER: { singular: "Aether Condenser", plural: "Aether Condensers" },
+  HIGH_YIELD_AETHER_CONDENSER: { singular: "High-Yield Aether Condenser", plural: "High-Yield Aether Condensers" },
   TITANIUM_WORKS: { singular: "Titanium Works", plural: "Titanium Works" },
-  ADVANCED_TITANIUM_WORKS: { singular: "High-Yield Titanium Works", plural: "High-Yield Titanium Works" },
-  UMBRITE_SYNTHESIZER: { singular: "Umbrite Works", plural: "Umbrite Works" },
-  ADVANCED_UMBRITE_SYNTHESIZER: { singular: "High-Yield Umbrite Works", plural: "High-Yield Umbrite Works" }
+  HIGH_YIELD_TITANIUM_WORKS: { singular: "High-Yield Titanium Works", plural: "High-Yield Titanium Works" },
+  UMBRITE_WORKS: { singular: "Umbrite Works", plural: "Umbrite Works" },
+  HIGH_YIELD_UMBRITE_WORKS: { singular: "High-Yield Umbrite Works", plural: "High-Yield Umbrite Works" }
 };
 
 export const townModifierTotalsFromCounts = (

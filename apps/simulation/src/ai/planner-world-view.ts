@@ -30,7 +30,7 @@ export type PlannerTileView = {
   } | null;
   fort?: { ownerId?: string; status?: string } | null;
   observatory?: { ownerId?: string; status?: string } | null;
-  siegeOutpost?: { ownerId?: string; status?: string } | null;
+  siegeBattery?: { ownerId?: string; status?: string } | null;
   economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null;
 };
 

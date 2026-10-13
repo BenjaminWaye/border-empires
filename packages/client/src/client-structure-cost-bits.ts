@@ -6,34 +6,34 @@ import type { StructureInfoKey } from "./client-map-display.js";
 export type StructureBaseKey =
   | "FORT"
   | "OBSERVATORY"
-  | "SIEGE_OUTPOST"
-  | "FARMSTEAD"
+  | "SIEGE_BATTERY"
+  | "HYDROGARDEN"
   | "UMBRITE_RIG"
   | "MINE"
   | "MINTWORKS"
-  | "GRANARY"
+  | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
-  | "CARAVANARY"
-  | "AIRPORT"
-  | "AETHER_TOWER"
-  | "WOODEN_FORT"
+  | "TRADE_NEXUS"
+  | "SKY_DOCK"
+  | "AMBARIC_TRANSFORMER"
+  | "PALISADE"
   | "RELAY_BEACON"
-  | "UMBRITE_SYNTHESIZER"
-  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "UMBRITE_WORKS"
+  | "HIGH_YIELD_UMBRITE_WORKS"
   | "TITANIUM_WORKS"
-  | "ADVANCED_TITANIUM_WORKS"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FOUNDRY"
-  | "GARRISON_HALL"
-  | "CUSTOMS_HOUSE"
-  | "RAIL_DEPOT"
-  | "GOVERNORS_OFFICE"
-  | "RADAR_SYSTEM"
+  | "HIGH_YIELD_TITANIUM_WORKS"
+  | "AETHER_CONDENSER"
+  | "HIGH_YIELD_AETHER_CONDENSER"
+  | "ORE_REFINERY"
+  | "ANCILLARY_DEPOT"
+  | "HARBOR_EXCHANGE"
+  | "NEURAL_WORKS"
+  | "MINISTRY_HALL"
+  | "RESONANCE_GRID"
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
   | "ASTRAL_DOCK_PART_1"
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
@@ -41,19 +41,19 @@ export type StructureBaseKey =
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3"
   | "AEGIS_DOME_PART_1"
   | "AEGIS_DOME_PART_2"
   | "AEGIS_DOME_PART_3"
   | "AEGIS_DOME"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE"
-  | "POPULATION_BUREAU_PART_1"
-  | "POPULATION_BUREAU_PART_2"
-  | "POPULATION_BUREAU_PART_3"
-  | "POPULATION_BUREAU"
+  | "SOVEREIGN_SIEGE_ENGINE"
+  | "CENSUS_DIRECTORATE_PART_1"
+  | "CENSUS_DIRECTORATE_PART_2"
+  | "CENSUS_DIRECTORATE_PART_3"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY_PART_1"
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
@@ -65,10 +65,10 @@ export type StructureBaseKey =
 export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
   if (key === "TITANIUM_BASTION") return "FORT";
   if (key === "THUNDER_BASTION") return "FORT";
-  if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
-  if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
-  if (key === "WATERWORKS") return "FARMSTEAD";
-  if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
+  if (key === "SIEGE_TOWER") return "SIEGE_BATTERY";
+  if (key === "DREAD_TOWER") return "SIEGE_BATTERY";
+  if (key === "HYDROWORKS") return "HYDROGARDEN";
+  if (key === "NEURAL_WORKS") return "NEURAL_WORKS";
   return key as StructureBaseKey;
 };
 
@@ -81,7 +81,7 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
 // TITANIUM/CRYSTAL/UMBRITE occupancy cost a structure actually pays is its
 // resource SLOT requirement, already shown separately via upkeepBitsFor.
 // Higher fort/siege tiers aren't in STRUCTURE_COST_DEFINITIONS (only their
-// base tier -- FORT, SIEGE_OUTPOST -- is; the rest is tier-upgrade cost
+// base tier -- FORT, SIEGE_BATTERY -- is; the rest is tier-upgrade cost
 // resolved server-side from FORT_TIER_LADDER/SIEGE_TIER_LADDER, see
 // runtime-structure-command-handlers.ts). Read live from those same ladders
 // here instead of a hand-maintained literal, so this never drifts from what

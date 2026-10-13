@@ -5,8 +5,8 @@ describe("structureBuildSpeedEffectKey", () => {
   test("maps each structure family to the effect the simulation applies", () => {
     expect(structureBuildSpeedEffectKey("FORT")).toBe("fortBuildSpeedMult");
     expect(structureBuildSpeedEffectKey("THUNDER_BASTION")).toBe("fortBuildSpeedMult");
-    expect(structureBuildSpeedEffectKey("WOODEN_FORT")).toBe("fortBuildSpeedMult");
-    expect(structureBuildSpeedEffectKey("SIEGE_OUTPOST")).toBe("outpostDeploymentSpeedMult");
+    expect(structureBuildSpeedEffectKey("PALISADE")).toBe("fortBuildSpeedMult");
+    expect(structureBuildSpeedEffectKey("SIEGE_BATTERY")).toBe("outpostDeploymentSpeedMult");
     expect(structureBuildSpeedEffectKey("DREAD_TOWER")).toBe("outpostDeploymentSpeedMult");
     expect(structureBuildSpeedEffectKey("MINTWORKS")).toBe("economicStructureBuildSpeedMult");
   });

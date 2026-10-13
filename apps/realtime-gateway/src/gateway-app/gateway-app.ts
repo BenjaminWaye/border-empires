@@ -3,7 +3,7 @@ import { PerformanceObserver } from "node:perf_hooks";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { isChosenTrickleResource } from "@border-empires/shared";
-import { ClientMessageSchema } from "@border-empires/shared";
+import { ClientMessageSchema, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
 import { handleAllianceSocketMessage } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -47,7 +47,7 @@ import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-sto
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js"; import { wireGalaxyDuke } from "../galaxy-duke-wiring/galaxy-duke-wiring.js";
-import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
+import { createSovereignSiegeEngineStrikeGatewayIntegration } from "../sovereign-siege-engine-strike-broadcast/sovereign-siege-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { relaySimulationBroadcastEvent } from "../broadcast-event-relay/broadcast-event-relay.js";
@@ -605,7 +605,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
   const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions)), galaxyBattleLogStore = options.galaxyBattleLogStore ?? (await createGalaxyBattleLogStore(commandStoreFactoryOptions)), galaxyExplorationStore = options.galaxyExplorationStore ?? (await createGalaxyExplorationStore(commandStoreFactoryOptions)), { galaxyFleetStore, stop: stopGalaxyFleetScheduler } = await wireGalaxyFleets({ ...(options.galaxyFleetStore ? { existingStore: options.galaxyFleetStore } : {}), storeOptions: commandStoreFactoryOptions, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, onError: (error) => app.log.error({ err: error }, "galaxy fleet tick failed") }), { galaxyDukeService, stop: stopGalaxyDukeScheduler } = await wireGalaxyDuke({ storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, galaxyPlanetStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onCounter: (counter) => app.log.warn({ counter }, "galaxy duke guard fired"), onError: (error) => app.log.error({ err: error }, "galaxy duke tick failed") });
-  const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
+  const sovereignSiegeEngineStrike = await createSovereignSiegeEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
     profileStore,
@@ -998,7 +998,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       rallyLinkStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore, galaxyDukeService,
-      worldEngineStrikeStore: worldEngineStrike.store,
+      sovereignSiegeEngineStrikeStore: sovereignSiegeEngineStrike.store,
       authBindingStore,
       admin: { apiToken: options.adminApiToken, email: options.adminEmail },
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
@@ -1275,11 +1275,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
       if (relaySimulationBroadcastEvent(event, { allSockets: () => playerSubscriptions.allSockets(), socketGroups: () => playerSubscriptions.socketGroups(), sendToSocket: queueOrSendSessionPayload, preSerializeBroadcast, recordGatewayEvent, countSeasonRolloverResyncSockets: (count) => gatewayMetrics.incrementSeasonRolloverResyncSocketsTotal(count) })) return;
-      if (event.playerId === "__broadcast__" && event.eventType === "PLAYER_MESSAGE" && event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
-        worldEngineStrike.handleBroadcastEvent(
+      if (event.playerId === "__broadcast__" && event.eventType === "PLAYER_MESSAGE" && event.messageType === "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT") {
+        sovereignSiegeEngineStrike.handleBroadcastEvent(
           event.payload,
           (payload) => { for (const socket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(socket, payload); },
-          (error) => recordGatewayEvent("error", "gateway_world_engine_strike_persist_failed", { error: error instanceof Error ? error.message : String(error) })
+          (error) => recordGatewayEvent("error", "gateway_sovereign_siege_engine_strike_persist_failed", { error: error instanceof Error ? error.message : String(error) })
         );
         return;
       }
@@ -1776,7 +1776,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         try {
           let parsedJson: unknown;
           try {
-            parsedJson = JSON.parse(buffer.toString());
+            parsedJson = upgradeLegacyStructureNames(JSON.parse(buffer.toString()) as unknown); // old bundles send pre-rename structure ids
           } catch {
             sendJson(socket, { type: "ERROR", code: "BAD_JSON", message: "invalid JSON payload" });
             return;
@@ -2595,8 +2595,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("BUILD_FORT", { x: message.x, y: message.y });
           } else if (message.type === "BUILD_OBSERVATORY") {
             await dispatchDurableCommand("BUILD_OBSERVATORY", { x: message.x, y: message.y });
-          } else if (message.type === "BUILD_SIEGE_OUTPOST") {
-            await dispatchDurableCommand("BUILD_SIEGE_OUTPOST", { x: message.x, y: message.y });
+          } else if (message.type === "BUILD_SIEGE_BATTERY") {
+            await dispatchDurableCommand("BUILD_SIEGE_BATTERY", { x: message.x, y: message.y });
           } else if (message.type === "SET_MUSTER") {
             await dispatchDurableCommand("SET_MUSTER", setMusterCommandPayload(message));
           } else if (message.type === "CLEAR_MUSTER" || message.type === "UPGRADE_MUSTER_CAP") {
@@ -2621,8 +2621,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("CANCEL_SETTLE", { x: message.x, y: message.y });
           } else if (message.type === "REMOVE_STRUCTURE") {
             await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
-          } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
-            await dispatchDurableCommand("CANCEL_SIEGE_OUTPOST_BUILD", { x: message.x, y: message.y });
+          } else if (message.type === "CANCEL_SIEGE_BATTERY_BUILD") {
+            await dispatchDurableCommand("CANCEL_SIEGE_BATTERY_BUILD", { x: message.x, y: message.y });
           } else if (message.type === "COLLECT_VISIBLE") {
             await dispatchDurableCommand("COLLECT_VISIBLE", {});
           } else if (message.type === "UNCAPTURE_TILE") {
@@ -2663,9 +2663,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "RETORT_RECAST") {
             await dispatchDurableCommand("RETORT_RECAST", { x: message.x, y: message.y, targetResource: message.targetResource }, true);
-          } else if (message.type === "AIRPORT_BOMBARD") {
+          } else if (message.type === "SKY_DOCK_BOMBARD") {
             await dispatchDurableCommand(
-              "AIRPORT_BOMBARD",
+              "SKY_DOCK_BOMBARD",
               { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );
@@ -2675,9 +2675,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );
-          } else if (message.type === "WORLD_ENGINE_STRIKE") {
+          } else if (message.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE") {
             await dispatchDurableCommand(
-              "WORLD_ENGINE_STRIKE",
+              "SOVEREIGN_SIEGE_ENGINE_STRIKE",
               { fromX: message.fromX, fromY: message.fromY, toX: message.toX, toY: message.toY },
               true
             );

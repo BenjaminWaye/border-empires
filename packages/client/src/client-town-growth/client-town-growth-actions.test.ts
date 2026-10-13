@@ -72,8 +72,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     };
 
@@ -115,8 +115,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -166,8 +166,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "GREAT_CITY",
           requiredPopulation: 1_000_000,
@@ -216,8 +216,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -265,8 +265,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -314,8 +314,8 @@ describe("town growth tile actions", () => {
         connectedTownBonus: 0.2,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "METROPOLIS",
           requiredPopulation: 5_000_000,

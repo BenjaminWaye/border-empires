@@ -8,12 +8,12 @@ import type { Tile, TileActionDef } from "./client-types.js";
 // text, and mode status lines live here.
 
 export const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
-  type === "UMBRITE_SYNTHESIZER" ||
-  type === "ADVANCED_UMBRITE_SYNTHESIZER" ||
+  type === "UMBRITE_WORKS" ||
+  type === "HIGH_YIELD_UMBRITE_WORKS" ||
   type === "TITANIUM_WORKS" ||
-  type === "ADVANCED_TITANIUM_WORKS" ||
-  type === "CRYSTAL_SYNTHESIZER" ||
-  type === "ADVANCED_CRYSTAL_SYNTHESIZER";
+  type === "HIGH_YIELD_TITANIUM_WORKS" ||
+  type === "AETHER_CONDENSER" ||
+  type === "HIGH_YIELD_AETHER_CONDENSER";
 
 export type ConverterMenuDeps = {
   buildDetailTextForAction: (actionId: string, tile: Tile) => string | undefined;
@@ -72,11 +72,11 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
 };
 
 export const converterStructureDetailText = (actionId: string, tile: Tile): string | undefined => {
-  if (actionId === "upgrade_umbrite_synthesizer")
+  if (actionId === "upgrade_umbrite_works")
     return "Upgrade this Umbrite Works into a High-Yield Umbrite Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Umbrite slot.";
   if (actionId === "upgrade_titanium_works")
     return "Upgrade this Titanium Works into a High-Yield Titanium Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Titanium slot.";
-  if (actionId === "upgrade_crystal_synthesizer")
+  if (actionId === "upgrade_aether_condenser")
     return "Upgrade this Aether Condenser into a High-Yield Aether Condenser with 20% higher output (60 coin/day upkeep). Still provides exactly 1 Crystal slot.";
   if (actionId === "enable_converter_structure")
     return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";

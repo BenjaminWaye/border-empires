@@ -11,17 +11,17 @@ import { createAncillaryDepotLayout } from "./client-map-3d-structure-ancillary-
 
 export type ManpowerStructureKind =
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
-  | "POPULATION_BUREAU"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY"
-  | "GARRISON_HALL"
-  | "GRANARY"
-  | "AETHER_TOWER";
+  | "ANCILLARY_DEPOT"
+  | "INCUBATION_ENGINE"
+  | "AMBARIC_TRANSFORMER";
 
 export const MANPOWER_STRUCTURE_KINDS: ReadonlySet<ManpowerStructureKind> = new Set([
-  "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU",
-  "TITANIUM_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"
+  "QUARTERMASTERS_OFFICE", "ANCILLARY_FACTORY", "RESERVE_LATTICE", "CENSUS_DIRECTORATE",
+  "TITANIUM_LEVY", "ANCILLARY_DEPOT", "INCUBATION_ENGINE", "AMBARIC_TRANSFORMER"
 ]);
 
 export type ManpowerStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -226,7 +226,7 @@ export const registerManpowerStructures = (
     builder.addPiece("qmRailStub", sx, sy, sz, 0.20, 0.006, 0.12);
   };
 
-  const addAssemblyWorks: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addReserveLattice: ManpowerStructureLayout = (sx, sy, sz) => {
     // Industrial shed with an open front like a factory line: wide steel
     // roof on riveted columns, an overhead gantry running front-to-back
     // with a chain of small drive-wheels, and three identical gunmetal
@@ -265,7 +265,7 @@ export const registerManpowerStructures = (
     builder.addPiece("awValveCap", sx, sy, sz, 0.20, 0.175, -0.17);
   };
 
-  const addPopulationBureau: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addCensusDirectorate: ManpowerStructureLayout = (sx, sy, sz) => {
     // Monument: grand, vertical. Three stacked, shrinking civic-hall
     // tiers on a wide stepped base, twin brass census-columns flanking
     // them, crowned by a large brass tabulating-drum under a small dome.
@@ -398,16 +398,16 @@ export const registerManpowerStructures = (
   return {
     layouts: {
       QUARTERMASTERS_OFFICE: addQuartermastersOffice,
-      // GARRISON_HALL ("Ancillary Depot") gets its own dedicated drum + body-pod
-      // storehouse art; LOGISTICS_GUILD ("Ancillary Factory") keeps the
+      // ANCILLARY_DEPOT ("Ancillary Depot") gets its own dedicated drum + body-pod
+      // storehouse art; ANCILLARY_FACTORY ("Ancillary Factory") keeps the
       // hopper-tower manufactory. No art is swapped between the two anymore.
-      LOGISTICS_GUILD: addAncillaryFactory,
-      ASSEMBLY_WORKS: addAssemblyWorks,
-      POPULATION_BUREAU: addPopulationBureau,
+      ANCILLARY_FACTORY: addAncillaryFactory,
+      RESERVE_LATTICE: addReserveLattice,
+      CENSUS_DIRECTORATE: addCensusDirectorate,
       TITANIUM_LEVY: addTitaniumLevy,
-      GARRISON_HALL: addAncillaryDepot,
-      GRANARY: addIncubationEngine,
-      AETHER_TOWER: addAmbaricTower
+      ANCILLARY_DEPOT: addAncillaryDepot,
+      INCUBATION_ENGINE: addIncubationEngine,
+      AMBARIC_TRANSFORMER: addAmbaricTower
     }
   };
 };

@@ -272,7 +272,7 @@ describe("renderCaptureProgress", () => {
               y: 20,
               terrain: "LAND",
               ownerId: "enemy",
-              fort: { ownerId: "enemy", status: "active", variant: "WOODEN_FORT" }
+              fort: { ownerId: "enemy", status: "active", variant: "PALISADE" }
             }
           ]
         ]),
@@ -306,7 +306,7 @@ describe("renderCaptureProgress", () => {
     expect(captureCardEl.style.display).toBe("grid");
     expect(captureTitleEl.textContent).toBe("Mustering...");
     // 30 staged / 150 required (the Palisade's flat per-tier cost,
-    // structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE.WOODEN_FORT.max) = 20%.
+    // structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE.PALISADE.max) = 20%.
     expect(captureBarEl.style.width).toBe("20%");
     expect(captureTimeEl.textContent).toBe("30 / 150");
     expect(captureTargetEl.textContent).toBe("Target: (10, 20)");

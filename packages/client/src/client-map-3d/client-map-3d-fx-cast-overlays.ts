@@ -39,8 +39,8 @@ export type FxCastOverlayLayers = {
   revealEmpireStatsFx: ReturnType<typeof createRevealEmpireStatsFxLayer>;
   bombardFx: ReturnType<typeof createBombardFxLayer>;
   siegeBombardFx: ReturnType<typeof createBombardFxLayer>;
-  worldEngineStrikeFx: ReturnType<typeof createMonumentPulseFxLayer>;
-  worldEngineShakeFx: ReturnType<typeof createCameraShakeFx>;
+  sovereignSiegeEngineStrikeFx: ReturnType<typeof createMonumentPulseFxLayer>;
+  sovereignSiegeEngineShakeFx: ReturnType<typeof createCameraShakeFx>;
   imperialExchangeLevyFx: ReturnType<typeof createMonumentPulseFxLayer>;
   astralDockLaunchFx: ReturnType<typeof createRevealEmpireFxLayer>;
   aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
@@ -71,8 +71,8 @@ export type FxCastOverlaySyncs = {
   readonly syncRevealEmpireStatsFxQueue: () => void;
   readonly syncBombardFxQueue: () => void;
   readonly syncSiegeBombardFxQueue: () => void;
-  readonly syncWorldEngineStrikeFxQueue: () => void;
-  readonly syncWorldEngineStrikeShakeQueue: (nowMs: number) => void;
+  readonly syncSovereignSiegeEngineStrikeFxQueue: () => void;
+  readonly syncSovereignSiegeEngineStrikeShakeQueue: (nowMs: number) => void;
   readonly syncImperialExchangeLevyFxQueue: () => void;
   readonly syncUnsettleFxQueue: () => void;
   readonly syncAfcModuleDeliveryFxQueue: () => void;
@@ -183,18 +183,18 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
-  const syncWorldEngineStrikeFxQueue = (): void => {
-    while (state.worldEngineStrikeFxQueue.length > 0) {
-      const cast = state.worldEngineStrikeFxQueue.shift()!;
+  const syncSovereignSiegeEngineStrikeFxQueue = (): void => {
+    while (state.sovereignSiegeEngineStrikeFxQueue.length > 0) {
+      const cast = state.sovereignSiegeEngineStrikeFxQueue.shift()!;
       const { sceneX, sceneZ } = fxXZ(cast.x, cast.y);
-      layers.worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+      layers.sovereignSiegeEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
 
-  const syncWorldEngineStrikeShakeQueue = (nowMs: number): void => {
-    while (state.worldEngineStrikeShakeQueue.length > 0) {
-      state.worldEngineStrikeShakeQueue.shift();
-      layers.worldEngineShakeFx.trigger(nowMs);
+  const syncSovereignSiegeEngineStrikeShakeQueue = (nowMs: number): void => {
+    while (state.sovereignSiegeEngineStrikeShakeQueue.length > 0) {
+      state.sovereignSiegeEngineStrikeShakeQueue.shift();
+      layers.sovereignSiegeEngineShakeFx.trigger(nowMs);
     }
   };
 
@@ -268,8 +268,8 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncRevealEmpireStatsFxQueue,
     syncBombardFxQueue,
     syncSiegeBombardFxQueue,
-    syncWorldEngineStrikeFxQueue,
-    syncWorldEngineStrikeShakeQueue,
+    syncSovereignSiegeEngineStrikeFxQueue,
+    syncSovereignSiegeEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
     syncUnsettleFxQueue,
     syncAfcModuleDeliveryFxQueue,

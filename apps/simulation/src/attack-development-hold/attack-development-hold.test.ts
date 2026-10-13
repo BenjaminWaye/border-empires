@@ -38,10 +38,10 @@ const makeContext = (tile: DomainTileState, nowRef: { now: number }) => {
 const base = { x: 5, y: 5, terrain: "LAND", ownerId: "defender", ownershipState: "SETTLED" } as const;
 
 // One tile per structure field; every one must pause and resume the same way.
-const CASES: Array<{ name: string; field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"; tile: (completesAt: number) => DomainTileState; type: string }> = [
+const CASES: Array<{ name: string; field: "fort" | "observatory" | "siegeBattery" | "economicStructure"; tile: (completesAt: number) => DomainTileState; type: string }> = [
   { name: "fort", field: "fort", type: "TITANIUM_BASTION", tile: (completesAt) => ({ ...base, fort: { ownerId: "defender", status: "under_construction", variant: "TITANIUM_BASTION", upgradingFrom: "FORT", completesAt } }) },
   { name: "observatory", field: "observatory", type: "OBSERVATORY", tile: (completesAt) => ({ ...base, observatory: { ownerId: "defender", status: "under_construction", completesAt } }) },
-  { name: "siege outpost", field: "siegeOutpost", type: "SIEGE_TOWER", tile: (completesAt) => ({ ...base, siegeOutpost: { ownerId: "defender", status: "under_construction", variant: "SIEGE_TOWER", completesAt } }) },
+  { name: "siege battery", field: "siegeBattery", type: "SIEGE_TOWER", tile: (completesAt) => ({ ...base, siegeBattery: { ownerId: "defender", status: "under_construction", variant: "SIEGE_TOWER", completesAt } }) },
   { name: "economic structure", field: "economicStructure", type: "MINTWORKS", tile: (completesAt) => ({ ...base, economicStructure: { ownerId: "defender", type: "MINTWORKS", status: "under_construction", completesAt } }) }
 ];
 

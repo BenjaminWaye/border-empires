@@ -98,7 +98,7 @@ describe("yield-bearing tile index: perf gate (250k tiles)", () => {
         resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length]
       });
     }
-    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_WORKS", "TITANIUM_WORKS", "AETHER_CONDENSER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: {
@@ -195,7 +195,7 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }
-    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_WORKS", "TITANIUM_WORKS", "AETHER_CONDENSER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
@@ -251,7 +251,7 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }
-    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_WORKS", "TITANIUM_WORKS", "AETHER_CONDENSER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
@@ -349,7 +349,7 @@ describe("yield-bearing tile index: correctness", () => {
     //   1. gold > 0  (towns produce gold)
     //   2. tiles > 0 (at least some tiles yielded)
     // FOOD/TITANIUM are NOT asserted here: FARM/FISH's food contribution and
-    // TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER's output are
+    // TITANIUM_WORKS/UMBRITE_WORKS/AETHER_CONDENSER's output are
     // both slot-based now, not a stockpiled per-minute yield —
     // passive collection on these tile
     // types is 0 by design, not a bug. See strategicDailyFromResource

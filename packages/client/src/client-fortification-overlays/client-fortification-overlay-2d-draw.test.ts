@@ -63,8 +63,8 @@ describe("drawFortificationOverlay2D relay beacon construction", () => {
 
   it("leaves siege camps under construction flat until their own follow-up", () => {
     const { ctx, raw } = fakeCtx();
-    const tile = { x: 1, y: 1, terrain: "LAND", siegeOutpost: { ownerId: "me", status: "under_construction", variant: "SIEGE_OUTPOST", startedAt: Date.now() - HOUR, completesAt: Date.now() + HOUR } } as unknown as Tile;
-    drawFortificationOverlay2D(ctx, tile, "SIEGE_OUTPOST", image, 0, 0, 40, deps, 0);
+    const tile = { x: 1, y: 1, terrain: "LAND", siegeBattery: { ownerId: "me", status: "under_construction", variant: "SIEGE_BATTERY", startedAt: Date.now() - HOUR, completesAt: Date.now() + HOUR } } as unknown as Tile;
+    drawFortificationOverlay2D(ctx, tile, "SIEGE_BATTERY", image, 0, 0, 40, deps, 0);
     expect(raw.clip).not.toHaveBeenCalled();
     expect(raw.drawImage).toHaveBeenCalledTimes(1);
   });
@@ -89,7 +89,7 @@ describe("drawFortificationOverlay2D fort construction", () => {
   });
 
   it("covers every fort tier", () => {
-    for (const kind of ["WOODEN_FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
+    for (const kind of ["PALISADE", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
       const { ctx, raw } = fakeCtx();
       drawFortificationOverlay2D(ctx, fort({ status: "under_construction", variant: kind, ...window() }), kind, image, 0, 0, 40, deps, 0);
       expect(raw.clip).toHaveBeenCalledTimes(1);
@@ -98,7 +98,7 @@ describe("drawFortificationOverlay2D fort construction", () => {
 
   it("keeps an upgrading fort fully drawn (it is still defending) and only adds the crates and crew", () => {
     const { ctx, raw } = fakeCtx();
-    drawFortificationOverlay2D(ctx, fort({ status: "under_construction", upgradingFrom: "WOODEN_FORT", ...window() }), "WOODEN_FORT", image, 0, 0, 40, deps, 0);
+    drawFortificationOverlay2D(ctx, fort({ status: "under_construction", upgradingFrom: "PALISADE", ...window() }), "PALISADE", image, 0, 0, 40, deps, 0);
     expect(raw.clip).not.toHaveBeenCalled(); // no phase clipping of the standing fort
     expect(raw.drawImage).toHaveBeenCalledTimes(1); // the standing sprite, once
     expect(raw.fillRect).toHaveBeenCalled(); // crates + crew on top

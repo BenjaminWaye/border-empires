@@ -7,7 +7,7 @@ import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
-import { grantAetherTowerUnlockIfLinked } from "./tech-aether-tower-unlock.js";
+import { grantAmbaricTransformerUnlockIfLinked } from "./tech-ambaric-transformer-unlock.js";
 import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
 import { resolveDataPath, TECH_TREE_RELATIVE_CANDIDATES, DOMAIN_TREE_RELATIVE_CANDIDATES } from "./tech-domain-bridge-data-paths.js";
 import type { DomainCatalogEntry, ModBreakdown, StatMods, TechCatalogEntry } from "./tech-domain-bridge-types.js";
@@ -265,9 +265,9 @@ export const townVisionRadiusBonusForPlayer = (
 ): number => additiveEffectForPlayer(player, "townVisionRadiusBonus");
 
 /**
- * Extra vision radius for an owned active Relay Beacon or Siege Outpost
+ * Extra vision radius for an owned active Relay Beacon or Siege Battery
  * (runtime-outpost-vision.ts), stacked on top of Relay Beacon's flat
- * RELAY_BEACON_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
+ * RELAY_BEACON_VISION_BONUS (config.ts) — Siege Battery otherwise has no
  * vision bonus of its own. Survey Corps's outpostVisionRadiusBonus is the
  * only source today.
  */
@@ -338,7 +338,7 @@ export const chooseTechForPlayer = (
   player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
   player.techIds.add(techId);
-  grantAetherTowerUnlockIfLinked(player, techId);
+  grantAmbaricTransformerUnlockIfLinked(player, techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
   player.mods = recomputeMods(player);
   return { ok: true };

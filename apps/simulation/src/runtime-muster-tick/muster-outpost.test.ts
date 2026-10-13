@@ -27,17 +27,17 @@ const buildRuntime = () =>
     ]),
     initialState: {
       tiles: [
-        // Player-1 owns a settled tile with an active siege outpost.
+        // Player-1 owns a settled tile with an active siege battery.
         {
           x: 10,
           y: 10,
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          siegeOutpost: {
+          siegeBattery: {
             ownerId: "player-1",
             status: "active",
-            variant: "SIEGE_OUTPOST"
+            variant: "SIEGE_BATTERY"
           }
         },
         // Adjacent enemy frontier tile — the outpost would normally auto-capture this.
@@ -64,20 +64,20 @@ describe("outpost auto-attack removed", () => {
       initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
       initialState: {
         tiles: [
-          // Siege outpost at (10,10) — depot zone covers (8–12, 8–12).
+          // Siege Battery at (10,10) — depot zone covers (8–12, 8–12).
           {
             x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-            siegeOutpost: {
+            siegeBattery: {
               ownerId: "player-1",
               status: "active",
-              variant: "SIEGE_OUTPOST"
+              variant: "SIEGE_BATTERY"
             }
           },
           // Muster tile INSIDE the depot zone (adjacent to outpost).
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           // Muster tile OUTSIDE the depot zone (far away).
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          // §5.4: the SIEGE_OUTPOST needs an UMBRITE slot or it's dormant —
+          // §5.4: the SIEGE_BATTERY needs an UMBRITE slot or it's dormant —
           // dormant means no depot-speed bonus at all, which would make
           // "inside" and "outside" fill at the same rate.
           { x: 12, y: 12, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" }

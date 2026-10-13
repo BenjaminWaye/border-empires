@@ -37,8 +37,8 @@ const wireTown = (populationTier: ClientTownWireSummary["populationTier"]): Clie
   connectedTownBonus: 0,
   hasMintworks: false,
   mintworksActive: false,
-  hasGranary: false,
-  granaryActive: false
+  hasIncubationEngine: false,
+  incubationEngineActive: false
 });
 
 const townTile = (x: number, y: number, populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS", ownerId = "me"): Tile =>

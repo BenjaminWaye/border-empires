@@ -304,7 +304,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       const capturedStructureTypes = [
         ...(capturedFields.fort ? ["FORT"] : []),
         ...(capturedFields.observatory ? ["OBSERVATORY"] : []),
-        ...(capturedFields.siegeOutpost ? ["SIEGE_OUTPOST"] : []),
+        ...(capturedFields.siegeBattery ? ["SIEGE_BATTERY"] : []),
         ...(capturedFields.economicStructure ? [capturedFields.economicStructure.type] : [])
       ];
       const townImpact = {

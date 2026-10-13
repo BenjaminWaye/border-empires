@@ -48,7 +48,7 @@ describe("TileDeltaStringifyCache", () => {
       void (t.town ? JSON.stringify(t.town) : undefined);
       void (t.fort ? JSON.stringify(t.fort) : undefined);
       void (t.observatory ? JSON.stringify(t.observatory) : undefined);
-      void (t.siegeOutpost ? JSON.stringify(t.siegeOutpost) : undefined);
+      void (t.siegeBattery ? JSON.stringify(t.siegeBattery) : undefined);
       void (t.economicStructure ? JSON.stringify(t.economicStructure) : undefined);
       void (t.sabotage ? JSON.stringify(t.sabotage) : undefined);
       void (t.shardSite ? JSON.stringify(t.shardSite) : undefined);

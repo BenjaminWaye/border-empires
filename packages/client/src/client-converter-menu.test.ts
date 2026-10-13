@@ -29,7 +29,7 @@ const inactiveStructureTile = (
 describe("Enable <structure> — disabled on an unsettled (FRONTIER) tile, for any building", () => {
   it.each([
     ["RELAY_BEACON"],
-    ["UMBRITE_SYNTHESIZER"],
+    ["UMBRITE_WORKS"],
     ["TITANIUM_WEAPONS_FACTORY"]
   ] as const)("disables Enable %s with 'Tile is not garrisoned' on a FRONTIER tile", (type) => {
     const entries = converterStructureMenuEntries(inactiveStructureTile(type, "FRONTIER"), baseDeps);

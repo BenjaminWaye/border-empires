@@ -49,7 +49,7 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
     : {}),
   ...(tile.fort ? { fort: { ownerId: tile.fort.ownerId, status: tile.fort.status } } : {}),
   ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status } } : {}),
-  ...(tile.siegeOutpost ? { siegeOutpost: { ownerId: tile.siegeOutpost.ownerId, status: tile.siegeOutpost.status } } : {}),
+  ...(tile.siegeBattery ? { siegeBattery: { ownerId: tile.siegeBattery.ownerId, status: tile.siegeBattery.status } } : {}),
   ...(tile.economicStructure
     ? {
         economicStructure: {

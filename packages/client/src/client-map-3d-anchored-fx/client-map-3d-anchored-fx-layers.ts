@@ -35,7 +35,7 @@ export type AnchoredFxLayers = {
   readonly bombardFx: ReturnType<typeof createBombardFxLayer>;
   /** Umbrite-purple, cosmetic siege-structure bombardment (client-siege-bombardment.ts). */
   readonly siegeBombardFx: ReturnType<typeof createBombardFxLayer>;
-  readonly worldEngineStrikeFx: ReturnType<typeof createMonumentPulseFxLayer>;
+  readonly sovereignSiegeEngineStrikeFx: ReturnType<typeof createMonumentPulseFxLayer>;
   readonly imperialExchangeLevyFx: ReturnType<typeof createMonumentPulseFxLayer>;
   readonly astralDockLaunchFx: ReturnType<typeof createRevealEmpireFxLayer>;
   readonly aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
@@ -67,7 +67,7 @@ export const createAnchoredFxLayers = (scene: Object3D, buildingEnvironmentTextu
     revealEmpireStatsFx: anchored(createRevealEmpireStatsFxLayer(root.group)),
     bombardFx: anchored(createBombardFxLayer(root.group)),
     siegeBombardFx: anchored(createBombardFxLayer(root.group, { ring: "#7a3bff", flash: "#c79bff" })),
-    worldEngineStrikeFx: anchored(createMonumentPulseFxLayer(root.group, "#ff5533", "world-engine-strike-fx")),
+    sovereignSiegeEngineStrikeFx: anchored(createMonumentPulseFxLayer(root.group, "#ff5533", "sovereign-siege-engine-strike-fx")),
     imperialExchangeLevyFx: anchored(createMonumentPulseFxLayer(root.group, "#ffd166", "imperial-exchange-levy-fx")),
     astralDockLaunchFx: anchored(createRevealEmpireFxLayer(root.group)),
     aegisLockFx: anchored(createAegisLockFxLayer(root.group)),

@@ -95,7 +95,7 @@ near the end of this doc. It reuses the same FX layer. The §9 table's
 
 1. **Trigger: tile-delta diff, owner-only, no reconnect replay.** Not an
    optimistic client-side push on `CHOOSE_TECH` (the pattern
-   `astralDockLaunchFxQueue`/`worldEngineStrikeFxQueue` use) — those work
+   `astralDockLaunchFxQueue`/`sovereignSiegeEngineStrikeFxQueue` use) — those work
    because the acting player's own click already knows the exact target
    tile. Module commissioning doesn't: the destination is server-resolved
    (`homeAfcTileKey` — earliest `activatedAt`, tie-broken by tile key), so
@@ -221,7 +221,7 @@ scratch:
 
 ### 4. Wire into the renderer — `client-map-3d.ts` + `client-map-3d-fx-cast-overlays.ts`
 - `client-map-3d-fx-cast-overlays.ts`: add `syncAfcModuleDeliveryFxQueue()`
-  following the exact shape of `syncWorldEngineStrikeFxQueue`/`syncUnsettleFxQueue`
+  following the exact shape of `syncSovereignSiegeEngineStrikeFxQueue`/`syncUnsettleFxQueue`
   (`:168-197`): drain `state.afcModuleDeliveryFxQueue`, resolve
   `sceneXZ(entry.x, entry.y)`, call
   `layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(entry.x, entry.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now())`.
@@ -234,7 +234,7 @@ scratch:
   `siegeBombardFx` clear/dispose, and append there instead, matching that
   category rather than the structural-overlay category `afcOverlayGroup`
   belongs to); add `syncAfcModuleDeliveryFxQueue();` next to the other
-  `sync*FxQueue()` calls (near `:1650`'s `syncWorldEngineStrikeFxQueue()`);
+  `sync*FxQueue()` calls (near `:1650`'s `syncSovereignSiegeEngineStrikeFxQueue()`);
   add `.update(nowMs)` onto the shared FX-update line. Watch the file's
   line budget the same way the AFC overlay-wiring branch did (it's grown
   since — recheck `wc -l` before editing; if it's within a few lines of

@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { MINTWORKS_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
-import { GRANARY_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalStructureType } from "@border-empires/shared";
+import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
@@ -8,7 +8,7 @@ import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtim
 
 // Extracted out of runtime-structure-command-handlers.ts so that file stays
 // net-smaller (500-line budget, AGENTS.md). Build-completion helpers and the
-// completion handler itself: the Granary instant population burst and
+// completion handler itself: the Incubation Engine instant population burst and
 // completeStructureBuild.
 //
 // Converters used to start mode-locked on build completion (converterBuildModeLockFields,
@@ -51,7 +51,7 @@ export function consumeMonumentParts(
   }
 }
 
-export function grantGranaryPopulationBurst(
+export function grantIncubationEnginePopulationBurst(
   context: RuntimeStructureCommandContext,
   ownerId: string,
   x: number,
@@ -66,8 +66,8 @@ export function grantGranaryPopulationBurst(
     ...townTile,
     town: {
       ...townTile.town,
-      population: (townTile.town.population ?? 0) + GRANARY_INSTANT_POPULATION_BURST,
-      maxPopulation: (townTile.town.maxPopulation ?? 0) + GRANARY_INSTANT_POPULATION_BURST
+      population: (townTile.town.population ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST,
+      maxPopulation: (townTile.town.maxPopulation ?? 0) + INCUBATION_ENGINE_INSTANT_POPULATION_BURST
     }
   };
   context.replaceTileState(townKey, updatedTownTile, commandId);
@@ -77,7 +77,7 @@ export function grantGranaryPopulationBurst(
     playerId: ownerId,
     tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
   });
-  return GRANARY_INSTANT_POPULATION_BURST;
+  return INCUBATION_ENGINE_INSTANT_POPULATION_BURST;
 }
 
 export function grantMintworksInstantGoldBonus(
@@ -132,19 +132,19 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
-  // Relay Beacon's vision bonus (and, once active, a Siege Outpost's own)
+  // Relay Beacon's vision bonus (and, once active, a Siege Battery's own)
   // is applied by reconcileOutpostVisionBonus via the replaceTileState call
   // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) {
     announceMonumentClaim(context, structureType, ownerId, commandId, completedTile.x, completedTile.y);
     consumeMonumentParts(context, ownerId, structureType, commandId);
   }
-  // Incubation Engine (Granary, tech-tree redesign): instant one-time
+  // Incubation Engine (tech-tree redesign): instant one-time
   // +10,000 population burst on build completion, applied to both the
   // town's current population AND its cap (a burst that gets silently
   // absorbed into existing headroom wouldn't read as a "burst" at all).
-  const populationBurst = structureType === "GRANARY"
-    ? grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId)
+  const populationBurst = structureType === "INCUBATION_ENGINE"
+    ? grantIncubationEnginePopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId)
     : undefined;
   context.recordPersonalImpact?.({
     id: `building:${commandId}`,

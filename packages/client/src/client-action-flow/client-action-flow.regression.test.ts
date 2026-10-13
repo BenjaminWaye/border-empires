@@ -185,7 +185,7 @@ describe("client action flow regressions", () => {
     // tryDrainClaimContinuationBuildTail). Whichever command lost the race
     // got rejected with BUILD_INVALID "tile already has structure", even
     // though the structure was actually built successfully by the winner.
-    // The placement-overlay structures (FOUNDRY/WATERWORKS) are the one
+    // The placement-overlay structures (ORE_REFINERY/HYDROWORKS) are the one
     // exception -- those need the player to pick an exact adjacent tile via
     // the placement overlay, so they still trigger locally. That exception is
     // keyed off the shared structureRequiresClientPlacement predicate, which

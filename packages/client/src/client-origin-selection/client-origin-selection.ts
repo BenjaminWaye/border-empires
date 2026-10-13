@@ -1,4 +1,4 @@
-import { MAX_SUPPORT_RING_RADIUS, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, SIEGE_BATTERY_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
@@ -32,8 +32,8 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
   };
 
   const attackOriginMultiplierForTile = (tile: Tile): number => {
-    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
-      return SIEGE_OUTPOST_ATTACK_MULT * currentOutpostAttackMult();
+    if (tile.siegeBattery?.ownerId === state.me && tile.siegeBattery.status === "active") {
+      return SIEGE_BATTERY_ATTACK_MULT * currentOutpostAttackMult();
     }
     return 1;
   };

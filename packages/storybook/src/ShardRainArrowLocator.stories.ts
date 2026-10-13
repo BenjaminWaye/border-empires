@@ -45,8 +45,8 @@ const unfedTownTile = (x: number, y: number): Tile => ({
     connectedTownBonus: 0,
     hasMintworks: false,
     mintworksActive: false,
-    hasGranary: false,
-    granaryActive: false
+    hasIncubationEngine: false,
+    incubationEngineActive: false
   }
 });
 

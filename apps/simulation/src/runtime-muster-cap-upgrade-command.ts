@@ -20,7 +20,7 @@ function resolveCommand(context: RuntimeStructureCommandContext, command: Comman
  *
  * Currently free (no manpower/resource cost) — deliberately temporary. The
  * intended cost is a FOOD resource-slot occupation (the same
- * supply/demand-slot mechanic Forts/Siege Outposts/Observatories use, see
+ * supply/demand-slot mechanic Forts/Siege Batteries/Observatories use, see
  * resource-slot-view.ts), which is a real design task of its own, not yet
  * done. Land that FOOD-slot cost here when it's ready rather than
  * reintroducing a flat manpower charge — a one-off payment doesn't carry

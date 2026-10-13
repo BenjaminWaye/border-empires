@@ -23,7 +23,7 @@ check after the tile it hung off was lost.
 Evidence gathered so far:
 
 1. **Paths that clear ownership without the check.** Tile shedding
-   (bankrupt players, including offline ones), Aether Lance, airport
+   (bankrupt players, including offline ones), Aether Lance, sky dock
    bombardment and Create Mountain all cleared a tile's owner without calling
    `applyEncirclement`. Fixed in the same PR as this document (see Phase 0).
 2. **Existing strands are never revisited.** The fix in (1) only prevents new
@@ -62,7 +62,7 @@ case is the 8-neighbour fast path.
 
 ### Phase 0: close the leaking paths (shipped in PR #2228)
 
-Tile shedding, Aether Lance, airport bombardment and Create Mountain now call
+Tile shedding, Aether Lance, sky dock bombardment and Create Mountain now call
 `applyEncirclement` for the tile's previous owner, with regression tests in
 `apps/simulation/src/runtime/runtime-encirclement-after-tile-loss.test.ts`.
 

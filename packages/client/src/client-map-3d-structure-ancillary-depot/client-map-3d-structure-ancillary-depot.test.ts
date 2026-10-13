@@ -7,9 +7,9 @@ const build = (cutY?: number) => {
   const resources = createStructurePieceBuilder(new Scene(), 2);
   const manpower = registerManpowerStructures(resources.builder);
   resources.builder.setGate(cutY);
-  manpower.layouts.GARRISON_HALL(3, 0.5, -2);
+  manpower.layouts.ANCILLARY_DEPOT(3, 0.5, -2);
   resources.commit();
-  return { ...resources, layout: manpower.layouts.GARRISON_HALL };
+  return { ...resources, layout: manpower.layouts.ANCILLARY_DEPOT };
 };
 
 const positionAt = (mesh: InstancedMesh, index: number): Vector3 => {
@@ -19,7 +19,7 @@ const positionAt = (mesh: InstancedMesh, index: number): Vector3 => {
 };
 
 describe("ancillary depot runtime model", () => {
-  it("wires the twelve-pod replacement into GARRISON_HALL", () => {
+  it("wires the twelve-pod replacement into ANCILLARY_DEPOT", () => {
     const { builder, dispose } = build();
     try {
       expect(builder.getMesh("adDrum")?.count).toBe(1);

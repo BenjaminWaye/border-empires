@@ -164,7 +164,7 @@ export const Field: Story = {
 // catapult), so the beacon's slender open silhouette and dark brass palette
 // can be compared directly against the military fortification it must not
 // be confused with.
-export const BeaconVsSiegeOutpost: Story = {
+export const BeaconVsSiegeBattery: Story = {
   render: () => {
     const stage = glintStage({ cameraDistance: 6.5 });
     const ground = createGrassGround(3, 0);
@@ -174,7 +174,7 @@ export const BeaconVsSiegeOutpost: Story = {
     for (let i = 0; i < 3; i += 1) {
       const x = (i - 1) * 1.4;
       beacon.addInstance(x - 1.0, 0, 0, i, 0);
-      outpost.addInstance(x + 1.0, 0, 0, "SIEGE_OUTPOST", "CLOSED");
+      outpost.addInstance(x + 1.0, 0, 0, "SIEGE_BATTERY", "CLOSED");
     }
     beacon.commit();
     outpost.commit();

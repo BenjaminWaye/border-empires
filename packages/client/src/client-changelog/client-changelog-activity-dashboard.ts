@@ -8,7 +8,7 @@ export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[]
     createdAt: 1791818706351 /* Date.now() frozen for the changelog gate */,
     introducedIn: "2026.10.12.2",
     title: "Current building names everywhere",
-    why: "Several screens still showed old or internal building names, like CARAVANARY in the Yours activity view or Granary in tile history.",
+    why: "Several screens still showed old or internal building names, like TRADE_NEXUS in the Yours activity view or Incubation Engine in tile history.",
     changes: [
       "Yours activity view, build queue and in-progress builds now use in-game names like Trade Nexus",
       "Waystation tech grants in Yours show the tech's name",

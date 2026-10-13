@@ -46,7 +46,7 @@ const matrixAt = (mesh: InstancedMesh, i = 0): number[] => {
 };
 const yScale = (e: number[]): number => Math.hypot(e[4]!, e[5]!, e[6]!);
 
-const build = (kind: "FORT" | "WOODEN_FORT" | "SIEGE_OUTPOST", construction?: { site: ConstructionSite; keepStanding: boolean }) => {
+const build = (kind: "FORT" | "PALISADE" | "SIEGE_BATTERY", construction?: { site: ConstructionSite; keepStanding: boolean }) => {
   const scene = new Scene();
   const overlay = createFortOverlay(scene, 4);
   overlay.addInstance(0, 0, 0, kind, "CLOSED", 3, 4, 0, construction);
@@ -101,9 +101,9 @@ describe("fort overlay under construction", () => {
     late.overlay.dispose();
   });
 
-  it("does not turn a siege outpost into a construction site (follow-up 3)", () => {
-    const withSite = build("SIEGE_OUTPOST", { site: siteAt(1, { field: "siegeOutpost" }), keepStanding: false });
-    const without = build("SIEGE_OUTPOST");
+  it("does not turn a siege battery into a construction site (follow-up 3)", () => {
+    const withSite = build("SIEGE_BATTERY", { site: siteAt(1, { field: "siegeBattery" }), keepStanding: false });
+    const without = build("SIEGE_BATTERY");
     const count = (s: Scene): number => s.children.filter((c) => c instanceof InstancedMesh).reduce((n, c) => n + (c as InstancedMesh).count, 0);
     expect(count(withSite.scene)).toBe(count(without.scene));
     withSite.overlay.dispose();
@@ -138,7 +138,7 @@ describe("fort overlay under construction", () => {
     const scene = new Scene();
     const overlay = createFortOverlay(scene, 4);
     overlay.addInstance(0, 0, 0, "FORT", "CLOSED", 1, 1, 0, { site: siteAt(2), keepStanding: false });
-    overlay.addInstance(2, 0, 0, "WOODEN_FORT", "NORTH", 2, 2, 0, { site: siteAt(3, { direction: "remove" }), keepStanding: false });
+    overlay.addInstance(2, 0, 0, "PALISADE", "NORTH", 2, 2, 0, { site: siteAt(3, { direction: "remove" }), keepStanding: false });
     overlay.addInstance(4, 0, 0, "FORT", "EAST", 3, 3, 0, { site: siteAt(4, { stalled: true, nextPhaseAtMs: undefined }), keepStanding: true });
     overlay.commit();
     expect(() => {
@@ -177,7 +177,7 @@ describe("addFortificationInstancesForTile fort construction", () => {
     const now = Date.now();
     const fresh = route(fortTile({ status: "under_construction", startedAt: now - HOUR, completesAt: now + 7 * HOUR }));
     expect(fresh).toMatchObject({ keepStanding: false, site: { field: "fort", direction: "build" } });
-    const upgrade = route(fortTile({ status: "under_construction", upgradingFrom: "WOODEN_FORT", startedAt: now - HOUR, completesAt: now + 7 * HOUR }));
+    const upgrade = route(fortTile({ status: "under_construction", upgradingFrom: "PALISADE", startedAt: now - HOUR, completesAt: now + 7 * HOUR }));
     expect(upgrade).toMatchObject({ keepStanding: true });
     const removing = route(fortTile({ status: "removing", startedAt: now - HOUR, completesAt: now + 7 * HOUR }));
     expect(removing).toMatchObject({ keepStanding: false, site: { direction: "remove" } });

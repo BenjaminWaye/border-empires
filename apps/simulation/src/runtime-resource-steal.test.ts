@@ -39,7 +39,7 @@ describe("resource capture steal", () => {
     expect(stolenResourceForCapture("TITANIUM")).toBe("TITANIUM");
     expect(stolenResourceForCapture("GEMS")).toBe("CRYSTAL");
     expect(stolenResourceForCapture("UMBRITE")).toBe("UMBRITE");
-    expect(stolenResourceForCapture(undefined, "ADVANCED_UMBRITE_SYNTHESIZER")).toBe("UMBRITE");
+    expect(stolenResourceForCapture(undefined, "HIGH_YIELD_UMBRITE_WORKS")).toBe("UMBRITE");
     expect(stolenResourceForCapture("UNKNOWN")).toBeUndefined();
   });
 

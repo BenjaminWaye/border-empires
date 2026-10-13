@@ -17,7 +17,7 @@ import { FORT_CONSTRUCTION_LAYOUT } from "./client-map-3d-construction/client-ma
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
 // omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). SIEGE_OUTPOST is an armored siege machine with a big
+// opening max). SIEGE_BATTERY is an armored siege machine with a big
 // forward cannon and a rotating aether targeting head, built by
 // client-map-3d-siege-machine-overlay.ts. RELAY_BEACON has its own dedicated
 // overlay (client-map-3d-relay-beacon-overlay.ts).
@@ -60,7 +60,7 @@ export type FortOverlay = {
      *  the siege machine's per-tile jitter/phase. Omit for demo/story use. */
     wx?: number,
     wy?: number,
-    /** SIEGE_OUTPOST only: yaw (radians) aiming the machine at its nearest
+    /** SIEGE_BATTERY only: yaw (radians) aiming the machine at its nearest
      *  known rival tile. See siegeBatteryFacingRadiansForTile. */
     facingRad?: number,
     /** Fort tiers only: set while the fort is being built, upgraded or removed. */
@@ -213,7 +213,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
   ): void => {
     const skipDir = openingToDirection(opening);
     const heightFraction = construction && !construction.keepStanding ? construction.site.visibleBands / CONSTRUCTION_PHASES : 1;
-    const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "WOODEN_FORT";
+    const isFortTier = kind === "FORT" || kind === "TITANIUM_BASTION" || kind === "THUNDER_BASTION" || kind === "PALISADE";
     if (construction && isFortTier) presentation.addSite(worldX, worldZ, surfaceY, construction.site, TOWER_HEIGHT, FORT_CONSTRUCTION_LAYOUT);
     if (kind === "FORT") {
       addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
@@ -221,9 +221,9 @@ export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnviro
       addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
     } else if (kind === "THUNDER_BASTION") {
       addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
-    } else if (kind === "WOODEN_FORT") {
+    } else if (kind === "PALISADE") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, skipDir, heightFraction);
-    } else if (kind === "SIEGE_OUTPOST") {
+    } else if (kind === "SIEGE_BATTERY") {
       siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
     }
   };

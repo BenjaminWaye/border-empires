@@ -13,10 +13,10 @@ describe("settled build gating regression guard", () => {
       readFileSync(resolve(here, "../client-tile-action-support/client-tile-action-support.ts"), "utf8") +
       readFileSync(resolve(here, "../client-tile-menu-view/client-tile-menu-view.ts"), "utf8");
 
-    expect(source).toContain('buildShowsOnTile("WOODEN_FORT"');
+    expect(source).toContain('buildShowsOnTile("PALISADE"');
     expect(source).toContain('buildShowsOnTile("OBSERVATORY"');
     expect(source).toContain('const townBuildSource =');
-    expect(source).toContain('build_customs_house');
+    expect(source).toContain('build_harbor_exchange');
     expect(source).toContain('buildings: buildingRows.length ? buildingRows : []');
     expect(source).toContain('supportPlacementBlocked');
     expect(source).toContain('const canShowBuildingsTab =');

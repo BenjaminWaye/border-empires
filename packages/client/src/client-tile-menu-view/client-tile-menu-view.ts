@@ -60,7 +60,7 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
-    dockSupportedByCustomsHouseForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
+    dockSupportedByHarborExchangeForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -185,8 +185,8 @@ export const menuOverviewForTile = (
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
       // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
-      // base demand — a nearby Governor's Office can reduce it further, but
-      // that isn't visible client-side, so a fed Governor's-Office town may
+      // base demand — a nearby Ministry Hall can reduce it further, but
+      // that isn't visible client-side, so a fed Ministry-Hall town may
       // show a demand slightly higher than what it's actually clearing.
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
@@ -256,8 +256,8 @@ export const menuOverviewForTile = (
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
     // tile.dock?.goldPerMinute is never populated over the wire; dockDisplayGoldPerMinute mirrors dockBaseGoldPerMinuteForPlayer's real fallback instead of a flat constant.
-    const supportedByCustomsHouse = deps.dockSupportedByCustomsHouseForTile?.(tile) ?? false;
-    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByCustomsHouse);
+    const supportedByHarborExchange = deps.dockSupportedByHarborExchangeForTile?.(tile) ?? false;
+    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByHarborExchange);
     pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} coin/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
@@ -294,7 +294,7 @@ export const menuOverviewForTile = (
         const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
         pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
-      if (town.town?.hasGranary) pushLine("Nearby town already has an Incubation Engine.");
+      if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
       if (!tile.economicStructure) pushLine("Town buildings like mintworks and Incubation Engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
@@ -337,8 +337,8 @@ export const menuOverviewForTile = (
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));
     if (dormantLine) pushLine(dormantLine);
   }
-  if (tile.siegeOutpost?.status === "active") {
-    const dormantLine = dormantStructureLineHtml(tile, "siegeOutpost", deps.dormantResourcesForTile?.(tile, "siegeOutpost"));
+  if (tile.siegeBattery?.status === "active") {
+    const dormantLine = dormantStructureLineHtml(tile, "siegeBattery", deps.dormantResourcesForTile?.(tile, "siegeBattery"));
     if (dormantLine) pushLine(dormantLine);
   }
   if (tile.economicStructure) {
@@ -389,7 +389,7 @@ export const menuOverviewForTile = (
   if (tile.observatory?.status === "removing") {
     pushLine("Aether Tower removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
   }
-  if (tile.siegeOutpost?.status === "removing") {
+  if (tile.siegeBattery?.status === "removing") {
     pushLine("Siege Battery removal is underway. Attack bonuses from this tile are currently disabled.");
   }
   const construction = deps.constructionCountdownLineForTile(tile);

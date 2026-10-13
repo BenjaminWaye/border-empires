@@ -18,7 +18,7 @@ import type {
   SeasonVictoryObjectiveView,
   SeasonVictoryPathId,
   SeasonWinnerView,
-  SiegeOutpost,
+  SiegeBattery,
   StrategicReplayEvent,
   RevealEmpireStatsView,
   Tile,
@@ -178,7 +178,7 @@ export interface SnapshotState {
   allianceRequests?: AllianceRequest[];
   forts?: Fort[];
   observatories?: Observatory[];
-  siegeOutposts?: SiegeOutpost[];
+  siegeBatteries?: SiegeBattery[];
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
@@ -250,7 +250,7 @@ export interface SnapshotSystemsSection {
   allianceRequests?: AllianceRequest[];
   forts?: Fort[];
   observatories?: Observatory[];
-  siegeOutposts?: SiegeOutpost[];
+  siegeBatteries?: SiegeBattery[];
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
@@ -326,8 +326,8 @@ export interface TileHistoryState {
   previousOwners: string[];
   captureCount: number;
   lastCapturedAt?: number | null;
-  lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType | null;
-  structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType>;
+  lastStructureType?: "FORT" | "SIEGE_BATTERY" | "OBSERVATORY" | EconomicStructureType | null;
+  structureHistory: Array<"FORT" | "SIEGE_BATTERY" | "OBSERVATORY" | EconomicStructureType>;
   wasMountainCreatedByPlayer?: boolean;
   wasMountainRemovedByPlayer?: boolean;
 }

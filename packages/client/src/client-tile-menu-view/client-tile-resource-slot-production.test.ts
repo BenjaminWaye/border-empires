@@ -34,13 +34,13 @@ describe("resourceSlotProductionHtml", () => {
     expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FISH" })).toBe(`${resourceIconHtml("FOOD")} Food +2`);
   });
 
-  it("adds a Farmstead's +2 own-tile boost on top of the FARM base", () => {
+  it("adds a Hydrogarden's +2 own-tile boost on top of the FARM base", () => {
     const tile: Tile = {
       x: 0,
       y: 0,
       terrain: "LAND",
       resource: "FARM",
-      economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" }
+      economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "active" }
     };
     expect(resourceSlotProductionHtml(tile)).toBe(`${resourceIconHtml("FOOD")} Food +3`);
   });

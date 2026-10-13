@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { mayContainLegacyStructureNames, upgradeLegacyStructureNames, upgradeLegacyStructureToken } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 import type { SimulationEventStore, StoredSimulationEvent } from "./event-store/event-store.js";
@@ -12,12 +13,19 @@ type Row = {
   created_at: number;
 };
 
+// Events written before the structure id rename carry old names (see
+// legacy-structure-names.ts); upgrade them so replay sees current ids.
+const parseEventPayload = (raw: string): SimulationEvent => {
+  const parsed = JSON.parse(raw) as SimulationEvent;
+  return mayContainLegacyStructureNames(raw) ? upgradeLegacyStructureNames(parsed) : parsed;
+};
+
 const toStoredEvent = (row: Row): StoredSimulationEvent => ({
   eventId: row.event_id,
   commandId: row.command_id,
   playerId: row.player_id,
-  eventType: row.event_type,
-  eventPayload: JSON.parse(row.event_payload) as SimulationEvent,
+  eventType: upgradeLegacyStructureToken(row.event_type) as SimulationEvent["eventType"],
+  eventPayload: parseEventPayload(row.event_payload),
   createdAt: row.created_at
 });
 

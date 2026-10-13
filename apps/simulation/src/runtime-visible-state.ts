@@ -237,7 +237,7 @@ function visibleTileProjection(
     ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
     ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
     ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-    ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+    ...(tile.siegeBattery ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
     ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
     ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
     // Missing entirely until this fix, unlike every sibling overlay field
@@ -250,7 +250,7 @@ function visibleTileProjection(
     // Truthy-guarded like every field above: this snapshot is a bulk, cheap
     // full-tile projection (also used for the up-to-13k-tile bootstrap
     // export and the post-season full-visibility export), not a
-    // clear-signaling channel -- same as fort/sabotage/siegeOutpost/etc.,
+    // clear-signaling channel -- same as fort/sabotage/siegeBattery/etc.,
     // it reports what IS there and says nothing about what changed. A stale
     // local muster belief surviving a reconnect is the same tradeoff this
     // snapshot already accepts for every other structure type; re-selecting

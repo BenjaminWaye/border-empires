@@ -10,7 +10,7 @@ export type DevelopmentSlotReservation = {
 export const isDevelopmentSlotCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "BUILD_FORT" ||
   type === "BUILD_OBSERVATORY" ||
-  type === "BUILD_SIEGE_OUTPOST" ||
+  type === "BUILD_SIEGE_BATTERY" ||
   type === "BUILD_ECONOMIC_STRUCTURE";
 
 export const reservedDevelopmentSlotCount = (

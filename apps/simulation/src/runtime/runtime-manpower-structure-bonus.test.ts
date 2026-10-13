@@ -2,7 +2,7 @@
  * Regression tests for the manpower-boosting structure tree. An Ancillary
  * Factory grants +150
  * manpower cap plus 10% of its town's terrain-adjusted base capacity;
- * Assembly Works changes that local percentage to 35%; and a second Rail
+ * Reserve Lattice changes that local percentage to 35%; and a second Rail
  * Depot in an already-covered network
  * is rejected outright — even mid-construction, before the first one goes
  * active.
@@ -19,7 +19,7 @@ import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 type RawPlayerRef = { manpower: number };
 
 // Two towns connected through a shared corridor tile, each with its own
-// support tile for a Garrison Hall/Rail Depot build. Town A: (16,16), support
+// support tile for a Ancillary Depot/Neural Works build. Town A: (16,16), support
 // tiles at (15,15)/(15,16)/(15,17). Town B: (20,16), support tiles at
 // (21,15)/(21,16)/(21,17). Corridor: (17,16)-(19,16).
 const buildTwoTownNetworkRuntime = () => {
@@ -43,7 +43,7 @@ const buildTwoTownNetworkRuntime = () => {
         { x: 18, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 19, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 20, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Town B", type: "FARMING", populationTier: "TOWN" } },
-        // §5 resource slots: Garrison Hall and Rail Depot both draw 1 FOOD +
+        // §5 resource slots: Ancillary Depot and Neural Works both draw 1 FOOD +
         // 1 CRYSTAL slot (§12's "crystal fix"), and each of the two towns
         // above also draws its own 4 FOOD slots (§5.3) — plenty of FARM
         // supply here, or every build in this file gets rejected with
@@ -77,7 +77,7 @@ const capSnapshotFor = (runtime: SimulationRuntime, playerId: string): number | 
 };
 
 describe("manpower structure bonuses (§4.4)", () => {
-  it("Garrison Hall adds its flat cap bonus once construction finishes", async () => {
+  it("Ancillary Depot adds its flat cap bonus once construction finishes", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -90,14 +90,14 @@ describe("manpower structure bonuses (§4.4)", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "GARRISON_HALL" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "ANCILLARY_DEPOT" })
       });
       await Promise.resolve();
 
       // Still under_construction — bonus must not apply yet.
       expect(capSnapshotFor(runtime, "player-1")).toBe(before);
 
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("GARRISON_HALL"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("ANCILLARY_DEPOT"));
       await Promise.resolve();
 
       const after = capSnapshotFor(runtime, "player-1")!;
@@ -107,7 +107,7 @@ describe("manpower structure bonuses (§4.4)", () => {
     }
   });
 
-  it("a lone Rail Depot with no Garrison Hall anywhere in its network adds no cap/regen bonus", async () => {
+  it("a lone Neural Works with no Ancillary Depot anywhere in its network adds no cap/regen bonus", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -120,10 +120,10 @@ describe("manpower structure bonuses (§4.4)", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "RAIL_DEPOT" })
+        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "NEURAL_WORKS" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("RAIL_DEPOT"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("NEURAL_WORKS"));
       await Promise.resolve();
 
       const after = capSnapshotFor(runtime, "player-1")!;
@@ -133,9 +133,9 @@ describe("manpower structure bonuses (§4.4)", () => {
     }
   });
 
-  // Assembly Works changes the local Ancillary Factory percentage from 10%
+  // Reserve Lattice changes the local Ancillary Factory percentage from 10%
   // to 35%; it does not add a second independent bonus.
-  it("an Assembly Works amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
+  it("an Reserve Lattice amplifies a Ancillary Depot elsewhere in the same connected-town network", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -147,12 +147,12 @@ describe("manpower structure bonuses (§4.4)", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "GARRISON_HALL" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "ANCILLARY_DEPOT" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("GARRISON_HALL"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("ANCILLARY_DEPOT"));
       await Promise.resolve();
-      const withGarrisonHallOnly = capSnapshotFor(runtime, "player-1")!;
+      const withAncillaryDepotOnly = capSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
         commandId: "aw-2",
@@ -161,20 +161,20 @@ describe("manpower structure bonuses (§4.4)", () => {
         clientSeq: 2,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "ASSEMBLY_WORKS" })
+        payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "RESERVE_LATTICE" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(economicStructureBuildDurationMs("ASSEMBLY_WORKS"));
+      vi.advanceTimersByTime(economicStructureBuildDurationMs("RESERVE_LATTICE"));
       await Promise.resolve();
-      const withAssemblyWorksToo = capSnapshotFor(runtime, "player-1")!;
+      const withReserveLatticeToo = capSnapshotFor(runtime, "player-1")!;
 
-      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(75);
+      expect(withReserveLatticeToo - withAncillaryDepotOnly).toBe(75);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("rejects a second Rail Depot inside a connected-town network that already has one, even before the first finishes construction", async () => {
+  it("rejects a second Neural Works inside a connected-town network that already has one, even before the first finishes construction", async () => {
     const runtime = buildTwoTownNetworkRuntime();
 
     runtime.submitCommand({
@@ -184,14 +184,14 @@ describe("manpower structure bonuses (§4.4)", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "RAIL_DEPOT" })
+      payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "NEURAL_WORKS" })
     });
     await Promise.resolve();
     // Still under_construction at this point (no time has advanced) — the
     // uniqueness check must still catch it (see hasSupportedStructure's
     // includeUnderConstruction parameter).
     expect(
-      runtime.exportState().tiles.some((t) => t.economicStructureJson?.includes("\"status\":\"under_construction\"") && t.economicStructureJson?.includes("RAIL_DEPOT"))
+      runtime.exportState().tiles.some((t) => t.economicStructureJson?.includes("\"status\":\"under_construction\"") && t.economicStructureJson?.includes("NEURAL_WORKS"))
     ).toBe(true);
 
     const seen = collectEvents(runtime);
@@ -202,12 +202,12 @@ describe("manpower structure bonuses (§4.4)", () => {
       clientSeq: 2,
       issuedAt: 1_000,
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "RAIL_DEPOT" })
+      payloadJson: JSON.stringify({ x: 20, y: 16, structureType: "NEURAL_WORKS" })
     });
     await Promise.resolve();
 
     const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED");
     expect(rejected).toMatchObject({ code: "BUILD_INVALID", message: expect.stringContaining("connected town network already has a Neural Works") });
-    expect(runtime.exportState().tiles.filter((t) => t.economicStructureJson?.includes("RAIL_DEPOT")).length).toBe(1);
+    expect(runtime.exportState().tiles.filter((t) => t.economicStructureJson?.includes("NEURAL_WORKS")).length).toBe(1);
   });
 });

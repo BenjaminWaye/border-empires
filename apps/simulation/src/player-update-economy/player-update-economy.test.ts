@@ -118,7 +118,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
           terrain: "LAND",
           ownerId: player.id,
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: player.id, type: "CARAVANARY", status: "active" }
+          economicStructure: { ownerId: player.id, type: "TRADE_NEXUS", status: "active" }
         }
       ]
     ]);
@@ -179,8 +179,8 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     );
   });
 
-  it("an active Farmstead on a FARM tile adds no strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
-    // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based (§5.4) — a Farmstead's
+  it("an active Hydrogarden on a FARM tile adds no strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
+    // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based (§5.4) — a Hydrogarden's
     // real effect now is boosting FOOD *slot supply* (structure-slots.ts),
     // a separate mechanism this snapshot doesn't compute.
     const player = makePlayer();
@@ -191,19 +191,19 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ownerId: player.id,
       ownershipState: "SETTLED",
       resource: "FARM",
-      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+      economicStructure: { ownerId: player.id, type: "HYDROGARDEN", status: "active" }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", farmTile]]);
 
-    const withFarmstead = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
+    const withHydrogarden = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
 
-    expect(withFarmstead.strategicProductionPerMinute.FOOD).toBe(0);
-    expect(withFarmstead.economyBreakdown.FOOD.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Farmstead", resourceKey: "FOOD" })
+    expect(withHydrogarden.strategicProductionPerMinute.FOOD).toBe(0);
+    expect(withHydrogarden.economyBreakdown.FOOD.sources).not.toContainEqual(
+      expect.objectContaining({ label: "Hydrogarden", resourceKey: "FOOD" })
     );
   });
 
-  it("regression: Farmstead gives no food bonus on FISH tiles", () => {
+  it("regression: Hydrogarden gives no food bonus on FISH tiles", () => {
     const player = makePlayer();
     const fishTile: DomainTileState = {
       x: 10,
@@ -212,14 +212,14 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       ownerId: player.id,
       ownershipState: "SETTLED",
       resource: "FISH",
-      economicStructure: { ownerId: player.id, type: "FARMSTEAD", status: "active" }
+      economicStructure: { ownerId: player.id, type: "HYDROGARDEN", status: "active" }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", fishTile]]);
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
 
     expect(economy.economyBreakdown.FOOD.sources).not.toContainEqual(
-      expect.objectContaining({ label: "Farmstead" })
+      expect.objectContaining({ label: "Hydrogarden" })
     );
   });
 
@@ -344,8 +344,8 @@ describe("refreshTownEconomyFields", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
@@ -378,8 +378,8 @@ describe("refreshTownEconomyFields", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
@@ -412,8 +412,8 @@ describe("refreshTownEconomyFields", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);

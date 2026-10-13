@@ -5,7 +5,7 @@ import {
   musterMarchDistanceTiles,
   musterMarchTooFarAdvice,
   SIEGE_TIER_LADDER,
-  siegeOutpostRemovalDurationMs,
+  siegeBatteryRemovalDurationMs,
   STRUCTURE_REGISTRY,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
@@ -13,7 +13,7 @@ import {
   structureRemovalDurationMs,
   type BuildableStructureType,
   type FortVariant,
-  type SiegeOutpostVariant
+  type SiegeBatteryVariant
 } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import {
@@ -70,7 +70,7 @@ export type StructureCancelRefund = {
 
 // Cancelling a build/upgrade must hand back exactly what handleBuildStructureCommand
 // (runtime-structure-command-handlers.ts) took, or the player permanently loses that
-// gold/manpower/strategic spend. Fort and siege outpost tiers are recomputed from the
+// gold/manpower/strategic spend. Fort and siege battery tiers are recomputed from the
 // tile's stored `variant` (not the player's *current* tech) so a tech unlock mid-build
 // can't change what gets refunded -- this is exact regardless of concurrency, since the
 // ladder is keyed by variant, not by a count that could shift under other in-flight builds.
@@ -110,8 +110,8 @@ export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | und
   return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ TITANIUM: tier.titanium }) };
 }
 
-export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
-  const tier = SIEGE_TIER_LADDER[variant ?? "SIEGE_OUTPOST"];
+export function siegeBatteryCancelRefund(variant: SiegeBatteryVariant | undefined): StructureCancelRefund {
+  const tier = SIEGE_TIER_LADDER[variant ?? "SIEGE_BATTERY"];
   return {
     gold: tier.gold,
     manpower: tier.manpower,
@@ -349,15 +349,15 @@ function cancelStructureActionTile(
         : { ...target.observatory, status: target.observatory.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
-  if (target.siegeOutpost?.ownerId === playerId && (target.siegeOutpost.status === "under_construction" || target.siegeOutpost.status === "removing")) {
-    if (target.siegeOutpost.status === "under_construction") {
-      applyStructureCancelRefund(context, actor, siegeOutpostCancelRefund(target.siegeOutpost.variant));
+  if (target.siegeBattery?.ownerId === playerId && (target.siegeBattery.status === "under_construction" || target.siegeBattery.status === "removing")) {
+    if (target.siegeBattery.status === "under_construction") {
+      applyStructureCancelRefund(context, actor, siegeBatteryCancelRefund(target.siegeBattery.variant));
     }
     return {
       ...target,
-      siegeOutpost: target.siegeOutpost.status === "under_construction"
+      siegeBattery: target.siegeBattery.status === "under_construction"
         ? undefined
-        : { ...target.siegeOutpost, status: target.siegeOutpost.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
+        : { ...target.siegeBattery, status: target.siegeBattery.previousStatus ?? "active", previousStatus: undefined, completesAt: undefined, startedAt: undefined }
     };
   }
   if (target.economicStructure?.ownerId === playerId && (target.economicStructure.status === "under_construction" || target.economicStructure.status === "removing")) {
@@ -398,9 +398,9 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
     target.observatory?.ownerId === command.playerId && target.naturalWonder?.type !== "WATCHTOWER_ENGINE"
       ? target.observatory
       : undefined;
-  const siegeOutpost = target.siegeOutpost?.ownerId === command.playerId ? target.siegeOutpost : undefined;
+  const siegeBattery = target.siegeBattery?.ownerId === command.playerId ? target.siegeBattery : undefined;
   const economicStructure = target.economicStructure?.ownerId === command.playerId ? target.economicStructure : undefined;
-  const ownedStructure = fort ?? observatory ?? siegeOutpost ?? economicStructure;
+  const ownedStructure = fort ?? observatory ?? siegeBattery ?? economicStructure;
   if (!ownedStructure) {
     rejectCommand(context, command, "STRUCTURE_REMOVE_INVALID", "no owned structure on tile");
     return;
@@ -428,9 +428,9 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   } else if (observatory) {
     removeDurationMs = structureRemovalDurationMs("OBSERVATORY");
     updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", startedAt: now, completesAt: now + removeDurationMs } };
-  } else if (siegeOutpost) {
-    removeDurationMs = siegeOutpostRemovalDurationMs(siegeOutpost.variant);
-    updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
+  } else if (siegeBattery) {
+    removeDurationMs = siegeBatteryRemovalDurationMs(siegeBattery.variant);
+    updatedTile = { ...target, siegeBattery: { ...siegeBattery, status: "removing", previousStatus: "active", startedAt: now, completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
     removeDurationMs = structureRemovalDurationMs(structure.type);
@@ -451,8 +451,8 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
     completedTile = { ...latest, fort: undefined };
   } else if (latest.observatory?.ownerId === ownerId && latest.observatory.status === "removing") {
     completedTile = { ...latest, observatory: undefined };
-  } else if (latest.siegeOutpost?.ownerId === ownerId && latest.siegeOutpost.status === "removing") {
-    completedTile = { ...latest, siegeOutpost: undefined };
+  } else if (latest.siegeBattery?.ownerId === ownerId && latest.siegeBattery.status === "removing") {
+    completedTile = { ...latest, siegeBattery: undefined };
   } else if (latest.economicStructure?.ownerId === ownerId && latest.economicStructure.status === "removing") {
     completedTile = { ...latest, economicStructure: undefined };
   }
@@ -468,7 +468,7 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.flushReachUpdates(`reach-update:${commandId}`);
 }
 
-export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
+export function handleCancelSiegeBatteryBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
   const payload = parseStructureTilePayload(command.payloadJson);
   if (!actor || !payload) {
@@ -477,12 +477,12 @@ export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCo
   }
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
-  if (!target?.siegeOutpost || target.siegeOutpost.ownerId !== command.playerId || target.siegeOutpost.status !== "under_construction") {
-    rejectCommand(context, command, "SIEGE_OUTPOST_CANCEL_INVALID", "no siege battery under construction on tile");
+  if (!target?.siegeBattery || target.siegeBattery.ownerId !== command.playerId || target.siegeBattery.status !== "under_construction") {
+    rejectCommand(context, command, "SIEGE_BATTERY_CANCEL_INVALID", "no siege battery under construction on tile");
     return;
   }
-  applyStructureCancelRefund(context, actor, siegeOutpostCancelRefund(target.siegeOutpost.variant));
-  const updatedTile: DomainTileState = { ...target, siegeOutpost: undefined };
+  applyStructureCancelRefund(context, actor, siegeBatteryCancelRefund(target.siegeBattery.variant));
+  const updatedTile: DomainTileState = { ...target, siegeBattery: undefined };
   context.replaceTileState(targetKey, updatedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   context.emitPlayerStateUpdate(command);

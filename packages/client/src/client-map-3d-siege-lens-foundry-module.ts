@@ -12,7 +12,7 @@
 // bay center, yaw-aligned to face outward):
 //   SLF_Root
 //   ├── Seat                  — dockable circular base + brass locking lip
-//   ├── Foundry_Body          — hexagonal furnace stack, exhaust vent, two
+//   ├── Ore_Refinery_Body          — hexagonal furnace stack, exhaust vent, two
 //   │                            pressure tanks with steel caps
 //   ├── Siege_Lens            — the oversized brass-and-steel focusing
 //   │                            assembly: flange, barrel, muzzle, optic
@@ -291,9 +291,9 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
     addPiece("baseRing", wx, sy, wz, 0, 0.032, 0, 1, 1, 1, 0, PI_2, 0);
   };
 
-  // Foundry_Body: squat hexagonal furnace stack, exhaust vent (with aether
+  // Ore_Refinery_Body: squat hexagonal furnace stack, exhaust vent (with aether
   // glow slit at its root) and two pressure tanks riding the rear.
-  const addFoundryBody = (wx: number, sy: number, wz: number): void => {
+  const addOreRefineryBody = (wx: number, sy: number, wz: number): void => {
     addPiece("hexBody", wx, sy, wz, 0, 0.095, 0);
     addPiece("bodyBand", wx, sy, wz, 0, 0.139, 0, 1, 1, 1, 0, PI_2, 0);
     addPiece("bodyTop", wx, sy, wz, 0, 0.18, 0);
@@ -324,7 +324,7 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
   };
 
   // Manipulator_Clamp: a compact two-segment handling arm on each flank of
-  // the foundry, holding a lens blank in mid-process above the furnace line.
+  // the ore refinery, holding a lens blank in mid-process above the furnace line.
   const addClampArm = (wx: number, sy: number, wz: number, side: number): void => {
     const z1 = 0.09 * side;
     addRingAlong("clampShoulder", wx, sy, wz, 0, 0.175, z1, 1, 0, 0);
@@ -344,7 +344,7 @@ export const createSiegeLensFoundryModuleOverlay = (scene: Scene, maxInstances: 
 
   const addModule = (wx: number, sy: number, wz: number): void => {
     addSeat(wx, sy, wz);
-    addFoundryBody(wx, sy, wz);
+    addOreRefineryBody(wx, sy, wz);
     addSiegeLens(wx, sy, wz);
     addClampArm(wx, sy, wz, -1);
     addClampArm(wx, sy, wz, 1);

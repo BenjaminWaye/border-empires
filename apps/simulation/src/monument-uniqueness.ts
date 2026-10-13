@@ -8,10 +8,10 @@ import { MONUMENTAL_STRUCTURE_TYPES, type MonumentalStructureType } from "@borde
 // and the reverse (component type -> base type).
 const PART_TYPES_FOR_BASE: Record<MonumentalStructureType, readonly string[]> = {
   IMPERIAL_EXCHANGE: ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"],
-  WORLD_ENGINE: ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"],
+  SOVEREIGN_SIEGE_ENGINE: ["SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3"],
   AEGIS_DOME: ["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3"],
   ASTRAL_DOCK: ["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"],
-  POPULATION_BUREAU: ["POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3"],
+  CENSUS_DIRECTORATE: ["CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3"],
   TITANIUM_LEVY: ["TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"]
 };
 
@@ -67,8 +67,8 @@ export const monumentClaimOwnerIdFromTiles = (
 // full 200k-tile scan on nearly every EXPAND/ATTACK/SETTLE, which load
 // testing showed dominating main-thread time (V8 megamorphic IC cost from the
 // heterogeneous per-tile property access). This index keeps that read O(1)
-// instead, updated the same way as garrisonHallTilesByOwner/
-// railDepotTilesByOwner et al.: seeded once at boot from a full tile scan,
+// instead, updated the same way as ancillaryDepotTilesByOwner/
+// neuralWorksTilesByOwner et al.: seeded once at boot from a full tile scan,
 // then incrementally maintained per-tile-change via refreshMonumentOwnerIndexForTile.
 export const activeMonumentOnTile = (
   tile: DomainTileState
