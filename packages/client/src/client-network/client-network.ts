@@ -121,8 +121,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearSettlementProgressByKey,
     formatCooldownShort,
     reconcileActionQueue,
-    revertOptimisticTileCollectDelta,
-    clearPendingCollectTileDelta,
     playerNameForOwner,
     applyOptimisticTileState
   } = deps;
@@ -2247,8 +2245,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
       if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
-        if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
         const pending = state.pendingShardCollect;
         if (pending && msg.code === "COLLECT_NOT_OWNED") {
           const tile = state.tiles.get(pending.tileKey);
@@ -2704,7 +2700,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
-    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
