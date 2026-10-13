@@ -11,7 +11,7 @@ export const CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY: ClientChangelog
       "Food is a wheat ear, Crystal is a cut gem so it no longer looks like a Shard, the Manifest tab is a sealed ledger, Allies shows two figures, and Settings is a steel gear",
       "Tab and resource bar icons are bigger",
       "Resource tile badges on the map show the icon on a dark plate with a coloured rim, so it no longer blends into the tile",
-      "The pulsing \"ready to collect\" marker is now a gold coin in the tile's top-right corner, so it no longer hides the resource badge",
+      "Removed the blinking \"ready to collect\" marker from map tiles: tiles no longer hold yield, and it was covering the resource badge",
       "Plunder alerts and the Alerts feed show resource icons instead of emoji",
       "Shard markers on the minimap use the Shard icon, with a warm glow for falling shards and a cyan glow for landed ones"
     ]
