@@ -315,6 +315,10 @@ const withDisplayNames = (buckets: EconomyBucket[]): EconomyBucket[] =>
       : bucket
   );
 
+// The currency key stays "GOLD" internally; players see it as "Coin".
+const economyResourceName = (args: EconomyPanelArgs, resource: string): string =>
+  resource === "GOLD" ? "Coin" : args.prettyToken(resource);
+
 const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResource): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
   const sharedBreakdown = args.economyBreakdown?.[resource];
   if (sharedBreakdown) {
@@ -359,10 +363,6 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
     sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
   };
 };
-
-// The currency key stays "GOLD" internally; players see it as "Coin".
-const economyResourceName = (args: EconomyPanelArgs, resource: string): string =>
-  resource === "GOLD" ? "Coin" : args.prettyToken(resource);
 
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
   const icon = args.resourceIconHtml(resource);
