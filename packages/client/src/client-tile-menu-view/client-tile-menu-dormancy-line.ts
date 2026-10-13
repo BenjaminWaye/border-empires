@@ -5,12 +5,12 @@ import type { Tile } from "../client-types.js";
 // mirrors Runtime.isStructureDormant's own field->slot-type mapping
 // (apps/simulation/src/runtime/runtime.ts) so the client and server can
 // never disagree on which structure a dormancy key refers to.
-export type DormancyField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+export type DormancyField = "fort" | "observatory" | "siegeBattery" | "economicStructure";
 
 const slotStructureTypeForField = (tile: Tile, field: DormancyField): SlotStructureType | undefined => {
   if (field === "fort" && tile.fort) return (tile.fort.variant ?? "FORT") as SlotStructureType;
   if (field === "observatory" && tile.observatory) return "OBSERVATORY";
-  if (field === "siegeOutpost" && tile.siegeOutpost) return (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType;
+  if (field === "siegeBattery" && tile.siegeBattery) return (tile.siegeBattery.variant ?? "SIEGE_BATTERY") as SlotStructureType;
   if (field === "economicStructure" && tile.economicStructure) return tile.economicStructure.type as SlotStructureType;
   return undefined;
 };

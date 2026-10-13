@@ -20,8 +20,8 @@ const makeTown = (populationTier: NonNullable<NonNullable<Tile["town"]>["populat
   connectedTownBonus: 0.2,
   hasMintworks: false,
   mintworksActive: false,
-  hasGranary: false,
-  granaryActive: false,
+  hasIncubationEngine: false,
+  incubationEngineActive: false,
 });
 
 describe("client town growth labels", () => {

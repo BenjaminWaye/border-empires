@@ -42,7 +42,7 @@ const BASE: DecisionInputs = {
   needsFood: false,
   hasEconomicBuild: false,
   hasFortBuild: false,
-  hasSiegeOutpost: false,
+  hasSiegeBattery: false,
   hasRelayBeaconBuild: false,
   relayBeaconSiteValue: 0,
   beaconBoostActive: false,
@@ -58,7 +58,7 @@ const BASE: DecisionInputs = {
 describe("rejection cooldown", () => {
   it("admits a rejected target again only after the world revision changes", () => {
     const state = createActionAdmissionState();
-    const command = { type: "BUILD_ECONOMIC_STRUCTURE" as const, payloadJson: JSON.stringify({ x: 2, y: 3, structureType: "GRANARY" }) };
+    const command = { type: "BUILD_ECONOMIC_STRUCTURE" as const, payloadJson: JSON.stringify({ x: 2, y: 3, structureType: "INCUBATION_ENGINE" }) };
     recordActionAdmission(state, "p1", command, 7, "INSUFFICIENT_SLOT");
     expect(activeActionAdmissionsForPlayer(state, "p1", 7)?.get("BUILD_ECONOMIC_STRUCTURE:2,3")?.rejectionCode).toBe("INSUFFICIENT_SLOT");
     expect(activeActionAdmissionsForPlayer(state, "p1", 8)).toBeUndefined();
@@ -115,7 +115,7 @@ describe("rejection cooldown", () => {
     recordRejectionCooldown(
       state,
       "p1",
-      { type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "FARMSTEAD" }) },
+      { type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "HYDROGARDEN" }) },
       1000
     );
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);

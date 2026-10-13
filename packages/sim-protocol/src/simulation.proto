@@ -183,7 +183,7 @@ message TileDelta {
   optional string town_json = 11;
   optional string fort_json = 12;
   optional string observatory_json = 13;
-  optional string siege_outpost_json = 14;
+  optional string siege_battery_json = 14;
   optional string economic_structure_json = 15;
   optional string sabotage_json = 16;
   optional string shard_site_json = 17;

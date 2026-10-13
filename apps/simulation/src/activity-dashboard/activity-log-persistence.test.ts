@@ -39,7 +39,7 @@ const impact = (at: number, id = `impact:${at}`) => ({
   occurredAt: at,
   x: 1,
   y: 2,
-  structureType: "GRANARY"
+  structureType: "INCUBATION_ENGINE"
 });
 
 describe("activity log persistence", () => {

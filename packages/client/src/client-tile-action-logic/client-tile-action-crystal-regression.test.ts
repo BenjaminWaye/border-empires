@@ -125,7 +125,7 @@ describe("crystal core actions regression", () => {
       terrain: "LAND",
       ownerId: "ally-1",
       ownershipState: "SETTLED",
-      economicStructure: { type: "AETHER_TOWER", ownerId: "ally-1", status: "active" }
+      economicStructure: { type: "AMBARIC_TRANSFORMER", ownerId: "ally-1", status: "active" }
     } as Tile;
     state.tiles.set(keyFor(1, 1), allyTile);
 
@@ -186,7 +186,7 @@ describe("crystal core actions regression", () => {
       terrain: "LAND",
       ownerId: "ai-1",
       ownershipState: "SETTLED",
-      economicStructure: { type: "WORLD_ENGINE", ownerId: "ai-1", status: "active" }
+      economicStructure: { type: "SOVEREIGN_SIEGE_ENGINE", ownerId: "ai-1", status: "active" }
     } as Tile;
     state.tiles.set(keyFor(2, 2), enemyMonument);
 

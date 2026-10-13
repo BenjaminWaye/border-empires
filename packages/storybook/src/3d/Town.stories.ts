@@ -49,21 +49,16 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped town overlay (createTownOverlay) — a single steampunk civilization evolving through five tiers,",
-          "from a frontier settlement around an aether workshop to a Monumental City crowned by a three-part brass wonder.",
-          "Every tier shares one architectural language (dark iron, weathered brass, timber, stone, amber lamps and",
-          "luminous aether), filling its strategic map tile with a cohesive miniature city rather than scattered huts.",
+          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of glass and grey stone banded in the",
+          "AFC's aged brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and",
+          "finned crystals, ringed round an octagonal plaza. Animated in the shaders: rooftop steam, flickering lamplight, turning",
+          "cogs and orreries, spinning crystals and circling airships. See TownOnTerrain for the towns beside an AFC.",
           "",
-          "SETTLEMENT · Frontier Spark — a compact aether-powered workshop with brass machinery, pressure tanks,",
-          "timber cottages and warm lamps.",
-          "TOWN · Growing Industry — the aether hall rises with a clockwork turret, crane, elevated walkway and",
-          "pipe networks.",
-          "CITY · Industrial Metropolis — a dense civic engine, factories, brass towers, elevated bridges and",
-          "steam vents.",
-          "GREAT_CITY · Imperial Powerhouse — a domed civic complex with an elevated transit loop, beacon and",
-          "clock tower.",
-          "METROPOLIS · Wonder of the World — the colossal three-part Monument dominates districts, transit",
-          "bridges and glowing aether conduits."
+          "SETTLEMENT · four low towers round a cog lamp.",
+          "TOWN · a street grid of blocks with lamplit crossings, rising to a few glass towers, round a small park with the orrery.",
+          "CITY · a denser grid rising to a Manhattan-style downtown of sheer glass towers tied by skybridges, with two parks.",
+          "GREAT_CITY · ten ring towers round four tall skybridged towers, with an airship.",
+          "METROPOLIS · twelve ring towers and six inner towers round a brass-haloed octagonal megatower, two airships."
         ].join("\n")
       }
     }

@@ -17,7 +17,7 @@ import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-al
 import { createInitialAttackDispatchState } from "./client-state-attack-dispatch-defaults.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
-import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
+import type { SovereignSiegeEngineStrikeHistoryRecord } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -198,7 +198,7 @@ export const createInitialState = () => ({
       | "create_mountain"
       | "remove_mountain"
       | "imperial_exchange_levy"
-      | "world_engine_strike"
+      | "sovereign_siege_engine_strike"
       | "stormfront"
       | "aegis_lock"
       | "aether_emp"
@@ -237,19 +237,19 @@ export const createInitialState = () => ({
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>, ...createInitialSiegeBombardmentState(),
-  worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  sovereignSiegeEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
-  // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
+  // pushed once per newly-seen SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
   // every connected client (not just the caster/target), never replayed from
   // 12h history so it only ever fires live, once, at the moment of the strike.
-  worldEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
+  sovereignSiegeEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
   // strikeId dedup set shared by the live broadcast handler and the 12h
   // history backfill, so a strike already seen live isn't replayed as a
   // toast/popup/shake when history is fetched on reconnect.
-  worldEngineStrikeSeenIds: new Set<string>(),
+  sovereignSiegeEngineStrikeSeenIds: new Set<string>(),
   // Most-recent-first, capped list backing the Activity Feed's world-events
   // history section — populated both live and from the 12h history fetch.
-  worldEngineStrikeAnnouncements: [] as WorldEngineStrikeHistoryRecord[],
+  sovereignSiegeEngineStrikeAnnouncements: [] as SovereignSiegeEngineStrikeHistoryRecord[],
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
@@ -308,14 +308,6 @@ export const createInitialState = () => ({
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } | undefined,
   settlementRepairDiagnosticKey: "" as string,
-  pendingCollectTileDelta: new Map<
-    string,
-    {
-      gold: number;
-      strategic: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
-      previousYield?: { gold: number; strategic: Record<string, number> };
-    }
-  >(),
   pendingShardCollect: undefined as { tileKey: string; shardSite: NonNullable<Tile["shardSite"]> } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
@@ -531,7 +523,7 @@ export const createInitialState = () => ({
   },
   buildingPlacement: {
     active: false,
-    structureType: "" as "WATERWORKS" | "FOUNDRY" | "AFC" | "",
+    structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "",
     x: 0,
     y: 0
   },
@@ -547,7 +539,7 @@ export const createInitialState = () => ({
     direction: "N" as "N" | "E" | "S" | "W",
     length: 1 as 1 | 2 | 3
   },
-  airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
+  skyDockTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, arrowGesture: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, pendingArrowGestureConfirm: undefined as { origin: { x: number; y: number }; target: { x: number; y: number } } | undefined, // F: win-chance paint hook + arrow endpoints + confirm-hook seam (client-win-chance-paint-trigger.ts / client-arrow-gesture-confirm.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialActivityDashboardState(),

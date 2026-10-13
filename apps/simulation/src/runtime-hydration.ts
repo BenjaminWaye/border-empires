@@ -165,7 +165,7 @@ const createTilesFromInitialStateUncleared = (
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
-      ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+      ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
       ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
       // Phase 4 activation point: when tile.structure is present it is the
       // authoritative unified field written by the Phase-4 runtime. Replace

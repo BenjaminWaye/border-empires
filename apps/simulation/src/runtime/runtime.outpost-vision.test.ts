@@ -6,7 +6,7 @@ import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
 // A Relay Beacon reveals a flat 5-tile ring around itself (RELAY_BEACON_VISION_BONUS,
 // config.ts); Survey Corps's outpostVisionRadiusBonus tech effect adds +1 on
-// top for both Light and Siege Outposts. Pins the full-export visibility path
+// top for both Light and Siege Batteries. Pins the full-export visibility path
 // (backed by VisibilityCoverageCache) for the outpost vision bonus feature —
 // see runtime-outpost-vision.ts.
 
@@ -56,7 +56,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     expect(keys.has("16,10")).toBe(true); // one tile outside the Relay Beacon's reach
   });
 
-  it("building a Siege Outpost on a Relay Beacon tile is rejected — no in-place upgrade — and the beacon's vision bonus is unaffected", async () => {
+  it("building a Siege Battery on a Relay Beacon tile is rejected — no in-place upgrade — and the beacon's vision bonus is unaffected", async () => {
     vi.useFakeTimers();
     try {
       const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -78,7 +78,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
               ownershipState: "SETTLED" as const,
               economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
             },
-            // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
+            // A free UMBRITE slot — SIEGE_BATTERY's resource-slot requirement.
             { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "UMBRITE" as const }
           ],
           activeLocks: []
@@ -99,10 +99,10 @@ describe("SimulationRuntime outpost vision bonus", () => {
         clientSeq: 0,
         issuedAt: Date.now(),
         type: "BUILD_STRUCTURE" as any,
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" })
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
+      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_BATTERY"));
       await Promise.resolve();
 
       expect(rejections).toEqual([{ code: "BUILD_INVALID", message: "tile already has structure" }]);
@@ -113,7 +113,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
   });
 
-  it("building a Palisade (WOODEN_FORT) on a Relay Beacon tile stacks with the beacon instead of replacing it", async () => {
+  it("building a Palisade (PALISADE) on a Relay Beacon tile stacks with the beacon instead of replacing it", async () => {
     vi.useFakeTimers();
     try {
       const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -135,7 +135,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
               ownershipState: "SETTLED" as const,
               economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
             },
-            // A free FOOD slot — WOODEN_FORT's resource-slot requirement.
+            // A free FOOD slot — PALISADE's resource-slot requirement.
             // (A FARM tile grants 1 base FOOD slot on its own, no structure
             // needed — structure-slots.ts's BASE_SLOTS_BY_TILE_RESOURCE.)
             { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FARM" as const }
@@ -156,16 +156,16 @@ describe("SimulationRuntime outpost vision bonus", () => {
         clientSeq: 0,
         issuedAt: Date.now(),
         type: "BUILD_STRUCTURE" as any,
-        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "WOODEN_FORT" })
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "PALISADE" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("WOODEN_FORT"));
+      vi.advanceTimersByTime(structureBuildDurationMs("PALISADE"));
       await Promise.resolve();
 
       expect(rejections).toEqual([]);
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.economicStructureJson).toContain('"type":"RELAY_BEACON"');
-      expect(tile?.fortJson).toContain('"variant":"WOODEN_FORT"');
+      expect(tile?.fortJson).toContain('"variant":"PALISADE"');
       expect(tile?.fortJson).toContain('"status":"active"');
       expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
     } finally {

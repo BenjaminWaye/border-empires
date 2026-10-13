@@ -30,10 +30,10 @@ export type DomainObservatoryState = {
   siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
 };
 
-export type DomainSiegeOutpostState = {
+export type DomainSiegeBatteryState = {
   ownerId: string;
-  status: NonNullable<Tile["siegeOutpost"]>["status"];
-  variant?: NonNullable<Tile["siegeOutpost"]>["variant"] | undefined;
+  status: NonNullable<Tile["siegeBattery"]>["status"];
+  variant?: NonNullable<Tile["siegeBattery"]>["variant"] | undefined;
   completesAt?: number | undefined;
   startedAt?: number | undefined;
   pausedAt?: number | undefined; // attack-development-hold.ts: set while the tile is under attack

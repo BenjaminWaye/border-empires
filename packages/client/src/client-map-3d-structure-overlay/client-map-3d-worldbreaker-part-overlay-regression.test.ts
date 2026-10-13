@@ -8,13 +8,13 @@ import {
 
 // The Worldbreaker Cannon's 3 unique components are real, distinct wire
 // types (unique-monument-components rewrite) — each must be handled so it
-// renders its own dedicated mesh: WORLD_ENGINE_PART_1 (Long Barrel),
-// WORLD_ENGINE_PART_2 (Fracture Core), WORLD_ENGINE_PART_3 (Sky-Marking
+// renders its own dedicated mesh: SOVEREIGN_SIEGE_ENGINE_PART_1 (Long Barrel),
+// SOVEREIGN_SIEGE_ENGINE_PART_2 (Fracture Core), SOVEREIGN_SIEGE_ENGINE_PART_3 (Sky-Marking
 // Array).
 const WORLDBREAKER_PART_KINDS = [
-  "WORLD_ENGINE_PART_1",
-  "WORLD_ENGINE_PART_2",
-  "WORLD_ENGINE_PART_3"
+  "SOVEREIGN_SIEGE_ENGINE_PART_1",
+  "SOVEREIGN_SIEGE_ENGINE_PART_2",
+  "SOVEREIGN_SIEGE_ENGINE_PART_3"
 ] as const;
 
 describe("worldbreaker part structure overlay", () => {

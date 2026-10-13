@@ -10,7 +10,7 @@ import type { Tile } from "../client-types.js";
 export const structureKeysForTile = (tile: Tile): StructureInfoKey[] => {
   const keys: StructureInfoKey[] = [];
   if (tile.fort) keys.push((defendingFortVariant(tile.fort) ?? tile.fort.variant ?? "FORT") as StructureInfoKey);
-  if (tile.siegeOutpost) keys.push((tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as StructureInfoKey);
+  if (tile.siegeBattery) keys.push((tile.siegeBattery.variant ?? "SIEGE_BATTERY") as StructureInfoKey);
   if (tile.observatory) keys.push("OBSERVATORY");
   if (tile.economicStructure) keys.push(tile.economicStructure.type as StructureInfoKey);
   return keys;

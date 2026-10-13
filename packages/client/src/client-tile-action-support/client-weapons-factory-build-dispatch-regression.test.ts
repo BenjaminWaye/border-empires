@@ -10,13 +10,13 @@ import { requiredTechForTileAction, structureTypeForTileAction } from "./client-
 // optimistic build, no message sent to the server, no error surfaced.
 //
 // Follow-up investigation (same class of bug) turned up more build actions
-// with the identical gap: build_quartermasters_office, build_assembly_works,
-// and build_logistics_guild were all genuinely emitted by
+// with the identical gap: build_quartermasters_office, build_reserve_lattice,
+// and build_ancillary_factory were all genuinely emitted by
 // client-tile-action-logic.ts (gated on field-logistics / conveyor-networks
 // / remade-concordat respectively) but were never added to this switch
 // either, so those three build buttons were silently broken too.
 // (build_quartermasters_office itself was later retired — see
-// structure-registry-economic.ts — so only Assembly Works and Logistics
+// structure-registry-economic.ts — so only Reserve Lattice and Logistics
 // Guild remain below; QUARTERMASTERS_OFFICE stays a legacy structure type,
 // but nothing emits its build action anymore.)
 describe("Weapons Factory build action dispatch", () => {
@@ -31,14 +31,14 @@ describe("Weapons Factory build action dispatch", () => {
   });
 });
 
-describe("Manpower-branch build action dispatch (Assembly Works / Logistics Guild)", () => {
+describe("Manpower-branch build action dispatch (Reserve Lattice / Ancillary Factory)", () => {
   it("maps both build actions to their structure type", () => {
-    expect(structureTypeForTileAction("build_assembly_works")).toBe("ASSEMBLY_WORKS");
-    expect(structureTypeForTileAction("build_logistics_guild")).toBe("LOGISTICS_GUILD");
+    expect(structureTypeForTileAction("build_reserve_lattice")).toBe("RESERVE_LATTICE");
+    expect(structureTypeForTileAction("build_ancillary_factory")).toBe("ANCILLARY_FACTORY");
   });
 
   it("gates each on its own unlock tech", () => {
-    expect(requiredTechForTileAction("build_assembly_works")).toBe("conveyor-networks");
-    expect(requiredTechForTileAction("build_logistics_guild")).toBe("remade-concordat");
+    expect(requiredTechForTileAction("build_reserve_lattice")).toBe("conveyor-networks");
+    expect(requiredTechForTileAction("build_ancillary_factory")).toBe("remade-concordat");
   });
 });

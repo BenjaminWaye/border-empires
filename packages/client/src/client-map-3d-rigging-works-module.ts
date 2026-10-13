@@ -1,6 +1,6 @@
 // Rigging Works (RGW) module — a compact AFC module that fabricates drilling,
 // extraction and siege-support machinery: the same machinery later installed
-// on Umbrite Rigs, Siege Outposts and Umbrite Weapons Factories.
+// on Umbrite Rigs, Siege Batteries and Umbrite Weapons Factories.
 //
 // Local space: +X is FORWARD — the outward radial direction of the socket (its
 // `yaw`). The root sits at the socket attachment point (the pad-top center, `y`

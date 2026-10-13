@@ -531,7 +531,7 @@ describe("simulation event stream supervisor", () => {
             ownership_state: "SETTLED",
             fort_json: "",
             observatory_json: "",
-            siege_outpost_json: "",
+            siege_battery_json: "",
             economic_structure_json: ""
           }
         ]
@@ -550,7 +550,7 @@ describe("simulation event stream supervisor", () => {
               ownershipState: "SETTLED",
               fortJson: undefined,
               observatoryJson: undefined,
-              siegeOutpostJson: undefined,
+              siegeBatteryJson: undefined,
               economicStructureJson: undefined
             }
           ]

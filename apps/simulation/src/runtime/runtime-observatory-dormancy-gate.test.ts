@@ -170,7 +170,7 @@ describe("§5.4 observatory dormancy gate", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "GRANARY", status: "active" }
+            economicStructure: { ownerId: "player-2", type: "INCUBATION_ENGINE", status: "active" }
           }
           // No CRYSTAL supply tile: OBSERVATORY demands 1 CRYSTAL slot.
         ],
@@ -195,6 +195,6 @@ describe("§5.4 observatory dormancy gate", () => {
       code: "AETHER_LANCE_INVALID"
     }));
     const target = runtime.exportState().tiles.find((tile) => tile.x === 5 && tile.y === 0);
-    expect(target?.economicStructureJson).toContain("\"GRANARY\"");
+    expect(target?.economicStructureJson).toContain("\"INCUBATION_ENGINE\"");
   });
 });

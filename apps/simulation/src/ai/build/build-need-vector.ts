@@ -40,7 +40,7 @@ export type NeedVectorInput = {
    *  can't reach" count needs frontier-analysis plumbing out of Phase 1 scope. */
   stalematedTargetCount: number;
   ownedForts: number;
-  ownedSiegeOutposts: number;
+  ownedSiegeBatteries: number;
   /** From AutomationStrategicSnapshot.primaryVictoryPathProgress (§7.2). */
   victoryPathProgress: number;
 };
@@ -94,7 +94,7 @@ export const computeNeedVector = (inp: NeedVectorInput): NeedVector => {
     CRYSTAL_SLOTS: slotDeficit("CRYSTAL", inp.slotSupplyByResource, inp.slotDemandByResource),
     GOLD: clamp01(1 - inp.incomePerMinute / goldTarget),
     DEFENSE: clamp01(inp.frontierEnemyTargetCount / Math.max(1, inp.ownedForts * 2)),
-    OFFENSE: clamp01(inp.stalematedTargetCount / Math.max(1, inp.ownedSiegeOutposts + 1)),
+    OFFENSE: clamp01(inp.stalematedTargetCount / Math.max(1, inp.ownedSiegeBatteries + 1)),
     VICTORY: clamp01(1 - inp.victoryPathProgress)
   };
 };
@@ -140,7 +140,7 @@ export const needVectorFromPlannerInput = <TTile extends AutomationPlannerTile>(
     frontierEnemyTargetCount: locals.frontierEnemyTargetCount,
     stalematedTargetCount: input.attackStalemateTargetTileKeys?.size ?? 0,
     ownedForts: input.ownedStructureCounts?.FORT ?? 0,
-    ownedSiegeOutposts: input.ownedStructureCounts?.SIEGE_OUTPOST ?? 0,
+    ownedSiegeBatteries: input.ownedStructureCounts?.SIEGE_BATTERY ?? 0,
     victoryPathProgress: locals.victoryPathProgress
   });
 };

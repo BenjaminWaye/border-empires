@@ -46,10 +46,21 @@ const MUTABLE_TILE_FIELDS = [
   "fort",
   "observatory",
   "naturalWonder",
-  "siegeOutpost",
+  "siegeBattery",
   "economicStructure",
   "sabotage",
   "afc",
+  // Worldgen seeds watchtowers/waystations dormant; activation must survive a
+  // restart or the site reloads dormant and pays its one-shot reward again
+  // (see dormant-claim-sweep.ts: this re-rolled +1000 manpower per deploy).
+  "watchtower",
+  "waystation",
+  // Player/runtime state with no worldgen value: without these a restart
+  // silently deleted muster flags (and the manpower staged in them) and
+  // reset every frontier decay deadline.
+  "muster",
+  "frontierDecayAt",
+  "frontierDecayKind",
   // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
   // legacy structure fields above. Including it here ensures the compaction
   // overlay preserves it on round-trip even before Phase 4 activates the reader.

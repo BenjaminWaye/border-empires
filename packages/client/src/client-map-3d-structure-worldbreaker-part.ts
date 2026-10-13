@@ -6,20 +6,20 @@ import {
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
-// The Worldbreaker Cannon's 3 unique components — WORLD_ENGINE_PART_1
-// (Long Barrel), WORLD_ENGINE_PART_2 (Fracture Core), WORLD_ENGINE_PART_3
+// The Worldbreaker Cannon's 3 unique components — SOVEREIGN_SIEGE_ENGINE_PART_1
+// (Long Barrel), SOVEREIGN_SIEGE_ENGINE_PART_2 (Fracture Core), SOVEREIGN_SIEGE_ENGINE_PART_3
 // (Sky-Marking Array) — are real, distinct wire types (see the unique-
 // monument-components rewrite), so each maps directly to its own model;
 // no client-side variant-picking is needed any more.
 export type WorldbreakerPartStructureKind =
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3";
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3";
 
 export const WORLDBREAKER_PART_STRUCTURE_KINDS: ReadonlySet<WorldbreakerPartStructureKind> = new Set([
-  "WORLD_ENGINE_PART_1",
-  "WORLD_ENGINE_PART_2",
-  "WORLD_ENGINE_PART_3"
+  "SOVEREIGN_SIEGE_ENGINE_PART_1",
+  "SOVEREIGN_SIEGE_ENGINE_PART_2",
+  "SOVEREIGN_SIEGE_ENGINE_PART_3"
 ]);
 
 export type WorldbreakerPartStructureLayout = (
@@ -198,9 +198,9 @@ export const registerWorldbreakerPartStructures = (
 
   return {
     layouts: {
-      WORLD_ENGINE_PART_1: addLongBarrel,
-      WORLD_ENGINE_PART_2: addFractureCore,
-      WORLD_ENGINE_PART_3: addSkyMarkingArray
+      SOVEREIGN_SIEGE_ENGINE_PART_1: addLongBarrel,
+      SOVEREIGN_SIEGE_ENGINE_PART_2: addFractureCore,
+      SOVEREIGN_SIEGE_ENGINE_PART_3: addSkyMarkingArray
     }
   };
 };

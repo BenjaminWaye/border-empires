@@ -109,7 +109,7 @@ describe("development hold while a tile is under attack", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: originalCompletesAt }
+            economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: originalCompletesAt }
           },
           defenderTown
         ],
@@ -155,7 +155,7 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
         ],
         activeLocks: []
@@ -166,7 +166,7 @@ describe("development hold while a tile is under attack", () => {
     await Promise.resolve();
 
     runtime.submitCommand({ ...command("rush-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11 }, 1), type: "RUSH_BUY" as never });
-    runtime.submitCommand(command("build-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "WOODEN_FORT" }, 2));
+    runtime.submitCommand(command("build-1", "player-2", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "PALISADE" }, 2));
     await Promise.resolve();
 
     expect(seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "rush-1")).toMatchObject({ message: "construction is paused due to an ongoing attack" });
@@ -188,7 +188,7 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
         ],
         activeLocks: []
@@ -215,7 +215,7 @@ describe("development hold while a tile is under attack", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 60_000, pausedAt: START } }
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 60_000, pausedAt: START } }
         ],
         activeLocks: []
       }
@@ -244,7 +244,7 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 10_000 } },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 10_000 } },
           defenderTown
         ],
         activeLocks: []
@@ -273,7 +273,7 @@ describe("development hold while a tile is under attack", () => {
       initialState: {
         tiles: [
           ...attackerTiles,
-          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "FARMSTEAD", status: "under_construction", completesAt: START + 600_000 } },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "HYDROGARDEN", status: "under_construction", completesAt: START + 600_000 } },
           defenderTown
         ],
         activeLocks: []
@@ -308,7 +308,7 @@ describe("development hold while a tile is under attack", () => {
     await Promise.resolve();
 
     // A bystander probing the attacked tile learns nothing about the fight.
-    runtime.submitCommand(command("probe-1", "player-3", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "WOODEN_FORT" }, 1));
+    runtime.submitCommand(command("probe-1", "player-3", "BUILD_STRUCTURE", { x: 10, y: 11, structureType: "PALISADE" }, 1));
     await Promise.resolve();
     const probe = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "probe-1");
     expect(probe).toBeDefined();

@@ -8,19 +8,19 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
-import { registerFarmsteadStructures } from "./client-map-3d-structure-farmstead.js";
+import { registerHydrogardenStructures } from "./client-map-3d-structure-hydrogarden.js";
 import { registerMintworksStructures } from "./client-map-3d-structure-mintworks.js";
 
 export type EconomicStructureKind =
-  | "FARMSTEAD"
-  | "WATERWORKS"
+  | "HYDROGARDEN"
+  | "HYDROWORKS"
   | "MINE"
   | "TITANIUM_WORKS"
   | "OBSERVATORY"
   | "MINTWORKS";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
-  "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
+  "HYDROGARDEN", "HYDROWORKS", "MINE", "TITANIUM_WORKS",
   "OBSERVATORY", "MINTWORKS"
 ]);
 
@@ -37,8 +37,8 @@ export type EconomicStructureLayout = (
 ) => void;
 
 // Shared visual assets that other family files (industrial.ts) reuse so
-// FOUNDRY/ADVANCED_TITANIUM_WORKS render with the same forge palette as
-// TITANIUM_WORKS, and the crystal synthesizers reuse the OBSERVATORY/MINE
+// ORE_REFINERY/HIGH_YIELD_TITANIUM_WORKS render with the same forge palette as
+// TITANIUM_WORKS, and the aether condensers reuse the OBSERVATORY/MINE
 // blue power-crystal material. Sharing keeps "this is the same
 // material" readable at a glance and shrinks GPU resource count.
 export type EconomicSharedAssets = {
@@ -67,9 +67,9 @@ export const registerEconomicStructures = (
   const C = builder.maxTiles;
 
   // ─── Materials ──────────────────────────────────────────────────────
-  // The Farmstead art (a hydroponic glass dome) lives in its own module
-  // (client-map-3d-structure-farmstead.ts). barnRoofMaterial is kept here only
-  // because industrial.ts reuses it for the FOUNDRY roof.
+  // The Hydrogarden art (a hydroponic glass dome) lives in its own module
+  // (client-map-3d-structure-hydrogarden.ts). barnRoofMaterial is kept here only
+  // because industrial.ts reuses it for the ORE_REFINERY roof.
   const barnRoofMaterial = new MeshStandardMaterial({ color: "#3a261c", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneMaterial = new MeshStandardMaterial({ color: "#8a857a", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
@@ -82,9 +82,9 @@ export const registerEconomicStructures = (
   const mineCartWheelMaterial = new MeshStandardMaterial({ color: "#1a1a1c", roughness: 0.6, metalness: 0.3, flatShading: true });
   const oreMaterial = new MeshStandardMaterial({ color: "#8f8f8f", roughness: 0.85, metalness: 0.15, flatShading: true });
   // Titanium Works-family palette. Titanium Works is a synthesizer in border-empires
-  // (matches UMBRITE/CRYSTAL_SYNTHESIZER's chamber+glow+tubes idiom rather than
+  // (matches UMBRITE/AETHER_CONDENSER's chamber+glow+tubes idiom rather than
   // the medieval forge-with-anvil). Same palette is reused by industrial.ts
-  // for FOUNDRY + ADVANCED_TITANIUM_WORKS via the EconomicSharedAssets export.
+  // for ORE_REFINERY + HIGH_YIELD_TITANIUM_WORKS via the EconomicSharedAssets export.
   const forgeBaseMaterial = new MeshStandardMaterial({ color: "#3e3a36", roughness: 0.7, metalness: 0.35, flatShading: true });
   const forgeStoneMaterial = new MeshStandardMaterial({ color: "#7c726a", roughness: 0.6, metalness: 0.45, flatShading: true });
   const forgeChimneyMaterial = new MeshStandardMaterial({ color: "#3a302a", roughness: 0.7, metalness: 0.5, flatShading: true });
@@ -94,12 +94,12 @@ export const registerEconomicStructures = (
   const observatorySlitMaterial = new MeshStandardMaterial({ color: "#1a1a20", roughness: 0.95, metalness: 0, flatShading: true });
   const observatoryTelescopeMaterial = new MeshStandardMaterial({ color: "#8a6a3a", roughness: 0.5, metalness: 0.55, flatShading: true });
   const blueCrystalMaterial = new MeshStandardMaterial({ color: "#5fa7e6", roughness: 0.35, metalness: 0.2, flatShading: true, emissive: "#2a6fae", emissiveIntensity: 0.55 });
-  const granaryWallMaterial = new MeshStandardMaterial({ color: "#dccaa8", roughness: 0.9, metalness: 0, flatShading: true });
-  const granaryRoofMaterial = new MeshStandardMaterial({ color: "#d7a64a", roughness: 0.85, metalness: 0, flatShading: true });
-  const granaryAnnexRoofMaterial = new MeshStandardMaterial({ color: "#9a9388", roughness: 0.9, metalness: 0, flatShading: true });
-  const granaryBandMaterial = new MeshStandardMaterial({ color: "#a77836", roughness: 0.88, metalness: 0, flatShading: true });
-  const granaryCupolaMaterial = new MeshStandardMaterial({ color: "#e3d7c6", roughness: 0.9, metalness: 0, flatShading: true });
-  const granarySackMaterial = new MeshStandardMaterial({ color: "#b58541", roughness: 0.92, metalness: 0, flatShading: true });
+  const incubationEngineWallMaterial = new MeshStandardMaterial({ color: "#dccaa8", roughness: 0.9, metalness: 0, flatShading: true });
+  const incubationEngineRoofMaterial = new MeshStandardMaterial({ color: "#d7a64a", roughness: 0.85, metalness: 0, flatShading: true });
+  const incubationEngineAnnexRoofMaterial = new MeshStandardMaterial({ color: "#9a9388", roughness: 0.9, metalness: 0, flatShading: true });
+  const incubationEngineBandMaterial = new MeshStandardMaterial({ color: "#a77836", roughness: 0.88, metalness: 0, flatShading: true });
+  const incubationEngineCupolaMaterial = new MeshStandardMaterial({ color: "#e3d7c6", roughness: 0.9, metalness: 0, flatShading: true });
+  const incubationEngineSackMaterial = new MeshStandardMaterial({ color: "#b58541", roughness: 0.92, metalness: 0, flatShading: true });
 
   // ─── Geometries ─────────────────────────────────────────────────────
   const wwTowerGeo = new BoxGeometry(0.22, 0.32, 0.22);
@@ -115,7 +115,7 @@ export const registerEconomicStructures = (
   const oreGeo = new IcosahedronGeometry(0.04, 0);
   // Titanium Works-as-synthesizer geometries: industrial chamber on a small
   // base, hot-metal glow window on the front, exhaust tube + vent cap.
-  // Same chamber idiom as UMBRITE/CRYSTAL synthesizers in industrial.ts.
+  // Same chamber idiom as Umbrite Works / Aether Condenser in industrial.ts.
   const titaniumBaseGeo = new BoxGeometry(0.20, 0.08, 0.16);
   const titaniumChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
   const titaniumChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
@@ -133,19 +133,19 @@ export const registerEconomicStructures = (
   // as the same material. Reused later by industrial.ts's crystal
   // synthesizers via the EconomicSharedAssets export.
   const blueCrystalGeo = new OctahedronGeometry(0.045, 0);
-  const granaryBodyGeo = new BoxGeometry(0.34, 0.22, 0.24);
-  const granaryRoofGeo = new ConeGeometry(0.26, 0.14, 4);
-  const granaryBandGeo = new BoxGeometry(0.32, 0.018, 0.018);
-  const granaryAnnexBodyGeo = new BoxGeometry(0.14, 0.18, 0.20);
-  const granaryAnnexRoofGeo = new ConeGeometry(0.13, 0.07, 4);
-  const granaryCupolaGeo = new BoxGeometry(0.05, 0.07, 0.05);
-  const granaryCupolaRoofGeo = new ConeGeometry(0.045, 0.04, 4);
-  const granarySackGeo = new BoxGeometry(0.06, 0.05, 0.05);
+  const incubationEngineBodyGeo = new BoxGeometry(0.34, 0.22, 0.24);
+  const incubationEngineRoofGeo = new ConeGeometry(0.26, 0.14, 4);
+  const incubationEngineBandGeo = new BoxGeometry(0.32, 0.018, 0.018);
+  const incubationEngineAnnexBodyGeo = new BoxGeometry(0.14, 0.18, 0.20);
+  const incubationEngineAnnexRoofGeo = new ConeGeometry(0.13, 0.07, 4);
+  const incubationEngineCupolaGeo = new BoxGeometry(0.05, 0.07, 0.05);
+  const incubationEngineCupolaRoofGeo = new ConeGeometry(0.045, 0.04, 4);
+  const incubationEngineSackGeo = new BoxGeometry(0.06, 0.05, 0.05);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  // Farmstead slots are registered by registerFarmsteadStructures
-  // (client-map-3d-structure-farmstead.ts).
-  // Waterworks
+  // Hydrogarden slots are registered by registerHydrogardenStructures
+  // (client-map-3d-structure-hydrogarden.ts).
+  // Hydroworks
   builder.makeSlot("wwTower", wwTowerGeo, stoneMaterial, C);
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
   builder.makeSlot("wwWheel", wwWheelGeo, waterWheelMaterial, C);
@@ -159,7 +159,7 @@ export const registerEconomicStructures = (
   builder.makeSlot("mineCartWheel", mineCartWheelGeo, mineCartWheelMaterial, C * 2);
   builder.makeSlot("ore", oreGeo, oreMaterial, C * 3);
   // Titanium Works (synthesizer-style — same forge palette is reused by
-  // industrial.ts's FOUNDRY + ADVANCED_TITANIUM_WORKS).
+  // industrial.ts's ORE_REFINERY + HIGH_YIELD_TITANIUM_WORKS).
   builder.makeSlot("titaniumBase", titaniumBaseGeo, forgeBaseMaterial, C);
   builder.makeSlot("titaniumChamber", titaniumChamberGeo, forgeStoneMaterial, C);
   builder.makeSlot("titaniumChamberCap", titaniumChamberCapGeo, forgeStoneMaterial, C);
@@ -173,26 +173,26 @@ export const registerEconomicStructures = (
   builder.makeSlot("observatoryTelescope", observatoryTelescopeGeo, observatoryTelescopeMaterial, C);
   builder.makeSlot("observatoryCrystal", blueCrystalGeo, blueCrystalMaterial, C);
   builder.makeSlot("mineCrystal", blueCrystalGeo, blueCrystalMaterial, C * 3);
-  // Granary
-  builder.makeSlot("granaryBody", granaryBodyGeo, granaryWallMaterial, C);
-  builder.makeSlot("granaryRoof", granaryRoofGeo, granaryRoofMaterial, C);
-  builder.makeSlot("granaryBand", granaryBandGeo, granaryBandMaterial, C * 3);
-  builder.makeSlot("granaryAnnexBody", granaryAnnexBodyGeo, granaryAnnexRoofMaterial, C);
-  builder.makeSlot("granaryAnnexRoof", granaryAnnexRoofGeo, granaryAnnexRoofMaterial, C);
-  builder.makeSlot("granaryCupola", granaryCupolaGeo, granaryCupolaMaterial, C);
-  builder.makeSlot("granaryCupolaRoof", granaryCupolaRoofGeo, granaryAnnexRoofMaterial, C);
-  builder.makeSlot("granarySack", granarySackGeo, granarySackMaterial, C * 2);
+  // Incubation Engine
+  builder.makeSlot("incubationEngineBody", incubationEngineBodyGeo, incubationEngineWallMaterial, C);
+  builder.makeSlot("incubationEngineRoof", incubationEngineRoofGeo, incubationEngineRoofMaterial, C);
+  builder.makeSlot("incubationEngineBand", incubationEngineBandGeo, incubationEngineBandMaterial, C * 3);
+  builder.makeSlot("incubationEngineAnnexBody", incubationEngineAnnexBodyGeo, incubationEngineAnnexRoofMaterial, C);
+  builder.makeSlot("incubationEngineAnnexRoof", incubationEngineAnnexRoofGeo, incubationEngineAnnexRoofMaterial, C);
+  builder.makeSlot("incubationEngineCupola", incubationEngineCupolaGeo, incubationEngineCupolaMaterial, C);
+  builder.makeSlot("incubationEngineCupolaRoof", incubationEngineCupolaRoofGeo, incubationEngineAnnexRoofMaterial, C);
+  builder.makeSlot("incubationEngineSack", incubationEngineSackGeo, incubationEngineSackMaterial, C * 2);
 
   // Mintworks slots are registered by registerMintworksStructures
   // (client-map-3d-structure-mintworks.ts) so this file stays under the
   // 500-line cap and the mint instanced meshes don't duplicate pools.
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  // Farmstead (hydroponic glass biodome) is registered by
-  // registerFarmsteadStructures (client-map-3d-structure-farmstead.ts).
-  const addFarmstead = registerFarmsteadStructures(builder);
+  // Hydrogarden (hydroponic glass biodome) is registered by
+  // registerHydrogardenStructures (client-map-3d-structure-hydrogarden.ts).
+  const addHydrogarden = registerHydrogardenStructures(builder);
 
-  const addWaterworks: EconomicStructureLayout = (sx, sy, sz) => {
+  const addHydroworks: EconomicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("wwTower", sx, sy, sz, -0.06, 0.16, 0);
     builder.addPiece("wwRoof", sx, sy, sz, -0.06, 0.38, 0, 1, 1, 1, Math.PI * 0.25);
     builder.addPiece("wwWheel", sx, sy, sz, 0.16, 0.14, 0, 1, 1, 1, 0, 0, Math.PI * 0.5);
@@ -247,8 +247,8 @@ export const registerEconomicStructures = (
 
   return {
     layouts: {
-      FARMSTEAD: addFarmstead,
-      WATERWORKS: addWaterworks,
+      HYDROGARDEN: addHydrogarden,
+      HYDROWORKS: addHydroworks,
       MINE: addMine,
       TITANIUM_WORKS: addTitaniumWorks,
       OBSERVATORY: addObservatory,

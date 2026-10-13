@@ -37,14 +37,14 @@ describe("abandonedStructureFields", () => {
     expect(kept.afc).toEqual({ ownerId: "p1", status: "active", activatedAt: 0 });
   });
 
-  it("razes siege outposts and relay beacons, matching what a capture razes", () => {
+  it("razes siege batteries and relay beacons, matching what a capture razes", () => {
     const kept = abandonedStructureFields(
       tileWith({
-        siegeOutpost: { ownerId: "p1", status: "active" },
+        siegeBattery: { ownerId: "p1", status: "active" },
         economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
       } as Partial<DomainTileState>)
     );
-    expect(kept.siegeOutpost).toBeUndefined();
+    expect(kept.siegeBattery).toBeUndefined();
     expect(kept.economicStructure).toBeUndefined();
   });
 

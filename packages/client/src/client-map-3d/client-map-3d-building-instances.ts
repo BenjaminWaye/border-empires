@@ -5,7 +5,7 @@ import { STRUCTURE_KINDS_HANDLED_BY_3D, mineResourceHintFor, type StructureKind,
 import type { UmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js";
 import type { UmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import type { TradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
-import type { AetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
+import type { AmbaricTransformerOverlay } from "../client-map-3d-ambaric-transformer-overlay.js";
 import type { ObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 
 type BuildingOverlays = {
@@ -14,7 +14,7 @@ type BuildingOverlays = {
   umbriteExtractionRigOverlay: Pick<UmbriteExtractionRigOverlay, "addInstance">;
   umbriteWeaponsFactoryOverlay: Pick<UmbriteWeaponsFactoryOverlay, "addInstance">;
   tradeNexusOverlay: Pick<TradeNexusOverlay, "addInstance">;
-  aetherTowerOverlay: Pick<AetherTowerOverlay, "addInstance">;
+  ambaricTransformerOverlay: Pick<AmbaricTransformerOverlay, "addInstance">;
   observatoryCooldownBadgeOverlay: Pick<ObservatoryCooldownBadgeOverlay, "addInstance" | "addSiphonModeInstance">;
 };
 
@@ -45,7 +45,7 @@ export const addBuildingInstancesForTile = (
     } else if (structure.type === "UMBRITE_WEAPONS_FACTORY") {
       overlays.umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy, frozen);
       shadow();
-    } else if (structure.type === "CARAVANARY") {
+    } else if (structure.type === "TRADE_NEXUS") {
       overlays.tradeNexusOverlay.addInstance(x, z, surfaceY, wx, wy, frozen);
       shadow();
     } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structure.type as StructureKind)) {
@@ -54,7 +54,7 @@ export const addBuildingInstancesForTile = (
   }
   if (tile.observatory) {
     if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
-      overlays.aetherTowerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(tile.observatory.status));
+      overlays.ambaricTransformerOverlay.addInstance(x, z, surfaceY, wx, wy, buildingAnimationFrozen(tile.observatory.status));
       shadow();
     }
     const cooldownActive = tile.ownerId === state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();

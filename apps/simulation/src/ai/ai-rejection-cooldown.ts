@@ -1,7 +1,7 @@
 /**
  * Tracks per-player, per-decision-class rejection cooldowns.
  *
- * When a build command (BUILD_FORT, BUILD_SIEGE_OUTPOST, BUILD_ECONOMIC_STRUCTURE)
+ * When a build command (BUILD_FORT, BUILD_SIEGE_BATTERY, BUILD_ECONOMIC_STRUCTURE)
  * is rejected by the runtime, the corresponding decision class is placed on
  * cooldown so the utility policy scores it 0 and WAIT or another class wins
  * instead.  This prevents the AI from burning planner cycles re-proposing the
@@ -42,7 +42,7 @@ export type DecisionCooldownMap = Partial<Record<CooldownTag, boolean>>;
 
 const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], CooldownTag>> = {
   BUILD_FORT: "BUILD_DEFENSE",
-  BUILD_SIEGE_OUTPOST: "BUILD_DEFENSE",
+  BUILD_SIEGE_BATTERY: "BUILD_DEFENSE",
   BUILD_ECONOMIC_STRUCTURE: "BUILD_ECONOMY",
   // ATTACK was missing from this map, so a rejected ATTACK (e.g. ATTACK_COOLDOWN/
   // LOCKED while the previous attack from the same origin is still resolving —

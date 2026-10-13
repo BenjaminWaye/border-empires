@@ -17,9 +17,9 @@ export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string 
       ? "Aether Wall"
       : ability === "aether_emp"
         ? "Aether EMP"
-        : ability === "world_engine_strike"
+        : ability === "sovereign_siege_engine_strike"
           ? "Worldbreaker Shot"
-          : ability === "airport_bombard"
+          : ability === "sky_dock_bombard"
             ? "Sky Dock Bombard"
             : ability === "imperial_exchange_levy"
               ? "Exchange Levy"
@@ -64,17 +64,17 @@ export const computeCrystalTargets = (
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
     }
-    if (ability === "world_engine_strike") {
-      if (!selectedKey || selected?.economicStructure?.type !== "WORLD_ENGINE" || selected.economicStructure.ownerId !== state.me) continue;
+    if (ability === "sovereign_siege_engine_strike") {
+      if (!selectedKey || selected?.economicStructure?.type !== "SOVEREIGN_SIEGE_ENGINE" || selected.economicStructure.ownerId !== state.me) continue;
       if (!tile.ownerId || tile.ownerId === state.me || deps.isTileOwnedByAlly(tile) || tile.dockId) continue;
-      if (!(tile.ownershipState === "SETTLED" || tile.town || tile.resource || tile.economicStructure || tile.fort || tile.observatory || tile.siegeOutpost)) continue;
+      if (!(tile.ownershipState === "SETTLED" || tile.town || tile.resource || tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery)) continue;
       const targetKey = deps.keyFor(tile.x, tile.y);
       validTargets.add(targetKey);
       originByTarget.set(targetKey, selectedKey);
       continue;
     }
-    if (ability === "airport_bombard") {
-      if (!selectedKey || selected?.economicStructure?.type !== "AIRPORT" || selected.economicStructure.ownerId !== state.me) continue;
+    if (ability === "sky_dock_bombard") {
+      if (!selectedKey || selected?.economicStructure?.type !== "SKY_DOCK" || selected.economicStructure.ownerId !== state.me) continue;
       if (!tile.ownerId || tile.ownerId === state.me || deps.isTileOwnedByAlly(tile)) continue;
       const targetKey = deps.keyFor(tile.x, tile.y);
       validTargets.add(targetKey);
@@ -97,11 +97,11 @@ export const computeCrystalTargets = (
       if (deps.hostileObservatoryProtectingTile(tile)) continue;
       if (
         tile.economicStructure &&
-        (tile.economicStructure.type === "AETHER_TOWER" ||
-          tile.economicStructure.type === "AIRPORT" ||
-          tile.economicStructure.type === "RADAR_SYSTEM" ||
+        (tile.economicStructure.type === "AMBARIC_TRANSFORMER" ||
+          tile.economicStructure.type === "SKY_DOCK" ||
+          tile.economicStructure.type === "RESONANCE_GRID" ||
           tile.economicStructure.type === "IMPERIAL_EXCHANGE" ||
-          tile.economicStructure.type === "WORLD_ENGINE" ||
+          tile.economicStructure.type === "SOVEREIGN_SIEGE_ENGINE" ||
           tile.economicStructure.type === "AEGIS_DOME" ||
           tile.economicStructure.type === "ASTRAL_DOCK") &&
         tile.economicStructure.status === "active"
@@ -165,10 +165,10 @@ export const beginCrystalTargeting = (
       return;
     }
   }
-  if (ability === "world_engine_strike") {
-    const cooldown = deps.abilityCooldownRemainingMs("world_engine_strike");
+  if (ability === "sovereign_siege_engine_strike") {
+    const cooldown = deps.abilityCooldownRemainingMs("sovereign_siege_engine_strike");
     const current = deps.selectedTile();
-    if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "WORLD_ENGINE") {
+    if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "SOVEREIGN_SIEGE_ENGINE") {
       deps.pushFeed("Select your Sovereign Siege Engine first.", "combat", "warn");
       return;
     }
@@ -181,9 +181,9 @@ export const beginCrystalTargeting = (
       return;
     }
   }
-  if (ability === "airport_bombard") {
+  if (ability === "sky_dock_bombard") {
     const current = deps.selectedTile();
-    if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "AIRPORT") {
+    if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "SKY_DOCK") {
       deps.pushFeed("Select your Sky Dock first.", "combat", "warn");
       return;
     }
@@ -258,8 +258,8 @@ export const executeCrystalTargeting = (
   if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
   if (
     state.crystalTargeting.ability !== "aether_bridge" &&
-    state.crystalTargeting.ability !== "world_engine_strike" &&
-    state.crystalTargeting.ability !== "airport_bombard" &&
+    state.crystalTargeting.ability !== "sovereign_siege_engine_strike" &&
+    state.crystalTargeting.ability !== "sky_dock_bombard" &&
     state.crystalTargeting.ability !== "imperial_exchange_levy" &&
     deps.hostileObservatoryProtectingTile(tile)
   ) {
@@ -272,17 +272,17 @@ export const executeCrystalTargeting = (
     deps.ws.send(JSON.stringify({ type: "CAST_AETHER_BRIDGE", x: tile.x, y: tile.y }));
   } else if (ability === "aether_emp") {
     deps.ws.send(JSON.stringify({ type: "AETHER_EMP", x: tile.x, y: tile.y }));
-  } else if (ability === "world_engine_strike") {
+  } else if (ability === "sovereign_siege_engine_strike") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
-    deps.ws.send(JSON.stringify({ type: "WORLD_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
-    state.worldEngineStrikeFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
-  } else if (ability === "airport_bombard") {
+    deps.ws.send(JSON.stringify({ type: "SOVEREIGN_SIEGE_ENGINE_STRIKE", fromX, fromY, toX: tile.x, toY: tile.y }));
+    state.sovereignSiegeEngineStrikeFxQueue.push({ x: tile.x, y: tile.y, queuedAt: Date.now() });
+  } else if (ability === "sky_dock_bombard") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;
     const [fromX, fromY] = originKey.split(",").map((value) => Number(value));
-    deps.ws.send(JSON.stringify({ type: "AIRPORT_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y }));
+    deps.ws.send(JSON.stringify({ type: "SKY_DOCK_BOMBARD", fromX, fromY, toX: tile.x, toY: tile.y }));
   } else if (ability === "imperial_exchange_levy") {
     const originKey = state.crystalTargeting.originByTarget.get(targetKey);
     if (!originKey) return false;

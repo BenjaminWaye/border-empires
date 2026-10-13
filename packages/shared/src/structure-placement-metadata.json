@@ -19,7 +19,7 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "SIEGE_OUTPOST": {
+  "SIEGE_BATTERY": {
     "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
@@ -34,13 +34,13 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "FARMSTEAD": {
+  "HYDROGARDEN": {
     "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
     "resourceTypes": ["FARM"]
   },
-  "WATERWORKS": {
+  "HYDROWORKS": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "support"
@@ -62,7 +62,7 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "GRANARY": {
+  "INCUBATION_ENGINE": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -77,17 +77,17 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "AIRPORT": {
+  "SKY_DOCK": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "AETHER_TOWER": {
+  "AMBARIC_TRANSFORMER": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "WOODEN_FORT": {
+  "PALISADE": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
@@ -97,12 +97,12 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "UMBRITE_SYNTHESIZER": {
+  "UMBRITE_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ADVANCED_UMBRITE_SYNTHESIZER": {
+  "HIGH_YIELD_UMBRITE_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -112,52 +112,52 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ADVANCED_TITANIUM_WORKS": {
+  "HIGH_YIELD_TITANIUM_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "CRYSTAL_SYNTHESIZER": {
+  "AETHER_CONDENSER": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ADVANCED_CRYSTAL_SYNTHESIZER": {
+  "HIGH_YIELD_AETHER_CONDENSER": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "CARAVANARY": {
+  "TRADE_NEXUS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "FOUNDRY": {
+  "ORE_REFINERY": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "GARRISON_HALL": {
+  "ANCILLARY_DEPOT": {
     "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "CUSTOMS_HOUSE": {
+  "HARBOR_EXCHANGE": {
     "showOn": ["dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "RAIL_DEPOT": {
+  "NEURAL_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "GOVERNORS_OFFICE": {
+  "MINISTRY_HALL": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "RADAR_SYSTEM": {
+  "RESONANCE_GRID": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
@@ -167,12 +167,12 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "LOGISTICS_GUILD": {
+  "ANCILLARY_FACTORY": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ASSEMBLY_WORKS": {
+  "RESERVE_LATTICE": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -207,17 +207,17 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "WORLD_ENGINE_PART_1": {
+  "SOVEREIGN_SIEGE_ENGINE_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "WORLD_ENGINE_PART_2": {
+  "SOVEREIGN_SIEGE_ENGINE_PART_2": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "WORLD_ENGINE_PART_3": {
+  "SOVEREIGN_SIEGE_ENGINE_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -257,7 +257,7 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "WORLD_ENGINE": {
+  "SOVEREIGN_SIEGE_ENGINE": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
@@ -272,17 +272,17 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "POPULATION_BUREAU_PART_1": {
+  "CENSUS_DIRECTORATE_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "POPULATION_BUREAU_PART_2": {
+  "CENSUS_DIRECTORATE_PART_2": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "POPULATION_BUREAU_PART_3": {
+  "CENSUS_DIRECTORATE_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -302,7 +302,7 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "POPULATION_BUREAU": {
+  "CENSUS_DIRECTORATE": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"

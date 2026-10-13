@@ -18,12 +18,12 @@ import type { SimulationTileWireDelta } from "../runtime-types.js";
  *    normal capture path, same as any unfinished build.
  */
 
-export type DevelopmentStructureField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
-const STRUCTURE_FIELDS: readonly DevelopmentStructureField[] = ["fort", "observatory", "siegeOutpost", "economicStructure"];
+export type DevelopmentStructureField = "fort" | "observatory" | "siegeBattery" | "economicStructure";
+const STRUCTURE_FIELDS: readonly DevelopmentStructureField[] = ["fort", "observatory", "siegeBattery", "economicStructure"];
 
 export const structureTypeForField = (tile: DomainTileState, field: DevelopmentStructureField): string => {
   if (field === "fort") return tile.fort?.variant ?? "FORT";
-  if (field === "siegeOutpost") return tile.siegeOutpost?.variant ?? "SIEGE_OUTPOST";
+  if (field === "siegeBattery") return tile.siegeBattery?.variant ?? "SIEGE_BATTERY";
   if (field === "observatory") return "OBSERVATORY";
   return tile.economicStructure?.type ?? "";
 };

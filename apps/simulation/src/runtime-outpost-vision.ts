@@ -1,7 +1,7 @@
 /**
  * Outpost vision bonus — an owned active, non-dormant Relay Beacon reveals
  * RELAY_BEACON_VISION_BONUS (config.ts) tiles around itself; an owned active
- * Siege Outpost (any tier) has no bonus of its own. Survey Corps's
+ * Siege Battery (any tier) has no bonus of its own. Survey Corps's
  * outpostVisionRadiusBonus tech effect adds a further, tech-driven radius on
  * top of either. A manually disabled outpost (status "inactive") or one that's
  * currently dormant (§5.4 — short its required resource slot) grants no bonus
@@ -13,7 +13,7 @@
  * itself is chosen or dormancy could have shifted (a resource tile gained or
  * lost elsewhere in the player's territory doesn't touch the outpost's own
  * tile, so it can't rely on that tile's own reconcile call), so an in-flight
- * Relay Beacon -> Siege Outpost upgrade, a fresh Survey Corps unlock, or a
+ * Relay Beacon -> Siege Battery upgrade, a fresh Survey Corps unlock, or a
  * FOOD/UMBRITE slot going from free to short (or back) all recompute the bonus
  * from current tile + tech + dormancy state rather than relying on matched
  * add/remove call sites.
@@ -26,8 +26,8 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
-type OutpostBonusStructureType = "RELAY_BEACON" | "SIEGE_OUTPOST";
-type OutpostBonusField = "siegeOutpost" | "economicStructure";
+type OutpostBonusStructureType = "RELAY_BEACON" | "SIEGE_BATTERY";
+type OutpostBonusField = "siegeBattery" | "economicStructure";
 
 // A structure counts as "present" (and so is eligible for whatever vision
 // bonus it grants) from the moment it goes active through its removal grace
@@ -39,19 +39,19 @@ const isPresent = (status: string): boolean => status === "active" || status ===
 
 /**
  * The active outpost bonus source on `tile`, if any, owned by `ownerId`.
- * Siege Outpost is checked first: upgrading a Relay Beacon in place leaves
+ * Siege Battery is checked first: upgrading a Relay Beacon in place leaves
  * a stale `economicStructure` entry behind on the tile (a pre-existing
  * data-model quirk unrelated to vision — runtime-structure-command-handlers.ts's
  * `completeStructureBuild` only clears the old economicStructure for the
- * Wooden Fort -> Fort transition, not Relay Beacon -> Siege Outpost), so an
- * active siegeOutpost always wins over a stale RELAY_BEACON leftover.
+ * Palisade -> Fort transition, not Relay Beacon -> Siege Battery), so an
+ * active siegeBattery always wins over a stale RELAY_BEACON leftover.
  */
 export const outpostVisionBonusStructureType = (
   tile: DomainTileState | undefined,
   ownerId: string | undefined
 ): OutpostBonusStructureType | undefined => {
   if (!tile || !ownerId) return undefined;
-  if (tile.siegeOutpost?.ownerId === ownerId && isPresent(tile.siegeOutpost.status)) return "SIEGE_OUTPOST";
+  if (tile.siegeBattery?.ownerId === ownerId && isPresent(tile.siegeBattery.status)) return "SIEGE_BATTERY";
   if (
     tile.economicStructure?.ownerId === ownerId &&
     tile.economicStructure.type === "RELAY_BEACON" &&
@@ -63,7 +63,7 @@ export const outpostVisionBonusStructureType = (
 };
 
 const fieldForStructureType = (type: OutpostBonusStructureType): OutpostBonusField =>
-  type === "SIEGE_OUTPOST" ? "siegeOutpost" : "economicStructure";
+  type === "SIEGE_BATTERY" ? "siegeBattery" : "economicStructure";
 
 const outpostVisionBonusRadiusFor = (
   players: ReadonlyMap<string, RuntimePlayer>,
@@ -139,7 +139,7 @@ export const reconcileOutpostVisionBonus = (
  * some other tile in the player's territory (a resource tile gained or lost
  * elsewhere changes their FOOD/UMBRITE slot totals without touching any
  * outpost tile directly). `ownedOutpostTiles` is sourced from the runtime's
- * activeRelayBeaconsByOwner/activeSiegeOutpostsByOwner indexes — cheap, but
+ * activeRelayBeaconsByOwner/activeSiegeBatteriesByOwner indexes — cheap, but
  * "active"-only, so a mid-removal outpost won't resync until some other event
  * touches its tile. Self-healing (the next reconcile recomputes from current
  * state anyway) and rare enough in practice not to warrant a full tile scan.

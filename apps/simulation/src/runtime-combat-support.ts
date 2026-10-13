@@ -63,14 +63,14 @@ export type RuntimeCombatSupportContext = {
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   // §5.4: true when the given structure field is currently unpowered
   // (its resource demand isn't covered by supply) — a dormant Fort/Siege
-  // Outpost/Wooden Fort doesn't grant its combat bonus.
-  isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure") => boolean;
+  // Outpost/Palisade doesn't grant its combat bonus.
+  isStructureDormant: (playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeBattery" | "economicStructure") => boolean;
   manpowerLossByTileKey: Map<string, number>;
   // Titanium/Umbrite Weapons Factory combat bonus is empire-wide (like the
   // legacy Weapons Workshop below), not scoped to a connected-town network —
   // ownedStructureCountForPlayer already counts every copy the player owns
   // anywhere. Town-network membership (ConnectedTownNetworkEntry) still
-  // exists for other purposes (Rail Depot/Garrison Hall uniqueness, the tile
+  // exists for other purposes (Neural Works/Ancillary Depot uniqueness, the tile
   // overview's "connected network" display) but no longer gates combat.
   ownedStructureCountForPlayer: (playerId: string, structureType: BuildableStructureType) => number;
   // GET /api/activity's combat-manpower-log (manpowerLost24h/biggestBattle24h
@@ -181,16 +181,16 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   for (const tileKey of summary.territoryTileKeys) {
     const tile = ctx.tiles.get(tileKey);
     if (!tile) continue;
-    // Siege outposts can be built on FRONTIER tiles (they skip the SETTLED
+    // Siege Batteries can be built on FRONTIER tiles (they skip the SETTLED
     // requirement in structure placement) and their attack bonus applies
     // there too — unlike other structures' auras, an outpost's offense
     // multiplier isn't gated on the tile being settled.
     if (
-      tile.siegeOutpost?.ownerId === playerId &&
-      tile.siegeOutpost.status === "active" &&
-      !ctx.isStructureDormant(playerId, tileKey, "siegeOutpost")
+      tile.siegeBattery?.ownerId === playerId &&
+      tile.siegeBattery.status === "active" &&
+      !ctx.isStructureDormant(playerId, tileKey, "siegeBattery")
     ) {
-      outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
+      outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeBattery.variant ?? "SIEGE_BATTERY" });
     }
   }
   return targetOutpostMult(outposts, targetX, targetY);

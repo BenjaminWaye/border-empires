@@ -60,8 +60,8 @@ Status: historical record — do not use as an execution plan.
   ~lines 252 and 284). **It already implements a per-tile budget that accumulates
   and auto-attacks** — we reuse its accumulation half and delete its auto-attack
   from outposts.
-- **A "set per-tile mode" command already exists**: `SET_SIEGE_OUTPOST_SWEEP`
-  (search `SET_SIEGE_OUTPOST_SWEEP` across `apps/`). Copy its end-to-end wiring
+- **A "set per-tile mode" command already exists**: `SET_SIEGE_BATTERY_SWEEP`
+  (search `SET_SIEGE_BATTERY_SWEEP` across `apps/`). Copy its end-to-end wiring
   for the new muster commands.
 - **Client→server command types** are whitelisted in
   `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts` and validated in
@@ -105,7 +105,7 @@ in one place.
 
    // --- Fort garrison (Phase 7) ---
    export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
-     WOODEN_FORT: 120,
+     PALISADE: 120,
      FORT: 120,
      IRON_BASTION: 240,
      THUNDER_BASTION: 360,
@@ -144,7 +144,7 @@ yet.
 - `packages/client/src/client-types.ts` — add the identical field to the client
   tile type.
 - `apps/simulation/src/runtime-types.ts` — ensure `SimulationTileWireDelta`
-  carries `muster` (follow how `siegeOutpost`/`fort` are carried).
+  carries `muster` (follow how `siegeBattery`/`fort` are carried).
 - Wherever a tile is serialized to a wire delta (search
   `tileDeltaFromState`), include `muster`.
 
@@ -192,17 +192,17 @@ the player snapshot type.
 ## Phase 3 — Muster commands (place / update / clear a flag)
 
 **Goal:** a player can set a muster flag on an owned tile with a mode, and clear
-it. Copy the `SET_SIEGE_OUTPOST_SWEEP` wiring exactly.
+it. Copy the `SET_SIEGE_BATTERY_SWEEP` wiring exactly.
 
 **Files:**
 - `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts` — add `"SET_MUSTER"`
-  and `"CLEAR_MUSTER"` to the whitelist (next to `SET_SIEGE_OUTPOST_SWEEP`).
+  and `"CLEAR_MUSTER"` to the whitelist (next to `SET_SIEGE_BATTERY_SWEEP`).
 - `packages/sim-protocol/src/index.ts` — add payload validation for the two new
   command types (mirror the existing per-tile command payloads:
   `{ x, y, mode }` for SET_MUSTER, `{ x, y }` for CLEAR_MUSTER).
 - `apps/simulation/src/runtime/runtime.ts` — in the command dispatch (search the big
   `command.type !== "..."` guard list ~line 7167 AND the place where
-  `SET_SIEGE_OUTPOST_SWEEP` is actually handled) add handling for `SET_MUSTER` /
+  `SET_SIEGE_BATTERY_SWEEP` is actually handled) add handling for `SET_MUSTER` /
   `CLEAR_MUSTER`.
 
 **Steps (handler logic):**
@@ -458,7 +458,7 @@ unchanged with the flag off.
 **Goal:** players can SEE muster filling, fort garrisons, and toggle flag mode.
 
 **Files (client):** `packages/client/src/` — tile rendering, tile menu/overlay,
-HUD. Search for how `siegeOutpost` sweep state and `fort` are currently rendered
+HUD. Search for how `siegeBattery` sweep state and `fort` are currently rendered
 and mirror it.
 
 **Steps:**

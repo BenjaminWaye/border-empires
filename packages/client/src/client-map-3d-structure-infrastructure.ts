@@ -7,12 +7,12 @@ import {
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
 export type InfrastructureStructureKind =
-  | "AIRPORT"
-  | "RAIL_DEPOT"
-  | "RADAR_SYSTEM";
+  | "SKY_DOCK"
+  | "NEURAL_WORKS"
+  | "RESONANCE_GRID";
 
 export const INFRASTRUCTURE_STRUCTURE_KINDS: ReadonlySet<InfrastructureStructureKind> = new Set([
-  "AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM"
+  "SKY_DOCK", "NEURAL_WORKS", "RESONANCE_GRID"
 ]);
 
 export type InfrastructureStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -27,12 +27,12 @@ export const registerInfrastructureStructures = (
   const C = builder.maxTiles;
 
   // ─── Materials ──────────────────────────────────────────────────────
-  const airportHangarMaterial = new MeshStandardMaterial({ color: "#aab2b8", roughness: 0.78, metalness: 0.15, flatShading: true });
-  const airportRoofMaterial = new MeshStandardMaterial({ color: "#7e858a", roughness: 0.82, metalness: 0.18, flatShading: true });
-  const airportTowerMaterial = new MeshStandardMaterial({ color: "#e8ecef", roughness: 0.75, metalness: 0.08, flatShading: true });
-  const airportGlassMaterial = new MeshStandardMaterial({ color: "#3a6680", roughness: 0.3, metalness: 0.55, flatShading: true, emissive: "#0e2030", emissiveIntensity: 0.25 });
-  const airportRunwayMaterial = new MeshStandardMaterial({ color: "#2a2a2e", roughness: 0.94, metalness: 0, flatShading: true });
-  const airportStripeMaterial = new MeshStandardMaterial({ color: "#e8e4d6", roughness: 0.88, metalness: 0, flatShading: true });
+  const skyDockHangarMaterial = new MeshStandardMaterial({ color: "#aab2b8", roughness: 0.78, metalness: 0.15, flatShading: true });
+  const skyDockRoofMaterial = new MeshStandardMaterial({ color: "#7e858a", roughness: 0.82, metalness: 0.18, flatShading: true });
+  const skyDockTowerMaterial = new MeshStandardMaterial({ color: "#e8ecef", roughness: 0.75, metalness: 0.08, flatShading: true });
+  const skyDockGlassMaterial = new MeshStandardMaterial({ color: "#3a6680", roughness: 0.3, metalness: 0.55, flatShading: true, emissive: "#0e2030", emissiveIntensity: 0.25 });
+  const skyDockRunwayMaterial = new MeshStandardMaterial({ color: "#2a2a2e", roughness: 0.94, metalness: 0, flatShading: true });
+  const skyDockStripeMaterial = new MeshStandardMaterial({ color: "#e8e4d6", roughness: 0.88, metalness: 0, flatShading: true });
   const railWallMaterial = new MeshStandardMaterial({ color: "#8a4836", roughness: 0.9, metalness: 0, flatShading: true });
   const railRoofMaterial = new MeshStandardMaterial({ color: "#4a4842", roughness: 0.88, metalness: 0, flatShading: true });
   const railIronMaterial = new MeshStandardMaterial({ color: "#2a2c2e", roughness: 0.6, metalness: 0.5, flatShading: true });
@@ -43,12 +43,12 @@ export const registerInfrastructureStructures = (
   const radarDishMaterial = new MeshStandardMaterial({ color: "#e8ecf0", roughness: 0.4, metalness: 0.4, flatShading: true });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  const airportHangarGeo = new BoxGeometry(0.30, 0.10, 0.18);
-  const airportRoofGeo = new BoxGeometry(0.32, 0.025, 0.20);
-  const airportTowerGeo = new CylinderGeometry(0.035, 0.045, 0.32, 8);
-  const airportCabGeo = new BoxGeometry(0.07, 0.04, 0.07);
-  const airportRunwayGeo = new BoxGeometry(0.40, 0.008, 0.06);
-  const airportStripeGeo = new BoxGeometry(0.03, 0.010, 0.012);
+  const skyDockHangarGeo = new BoxGeometry(0.30, 0.10, 0.18);
+  const skyDockRoofGeo = new BoxGeometry(0.32, 0.025, 0.20);
+  const skyDockTowerGeo = new CylinderGeometry(0.035, 0.045, 0.32, 8);
+  const skyDockCabGeo = new BoxGeometry(0.07, 0.04, 0.07);
+  const skyDockRunwayGeo = new BoxGeometry(0.40, 0.008, 0.06);
+  const skyDockStripeGeo = new BoxGeometry(0.03, 0.010, 0.012);
   const railBodyGeo = new BoxGeometry(0.30, 0.12, 0.16);
   const railRoofGeo = new BoxGeometry(0.34, 0.025, 0.20);
   const railRailGeo = new BoxGeometry(0.34, 0.008, 0.010);
@@ -63,12 +63,12 @@ export const registerInfrastructureStructures = (
   const radarAntennaGeo = new CylinderGeometry(0.0055, 0.0055, 0.08, 5);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  builder.makeSlot("airportHangar", airportHangarGeo, airportHangarMaterial, C);
-  builder.makeSlot("airportRoof", airportRoofGeo, airportRoofMaterial, C);
-  builder.makeSlot("airportTower", airportTowerGeo, airportTowerMaterial, C);
-  builder.makeSlot("airportCab", airportCabGeo, airportGlassMaterial, C);
-  builder.makeSlot("airportRunway", airportRunwayGeo, airportRunwayMaterial, C);
-  builder.makeSlot("airportStripe", airportStripeGeo, airportStripeMaterial, C * 3);
+  builder.makeSlot("skyDockHangar", skyDockHangarGeo, skyDockHangarMaterial, C);
+  builder.makeSlot("skyDockRoof", skyDockRoofGeo, skyDockRoofMaterial, C);
+  builder.makeSlot("skyDockTower", skyDockTowerGeo, skyDockTowerMaterial, C);
+  builder.makeSlot("skyDockCab", skyDockCabGeo, skyDockGlassMaterial, C);
+  builder.makeSlot("skyDockRunway", skyDockRunwayGeo, skyDockRunwayMaterial, C);
+  builder.makeSlot("skyDockStripe", skyDockStripeGeo, skyDockStripeMaterial, C * 3);
   builder.makeSlot("railBody", railBodyGeo, railWallMaterial, C);
   builder.makeSlot("railRoof", railRoofGeo, railRoofMaterial, C);
   builder.makeSlot("railRail", railRailGeo, railIronMaterial, C * 2);
@@ -82,18 +82,18 @@ export const registerInfrastructureStructures = (
   builder.makeSlot("radarAntenna", radarAntennaGeo, radarPylonMaterial, C);
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addAirport: InfrastructureStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("airportHangar", sx, sy, sz, -0.04, 0.07, -0.10);
-    builder.addPiece("airportRoof", sx, sy, sz, -0.04, 0.135, -0.10);
-    builder.addPiece("airportTower", sx, sy, sz, 0.20, 0.18, -0.06);
-    builder.addPiece("airportCab", sx, sy, sz, 0.20, 0.36, -0.06);
-    builder.addPiece("airportRunway", sx, sy, sz, 0, 0.008, 0.18);
-    builder.addPiece("airportStripe", sx, sy, sz, -0.12, 0.014, 0.18);
-    builder.addPiece("airportStripe", sx, sy, sz, 0, 0.014, 0.18);
-    builder.addPiece("airportStripe", sx, sy, sz, 0.12, 0.014, 0.18);
+  const addSkyDock: InfrastructureStructureLayout = (sx, sy, sz) => {
+    builder.addPiece("skyDockHangar", sx, sy, sz, -0.04, 0.07, -0.10);
+    builder.addPiece("skyDockRoof", sx, sy, sz, -0.04, 0.135, -0.10);
+    builder.addPiece("skyDockTower", sx, sy, sz, 0.20, 0.18, -0.06);
+    builder.addPiece("skyDockCab", sx, sy, sz, 0.20, 0.36, -0.06);
+    builder.addPiece("skyDockRunway", sx, sy, sz, 0, 0.008, 0.18);
+    builder.addPiece("skyDockStripe", sx, sy, sz, -0.12, 0.014, 0.18);
+    builder.addPiece("skyDockStripe", sx, sy, sz, 0, 0.014, 0.18);
+    builder.addPiece("skyDockStripe", sx, sy, sz, 0.12, 0.014, 0.18);
   };
 
-  const addRailDepot: InfrastructureStructureLayout = (sx, sy, sz) => {
+  const addNeuralWorks: InfrastructureStructureLayout = (sx, sy, sz) => {
     builder.addPiece("railBody", sx, sy, sz, 0, 0.07, -0.10);
     builder.addPiece("railRoof", sx, sy, sz, 0, 0.143, -0.10);
     builder.addPiece("railRail", sx, sy, sz, 0, 0.012, 0.16);
@@ -106,7 +106,7 @@ export const registerInfrastructureStructures = (
     builder.addPiece("railSignalLight", sx, sy, sz, 0.18, 0.16, 0.10);
   };
 
-  const addRadarSystem: InfrastructureStructureLayout = (sx, sy, sz) => {
+  const addResonanceGrid: InfrastructureStructureLayout = (sx, sy, sz) => {
     builder.addPiece("radarBody", sx, sy, sz, -0.08, 0.05, 0.05);
     builder.addPiece("radarTop", sx, sy, sz, -0.08, 0.11, 0.05);
     builder.addPiece("radarPylon", sx, sy, sz, 0.06, 0.13, -0.04);
@@ -118,9 +118,9 @@ export const registerInfrastructureStructures = (
 
   return {
     layouts: {
-      AIRPORT: addAirport,
-      RAIL_DEPOT: addRailDepot,
-      RADAR_SYSTEM: addRadarSystem
+      SKY_DOCK: addSkyDock,
+      NEURAL_WORKS: addNeuralWorks,
+      RESONANCE_GRID: addResonanceGrid
     }
   };
 };

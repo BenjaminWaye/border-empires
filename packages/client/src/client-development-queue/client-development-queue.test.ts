@@ -186,7 +186,7 @@ describe("development queue helpers", () => {
       { ownerId: "me", economicStructure: { status: "removing" } },
       { ownerId: "me", fort: { status: "removing" } },
       { ownerId: "me", observatory: { status: "removing" } },
-      { ownerId: "me", siegeOutpost: { status: "removing" } },
+      { ownerId: "me", siegeBattery: { status: "removing" } },
       { ownerId: "other", observatory: { status: "under_construction" } }
     ];
     expect(busyDevelopmentProcessCount(tiles, "me", 1)).toBe(5);
@@ -375,7 +375,7 @@ describe("development queue helpers", () => {
     expect(state.developmentQueue.map((e) => e.tileKey)).toEqual(["2,2"]);
   });
 
-  it("queues a granary behind existing queue entries even when a slot is free", () => {
+  it("queues a incubation engine behind existing queue entries even when a slot is free", () => {
     const state = createInitialState();
     state.me = "me";
     state.developmentQueue = [{ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Garrison at (1, 1)" }];
@@ -384,9 +384,9 @@ describe("development queue helpers", () => {
 
     const queued = sendDevelopmentBuild(
       state,
-      { type: "BUILD_STRUCTURE", x: 2, y: 2, structureType: "GRANARY" },
+      { type: "BUILD_STRUCTURE", x: 2, y: 2, structureType: "INCUBATION_ENGINE" },
       optimistic,
-      { x: 2, y: 2, label: "Granary at (2, 2)", optimisticKind: "GRANARY" },
+      { x: 2, y: 2, label: "Incubation Engine at (2, 2)", optimisticKind: "INCUBATION_ENGINE" },
       {
         keyFor: (x, y) => `${x},${y}`,
         queueDevelopmentAction: (entry) => {
@@ -632,9 +632,9 @@ describe("development queue helpers", () => {
             x: 7,
             y: 8,
             tileKey: "7,8",
-            label: "Granary at (7, 8)",
-            payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 7, y: 8, structureType: "GRANARY" },
-            optimisticKind: "GRANARY"
+            label: "Incubation Engine at (7, 8)",
+            payload: { type: "BUILD_ECONOMIC_STRUCTURE", x: 7, y: 8, structureType: "INCUBATION_ENGINE" },
+            optimisticKind: "INCUBATION_ENGINE"
           }
         ]
       })
@@ -651,9 +651,9 @@ describe("development queue helpers", () => {
         x: 7,
         y: 8,
         tileKey: "7,8",
-        label: "Granary at (7, 8)",
-        payload: { type: "BUILD_STRUCTURE", x: 7, y: 8, structureType: "GRANARY" },
-        optimisticKind: "GRANARY"
+        label: "Incubation Engine at (7, 8)",
+        payload: { type: "BUILD_STRUCTURE", x: 7, y: 8, structureType: "INCUBATION_ENGINE" },
+        optimisticKind: "INCUBATION_ENGINE"
       }
     ]);
   });

@@ -85,7 +85,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "town_json", wireValue: "{\"town\":1}", camelField: "townJson", normalized: "{\"town\":1}", presenceSensitive: true },
   { protoField: "fort_json", wireValue: "{\"fort\":1}", camelField: "fortJson", normalized: "{\"fort\":1}", presenceSensitive: true },
   { protoField: "observatory_json", wireValue: "{\"obs\":1}", camelField: "observatoryJson", normalized: "{\"obs\":1}", presenceSensitive: true },
-  { protoField: "siege_outpost_json", wireValue: "{\"siege\":1}", camelField: "siegeOutpostJson", normalized: "{\"siege\":1}", presenceSensitive: true },
+  { protoField: "siege_battery_json", wireValue: "{\"siege\":1}", camelField: "siegeBatteryJson", normalized: "{\"siege\":1}", presenceSensitive: true },
   { protoField: "economic_structure_json", wireValue: "{\"econ\":1}", camelField: "economicStructureJson", normalized: "{\"econ\":1}", presenceSensitive: true },
   { protoField: "sabotage_json", wireValue: "{\"sab\":1}", camelField: "sabotageJson", normalized: "{\"sab\":1}", presenceSensitive: true },
   { protoField: "shard_site_json", wireValue: "{\"shard\":1}", camelField: "shardSiteJson", normalized: "{\"shard\":1}", presenceSensitive: true },

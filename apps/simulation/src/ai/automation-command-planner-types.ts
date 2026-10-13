@@ -84,7 +84,7 @@ export type AutomationPlannerTile = {
   } | null | undefined;
   fort?: { ownerId?: string; status?: string } | null | undefined;
   observatory?: { ownerId?: string; status?: string } | null | undefined;
-  siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
+  siegeBattery?: { ownerId?: string; status?: string } | null | undefined;
   economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined } | null | undefined;
 };
 
@@ -172,7 +172,7 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
    * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
-   * are fully exhausted, no FARMSTEAD/WATERWORKS/GRANARY build can grow
+   * are fully exhausted, no HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build can grow
    * supply, and no RELAY_BEACON exists to disable instead. Preferred when
    * present, but no longer required — see that function's doc comment.
    */

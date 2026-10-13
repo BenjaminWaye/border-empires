@@ -16,7 +16,7 @@ describe("structure placement metadata", () => {
       "FORT",
       "TITANIUM_BASTION",
       "THUNDER_BASTION",
-      "SIEGE_OUTPOST",
+      "SIEGE_BATTERY",
       "SIEGE_TOWER",
       "DREAD_TOWER",
     ] satisfies StructurePlacementType[]) {
@@ -26,7 +26,7 @@ describe("structure placement metadata", () => {
 
   test("allows siege variants on bare frontier tiles (owned, unsettled, no resource/town/dock)", () => {
     for (const structureType of [
-      "SIEGE_OUTPOST",
+      "SIEGE_BATTERY",
       "SIEGE_TOWER",
       "DREAD_TOWER",
     ] satisfies StructurePlacementType[]) {
@@ -40,8 +40,8 @@ describe("structure placement metadata", () => {
     }
   });
 
-  test("allows Farmstead on a FARM tile but not a FISH tile (§5.3: Farmstead has no effect on fish production)", () => {
-    expect(structureShowsOnTile("FARMSTEAD", { ownershipState: "SETTLED", resource: "FARM" })).toBe(true);
-    expect(structureShowsOnTile("FARMSTEAD", { ownershipState: "SETTLED", resource: "FISH" })).toBe(false);
+  test("allows Hydrogarden on a FARM tile but not a FISH tile (§5.3: Hydrogarden has no effect on fish production)", () => {
+    expect(structureShowsOnTile("HYDROGARDEN", { ownershipState: "SETTLED", resource: "FARM" })).toBe(true);
+    expect(structureShowsOnTile("HYDROGARDEN", { ownershipState: "SETTLED", resource: "FISH" })).toBe(false);
   });
 });

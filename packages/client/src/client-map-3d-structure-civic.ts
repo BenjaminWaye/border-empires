@@ -7,17 +7,17 @@ import {
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
-// CARAVANARY has its own dedicated overlay + story file
+// TRADE_NEXUS has its own dedicated overlay + story file
 // (client-map-3d-trade-nexus-overlay.ts / TradeNexus.stories.ts) and is no
 // longer part of the generic civic-structure dispatch handled here.
 export type CivicStructureKind =
   | "CLEARING_HOUSE"
-  | "CUSTOMS_HOUSE"
-  | "GOVERNORS_OFFICE"
+  | "HARBOR_EXCHANGE"
+  | "MINISTRY_HALL"
   | "CENSUS_HALL";
 
 export const CIVIC_STRUCTURE_KINDS: ReadonlySet<CivicStructureKind> = new Set([
-  "CLEARING_HOUSE", "CUSTOMS_HOUSE", "GOVERNORS_OFFICE",
+  "CLEARING_HOUSE", "HARBOR_EXCHANGE", "MINISTRY_HALL",
   "CENSUS_HALL"
 ]);
 
@@ -57,7 +57,7 @@ export const registerCivicStructures = (
   const governorCupolaMaterial = new MeshStandardMaterial({ color: "#e8dcc2", roughness: 0.88, metalness: 0, flatShading: true });
   const governorFlagMaterial = new MeshStandardMaterial({ color: "#c83a2a", roughness: 0.82, metalness: 0, flatShading: true });
   // Census Hall — a modest records office, scaled and detailed like the
-  // other minor support structures (Customs House, Exchange House), not
+  // other minor support structures (Harbor Exchange, Exchange House), not
   // a monument. One steampunk flourish only: a small brass tally drum
   // set into the facade, echoing the tabulating-machine idea without a
   // power source, animation, or a showy roofline to justify it.
@@ -150,7 +150,7 @@ export const registerCivicStructures = (
   builder.makeSlot("censusDrumRing", censusDrumRingGeo, censusBrassDarkMaterial, C);
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addCustomsHouse: CivicStructureLayout = (sx, sy, sz) => {
+  const addHarborExchange: CivicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("customsBody", sx, sy, sz, -0.06, 0.085, -0.04);
     builder.addPiece("customsRoof", sx, sy, sz, -0.06, 0.20, -0.04, 1, 1, 1, Math.PI * 0.25);
     builder.addPiece("customsGatePole", sx, sy, sz, 0.16, 0.07, 0.10);
@@ -179,7 +179,7 @@ export const registerCivicStructures = (
     builder.addPiece("clearingHouseScalePan", sx, sy, sz, 0.075, 0.37, 0.018);
   };
 
-  const addGovernorsOffice: CivicStructureLayout = (sx, sy, sz) => {
+  const addMinistryHall: CivicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("governorStep", sx, sy, sz, 0, 0.025, 0.12);
     builder.addPiece("governorBody", sx, sy, sz, 0, 0.115, 0);
     builder.addPiece("governorRoof", sx, sy, sz, 0, 0.235, 0, 1, 1, 1, Math.PI * 0.25);
@@ -202,8 +202,8 @@ export const registerCivicStructures = (
   return {
     layouts: {
       CLEARING_HOUSE: addClearingHouse,
-      CUSTOMS_HOUSE: addCustomsHouse,
-      GOVERNORS_OFFICE: addGovernorsOffice,
+      HARBOR_EXCHANGE: addHarborExchange,
+      MINISTRY_HALL: addMinistryHall,
       CENSUS_HALL: addCensusHall
     }
   };

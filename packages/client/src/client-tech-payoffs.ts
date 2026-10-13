@@ -13,38 +13,38 @@ export type TechHighlightTag = {
 // STRUCTURE_DISPLAY_NAMES (client-structure-display-names.ts, the single
 // canonical name source) below rather than a second hardcoded string per
 // key — a rename there now flows through here automatically instead of
-// silently drifting (this map used to say "Granary"/"Umbrite Synth"/"Sky
-// Foundry" long after those buildings were renamed).
+// silently drifting (this map used to say "Incubation Engine"/"Umbrite Synth"/"Sky
+// Ore Refinery" long after those buildings were renamed).
 const STRUCTURE_UNLOCK_KEYS: Record<string, EconomicStructureType | StructureInfoKey> = {
-  unlockFarmstead: "FARMSTEAD",
+  unlockHydrogarden: "HYDROGARDEN",
   unlockUmbriteRig: "UMBRITE_RIG",
   unlockMine: "MINE",
   unlockMintworks: "MINTWORKS",
   unlockForts: "FORT",
   unlockObservatory: "OBSERVATORY",
-  unlockSiegeOutposts: "SIEGE_OUTPOST",
-  unlockGranary: "GRANARY",
+  unlockSiegeBatteries: "SIEGE_BATTERY",
+  unlockIncubationEngine: "INCUBATION_ENGINE",
   unlockCensusHall: "CENSUS_HALL",
   unlockClearingHouse: "CLEARING_HOUSE",
-  unlockCaravanary: "CARAVANARY",
-  unlockUmbriteSynthesizer: "UMBRITE_SYNTHESIZER",
+  unlockTradeNexus: "TRADE_NEXUS",
+  unlockUmbriteWorks: "UMBRITE_WORKS",
   unlockTitaniumWorks: "TITANIUM_WORKS",
-  unlockCrystalSynthesizer: "CRYSTAL_SYNTHESIZER",
-  unlockFoundry: "FOUNDRY",
-  unlockAetherTower: "AETHER_TOWER",
-  unlockCustomsHouse: "CUSTOMS_HOUSE",
-  unlockGovernorsOffice: "GOVERNORS_OFFICE",
-  unlockGarrisonHall: "GARRISON_HALL",
-  unlockAirport: "AIRPORT",
-  unlockRadarSystem: "RADAR_SYSTEM",
+  unlockAetherCondenser: "AETHER_CONDENSER",
+  unlockOreRefinery: "ORE_REFINERY",
+  unlockAmbaricTransformer: "AMBARIC_TRANSFORMER",
+  unlockHarborExchange: "HARBOR_EXCHANGE",
+  unlockMinistryHall: "MINISTRY_HALL",
+  unlockAncillaryDepot: "ANCILLARY_DEPOT",
+  unlockSkyDock: "SKY_DOCK",
+  unlockResonanceGrid: "RESONANCE_GRID",
   unlockAstralDock: "ASTRAL_DOCK",
-  unlockRailDepot: "RAIL_DEPOT",
+  unlockNeuralWorks: "NEURAL_WORKS",
   unlockImperialExchange: "IMPERIAL_EXCHANGE",
-  unlockWorldEngine: "WORLD_ENGINE",
+  unlockSovereignSiegeEngine: "SOVEREIGN_SIEGE_ENGINE",
   unlockAegisDome: "AEGIS_DOME",
-  unlockLogisticsGuild: "LOGISTICS_GUILD",
-  unlockAssemblyWorks: "ASSEMBLY_WORKS",
-  unlockPopulationBureau: "POPULATION_BUREAU",
+  unlockAncillaryFactory: "ANCILLARY_FACTORY",
+  unlockReserveLattice: "RESERVE_LATTICE",
+  unlockCensusDirectorate: "CENSUS_DIRECTORATE",
   unlockTitaniumLevy: "TITANIUM_LEVY",
   // unlockWeaponsWorkshop retired — Weapons Workshop is no longer
   // unlockable (structure-registry-economic.ts), replaced by the two
@@ -71,7 +71,7 @@ const ACTION_UNLOCK_LABELS: Record<string, string> = {
   unlockAetherEmp: "Aether EMP",
   unlockCityOverclock: "City Overclock",
   unlockAstralDockLaunch: "Launch Satellite",
-  unlockWorldEngineStrike: "Worldbreaker Shot",
+  unlockSovereignSiegeEngineStrike: "Worldbreaker Shot",
   unlockImperialExchangeLevy: "Exchange Levy",
   unlockAegisLock: "Aegis Lock"
 };
@@ -91,7 +91,7 @@ const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
   unlockSiegeTower: "Siege Tower",
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",
-  unlockWaterworksUpgrade: "Hydroworks"
+  unlockHydroworksUpgrade: "Hydroworks"
 };
 
 const addTag = (tags: TechHighlightTag[], label: string, tone: TechHighlightTone): void => {
@@ -128,7 +128,7 @@ export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighligh
   if (typeof effects.musterMaxTilesAdd === "number" && effects.musterMaxTilesAdd > 0) {
     addTag(tags, `Muster Flag +${effects.musterMaxTilesAdd}`, "upgrade");
   }
-  if (effects.unlockFarmstead === true) {
+  if (effects.unlockHydrogarden === true) {
     addTag(tags, `Fish Tiles +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} Food Slot`, "upgrade");
   }
 

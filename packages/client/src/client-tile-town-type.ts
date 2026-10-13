@@ -38,8 +38,8 @@ export type ClientTownWireSummary = {
   hasMintworks: boolean;
   mintworksActive: boolean;
   mintworksCount?: number;
-  hasGranary: boolean;
-  granaryActive: boolean;
+  hasIncubationEngine: boolean;
+  incubationEngineActive: boolean;
   hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;

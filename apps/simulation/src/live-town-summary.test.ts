@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  GARRISON_HALL_MANPOWER_CAP_BONUS,
+  ANCILLARY_DEPOT_MANPOWER_CAP_BONUS,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   MINTWORKS_GOLD_PRODUCTION_BONUS,
   percentLabel,
@@ -33,20 +33,20 @@ const supportTile = (x: number, y: number, ownerId: string, structureType?: stri
 });
 
 describe("buildTownSummary — townModifierTotals (unified building modifier display, stage 3)", () => {
-  it("sums a flat, additive-per-copy modifier (manpower cap) across every active Garrison Hall in the support ring, under a '<count> Garrison Halls' heading", () => {
+  it("sums a flat, additive-per-copy modifier (manpower cap) across every active Ancillary Depot in the support ring, under a '<count> Ancillary Depots' heading", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
       town,
-      supportTile(11, 10, ownerId, "GARRISON_HALL"),
-      supportTile(9, 10, ownerId, "GARRISON_HALL"),
+      supportTile(11, 10, ownerId, "ANCILLARY_DEPOT"),
+      supportTile(9, 10, ownerId, "ANCILLARY_DEPOT"),
       supportTile(10, 11, ownerId)
     ];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals).toContainEqual({
       heading: "2 Ancillary Depots",
-      modifiers: [{ statLabel: "Manpower cap", valueText: `+${GARRISON_HALL_MANPOWER_CAP_BONUS * 2}`, tone: "positive" }]
+      modifiers: [{ statLabel: "Manpower cap", valueText: `+${ANCILLARY_DEPOT_MANPOWER_CAP_BONUS * 2}`, tone: "positive" }]
     });
   });
 
@@ -121,7 +121,7 @@ describe("buildTownSummary — converter town-support attribution", () => {
   it("folds an EXCHANGE-mode Aether Condenser's gold into the town's goldPerMinute", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
-    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER", "EXCHANGE")];
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "AETHER_CONDENSER", "EXCHANGE")];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const fedTownKeys = new Set([keyFor(10, 10)]);
     const withoutConverter = buildTownSummary(town as never, undefined, new Map([[keyFor(10, 10), town as never]]), fedTownKeys, true);
@@ -132,7 +132,7 @@ describe("buildTownSummary — converter town-support attribution", () => {
   it("surfaces a 'Sell Off gold' modifier under a '1 Aether Condenser' heading", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
-    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER", "EXCHANGE")];
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "AETHER_CONDENSER", "EXCHANGE")];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals).toContainEqual({
@@ -144,7 +144,7 @@ describe("buildTownSummary — converter town-support attribution", () => {
   it("does not attribute a REFINE-mode (default) converter's gold to the town — it produces no gold at all", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
-    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER")];
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "AETHER_CONDENSER")];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals ?? []).toEqual([]);

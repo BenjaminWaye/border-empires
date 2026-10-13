@@ -90,7 +90,7 @@ suggests it should use the exact same mechanism, not a new one.
    `playerHasAbilityTech` via the unified ability-gating helper (not a
    hand-rolled `techIds.has` check — Phase 9a's whole point was one source
    of truth), target tile owned by actor, target tile is a resource tile
-   with no town/dock/fort/observatory/siegeOutpost/economicStructure
+   with no town/dock/fort/observatory/siegeBattery/economicStructure
    (mirror `handleCreateMountainCommand`'s exact field list), an owned
    ready Observatory covers the target
    (`pickReadyOwnedObservatoryForTarget`), cooldown not active

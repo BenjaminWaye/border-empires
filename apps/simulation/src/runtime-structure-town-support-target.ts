@@ -11,7 +11,7 @@ import { rejectCommand, structureLabel } from "./runtime-structure-command-handl
 // already what placementMode "town_support" does (see resolveTownSupportTarget
 // below) for most support-ring buildings, but these four are deliberately
 // uncapped/stacking per town (Mintworks: "stacks additively with every other
-// active Mintworks"; Garrison Hall/the two Weapons Factories: "same_tile
+// active Mintworks"; Ancillary Depot/the two Weapons Factories: "same_tile
 // placement, can sit anywhere", "no per-town limit") — routing them through
 // the same town_support path would wrongly reject a 2nd/3rd copy via its
 // "town already has X" singleton check. So they stay placementMode
@@ -20,7 +20,7 @@ import { rejectCommand, structureLabel } from "./runtime-structure-command-handl
 // tile, skip straight to an open support tile, with no uniqueness gate.
 const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructureType>([
   "MINTWORKS",
-  "GARRISON_HALL",
+  "ANCILLARY_DEPOT",
   "TITANIUM_WEAPONS_FACTORY",
   "UMBRITE_WEAPONS_FACTORY"
 ]);
@@ -28,13 +28,13 @@ const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructur
 // User decision: unlike the other town_support economics (one of each type
 // per town, forcing sprawl across multiple towns for more supply), the
 // Aether Condenser stacks — a town can host as many as it has open support
-// tiles for. Exempts CRYSTAL_SYNTHESIZER/ADVANCED_CRYSTAL_SYNTHESIZER from
+// tiles for. Exempts AETHER_CONDENSER/HIGH_YIELD_AETHER_CONDENSER from
 // the "town already has X" singleton gate below; firstAvailableTownSupportTile
 // still requires an open ring tile, so the town's support-tile count remains
 // the real cap.
 const STACKING_TOWN_SUPPORT_STRUCTURE_TYPES = new Set<BuildableStructureType>([
-  "CRYSTAL_SYNTHESIZER",
-  "ADVANCED_CRYSTAL_SYNTHESIZER"
+  "AETHER_CONDENSER",
+  "HIGH_YIELD_AETHER_CONDENSER"
 ]);
 
 export function resolveTownSupportTarget(
@@ -73,11 +73,11 @@ export function resolveTownSupportTarget(
       rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
       return undefined;
     }
-    if (economicType === "RAIL_DEPOT" && context.railDepotAlreadyInNetwork(command.playerId, townKey)) {
+    if (economicType === "NEURAL_WORKS" && context.neuralWorksAlreadyInNetwork(command.playerId, townKey)) {
       rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Neural Works");
       return undefined;
     }
-    if (economicType === "ASSEMBLY_WORKS" && context.assemblyWorksAlreadyInNetwork(command.playerId, townKey)) {
+    if (economicType === "RESERVE_LATTICE" && context.reserveLatticeAlreadyInNetwork(command.playerId, townKey)) {
       rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Reserve Lattice");
       return undefined;
     }
@@ -95,11 +95,11 @@ export function resolveTownSupportTarget(
     rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
     return undefined;
   }
-  if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
+  if (economicType === "NEURAL_WORKS" && supportedTownKey && context.neuralWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
     rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Neural Works");
     return undefined;
   }
-  if (economicType === "ASSEMBLY_WORKS" && supportedTownKey && context.assemblyWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
+  if (economicType === "RESERVE_LATTICE" && supportedTownKey && context.reserveLatticeAlreadyInNetwork(command.playerId, supportedTownKey)) {
     rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Reserve Lattice");
     return undefined;
   }

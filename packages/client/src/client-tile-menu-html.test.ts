@@ -108,9 +108,9 @@ describe("tileActionMenuHtml building category squares", () => {
     building("build_fortification", "Build Thunder Bastion"),
     building("build_siege_camp", "Build Dread Tower"),
     building("build_observatory", "Build Aether Tower"),
-    building("build_airport", "Build Sky Dock"),
-    building("build_radar_system", "Build Resonance Grid"),
-    building("build_waterworks", "Build Waterworks"),
+    building("build_sky_dock", "Build Sky Dock"),
+    building("build_resonance_grid", "Build Resonance Grid"),
+    building("build_hydroworks", "Build Hydroworks"),
     building("build_relay_beacon", "Build Relay Beacon")
   ];
   const viewWith = (buildings: TileMenuView["buildings"]): TileMenuView => ({ ...baseView, tabs: ["buildings"], buildings });
@@ -122,7 +122,7 @@ describe("tileActionMenuHtml building category squares", () => {
   });
 
   it("shows the Monuments square once a monument action is available", () => {
-    const html = tileActionMenuHtml(viewWith([...sevenBuildings, building("build_world_engine_part_1", "Build The Long Barrel")]), "buildings", false);
+    const html = tileActionMenuHtml(viewWith([...sevenBuildings, building("build_sovereign_siege_engine_part_1", "Build The Long Barrel")]), "buildings", false);
     expect(html).toContain("cat-monument");
     expect(html).toContain("repeat(5,");
   });

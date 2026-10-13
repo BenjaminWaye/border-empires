@@ -1,6 +1,6 @@
 // Aether Resonance Core (ARC) module — a compact AFC module that fabricates and
 // calibrates aether-based structures and devices: the resonance-focusing
-// machinery later installed on Umbrite Rigs, Siege Outposts and Umbrite
+// machinery later installed on Umbrite Rigs, Siege Batteries and Umbrite
 // Weapons Factories.
 //
 // Local space: +X is FORWARD — the outward radial direction of the socket (its

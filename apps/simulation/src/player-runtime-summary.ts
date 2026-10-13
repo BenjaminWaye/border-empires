@@ -200,8 +200,8 @@ const activeStructureProcessCount = (tile: DomainTileState, ownerId: string): nu
     count += 1;
   }
   if (
-    tile.siegeOutpost?.ownerId === ownerId &&
-    (tile.siegeOutpost.status === "under_construction" || tile.siegeOutpost.status === "removing")
+    tile.siegeBattery?.ownerId === ownerId &&
+    (tile.siegeBattery.status === "under_construction" || tile.siegeBattery.status === "removing")
   ) {
     count += 1;
   }

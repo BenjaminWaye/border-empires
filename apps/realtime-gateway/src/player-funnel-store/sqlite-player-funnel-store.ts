@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { upgradeLegacyStructureNames } from "@border-empires/shared";
 
 import {
   ACQUISITION_STEPS,
@@ -67,7 +68,7 @@ const isAcquisitionStep = (value: string): value is AcquisitionStep => (ACQUISIT
 
 const parseDetail = (json: string): Record<string, string> => {
   try {
-    const parsed = JSON.parse(json) as unknown;
+    const parsed = upgradeLegacyStructureNames(JSON.parse(json) as unknown);
     if (!parsed || typeof parsed !== "object") return {};
     return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
   } catch {

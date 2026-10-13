@@ -1,7 +1,7 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
-import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
+import { resourceGlyphsToIconHtml, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type {
   ActiveTruceView,
   ActiveAllianceBreakView,
@@ -103,7 +103,7 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
         <div class="feed-icon">${feedIcon(entry.type)}</div>
         <div>
           ${entry.title ? `<strong>${entry.title}</strong>` : ""}
-          <div>${entry.text}</div>
+          <div>${resourceGlyphsToIconHtml(entry.text)}</div>
           <span>${feedAgeLabel(entry.at, Date.now())} ago</span>
           ${
             typeof entry.focusX === "number" && typeof entry.focusY === "number"

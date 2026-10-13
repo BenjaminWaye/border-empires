@@ -17,7 +17,7 @@ import { MONUMENT_UNLOCK_TECH_ID, techGoldCostForResearchedCount } from "@border
 // Every monument-unlock tech's only effects are the monument itself, the
 // Aether Tower, and/or an aether ability (packages/game-domain/data/tech-
 // tree.json's effects field) -- none of which this bot can build or cast
-// (BUILDABLE_STRUCTURE_TYPES in structures.ts is FARMSTEAD/MINE only, and
+// (BUILDABLE_STRUCTURE_TYPES in structures.ts is HYDROGARDEN/MINE only, and
 // aether abilities aren't in COMMAND_TOOLS at all). Researching one is pure
 // waste for this bot today, and the server's own reachableTechChoices
 // additionally excludes whichever of these six is already claimed by any

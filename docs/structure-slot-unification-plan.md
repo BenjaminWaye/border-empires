@@ -6,10 +6,10 @@ Status: active plan. Supersedes Phase 4 of
 
 ## Why the archived Phase 4 design is dropped
 
-It collapsed `fort` / `observatory` / `siegeOutpost` / `economicStructure`
+It collapsed `fort` / `observatory` / `siegeBattery` / `economicStructure`
 into a single `tile.structure` slot, and its migrator kept "whichever legacy
 field is populated". Since then the game deliberately stacks structures:
-Fort + Relay Beacon and Fort + Harbor Exchange (CUSTOMS_HOUSE) share a tile
+Fort + Relay Beacon and Fort + Harbor Exchange (HARBOR_EXCHANGE) share a tile
 (`runtime-structure-command-handlers.ts`, `economicConflict`). A single slot
 cannot represent that, and its migration would silently delete one structure
 on every stacked tile. Its stale worktree (`.claude/worktrees/build-pipeline-phase4`,
@@ -21,8 +21,8 @@ Two layers, stored across four fields:
 
 | Layer | Holds | Stored in today |
 |---|---|---|
-| Primary structure (one per tile) | every economic structure, Relay Beacon, Harbor Exchange, Observatory, Siege Outpost family | `economicStructure`, `observatory`, `siegeOutpost` |
-| Fortification (one per tile) | Fort tiers (FORT, TITANIUM_BASTION, THUNDER_BASTION) and Palisade (WOODEN_FORT) | `fort`, except Palisade, which sits in `economicStructure` |
+| Primary structure (one per tile) | every economic structure, Relay Beacon, Harbor Exchange, Observatory, Siege Battery family | `economicStructure`, `observatory`, `siegeBattery` |
+| Fortification (one per tile) | Fort tiers (FORT, TITANIUM_BASTION, THUNDER_BASTION) and Palisade (PALISADE) | `fort`, except Palisade, which sits in `economicStructure` |
 
 The Palisade is the one fortification stored in the primary layer. That is the
 root cause of the bug where a Palisade built on a Relay Beacon or Harbor Exchange
@@ -58,14 +58,14 @@ Each PR needs its own merge approval and its own staging, then prod, deploy appr
 
 The `fort` field *is* the fortification layer already; only Palisade is misfiled.
 
-- Registry: WOODEN_FORT `tileField: "fort"`, stored as `fort.variant = "WOODEN_FORT"`.
+- Registry: PALISADE `tileField: "fort"`, stored as `fort.variant = "PALISADE"`.
   `FortVariant` and the client `fort.variant` union already include it.
 - Build handler: drop the RB/CH "replace" carve-out and the FOOD-slot netting
   special case for Palisade-over-Beacon; Palisade conflict rules become Fort's.
   Palisade→Fort becomes a normal fort-tier upgrade.
-- Build completion: delete `clearingWoodenFort` (the upgrade now overwrites `fort` in place).
-- Read sites (about 30 files, sim, game-domain, and client): `economicStructure?.type === "WOODEN_FORT"`
-  becomes `fort?.variant === "WOODEN_FORT"`. This includes upkeep, resource slots, combat multipliers,
+- Build completion: delete `clearingPalisade` (the upgrade now overwrites `fort` in place).
+- Read sites (about 30 files, sim, game-domain, and client): `economicStructure?.type === "PALISADE"`
+  becomes `fort?.variant === "PALISADE"`. This includes upkeep, resource slots, combat multipliers,
   capture, removal, AI candidate filtering, territory automation, overlays, and menus.
 - Legacy normalization (`migrateLegacyPalisades`): runs **once** on the fully recovered state,
   after snapshot load and event replay, in startup recovery beside the Relay Beacon rename
@@ -91,7 +91,7 @@ Behavior changes (intentional, each confirmed by the owner):
    standing and defending until the new one completes (`fort.upgradingFrom`,
    `defendingFortVariant`). Cancelling, or losing the tile mid-upgrade, restores the
    standing fort. Previously a cancelled tier upgrade deleted the fort outright.
-5. A Palisade counts as a Fort in owned-structure tallies and gets the airport-bombard
+5. A Palisade counts as a Fort in owned-structure tallies and gets the sky-dock-bombard
    miss bonus. Fort patrol auto-attack is dead code, so nothing changes there.
 6. A Palisade on a Relay Beacon tile now needs its own FOOD slot. The netting special case is gone.
 

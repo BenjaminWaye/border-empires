@@ -11,11 +11,11 @@ import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "../c
 import type { TileOverviewModifier } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "../client-types.js";
 
-export const FOUNDRY_RADIUS = 5;
-export const WATERWORKS_RADIUS = 10;
-const GOVERNORS_OFFICE_RADIUS = 10;
-const AIRPORT_BOMBARD_RADIUS = 30;
-const RADAR_SYSTEM_RADIUS = 30;
+export const ORE_REFINERY_RADIUS = 5;
+export const HYDROWORKS_RADIUS = 10;
+const MINISTRY_HALL_RADIUS = 10;
+const SKY_DOCK_BOMBARD_RADIUS = 30;
+const RESONANCE_GRID_RADIUS = 30;
 
 export type TileAreaEffectModifier = TileOverviewModifier;
 
@@ -130,41 +130,41 @@ export const settledDefenseNearFortDomainModifiers = (domainCatalog: DomainInfo[
 export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | undefined => {
   const structure = tile.economicStructure;
   if (!structure) return undefined;
-  if (structure.type === "FOUNDRY") {
+  if (structure.type === "ORE_REFINERY") {
     return {
-      radius: FOUNDRY_RADIUS,
+      radius: ORE_REFINERY_RADIUS,
       strokeStyle: structure.status === "active" ? "rgba(255, 169, 77, 0.58)" : "rgba(255, 169, 77, 0.3)",
       fillStyle: structure.status === "active" ? "rgba(255, 169, 77, 0.08)" : "rgba(255, 169, 77, 0.035)",
       lineDash: [10, 8]
     };
   }
-  if (structure.type === "GOVERNORS_OFFICE") {
+  if (structure.type === "MINISTRY_HALL") {
     return {
-      radius: GOVERNORS_OFFICE_RADIUS,
+      radius: MINISTRY_HALL_RADIUS,
       strokeStyle: structure.status === "active" ? "rgba(141, 222, 177, 0.56)" : "rgba(141, 222, 177, 0.28)",
       fillStyle: structure.status === "active" ? "rgba(141, 222, 177, 0.07)" : "rgba(141, 222, 177, 0.03)",
       lineDash: [10, 8]
     };
   }
-  if (structure.type === "RADAR_SYSTEM") {
+  if (structure.type === "RESONANCE_GRID") {
     return {
-      radius: RADAR_SYSTEM_RADIUS,
+      radius: RESONANCE_GRID_RADIUS,
       strokeStyle: structure.status === "active" ? "rgba(120, 213, 255, 0.5)" : "rgba(120, 213, 255, 0.24)",
       fillStyle: structure.status === "active" ? "rgba(120, 213, 255, 0.045)" : "rgba(120, 213, 255, 0.02)",
       lineDash: [14, 10]
     };
   }
-  if (structure.type === "AIRPORT") {
+  if (structure.type === "SKY_DOCK") {
     return {
-      radius: AIRPORT_BOMBARD_RADIUS,
+      radius: SKY_DOCK_BOMBARD_RADIUS,
       strokeStyle: structure.status === "active" ? "rgba(255, 132, 132, 0.52)" : "rgba(255, 132, 132, 0.24)",
       fillStyle: structure.status === "active" ? "rgba(255, 132, 132, 0.05)" : "rgba(255, 132, 132, 0.02)",
       lineDash: [12, 9]
     };
   }
-  if (structure.type === "WATERWORKS") {
+  if (structure.type === "HYDROWORKS") {
     return {
-      radius: WATERWORKS_RADIUS,
+      radius: HYDROWORKS_RADIUS,
       strokeStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.56)" : "rgba(72, 212, 180, 0.28)",
       fillStyle: structure.status === "active" ? "rgba(72, 212, 180, 0.07)" : "rgba(72, 212, 180, 0.03)",
       lineDash: [10, 8]
@@ -173,7 +173,7 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
   return undefined;
 };
 
-export type PlacementStructureType = "WATERWORKS" | "FOUNDRY";
+export type PlacementStructureType = "HYDROWORKS" | "ORE_REFINERY";
 
 export type PlacementPreviewResult = StructureAreaPreview & { valid: boolean };
 
@@ -181,9 +181,9 @@ export const placementPreviewForStructure = (
   structureType: PlacementStructureType,
   valid: boolean
 ): PlacementPreviewResult => {
-  if (structureType === "WATERWORKS") {
+  if (structureType === "HYDROWORKS") {
     return {
-      radius: WATERWORKS_RADIUS,
+      radius: HYDROWORKS_RADIUS,
       strokeStyle: valid ? "rgba(72, 212, 180, 0.7)" : "rgba(220, 80, 80, 0.6)",
       fillStyle: valid ? "rgba(72, 212, 180, 0.12)" : "rgba(220, 80, 80, 0.08)",
       lineDash: [10, 8],
@@ -191,7 +191,7 @@ export const placementPreviewForStructure = (
     };
   }
   return {
-    radius: FOUNDRY_RADIUS,
+    radius: ORE_REFINERY_RADIUS,
     strokeStyle: valid ? "rgba(255, 169, 77, 0.7)" : "rgba(220, 80, 80, 0.6)",
     fillStyle: valid ? "rgba(255, 169, 77, 0.12)" : "rgba(220, 80, 80, 0.08)",
     lineDash: [10, 8],
@@ -200,7 +200,7 @@ export const placementPreviewForStructure = (
 };
 
 export const placementRadius = (structureType: PlacementStructureType): number =>
-  structureType === "WATERWORKS" ? WATERWORKS_RADIUS : FOUNDRY_RADIUS;
+  structureType === "HYDROWORKS" ? HYDROWORKS_RADIUS : ORE_REFINERY_RADIUS;
 
 export type PlacementAvailability = { available: true } | { available: false; reason: string };
 
@@ -217,7 +217,7 @@ export const canBuildPlacementStructure = (
   techIds: string[],
   resourceSlots?: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> }
 ): PlacementAvailability => {
-  if (tile.siegeOutpost || tile.observatory || tile.economicStructure)
+  if (tile.siegeBattery || tile.observatory || tile.economicStructure)
     return { available: false, reason: "Tile already has structure" };
   if (tile.ownerId !== me) return { available: false, reason: "Not your tile" };
 
@@ -238,8 +238,8 @@ export const canBuildPlacementStructure = (
   return { available: true };
 };
 
-export const placementBeneficiaryStructureType = (structureType: PlacementStructureType): "MINE" | "FARMSTEAD" =>
-  structureType === "WATERWORKS" ? "FARMSTEAD" : "MINE";
+export const placementBeneficiaryStructureType = (structureType: PlacementStructureType): "MINE" | "HYDROGARDEN" =>
+  structureType === "HYDROWORKS" ? "HYDROGARDEN" : "MINE";
 
 export const tileIsPlacementBeneficiary = (tile: Tile, structureType: PlacementStructureType, ownerId: string): boolean => {
   const structure = tile.economicStructure;
@@ -261,7 +261,7 @@ export const tileAreaEffectModifiersForTile = (
   if (
     tile.economicStructure?.type === "MINE" &&
     tile.economicStructure.status === "active" &&
-    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "FOUNDRY", FOUNDRY_RADIUS)
+    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "ORE_REFINERY", ORE_REFINERY_RADIUS)
   ) {
     const resource = tile.resource === "TITANIUM" ? "TITANIUM" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
     modifiers.push({
@@ -273,7 +273,7 @@ export const tileAreaEffectModifiersForTile = (
 
   if (
     tile.ownershipState === "SETTLED" &&
-    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
+    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "MINISTRY_HALL", MINISTRY_HALL_RADIUS)
   ) {
     modifiers.push({
       reason: "Ministry Hall",
@@ -291,7 +291,7 @@ export const tileAreaEffectModifiersForTile = (
     modifiers.push(...settledDefenseNearFortModifiers);
   }
 
-  if (isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
+  if (isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "RESONANCE_GRID", RESONANCE_GRID_RADIUS)) {
     modifiers.push({
       reason: "Resonance Grid",
       effect: "Protected from Sky Dock strikes",

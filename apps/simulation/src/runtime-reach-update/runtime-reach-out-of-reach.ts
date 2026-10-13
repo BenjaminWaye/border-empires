@@ -132,7 +132,7 @@ export const cancelOutOfReachDecayInAnchorDisk = (
 /**
  * Mirror of `cancelOutOfReachDecayInAnchorDisk`, inverted: stamps a fresh
  * out-of-reach decay deadline onto tiles that just lost coverage because
- * `anchor` deactivated (Relay Beacon disabled/destroyed, Siege Outpost lost,
+ * `anchor` deactivated (Relay Beacon disabled/destroyed, Siege Battery lost,
  * town/dock lost).
  *
  * Without this, a FRONTIER tile that was claimed *inside* reach — so it

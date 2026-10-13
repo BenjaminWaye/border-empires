@@ -8,8 +8,8 @@ import {
   Scene
 } from "three";
 import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, reachRadiusForKind, type ReachAnchorKind } from "@border-empires/shared";
-import { AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
-import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
+import { SKY_DOCK_BOMBARD_RADIUS } from "../client-constants.js";
+import { HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { reachAnchorKindForTile } from "../client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import {
@@ -26,7 +26,7 @@ import type { Tile, TileVisibilityState } from "../client-types.js";
 
 // Extracted out of client-map-3d.ts (500-line file cap, AGENTS.md): every
 // square range/reach ring drawn around the currently-selected tile
-// (observatory sweep, waterworks, airport, and this module's own
+// (observatory sweep, hydroworks, sky dock, and this module's own
 // reach-disk highlight) is the same cohesive "selection range overlay"
 // concern, distinct from the terrain/heightfield/marker rigging around it.
 //
@@ -78,27 +78,27 @@ const makeRingMeshes = (maxRadius: number, materials: { border: LineBasicMateria
 export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverlays => {
   const observatoryMaterials = makeRingMaterials("#6ab4ff", 0.55, 0.10);
   const observatoryRing = makeRingMeshes(OBSERVATORY_RANGE_MAX, observatoryMaterials);
-  const waterworksMaterials = makeRingMaterials("#4caf74", 0.55, 0.10);
-  const waterworksRing = makeRingMeshes(WATERWORKS_RADIUS, waterworksMaterials);
-  const airportMaterials = makeRingMaterials("#ff4444", 0.55, 0.10);
-  const airportRing = makeRingMeshes(AIRPORT_BOMBARD_RADIUS, airportMaterials);
+  const hydroworksMaterials = makeRingMaterials("#4caf74", 0.55, 0.10);
+  const hydroworksRing = makeRingMeshes(HYDROWORKS_RADIUS, hydroworksMaterials);
+  const skyDockMaterials = makeRingMaterials("#ff4444", 0.55, 0.10);
+  const skyDockRing = makeRingMeshes(SKY_DOCK_BOMBARD_RADIUS, skyDockMaterials);
   const reachMaterials = makeRingMaterials("#3ddc74", 0.6, 0.14);
   const reachRing = makeRingMeshes(REACH_RADIUS_MAX, reachMaterials);
 
   observatoryRing.border.renderOrder = 26;
   observatoryRing.fill.renderOrder = 24;
-  waterworksRing.border.renderOrder = 19;
-  waterworksRing.fill.renderOrder = 18;
-  airportRing.border.renderOrder = 17;
-  airportRing.fill.renderOrder = 16;
+  hydroworksRing.border.renderOrder = 19;
+  hydroworksRing.fill.renderOrder = 18;
+  skyDockRing.border.renderOrder = 17;
+  skyDockRing.fill.renderOrder = 16;
   reachRing.border.renderOrder = 21;
   reachRing.fill.renderOrder = 20;
 
   scene.add(
-    waterworksRing.fill,
-    waterworksRing.border,
-    airportRing.fill,
-    airportRing.border,
+    hydroworksRing.fill,
+    hydroworksRing.border,
+    skyDockRing.fill,
+    skyDockRing.border,
     reachRing.fill,
     reachRing.border,
     observatoryRing.fill,
@@ -147,28 +147,28 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
     writeRingGeometry(observatoryRing, deps, selectedTile, ownObservatoryRange(deps.state));
   };
 
-  const syncWaterworksRing = (deps: SelectionRangeOverlaysDeps): void => {
-    waterworksRing.border.visible = false;
-    waterworksRing.fill.visible = false;
+  const syncHydroworksRing = (deps: SelectionRangeOverlaysDeps): void => {
+    hydroworksRing.border.visible = false;
+    hydroworksRing.fill.visible = false;
     const selectedTile = selectedTileFor(deps);
     if (!selectedTile) return;
-    if (selectedTile.economicStructure?.type !== "WATERWORKS") return;
+    if (selectedTile.economicStructure?.type !== "HYDROWORKS") return;
     if (selectedTile.economicStructure.status !== "active") return;
     if (selectedTile.ownerId !== deps.state.me) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeRingGeometry(waterworksRing, deps, selectedTile, WATERWORKS_RADIUS);
+    writeRingGeometry(hydroworksRing, deps, selectedTile, HYDROWORKS_RADIUS);
   };
 
-  const syncAirportRing = (deps: SelectionRangeOverlaysDeps): void => {
-    airportRing.border.visible = false;
-    airportRing.fill.visible = false;
+  const syncSkyDockRing = (deps: SelectionRangeOverlaysDeps): void => {
+    skyDockRing.border.visible = false;
+    skyDockRing.fill.visible = false;
     const selectedTile = selectedTileFor(deps);
     if (!selectedTile) return;
-    if (selectedTile.economicStructure?.type !== "AIRPORT") return;
+    if (selectedTile.economicStructure?.type !== "SKY_DOCK") return;
     if (selectedTile.economicStructure.status !== "active") return;
     if (selectedTile.ownerId !== deps.state.me) return;
     if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeRingGeometry(airportRing, deps, selectedTile, AIRPORT_BOMBARD_RADIUS);
+    writeRingGeometry(skyDockRing, deps, selectedTile, SKY_DOCK_BOMBARD_RADIUS);
   };
 
   // True-3D counterpart of client-reach-overlay-structure-highlight.ts's 2D
@@ -187,17 +187,17 @@ export const createSelectionRangeOverlays = (scene: Scene): SelectionRangeOverla
 
   const sync = (deps: SelectionRangeOverlaysDeps): void => {
     syncObservatoryRing(deps);
-    syncWaterworksRing(deps);
-    syncAirportRing(deps);
+    syncHydroworksRing(deps);
+    syncSkyDockRing(deps);
     syncReachRing(deps);
   };
 
   const dispose = (): void => {
-    for (const ring of [observatoryRing, waterworksRing, airportRing, reachRing]) {
+    for (const ring of [observatoryRing, hydroworksRing, skyDockRing, reachRing]) {
       ring.border.geometry.dispose();
       ring.fill.geometry.dispose();
     }
-    for (const materials of [observatoryMaterials, waterworksMaterials, airportMaterials, reachMaterials]) {
+    for (const materials of [observatoryMaterials, hydroworksMaterials, skyDockMaterials, reachMaterials]) {
       materials.border.dispose();
       materials.fill.dispose();
     }

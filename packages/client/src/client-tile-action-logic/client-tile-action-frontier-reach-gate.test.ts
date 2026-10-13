@@ -1,6 +1,6 @@
 /**
  * Fixed-border reach: EXPAND itself is no longer reach-gated server-side,
- * but SETTLE and outpost-family builds (siege outposts / relay beacon)
+ * but SETTLE and outpost-family builds (siege batteries / relay beacon)
  * still are. A player-owned FRONTIER tile outside reach should show
  * settle_land / settle_connected_frontier / build_relay_beacon /
  * build_siege_camp as visible-but-disabled with "Outside your reach",
@@ -113,7 +113,7 @@ describe("owned FRONTIER tile outside reach — disabled with reason, not hidden
 // only blocks a FRONTIER tile no one's reach covers at all
 // (tile.reachOwnerId undefined), not merely "outside MY OWN reach" -- see
 // runtime-structure-command-handlers.ts's OUT_OF_REACH gate and
-// tile.reachOwnerId's doc comment. A siege outpost is meant to be pushed
+// tile.reachOwnerId's doc comment. A siege battery is meant to be pushed
 // into contested/enemy territory, so a tile sitting in another player's
 // reach is fair game.
 describe("build_siege_camp's reach gate — weaker than settle_land's", () => {
@@ -165,7 +165,7 @@ describe("settle_land on out-of-reach tiles the sim garrisons automatically", ()
     ["a dock", { dockId: "dock-far" }],
     ["a captured fort", { fort: { ownerId: "me", status: "active" } }],
     ["a captured observatory", { observatory: { ownerId: "me", status: "active" } }],
-    ["a captured economic structure", { economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" } }]
+    ["a captured economic structure", { economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "active" } }]
   ])("leaves settle_land enabled on %s outside reach", (_label, extra) => {
     const { state, target } = stateWithTownAndFrontierTile(50, 50);
     Object.assign(target, extra);

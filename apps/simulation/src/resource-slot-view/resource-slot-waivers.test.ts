@@ -61,9 +61,9 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
     expect(waived.TITANIUM).toBe(1);
   });
 
-  it("Siege Outpost waiver only zeroes the UMBRITE row, not a Siege Tower's separate TITANIUM row", () => {
+  it("Siege Battery waiver only zeroes the UMBRITE row, not a Siege Tower's separate TITANIUM row", () => {
     const tiles = [
-      tile({ x: 0, y: 0, siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER", activatedAt: 100 } })
+      tile({ x: 0, y: 0, siegeBattery: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER", activatedAt: 100 } })
     ];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), outpostUmbriteSlotWaiverCount: 3 });
     expect(waived.UMBRITE).toBe(0);
@@ -124,7 +124,7 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
     expect(waived.FOOD).toBe(1);
   });
 
-  it("the built-in Relay Beacon waiver doesn't touch a Farmstead/Mintworks's own FOOD demand on other tiles", () => {
+  it("the built-in Relay Beacon waiver doesn't touch a Hydrogarden/Mintworks's own FOOD demand on other tiles", () => {
     const tiles = [
       tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active", activatedAt: 100 } }),
       tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 200 } })

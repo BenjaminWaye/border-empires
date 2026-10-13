@@ -1,3 +1,4 @@
+import { musterCombatReports } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { bindClientNetwork } from "./client-network.js";
@@ -28,6 +29,7 @@ const createState = () =>
   }) as any;
 
 const bind = (state: any, ws: FakeWebSocket) => {
+  const showCaptureAlert = vi.fn();
   bindClientNetwork({
     state,
     ws: ws as unknown as WebSocket,
@@ -59,7 +61,7 @@ const bind = (state: any, ws: FakeWebSocket) => {
     showShardAlert: vi.fn(),
     combatResolutionAlert: vi.fn(() => ({ title: "", detail: "", tone: "success" as const })),
     wasPredictedCombatAlreadyShown: vi.fn(() => false),
-    showCaptureAlert: vi.fn(),
+    showCaptureAlert,
     requestSettlement: vi.fn(() => false),
     settlementProgressForTile: vi.fn(() => false),
     dropQueuedTargetKeyIfAbsent: vi.fn(),
@@ -76,11 +78,10 @@ const bind = (state: any, ws: FakeWebSocket) => {
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     applyOptimisticTileState: vi.fn()
   } as any);
+  return { showCaptureAlert };
 };
 
 // Regression coverage for the muster flag advance-attack animation bug
@@ -226,5 +227,49 @@ describe("muster-advance auto-fired attack", () => {
     // The real resolution now flips ownership and clears the tracked siege.
     expect(state.tiles.get("4,3")?.ownerId).toBe("me");
     expect(state.outgoingMusterAttacksByTile.has("4,3")).toBe(false);
+  });
+});
+
+
+describe("muster result presentation", () => {
+  it("keeps four flag histories instead of opening four result overlays", () => {
+    const state = createState(); state.me = "me";
+    const ws = new FakeWebSocket();
+    const { showCaptureAlert } = bind(state, ws);
+    for (let x = 1; x <= 4; x++) {
+      const commandId = `territory-auto:muster-advance:report-${x}`;
+      ws.emit("message", { data: JSON.stringify({
+        type: "COMBAT_START", commandId, origin: { x: 20 + x, y: 5 },
+        musterOrigin: { x, y: 3 }, target: { x: 21 + x, y: 5 }, resolvesAt: Date.now() + 25_000
+      }) });
+      ws.emit("message", { data: JSON.stringify({
+        type: "COMBAT_RESULT", commandId, attackType: "ATTACK", attackerWon: true,
+        origin: { x: 20 + x, y: 5 }, target: { x: 21 + x, y: 5 },
+        manpowerDelta: -120, pillagedGold: 350, changes: []
+      }) });
+      expect(musterCombatReports(state, `${x},3`)).toEqual([
+        expect.objectContaining({ manpowerDelta: -120, coins: 350, read: false })
+      ]);
+    }
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+  });
+});
+
+describe("parallel muster results keep manual command tracking", () => {
+  it("preserves the unrelated manual capture, command identity and queue until its own result arrives", () => {
+    const state = createState(); state.me = "me";
+    const manual = { x: 20, y: 20, retries: 0, commandId: "manual-attack", actionType: "ATTACK" };
+    const capture = { target: { x: 20, y: 20 }, startAt: Date.now(), resolvesAt: Date.now() + 30_000 };
+    state.actionCurrent = manual; state.capture = capture; state.actionInFlight = true;
+    state.actionTargetKey = "20,20"; state.actionAcceptedAck = true; state.combatStartAck = true;
+    const ws = new FakeWebSocket(); bind(state, ws);
+    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_START", commandId: "territory-auto:muster-advance:parallel", origin: { x: 3, y: 3 }, target: { x: 4, y: 3 }, resolvesAt: Date.now() + 25_000 }) });
+    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_RESULT", commandId: "territory-auto:muster-advance:parallel", origin: { x: 3, y: 3 }, target: { x: 4, y: 3 }, attackType: "ATTACK", attackerWon: true, manpowerDelta: -60, changes: [] }) });
+    expect(state.capture).toBe(capture);
+    expect(state.actionCurrent).toBe(manual);
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("20,20");
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
   });
 });
