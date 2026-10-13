@@ -180,7 +180,7 @@ describe("mergeServerDevQueueIntoRestoredQueue", () => {
         x: 3,
         y: 3,
         tileKey: "3,3",
-        label: "Build FORT at (3, 3)",
+        label: "Build Fort at (3, 3)",
         payload: { type: "BUILD_STRUCTURE", x: 3, y: 3, structureType: "FORT" },
         optimisticKind: "FORT"
       }

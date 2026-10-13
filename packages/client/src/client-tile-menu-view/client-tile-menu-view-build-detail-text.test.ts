@@ -83,7 +83,7 @@ describe("buildDetailTextForAction never returns undefined for a real build acti
   it("returns real detail text for build_waterworks", () => {
     const detail = buildDetailTextForAction("build_waterworks", supportTile, supportedTown);
     expect(detail).not.toContain("undefined");
-    expect(detail).toContain("Farmstead");
+    expect(detail).toContain("Hydrogarden");
   });
 
   it("returns real detail text for build_census_hall", () => {

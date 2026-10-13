@@ -1,5 +1,6 @@
 import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { MANIFEST_PANEL_TITLE } from "../client-manifest-detail/client-manifest-labels.js";
 import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
@@ -10,7 +11,7 @@ export const isMobileDevice = (): boolean =>
   (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
-  if (panel === "tech") return "Technology Tree";
+  if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Sharding";
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
@@ -170,6 +171,7 @@ export const renderMobilePanels = (
     section.style.display = section.id === `panel-${state.activePanel}` ? "grid" : "none";
   });
   deps.sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
+  deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
 
@@ -204,7 +206,7 @@ export const renderMobilePanels = (
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
   }
 
-  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = "Technology Tree";
+  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = MANIFEST_PANEL_TITLE;
   else if (state.mobilePanel === "domains") deps.mobileSheetHeadEl.textContent = "Sharding";
   else if (state.mobilePanel === "social") deps.mobileSheetHeadEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Empire Integrity";

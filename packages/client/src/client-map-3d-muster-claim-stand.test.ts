@@ -7,7 +7,11 @@ import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heig
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const heightfield = { elevationAt: () => 0, cornerYAt: () => 0 } as unknown as Heightfield;
 
-const run = (outgoing: Record<string, unknown>, targetOwnership: string | undefined): MusterTransit[] => {
+const run = (
+  outgoing: Record<string, unknown> | undefined,
+  targetOwnership: string | undefined,
+  capture?: Record<string, unknown>
+): MusterTransit[] => {
   const added: MusterTransit[] = [];
   const overlay: MusterTransitOverlay = {
     clear: () => { added.length = 0; },
@@ -18,12 +22,12 @@ const run = (outgoing: Record<string, unknown>, targetOwnership: string | undefi
   };
   const state = {
     me: "me",
-    capture: undefined,
+    capture,
     tiles: new Map(targetOwnership ? [[keyFor(5, 5), { ownershipState: targetOwnership }]] : []),
     dockPairs: [],
     musterTransitByTile: new Map(),
     deferredAttackByTile: new Map(),
-    outgoingMusterAttacksByTile: new Map([[keyFor(5, 5), outgoing]]),
+    outgoingMusterAttacksByTile: new Map(outgoing ? [[keyFor(5, 5), outgoing]] : []),
     incomingAttacksByTile: new Map(),
     activeBattles: new Map()
   } as unknown as ClientState;
@@ -58,5 +62,27 @@ describe("muster claim-phase stand at ease", () => {
   it("adds nothing once the claim has resolved", () => {
     const now = Date.now();
     expect(run({ ...claiming(now), isExpand: true, resolvesAt: now - 1 }, undefined)).toHaveLength(0);
+  });
+
+  describe("manual attack (state.capture)", () => {
+    const manual = (now: number, extra: Record<string, unknown> = {}) => ({
+      actionType: "ATTACK", origin: { x: 4, y: 5 }, target: { x: 5, y: 5 },
+      startAt: now - 100, resolvesAt: now + 4000, ...extra
+    });
+
+    it("steps soldiers onto a known frontier target and holds them until it resolves", () => {
+      const now = Date.now();
+      const [entry] = run(undefined, "FRONTIER", manual(now));
+      expect(entry?.standUntil).toBe(now + 4000);
+      expect(entry?.path.at(-1)).toEqual({ x: 5.5, z: 5.5 });
+    });
+
+    it("adds nothing for a defended target (skirmish FX owns it)", () => {
+      expect(run(undefined, "SETTLED", manual(Date.now()))).toHaveLength(0);
+    });
+
+    it("adds nothing for a muster-advance capture (its outgoing entry owns it)", () => {
+      expect(run(undefined, "FRONTIER", manual(Date.now(), { fromMusterAdvance: true }))).toHaveLength(0);
+    });
   });
 });

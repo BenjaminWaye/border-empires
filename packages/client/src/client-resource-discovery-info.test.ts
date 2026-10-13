@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { relatedStrategicResourcesForTech, renderResourceRevealHtml, resourceDiscoveryInfo } from "./client-resource-discovery-info.js";
+import { relatedStrategicResourcesForTech, resourceDiscoveryInfo } from "./client-resource-discovery-info.js";
 import type { TechInfo } from "./client-types.js";
 
 const baseTech: TechInfo = {
@@ -43,19 +43,5 @@ describe("resourceDiscoveryInfo", () => {
       expect(info.whatItsFor.length).toBeGreaterThan(0);
       expect(info.whereToFind.length).toBeGreaterThan(0);
     }
-  });
-});
-
-describe("renderResourceRevealHtml", () => {
-  it("renders nothing for a tech that doesn't reveal a strategic resource", () => {
-    expect(renderResourceRevealHtml(baseTech)).toBe("");
-  });
-
-  it("renders a Resource revealed card for the tech that reveals Umbrite", () => {
-    const tech: TechInfo = { ...baseTech, effects: { unlockUmbriteRig: true, revealResource: "umbrite" } };
-    const html = renderResourceRevealHtml(tech);
-    expect(html).toContain("Resource revealed");
-    expect(html).toContain("UMBRITE");
-    expect(html).toContain("dense forests");
   });
 });

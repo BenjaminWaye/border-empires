@@ -756,7 +756,7 @@ describe("buildSnapshotTileDetail", () => {
     });
     // 1 Garrison Hall, its own heading: flat manpower cap bonus.
     expect(town?.townModifierTotals).toContainEqual({
-      heading: "1 Garrison Hall",
+      heading: "1 Ancillary Depot",
       modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }]
     });
   });

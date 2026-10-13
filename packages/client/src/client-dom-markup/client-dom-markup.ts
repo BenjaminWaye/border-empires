@@ -5,7 +5,7 @@ export const hudMarkup = `
     <div id="stats-chips"></div>
     <div id="panel-actions">
       <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
-      <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech">${navTabIconHtml("tech")}</button>
+      <button class="icon-btn icon-only" data-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies">${navTabIconHtml("alliance")}</button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks">${navTabIconHtml("leaderboard")}</button>
       <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts">${navTabIconHtml("feed")}</button>
@@ -245,7 +245,7 @@ export const hudMarkup = `
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core">${navTabIconHtml("core")}</button>
     <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
-    <button data-mobile-panel="tech" title="Tech" aria-label="Tech">${navTabIconHtml("tech")}</button>
+    <button data-mobile-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
     <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding">${navTabIconHtml("domains")}</button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard">${navTabIconHtml("leaderboard")}</button>
     <button data-mobile-panel="social" title="Social" aria-label="Social">${navTabIconHtml("alliance")}</button>
