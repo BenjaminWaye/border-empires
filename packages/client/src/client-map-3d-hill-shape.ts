@@ -229,7 +229,7 @@ export const hillBumpsWithCorridorAt = (wx: number, wy: number, neighbors: HillN
 // ROAD_CUT_FADE_WIDTH. Diagonal road segments (northeast, etc.) aren't
 // covered -- only whichever of north/south/east/west this tile's road uses.
 // `afcPads` adds an AFC's levelled pad (client-map-3d-afc-hill-cut.ts) when
-// this hill tile lies in an AFC's 3x3 footprint.
+// this hill tile lies within AFC_HILL_CUT_TILE_RADIUS of an AFC.
 export type RoadCutDirections = {
   readonly north?: boolean;
   readonly south?: boolean;
