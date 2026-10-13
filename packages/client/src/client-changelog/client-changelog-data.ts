@@ -27,6 +27,7 @@ import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-b
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -443,46 +444,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   {
-    createdAt: 1791803592000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Resource clues now show on the map",
-    why: "Land near Titanium, Umbrite and Crystal carries a clue (ferrous dust, blackwood canopy, refractive ground), but the clues were lost on every server restart, never sent when you logged in, and drawn too faintly to see. Occupation-survey reports from conquered towns also vanished after a few dozen other events.",
+    createdAt: 1791905157542, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Relay Beacons show where to build them",
+    why: "Playtesters placed Relay Beacons by trial and error -- dropping them inside reach they already had, or cancelling and re-placing them -- and the new-player checklist said to build a beacon without showing where.",
     changes: [
-      "Clue tiles now get a clear tint on both the 3D and 2D maps: rust for Titanium, violet for Umbrite, ice-cyan for Crystal",
-      "Selecting a clue tile explains it in the tile overview, e.g. \"Ferrous dust: Titanium deposits are likely within a few tiles\"",
-      "Garrisoning a neutral town now surveys the land around it: nearby clues become a report like \"Titanium likely north-east of this town\" (capturing an enemy town no longer does)",
-      "Survey reports are no longer pushed out of your event log by later events"
+      "Choosing Build Relay Beacon now lets you pick the spot first: the new land it would reach is shaded, and green rings mark the spots that reach the most new land (towns and resources count most)",
+      "When nothing worth taking is in reach, the new-player checklist now marks the tile to build your Relay Beacon on, aimed at the nearest town or food you still need",
+      "Works on both the 3D and 2D maps"
     ]
-  },
-  {
-    createdAt: 1791804620000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.2",
-    title: "Manifest panel: clearer details, Good pick badge, clickable owned list",
-    why: "The tech details were boxes inside boxes, listed the same unlocks three times, scrolled the whole panel so the name and Unlock button slid out of view, and never said whether a pick fit your empire. Your owned techs were a list you couldn't click.",
-    changes: [
-      "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
-      "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
-      "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
-      "A Good pick badge appears when it fits your empire right now -- signs of its resource near your land, a survey from a neutral town you garrisoned, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
-      "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
-      "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
-      "Rigging Works Module now lists the Umbrite Rig it unlocks"
-    ]
-  },
-  {
-    createdAt: 1791827518951, // Date.now() captured once for this release.
-    introducedIn: "2026.10.12.1",
-    title: "Building machinery waits for construction to finish",
-    why: "Fully visible moving parts could start running while their 3D building was still being built.",
-    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
-  },
-  {
-    createdAt: 1791830000000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Farmsteads are now hydroponic farms",
-    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
-    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];
 

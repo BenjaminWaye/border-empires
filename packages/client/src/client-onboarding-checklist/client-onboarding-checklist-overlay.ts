@@ -63,8 +63,12 @@ const remainingSteps = (state: OnboardingChecklistState): number =>
   [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
 
 /** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the 4 real goals instead of a 5th checkbox row. */
-const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
-  state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand your reach" : null;
+const relayBeaconNote = (state: OnboardingChecklistState): string | null => {
+  if (state.step !== "EXPAND_RELAY_BEACON") return null;
+  return state.relayBeaconSite
+    ? `Nothing in reach -- build a Relay Beacon on the marked tile (${state.relayBeaconSite.x}, ${state.relayBeaconSite.y}) to expand your reach`
+    : "Nothing in reach -- build a Relay Beacon to expand your reach";
+};
 
 const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
   `<li class="onb-goal${done ? " onb-goal-done" : ""}${opts.indent ? " onb-goal-indent" : ""}">

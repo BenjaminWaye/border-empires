@@ -3,6 +3,9 @@ import { canBuildPlacementStructure } from "../client-structure-effects/client-s
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
 import { isValidAfcLandingTile, ownedAfcCount } from "../client-afc-actions.js";
+import { isRelayBeaconPlacementTile } from "../client-relay-beacon-site/client-relay-beacon-site.js";
+
+type PlacedStructureType = "WATERWORKS" | "FOUNDRY" | "RELAY_BEACON";
 
 export type BuildingPlacementFlowDeps = {
   keyFor: (x: number, y: number) => string;
@@ -11,7 +14,7 @@ export type BuildingPlacementFlowDeps = {
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
   sendDevelopmentBuild: (
-    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: "WATERWORKS" | "FOUNDRY" },
+    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: PlacedStructureType },
     optimistic: () => void,
     opts: { x: number; y: number; label: string; optimisticKind: OptimisticStructureKind }
   ) => boolean;
@@ -31,6 +34,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       afcFreeRebuild ??= ownedAfcCount(state) === 0;
       return isValidAfcLandingTile(state, tile, afcFreeRebuild);
     }
+    if (st === "RELAY_BEACON") return isRelayBeaconPlacementTile(tile, state.me);
     if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
@@ -61,7 +65,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       cancelBuildingPlacement();
       return;
     }
-    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") {
+    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY" && structureType !== "RELAY_BEACON") {
       cancelBuildingPlacement();
       return;
     }
@@ -86,7 +90,10 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     }
     const st = state.buildingPlacement.structureType;
     const name = st === "AFC" ? "Automated Fabrication Complex" : structureDisplayName(st);
-    deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
+    deps.placementLabelEl.textContent =
+      st === "RELAY_BEACON"
+        ? `Placing ${name} — rings mark the spots that reach the most new land; click a tile to move, then confirm`
+        : `Placing ${name} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
   };
 
