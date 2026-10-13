@@ -659,7 +659,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           playerHasAbilityTech(state.techIds, "survey_sweep") && cooldown <= 0,
           !playerHasAbilityTech(state.techIds, "survey_sweep")
-            ? "Requires Echo-Reader Crew"
+            ? "Requires Augury Office"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "",
