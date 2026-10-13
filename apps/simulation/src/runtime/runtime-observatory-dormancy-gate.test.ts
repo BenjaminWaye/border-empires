@@ -56,7 +56,7 @@ describe("§5.4 observatory dormancy gate", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "survey-sweep-dormant",
       code: "SURVEY_SWEEP_INVALID",
-      message: "observatory has no free resource slot"
+      message: "aether tower has no free resource slot"
     }));
   });
 
@@ -143,7 +143,7 @@ describe("§5.4 observatory dormancy gate", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "reveal-stats-dormant",
       code: "REVEAL_EMPIRE_STATS_INVALID",
-      message: "no ready observatory available"
+      message: "no ready aether tower available"
     }));
   });
 

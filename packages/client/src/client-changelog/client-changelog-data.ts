@@ -28,6 +28,7 @@ import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-b
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -62,6 +63,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
       "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
       "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
+    ]
+  },
+  {
+    createdAt: 1791837136490, // Date.now() frozen for this entry
+    introducedIn: "2026.10.12.1",
+    title: "Soldiers now show when you attack enemy frontier land",
+    why: "Launching an attack on an enemy's frontier tile showed the tile changing colour but no soldiers, so it looked like a plain expansion.",
+    changes: [
+      "Your soldiers now step onto the enemy frontier tile you attack and stand there until it is yours, in the 3D map (the 2D map draws no soldiers for attacks)"
     ]
   },
   {
@@ -337,6 +347,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
   },
   {
+    createdAt: 1791839075156,
+    introducedIn: "2026.10.12.3",
+    title: "Smoother clouds rolling back as you explore",
+    why: "When you explored new land the storm clouds snapped and restarted as the newly seen tiles arrived, and trees and hills popped up through clouds that were still parting.",
+    changes: [
+      "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
+      "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
+    ]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",
@@ -426,6 +446,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
   {
     createdAt: 1791803592000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
@@ -459,6 +480,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Building machinery waits for construction to finish",
     why: "Fully visible moving parts could start running while their 3D building was still being built.",
     changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  },
+  {
+    createdAt: 1791830000000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Farmsteads are now hydroponic farms",
+    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
+    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];
 

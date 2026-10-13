@@ -37,13 +37,13 @@ export function handleAetherEmpCommand(context: RuntimeAbilityCommandContext, co
     return;
   }
   if (context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
-    reject("AETHER_EMP_INVALID", "blocked by observatory field");
+    reject("AETHER_EMP_INVALID", "blocked by aether tower field");
     return;
   }
   const now = context.now();
   const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
   if (!observatoryKey) {
-    reject("AETHER_EMP_INVALID", "no ready observatory in range");
+    reject("AETHER_EMP_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(observatoryKey, AETHER_EMP_COOLDOWN_MS, now, command.commandId, command.playerId);

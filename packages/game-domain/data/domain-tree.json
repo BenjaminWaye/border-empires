@@ -108,7 +108,7 @@
       "id": "crystal-network",
       "tier": 2,
       "name": "Crystal Network",
-      "description": "Observatories project safe control deep into exposed territory.",
+      "description": "Aether Towers project safe control deep into exposed territory.",
       "requiresTechId": "crystal-lattices",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
@@ -233,7 +233,7 @@
       "id": "hidden-hand",
       "tier": 4,
       "name": "Hidden Hand",
-      "description": "State intelligence cuts every observatory ability's cooldown in half.",
+      "description": "State intelligence cuts every aether tower ability's cooldown in half.",
       "requiresTechId": "cryptography",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
@@ -299,7 +299,7 @@
       "id": "oracle-state",
       "tier": 5,
       "name": "Oracle State",
-      "description": "Information superiority becomes empire superiority: observatories reach further, recharge faster, and towns see deep into the frontier.",
+      "description": "Information superiority becomes empire superiority: aether towers reach further, recharge faster, and towns see deep into the frontier.",
       "requiresTechId": "beacon-towers",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {

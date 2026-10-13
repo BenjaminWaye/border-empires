@@ -43,7 +43,7 @@ export function handleRetortRecastCommand(context: RuntimeMapCommandContext, com
   const now = context.now();
   const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
   if (!observatoryKey) {
-    rejectCommand(context, command, "RETORT_RECAST_INVALID", "no ready observatory in range");
+    rejectCommand(context, command, "RETORT_RECAST_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(observatoryKey, RETORT_RECAST_COOLDOWN_MS, now, command.commandId, command.playerId);

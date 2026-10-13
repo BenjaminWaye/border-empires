@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildUnexploredStormMask, countNewlyExplored } from "./client-unexplored-storm-mask.js";
+import type { TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import type { TileVisibilityState } from "../client-types.js";
+import { encodeUnexploredStormMask, sampleUnexploredStormGrid } from "./client-unexplored-storm-mask.js";
+import { createUnexploredStormReveal } from "./client-map-3d-unexplored-storm-reveal.js";
+
+// The production path: sample the window, encode through the reveal (a first
+// grid never animates, so this is the plain mask).
+const buildUnexploredStormMask = (window: TerrainWindow, worldWidth: number, worldHeight: number, visibilityAt: (wx: number, wy: number) => TileVisibilityState) => {
+  const reveal = createUnexploredStormReveal();
+  reveal.onGrid(sampleUnexploredStormGrid(window, worldWidth, worldHeight, visibilityAt), 0);
+  return reveal.encode(0);
+};
 
 const at = (mask: ReturnType<typeof buildUnexploredStormMask>, i: number, j: number) => ({
   unexplored: mask.data[(j * mask.width + i) * 4]!,
@@ -46,29 +57,35 @@ describe("buildUnexploredStormMask", () => {
   });
 });
 
-describe("countNewlyExplored", () => {
-  const vis = (explored: (wx: number, wy: number) => boolean) => (wx: number, wy: number) => (explored(wx, wy) ? "visible" as const : "unexplored" as const);
-  const build = (camX: number, explored: (wx: number, wy: number) => boolean) => {
-    const window = { camX, camY: 50, halfW: 3, halfH: 3 };
-    return { window, mask: buildUnexploredStormMask(window, 1000, 1000, vis(explored)) };
-  };
+describe("encodeUnexploredStormMask (fractional exploredness, for the reveal)", () => {
+  // A 5x1 strip: tile 0 explored, tile 1 rolling back (e), tiles 2-4 unexplored.
+  const strip = (e: number, flash = 0) =>
+    encodeUnexploredStormMask(5, 1, Float32Array.from([1, e, 0, 0, 0]), Float32Array.from([0, flash, 0, 0, 0]));
+  const r = (mask: ReturnType<typeof strip>, i: number) => mask.data[i * 4]!;
+  const g = (mask: ReturnType<typeof strip>, i: number) => mask.data[i * 4 + 1]!;
 
-  it("counts tiles that flipped from unexplored to explored", () => {
-    const before = build(50, (wx) => wx < 50);
-    const after = build(50, (wx, wy) => wx < 50 || (wx === 50 && wy === 50));
-    expect(countNewlyExplored(before, after, 1000, 1000)).toBe(1);
+  it("matches the plain mask at whole tiles", () => {
+    expect(Array.from(strip(0).data)).toEqual(Array.from(encodeUnexploredStormMask(5, 1, Float32Array.from([1, 0, 0, 0, 0])).data));
   });
 
-  it("ignores a pure camera pan (same tiles, shifted window)", () => {
-    const explored = (wx: number) => wx < 50;
-    expect(countNewlyExplored(build(50, explored), build(52, explored), 1000, 1000)).toBe(0);
+  it("moves R and the deep-fog field smoothly as a tile rolls back -- no jumps", () => {
+    let lastR = 256;
+    let lastG3 = 256;
+    for (let e = 0; e <= 1.0001; e += 0.05) {
+      const mask = strip(Math.min(1, e));
+      expect(r(mask, 1)).toBeLessThanOrEqual(lastR);
+      // The deep fog two tiles out recedes as its neighbour is explored...
+      expect(g(mask, 3)).toBeLessThanOrEqual(lastG3);
+      // ...a step at a time, never a jump (G is 0..255).
+      if (lastG3 !== 256) expect(lastG3 - g(mask, 3)).toBeLessThan(40);
+      lastR = r(mask, 1);
+      lastG3 = g(mask, 3);
+    }
+    expect(r(strip(1), 1)).toBe(0);
   });
 
-  it("matches tiles across the world seam", () => {
-    const before = build(0, (wx) => wx > 500);
-    const after = build(1, (wx, wy) => wx > 500 || (wx === 1 && wy === 50));
-    expect(countNewlyExplored(before, after, 1000, 1000)).toBe(1);
-    // ...and a world-seam tile explored before stays explored (not counted).
-    expect(countNewlyExplored(build(0, (wx) => wx > 500), build(1, (wx) => wx > 500), 1000, 1000)).toBe(0);
+  it("carries the reveal's lantern flash in B", () => {
+    expect(strip(0.5, 0.8).data[1 * 4 + 2]).toBe(204);
+    expect(strip(0.5).data[1 * 4 + 2]).toBe(0);
   });
 });

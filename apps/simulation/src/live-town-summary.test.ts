@@ -45,7 +45,7 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals).toContainEqual({
-      heading: "2 Garrison Halls",
+      heading: "2 Ancillary Depots",
       modifiers: [{ statLabel: "Manpower cap", valueText: `+${GARRISON_HALL_MANPOWER_CAP_BONUS * 2}`, tone: "positive" }]
     });
   });

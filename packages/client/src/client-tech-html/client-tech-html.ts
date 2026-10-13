@@ -49,8 +49,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
-  if (key === "unlockObservatory" && value === true) return "Unlocks aether towers";
-  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
+  if (key === "unlockObservatory" && value === true) return "Unlocks Aether Towers";
+  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks Siege Batteries";
   if (key === "unlockGranary" && value === true) return `Unlocks the ${economicStructureName("GRANARY")}`;
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
@@ -65,7 +65,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
   if (key === "unlockGarrisonHall" && value === true) return "Unlocks Ancillary Depot";
-  if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
+  if (key === "unlockAirport" && value === true) return "Unlocks Sky Docks";
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
   if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
@@ -132,8 +132,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;
   if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks coin cap +${Math.round(value * 100)} pts`;
   if (key === "mintworksBonusMult" && typeof value === "number") return `Mintworks bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
+  if (key === "granaryBonusMult" && typeof value === "number") return `Incubation Engine growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Incubation Engine growth +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationIncomeMult" && typeof value === "number") return `Town income from population ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "connectedTownStepBonusAdd" && typeof value === "number") {
