@@ -90,6 +90,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
 - HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
+- Each muster flag has a Recent combat tab with unread counts, red manpower losses, and green plunder gains. Automatic flag battles keep up to 40 reports per flag in the current browser and season instead of opening result popups.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
 - The existing town-first checklist highlights town and food objectives directly in both map renderers. New worlds require 50 food-and-town-qualified starter sites; see [the opening contract](docs/product/new-player-opening.md) for distances and late-join limits.
 

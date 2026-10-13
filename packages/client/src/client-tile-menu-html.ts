@@ -1,3 +1,4 @@
+import { musterReportsHtml } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
 import { escapeHtml } from "./client-duke-panel/client-duke-escape.js";
 import { afcModuleTabHtml } from "./client-afc-module-tab/client-afc-module-tab.js";
 import { autoSettleOptionHtml } from "./client-auto-settle-prompt/client-auto-settle-tile-option.js";
@@ -239,6 +240,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
 };
 
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
+  if (tab === "reports") return "Recent combat";
   if (tab === "overview") return "Overview";
   if (tab === "modules") return "Modules";
   if (tab === "actions") return "Actions";
@@ -326,6 +328,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
+  if (activeTab === "reports") return musterReportsHtml(view.musterReports);
   if (activeTab === "commit") {
     const commit = view.commit;
     if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
@@ -367,7 +370,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
   const tabsHtml =
     view.tabs.length > 1
       ? `<div class="tile-menu-tabs">${view.tabs
-          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}</button>`)
+          .map((tab) => `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}${tab === "reports" && view.musterReports?.unread ? ` <span class="muster-reports-tab-badge" aria-label="${view.musterReports.unread} unread reports">${view.musterReports.unread}</span>` : ""}</button>`)
           .join("")}</div>`
       : "";
   return `
