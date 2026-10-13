@@ -401,9 +401,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !hasTerrainShapingCapability(state)
             ? "Requires Terrain Shaping"
             : observatoryProtection
-              ? "Blocked by aether tower field"
+              ? "Blocked by Aether Tower field"
               : !inObsRange
-                ? "Need active aether tower in range"
+                ? "Need active Aether Tower in range"
                 : removeCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(removeCooldown)}`
                   : "",
@@ -432,9 +432,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         !hasTerrainShapingCapability(state)
           ? "Requires Harbor Engineering"
           : observatoryProtection
-            ? "Blocked by aether tower field"
+            ? "Blocked by Aether Tower field"
             : !inObsRange
-              ? "Need active aether tower in range"
+              ? "Need active Aether Tower in range"
               : blockedBySite
                 ? "Town, dock, or structure blocks terrain shaping"
                 : createCooldown > 0
@@ -463,9 +463,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const reason = !hasRetortRecastingCapability(state)
       ? "Requires Matterwright Retort Module"
       : !inObservatoryRange
-        ? "Must be within aether tower range"
+        ? "Must be within Aether Tower range"
       : observatoryProtection
-        ? "Blocked by aether tower field"
+        ? "Blocked by Aether Tower field"
         : blockedBySite
           ? "Town, dock, or structure blocks recasting"
           : cooldown > 0
@@ -511,13 +511,13 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const lanceCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_lance"));
       const reason =
         !obsInRange
-          ? "Need active aether tower in range"
+          ? "Need active Aether Tower in range"
           : isOwnOrAllyTile
             ? "Cannot purge your own or allied tiles"
             : isUnclaimed || !targetHasPurgeableOwnership
               ? "Target enemy garrisoned or frontier land"
               : observatoryProtection
-                ? "Blocked by aether tower field"
+                ? "Blocked by Aether Tower field"
                 : lanceCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(lanceCooldown)}`
                   : "";
@@ -533,7 +533,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const empCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_emp"));
       const reason =
         !obsInRange
-          ? "Need active aether tower in range"
+          ? "Need active Aether Tower in range"
           : isOwnOrAllyTile
             ? "Cannot EMP your own or allied tiles"
             : isUnclaimed
@@ -545,7 +545,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 economicStructureType !== "RADAR_SYSTEM"
                 ? "Target a powered structure or monument"
                 : observatoryProtection
-                  ? "Blocked by aether tower field"
+                  ? "Blocked by Aether Tower field"
                   : empCooldown > 0
                     ? `Cooldown ${deps.formatCooldownShort(empCooldown)}`
                     : "";
@@ -563,7 +563,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const reason = devOverride
         ? ""
         : !obsInRange
-          ? "Need active aether tower in range"
+          ? "Need active Aether Tower in range"
           : wallCooldown > 0
             ? `Cooldown ${deps.formatCooldownShort(wallCooldown)}`
             : "";
@@ -580,11 +580,11 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const hasSeaNeighbor = hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrainAt(state, deps.keyFor, deps.wrapX, deps.wrapY, deps.terrainAt));
       const reason =
         !obsInRange
-          ? "Need active aether tower in range"
+          ? "Need active Aether Tower in range"
           : tile.terrain !== "LAND" || !hasSeaNeighbor
             ? "Target must be coastal land"
             : tile.ownerId && tile.ownerId !== state.me && observatoryProtection
-              ? "Landing blocked by enemy aether tower"
+              ? "Landing blocked by enemy Aether Tower"
               : bridgeCooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(bridgeCooldown)}`
                 : "";
@@ -1943,7 +1943,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         !hasSiphonCapability(state)
           ? "Requires Transposition Array Module"
           : observatoryProtection
-            ? "Blocked by aether tower field"
+            ? "Blocked by Aether Tower field"
             : tile.sabotage
               ? "Already siphoned"
               : !(tile.resource || tile.town)

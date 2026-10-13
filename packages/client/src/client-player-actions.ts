@@ -207,8 +207,8 @@ export const explainActionFailureFromServer = (
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot garrison: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
-  if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build aether tower: ${message}.`;
-  if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege battery: ${message}.`;
+  if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build Aether Tower: ${message}.`;
+  if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build Siege Battery: ${message}.`;
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
   if (code === "STRUCTURE_REMOVE_INVALID") return `Cannot remove structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;

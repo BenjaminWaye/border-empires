@@ -49,8 +49,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
-  if (key === "unlockObservatory" && value === true) return "Unlocks aether towers";
-  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege batteries";
+  if (key === "unlockObservatory" && value === true) return "Unlocks Aether Towers";
+  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks Siege Batteries";
   if (key === "unlockGranary" && value === true) return `Unlocks the ${economicStructureName("GRANARY")}`;
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
@@ -65,7 +65,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
   if (key === "unlockGarrisonHall" && value === true) return "Unlocks Ancillary Depot";
-  if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
+  if (key === "unlockAirport" && value === true) return "Unlocks Sky Docks";
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
   if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
