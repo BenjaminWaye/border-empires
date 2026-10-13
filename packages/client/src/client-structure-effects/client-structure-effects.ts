@@ -294,7 +294,7 @@ export const tileAreaEffectModifiersForTile = (
   if (isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "RESONANCE_GRID", RESONANCE_GRID_RADIUS)) {
     modifiers.push({
       reason: "Resonance Grid",
-      effect: "Protected from sky dock strikes",
+      effect: "Protected from Sky Dock strikes",
       tone: "positive"
     });
   }

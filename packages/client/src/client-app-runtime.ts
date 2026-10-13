@@ -19,7 +19,7 @@ import {
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
 import { exposedSidesForTile } from "./client-defensibility-tile.js";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
-import { createClientCollectSupport } from "./client-app-runtime-collect-support.js";
+import { hasCollectableYield } from "./client-collect-optimism.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
@@ -197,16 +197,6 @@ const {
   hasCollectableYield: (tile) => hasCollectableYield(tile)
 });
 const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, manhattanToroid } = createClientMapMath({ state });
-
-const {
-  hasCollectableYield,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta
-} = createClientCollectSupport({
-  state,
-  tileVisibilityStateAt,
-  keyFor: key
-});
 
 const {
   pushFeed,
@@ -423,8 +413,6 @@ bootstrapClientApp({
   wasPredictedCombatAlreadyShown,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,

@@ -10,7 +10,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { hillBumpsWithCorridorAt, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { wanderPoint } from "../client-ancillary-wander/client-ancillary-wander.js";
 import { createAncillaryFigureAssets, PERSON_Y } from "../client-map-3d-ancillary-figures/client-map-3d-ancillary-figures.js";
@@ -62,6 +62,8 @@ type HillCorners = {
   readonly corner01Y: number;
   readonly corner11Y: number;
   readonly bumps: HillBumpCluster;
+  // Road / AFC-pad cut through the dome (hillRoadCutMask), so the drape follows the same carved surface.
+  readonly hillCut?: RoadCutDirections | undefined;
 };
 
 type TileEntry = {
@@ -85,7 +87,7 @@ const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number, wx: number, w
   const groundY = top + (bottom - top) * fz;
   const u = fx - 0.5;
   const v = fz - 0.5;
-  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, hill.bumps, wx, wy) + HILL_DRAPE_CLEARANCE;
+  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, hill.bumps, wx, wy, hill.hillCut) + HILL_DRAPE_CLEARANCE;
 };
 
 export type SettleOverlay = {
@@ -113,7 +115,8 @@ export type SettleOverlay = {
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number, hillNeighbors: HillNeighborFlags // must match client-map-3d-hills.ts's own isHillNeighbor
+    worldTileY: number, hillNeighbors: HillNeighborFlags, // must match client-map-3d-hills.ts's own isHillNeighbor
+    hillCut?: RoadCutDirections // the same per-tile cut the dome mesh got (roads + AFC pads)
   ) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
@@ -232,10 +235,11 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number, hillNeighbors: HillNeighborFlags
+    worldTileY: number, hillNeighbors: HillNeighborFlags,
+    hillCut?: RoadCutDirections
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors) };
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors), hillCut };
     // surfaceY is unused for hill entries — both read sites (commit()'s
     // frame placement and tick()'s people placement) branch on `hill`
     // first and always take that branch for a hill entry. Stored as 0

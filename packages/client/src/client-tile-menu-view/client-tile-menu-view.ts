@@ -295,7 +295,7 @@ export const menuOverviewForTile = (
         pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town coin production).`);
       }
       if (town.town?.hasIncubationEngine) pushLine("Nearby town already has an Incubation Engine.");
-      if (!tile.economicStructure) pushLine("Town buildings like mintworks and incubation engines must be built on support tiles.");
+      if (!tile.economicStructure) pushLine("Town buildings like mintworks and Incubation Engines must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");

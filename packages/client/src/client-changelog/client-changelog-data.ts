@@ -12,6 +12,7 @@ import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -27,6 +28,7 @@ import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-b
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -345,6 +347,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
   },
   {
+    createdAt: 1791839075156,
+    introducedIn: "2026.10.12.3",
+    title: "Smoother clouds rolling back as you explore",
+    why: "When you explored new land the storm clouds snapped and restarted as the newly seen tiles arrived, and trees and hills popped up through clouds that were still parting.",
+    changes: [
+      "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
+      "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
+    ]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",
@@ -397,6 +409,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...RESTART_TILE_STATE_CHANGELOG,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -433,6 +446,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MOBILE_LOADING_FIT_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
   {
     createdAt: 1791803592000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
@@ -466,6 +480,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Building machinery waits for construction to finish",
     why: "Fully visible moving parts could start running while their 3D building was still being built.",
     changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  },
+  {
+    createdAt: 1791830000000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Farmsteads are now hydroponic farms",
+    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
+    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];
 

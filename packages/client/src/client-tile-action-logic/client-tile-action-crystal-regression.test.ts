@@ -74,7 +74,7 @@ describe("crystal core actions regression", () => {
     expect(lance).toBeDefined();
     expect(lance).toMatchObject({
       disabled: true,
-      disabledReason: "Need active aether tower in range"
+      disabledReason: "Need active Aether Tower in range"
     });
   });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DataTexture, Scene, Vector2 } from "three";
 import { HEIGHTFIELD_GRASS_ELEVATION, HEIGHTFIELD_TUNDRA_ELEVATION } from "../client-map-3d-heightfield-terrain.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
-import { UNEXPLORED_REVEAL_MAX_TILES, UNEXPLORED_REVEAL_MS, UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
+import { UNEXPLORED_REVEAL_MS, UNEXPLORED_STORM_Y, createUnexploredStormLayer } from "./client-map-3d-unexplored-storm.js";
 import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
 import { STORM_FRAGMENT_SHADER } from "./client-map-3d-unexplored-storm-shader.js";
 
@@ -105,94 +105,39 @@ describe("unexplored storm layer (3D)", () => {
   it("keeps the contour clear of explored land, so a tile's square corner never pokes past the brass edge", () => {
     expect(STORM_FIELD_GLSL).toContain("const float STORM_CLEARANCE = 0.2;");
     expect(STORM_FIELD_GLSL).toContain("return min(s, STORM_EDGE * exploredDistance / STORM_CLEARANCE);");
-    expect(STORM_FRAGMENT_SHADER).toContain("float s = stormClearanceField(soft + edgeNoise * 0.1, mix(prevClearance, clearance, revealLocal));");
+    expect(STORM_FRAGMENT_SHADER).toContain("float s = stormClearanceField(soft + edgeNoise * 0.1, clearance);");
   });
 
   it("keeps backticks out of the GLSL template (they would end the string)", () => {
     expect(STORM_FRAGMENT_SHADER).not.toContain("\u0060");
   });
 
-  it("rolls the clouds back over UNEXPLORED_REVEAL_MS when tiles become explored, but not on a pan", () => {
+  it("rolls the clouds back per tile by re-encoding its mask each frame, until done", () => {
     const scene = new Scene();
     let now = 1000;
     const storm = createUnexploredStormLayer(scene, () => now);
-    const tick = (): number => {
+    const frame = (): Uint8Array => {
       storm.mesh.onBeforeRender(undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never);
-      return storm.material.uniforms.uRevealT!.value as number;
+      return Uint8Array.from((storm.material.uniforms.uMask!.value as DataTexture).image.data as Uint8Array);
     };
     const window = { camX: 10, camY: 10, halfW: 2, halfH: 2 };
     storm.rebuild(window, (wx) => (wx < 10 ? "visible" : "unexplored"));
-    expect(tick()).toBe(1); // first build: nothing to animate
-
     storm.rebuild(window, (wx) => (wx <= 10 ? "visible" : "unexplored")); // a column gets explored
-    expect(tick()).toBe(0);
-    expect(storm.material.uniforms.uPrevMask!.value).not.toBe(storm.material.uniforms.uMask!.value);
-    now += UNEXPLORED_REVEAL_MS / 2;
-    expect(tick()).toBeCloseTo(0.5, 5);
-    now += UNEXPLORED_REVEAL_MS;
-    expect(tick()).toBe(1);
-
-    storm.rebuild({ ...window, camX: 11 }, (wx) => (wx <= 10 ? "visible" : "unexplored")); // pan only
-    expect(tick()).toBe(1);
-    expect(storm.material.uniforms.uPrevMask!.value).toBe(storm.material.uniforms.uMask!.value);
+    const start = frame();
+    now += UNEXPLORED_REVEAL_MS / 2 + 200;
+    const mid = frame();
+    expect(mid).not.toEqual(start);
+    now += UNEXPLORED_REVEAL_MS * 2;
+    const end = frame();
+    now += 100;
+    expect(frame()).toEqual(end); // settled: no more uploads change it
     storm.dispose();
   });
 
-  it("doesn't play the reveal on login/reconnect (no land known yet) or for a bulk load", () => {
-    const scene = new Scene();
-    let now = 1000;
-    const storm = createUnexploredStormLayer(scene, () => now);
-    const tick = (): number => {
-      storm.mesh.onBeforeRender(undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never);
-      return storm.material.uniforms.uRevealT!.value as number;
-    };
-    const window = { camX: 10, camY: 10, halfW: 2, halfH: 2 };
-    storm.rebuild(window, () => "unexplored"); // before the first chunk
-    storm.rebuild(window, (wx) => (wx <= 10 ? "visible" : "unexplored")); // the first chunk lands
-    expect(tick()).toBe(1);
-    expect(storm.material.uniforms.uPrevMask!.value).toBe(storm.material.uniforms.uMask!.value);
-
-    const big = { camX: 100, camY: 100, halfW: 30, halfH: 30 };
-    storm.rebuild(big, (wx, wy) => (wx === 100 && wy === 100 ? "visible" : "unexplored"));
-    storm.rebuild(big, () => "visible"); // ~3,700 tiles at once: a bulk load
-    expect(UNEXPLORED_REVEAL_MAX_TILES).toBeLessThan(61 * 61);
-    expect(tick()).toBe(1);
-    storm.dispose();
-  });
-
-  it("keeps a running reveal going through a pan instead of snapping it", () => {
-    const scene = new Scene();
-    let now = 1000;
-    const storm = createUnexploredStormLayer(scene, () => now);
-    const tick = (): number => {
-      storm.mesh.onBeforeRender(undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never);
-      return storm.material.uniforms.uRevealT!.value as number;
-    };
-    const window = { camX: 10, camY: 10, halfW: 2, halfH: 2 };
-    storm.rebuild(window, (wx) => (wx < 10 ? "visible" : "unexplored"));
-    storm.rebuild(window, (wx) => (wx <= 10 ? "visible" : "unexplored"));
-    const prev = storm.material.uniforms.uPrevMask!.value;
-    now += UNEXPLORED_REVEAL_MS / 3;
-    storm.rebuild({ ...window, camX: 13 }, (wx) => (wx <= 10 ? "visible" : "unexplored")); // pan, nothing new
-    expect(tick()).toBeCloseTo(1 / 3, 5);
-    expect(storm.material.uniforms.uPrevMask!.value).toBe(prev);
-    // Re-anchored: the new window's scene coords + offset = the old mask's.
-    expect((storm.material.uniforms.uPrevOffset!.value as Vector2).x).toBe(3);
-    now += UNEXPLORED_REVEAL_MS;
-    storm.rebuild({ ...window, camX: 14 }, (wx) => (wx <= 10 ? "visible" : "unexplored")); // after it's done
-    expect(tick()).toBe(1);
-    expect(storm.material.uniforms.uPrevMask!.value).toBe(storm.material.uniforms.uMask!.value);
-    storm.dispose();
-  });
-
-  it("dissolves the cover and soft field from the previous mask and lights the dissolving front", () => {
-    for (const line of ["hard = mix(prev.x, hard, smoothstep(0.9, 1.0, revealLocal));", "soft = mix(prev.y, soft, revealLocal);"]) {
-      expect(STORM_FRAGMENT_SHADER).toContain(line);
-    }
-    // deep's per-tile steps cut square holes when blended; it isn't.
-    expect(STORM_FRAGMENT_SHADER).not.toMatch(/deep = mix\(/);
-    // Sweeps outward from the old land (old soft field), broken up by noise.
-    expect(STORM_FRAGMENT_SHADER).toContain("float order = clamp(prev.y * 0.7 + stormFbm(w * 1.3) * 0.5 - 0.1, 0.0, 1.0);");
+  it("has no two-mask cross-fade left: a partly explored tile keeps its cloud while the contour pulls back", () => {
+    expect(STORM_FRAGMENT_SHADER).not.toMatch(/uPrevMask|uRevealT|prevMaskAt/);
+    expect(STORM_FRAGMENT_SHADER).toContain("float hard = step(0.002, maskR(tile));");
+    expect(STORM_FIELD_GLSL).toContain("best = min(best, length(q) + unexplored);");
     expect(STORM_FRAGMENT_SHADER).toContain("col += uLantern * revealFront * 0.5;");
   });
 });

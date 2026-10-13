@@ -58,10 +58,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       // DREAD_TOWER shouldn't expose this action; fall through for safety.
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
-      ? `Upgrade this Relay Beacon into a full siege battery. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`
+      ? `Upgrade this Relay Beacon into a full Siege Battery. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`
       : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_BATTERY.attackMult}x.`;
   }
-  if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege battery.";
+  if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons build instantly (50 manpower each, no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full Siege Battery.";
   if (actionId === "build_hydrogarden") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN} FOOD slots on grain resource tiles.` : "Hydrogardens do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
@@ -75,7 +75,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Grants +1 base coin income, +${perMintworksPercent}% town coin production, and +10 instant coin on completion (stacks with other Mintworks).`;
   }
   if (actionId === "build_incubation_engine") {
-    // Incubation Engine grants an instant one-time population
+    // Incubation Engine (Incubation Engine) grants an instant one-time population
     // burst on completion PLUS a flat ongoing growth-rate multiplier — see
     // incubationEngineGrowthMultiplier in packages/game-domain for the current
     // formula and its history (commit 7a51b06b removed the ongoing bonus;

@@ -1,3 +1,4 @@
+import { UNEXPLORED_REVEAL_MS } from "../client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-reveal.js";
 import { setUnexploredStormFill } from "./client-unexplored-storm-2d.js";
 import { UNEXPLORED_LANTERN } from "./client-unexplored-storm-palette.js";
 
@@ -16,7 +17,9 @@ import { UNEXPLORED_LANTERN } from "./client-unexplored-storm-palette.js";
 // unexplored until the first chunk lands, and that must not play the reveal
 // over the whole known map.
 
-export const UNEXPLORED_REVEAL_2D_MS = 900;
+// The same duration as the 3D roll-back. (No per-tile stagger here: the 2D
+// fade is per tile square, and staggering squares reads as a checkerboard.)
+export const UNEXPLORED_REVEAL_2D_MS = UNEXPLORED_REVEAL_MS;
 export const UNEXPLORED_REVEAL_MIN_TILE_PX = 16;
 // Comfortably above a 4K screen of 16 px tiles (240 x 135 = 32,400).
 const MAX_TRACKED_TILES = 50_000;
@@ -80,7 +83,7 @@ export const drawUnexploredReveal2D = (
   ctx.globalAlpha = 1 - e;
   setUnexploredStormFill(ctx, wx, wy, px, py, size);
   ctx.fillRect(px, py, size, size);
-  ctx.globalAlpha = Math.sin(Math.PI * e) * 0.45;
+  ctx.globalAlpha = Math.sin(Math.PI * e) ** 2 * 0.3;
   ctx.fillStyle = UNEXPLORED_LANTERN;
   ctx.fillRect(px, py, size, size);
   ctx.restore();

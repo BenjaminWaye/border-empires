@@ -43,9 +43,8 @@ export const markUnexploredStormClip = <T extends Material>(material: T, kind: S
 };
 
 // Vertex stage only. stormClipField returns the storm's contour field s
-// (soft field + edge wobble; > 1 on deep fog, -1 off unexplored tiles), and
-// stormClipRing how far into the unexplored side of a tile edge a point is
-// (bilinear R: 0.5 on the edge; this is 1 from a tenth of a tile in).
+// (soft field + edge wobble + clearance; > 1 on deep fog, -1 on fully
+// explored tiles).
 const CLIP_DECL = `
 uniform sampler2D uStormClipMask;
 uniform vec2 uStormClipMaskMin;
@@ -58,14 +57,11 @@ float stormClipField(vec2 sceneXZ) {
   vec2 uvTile = (floor(sceneXZ) + 0.5 - uStormClipMaskMin) / uStormClipMaskSize;
   if (uvTile.x < 0.0 || uvTile.y < 0.0 || uvTile.x > 1.0 || uvTile.y > 1.0) return -1.0;
   vec4 m = texture2D(uStormClipMask, uvTile);
-  if (m.r < 0.5) return -1.0;
+  if (m.r < 0.002) return -1.0; // fully explored; a tile still rolling back stays fitted under the cloud
   if (m.g > 0.99) return 2.0;
   vec2 uv = (sceneXZ - uStormClipMaskMin) / uStormClipMaskSize;
   float s = stormSoftField(uStormClipMask, uv, uStormClipMaskSize) + stormEdgeNoise(sceneXZ + uStormClipOrigin, uStormClipTime) * 0.1;
   return stormClearanceField(s, stormExploredDistance(uStormClipMask, uStormClipMaskMin, uStormClipMaskSize, sceneXZ));
-}
-float stormClipRing(vec2 sceneXZ) {
-  return smoothstep(0.5, 0.6, texture2D(uStormClipMask, (sceneXZ - uStormClipMaskMin) / uStormClipMaskSize).r);
 }
 `;
 
@@ -83,14 +79,16 @@ const FEATURE_VERTEX = `
 
 // Ground meshes are unrotated and unscaled, so a world-y shift is a local
 // one. Pressed 0.04 under the sheet: much closer and the brass line
-// depth-fights the ground beneath it at a distance. Fully pressed 0.05 inside the contour (about 0.04 tile before the
-// brass line, which never comes closer than STORM_CLEARANCE to explored
-// land); the explored side of the tile edge (stormClipRing 0) never moves.
+// depth-fights the ground beneath it at a distance. Fully pressed 0.05
+// inside the contour (about 0.04 tile before the brass line). The clearance
+// term makes s 0 on explored land's edge, so explored ground never moves,
+// and it eases with a tile's exploredness during a reveal -- the pressing
+// lets go only as the cloud actually parts.
 const GROUND_VERTEX = `
 {
   vec3 stormGroundWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
   float stormGroundS = stormClipField(stormGroundWorld.xz);
-  float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS) * stormClipRing(stormGroundWorld.xz);
+  float stormPress = stormGroundS < 0.0 ? 0.0 : smoothstep(STORM_EDGE - 0.12, STORM_EDGE - 0.05, stormGroundS);
   transformed.y -= stormPress * max(0.0, stormGroundWorld.y - (uStormClipPlaneY - 0.04));
 }
 `;
