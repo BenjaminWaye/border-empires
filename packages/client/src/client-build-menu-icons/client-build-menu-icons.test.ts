@@ -17,9 +17,9 @@ const buildActionIds = (): TileActionDef["id"][] => {
 };
 
 describe("build menu category icons", () => {
-  it("ships a PNG at every size for every category", () => {
+  it("ships the simple SVG for every category", () => {
     for (const category of BUILDING_CATEGORY_ORDER) {
-      const srcs = [...buildingCategoryIconHtml(category).matchAll(/\/icons\/build-categories\/[a-z_]+-\d+\.png/g)].map((m) => m[0]);
+      const srcs = [...buildingCategoryIconHtml(category).matchAll(/\/icons\/simple\/[a-z-]+\.svg/g)].map((m) => m[0]);
       expect(srcs.length, category).toBeGreaterThan(0);
       for (const src of srcs) expect(existsSync(publicFile(src)), src).toBe(true);
     }
