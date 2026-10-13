@@ -1,3 +1,4 @@
+import { structureDisplayName } from "@border-empires/shared";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile } from "../client-types.js";
@@ -73,7 +74,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     deps.sendDevelopmentBuild(
       { type: "BUILD_STRUCTURE", x, y, structureType },
       () => deps.applyOptimisticStructureBuild(x, y, structureType),
-      { x, y, label: `${structureType} at (${x}, ${y})`, optimisticKind: structureType }
+      { x, y, label: `${structureDisplayName(structureType)} at (${x}, ${y})`, optimisticKind: structureType }
     );
     cancelBuildingPlacement();
   };
@@ -83,7 +84,8 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       deps.placementOverlayEl.style.display = "none";
       return;
     }
-    const name = state.buildingPlacement.structureType === "AFC" ? "Automated Fabrication Complex" : state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Ore Refinery";
+    const st = state.buildingPlacement.structureType;
+    const name = st === "AFC" ? "Automated Fabrication Complex" : structureDisplayName(st);
     deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
   };

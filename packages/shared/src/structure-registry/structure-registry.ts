@@ -132,8 +132,8 @@ export const noConflictingStructure: PlacementCheck = (ctx) => {
 
   const conflicting: string[] = [];
   if (ctx.tileField === "siegeOutpost" && ctx.tile.fort) conflicting.push("fort");
-  if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("observatory");
-  if (ctx.tileField !== "siegeOutpost" && ctx.tile.siegeOutpost) conflicting.push("siege outpost");
+  if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("aether tower");
+  if (ctx.tileField !== "siegeOutpost" && ctx.tile.siegeOutpost) conflicting.push("siege battery");
   if (
     ctx.tileField !== "economicStructure" &&
     ctx.tile.economicStructure &&

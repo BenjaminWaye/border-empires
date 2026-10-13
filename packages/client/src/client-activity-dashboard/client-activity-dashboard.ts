@@ -10,7 +10,7 @@ import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-da
 type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
-    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail"
+    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "techCatalog" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail"
   >;
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
@@ -51,14 +51,14 @@ const resetActivityDashboardView = (state: Pick<ClientState, "activityDashboard"
   state.activityDashboard.updatesBaselineSeenAt = undefined;
 };
 
-const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string, playerNames: (id: string) => string | undefined): string => {
+const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string, playerNames: (id: string) => string | undefined, techName: (id: string) => string | undefined): string => {
   const coords = activityCardCoordinates(card);
   const centerBtn = coords
     ? `<button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${coords.x}" data-activity-focus-y="${coords.y}">Center</button>`
     : "";
   return `
     <div class="activity-dashboard-card">
-      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames))}</span>
+      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames, techName))}</span>
       ${centerBtn}
     </div>
   `;
@@ -84,7 +84,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         : `
           <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
-          ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id))).join("")}
+          ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id), (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
   const activeView = state.activityDashboard.activeView;
   const updates = unseenClientChangelogEntries(state.changelog.seenAt);

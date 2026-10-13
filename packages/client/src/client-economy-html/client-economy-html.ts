@@ -66,19 +66,6 @@ type EconomyPanelArgs = {
 
 const resources: EconomyResource[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
-const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, string> = {
-  WOODEN_FORT: "Palisade",
-  FORT: "Fort",
-  TITANIUM_BASTION: "Titanium Bastion",
-  THUNDER_BASTION: "Thunder Bastion"
-};
-
-const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] & string, string> = {
-  SIEGE_OUTPOST: "Siege Battery",
-  SIEGE_TOWER: "Siege Tower",
-  DREAD_TOWER: "Dread Tower"
-};
-
 // §14.1 item 2 / §14.2: which structures/towns are occupying a slot of this
 // resource right now, for the "Occupied by" column of the detail card. Reuses
 // the same authoritative structureSlotRequirements table the server gates
@@ -123,16 +110,16 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
-      add(FORT_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "fort", resource));
+      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "fort", resource));
     }
     if (tile.siegeOutpost && tile.siegeOutpost.status !== "removing") {
       const variant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
-      add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
+      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
     }
     if (tile.observatory && tile.observatory.status !== "removing" && tile.observatory.status !== "inactive") {
       const count = structureSlotRequirements("OBSERVATORY").find((r) => r.resource === resource)?.count ?? 0;
-      add(STRUCTURE_DISPLAY_NAMES.OBSERVATORY ?? "Aether Tower", count, isDormantOccupant(args, tile, "observatory", resource));
+      add(STRUCTURE_DISPLAY_NAMES.OBSERVATORY, count, isDormantOccupant(args, tile, "observatory", resource));
     }
     if (
       tile.economicStructure &&

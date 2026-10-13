@@ -57,8 +57,8 @@ export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
 ];
 
 const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
-  GARRISON_HALL: { singular: "Garrison Hall", plural: "Garrison Halls" },
-  LOGISTICS_GUILD: { singular: "Logistics Guild", plural: "Logistics Guilds" },
+  GARRISON_HALL: { singular: "Ancillary Depot", plural: "Ancillary Depots" },
+  LOGISTICS_GUILD: { singular: "Ancillary Factory", plural: "Ancillary Factories" },
   MINTWORKS: { singular: "Mintworks", plural: "Mintworks" },
   WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },

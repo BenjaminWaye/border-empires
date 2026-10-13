@@ -100,25 +100,25 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     airportStructure.type !== "AIRPORT" ||
     airportStructure.status !== "active"
   ) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active airport first");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active sky dock first");
     return;
   }
   if (Math.max(Math.abs(payload.toX - payload.fromX), Math.abs(payload.toY - payload.fromY)) > AIRPORT_BOMBARD_RANGE) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "target must be within 30 tiles of the airport");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "target must be within 30 tiles of the sky dock");
     return;
   }
   if (!context.isStructurePowered(actor.id, airportKey, "AIRPORT")) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Ambaric Transformer");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, airportKey, "economicStructure")) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport has no free resource slot");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock has no free resource slot");
     return;
   }
   const now = context.now();
   const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
   if (bombardCooldownUntil > now) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport bombardment on cooldown");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock bombardment on cooldown");
     return;
   }
   if (context.isTileBombardBlockedByRadar(actor.id, payload.toX, payload.toY)) {
@@ -241,18 +241,18 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     anchor.economicStructure.type !== "WORLD_ENGINE" ||
     anchor.economicStructure.status !== "active"
   ) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "select an active World Engine");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "select an active Sovereign Siege Engine");
     return;
   }
   // Worldbreaker Ignition (tech "worldbreaker-fire") was cut — the strike
   // ability now fires immediately once World Engine is built, gated only by
   // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Ambaric Transformer");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine has no free resource slot");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine has no free resource slot");
     return;
   }
   const now = context.now();

@@ -70,7 +70,7 @@ describe("§5.4 ability dormancy gate", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "bombard-dormant",
       code: "AIRPORT_BOMBARD_INVALID",
-      message: "airport has no free resource slot"
+      message: "sky dock has no free resource slot"
     }));
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-dormant")).toBe(false);
   });
@@ -251,7 +251,7 @@ describe("§5.4 ability dormancy gate", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "strike-dormant",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "World Engine has no free resource slot"
+      message: "Sovereign Siege Engine has no free resource slot"
     }));
     const target = runtime.exportState().tiles.find((tile) => tile.x === 50 && tile.y === 50);
     const town = target?.townJson ? (JSON.parse(target.townJson) as { population?: number }) : undefined;
