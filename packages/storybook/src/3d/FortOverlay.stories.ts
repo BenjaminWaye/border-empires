@@ -13,8 +13,8 @@ const KINDS: ReadonlyArray<FortificationOverlayKind> = [
   "FORT",
   "TITANIUM_BASTION",
   "THUNDER_BASTION",
-  "WOODEN_FORT",
-  "SIEGE_OUTPOST"
+  "PALISADE",
+  "SIEGE_BATTERY"
 ];
 const OPENINGS: ReadonlyArray<FortificationOpening> = ["CLOSED", "NORTH", "EAST", "SOUTH", "WEST"];
 
@@ -51,8 +51,8 @@ export const ThunderBastionGateNorth: Story = { args: { kind: "THUNDER_BASTION",
 export const ThunderBastionGateEast: Story = { args: { kind: "THUNDER_BASTION", opening: "EAST" } };
 export const ThunderBastionGateSouth: Story = { args: { kind: "THUNDER_BASTION", opening: "SOUTH" } };
 export const ThunderBastionGateWest: Story = { args: { kind: "THUNDER_BASTION", opening: "WEST" } };
-export const WoodenFort: Story = { args: { kind: "WOODEN_FORT", opening: "EAST" } };
-export const SiegeBattery: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
+export const Palisade: Story = { args: { kind: "PALISADE", opening: "EAST" } };
+export const SiegeBattery: Story = { args: { kind: "SIEGE_BATTERY", opening: "CLOSED" } };
 
 export const AllVariants: Story = {
   args: { cameraDistance: 8 },
@@ -61,7 +61,7 @@ export const AllVariants: Story = {
     const overlay = createFortOverlay(stage.scene, KINDS.length);
     const startX = -((KINDS.length - 1) * 1.35) / 2;
     KINDS.forEach((kind, index) => {
-      overlay.addInstance(startX + index * 1.35, 0, 0, kind, kind === "SIEGE_OUTPOST" ? "CLOSED" : "NORTH");
+      overlay.addInstance(startX + index * 1.35, 0, 0, kind, kind === "SIEGE_BATTERY" ? "CLOSED" : "NORTH");
     });
     overlay.commit();
     return wrapWithCleanup(stage, [overlay.dispose]);

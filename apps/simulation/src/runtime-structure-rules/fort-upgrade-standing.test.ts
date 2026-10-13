@@ -4,7 +4,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { requiredMusterForTarget } from "../runtime-combat-resolution.js";
 import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
 
-type SeedFort = { ownerId: string; status: "active"; variant: "WOODEN_FORT" | "FORT" };
+type SeedFort = { ownerId: string; status: "active"; variant: "PALISADE" | "FORT" };
 
 const makeRuntime = (fort: SeedFort | undefined, techIds: string[], extra: Record<string, unknown> = {}) =>
   new SimulationRuntime({
@@ -57,13 +57,13 @@ describe("fort upgrades keep the current fort standing", () => {
   });
 
   it("a Palisade keeps defending until its Fort upgrade completes, then the Fort takes over", async () => {
-    const runtime = makeRuntime({ ownerId: "player-1", status: "active", variant: "WOODEN_FORT" }, ["masonry"]);
+    const runtime = makeRuntime({ ownerId: "player-1", status: "active", variant: "PALISADE" }, ["masonry"]);
     send(runtime, "u1", "BUILD_FORT", { x: 10, y: 10 });
     await Promise.resolve();
 
     const building = fortAt(runtime);
-    expect(building).toMatchObject({ status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT" });
-    expect(defendingFortVariant(building)).toBe("WOODEN_FORT");
+    expect(building).toMatchObject({ status: "under_construction", variant: "FORT", upgradingFrom: "PALISADE" });
+    expect(defendingFortVariant(building)).toBe("PALISADE");
 
     vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
     const completed = fortAt(runtime);
@@ -96,7 +96,7 @@ describe("fort upgrades keep the current fort standing", () => {
     const runtime = makeRuntime({ ownerId: "player-1", status: "active", variant: "FORT" }, ["masonry"]);
     const rejections: string[] = [];
     runtime.onEvent((event) => { if (event.eventType === "COMMAND_REJECTED") rejections.push(event.message); });
-    send(runtime, "p1", "BUILD_STRUCTURE", { x: 10, y: 10, structureType: "WOODEN_FORT" });
+    send(runtime, "p1", "BUILD_STRUCTURE", { x: 10, y: 10, structureType: "PALISADE" });
     await Promise.resolve();
 
     expect(rejections).toEqual(["tile already has a fortification"]);
@@ -105,15 +105,15 @@ describe("fort upgrades keep the current fort standing", () => {
 
   it("a Palisade stacks on a Harbor Exchange like a Fort does", async () => {
     // No town on this tile: a town's own ~4 FOOD slot demand would eat the fixture's FARM supply.
-    const runtime = makeRuntime(undefined, [], { town: undefined, economicStructure: { ownerId: "player-1", type: "CUSTOMS_HOUSE", status: "active" } });
+    const runtime = makeRuntime(undefined, [], { town: undefined, economicStructure: { ownerId: "player-1", type: "HARBOR_EXCHANGE", status: "active" } });
     const rejections: string[] = [];
     runtime.onEvent((event) => { if (event.eventType === "COMMAND_REJECTED") rejections.push(event.message); });
-    send(runtime, "p1", "BUILD_STRUCTURE", { x: 10, y: 10, structureType: "WOODEN_FORT" });
+    send(runtime, "p1", "BUILD_STRUCTURE", { x: 10, y: 10, structureType: "PALISADE" });
     await Promise.resolve();
 
     expect(rejections).toEqual([]);
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.economicStructureJson).toContain('"type":"CUSTOMS_HOUSE"');
-    expect(fortAt(runtime)).toMatchObject({ status: "under_construction", variant: "WOODEN_FORT" });
+    expect(tile?.economicStructureJson).toContain('"type":"HARBOR_EXCHANGE"');
+    expect(fortAt(runtime)).toMatchObject({ status: "under_construction", variant: "PALISADE" });
   });
 });

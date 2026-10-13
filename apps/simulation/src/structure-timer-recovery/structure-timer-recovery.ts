@@ -20,7 +20,7 @@ export type StructureTimerRecoveryDeps = {
   afcModuleDelivery: () => AfcModuleDeliveryContext;
 };
 
-const STRUCTURE_FIELDS: readonly DevelopmentStructureField[] = ["fort", "observatory", "siegeOutpost", "economicStructure"];
+const STRUCTURE_FIELDS: readonly DevelopmentStructureField[] = ["fort", "observatory", "siegeBattery", "economicStructure"];
 
 /**
  * In-flight structure work (under_construction / removing) and AFC module

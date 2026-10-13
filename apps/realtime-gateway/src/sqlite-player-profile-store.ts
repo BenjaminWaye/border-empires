@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { upgradeLegacyStructureNames } from "@border-empires/shared";
 
 import type { EmailNotificationPrefs, GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 import { withGatewaySqliteRetry } from "./sqlite-busy-retry.js";
@@ -29,7 +30,7 @@ type Row = {
 const parseEmailNotificationPrefs = (raw: string | null): EmailNotificationPrefs | undefined => {
   if (!raw) return undefined;
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = upgradeLegacyStructureNames(JSON.parse(raw) as unknown);
     if (!parsed || typeof parsed !== "object") return undefined;
     const prefs: EmailNotificationPrefs = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
@@ -44,7 +45,7 @@ const parseEmailNotificationPrefs = (raw: string | null): EmailNotificationPrefs
 const parseDismissedHints = (raw: string | null): string[] | undefined => {
   if (!raw) return undefined;
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = upgradeLegacyStructureNames(JSON.parse(raw) as unknown);
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : undefined;
   } catch {
     return undefined;

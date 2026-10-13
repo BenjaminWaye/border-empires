@@ -11,7 +11,7 @@ export type BuildingPlacementFlowDeps = {
   placementOverlayEl: HTMLDivElement;
   placementLabelEl: HTMLDivElement;
   sendDevelopmentBuild: (
-    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: "WATERWORKS" | "FOUNDRY" },
+    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: "HYDROWORKS" | "ORE_REFINERY" },
     optimistic: () => void,
     opts: { x: number; y: number; label: string; optimisticKind: OptimisticStructureKind }
   ) => boolean;
@@ -31,7 +31,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       afcFreeRebuild ??= ownedAfcCount(state) === 0;
       return isValidAfcLandingTile(state, tile, afcFreeRebuild);
     }
-    if (st !== "WATERWORKS" && st !== "FOUNDRY") return false;
+    if (st !== "HYDROWORKS" && st !== "ORE_REFINERY") return false;
     return canBuildPlacementStructure(st, tile, state.me, state.gold, state.techIds, state.resourceSlots).available;
   };
 
@@ -61,7 +61,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       cancelBuildingPlacement();
       return;
     }
-    if (structureType !== "WATERWORKS" && structureType !== "FOUNDRY") {
+    if (structureType !== "HYDROWORKS" && structureType !== "ORE_REFINERY") {
       cancelBuildingPlacement();
       return;
     }

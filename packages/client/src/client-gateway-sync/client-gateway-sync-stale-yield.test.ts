@@ -39,12 +39,12 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
   it("clears a server-authoritative yieldRate when the economicStructure is removed without a fresh yieldRate in the same delta", () => {
     const deps = createDeps();
     // Seed a tile with a server-pushed boosted yieldRate (as if from an
-    // active FARMSTEAD near a WATERWORKS — tileYieldNeedsServerAuthority true).
+    // active HYDROGARDEN near a HYDROWORKS — tileYieldNeedsServerAuthority true).
     applyGatewayInitialState(deps, {
       tiles: [
         {
           x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM",
-          economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "me" }),
+          economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "me" }),
           yieldRate: { goldPerMinute: 0, strategicPerDay: { FOOD: 162 } },
           yieldCap: { gold: 480, strategicEach: 54 }
         }
@@ -59,7 +59,7 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
 
     const updated = deps.state.tiles.get("1,1");
     // Stale 162 must not survive — it should be cleared and re-derived from
-    // the now-bare FARM resource (48/day base, no farmstead/waterworks bonus).
+    // the now-bare FARM resource (48/day base, no hydrogarden/hydroworks bonus).
     expect(updated?.yieldRate?.strategicPerDay?.FOOD).toBe(48);
   });
 
@@ -89,7 +89,7 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
       tiles: [
         {
           x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM",
-          economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "me" }),
+          economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "me" }),
           yieldRate: { goldPerMinute: 0, strategicPerDay: { FOOD: 162 } },
           yieldCap: { gold: 480, strategicEach: 54 }
         }
@@ -101,7 +101,7 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
     applyGatewayTileDeltaBatch(deps, [
       {
         x: 3, y: 3,
-        economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "me" }),
+        economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "me" }),
         yieldRate: { goldPerMinute: 0, strategicPerDay: { FOOD: 999 } },
         yieldCap: { gold: 480, strategicEach: 333 }
       }
@@ -110,7 +110,7 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
     expect(deps.state.tiles.get("3,3")?.yieldRate?.strategicPerDay?.FOOD).toBe(999);
   });
 
-  it("applies a MINE structure change together with the Foundry-boosted yieldRate in the same delta", () => {
+  it("applies a MINE structure change together with the Ore-Refinery-boosted yieldRate in the same delta", () => {
     const deps = createDeps();
     applyGatewayInitialState(deps, {
       tiles: [

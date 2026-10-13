@@ -1,6 +1,6 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
 
-  <!-- Isometric building shell: modest stone walls under a plain gable roof, matching the scale of Customs House / Exchange House. -->
+  <!-- Isometric building shell: modest stone walls under a plain gable roof, matching the scale of Harbor Exchange / Exchange House. -->
   <path d="M18 98L34 88H74L58 98H18Z" fill="#7D7468"/>
   <path d="M34 88V70H74V88H34Z" fill="#8A8078"/>
   <path d="M74 88L94 76V58L74 70V88Z" fill="#6E6459"/>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { IcosahedronGeometry, InstancedMesh, Scene, TorusGeometry } from "three";
 import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
-import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
+import { createAmbaricTransformerOverlay } from "../client-map-3d-ambaric-transformer-overlay.js";
 import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js";
 
@@ -20,8 +20,8 @@ const siegeFactory = (variant: "SIEGE_TOWER" | "DREAD_TOWER") => (scene: Scene):
   };
 };
 const factories: Array<[string, (scene: Scene) => Overlay]> = [
-  ["caravanary", (scene) => createTradeNexusOverlay(scene, 2)],
-  ["observatory", (scene) => createAetherTowerOverlay(scene, 2)],
+  ["tradeNexus", (scene) => createTradeNexusOverlay(scene, 2)],
+  ["observatory", (scene) => createAmbaricTransformerOverlay(scene, 2)],
   ["weapons factory", (scene) => createUmbriteWeaponsFactoryOverlay(scene, 2)],
   ["siege tower", siegeFactory("SIEGE_TOWER")],
   ["dread tower", siegeFactory("DREAD_TOWER")]
@@ -57,7 +57,7 @@ describe.each(factories)("%s construction animation", (_name, create) => {
 
 it("does not link or synchronize an observatory under construction", () => {
   const scene = new Scene();
-  const overlay = createAetherTowerOverlay(scene, 3);
+  const overlay = createAmbaricTransformerOverlay(scene, 3);
   overlay.addInstance(0, 0, 0, 0, 0, true);
   overlay.addInstance(1.2, 0, 0, 1, 0);
   overlay.addInstance(0.6, 1.04, 0, 1, 1);
@@ -76,7 +76,7 @@ it("does not link or synchronize an observatory under construction", () => {
 
 it("construction observatories cannot consume finished towers' link capacity", () => {
   const scene = new Scene();
-  const overlay = createAetherTowerOverlay(scene, 8);
+  const overlay = createAmbaricTransformerOverlay(scene, 8);
   overlay.addInstance(0, 0, 0, 0, 0);
   overlay.addInstance(1.2, 0, 0, 1, 0);
   for (let i = 0; i < 6; i++) overlay.addInstance(0.04 + i * 0.04, 0, 0, i + 2, 0, true);

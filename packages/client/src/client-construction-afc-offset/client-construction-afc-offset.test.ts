@@ -83,7 +83,7 @@ describe("afcOffsetForSite", () => {
 
 describe("constructionSiteForRebuild", () => {
   const building = (): Tile =>
-    ({ x: 50, y: 50, terrain: "LAND", ownerId: "me", economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "under_construction", startedAt: Date.now() - HOUR, completesAt: Date.now() + 7 * HOUR } }) as unknown as Tile;
+    ({ x: 50, y: 50, terrain: "LAND", ownerId: "me", economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "under_construction", startedAt: Date.now() - HOUR, completesAt: Date.now() + 7 * HOUR } }) as unknown as Tile;
 
   it("returns the site with the AFC offset attached", () => {
     const site = constructionSiteForRebuild({ tilesRevision: 0, tiles: tilesOf(afcTile(44, 47, "me")) }, building(), "economicStructure", 10);
@@ -92,7 +92,7 @@ describe("constructionSiteForRebuild", () => {
 
   it("returns a site with no offset when no AFC is known, and nothing for a finished structure", () => {
     expect(constructionSiteForRebuild({ tilesRevision: 0, tiles: new Map() }, building(), "economicStructure", 11)?.afcOffset).toBeUndefined();
-    const done = { x: 1, y: 1, terrain: "LAND", economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" } } as unknown as Tile;
+    const done = { x: 1, y: 1, terrain: "LAND", economicStructure: { ownerId: "me", type: "HYDROGARDEN", status: "active" } } as unknown as Tile;
     expect(constructionSiteForRebuild({ tilesRevision: 0, tiles: new Map() }, done, "economicStructure", 12)).toBeUndefined();
   });
 });

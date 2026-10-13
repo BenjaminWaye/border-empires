@@ -91,7 +91,7 @@ Manpower keeps regenerating continuously, as today (`applyManpowerRegen`).
   Notifications). Schedule it as a per-player deadline, never a per-tick scan
   of all players. Recompute the deadline whenever any of its inputs change:
   manpower spent (builds, settles, attacks, flag fill), cap changes (town
-  growth, town lost or captured, Garrison Hall built or lost, rail-depot
+  growth, town lost or captured, Ancillary Depot built or lost, neural-works
   networks) and regen changes (towns, Titanium Levy freeze start and end).
 
 ### B. Gold (D4)
@@ -156,11 +156,11 @@ effects):
 |---|---|---|---|
 | Relay Beacon, 1st–5th | **50 flat** (landing party, pre-fab) | **instant** (time decoupled from cost, 2026-10-02) | 60 s |
 | Relay Beacon, 6th+ | **100 flat** | 1 h | 60 s |
-| Farmstead, Mine, Granary, Waterworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
-| Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h | 5 min |
-| Mintworks, Synthesizers, Garrison Hall, Governor's Office, Logistics Guild, Caravanary | 150 | 1 h 30 min | 5 min |
+| Hydrogarden, Mine, Incubation Engine, Hydroworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
+| Harbor Exchange, Weapons Workshop / Factories, Seed Incubation Engine | 100 | 1 h | 5 min |
+| Mintworks, Synthesizers, Ancillary Depot, Ministry Hall, Ancillary Factory, Trade Nexus | 150 | 1 h 30 min | 5 min |
 | Sky Dock | 150 (doubling per copy) | 1 h 30 → 3 h → 6 h… | 10 min |
-| Foundry, Rail Depot, Radar, Assembly Works, Observatory, Advanced Synthesizers | 300 | 3 h | 5–10 min |
+| Ore Refinery, Neural Works, Radar, Reserve Lattice, Observatory, Advanced Synthesizers | 300 | 3 h | 5–10 min |
 | Aether Tower | 400 | 4 h | 10 min |
 | Palisade / Fort / Titanium Bastion / Thunder Bastion | 30 / 300 / 480 / 960 | 18 min / 3 h / 4 h 48 / 9 h 36 | 10 min |
 | Siege Battery / Tower / Dread Tower | **60 / 120 / 240** | 36 min / 1 h 12 / 2 h 24 | 1 min |
@@ -177,7 +177,7 @@ effects):
   scaling elsewhere (this table's tier ladders, D9) without needing every
   new structure to also compound. The same call was made for Titanium/
   Umbrite Weapons Factory, which previously escalated 15% per existing copy
-  and is now flat 100 MP per copy too (see this table's Customs House row).
+  and is now flat 100 MP per copy too (see this table's Harbor Exchange row).
   **First-tier cost changed from free/instant to 50 MP/30 min, 2026-09-25**
   (design discussion): a manpower pool should feel like it buys something
   even for the "starter" tier, not just the paid tier.
@@ -206,7 +206,7 @@ effects):
     30 from there. The ladder's 150 is never charged.
   - **Fix:** the ladders keep only what's unique to them (defense and attack
     multipliers, tech gating) and read manpower from
-    `STRUCTURE_COST_DEFINITIONS`. Drop the unused `FORT_SPECS.WOODEN_FORT`.
+    `STRUCTURE_COST_DEFINITIONS`. Drop the unused `FORT_SPECS.PALISADE`.
     Build time is then derived from that single number too. Add a test that
     every structure's cost comes from the one table.
   - **Result:** the Palisade is the cheap early fort (30 MP, 18 min). Attacking
@@ -216,7 +216,7 @@ effects):
 **Early ramp — NOT IMPLEMENTED** (2026-09-25; Phase 1b shipped D9/D12/D13/D17/D23
 build-time/cost but not this exception; it needs its own persisted per-player
 per-season counter, same shape as the deferred D23 lifetime-beacon counter
-below). (the first session must not wait an hour for a Farmstead): the
+below). (the first session must not wait an hour for a Hydrogarden): the
 first 5 beacons are instant (landing party). Separately, other structures take
 at most 5 minutes while **either** holds: the player has started fewer than 3
 structures this season, **or** they joined the season less than 2 hours ago.
@@ -686,7 +686,7 @@ Kept for reference; not part of the plan.
 
 **Today:** manpower regenerates continuously. Each town adds cap and regen at a
 720-minute ratio (`TOWN_MANPOWER_BY_TIER`). The starting capital is 720 cap at
-0.4/min. Cap-only bonuses exist (Garrison Hall +150, rail-depot networks).
+0.4/min. Cap-only bonuses exist (Ancillary Depot +150, neural-works networks).
 Regen is applied in `applyManpowerRegen` and the manpower modules under
 `apps/simulation/src/`.
 
@@ -726,7 +726,7 @@ second. The starting values below are for tuning:
 | Aether Bridge | 30 min (lasts 8 min) | 2 per chunk |
 | Create / Remove Mountain | 20 min | 2 per chunk |
 | Sky Dock Bombard | 20 min | 3 per chunk, per Sky Dock |
-| World Engine Strike | 10 min + 1,000 gold | 2 per chunk (gold cost stays) |
+| Sovereign Siege Engine Strike | 10 min + 1,000 gold | 2 per chunk (gold cost stays) |
 | Aegis Lock | 60 min (lasts 15 min) | 1 per chunk |
 | Siphon | 10 min / 60 min | Being redesigned as Observatory "siphon mode" (separate session, `agent/siphon-slot-transfer`); no charges needed |
 | Imperial Exchange Levy | 24h | Keep: 1 per 4 chunks |

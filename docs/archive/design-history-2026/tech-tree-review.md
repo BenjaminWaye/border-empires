@@ -61,7 +61,7 @@ Total techs: 50
 - Time: 40 min
 - Requirements: toolmaking
 - Description: Turns hides into straps, and straps into military confidence.
-- Benefits: Unlocks Siege Outposts | Outpost attack +10%
+- Benefits: Unlocks Siege Batteries | Outpost attack +10%
 - Unlocks Next: Siegecraft (T3), Chainmail (T4)
 
 ### Mining (`mining`)
@@ -88,7 +88,7 @@ Total techs: 50
 - Requirements: agriculture
 - Description: Convincing water to report for work on time.
 - Benefits: Town food upkeep -10%
-- Unlocks Next: Crop Rotation (T3), Granaries (T3)
+- Unlocks Next: Crop Rotation (T3), Incubation Engines (T3)
 
 ### Pottery (`pottery`)
 - Cost: 4500 GOLD · 70 FOOD
@@ -96,7 +96,7 @@ Total techs: 50
 - Requirements: agriculture
 - Description: The ancient art of storing things instead of losing them.
 - Benefits: Town gold cap +25%
-- Unlocks Next: Granaries (T3)
+- Unlocks Next: Incubation Engines (T3)
 
 ### Animal Husbandry (`animal-husbandry`)
 - Cost: 4500 GOLD · 60 FOOD
@@ -148,7 +148,7 @@ Total techs: 50
 
 ## Tier 3
 
-### Granaries (`granaries`)
+### Incubation Engines (`incubation engines`)
 - Cost: 9000 GOLD · 140 FOOD
 - Time: 120 min
 - Requirements: irrigation, pottery
@@ -217,10 +217,10 @@ Total techs: 50
 ### Watermills (`watermills`)
 - Cost: 14000 GOLD · 220 FOOD
 - Time: 210 min
-- Requirements: granaries
+- Requirements: incubation engines
 - Description: The river finally joins the payroll.
 - Benefits: Fed town gold output +15%
-- Unlocks Next: State Granaries (T5), Urban Markets (T6)
+- Unlocks Next: State Incubation Engines (T5), Urban Markets (T6)
 
 ### Civil Survey (`civil-survey`)
 - Cost: 14000 GOLD · 200 FOOD · 120 CRYSTAL
@@ -228,7 +228,7 @@ Total techs: 50
 - Requirements: crop-rotation, surveying
 - Description: Now expansion arrives with paperwork and suspicious accuracy.
 - Benefits: Settled food upkeep -10% | Settlement speed +10%
-- Unlocks Next: Civil Service (T5), State Granaries (T5)
+- Unlocks Next: Civil Service (T5), State Incubation Engines (T5)
 
 ### Standing Army (`standing-army`)
 - Cost: 15000 GOLD · 220 IRON
@@ -304,7 +304,7 @@ Total techs: 50
 - Benefits: Town gold output +25%
 - Unlocks Next: Bureaucracy (T6), Central Banking (T6)
 
-### State Granaries (`state-granaries`)
+### State Incubation Engines (`state-incubation-engines`)
 - Cost: 22000 GOLD · 380 FOOD
 - Time: 330 min
 - Requirements: watermills, civil-survey
@@ -389,7 +389,7 @@ Total techs: 50
 ### Frontier Administration (`frontier-administration`)
 - Cost: 34000 GOLD · 500 FOOD · 180 SUPPLY
 - Time: 510 min
-- Requirements: bureaucracy, state-granaries
+- Requirements: bureaucracy, state-incubation-engines
 - Description: Expansion, but with clipboards and alarming efficiency.
 - Benefits: Settlement speed +20% | Settled food upkeep -10%
 - Unlocks Next: No downstream techs

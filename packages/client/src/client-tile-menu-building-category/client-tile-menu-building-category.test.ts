@@ -10,11 +10,11 @@ describe("structureBuildingCategory", () => {
   it("puts fort, siege, bombardment and detection structures in Military", () => {
     expectCategory("military", [
       "FORT",
-      "WOODEN_FORT",
-      "SIEGE_OUTPOST",
-      "AIRPORT",
+      "PALISADE",
+      "SIEGE_BATTERY",
+      "SKY_DOCK",
       "OBSERVATORY",
-      "RADAR_SYSTEM"
+      "RESONANCE_GRID"
     ]);
   });
 
@@ -22,18 +22,18 @@ describe("structureBuildingCategory", () => {
     expectCategory("monument", [
       "IMPERIAL_EXCHANGE",
       "IMPERIAL_EXCHANGE_PART_2",
-      "WORLD_ENGINE",
-      "WORLD_ENGINE_PART_1",
+      "SOVEREIGN_SIEGE_ENGINE",
+      "SOVEREIGN_SIEGE_ENGINE_PART_1",
       "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK",
-      "POPULATION_BUREAU_PART_1",
+      "CENSUS_DIRECTORATE_PART_1",
       "TITANIUM_LEVY",
       "TITANIUM_LEVY_PART_3"
     ]);
   });
 
   it("puts resource-tile-gated structures in Resource", () => {
-    expectCategory("resource", ["FARMSTEAD", "MINE", "UMBRITE_RIG"]);
+    expectCategory("resource", ["HYDROGARDEN", "MINE", "UMBRITE_RIG"]);
   });
 
   // Regression: MINTWORKS is placementMode "same_tile" only so it can stack
@@ -42,23 +42,23 @@ describe("structureBuildingCategory", () => {
   it("puts support-ring-only structures in Town Support, including stacking same_tile ones like Mintworks", () => {
     expectCategory("town_support", [
       "MINTWORKS",
-      "GARRISON_HALL",
+      "ANCILLARY_DEPOT",
       "TITANIUM_WEAPONS_FACTORY",
       "UMBRITE_WEAPONS_FACTORY",
-      "CARAVANARY",
-      "GRANARY",
+      "TRADE_NEXUS",
+      "INCUBATION_ENGINE",
       "CENSUS_HALL",
       "CLEARING_HOUSE",
-      "RAIL_DEPOT",
-      "UMBRITE_SYNTHESIZER",
+      "NEURAL_WORKS",
+      "UMBRITE_WORKS",
       "TITANIUM_WORKS",
-      "CRYSTAL_SYNTHESIZER",
-      "LOGISTICS_GUILD",
-      "ASSEMBLY_WORKS"
+      "AETHER_CONDENSER",
+      "ANCILLARY_FACTORY",
+      "RESERVE_LATTICE"
     ]);
   });
 
   it("puts structures buildable on any owned settled tile in Infrastructure", () => {
-    expectCategory("infrastructure", ["RELAY_BEACON", "AETHER_TOWER", "WATERWORKS", "FOUNDRY", "GOVERNORS_OFFICE"]);
+    expectCategory("infrastructure", ["RELAY_BEACON", "AMBARIC_TRANSFORMER", "HYDROWORKS", "ORE_REFINERY", "MINISTRY_HALL"]);
   });
 });

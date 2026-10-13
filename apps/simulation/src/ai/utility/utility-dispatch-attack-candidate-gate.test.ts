@@ -81,7 +81,7 @@ const buildDivergedBarbarianState = (): UtilityDispatchState<AutomationPlannerTi
     preferredEnemyAttack: undefined,
     economicBuild: undefined,
     fortBuild: undefined,
-    siegeOutpostBuild: undefined,
+    siegeBatteryBuild: undefined,
     attackStalemateTargetTileKeys: undefined,
     expansionObjective: undefined,
     points: 1_000,

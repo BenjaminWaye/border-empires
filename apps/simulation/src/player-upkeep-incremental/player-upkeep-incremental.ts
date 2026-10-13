@@ -37,11 +37,11 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
@@ -93,7 +93,7 @@ export const tileUpkeepContribution = (
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
   }
 
-  // §12.1/§5.1: Fort (TITANIUM slot), Siege Outpost (UMBRITE slot), and
+  // §12.1/§5.1: Fort (TITANIUM slot), Siege Battery (UMBRITE slot), and
   // Observatory (CRYSTAL slot) no longer carry a separate per-minute flow
   // drain — the slot occupation itself is the upkeep. Settled-land gold
   // upkeep (was a flat 0.04/min per tile) is retired too — §6 states
@@ -104,20 +104,20 @@ export const tileUpkeepContribution = (
   // family (Fur/Iron/Crystal + Advanced tiers, §6.4) has zero ongoing
   // upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE are slot-based (structure-slots.ts),
   // not a per-minute drain, and only the synthesizers still have a real
-  // GOLD cost for their conversion. Fort and Siege Outpost families (below)
+  // GOLD cost for their conversion. Fort and Siege Battery families (below)
   // are the same — no per-minute drain, only their slot occupation.
   const structure = tile.economicStructure;
   if (structure?.ownerId === ownerId && structure.status === "active") {
     switch (structure.type) {
-      case "UMBRITE_SYNTHESIZER":   gold  += UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "ADVANCED_UMBRITE_SYNTHESIZER":
-                                gold    += ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "UMBRITE_WORKS":   gold  += UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "HIGH_YIELD_UMBRITE_WORKS":
+                                gold    += HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "TITANIUM_WORKS":    gold    += TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "ADVANCED_TITANIUM_WORKS":
-                                gold    += ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "CRYSTAL_SYNTHESIZER": gold  += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "ADVANCED_CRYSTAL_SYNTHESIZER":
-                                gold    += ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "HIGH_YIELD_TITANIUM_WORKS":
+                                gold    += HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "AETHER_CONDENSER": gold  += AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "HIGH_YIELD_AETHER_CONDENSER":
+                                gold    += HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
     }
   }
 

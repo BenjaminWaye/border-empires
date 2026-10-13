@@ -19,7 +19,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleRushBuyCommand: (command: CommandEnvelope) => void;
   handleCancelSettleCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
-  handleCancelSiegeOutpostBuildCommand: (command: CommandEnvelope) => void;
+  handleCancelSiegeBatteryBuildCommand: (command: CommandEnvelope) => void;
   handleCollectVisibleCommand: (command: CommandEnvelope) => void;
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
@@ -40,9 +40,9 @@ export type RuntimeCommandDispatchHandlers = {
   handleCreateMountainCommand: (command: CommandEnvelope) => void;
   handleRemoveMountainCommand: (command: CommandEnvelope) => void;
   handleRetortRecastCommand: (command: CommandEnvelope) => void;
-  handleAirportBombardCommand: (command: CommandEnvelope) => void;
+  handleSkyDockBombardCommand: (command: CommandEnvelope) => void;
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => void;
-  handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
+  handleSovereignSiegeEngineStrikeCommand: (command: CommandEnvelope) => void;
   handleAegisLockCommand: (command: CommandEnvelope) => void;
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
   handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
@@ -89,7 +89,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "RUSH_BUY") return handlers.handleRushBuyCommand(command);
   if (command.type === "CANCEL_SETTLE") return handlers.handleCancelSettleCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
-  if (command.type === "CANCEL_SIEGE_OUTPOST_BUILD") return handlers.handleCancelSiegeOutpostBuildCommand(command);
+  if (command.type === "CANCEL_SIEGE_BATTERY_BUILD") return handlers.handleCancelSiegeBatteryBuildCommand(command);
   if (command.type === "COLLECT_VISIBLE") return handlers.handleCollectVisibleCommand(command);
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
@@ -111,9 +111,9 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
   if (command.type === "REDEPLOY_AFC_MODULE" || command.type === "BUILD_AFC") return handlers.handleBuildStructureCommand(command);
-  if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
+  if (command.type === "SKY_DOCK_BOMBARD") return handlers.handleSkyDockBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
-  if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
+  if (command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE") return handlers.handleSovereignSiegeEngineStrikeCommand(command);
   if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
   if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
@@ -139,7 +139,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
 const isLegacyBuildCommand = (command: CommandEnvelope): boolean =>
   command.type === "BUILD_FORT" ||
   command.type === "BUILD_OBSERVATORY" ||
-  command.type === "BUILD_SIEGE_OUTPOST" ||
+  command.type === "BUILD_SIEGE_BATTERY" ||
   command.type === "BUILD_ECONOMIC_STRUCTURE";
 
 const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
@@ -160,7 +160,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "RUSH_BUY" ||
   command.type === "CANCEL_SETTLE" ||
   command.type === "REMOVE_STRUCTURE" ||
-  command.type === "CANCEL_SIEGE_OUTPOST_BUILD" ||
+  command.type === "CANCEL_SIEGE_BATTERY_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
   command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
@@ -183,9 +183,9 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "RETORT_RECAST" ||
   command.type === "REDEPLOY_AFC_MODULE" ||
   command.type === "BUILD_AFC" ||
-  command.type === "AIRPORT_BOMBARD" ||
+  command.type === "SKY_DOCK_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
-  command.type === "WORLD_ENGINE_STRIKE" ||
+  command.type === "SOVEREIGN_SIEGE_ENGINE_STRIKE" ||
   command.type === "AEGIS_LOCK" ||
   command.type === "ASTRAL_DOCK_LAUNCH" ||
   command.type === "TITANIUM_LEVY_MUSTER" ||

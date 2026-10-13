@@ -4,10 +4,10 @@ import { structureDisplayName } from "./structure-display-names.js";
 
 describe("structureDisplayName", () => {
   it("returns the player-facing name for renamed structures", () => {
-    expect(structureDisplayName("CARAVANARY")).toBe("Trade Nexus");
-    expect(structureDisplayName("GRANARY")).toBe("Incubation Engine");
-    expect(structureDisplayName("WOODEN_FORT")).toBe("Palisade");
-    expect(structureDisplayName("SIEGE_OUTPOST")).toBe("Siege Battery");
+    expect(structureDisplayName("TRADE_NEXUS")).toBe("Trade Nexus");
+    expect(structureDisplayName("INCUBATION_ENGINE")).toBe("Incubation Engine");
+    expect(structureDisplayName("PALISADE")).toBe("Palisade");
+    expect(structureDisplayName("SIEGE_BATTERY")).toBe("Siege Battery");
   });
 
   it("humanizes an unknown id instead of showing the raw constant", () => {

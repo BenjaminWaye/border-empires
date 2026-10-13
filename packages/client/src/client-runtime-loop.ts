@@ -472,7 +472,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // image / fallback so the canvas stays clean over them.
         // isStructureHandledBy3D() is the authoritative check, covering
         // both the generic instanced-mesh set and structures (like the
-        // Umbrite rig/factory and CARAVANARY) rendered via a dedicated
+        // Umbrite rig/factory and TRADE_NEXUS) rendered via a dedicated
         // branch in client-map-3d.ts.
         const handled3DStructure =
           isTrue3DRendererActive() &&
@@ -482,7 +482,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+        } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
             active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
@@ -952,10 +952,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
         }
-        if (t && vis === "visible" && t.siegeOutpost) {
+        if (t && vis === "visible" && t.siegeBattery) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
-            t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
+            t.siegeBattery.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
           );
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
@@ -985,7 +985,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (handled3DStructure2) {
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+          } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
               active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"

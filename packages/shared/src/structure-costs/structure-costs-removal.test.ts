@@ -4,8 +4,8 @@ import {
   SIEGE_TIER_LADDER,
   fortBuildDurationMs,
   fortRemovalDurationMs,
-  siegeOutpostBuildDurationMs,
-  siegeOutpostRemovalDurationMs,
+  siegeBatteryBuildDurationMs,
+  siegeBatteryRemovalDurationMs,
   structureBuildDurationMs,
   structureBuildManpowerCost,
   structureRemovalDurationMs
@@ -15,7 +15,7 @@ import {
 // the structure being torn down (replacing the flat FORT_BUILD_MS-style timers).
 describe("structure removal duration", () => {
   test("removal is 0.5s per manpower point", () => {
-    expect(structureRemovalDurationMs("FARMSTEAD")).toBe(structureBuildManpowerCost("FARMSTEAD") * 500);
+    expect(structureRemovalDurationMs("HYDROGARDEN")).toBe(structureBuildManpowerCost("HYDROGARDEN") * 500);
     expect(structureRemovalDurationMs("OBSERVATORY")).toBe(structureBuildManpowerCost("OBSERVATORY") * 500);
   });
 
@@ -34,8 +34,8 @@ describe("structure removal duration", () => {
       expect(fortRemovalDurationMs(tier.variant)).toBe(tier.manpower * 500);
     }
     for (const tier of Object.values(SIEGE_TIER_LADDER)) {
-      expect(siegeOutpostBuildDurationMs(tier.variant)).toBe(tier.manpower * 1_000);
-      expect(siegeOutpostRemovalDurationMs(tier.variant)).toBe(tier.manpower * 500);
+      expect(siegeBatteryBuildDurationMs(tier.variant)).toBe(tier.manpower * 1_000);
+      expect(siegeBatteryRemovalDurationMs(tier.variant)).toBe(tier.manpower * 500);
     }
   });
 });

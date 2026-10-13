@@ -51,7 +51,7 @@ type Story = StoryObj<Args>;
 
 // The hero asset shot: the module docked and aimed at the camera on a light
 // neutral studio backdrop — the large brass-and-steel lens assembly front
-// and center, foundry body and flanks in support.
+// and center, ore refinery body and flanks in support.
 export const SiegeLensFoundryHero: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 1, background: "#a6a3a1" });
@@ -69,7 +69,7 @@ export const SiegeLensFoundryHeroDark: Story = {
 };
 
 // Slow turntable so the whole silhouette can be inspected from every side —
-// docked seat, hexagonal foundry, tanks, clamps and lens aperture.
+// docked seat, hexagonal ore refinery, tanks, clamps and lens aperture.
 export const Turntable: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 4, orthoHalfHeight: 1.15, background: "#15161b" });

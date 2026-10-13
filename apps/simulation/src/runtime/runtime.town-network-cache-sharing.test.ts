@@ -42,11 +42,11 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          // UMBRITE_SYNTHESIZER generates gold upkeep (drives hasOutstandingUpkeepNeed)
+          // UMBRITE_WORKS generates gold upkeep (drives hasOutstandingUpkeepNeed)
           // — post-§12.1, Fort's TITANIUM slot occupation is its upkeep and no
           // longer drives this; synthesizers are the one family still gated
           // on ongoing gold (§6.4).
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_SYNTHESIZER" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_WORKS" as const } },
           // Resource tile is yield-bearing so consumeUpkeepFromTileYield's
           // loop actually iterates and lazily builds the tile-yield context.
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
@@ -112,7 +112,7 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_SYNTHESIZER" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_WORKS" as const } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
         ],
         activeLocks: []
@@ -125,7 +125,7 @@ describe("simulation runtime — shared town network cache", () => {
     runtime.applyPassiveIncome(60_000, 999_999_999);
 
     const state = runtime.exportState();
-    // Upkeep drained gold below the starting 10_000 (UMBRITE_SYNTHESIZER's §6.4
+    // Upkeep drained gold below the starting 10_000 (UMBRITE_WORKS's §6.4
     // gold upkeep, no income offset — post-§12.1 this is the one structure
     // family still gated on ongoing gold).
     const player = state.players.find((p) => p.id === "player-1");

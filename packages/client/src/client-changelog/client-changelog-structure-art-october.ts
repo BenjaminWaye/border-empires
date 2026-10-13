@@ -11,8 +11,8 @@ export const OCTOBER_STRUCTURE_ART_CHANGELOG: ClientChangelogEntry[] = [
   {
     createdAt: 1791830000000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
-    title: "Farmsteads are now hydroponic farms",
-    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
-    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
+    title: "Hydrogardens are now hydroponic farms",
+    why: "The Hydrogarden's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
+    changes: ["Hydrogardens now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];

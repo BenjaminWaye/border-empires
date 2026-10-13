@@ -33,7 +33,7 @@ const BASE: DecisionInputs = {
   needsFood: false,
   hasEconomicBuild: false,
   hasFortBuild: false,
-  hasSiegeOutpost: false,
+  hasSiegeBattery: false,
   hasRelayBeaconBuild: false,
   relayBeaconSiteValue: 0,
   beaconBoostActive: false,
@@ -340,7 +340,7 @@ describe("BUILD_ECONOMY decision", () => {
   });
 
   // Regression: production staging AI-4 sat permanently on WAIT with 22k
-  // gold and a ready, affordable FARMSTEAD candidate because its frontier
+  // gold and a ready, affordable HYDROGARDEN candidate because its frontier
   // was surrounded only by waste-classified neutral tiles. EXPAND correctly
   // refused them (hasActionableNonWasteExpand=false), but the raw
   // expansionOpportunityCount (which includes waste) was still fully

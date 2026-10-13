@@ -10,7 +10,7 @@ export const yieldViewEconomyContext = (
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
 ): Parameters<typeof buildTileYieldView>[3] => ({
   ...(player ? { player } : {}),
-  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}),
+  ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, hydroworksKeys: ctx.hydroworksKeys, oreRefineryKeys: ctx.oreRefineryKeys } : {}),
   tiles,
   dockLinksByDockTileKey
 });

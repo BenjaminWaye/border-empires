@@ -4,7 +4,7 @@ import type { Tile, TileVisibilityState } from "../client-types.js";
 import { tileKeysAroundAnchor, type LocalAnchor } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 
 // On-demand reach visualization: while a reach-projecting structure (town,
-// dock, or outpost-family: RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
+// dock, or outpost-family: RELAY_BEACON/SIEGE_BATTERY/SIEGE_TOWER/
 // DREAD_TOWER) tile is selected (state.selected — set by
 // client-action-flow.ts's handleTileSelection), green-tint every tile its
 // reach disk covers, so the player can see at a glance what one specific
@@ -21,7 +21,7 @@ const HIGHLIGHT_FILL_STYLE = "rgba(70, 220, 100, 0.28)";
  */
 export const reachAnchorKindForTile = (tile: Tile): ReachAnchorKind | undefined => {
   if (tile.dock || tile.dockId) return "DOCK";
-  if (tile.siegeOutpost) return "OUTPOST";
+  if (tile.siegeBattery) return "OUTPOST";
   if (tile.economicStructure?.type === "RELAY_BEACON") return "OUTPOST";
   if (tile.townType || tile.town) return "TOWN";
   return undefined;

@@ -118,7 +118,7 @@ type CommandEnvelope = {
     | "SETTLE"
     | "BUILD_FORT"
     | "BUILD_OBSERVATORY"
-    | "BUILD_SIEGE_OUTPOST"
+    | "BUILD_SIEGE_BATTERY"
     | "BUILD_ECONOMIC_STRUCTURE"
     | "CANCEL_CAPTURE"
     | "COLLECT_TILE"

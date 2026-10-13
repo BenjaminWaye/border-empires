@@ -5,7 +5,7 @@ type Args = {
   size: number;
 };
 
-const icons = import.meta.glob("../../../client/public/overlays/{trade-nexus,caravanary}-overlay.svg", {
+const icons = import.meta.glob("../../../client/public/overlays/trade-nexus-overlay.svg", {
   eager: true,
   query: "?url",
   import: "default"
@@ -18,7 +18,6 @@ for (const [path, url] of Object.entries(icons)) {
 }
 
 const nexusUrl = OVERLAY_URLS["trade-nexus-overlay"] ?? "";
-const caravanaryUrl = OVERLAY_URLS["caravanary-overlay"] ?? "";
 
 const BACKGROUNDS: Record<Args["background"], string> = {
   grass: "#3f5d3a",
@@ -115,39 +114,6 @@ const renderReadability = (): HTMLElement => {
   return root;
 };
 
-const renderContrast = (): HTMLElement => {
-  const root = createRoot("Trade Nexus vs Caravanary — the hub that grows the road-network bonus");
-  const row = document.createElement("div");
-  row.style.display = "flex";
-  row.style.gap = "20px";
-  row.style.flexWrap = "wrap";
-
-  const buildCell = (title: string, url: string): HTMLElement => {
-    const cell = document.createElement("div");
-    cell.style.display = "flex";
-    cell.style.flexDirection = "column";
-    cell.style.alignItems = "center";
-    cell.style.gap = "12px";
-    cell.style.padding = "12px";
-    cell.style.background = "#11161f";
-    cell.style.border = "1px solid #1f2937";
-    cell.style.borderRadius = "6px";
-    const label = document.createElement("div");
-    label.textContent = title;
-    label.style.fontSize = "12px";
-    label.style.opacity = "0.85";
-    cell.appendChild(label);
-    for (const size of [48, 96]) {
-      cell.appendChild(createSwatchCell(url, size, BACKGROUNDS.grass, `${size}px on grass`));
-    }
-    return cell;
-  };
-
-  row.append(buildCell("Trade Nexus", nexusUrl), buildCell("Caravanary", caravanaryUrl));
-  root.appendChild(row);
-  return root;
-};
-
 const meta: Meta<Args> = {
   title: "2D Library/TradeNexusIcon",
   argTypes: {
@@ -170,8 +136,3 @@ export const OnSand: Story = { args: { background: "sand" } };
 // rendered at: the converging trade routes, domed trading hall and brass
 // machinery must all survive down to 32px.
 export const Readability: Story = { render: renderReadability };
-
-// Side-by-side against the existing caravanary tile icon — the building Trade
-// Nexus will replace — so the richer commercial-hub silhouette is clearly
-// distinguishable from the older road-network warehouse at a glance.
-export const ContrastWithCaravanary: Story = { render: renderContrast };

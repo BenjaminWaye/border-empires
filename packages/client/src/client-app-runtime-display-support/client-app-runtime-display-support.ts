@@ -16,7 +16,7 @@ import {
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
-type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | NonNullable<Tile["economicStructure"]>["type"];
+type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_BATTERY" | NonNullable<Tile["economicStructure"]>["type"];
 
 export const createClientRuntimeDisplaySupport = (deps: {
   state: ClientState;
@@ -31,7 +31,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
       if (tile.ownerId !== state.me) continue;
       if (structureType === "FORT" && tile.fort) count += 1;
       else if (structureType === "OBSERVATORY" && tile.observatory) count += 1;
-      else if (structureType === "SIEGE_OUTPOST" && tile.siegeOutpost) count += 1;
+      else if (structureType === "SIEGE_BATTERY" && tile.siegeBattery) count += 1;
       else if (tile.economicStructure?.type === structureType) count += 1;
     }
     return count;

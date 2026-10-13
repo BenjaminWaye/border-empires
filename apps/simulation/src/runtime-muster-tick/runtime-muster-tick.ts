@@ -20,11 +20,11 @@ export type MusterTickInput = {
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
-  activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  activeSiegeBatteriesByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
-  // Resolved per flag owner on demand (see railDepotPositionsForPlayer), not
+  // Resolved per flag owner on demand (see neuralWorksPositionsForPlayer), not
   // precomputed for every owner on every tick.
-  railDepotPositionsForPlayer: (playerId: string) => ReadonlyArray<Position>;
+  neuralWorksPositionsForPlayer: (playerId: string) => ReadonlyArray<Position>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
@@ -52,8 +52,8 @@ export type MusterTickInput = {
   // instead of only ever walking plain adjacency through owned territory.
   aetherBridgeNeighborKeysForPlayer: (playerId: string) => ReadonlyMap<string, readonly string[]>;
   // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
-  // depot-speed/Rail-Depot-boost bonus.
-  isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
+  // depot-speed/Neural-Works-boost bonus.
+  isStructureDormant: (playerId: string, tileKey: string, field: "siegeBattery" | "economicStructure") => boolean;
   // MARCH's neutral-tile expansion fallback (runtime-muster-march.ts) only
   // considers a candidate tile inside the player's own reach — EXPAND is not
   // reach-gated server-side, but letting auto-fire claim ground outside reach
@@ -202,7 +202,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     input.applyManpowerRegen(player, input.nowMs);
 
     const outpostKeys = outpostTileKeysForPlayer(input, playerId);
-    const depotPositions = input.railDepotPositionsForPlayer(playerId);
+    const depotPositions = input.neuralWorksPositionsForPlayer(playerId);
 
     // Count non-stale flags so throughput is split evenly across them.
     let activeMusterCount = 0;

@@ -50,8 +50,8 @@ describe("build menu building art", () => {
   it("shows the building's own map art for buildings that have it", () => {
     expect(buildActionArtUrl("build_mintworks")).toBe("/overlays/mintworks-overlay.svg");
     expect(buildActionArtUrl("build_fortification")).toBe("/overlays/fort-ring-overlay-closed.svg");
-    expect(buildActionIconHtml("build_farmstead")).toContain('src="/overlays/farm-farmstead-overlay-1.svg"');
-    expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/advanced-titanium-works-overlay.svg");
+    expect(buildActionIconHtml("build_hydrogarden")).toContain('src="/overlays/farm-hydrogarden-overlay-1.svg"');
+    expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/high-yield-titanium-works-overlay.svg");
   });
 
   it("returns nothing for actions that build nothing, so the glyph stays", () => {
@@ -69,12 +69,12 @@ describe("build menu building art", () => {
         "build_bank",
         "build_exchange_house",
         "build_fuel_plant",
+        "build_hydroworks",
         "build_lockworks_port",
         "build_quartermasters_office",
         "build_titanium_levy_part_1",
         "build_titanium_levy_part_2",
         "build_titanium_levy_part_3",
-        "build_waterworks",
         "build_weapons_workshop",
       ]
     `);

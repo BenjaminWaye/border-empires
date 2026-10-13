@@ -2,7 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 
 // INIT.activitySeen was added server-side in Phase 0 (gateway-app.ts) but
 // was silently dropped by the client until now -- see docs/activity-dashboard-plan.md
-// §0. Called from client-network.ts's INIT branch (like backfillWorldEngineStrikeHistory)
+// §0. Called from client-network.ts's INIT branch (like backfillSovereignSiegeEngineStrikeHistory)
 // rather than folded into applyInitMessage, since that function's file is
 // already at the repo's 500-line cap and may not grow.
 export const applyInitActivitySeen = (state: Pick<ClientState, "activitySeen"> & { activityDashboard: Pick<ClientState["activityDashboard"], "quietedSeasonId"> }, msg: Record<string, unknown>): void => {

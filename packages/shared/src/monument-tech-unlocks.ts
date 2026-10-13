@@ -10,10 +10,10 @@ import { MONUMENTAL_STRUCTURE_TYPES, type MonumentalStructureType } from "./type
 // mapping to lock the tech and explain why.
 export const MONUMENT_UNLOCK_TECH_ID: Record<MonumentalStructureType, string> = {
   IMPERIAL_EXCHANGE: "urban-mintworks",
-  WORLD_ENGINE: "world-engine",
+  SOVEREIGN_SIEGE_ENGINE: "world-engine",
   AEGIS_DOME: "aegis-dome",
   ASTRAL_DOCK: "astral-dock",
-  POPULATION_BUREAU: "demographic-registry",
+  CENSUS_DIRECTORATE: "demographic-registry",
   TITANIUM_LEVY: "grand-levy-doctrine"
 };
 

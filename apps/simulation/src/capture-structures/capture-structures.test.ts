@@ -20,7 +20,7 @@ const makePlayer = (id: string) => ({
 });
 
 describe("capture structure survival", () => {
-  it("transfers captured structures to the winner but removes siege outposts", async () => {
+  it("transfers captured structures to the winner but removes siege batteries", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -56,7 +56,7 @@ describe("capture structure survival", () => {
               ownershipState: "SETTLED",
               fort: { ownerId: "player-2", status: "active" },
               observatory: { ownerId: "player-2", status: "active", cooldownUntil: 5_000 },
-              siegeOutpost: { ownerId: "player-2", status: "active" },
+              siegeBattery: { ownerId: "player-2", status: "active" },
               economicStructure: {
                 ownerId: "player-2",
                 type: "MINTWORKS",
@@ -103,7 +103,7 @@ describe("capture structure survival", () => {
           })
         })
       );
-      expect(capturedTile?.siegeOutpostJson).toBeUndefined();
+      expect(capturedTile?.siegeBatteryJson).toBeUndefined();
 
       const captureDelta = seen.find(
         (event): event is Extract<SimulationRuntimeEventShape, { eventType: "TILE_DELTA_BATCH" }> =>
@@ -117,7 +117,7 @@ describe("capture structure survival", () => {
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 })
         })
       );
-      expect(captureDelta?.tileDeltas.find((tile) => tile.x === 10 && tile.y === 11)?.siegeOutpostJson).toBeUndefined();
+      expect(captureDelta?.tileDeltas.find((tile) => tile.x === 10 && tile.y === 11)?.siegeBatteryJson).toBeUndefined();
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -152,7 +152,7 @@ describe("capture structure survival", () => {
               ownerId: "player-2",
               ownershipState: "SETTLED",
               observatory: { ownerId: "player-2", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 },
-              economicStructure: { ownerId: "player-2", type: "WOODEN_FORT", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 }
+              economicStructure: { ownerId: "player-2", type: "PALISADE", status: "under_construction", completesAt: COMBAT_LOCK_MS + 20_000 }
             }
           ],
           activeLocks: []
@@ -182,7 +182,7 @@ describe("capture structure survival", () => {
     }
   });
 
-  it("transfers active wooden forts on capture", async () => {
+  it("transfers active palisades on capture", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -209,7 +209,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-2", status: "active", variant: "WOODEN_FORT" }
+              fort: { ownerId: "player-2", status: "active", variant: "PALISADE" }
             }
           ],
           activeLocks: []
@@ -217,7 +217,7 @@ describe("capture structure survival", () => {
       });
 
       runtime.submitCommand({
-        commandId: "capture-wooden-fort-1",
+        commandId: "capture-palisade-1",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
@@ -234,7 +234,7 @@ describe("capture structure survival", () => {
       expect(JSON.parse(capturedTile?.fortJson ?? "null")).toEqual({
         ownerId: "player-1",
         status: "active",
-        variant: "WOODEN_FORT",
+        variant: "PALISADE",
         activatedAt: 1_000
       });
     } finally {
@@ -270,7 +270,7 @@ describe("capture structure survival", () => {
               terrain: "LAND",
               ownerId: "player-2",
               ownershipState: "SETTLED",
-              fort: { ownerId: "player-2", status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT", completesAt: COMBAT_LOCK_MS + 20_000 }
+              fort: { ownerId: "player-2", status: "under_construction", variant: "FORT", upgradingFrom: "PALISADE", completesAt: COMBAT_LOCK_MS + 20_000 }
             }
           ],
           activeLocks: []
@@ -296,7 +296,7 @@ describe("capture structure survival", () => {
       expect(JSON.parse(capturedTile?.fortJson ?? "null")).toEqual({
         ownerId: "player-1",
         status: "active",
-        variant: "WOODEN_FORT",
+        variant: "PALISADE",
         activatedAt: 1_000
       });
     } finally {

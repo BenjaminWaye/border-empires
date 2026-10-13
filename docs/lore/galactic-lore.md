@@ -11,7 +11,7 @@ holding ground on the frontier dangerous.
 ## 1. The Concordance and the Bleed
 
 Known space was once held by a single civilization, the **Concordance**,
-whose technology ran through one central artifact: the **World Engine**. It
+whose technology ran through one central artifact: the **Sovereign Siege Engine**. It
 was the source of everything — Terrain Shaping, the aether-based
 constructs still found today as Monuments, the coordination that let a
 civilization span the stars as one polity.
@@ -98,7 +98,7 @@ aether means** — and it is the act that eventually draws the Bleed's
 attention back.
 
 **Shard** is rarer and more dangerous: not settled aether at all, but
-actual drifting fragments of the shattered World Engine, still loose in
+actual drifting fragments of the shattered Sovereign Siege Engine, still loose in
 space since the war that broke it. When local conditions destabilize
 enough, a fall of Shards can precipitate onto a world's surface — far
 more potent than any Crystal deposit, and far less stable, which is why a
@@ -279,4 +279,4 @@ mirrors that flash light to anyone within sight. Amber signal lamps and a
 small aether-gas tank with brass feed pipes mark it as a working piece of
 anchor machinery rather than a fortress. It has no walls, no crenellations
 and no weapon mounts, so it stands tall, open and unarmoured, and reads at
-a glance against the squat, armed Siege Outpost.
+a glance against the squat, armed Siege Battery.

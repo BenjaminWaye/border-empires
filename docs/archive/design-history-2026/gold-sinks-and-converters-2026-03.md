@@ -17,23 +17,23 @@ Grounded in the live server rules in `packages/server/src/main.ts`:
 
 Current structure gold costs:
 
-- `Farmstead`: `400`
+- `Hydrogarden`: `400`
 - `Camp`: `500`
 - `Mine`: `500`
 - `Market`: `600`
-- `Granary`: `400`
+- `Incubation Engine`: `400`
 - `Bank`: `700`
-- `Airport`: `900`
+- `Sky Dock`: `900`
 - Terrain shaping action: `8000`
 
 Current ongoing gold upkeeps:
 
-- `Farmstead`: `1 / 10m`
+- `Hydrogarden`: `1 / 10m`
 - `Camp`: `1.2 / 10m`
 - `Mine`: `1.2 / 10m`
-- `Granary`: `1 / 10m`
+- `Incubation Engine`: `1 / 10m`
 - Fort: `2 / 10m`
-- Siege outpost: `2 / 10m`
+- Siege Battery: `2 / 10m`
 - Settled land: `1 / 10m per 40 settled tiles`
 
 Conclusion:
@@ -42,10 +42,10 @@ Conclusion:
 - The real brake becomes build slots, resource inputs, and now research time.
 - A player at `170 gold/m` produces `244,800 gold/day`.
 - That can fund:
-  - `612` farmsteads per day
+  - `612` hydrogardens per day
   - `408` markets per day
   - `350` banks per day
-  - `272` airports per day
+  - `272` sky docks per day
   - only `30.6` terrain-shaping actions per day
 - With only `3` development slots and `5m` economic builds, the hard cap is `864` economic structure starts per day.
 
@@ -104,7 +104,7 @@ That means your original crystal idea is workable only if it is intentionally ve
 
 ## Proposed Converter Structures
 
-### Crystal Synthesizer
+### Aether Condenser
 
 - Role: emergency crystal bridge for teching and observatory play
 - Placement: empty settled land
@@ -150,7 +150,7 @@ Reason:
 
 ### Synthetic Fuel Plant
 
-- Role: late-game oil bridge for airport empires
+- Role: late-game oil bridge for sky dock empires
 - Placement: empty settled land
 - Unlock tier: `6`
 - Upfront build cost: `1200 gold + 80 FOOD`
@@ -172,7 +172,7 @@ Best fit:
   - unlocks `Fur Synthesizer`
 - Tier 3 `Proto-Industry`
   - unlocks `Ironworks`
-  - unlocks `Crystal Synthesizer`
+  - unlocks `Aether Condenser`
 - Tier 6 `Plastics`
   - unlocks `Synthetic Fuel Plant`
 
@@ -217,8 +217,8 @@ If we revise the current 1-6 table again, the cleanest additions are:
 - add `Proto-Industry` unlock in tier 3
 - keep `Coinage -> Bank`
 - keep `Ledger Keeping` as connected-city / storage support
-- keep `Industrial Extraction -> Foundry`
-- keep `Aeronautics -> Airport`
+- keep `Industrial Extraction -> Ore Refinery`
+- keep `Aeronautics -> Sky Dock`
 - keep `Plastics` as the late oil branch
 
 ## Strong Opinion
@@ -239,7 +239,7 @@ They should not do this:
 
 Best names:
 
-- `Crystal Synthesizer`
+- `Aether Condenser`
 - `Ironworks`
 - `Fur Synthesizer`
 - `Synthetic Fuel Plant`

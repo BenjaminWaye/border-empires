@@ -41,53 +41,53 @@ export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg"
 export const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MINTWORKS: loadOverlayImage("mintworks-overlay.svg"),
-  GRANARY: loadOverlayImage("incubation-engine-overlay.svg"),
+  INCUBATION_ENGINE: loadOverlayImage("incubation-engine-overlay.svg"),
   CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
-  AIRPORT: loadOverlayImage("airport-overlay.svg"),
-  UMBRITE_SYNTHESIZER: loadOverlayImage("umbrite-synthesizer-overlay.svg"),
-  ADVANCED_UMBRITE_SYNTHESIZER: loadOverlayImage("advanced-umbrite-synthesizer-overlay.svg"),
+  SKY_DOCK: loadOverlayImage("sky-dock-overlay.svg"),
+  UMBRITE_WORKS: loadOverlayImage("umbrite-works-overlay.svg"),
+  HIGH_YIELD_UMBRITE_WORKS: loadOverlayImage("high-yield-umbrite-works-overlay.svg"),
   TITANIUM_WORKS: loadOverlayImage("titanium-works-overlay.svg"),
-  ADVANCED_TITANIUM_WORKS: loadOverlayImage("advanced-titanium-works-overlay.svg"),
-  CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
-  ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
-  CARAVANARY: loadOverlayImage("trade-nexus-overlay.svg"),
-  FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
-  // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot") and
-  // LOGISTICS_GUILD ("Ancillary Factory") had their art swapped; the Depot
+  HIGH_YIELD_TITANIUM_WORKS: loadOverlayImage("high-yield-titanium-works-overlay.svg"),
+  AETHER_CONDENSER: loadOverlayImage("aether-condenser-overlay.svg"),
+  HIGH_YIELD_AETHER_CONDENSER: loadOverlayImage("high-yield-aether-condenser-overlay.svg"),
+  TRADE_NEXUS: loadOverlayImage("trade-nexus-overlay.svg"),
+  ORE_REFINERY: loadOverlayImage("ore-refinery-overlay.svg"),
+  // Manifest tree naming/lore pass: ANCILLARY_DEPOT ("Ancillary Depot") and
+  // ANCILLARY_FACTORY ("Ancillary Factory") had their art swapped; the Depot
   // since got its own dedicated storage-drum overlay (and the Factory keeps
-  // the hopper-tower manufactory). RAIL_DEPOT ("Neural Works") and
-  // ASSEMBLY_WORKS ("Reserve Lattice") still swap.
-  GARRISON_HALL: loadOverlayImage("ancillary-depot-overlay.svg"),
-  CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
-  RAIL_DEPOT: loadOverlayImage("assembly-works-overlay.svg"),
-  GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
-  RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg"),
-  AETHER_TOWER: loadOverlayImage("ambaric-tower-overlay.svg"),
+  // the hopper-tower manufactory). NEURAL_WORKS ("Neural Works") and
+  // RESERVE_LATTICE ("Reserve Lattice") still swap.
+  ANCILLARY_DEPOT: loadOverlayImage("ancillary-depot-overlay.svg"),
+  HARBOR_EXCHANGE: loadOverlayImage("harbor-exchange-overlay.svg"),
+  NEURAL_WORKS: loadOverlayImage("neural-works-overlay.svg"),
+  MINISTRY_HALL: loadOverlayImage("ministry-hall-overlay.svg"),
+  RESONANCE_GRID: loadOverlayImage("resonance-grid-overlay.svg"),
+  AMBARIC_TRANSFORMER: loadOverlayImage("ambaric-tower-overlay.svg"),
   AEGIS_DOME: loadOverlayImage("aegis-dome-overlay.svg"),
   ASTRAL_DOCK: loadOverlayImage("astral-dock-overlay.svg"),
   ASTRAL_DOCK_PART_1: loadOverlayImage("launch-cradle-overlay.svg"),
   ASTRAL_DOCK_PART_2: loadOverlayImage("orbital-array-overlay.svg"),
   ASTRAL_DOCK_PART_3: loadOverlayImage("aether-sail-overlay.svg"),
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
-  WORLD_ENGINE: loadOverlayImage("world-engine-overlay.svg"),
+  SOVEREIGN_SIEGE_ENGINE: loadOverlayImage("sovereign-siege-engine-overlay.svg"),
   QUARTERMASTERS_OFFICE: loadOverlayImage("quartermasters-office-overlay.svg"),
-  LOGISTICS_GUILD: loadOverlayImage("ancillary-factory-overlay.svg"),
-  ASSEMBLY_WORKS: loadOverlayImage("rail-depot-overlay.svg"),
-  POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
+  ANCILLARY_FACTORY: loadOverlayImage("ancillary-factory-overlay.svg"),
+  RESERVE_LATTICE: loadOverlayImage("reserve-lattice-overlay.svg"),
+  CENSUS_DIRECTORATE: loadOverlayImage("census-directorate-overlay.svg"),
   TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg"),
   CENSUS_HALL: loadOverlayImage("census-hall-overlay.svg"),
   WEAPONS_WORKSHOP: loadOverlayImage("weapons-workshop-overlay.svg"),
   TITANIUM_WEAPONS_FACTORY: loadOverlayImage("titanium-weapons-factory-overlay.svg"),
   UMBRITE_WEAPONS_FACTORY: loadOverlayImage("umbrite-weapons-factory-overlay.svg"),
-  WORLD_ENGINE_PART_1: loadOverlayImage("long-barrel-overlay.svg"),
-  WORLD_ENGINE_PART_2: loadOverlayImage("fracture-core-overlay.svg"),
-  WORLD_ENGINE_PART_3: loadOverlayImage("sky-marking-array-overlay.svg"),
+  SOVEREIGN_SIEGE_ENGINE_PART_1: loadOverlayImage("long-barrel-overlay.svg"),
+  SOVEREIGN_SIEGE_ENGINE_PART_2: loadOverlayImage("fracture-core-overlay.svg"),
+  SOVEREIGN_SIEGE_ENGINE_PART_3: loadOverlayImage("sky-marking-array-overlay.svg"),
   IMPERIAL_EXCHANGE_PART_1: loadOverlayImage("golden-ledger-overlay.svg"),
   IMPERIAL_EXCHANGE_PART_2: loadOverlayImage("counting-engine-overlay.svg"),
   IMPERIAL_EXCHANGE_PART_3: loadOverlayImage("sovereign-seal-overlay.svg"),
-  POPULATION_BUREAU_PART_1: loadOverlayImage("census-engine-overlay.svg"),
-  POPULATION_BUREAU_PART_2: loadOverlayImage("registry-vault-overlay.svg"),
-  POPULATION_BUREAU_PART_3: loadOverlayImage("levy-charter-overlay.svg")
+  CENSUS_DIRECTORATE_PART_1: loadOverlayImage("census-engine-overlay.svg"),
+  CENSUS_DIRECTORATE_PART_2: loadOverlayImage("registry-vault-overlay.svg"),
+  CENSUS_DIRECTORATE_PART_3: loadOverlayImage("levy-charter-overlay.svg")
 } as const;
 
 export const naturalWonderOverlayImages = {
@@ -104,7 +104,7 @@ export const naturalWonderOverlayImages = {
 const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for TITANIUM_BASTION/THUNDER_BASTION (3D-only art)
 export const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
   FORT: fortRingOverlaySet, TITANIUM_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
-  SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
-  WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
+  SIEGE_BATTERY: createDirectionalOverlaySet("siege-battery-overlay", "static"),
+  PALISADE: createDirectionalOverlaySet("palisade-ring-overlay"),
   RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };

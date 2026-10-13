@@ -1,3 +1,4 @@
+import { upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DatabaseSync } from "node:sqlite";
 import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
@@ -89,7 +90,7 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
       .prepare(`SELECT logs_json FROM season_activity_logs WHERE season_id = ? LIMIT 1`)
       .get(seasonId) as ActivityLogsRow | undefined;
     if (!row) return undefined;
-    const parsed = JSON.parse(row.logs_json) as Partial<PersistedActivityLogs>;
+    const parsed = upgradeLegacyStructureNames(JSON.parse(row.logs_json) as Partial<PersistedActivityLogs>);
     if (!Array.isArray(parsed.flips) || !Array.isArray(parsed.combat)) return undefined;
     const personalImpactCapHits = typeof parsed.personalImpactCapHits === "number" && Number.isFinite(parsed.personalImpactCapHits)
       ? Math.max(0, parsed.personalImpactCapHits)
@@ -121,7 +122,7 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
       .prepare(`SELECT tiles_json FROM season_deadliest_tiles WHERE season_id = ? LIMIT 1`)
       .get(seasonId) as DeadliestTilesRow | undefined;
     if (!row) return undefined;
-    const parsed: unknown = JSON.parse(row.tiles_json);
+    const parsed: unknown = upgradeLegacyStructureNames(JSON.parse(row.tiles_json) as unknown);
     return Array.isArray(parsed) ? (parsed as DeadliestTileEntry[]) : undefined;
   }
 
@@ -143,14 +144,14 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
     const row = this.db
       .prepare(`SELECT summary_json FROM world_status_current WHERE singleton_key = ? LIMIT 1`)
       .get(CURRENT_KEY) as CurrentRow | undefined;
-    return row ? (JSON.parse(row.summary_json) as CurrentSeasonSummary) : undefined;
+    return row ? upgradeLegacyStructureNames(JSON.parse(row.summary_json) as CurrentSeasonSummary) : undefined;
   }
 
   async listArchives(limit = SEASON_ARCHIVE_LIST_LIMIT): Promise<SeasonArchiveRow[]> {
     const rows = this.db
       .prepare(`SELECT summary_json FROM season_archive ORDER BY ended_at DESC LIMIT ?`)
       .all(limit) as ArchiveRow[];
-    return rows.map((row) => JSON.parse(row.summary_json) as SeasonArchiveRow);
+    return rows.map((row) => upgradeLegacyStructureNames(JSON.parse(row.summary_json) as SeasonArchiveRow));
   }
 
   async archiveSeason(summary: SeasonArchiveRow): Promise<void> {

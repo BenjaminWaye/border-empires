@@ -16,7 +16,7 @@ import type { RuntimeStructureCommandContext } from "./runtime-structure-command
 // §5.1/§5.6: a structure permanently occupies a slot of its required
 // resource(s) for as long as it exists — construction just needs a free slot
 // at build time, no stockpile spend. `tileField`/`target` let an in-place
-// upgrade (Fort/Siege tier ladders, granary Advanced pair) net out the
+// upgrade (Fort/Siege tier ladders, incubation engine Advanced pair) net out the
 // requirement it's about to overwrite on its own tile, so it only needs
 // *additional* capacity for the delta, not the new tier's full requirement
 // stacked on top of the old one it's replacing.
@@ -30,7 +30,7 @@ export function hasFreeResourceSlots(
   structureType: BuildableStructureType,
   slotStructureType: SlotStructureType,
   target: DomainTileState,
-  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure"
 ): boolean {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
   if (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(command.playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return true;

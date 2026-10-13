@@ -38,8 +38,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             connectedTownBonus: 0.2,
             hasMintworks: true,
             mintworksActive: true,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }),
           townType: "MARKET",
           townName: "BlackFang",
@@ -67,15 +67,15 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }),
           townType: "FARMING",
           townName: "BrightFang",
           townPopulationTier: "CITY"
         },
-        landTile(11, 11, "player-2", "CARAVANARY"),
-        // Feeds the Caravanary's own FOOD slot demand so it isn't dormant.
+        landTile(11, 11, "player-2", "TRADE_NEXUS"),
+        // Feeds the Trade Nexus's own FOOD slot demand so it isn't dormant.
         { x: 12, y: 12, terrain: "LAND" as const, resource: "FARM" as const, ownerId: "player-2", ownershipState: "SETTLED" as const }
       ],
       players: [
@@ -111,7 +111,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownBonus).toBe(0.5);
   });
 
-  it("gives no FOOD yield to a Farmstead FARM tile regardless of an active Waterworks in radius (§5.4: slot-based, not yield-based)", () => {
+  it("gives no FOOD yield to a Hydrogarden FARM tile regardless of an active Hydroworks in radius (§5.4: slot-based, not yield-based)", () => {
     const farmTile = {
       x: 5,
       y: 5,
@@ -119,15 +119,15 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
       resource: "FARM",
       ownerId: "player-1",
       ownershipState: "SETTLED" as const,
-      economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "player-1" })
+      economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "player-1" })
     };
-    const waterworksTile = {
+    const hydroworksTile = {
       x: 10,
       y: 5,
       terrain: "LAND" as const,
       ownerId: "player-1",
       ownershipState: "SETTLED" as const,
-      economicStructureJson: JSON.stringify({ type: "WATERWORKS", status: "active", ownerId: "player-1" })
+      economicStructureJson: JSON.stringify({ type: "HYDROWORKS", status: "active", ownerId: "player-1" })
     };
     const player = {
       id: "player-1",
@@ -141,21 +141,21 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
       vision: 1,
       visionRadiusBonus: 0
     };
-    const withoutWaterworks = enrichSnapshotTilesForGlobalVisibility({
+    const withoutHydroworks = enrichSnapshotTilesForGlobalVisibility({
       tiles: [farmTile],
       players: [player],
       pendingSettlements: [],
       activeLocks: []
     });
-    const withWaterworks = enrichSnapshotTilesForGlobalVisibility({
-      tiles: [farmTile, waterworksTile],
+    const withHydroworks = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [farmTile, hydroworksTile],
       players: [player],
       pendingSettlements: [],
       activeLocks: []
     });
-    const baseFood = withoutWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    const boostedFood = withWaterworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    // §5.4: FOOD is slot-based, not yield-based — no Farmstead/Waterworks
+    const baseFood = withoutHydroworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    const boostedFood = withHydroworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
+    // §5.4: FOOD is slot-based, not yield-based — no Hydrogarden/Hydroworks
     // FOOD yield to boost anymore.
     expect(baseFood).toBe(0);
     expect(boostedFood).toBe(0);
@@ -178,7 +178,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
       tiles: [
         // Bare settled resource tile — no structure, no dock: predicate is false.
         { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "UMBRITE" },
-        // Active FARMSTEAD — strategic-affecting structure: predicate is true.
+        // Active HYDROGARDEN — strategic-affecting structure: predicate is true.
         {
           x: 2,
           y: 1,
@@ -186,7 +186,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           ownerId: "player-2",
           ownershipState: "SETTLED",
           resource: "FARM",
-          economicStructureJson: JSON.stringify({ type: "FARMSTEAD", status: "active", ownerId: "player-2" })
+          economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "player-2" })
         },
         // Dock tile — predicate is true regardless of structure.
         { x: 3, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-a" }
@@ -197,14 +197,14 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     });
 
     const bare = tiles.find((t) => t.x === 1 && t.y === 1);
-    const farmstead = tiles.find((t) => t.x === 2 && t.y === 1);
+    const hydrogarden = tiles.find((t) => t.x === 2 && t.y === 1);
     const dock = tiles.find((t) => t.x === 3 && t.y === 1);
 
     expect(bare).not.toHaveProperty("yieldRate");
     expect(bare).not.toHaveProperty("yieldCap");
-    expect(farmstead).toHaveProperty("yieldRate");
+    expect(hydrogarden).toHaveProperty("yieldRate");
     // §5.4: FOOD is slot-based, not yield-based — no strategicPerDay.FOOD anymore.
-    expect((farmstead as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBeUndefined();
+    expect((hydrogarden as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBeUndefined();
     expect(dock).toHaveProperty("yieldRate");
   });
 });

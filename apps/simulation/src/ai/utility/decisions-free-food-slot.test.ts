@@ -4,7 +4,7 @@ import { scoreDecision, type DecisionInputs } from "./decisions.js";
 
 /**
  * FREE_FOOD_SLOT: last-resort SET_CONVERTER_STRUCTURE_ENABLED (disable, never demolish) when FOOD slots are fully
- * exhausted and there's no direct fix (a FARMSTEAD/WATERWORKS/GRANARY build)
+ * exhausted and there's no direct fix (a HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE build)
  * available — see food-slot-relief.ts and automation-command-planner.ts's
  * needVector wiring.
  */
@@ -35,7 +35,7 @@ const baseInputs: DecisionInputs = {
   needsFood: true,
   hasEconomicBuild: false,
   hasFortBuild: false,
-  hasSiegeOutpost: false,
+  hasSiegeBattery: false,
   hasRelayBeaconBuild: false,
   relayBeaconSiteValue: 0,
   beaconBoostActive: false,

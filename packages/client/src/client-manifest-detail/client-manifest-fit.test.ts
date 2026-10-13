@@ -57,7 +57,7 @@ describe("manifestFit", () => {
   // Regression: the reason always said "a", giving "a Ambaric Transformer".
   it("uses 'an' before a building name that starts with a vowel", () => {
     const plenty = slots({ FOOD: 9, TITANIUM: 9, CRYSTAL: 9, UMBRITE: 9 });
-    const fit = manifestFit(tech({ unlockAetherTower: true }), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
+    const fit = manifestFit(tech({ unlockAmbaricTransformer: true }), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
     expect(fit.goodPickReasons).toEqual(["You can build an Ambaric Transformer right away"]);
   });
 

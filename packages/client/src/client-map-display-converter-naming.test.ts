@@ -8,14 +8,14 @@ import { economicStructureName } from "./client-map-display.js";
 // rename of the identifiers themselves.
 describe("economicStructureName — converter-mode-flip naming", () => {
   it("returns direction-neutral names for the Umbrite/Titanium converter family", () => {
-    expect(economicStructureName("UMBRITE_SYNTHESIZER")).toBe("Umbrite Works");
-    expect(economicStructureName("ADVANCED_UMBRITE_SYNTHESIZER")).toBe("High-Yield Umbrite Works");
+    expect(economicStructureName("UMBRITE_WORKS")).toBe("Umbrite Works");
+    expect(economicStructureName("HIGH_YIELD_UMBRITE_WORKS")).toBe("High-Yield Umbrite Works");
     expect(economicStructureName("TITANIUM_WORKS")).toBe("Titanium Works");
-    expect(economicStructureName("ADVANCED_TITANIUM_WORKS")).toBe("High-Yield Titanium Works");
+    expect(economicStructureName("HIGH_YIELD_TITANIUM_WORKS")).toBe("High-Yield Titanium Works");
   });
 
   it("leaves the already direction-neutral Aether Condenser name unchanged", () => {
-    expect(economicStructureName("CRYSTAL_SYNTHESIZER")).toBe("Aether Condenser");
-    expect(economicStructureName("ADVANCED_CRYSTAL_SYNTHESIZER")).toBe("High-Yield Aether Condenser");
+    expect(economicStructureName("AETHER_CONDENSER")).toBe("Aether Condenser");
+    expect(economicStructureName("HIGH_YIELD_AETHER_CONDENSER")).toBe("High-Yield Aether Condenser");
   });
 });

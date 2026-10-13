@@ -126,7 +126,7 @@ export type SimulationEvent =
         townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
         fortJson?: string | undefined;
         observatoryJson?: string | undefined;
-        siegeOutpostJson?: string | undefined;
+        siegeBatteryJson?: string | undefined;
         economicStructureJson?: string | undefined;
         sabotageJson?: string | undefined;
         shardSiteJson?: string | undefined;
