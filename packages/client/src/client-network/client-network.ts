@@ -1,3 +1,5 @@
+import { notifyCombatResult } from "./client-combat-result-notifications.js";
+import { musterReportFlagKey, trackMusterReportStart } from "../client-muster-combat-reports/client-muster-combat-reports.js";
 import { COMBAT_LOCK_MS, SEASON_ROLLOVER_CLOSE_REASON, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { resetFrontierActionStateAfterError } from "./client-frontier-error-reset.js";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
@@ -629,6 +631,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         frontierDecayKind?: FrontierDecayKind | null;
       }>) ??
       [];
+    const reportFlagKey = musterReportFlagKey(state, msg);
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
       const tileKey = keyFor(change.x, change.y);
@@ -645,37 +648,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.queuedTargetKeys.delete(tileKey);
       }
     }
-    const resultAlert = combatResolutionAlert(msg, {
-      targetTileBefore: targetBefore,
-      originTileBefore: originBefore
-    });
-    const resultTargetKey = target ? keyFor(target.x, target.y) : "";
-    const predictedAlreadyShown = Boolean(
-      (state.pendingCombatReveal &&
-        state.pendingCombatReveal.targetKey === resultTargetKey &&
-        state.pendingCombatReveal.revealed &&
-        state.pendingCombatReveal.title === resultAlert.title &&
-        state.pendingCombatReveal.detail === resultAlert.detail) ||
-        (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
-    );
-    // Silent waypoint EXPAND on neutral: state.capture.silent is set
-    // and the result is a "Territory Claimed" success. Skip both the
-    // feed entry and the captureAlert popup. Anything else (attack
-    // results, settle results, the lost-territory tone) still surfaces.
-    const silentExpandSuccess = Boolean(state.capture?.silent && msg.attackType === "EXPAND" && resultAlert.tone === "success");
-    if (!predictedAlreadyShown && !silentExpandSuccess) {
-      appendFeedEntry({
-        title: resultAlert.title,
-        text: resultAlert.detail,
-        type: "combat",
-        severity: resultAlert.tone === "success" ? "success" : "warn",
-        at: Date.now(),
-        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
-          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
-          : {})
-      });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
-    }
+    const { resultAlert, resultTargetKey } = notifyCombatResult(state, msg, {
+      targetTileBefore: targetBefore, originTileBefore: originBefore
+    }, reportFlagKey, { keyFor, combatResolutionAlert, wasPredictedCombatAlreadyShown, appendFeedEntry, showCaptureAlert });
     if (resultTargetKey) {
       if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
       else state.revealedPredictedCombatByKey.delete(resultTargetKey);
@@ -1541,6 +1516,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
       if (msg.type === "COMBAT_START") {
+      trackMusterReportStart(state, msg as Record<string, unknown>);
       if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {

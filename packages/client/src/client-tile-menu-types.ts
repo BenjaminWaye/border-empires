@@ -1,3 +1,4 @@
+import type { MusterReportsView } from "./client-muster-combat-reports/client-muster-combat-reports-ui.js";
 // Tile action menu view types -- split out of client-types.ts (which is
 // already over the repo's 500-line file-growth cap) so this cluster can grow
 // independently. Re-exported from client-types.ts so existing importers of
@@ -7,7 +8,7 @@ import type { MusterCommitView } from "./client-muster-commit-tab/client-muster-
 import type { TileActionDef } from "./client-types.js";
 import type { AfcModuleTabView } from "./client-afc-module-tab/client-afc-module-tab.js";
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit" | "modules";
+export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit" | "modules" | "reports";
 
 export type TileMenuProgressView = {
   title: string;
@@ -81,6 +82,7 @@ export type TileCombatBreakdown = {
 };
 
 export type TileMenuView = {
+  musterReports?: MusterReportsView;
   modules?: AfcModuleTabView;
   title: string;
   townCharacter?: string;

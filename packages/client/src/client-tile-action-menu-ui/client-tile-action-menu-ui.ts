@@ -1,4 +1,6 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
+import { locationThemeForTile } from "./client-location-theme.js";
+import { injectMusterCombatReports, wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -16,34 +18,6 @@ import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-t
 import { afcModulePickerStateForTitle, bindAfcModulePicker, fitAfcModulePicker } from "../client-afc-module-tab/client-afc-module-tab.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
-
-/**
- * A support tile is a plain owned tile within one of the player's own
- * (non-settlement) towns' support rings — there's no dedicated field for it.
- * Radius is tier-aware (supportRingRadiusForTier: 1 for most tiers, 2 for
- * GREAT_CITY/METROPOLIS) — a flat `dx <= 1 && dy <= 1` here used to silently
- * exclude a wide-ring town's distance-2 tiles, so this only ever played the
- * town location theme on the base 8, not the full ring.
- */
-const isOwnedTownSupportTile = (state: ClientState, tile: Tile): boolean => {
-  for (const candidate of state.tiles.values()) {
-    if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
-    if (candidate.town.populationTier === "SETTLEMENT") continue;
-    const dx = Math.min(Math.abs(candidate.x - tile.x), WORLD_WIDTH - Math.abs(candidate.x - tile.x));
-    const dy = Math.min(Math.abs(candidate.y - tile.y), WORLD_HEIGHT - Math.abs(candidate.y - tile.y));
-    if (dx === 0 && dy === 0) continue;
-    if (Math.max(dx, dy) <= supportRingRadiusForTier(candidate.town.populationTier)) return true;
-  }
-  return false;
-};
-
-const locationThemeForTile = (state: ClientState, tile: Tile): "town" | "dock" | "wonder" | undefined => {
-  if (tile.town) return "town";
-  if (tile.dockId) return "dock";
-  if (tile.naturalWonder) return "wonder";
-  if (isOwnedTownSupportTile(state, tile)) return "town";
-  return undefined;
-};
 
 type TileActionMenuUiDeps = {
   tileActionMenuEl: ClientDom["tileActionMenuEl"];
@@ -96,6 +70,7 @@ export const renderTileActionMenu = (
       });
       injectDebugDownloadRow(view, menuTile, state.authEmail);
       injectDockNavigatorRow(view, menuTile, state);
+      injectMusterCombatReports(view, menuTile, state);
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
@@ -108,7 +83,9 @@ export const renderTileActionMenu = (
   const shouldReuseRenderedMenu = state.tileActionMenu.visible && state.tileActionMenu.renderSignature === signature;
   const afcPickerState = !shouldReuseRenderedMenu && state.tileActionMenu.visible && activeTab === "modules" ? afcModulePickerStateForTitle(deps.tileActionMenuEl, view.title) : undefined;
   if (!shouldReuseRenderedMenu) {
+    const openReportIds = openMusterReportIds(deps.tileActionMenuEl);
     deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
+    restoreOpenMusterReports(deps.tileActionMenuEl, openReportIds);
     state.tileActionMenu.renderSignature = signature;
   }
   const { width: vw, height: vh } = deps.viewportSize();
@@ -127,6 +104,7 @@ export const renderTileActionMenu = (
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
     wireDockNavigatorButtons(deps.tileActionMenuEl, state);
+    wireMusterReports(deps.tileActionMenuEl, state, view.musterReports, deps.renderHud);
     // The tile owner's name (tileOwnerLabelHtml) opens their player profile.
     // Wired here, not via the general wirePlayerProfileOverlay pass, since
     // this menu can re-render outside a full renderClientHud cycle (e.g. the
