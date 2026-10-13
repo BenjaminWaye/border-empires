@@ -73,7 +73,7 @@ describe("renderManifestDetailHtml", () => {
     const html = renderManifestDetailHtml(context());
     expect(html).toContain('<span class="manifest-gain__art"><img src="/overlays/fort-ring-overlay-closed.svg"');
     expect(html).toContain('<img src="/overlays/titanium-weapons-factory-overlay.svg"');
-    expect(html).toContain('src="/icons/resources/titanium-48.png"');
+    expect(html).toMatch(/<span class="manifest-gain__icon" aria-hidden="true"><img class="resource-icon-img" [^>]*alt="Titanium"/);
     const augury: TechInfo = { ...bastion, id: "beacon-towers", prereqIds: [], effects: { unlockSurveySweep: true, unlockRevealEmpire: true } };
     const abilities = renderManifestDetailHtml(context({ tech: augury }));
     // Each ability shows its own glyph (Reveal Empire ◉, Survey Sweep ⌖), not one shared marker.

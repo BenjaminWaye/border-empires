@@ -18,3 +18,10 @@
   height: 1em;
   vertical-align: middle;
 }
+
+/* The resource bar pills have room for a bigger icon than running text does. */
+.resource-icon .resource-icon-img {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+}
