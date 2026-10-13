@@ -39,7 +39,7 @@ export const dispatchGenericBuild = (structureType: BuildableStructureType, tile
 // dispatching the build directly for every other type. Relay Beacons build
 // instantly, so committing on the first click made siting trial-and-error
 // (playtest: beacons cancelled and re-placed, or dropped inside existing
-// reach) -- placement shows the new reach and the recommended spots first.
+// reach) -- placement shows the new reach it would add before committing.
 export const triggerBuildForStructureType = (
   structureType: BuildableStructureType,
   tile: Tile,

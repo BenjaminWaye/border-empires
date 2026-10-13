@@ -35,6 +35,7 @@
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
+import { setOnboardingRelayBeaconSite } from "./client-onboarding-relay-beacon-recommendation.js";
 import { hasOnboardingChecklistAutoOpened, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 
 const BUBBLE_ID = "onboarding-checklist-bubble";
@@ -205,6 +206,9 @@ export const renderOnboardingChecklistOverlay = (
   deferred = false
 ): Array<{ x: number; y: number }> => {
   const state = onboardingChecklistState(tiles, playerId, authEmail);
+  // Drives the "★ Recommended" badge on the marked tile's Build Relay Beacon
+  // action -- only while that marker is actually on screen.
+  setOnboardingRelayBeaconSite(state.step === "EXPAND_RELAY_BEACON" && !deferred ? state.relayBeaconSite : undefined);
 
   if (state.step === "DONE") {
     if (lastCompletedStep !== "DONE") completeOnboardingChecklist(state, authEmail);
@@ -230,6 +234,7 @@ export const resetOnboardingChecklistOverlayForTests = (): void => {
   autoCollapsed = false;
   lastRemaining = null;
   lastCompletedStep = null;
+  setOnboardingRelayBeaconSite(undefined);
 };
 
 const escapeHtml = (value: string): string =>

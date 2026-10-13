@@ -451,8 +451,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Relay Beacons show where to build them",
     why: "Playtesters placed Relay Beacons by trial and error -- dropping them inside reach they already had, or cancelling and re-placing them -- and the new-player checklist said to build a beacon without showing where.",
     changes: [
-      "Choosing Build Relay Beacon now lets you pick the spot first: the new land it would reach is shaded, and green rings mark the spots that reach the most new land (towns and resources count most)",
       "When nothing worth taking is in reach, the new-player checklist now marks the tile to build your Relay Beacon on, aimed at the nearest town or food you still need",
+      "On that marked tile, Build Relay Beacon is tagged ★ Recommended and listed first",
+      "Choosing Build Relay Beacon now lets you pick the spot first, with the new land it would reach shaded before you confirm",
       "Works on both the 3D and 2D maps"
     ]
   }

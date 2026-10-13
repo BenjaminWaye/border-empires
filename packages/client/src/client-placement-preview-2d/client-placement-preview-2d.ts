@@ -6,7 +6,6 @@ import {
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
 import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
-import { relayBeaconPlacementSites } from "../client-relay-beacon-site/client-relay-beacon-placement-sites.js";
 
 // Outpost-family structures (RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see
@@ -17,11 +16,6 @@ import { relayBeaconPlacementSites } from "../client-relay-beacon-site/client-re
 const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
 const REACH_PREVIEW_STROKE_STYLE = "rgba(150, 220, 255, 0.9)";
 const REACH_PREVIEW_INVALID_STROKE_STYLE = "rgba(220, 80, 80, 0.9)";
-// Matches the onboarding checklist's green objective ring
-// (client-onboarding-checklist-highlight.ts) so "build here" reads the same
-// whether the player got here from the checklist or the build menu.
-const RECOMMENDED_SITE_STROKE_STYLE = "rgba(126, 224, 138, 0.95)";
-const RECOMMENDED_SITE_FILL_STYLE = "rgba(126, 224, 138, 0.22)";
 const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(150, 220, 255, 0.10)";
 
 export type PlacementPreview2DDeps = {
@@ -112,26 +106,6 @@ const renderOutpostReachGhostPreview = (
   deps.ctx.restore();
 };
 
-// Rings the recommended Relay Beacon spots (client-relay-beacon-site.ts) so
-// the player can see where a beacon reaches the most new land before
-// committing -- the best one drawn boldest.
-const renderRecommendedRelayBeaconSites = (state: ClientState, deps: PlacementPreview2DDeps, size: number, halfW: number, halfH: number): void => {
-  const sites = relayBeaconPlacementSites(state);
-  deps.ctx.save();
-  sites.forEach((site, index) => {
-    const { sx, sy } = deps.worldToScreen(site.x, site.y, size, halfW, halfH);
-    deps.ctx.globalAlpha = index === 0 ? 1 : 0.6;
-    deps.ctx.fillStyle = RECOMMENDED_SITE_FILL_STYLE;
-    deps.ctx.fillRect(sx - size / 2 + 1, sy - size / 2 + 1, size - 2, size - 2);
-    deps.ctx.strokeStyle = RECOMMENDED_SITE_STROKE_STYLE;
-    deps.ctx.lineWidth = index === 0 ? 3 : 2;
-    deps.ctx.beginPath();
-    deps.ctx.arc(sx, sy, size * 0.62, 0, Math.PI * 2);
-    deps.ctx.stroke();
-  });
-  deps.ctx.restore();
-};
-
 export const renderBuildingPlacementPreview2D = (
   state: ClientState,
   deps: PlacementPreview2DDeps,
@@ -142,7 +116,6 @@ export const renderBuildingPlacementPreview2D = (
   if (!state.buildingPlacement.active) return;
   const st = state.buildingPlacement.structureType;
   if (OUTPOST_FAMILY_STRUCTURE_TYPES.has(st)) {
-    if (st === "RELAY_BEACON") renderRecommendedRelayBeaconSites(state, deps, size, halfW, halfH);
     renderOutpostReachGhostPreview(state, deps, size, halfW, halfH);
     return;
   }

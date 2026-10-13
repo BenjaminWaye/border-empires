@@ -90,10 +90,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
     }
     const st = state.buildingPlacement.structureType;
     const name = st === "AFC" ? "Automated Fabrication Complex" : structureDisplayName(st);
-    deps.placementLabelEl.textContent =
-      st === "RELAY_BEACON"
-        ? `Placing ${name} — rings mark the spots that reach the most new land; click a tile to move, then confirm`
-        : `Placing ${name} — click a tile to move, then confirm`;
+    deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
   };
 
