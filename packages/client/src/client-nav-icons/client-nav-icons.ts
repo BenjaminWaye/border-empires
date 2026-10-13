@@ -15,8 +15,13 @@ export type NavTabIconKey =
   | "activity"
   | "settings";
 
-const navTabIconUrl = (key: NavTabIconKey): string =>
-  key === "domains" ? resourceSimpleIconUrl("SHARD") : `/icons/simple/${key}.svg`;
+// The "tech" panel is shown to players as Manifest (charters, grants, warrants,
+// dossiers), so its icon is a sealed ledger rather than a tech symbol.
+const navTabIconUrl = (key: NavTabIconKey): string => {
+  if (key === "domains") return resourceSimpleIconUrl("SHARD");
+  if (key === "tech") return "/icons/simple/manifest.svg";
+  return `/icons/simple/${key}.svg`;
+};
 
 // The button around the icon already carries the title/aria-label, so the
 // image itself is decorative.
