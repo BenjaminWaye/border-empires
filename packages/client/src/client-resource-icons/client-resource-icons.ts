@@ -22,7 +22,7 @@ const RESOURCE_ICON_FILE: Record<ResourceIconKey, string> = {
 };
 
 const RESOURCE_ICON_LABEL: Record<ResourceIconKey, string> = {
-  GOLD: "Gold",
+  GOLD: "Coin",
   FOOD: "Food",
   TITANIUM: "Titanium",
   CRYSTAL: "Crystal",

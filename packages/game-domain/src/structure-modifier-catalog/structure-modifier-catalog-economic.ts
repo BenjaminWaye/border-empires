@@ -22,11 +22,11 @@ const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
   const goldPerDay = Math.round(MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * UPKEEP_MINUTES_PER_DAY);
   const hasLiveCount = typeof count === "number" && count > 0;
   const stackedValueText = hasLiveCount
-    ? `${percentLabel(perCopyPercent * count)} town gold production`
-    : `${percentLabel(perCopyPercent)} town gold production per Mintworks`;
+    ? `${percentLabel(perCopyPercent * count)} town coin production`
+    : `${percentLabel(perCopyPercent)} town coin production per Mintworks`;
   return [
-    { statLabel: "Instant gold", valueText: `+${MINTWORKS_INSTANT_GOLD_BONUS} (once, on completion)`, tone: "positive", isTownWide: true },
-    { statLabel: "Gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay },
+    { statLabel: "Instant coin", valueText: `+${MINTWORKS_INSTANT_GOLD_BONUS} (once, on completion)`, tone: "positive", isTownWide: true },
+    { statLabel: "Coin", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay },
     // Nonlinear stacking (each copy is worth more with an active Clearing
     // House) means the aggregate total can't be derived by multiplying a
     // flat per-copy rawValue by count like the other town-wide modifiers —
@@ -34,7 +34,7 @@ const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
     // the final total percent directly (alreadyAggregated: true tells the
     // town-summary aggregator not to multiply it again).
     {
-      statLabel: "Gold production",
+      statLabel: "Coin production",
       valueText: stackedValueText,
       tone: "positive",
       isTownWide: true,
@@ -82,7 +82,7 @@ const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext)
     // aggregate this into the town-wide modifier list when the structure is
     // in a town's support ring (its gold is folded into that town's own
     // production there, same as Mintworks) — see TOWN_MODIFIER_AGGREGATE_TYPES.
-    return [{ statLabel: "Sell Off gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay }];
+    return [{ statLabel: "Sell Off coin", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay }];
   }
   return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
 };
@@ -129,7 +129,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
     // from +10% to +35% gold bonus per Mintworks copy — spell out both ends
     // so the size of the buff is unambiguous.
     return [{
-      statLabel: "Mintworks gold bonus per copy",
+      statLabel: "Mintworks coin bonus per copy",
       valueText: `${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)} → ${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}`,
       tone: "positive",
       isTownWide: true
@@ -140,8 +140,8 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // summed additively, capped at 3 towns — not a flat percentage. Trade Nexus
   // is the network's gate for this bonus (networkHasTradeNexus), not its
   // source, so no single per-copy number applies here.
-  if (type === "TRADE_NEXUS") return [{ statLabel: "Connected-town gold bonus", valueText: "+50% / +40% / +30% (1st–3rd connected town)", tone: "positive", isTownWide: true }];
-  if (type === "HARBOR_EXCHANGE") return [{ statLabel: "Gold / day per connected owned dock", valueText: "+5 gold/day", tone: "positive", isTownWide: true }];
+  if (type === "TRADE_NEXUS") return [{ statLabel: "Connected-town coin bonus", valueText: "+50% / +40% / +30% (1st–3rd connected town)", tone: "positive", isTownWide: true }];
+  if (type === "HARBOR_EXCHANGE") return [{ statLabel: "Coin / day per connected owned dock", valueText: "+5 coin/day", tone: "positive", isTownWide: true }];
   if (type === "ORE_REFINERY") return [{ statLabel: "Mine output (5-tile radius)", valueText: `${ORE_REFINERY_OUTPUT_MULT}x`, tone: "positive", isTownWide: true }];
   if (type === "MINISTRY_HALL") {
     return [

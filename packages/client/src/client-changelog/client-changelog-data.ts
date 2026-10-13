@@ -275,6 +275,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Economy panel says Coin",
     why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
     changes: ["The economy panel's currency card and detail heading now read Coin"]
+  },
+  {
+    createdAt: 1791925431016, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.3",
+    title: "Coin everywhere",
+    why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
+    changes: [
+      "Structure details, Mintworks and Sell Off modifiers, upkeep lines, the Harbor Exchange, Imperial Exchange and Siege Engine entries now say coin",
+      "Activity feed, raid and plunder summaries, town capture character, season-end income, the respawn prompt, natural wonder boons and two Manifest descriptions now say coin",
+      "Fixed the not-enough-coin alert for attacks and frontier claims, which could miss its dedicated message because the server still said gold"
+    ]
   }
 ];
 

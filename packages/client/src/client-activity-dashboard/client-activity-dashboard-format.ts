@@ -26,8 +26,8 @@ export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: Pe
   const parts: string[] = [];
   if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
   if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
-  if (timeline.goldRaidedFromYou > 0) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} gold raided`);
-  if (timeline.goldPlundered > 0) parts.push(`+${roundedAmount(timeline.goldPlundered)} gold plundered`);
+  if (timeline.goldRaidedFromYou > 0) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} coin raided`);
+  if (timeline.goldPlundered > 0) parts.push(`+${roundedAmount(timeline.goldPlundered)} coin plundered`);
   if (summary.waystationsActivated > 0) parts.push(`${summary.waystationsActivated} waystation${summary.waystationsActivated === 1 ? "" : "s"} activated`);
   if (summary.townsCaptured > 0) parts.push(`+${summary.townsCaptured} town${summary.townsCaptured === 1 ? "" : "s"} captured`);
   if (summary.townsLost > 0) parts.push(`−${summary.townsLost} town${summary.townsLost === 1 ? "" : "s"} lost`);
@@ -81,8 +81,8 @@ const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>,
       ? otherName ? `attack on ${otherName} was repelled` : "attack was repelled"
       : `defended successfully against ${nameOf(card.attackerId, playerNames)}`;
   const parts = [outcome];
-  if (iWasAttacker && card.pillagedGold > 0) parts.push(`${roundedAmount(card.pillagedGold)} gold plundered`);
-  if (!iWasAttacker && card.defenderGoldLoss > 0) parts.push(`−${roundedAmount(card.defenderGoldLoss)} gold raided from you`);
+  if (iWasAttacker && card.pillagedGold > 0) parts.push(`${roundedAmount(card.pillagedGold)} coin plundered`);
+  if (!iWasAttacker && card.defenderGoldLoss > 0) parts.push(`−${roundedAmount(card.defenderGoldLoss)} coin raided from you`);
   return parts.join(" · ");
 };
 
@@ -111,7 +111,7 @@ const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED
 
 const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
   const parts = [`${structureDisplayName(card.structureType)} completed`];
-  if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} gold`);
+  if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} coin`);
   if (card.populationBurst && card.populationBurst > 0) parts.push(`+${roundedAmount(card.populationBurst)} population`);
   return parts.join(" · ");
 };

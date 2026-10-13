@@ -35,7 +35,7 @@ describe("townModifierTotalsFromCounts", () => {
   it("stacks Mintworks nonlinearly (Clearing House aware) under one heading", () => {
     const groups = townModifierTotalsFromCounts({ MINTWORKS: 6 }, { clearingHouseActive: true });
     const mintworks = groups.find((g) => g.heading === "6 Mintworks");
-    expect(mintworks?.modifiers).toContainEqual({ statLabel: "Gold production", valueText: "+210%", tone: "positive" });
+    expect(mintworks?.modifiers).toContainEqual({ statLabel: "Coin production", valueText: "+210%", tone: "positive" });
   });
 
   it("omits a building type entirely when its count is 0", () => {

@@ -98,7 +98,7 @@ describe("build-menu Upkeep segment — end-to-end verification cases", () => {
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
     const build = findAction(actions, "build_titanium_works");
-    expect(build?.cost).toContain("Upkeep: 1 TITANIUM slot · 30 gold/day");
+    expect(build?.cost).toContain("Upkeep: 1 TITANIUM slot · 30 coin/day");
   });
 
   it("Sky Dock shows its real 3 CRYSTAL slots as Upkeep, not a fabricated crystal/day drain", () => {

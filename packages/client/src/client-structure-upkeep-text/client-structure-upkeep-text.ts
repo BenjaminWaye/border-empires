@@ -64,7 +64,7 @@ export const upkeepDescriptorFor = (type: SlotStructureType, ownedCountOfType?: 
     }
   }
   const goldPerDay = SYNTHESIZER_GOLD_UPKEEP_PER_DAY[type as BuildableStructureType];
-  if (goldPerDay !== undefined) bits.push(`${goldPerDay} gold/day`);
+  if (goldPerDay !== undefined) bits.push(`${goldPerDay} coin/day`);
   return bits;
 };
 

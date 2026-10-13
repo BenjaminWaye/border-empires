@@ -119,7 +119,7 @@
       "id": "provincial-governors",
       "tier": 3,
       "name": "Provincial Governors",
-      "description": "Efficient administration lifts gold income from towns and docks alike by 25%.",
+      "description": "Efficient administration lifts coin income from towns and docks alike by 25%.",
       "requiresTechId": "coinage",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
@@ -221,7 +221,7 @@
       "id": "treasury-state",
       "tier": 4,
       "name": "Treasury State",
-      "description": "Your first three garrisoned towns and their support buildings require no food, and every town's gold income rises 20%.",
+      "description": "Your first three garrisoned towns and their support buildings require no food, and every town's coin income rises 20%.",
       "requiresTechId": "coinage",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {

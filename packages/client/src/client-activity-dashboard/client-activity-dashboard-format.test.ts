@@ -25,15 +25,15 @@ describe("summaryCountsLine", () => {
 
   it("never nets gold plundered against gold raided -- both can appear together", () => {
     const line = summaryCountsLine(emptySummary, { ...baseTimeline, goldPlundered: 130, goldRaidedFromYou: 240 } as any, 1000);
-    expect(line).toContain("+130 gold plundered");
-    expect(line).toContain("−240 gold raided");
+    expect(line).toContain("+130 coin plundered");
+    expect(line).toContain("−240 coin raided");
     expect(line).not.toMatch(/net/i);
   });
 
   it("rounds summed gold totals instead of showing raw binary-float precision", () => {
     // 12.34 + 0.66 + 5.01 + 2.33 === 20.339999999999996 in plain floating point.
     const line = summaryCountsLine(emptySummary, { ...baseTimeline, goldPlundered: 20.339999999999996 } as any, 1000);
-    expect(line).toContain("+20 gold plundered");
+    expect(line).toContain("+20 coin plundered");
     expect(line).not.toContain("20.34");
     expect(line).not.toContain("20.339999999999996");
   });
@@ -78,17 +78,17 @@ describe("activityCardText / activityCardCoordinates", () => {
 
   it("labels a won capture as an attacker plunder, with directional gold text", () => {
     const card = { kind: "COMBAT" as const, attackerId: "me", defenderId: "them", attackerWon: true, pillagedGold: 50, defenderGoldLoss: 0, x: 1, y: 2 };
-    expect(activityCardText(card as any, "me", noNames)).toContain("50 gold plundered");
+    expect(activityCardText(card as any, "me", noNames)).toContain("50 coin plundered");
   });
 
   it("labels a raid against the viewer with directional 'raided from you' text", () => {
     const card = { kind: "COMBAT" as const, attackerId: "them", defenderId: "me", attackerWon: true, pillagedGold: 0, defenderGoldLoss: 80, x: 1, y: 2 };
-    expect(activityCardText(card as any, "me", noNames)).toContain("−80 gold raided from you");
+    expect(activityCardText(card as any, "me", noNames)).toContain("−80 coin raided from you");
   });
 
   it("rounds a floating-point gold total instead of showing raw binary-float precision", () => {
     const card = { kind: "COMBAT" as const, attackerId: "me", defenderId: "them", attackerWon: true, pillagedGold: 20.339999999999996, defenderGoldLoss: 0, x: 1, y: 2 };
-    expect(activityCardText(card as any, "me", noNames)).toContain("20 gold plundered");
+    expect(activityCardText(card as any, "me", noNames)).toContain("20 coin plundered");
   });
 
   it("resolves the other player's display name from the roster when available", () => {
@@ -137,7 +137,7 @@ describe("activityCardText / activityCardCoordinates", () => {
     const town = { kind: "TOWN_LOST" as const, townTier: "TOWN", townSurvived: false, populationBefore: 1_000, populationAfter: 500, capturedStructureTypes: [], x: 5, y: 9 };
     const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MINTWORKS", instantGold: 100, x: 4, y: 7 };
     expect(activityCardText(town as any, "me", noNames)).toContain("settlement razed");
-    expect(activityCardText(building as any, "me", noNames)).toContain("+100 gold");
+    expect(activityCardText(building as any, "me", noNames)).toContain("+100 coin");
   });
 
   it("names completed buildings by their player-facing name, not the backend id", () => {
