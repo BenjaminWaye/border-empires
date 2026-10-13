@@ -196,3 +196,9 @@
 .alliance-propose-actions {
   flex-wrap: wrap;
 }
+
+/* The player a tile's Diplomacy action jumped to (client-alliance-focus.ts). */
+.alliance-reference-card.alliance-focus-highlight {
+  border-color: var(--sp-brass-300);
+  box-shadow: 0 0 0 2px var(--sp-brass-300);
+}

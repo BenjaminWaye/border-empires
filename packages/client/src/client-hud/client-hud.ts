@@ -33,7 +33,7 @@ import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { applySocialFocus } from "../client-alliance/client-alliance-focus.js"; import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { worldEngineStrikeRecordToFeedEntry, WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
@@ -690,7 +690,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       nowMs: Date.now()
     })
   );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
+  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML; applySocialFocus([dom.alliesListEl, dom.mobileAlliesListEl], state);
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
