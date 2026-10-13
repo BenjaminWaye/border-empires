@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { farmlandYawAt, structureReplacesFarmlandPlot } from "./client-map-3d-farmland.js";
 
 describe("structureReplacesFarmlandPlot", () => {
-  it("drops the conventional plot under a built FARMSTEAD (the hydroponic dome)", () => {
-    expect(structureReplacesFarmlandPlot("FARMSTEAD")).toBe(true);
+  it("drops the conventional plot under a built HYDROGARDEN (the hydroponic dome)", () => {
+    expect(structureReplacesFarmlandPlot("HYDROGARDEN")).toBe(true);
   });
 
   it("keeps the plot for other structures on a farm tile", () => {
-    expect(structureReplacesFarmlandPlot("WATERWORKS")).toBe(false);
+    expect(structureReplacesFarmlandPlot("HYDROWORKS")).toBe(false);
     expect(structureReplacesFarmlandPlot("MINE")).toBe(false);
   });
 
