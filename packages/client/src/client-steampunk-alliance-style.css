@@ -9,12 +9,8 @@
  * positive) for accept/active states and brass for neutral chrome, per the
  * established semantic mapping; break/reject stays ember (negative).
  *
- * Pass 5 note: the "ally player name" field (#alliance-target /
- * #mobile-alliance-target) uses a native <datalist> for its suggestion
- * dropdown (list="alliance-target-options"). Browsers do not expose CSS
- * hooks for a <datalist>'s popup list -- it renders with the OS/browser's
- * native menu chrome and cannot be reskinned from here. Only the input
- * itself is stylable, and that's already covered above.
+ * The tab no longer has a typed "ally player name" field: players are
+ * proposed to from per-player rows (.alliance-player-card), and only once met.
  */
 
 #panel-alliance,
@@ -22,7 +18,6 @@
   background: var(--sp-iron-900);
 }
 
-.alliance-form-section,
 .alliance-section-block,
 .alliance-player-inspect-slot:not(:empty) {
   border-bottom-color: var(--sp-brass-700);
@@ -177,4 +172,36 @@
 
 .alliance-empty-card p {
   color: var(--sp-parchment-muted);
+}
+
+.alliance-empty-state {
+  display: grid;
+  gap: 6px;
+}
+
+.alliance-empty-state .alliance-empty-title {
+  margin: 0;
+  color: var(--sp-parchment-100);
+  font-weight: 600;
+}
+
+.alliance-empty-state .alliance-empty-hint {
+  margin: 0;
+}
+
+.alliance-reference-status-truce {
+  color: var(--sp-brass-300);
+}
+
+/* .alliance-reference-actions is a two-column grid: the alliance / break
+ * buttons take a full row, the two truce lengths share the next one. */
+.alliance-propose-actions .propose-alliance,
+.alliance-propose-actions .break-truce {
+  grid-column: 1 / -1;
+}
+
+/* The player a tile's Diplomacy action jumped to (client-alliance-focus.ts). */
+.alliance-reference-card.alliance-focus-highlight {
+  border-color: var(--sp-brass-300);
+  box-shadow: 0 0 0 2px var(--sp-brass-300);
 }
