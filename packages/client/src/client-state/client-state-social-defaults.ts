@@ -18,6 +18,10 @@ export const createInitialSocialState = () => ({
   recentAllianceBreaks: [] as RecentAllianceBreakView[],
   activeTruces: [] as ActiveTruceView[],
   truceBreaksThisSeason: [] as TruceBreakView[],
+  // Players whose territory this client has seen this season -- the only
+  // players the Alliances tab lets you propose to. See client-met-players.ts.
+  metPlayerIds: new Set<string>(),
+  metPlayersScannedRevision: -1,
   activePlayerProfileId: undefined as string | undefined,
   // "loading" while a GET /hq/galaxy/by-player/:playerId fetch is in flight;
   // absent key means not yet fetched for that player this session.

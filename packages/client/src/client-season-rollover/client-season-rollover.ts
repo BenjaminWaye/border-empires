@@ -1,4 +1,5 @@
 import { resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { resetMetPlayers } from "../client-alliance/client-met-players.js";
 import { clearStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
@@ -7,6 +8,8 @@ type RolloverState = Pick<
   ClientState,
   | "tiles"
   | "discoveredTiles"
+  | "metPlayerIds"
+  | "metPlayersScannedRevision"
   | "leaderboard"
   | "seasonWinner"
   | "seasonVictory"
@@ -47,6 +50,7 @@ type RolloverState = Pick<
 export const resetClientForNewSeason = (state: RolloverState): void => {
   state.tiles.clear(); // callers re-derive render caches from state.tiles afterwards, so clear it first
   state.discoveredTiles.clear();
+  resetMetPlayers(state);
   state.leaderboard = { overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined, byTiles: [], byIncome: [], byTechs: [] };
   state.seasonWinner = undefined;
   state.seasonVictory = [];

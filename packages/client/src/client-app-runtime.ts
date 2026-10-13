@@ -52,7 +52,7 @@ import {
 import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html/client-side-panel-html.js";
 import { formatRoughMinutes, populationPerMinuteLabel, townNextGrowthEtaLabel, townNextPopulationMilestone } from "./client-town-growth/client-town-growth.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html/client-panel-html.js";
+import { feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml } from "./client-panel-html/client-panel-html.js";
 import {
   economicStructureBuildMs,
   economicStructureName,
@@ -338,10 +338,6 @@ bootstrapClientApp({
   techOwnedHtml,
   techCurrentModsHtml,
   bindTechTreeDragScroll,
-  alliesHtml,
-  activeTrucesHtml,
-  allianceRequestsHtml,
-  truceRequestsHtml,
   renderSocialInspectCardHtml,
   missionCardsHtml,
   playerNameForOwner,
@@ -438,10 +434,6 @@ bootstrapClientApp({
   authEmailLinkBtn: dom.authEmailLinkBtn,
   authProfileNameEl: dom.authProfileNameEl,
   authProfileSaveBtn: dom.authProfileSaveBtn,
-  allianceSendBtn: dom.allianceSendBtn,
-  mobileAllianceSendBtn: dom.mobileAllianceSendBtn,
-  allianceTargetEl: dom.allianceTargetEl,
-  mobileAllianceTargetEl: dom.mobileAllianceTargetEl,
   techChooseBtn: dom.techChooseBtn,
   mobileTechChooseBtn: dom.mobileTechChooseBtn,
   centerMeBtn: dom.centerMeBtn,

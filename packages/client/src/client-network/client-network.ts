@@ -2685,7 +2685,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
-      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else state.tiles.clear(); // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
+      if (msg.type === "SEASON_ROLLOVER") resetClientForNewSeason(state); else { state.tiles.clear(); state.metPlayerIds.clear(); state.metPlayersScannedRevision = -1; } // before clearRenderCaches, which re-derives AFC forest clearings from state.tiles -- the old season's AFCs must not clear the new world
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();
