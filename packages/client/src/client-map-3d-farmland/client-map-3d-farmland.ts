@@ -31,6 +31,14 @@ export const FARMLAND_BASE_LIFT = 0.0457;
 // the opaque plot, which otherwise hides it entirely.
 export const FARMLAND_STAND_LIFT = 0.079;
 
+// A FARM resource tile normally draws this conventional farm plot. When a
+// FARMSTEAD (the hydroponic dome) is built on the tile the dome IS the farm,
+// so the old crop-field plot is dropped — otherwise the dome appears to stand
+// on a conventional farm. Other structures that can sit on a FARM tile (a
+// WATERWORKS water tower) keep the plot.
+export const structureReplacesFarmlandPlot = (structureType: string | undefined): boolean =>
+  structureType === "FARMSTEAD";
+
 export type FarmlandOverlay = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
