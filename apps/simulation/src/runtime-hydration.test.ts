@@ -176,6 +176,11 @@ describe("createPlayersFromRecoveredState", () => {
     expect(result?.get("legacy")?.autoSettle).toEqual(DEFAULT_AUTO_SETTLE_PREFS);
   });
 
+  it("restores a player who owned the retired Echo-Reader Crew with Augury Office, which now carries Survey Sweep", () => {
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1", techIds: ["crystal-lattices", "surveying"] }] };
+    expect(createPlayersFromRecoveredState(state)?.get("p1")?.techIds).toEqual(new Set(["crystal-lattices", "beacon-towers"]));
+  });
+
   it("defaults to an empty truces set when the snapshot has none", () => {
     const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1" }] };
     const result = createPlayersFromRecoveredState(state);
