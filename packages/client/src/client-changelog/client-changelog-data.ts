@@ -274,6 +274,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
   },
   {
+    createdAt: 1791921497137,
+    introducedIn: "2026.10.13.1",
+    title: "Hydrogardens no longer stand on the old farm plot",
+    why: "The hydroponic glass dome was drawn on top of the conventional 3D crop-field plot, so it looked like a greenhouse dropped onto a normal farm.",
+    changes: ["A built Hydrogarden now replaces the old 3D farm plot, so the dome stands on clean ground"]
+  },
+  {
     createdAt: 1791922549550, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.2",
     title: "Economy panel says Coin",
