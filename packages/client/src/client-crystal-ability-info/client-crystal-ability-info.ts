@@ -92,6 +92,10 @@ export const relatedCrystalAbilitiesForTech = (tech: Pick<TechInfo, "effects">):
   return [...out];
 };
 
+// Just the ability's glyph, for compact lists (the Manifest "What you get"
+// rows); the cooldown/duration labels the formatter feeds aren't used there.
+export const crystalAbilityGlyphForKey = (key: CrystalAbilityInfoKey): string => crystalAbilityInfoForKey(key, { formatCooldownShort: () => "" }).glyph;
+
 export const crystalAbilityInfoButtonHtml = (key: CrystalAbilityInfoKey, label?: string): string =>
   `<button class="inline-info-link" type="button" data-crystal-ability-info="${key}">${label ?? crystalAbilityNameForKey(key)}</button>`;
 

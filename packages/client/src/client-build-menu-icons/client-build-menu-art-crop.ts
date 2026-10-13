@@ -28,6 +28,7 @@ export const BUILD_MENU_ART_CROP: Readonly<Record<string, ArtCropBox>> = {
   "/overlays/harbor-exchange-overlay.svg": [0.082, 0.453, 0.801, 0.402],
   "/overlays/exchange-house-overlay.svg": [0.125, 0.453, 0.688, 0.348],
   "/overlays/farm-hydrogarden-overlay-1.svg": [0.082, 0.219, 0.699, 0.563],
+  "/overlays/farm-hydroponic-overlay-1.svg": [0.172, 0.145, 0.656, 0.676],
   "/overlays/fort-ring-overlay-closed.svg": [0.016, 0.031, 0.969, 0.969],
   "/overlays/ore-refinery-overlay.svg": [0.109, 0.398, 0.727, 0.418],
   "/overlays/fracture-core-overlay.svg": [0.141, 0.102, 0.578, 0.727],
