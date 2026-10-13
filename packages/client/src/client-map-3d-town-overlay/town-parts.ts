@@ -2,6 +2,7 @@
 // airships, trees and street lamps -- built from the town-mesh-builder
 // primitives. Each takes the solid `body` builder (iron/brass route to the
 // metal mesh by colour) and the unlit `glow` builder (lamplight, aether).
+import { loopRate, loopSpeed } from "./town-animation-shaders.js";
 import type { TownColor, TownMeshBuilder } from "./town-mesh-builder.js";
 
 export type TownBuilders = {
@@ -19,7 +20,7 @@ export const spinning = (
   t: TownBuilders, x: number, y: number, z: number,
   axis: readonly [number, number, number], speed: number, draw: () => void
 ): void => {
-  const anim = { a: [x, y, z, speed], b: [axis[0], axis[1], axis[2], 0] } as const;
+  const anim = { a: [x, y, z, loopSpeed(speed)], b: [axis[0], axis[1], axis[2], 0] } as const;
   t.body.withAnim(anim, () => t.glow.withAnim(anim, draw));
 };
 
@@ -30,7 +31,7 @@ export const steamVent = (t: TownBuilders, x: number, y: number, z: number, h = 
   t.body.cylinder(x, y, z, 0.007, 0.009, h, "iron", 8);
   t.body.cylinder(x, y + h - 0.006, z, 0.0095, 0.0095, 0.006, "brass", 8);
   const phase = t.random();
-  const rate = 0.11 + t.random() * 0.05;
+  const rate = loopRate(0.11 + t.random() * 0.05);
   for (let i = 0; i < 4; i += 1) {
     const anim = { a: [x, y + h + 0.01, z, rate], b: [0.05, 0.015, 0.2, (phase + i / 4) % 1] } as const;
     t.steam.withAnim(anim, () => t.steam.blob(x, y + h + 0.01, z, 0.017, "steam", 1));

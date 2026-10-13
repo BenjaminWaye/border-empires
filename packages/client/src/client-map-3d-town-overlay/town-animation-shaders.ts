@@ -7,11 +7,26 @@
 // beyond setting the time.
 import type { Material, MeshBasicMaterial, MeshDepthMaterial, MeshStandardMaterial } from "three";
 
-/** Seconds, wrapped so float precision in the shaders never degrades. */
-export const townTime = { value: 0 };
+/** The shader clock wraps every this many seconds, so float precision never
+ * degrades however long the page stays open. Every spin speed, steam rate and
+ * flicker frequency is a whole number of cycles per period (loopSpeed /
+ * loopRate), so the wrap returns every part exactly where it started. */
+export const TOWN_TIME_PERIOD = 3600;
+
+/** Nearest angular speed (rad/s) that turns a whole number of times per period. */
+export const loopSpeed = (speed: number): number => {
+  const turn = (2 * Math.PI) / TOWN_TIME_PERIOD;
+  return Math.round(speed / turn) * turn;
+};
+
+/** Nearest rate (cycles/s) that loops a whole number of times per period. */
+export const loopRate = (rate: number): number => Math.round(rate * TOWN_TIME_PERIOD) / TOWN_TIME_PERIOD;
+
+/** Seconds, wrapped at TOWN_TIME_PERIOD. */
+const townTime = { value: 0 };
 
 export const tickTownTime = (): void => {
-  townTime.value = (performance.now() / 1000) % 3600;
+  townTime.value = (performance.now() / 1000) % TOWN_TIME_PERIOD;
 };
 
 const DECLARATIONS = /* glsl */ `
@@ -41,7 +56,8 @@ if (animA.w != 0.0) {
 
 const FLICKER = /* glsl */ `
 #include <color_fragment>
-diffuseColor.rgb *= 0.86 + 0.14 * sin(uTownTime * 2.1 + vTownPhase * 6.2832) * sin(uTownTime * 0.67 + vTownPhase * 17.0);
+diffuseColor.rgb *= 0.86 + 0.14 * sin(uTownTime * ${loopSpeed(2.1).toFixed(8)} + vTownPhase * 6.2832)
+  * sin(uTownTime * ${loopSpeed(0.67).toFixed(8)} + vTownPhase * 17.0);
 `;
 
 type ShaderHookMaterial = MeshStandardMaterial | MeshBasicMaterial | MeshDepthMaterial;

@@ -136,7 +136,7 @@ export const planStreetGrid = (spec: StreetGridSpec, random: () => number): Stre
   return { blocks, apothem, pitch };
 };
 
-export const drawStreetGrid = (t: TownBuilders, spec: StreetGridSpec, plan: StreetGridPlan): void => {
+const drawStreetGrid = (t: TownBuilders, spec: StreetGridSpec, plan: StreetGridPlan): void => {
   // The plate is the street; blocks are raised sidewalks.
   octagonPlate(t, spec.plateRadius, false, "plateDark");
   const [orreryCol, orreryRow] = spec.parks[0] ?? [-1, -1];

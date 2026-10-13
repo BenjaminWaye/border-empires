@@ -126,6 +126,18 @@ const colorOf = (name: TownColor): Color => {
   return color;
 };
 
+// Each unit primitive de-indexed (and stripped of uvs) once, not per part.
+const nonIndexedCache = new WeakMap<BufferGeometry, BufferGeometry>();
+const nonIndexed = (unit: BufferGeometry): BufferGeometry => {
+  let geometry = nonIndexedCache.get(unit);
+  if (!geometry) {
+    geometry = unit.index ? unit.toNonIndexed() : unit.clone();
+    geometry.deleteAttribute("uv");
+    nonIndexedCache.set(unit, geometry);
+  }
+  return geometry;
+};
+
 /** Small deterministic PRNG so every tier bakes the same town every load. */
 export const createTownRandom = (seed: number): (() => number) => {
   let state = seed >>> 0;
@@ -216,8 +228,7 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
     ry: number,
     rz = 0
   ): void => {
-    const part = (unit.index ? unit.toNonIndexed() : unit.clone());
-    part.deleteAttribute("uv");
+    const part = nonIndexed(unit).clone();
     quaternion.setFromEuler(euler.set(0, ry, rz, "YXZ"));
     position.set(x, y, z);
     scale.set(sx, sy, sz);
@@ -246,8 +257,7 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
       direction.set(x1 - x0, y1 - y0, z1 - z0);
       const length = direction.length();
       if (length <= 0) return;
-      const part = unitCylinder(radius, radius, 6).toNonIndexed();
-      part.deleteAttribute("uv");
+      const part = nonIndexed(unitCylinder(radius, radius, 6)).clone();
       quaternion.setFromUnitVectors(yAxis, direction.normalize());
       position.set(x0, y0, z0);
       scale.set(1, length, 1);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Color, type BufferGeometry } from "three";
 import { TOWN_COLORS, TOWN_METAL_COLORS, type TownColor } from "./town-mesh-builder.js";
+import { TOWN_TIME_PERIOD } from "./town-animation-shaders.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./town-tier-geometry.js";
 
 const topOf = (geometry: BufferGeometry): number => {
@@ -120,6 +121,22 @@ describe("procedural town tiers", () => {
       expect(animA.getW(i)).toBeGreaterThan(0);
       expect(steam!.getAttribute("animB").getZ(i)).toBeGreaterThan(0);
     }
+  });
+
+  it.each(TOWN_TIERS)("%s loops seamlessly when the shader clock wraps", (tier) => {
+    // Every spin turns, and every steam puff cycles, a whole number of times
+    // per TOWN_TIME_PERIOD -- otherwise moving parts snap once an hour.
+    const { body, metal, glow, steam } = getTownTierGeometry(tier);
+    const wholeTurns = (rate: number): boolean => Math.abs(rate - Math.round(rate)) < 1e-3;
+    for (const part of [body, metal, glow]) {
+      if (!part) continue;
+      const animA = part.getAttribute("animA");
+      for (let i = 0; i < animA.count; i += 1) {
+        expect(wholeTurns((animA.getW(i) * TOWN_TIME_PERIOD) / (2 * Math.PI))).toBe(true);
+      }
+    }
+    const steamA = steam!.getAttribute("animA");
+    for (let i = 0; i < steamA.count; i += 1) expect(wholeTurns(steamA.getW(i) * TOWN_TIME_PERIOD)).toBe(true);
   });
 
   it("bakes each tier once and hands every overlay the same geometry", () => {
