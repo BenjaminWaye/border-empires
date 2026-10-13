@@ -15,6 +15,7 @@ import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
@@ -335,7 +336,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
-  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false, frontierAttackClaimKeysSnapshot: "" };
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, triggers: EMPTY_MAP_3D_REBUILD_TRIGGERS };
   // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
   // rebuild's window (not the live camera): once maybeRebuild stops requiring an
   // exact camX/camY match (padded hysteresis only), the camera can drift inside
@@ -1395,10 +1396,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       lastCameraApplied.height = height;
     }
 
-    const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
-    // Forces a rebuild on claim start/end -- see activeFrontierAttackClaimTargetKeys.
-    const frontierAttackClaimKeysNow = Array.from(activeFrontierAttackClaimTargetKeys(deps.state, deps.keyFor, nowMs)).sort().join(",");
+    const triggersNow = captureMap3DRebuildTriggers(deps.state, deps.keyFor, nowMs, isTrue3DRendererActive());
     // Padded hysteresis only — no more exact-camX/camY-match requirement. The
     // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
     // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild
@@ -1407,8 +1406,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const rebuildNeeded =
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
-      ctActiveNow !== lastRebuild.crystalTargetingActive ||
-      frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot ||
+      map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow) ||
       structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed();
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
@@ -1416,8 +1414,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
       lastRebuild.builtWindow = builtWindow;
       lastRebuild.at = nowMs;
-      lastRebuild.crystalTargetingActive = ctActiveNow;
-      lastRebuild.frontierAttackClaimKeysSnapshot = frontierAttackClaimKeysNow;
+      lastRebuild.triggers = triggersNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's explored mask at the new origin
