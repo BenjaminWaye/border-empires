@@ -49,9 +49,10 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of grey stone banded in the AFC's",
-          "aged brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned",
-          "crystals, ringed round an octagonal plaza. See TownOnTerrain for the towns on the real terrain beside an AFC.",
+          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of glass and grey stone banded in the",
+          "AFC's aged brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and",
+          "finned crystals, ringed round an octagonal plaza. Animated in the shaders: rooftop steam, flickering lamplight, turning",
+          "cogs and orreries, spinning crystals and circling airships. See TownOnTerrain for the towns beside an AFC.",
           "",
           "SETTLEMENT · four low towers round a cog lamp.",
           "TOWN · a ring of towers and annexes round a brass orrery.",

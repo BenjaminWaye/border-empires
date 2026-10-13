@@ -45,7 +45,7 @@ export const buildCity = (t: TownBuilders): void => {
   const points = inner.map((tower) => polar(0.13, tower.degrees));
   inner.forEach((tower, i) => {
     const [x, z] = points[i]!;
-    skyscraper(t, { x, z, w: 0.085, d: 0.085, h: tower.h, ry: Math.PI / 4 + i, crown: tower.crown, shell: tower.shell });
+    skyscraper(t, { x, z, w: 0.085, d: 0.085, h: tower.h, ry: Math.PI / 4 + i, crown: tower.crown, shell: tower.shell, glass: i !== 0 });
   });
   for (let i = 0; i < points.length; i += 1) {
     const [x0, z0] = points[i]!;

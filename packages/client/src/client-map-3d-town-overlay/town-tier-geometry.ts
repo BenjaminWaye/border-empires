@@ -1,7 +1,7 @@
-// Bakes each town tier into three merged geometries -- the matte,
-// vertex-coloured body, the metalwork (iron and brass, drawn metallic like the
-// AFC) and the unlit glow (lit windows, lanterns, aether) -- once per page
-// load. Shared by every town overlay, so overlays must not dispose them.
+// Bakes each town tier into merged geometries -- the matte, vertex-coloured
+// body, the metalwork (iron, brass and glass, drawn metallic like the AFC),
+// the unlit glow (lit windows, lanterns, aether) and the steam puffs -- once
+// per page load. Shared by every town overlay, so overlays must not dispose them.
 import type { BufferGeometry } from "three";
 import { createRoutedTownBuilder, createTownMeshBuilder, createTownRandom } from "./town-mesh-builder.js";
 import type { TownBuilders } from "./town-parts.js";
@@ -24,6 +24,7 @@ export type TownTierGeometry = {
   readonly body: BufferGeometry;
   readonly metal: BufferGeometry | undefined;
   readonly glow: BufferGeometry | undefined;
+  readonly steam: BufferGeometry | undefined;
 };
 
 const cache = new Map<TownTier, TownTierGeometry>();
@@ -37,6 +38,7 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
     const builders: TownBuilders = {
       body: createRoutedTownBuilder(matte, metal),
       glow: createTownMeshBuilder(),
+      steam: createTownMeshBuilder(),
       random: createTownRandom(layout.seed)
     };
     layout.build(builders);
@@ -44,7 +46,7 @@ export const getTownTierGeometry = (tier: TownTier): TownTierGeometry => {
     if (!body) throw new Error(`town tier ${tier} produced no geometry`);
     body.computeBoundingBox();
     body.computeBoundingSphere();
-    geometry = { body, metal: metal.build(), glow: builders.glow.build() };
+    geometry = { body, metal: metal.build(), glow: builders.glow.build(), steam: builders.steam.build() };
     cache.set(tier, geometry);
   }
   return geometry;

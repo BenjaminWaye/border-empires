@@ -71,6 +71,31 @@ describe("procedural town tiers", () => {
     for (const hex of metalColors) expect(hasVertexColor(body, hex), `${tier} matte body has metal ${hex}`).toBe(false);
   });
 
+  it.each(TOWN_TIERS)("%s carries animation attributes on every vertex, with turning parts", (tier) => {
+    const geometry = getTownTierGeometry(tier);
+    let spinningVertices = 0;
+    for (const part of [geometry.body, geometry.metal, geometry.glow]) {
+      if (!part) continue;
+      const animA = part.getAttribute("animA");
+      expect(animA.count, `${tier} animA`).toBe(part.getAttribute("position").count);
+      expect(part.getAttribute("animB").count, `${tier} animB`).toBe(part.getAttribute("position").count);
+      for (let i = 0; i < animA.count; i += 1) if (animA.getW(i) !== 0) spinningVertices += 1;
+    }
+    // Every tier has at least a turning cog.
+    expect(spinningVertices, `${tier} spinning vertices`).toBeGreaterThan(0);
+  });
+
+  it.each(["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"] as const)("%s has steam rising from its stacks", (tier) => {
+    const steam = getTownTierGeometry(tier).steam;
+    expect(steam, `${tier} steam`).toBeDefined();
+    const animA = steam!.getAttribute("animA");
+    // Every puff loops (non-zero cycle rate) and rises (positive rise).
+    for (let i = 0; i < animA.count; i += 1) {
+      expect(animA.getW(i)).toBeGreaterThan(0);
+      expect(steam!.getAttribute("animB").getZ(i)).toBeGreaterThan(0);
+    }
+  });
+
   it("bakes each tier once and hands every overlay the same geometry", () => {
     expect(getTownTierGeometry("CITY")).toBe(getTownTierGeometry("CITY"));
   });

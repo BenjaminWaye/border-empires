@@ -1,10 +1,11 @@
-// Clockwork skyscrapers: grey stone towers stepping back in art-deco
-// setbacks, each set off by an aged-brass band, with lamplit window strips up
-// every face and a crown -- a brass cog clock, a needle spire, an alien
-// glowing bulb, ribbed fins round a floating crystal, or a brass dome. Plus
-// the plaza centrepieces: a clockwork orrery and a cog lamp.
+// Clockwork skyscrapers: grey stone or glass curtain-wall towers stepping back
+// in art-deco setbacks, each set off by an aged-brass band, with lamplit
+// window strips up every face and a crown -- a brass cog clock, a needle spire, an alien
+// glowing bulb, ribbed fins round a spinning crystal, a brass dome, or a
+// steaming smokestack. Plus the plaza centrepieces: a turning clockwork
+// orrery and a cog lamp.
 import type { TownColor } from "./town-mesh-builder.js";
-import { at, facingOut, gear, polar, type TownBuilders } from "./town-parts.js";
+import { at, facingOut, gear, polar, spinning, steamVent, type TownBuilders } from "./town-parts.js";
 
 // Clearance off a wall so a window strip never z-fights the wall face.
 const FACE_GAP = 0.0025;
@@ -21,6 +22,8 @@ export type SkyscraperOptions = {
   readonly ry: number;
   readonly crown: Crown;
   readonly shell?: TownColor;
+  /** Glass curtain walls between stone corner piers and floor bands. */
+  readonly glass?: boolean;
   /** Share of window strips lit, 0..1. */
   readonly lit?: number;
 };
@@ -28,14 +31,30 @@ export type SkyscraperOptions = {
 /** Lamplit (or dark) vertical window strips across one face of a section. */
 const windowStrips = (
   t: TownBuilders, x: number, z: number, ry: number, faceWidth: number, offset: number,
-  y: number, h: number, lit: number
+  y: number, h: number, lit: number, darkStrips: boolean
 ): void => {
   const columns = Math.max(1, Math.floor(faceWidth / STRIP_PITCH));
   const pitch = faceWidth / columns;
   for (let i = 0; i < columns; i += 1) {
     const [px, pz] = at(x, z, ry, -faceWidth / 2 + pitch * (i + 0.5), offset + FACE_GAP);
     const isLit = t.random() < lit;
+    if (!isLit && !darkStrips) continue;
     (isLit ? t.glow : t.body).panel(px, y + h * 0.5, pz, 0.007, h * 0.78, isLit ? "lamp" : "window", ry);
+  }
+};
+
+/** Glass curtain-wall section framed by stone corner piers and floor bands. */
+const glassSection = (
+  t: TownBuilders, x: number, y: number, z: number, w: number, h: number, d: number, ry: number, frame: TownColor
+): void => {
+  t.body.box(x, y, z, w - 0.004, h, d - 0.004, (x * 13 + z * 7) % 1 > 0.5 ? "glass" : "glassLight", ry);
+  const pier = Math.min(w, d) * 0.16;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+    const [px, pz] = at(x, z, ry, sx * (w / 2 - pier / 2), sz * (d / 2 - pier / 2));
+    t.body.box(px, y, pz, pier, h, pier, frame, ry);
+  }
+  for (let band = y + 0.045; band < y + h - 0.02; band += 0.045) {
+    t.body.box(x, band, z, w + 0.002, 0.004, d + 0.002, frame, ry);
   }
 };
 
@@ -53,12 +72,13 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     w = o.w * insets[i]!;
     d = o.d * insets[i]!;
     const sh = o.h * share;
-    t.body.box(o.x, y, o.z, w, sh, d, shell, o.ry);
+    if (o.glass) glassSection(t, o.x, y, o.z, w, sh, d, o.ry, shell);
+    else t.body.box(o.x, y, o.z, w, sh, d, shell, o.ry);
     for (const quarter of [0, 1, 2, 3]) {
       const faceRy = o.ry + (quarter * Math.PI) / 2;
       const across = quarter % 2 === 0 ? w : d;
       const depth = quarter % 2 === 0 ? d : w;
-      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + sh * 0.06, sh * 0.82, lit);
+      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + sh * 0.06, sh * 0.82, o.glass ? lit * 0.6 : lit, !o.glass);
     }
     t.body.box(o.x, y + sh - 0.007, o.z, w + 0.007, 0.007, d + 0.007, "brassDark", o.ry);
     y += sh;
@@ -77,7 +97,7 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     case "spire":
       t.body.pyramid(o.x, y, o.z, w, size * 0.5, d, "brassDark", o.ry);
       t.body.cylinder(o.x, y + size * 0.4, o.z, 0.0, 0.009, 0.12, "brass", 6);
-      t.glow.gem(o.x, y + size * 0.4 + 0.13, o.z, 0.009, 0.016, "aether");
+      spinning(t, o.x, 0, o.z, [0, 1, 0], 1.2, () => t.glow.gem(o.x, y + size * 0.4 + 0.13, o.z, 0.009, 0.016, "aether"));
       return y + size * 0.4 + 0.14;
     case "pod": {
       // Alien bulb on a stalk, ringed in light.
@@ -96,17 +116,20 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
         t.body.tiltedBox(fx, y + size * 0.45, fz, 0.006, size * 0.9, size * 0.22, "graphite", finRy, 0);
         t.body.gem(fx, y + size * 0.92, fz, 0.006, 0.012, "brass");
       }
-      t.glow.gem(o.x, y + size * 0.6, o.z, size * 0.2, size * 0.32, "aether");
+      spinning(t, o.x, 0, o.z, [0, 1, 0], 0.9, () => t.glow.gem(o.x, y + size * 0.6, o.z, size * 0.2, size * 0.32, "aether"));
       return y + size * 0.95;
     }
     case "dome":
       t.body.dome(o.x, y, o.z, size * 0.48, "brass", 10, 0.9);
       t.body.gem(o.x, y + size * 0.48, o.z, 0.006, 0.016, "brassDark");
       return y + size * 0.5;
-    case "flat":
-      t.body.box(o.x, y, o.z, w * 0.4, 0.02, d * 0.4, "iron", o.ry);
-      t.glow.gem(o.x, y + 0.03, o.z, 0.006, 0.01, "lamp");
-      return y + 0.04;
+    case "flat": {
+      // Plant room with a steaming stack.
+      t.body.box(o.x, y, o.z, w * 0.5, 0.014, d * 0.5, "iron", o.ry);
+      const [vx, vz] = at(o.x, o.z, o.ry, w * 0.12, 0);
+      steamVent(t, vx, y + 0.014, vz);
+      return y + 0.05;
+    }
   }
 };
 
@@ -135,7 +158,8 @@ export const towerRing = (t: TownBuilders, o: TowerRingOptions): void => {
       h: o.h[0] + t.random() * (o.h[1] - o.h[0]),
       ry: facingOut(degrees + 180),
       crown: o.crowns[i % o.crowns.length]!,
-      shell: shells[i % shells.length]!
+      shell: shells[i % shells.length]!,
+      glass: t.random() < 0.6
     });
     if (o.annexH) {
       const between = degrees + 180 / o.count;
@@ -159,13 +183,21 @@ export const orrery = (t: TownBuilders, x: number, z: number, scale: number): nu
   t.body.cylinder(x, 0.016 * scale, z, 0.006 * scale, 0.009 * scale, 0.06 * scale, "brassDark", 8);
   const coreY = 0.1 * scale;
   t.glow.gem(x, coreY, z, 0.018 * scale, 0.026 * scale, "lamp");
-  t.body.ring(x, coreY, z, 0.04 * scale, "brass", 0.06);
-  t.body.ring(x, coreY + 0.012 * scale, z, 0.03 * scale, "brass", 0.07);
-  t.body.ring(x, coreY - 0.012 * scale, z, 0.052 * scale, "brassDark", 0.05);
-  for (const [r, a] of [[0.04, 0.4], [0.052, 2.3], [0.03, 4.1]] as const) {
-    t.body.blob(x + Math.cos(a) * r * scale, coreY, z + Math.sin(a) * r * scale, 0.007 * scale, "brass");
+  // Each hoop carries its planet round the core at its own pace.
+  const orbits = [
+    { r: 0.04, dy: 0, a: 0.4, speed: 0.7, color: "brass" },
+    { r: 0.03, dy: 0.012, a: 4.1, speed: -1.1, color: "brass" },
+    { r: 0.052, dy: -0.012, a: 2.3, speed: 0.45, color: "brassDark" }
+  ] as const;
+  for (const orbit of orbits) {
+    spinning(t, x, 0, z, [0, 1, 0], orbit.speed, () => {
+      t.body.ring(x, coreY + orbit.dy * scale, z, orbit.r * scale, orbit.color, 0.06);
+      t.body.blob(x + Math.cos(orbit.a) * orbit.r * scale, coreY + orbit.dy * scale, z + Math.sin(orbit.a) * orbit.r * scale, 0.007 * scale, "brass");
+    });
   }
-  t.glow.gem(x + Math.cos(2.3) * 0.052 * scale, coreY + 0.012 * scale, z + Math.sin(2.3) * 0.052 * scale, 0.005 * scale, 0.008 * scale, "aether");
+  spinning(t, x, 0, z, [0, 1, 0], 0.45, () => {
+    t.glow.gem(x + Math.cos(2.3) * 0.052 * scale, coreY, z + Math.sin(2.3) * 0.052 * scale, 0.005 * scale, 0.008 * scale, "aether");
+  });
   return coreY + 0.03 * scale;
 };
 

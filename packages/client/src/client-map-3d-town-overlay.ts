@@ -2,8 +2,10 @@
 // flat-shaded clockwork city (town-tier-geometry.ts): grey stone skyscrapers
 // banded in the AFC's aged brass, lit by lamplight and aether, round an
 // octagonal plaza plate. Drawn per tier as three instanced meshes that share one
-// transform buffer: the matte body, the metalwork (metallic, like the AFC's)
-// and the unlit glow (window strips, lamps, aether).
+// transform buffer: the matte body, the metalwork and glass (metallic, like
+// the AFC's), the unlit glow (window strips, lamps, aether) and the steam.
+// Cogs, orrery hoops, halos, crystals and circling airships turn, lamplight
+// flickers and steam rises entirely in the shaders (town-animation-shaders.ts).
 //
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
@@ -11,12 +13,15 @@ import {
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
+  MeshDepthMaterial,
   MeshStandardMaterial,
   Quaternion,
+  RGBADepthPacking,
   Vector3,
   type Scene,
   type Texture
 } from "three";
+import { applyTownSpin, applyTownSteam, tickTownTime } from "./client-map-3d-town-overlay/town-animation-shaders.js";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { getTownTierGeometry, TOWN_TIERS, type TownTier } from "./client-map-3d-town-overlay/town-tier-geometry.js";
 
@@ -58,6 +63,16 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
   applyBuildingEnvMap(metalMaterial, envMap);
   // Unlit and outside tone mapping so windows and aether stay luminous under the warm sun.
   const glowMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true });
+  const steamMaterial = new MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0, flatShading: true, transparent: true, opacity: 0.6, depthWrite: false
+  });
+  // Shadow pass: spins like the visible meshes, so a circling airship's shadow follows it.
+  const depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+  applyTownSpin(bodyMaterial);
+  applyTownSpin(metalMaterial);
+  applyTownSpin(glowMaterial, true);
+  applyTownSpin(depthMaterial);
+  applyTownSteam(steamMaterial);
 
   const capacity = Math.max(1, maxTiles);
   const slots = new Map<TownTier, TierSlot>();
@@ -69,11 +84,15 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     body.castShadow = true;
     body.receiveShadow = true;
     body.count = 0;
+    body.customDepthMaterial = depthMaterial;
+    // The one per-frame cost of the animation: the shaders' shared clock.
+    body.onBeforeRender = tickTownTime;
     scene.add(body);
     const followers: InstancedMesh[] = [];
     for (const [suffix, part, material, shadowed] of [
       ["metal", geometry.metal, metalMaterial, true],
-      ["glow", geometry.glow, glowMaterial, false]
+      ["glow", geometry.glow, glowMaterial, false],
+      ["steam", geometry.steam, steamMaterial, false]
     ] as const) {
       if (!part) continue;
       const mesh = new InstancedMesh(part, material, capacity);
@@ -83,6 +102,7 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
       mesh.frustumCulled = false;
       mesh.castShadow = shadowed;
       mesh.receiveShadow = shadowed;
+      if (shadowed) mesh.customDepthMaterial = depthMaterial;
       mesh.count = 0;
       scene.add(mesh);
       followers.push(mesh);
@@ -130,6 +150,8 @@ export const createTownOverlay = (scene: Scene, maxTiles: number, envMap?: Textu
     slots.clear();
     bodyMaterial.dispose();
     metalMaterial.dispose();
+    steamMaterial.dispose();
+    depthMaterial.dispose();
     glowMaterial.dispose();
   };
 

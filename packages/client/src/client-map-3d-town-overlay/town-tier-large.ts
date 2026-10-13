@@ -2,7 +2,7 @@
 // skyscrapers round skybridged inner towers -- and, for the metropolis, an
 // octagonal brass-banded megatower with cog clock faces, a brass spire,
 // floating brass halos and an aether crystal -- with airships overhead.
-import { airship, gear, lampPost, octagonPlate, polar, skyBridge, type TownBuilders } from "./town-parts.js";
+import { circlingAirship, gear, lampPost, octagonPlate, polar, skyBridge, spinning, type TownBuilders } from "./town-parts.js";
 import { orrery, skyscraper, towerRing, type Crown } from "./town-skyscraper.js";
 
 /** Skybridged inner ring of tall towers. */
@@ -17,7 +17,8 @@ const innerTowers = (
       h: h[0] + t.random() * (h[1] - h[0]),
       ry: Math.PI / 4 + i * 0.7,
       crown: crowns[i % crowns.length]!,
-      shell: i % 2 === 0 ? "stoneLight" : "stone"
+      shell: i % 2 === 0 ? "stoneLight" : "stone",
+      glass: i % 3 !== 1
     });
   });
   for (let i = 0; i < points.length; i += 1) {
@@ -37,7 +38,7 @@ export const buildGreatCity = (t: TownBuilders): void => {
   orrery(t, 0, 0, 0.8);
   lampPost(t, 0.0, 0.25);
   lampPost(t, 0.0, -0.25);
-  airship(t, -0.14, 0.74, 0.2, 0.22, 0);
+  circlingAirship(t, -0.14, 0.74, 0.2, 0.22, 0.07);
 };
 
 /** Octagonal megatower: stacked stone drums in brass bands, lamplit rings,
@@ -64,9 +65,16 @@ const megatower = (t: TownBuilders): void => {
     gear(t, Math.sin(angle) * 0.062, 0.02 + 0.3 + 0.2, Math.cos(angle) * 0.062, 0.03, angle);
   }
   t.body.cone(0, y, 0, 0.034, 0.18, "brass", 8);
-  t.body.ring(0, y + 0.06, 0, 0.11, "brass", 0.05);
-  t.body.ring(0, y + 0.13, 0, 0.08, "brassDark", 0.06);
-  t.glow.gem(0, y + 0.22, 0, 0.022, 0.05, "aether");
+  // Halos turning opposite ways round the spire, the crystal slowly spinning.
+  spinning(t, 0, 0, 0, [0, 1, 0], 0.25, () => {
+    t.body.ring(0, y + 0.06, 0, 0.11, "brass", 0.05);
+    t.body.blob(0.11, y + 0.06, 0, 0.008, "brass");
+  });
+  spinning(t, 0, 0, 0, [0, 1, 0], -0.4, () => {
+    t.body.ring(0, y + 0.13, 0, 0.08, "brassDark", 0.06);
+    t.body.blob(-0.08, y + 0.13, 0, 0.007, "brassDark");
+  });
+  spinning(t, 0, 0, 0, [0, 1, 0], 0.8, () => t.glow.gem(0, y + 0.22, 0, 0.022, 0.05, "aether"));
 };
 
 export const buildMetropolis = (t: TownBuilders): void => {
@@ -81,6 +89,7 @@ export const buildMetropolis = (t: TownBuilders): void => {
     const [x, z] = polar(0.2, i * 60);
     skyBridge(t, x * 0.4, 0.36, z * 0.4, x * 0.82, 0.34, z * 0.82);
   }
-  airship(t, -0.18, 0.78, 0.22, 0.22, 0);
-  airship(t, 0.24, 0.7, -0.1, 0.2, Math.PI / 2);
+  // Above the inner towers' crowns, at separate heights so the two never meet.
+  circlingAirship(t, -0.15, 0.88, 0.2, 0.22, 0.06);
+  circlingAirship(t, 0.25, 1.0, -0.1, 0.2, -0.05);
 };

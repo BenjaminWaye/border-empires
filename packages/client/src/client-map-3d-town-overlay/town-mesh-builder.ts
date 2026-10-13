@@ -39,6 +39,10 @@ export const TOWN_COLORS = {
   plate: "#5e6064",
   plateDark: "#47494d",
   window: "#2c3038",
+  // Curtain-wall glass: drawn with the metallic material so it mirrors the sky.
+  glass: "#3f5b69",
+  glassLight: "#52707e",
+  steam: "#e9e6df",
   water: "#4f8fae",
   brass: "#c9a05a",
   brassDark: "#8b6c3d",
@@ -55,7 +59,7 @@ export const TOWN_COLORS = {
 export type TownColor = keyof typeof TOWN_COLORS;
 
 /** Metalwork: drawn with the metallic material, the way the AFC renders its iron and brass. */
-export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironDark"]);
+export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironDark", "glass", "glassLight"]);
 
 const UNIT_BOX = new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const UNIT_BOX_CENTRED = new BoxGeometry(1, 1, 1);
@@ -134,6 +138,15 @@ export const createTownRandom = (seed: number): (() => number) => {
   };
 };
 
+/** Per-vertex animation, read by the overlay's shaders (client-map-3d-town-overlay/
+ * town-animation-shaders.ts). For solid parts: a = (pivot x, y, z, spin speed in
+ * rad/s), b = (spin axis x, y, z, flicker phase). For steam puffs: a = (puff
+ * centre x, y, z, cycles/s), b = (drift x, drift z, rise, phase). */
+export type TownAnim = {
+  readonly a: readonly [number, number, number, number];
+  readonly b: readonly [number, number, number, number];
+};
+
 export type TownMeshBuilder = {
   /** Box of size w x h x d standing on (x, y, z), turned ry about y. */
   readonly box: (x: number, y: number, z: number, w: number, h: number, d: number, color: TownColor, ry?: number) => void;
@@ -159,6 +172,8 @@ export type TownMeshBuilder = {
   readonly ellipsoid: (x: number, y: number, z: number, rx: number, ry3: number, rz: number, color: TownColor, ry?: number) => void;
   /** Round pipe from (x0, y0, z0) to (x1, y1, z1). */
   readonly pipe: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, radius: number, color: TownColor) => void;
+  /** Draws everything inside `draw` with the given animation attributes. */
+  readonly withAnim: (anim: TownAnim, draw: () => void) => void;
   readonly build: () => BufferGeometry | undefined;
 };
 
@@ -171,17 +186,25 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
   const yAxis = new Vector3(0, 1, 0);
   const euler = new Euler(0, 0, 0, "YXZ");
   const direction = new Vector3();
+  let anim: TownAnim | undefined;
 
   const pushColored = (part: BufferGeometry, color: TownColor): void => {
     const tint = colorOf(color);
     const count = part.getAttribute("position").count;
     const colors = new Float32Array(count * 3);
+    const animA = new Float32Array(count * 4);
+    const animB = new Float32Array(count * 4);
+    // Static parts still get a flicker phase, staggered part by part.
+    const a = anim?.a ?? [0, 0, 0, 0];
+    const b = anim?.b ?? [0, 0, 0, (parts.length * 0.618034) % 1];
     for (let i = 0; i < count; i += 1) {
-      colors[i * 3] = tint.r;
-      colors[i * 3 + 1] = tint.g;
-      colors[i * 3 + 2] = tint.b;
+      colors.set([tint.r, tint.g, tint.b], i * 3);
+      animA.set(a, i * 4);
+      animB.set(b, i * 4);
     }
     part.setAttribute("color", new BufferAttribute(colors, 3));
+    part.setAttribute("animA", new BufferAttribute(animA, 4));
+    part.setAttribute("animB", new BufferAttribute(animB, 4));
     parts.push(part);
   };
 
@@ -231,6 +254,15 @@ export const createTownMeshBuilder = (): TownMeshBuilder => {
       part.applyMatrix4(matrix.compose(position, quaternion, scale));
       pushColored(part, color);
     },
+    withAnim: (next, draw) => {
+      const previous = anim;
+      anim = next;
+      try {
+        draw();
+      } finally {
+        anim = previous;
+      }
+    },
     build: () => {
       if (parts.length === 0) return undefined;
       const merged = mergeGeometries(parts, false);
@@ -261,6 +293,7 @@ export const createRoutedTownBuilder = (matte: TownMeshBuilder, metal: TownMeshB
     ring: (x, y, z, radius, color, tubeRatio) => to(color).ring(x, y, z, radius, color, tubeRatio),
     ellipsoid: (x, y, z, rx, ry3, rz, color, ry) => to(color).ellipsoid(x, y, z, rx, ry3, rz, color, ry),
     pipe: (x0, y0, z0, x1, y1, z1, radius, color) => to(color).pipe(x0, y0, z0, x1, y1, z1, radius, color),
+    withAnim: (anim, draw) => matte.withAnim(anim, () => metal.withAnim(anim, draw)),
     build: () => {
       throw new Error("build the matte and metal builders directly");
     }

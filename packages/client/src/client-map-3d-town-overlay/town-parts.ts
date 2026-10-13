@@ -7,8 +7,34 @@ import type { TownColor, TownMeshBuilder } from "./town-mesh-builder.js";
 export type TownBuilders = {
   readonly body: TownMeshBuilder;
   readonly glow: TownMeshBuilder;
+  /** Animated steam puffs (see applyTownSteam). */
+  readonly steam: TownMeshBuilder;
   /** Deterministic 0..1 roll, seeded per tier. */
   readonly random: () => number;
+};
+
+/** Draws `draw` (body and glow alike) spinning at `speed` rad/s about `axis`
+ * through the pivot (x, y, z). */
+export const spinning = (
+  t: TownBuilders, x: number, y: number, z: number,
+  axis: readonly [number, number, number], speed: number, draw: () => void
+): void => {
+  const anim = { a: [x, y, z, speed], b: [axis[0], axis[1], axis[2], 0] } as const;
+  t.body.withAnim(anim, () => t.glow.withAnim(anim, draw));
+};
+
+const Y_AXIS = [0, 1, 0] as const;
+
+/** Smokestack on a roof at (x, y, z), with steam puffs looping out of it. */
+export const steamVent = (t: TownBuilders, x: number, y: number, z: number, h = 0.035): void => {
+  t.body.cylinder(x, y, z, 0.007, 0.009, h, "iron", 8);
+  t.body.cylinder(x, y + h - 0.006, z, 0.0095, 0.0095, 0.006, "brass", 8);
+  const phase = t.random();
+  const rate = 0.11 + t.random() * 0.05;
+  for (let i = 0; i < 4; i += 1) {
+    const anim = { a: [x, y + h + 0.01, z, rate], b: [0.05, 0.015, 0.2, (phase + i / 4) % 1] } as const;
+    t.steam.withAnim(anim, () => t.steam.blob(x, y + h + 0.01, z, 0.017, "steam", 1));
+  }
 };
 
 /** Rotates the local offset (lx, lz) by ry and adds it to (x, z). */
@@ -39,10 +65,12 @@ export const octagonPlate = (t: TownBuilders, radius: number): void => {
   t.body.ring(0, 0, 0, radius * 0.42, "brassDark", 0.03);
 };
 
-/** Brass cog facing +z (turned ry), centred on (x, y, z). */
-export const gear = (t: TownBuilders, x: number, y: number, z: number, radius: number, ry: number): void => {
-  t.body.disc(x, y, z, radius * 0.8, 0.006, "brass", ry);
-  for (let i = 0; i < 4; i += 1) t.body.tiltedBox(x, y, z, radius * 2, radius * 0.3, 0.005, "brass", ry, (i * Math.PI) / 4);
+/** Brass cog facing +z (turned ry), centred on (x, y, z), turning slowly. */
+export const gear = (t: TownBuilders, x: number, y: number, z: number, radius: number, ry: number, speed = 0.5): void => {
+  spinning(t, x, y, z, [Math.sin(ry), 0, Math.cos(ry)], speed, () => {
+    t.body.disc(x, y, z, radius * 0.8, 0.006, "brass", ry);
+    for (let i = 0; i < 4; i += 1) t.body.tiltedBox(x, y, z, radius * 2, radius * 0.3, 0.005, "brass", ry, (i * Math.PI) / 4);
+  });
   t.body.disc(x, y, z, radius * 0.26, 0.012, "brassDark", ry);
 };
 
@@ -52,6 +80,11 @@ export const skyBridge = (
 ): void => {
   t.body.pipe(x0, y0, z0, x1, y1, z1, 0.008, "stoneDark");
   t.glow.pipe(x0, y0 + 0.008, z0, x1, y1 + 0.008, z1, 0.0028, "lamp");
+};
+
+/** Airship slowly circling the town centre, nose along its path. */
+export const circlingAirship = (t: TownBuilders, x: number, y: number, z: number, length: number, speed: number): void => {
+  spinning(t, 0, y, 0, Y_AXIS, speed, () => airship(t, x, y, z, length, Math.atan2(x, z) + (speed < 0 ? Math.PI : 0)));
 };
 
 /** Grey-hulled, brass-hooped airship, long axis along x (turned ry). */
