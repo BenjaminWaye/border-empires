@@ -88,7 +88,7 @@ export type ContactShadowOverlay = {
 // Three size tiers, picked by measuring each family's own geometry rather
 // than assumed — the previous single DEFAULT radius (0.42, diameter 0.84)
 // was invisible under towns because their own opaque ground pad is
-// 0.64-0.94 tiles wide (plazaDeck in client-map-3d-town-overlay/town-tier-*.ts):
+// 0.64-0.94 tiles wide (octagonPlate in client-map-3d-town-overlay/town-tier-*.ts):
 // equal to or *larger* than the decal, so it fully occluded the shadow with
 // no rim showing outside it. A contact shadow only reads if it extends
 // past the opaque footprint sitting on top of it.
@@ -100,7 +100,7 @@ export type ContactShadowOverlay = {
 // onto a neighbouring tile.
 export const DEFAULT_CONTACT_SHADOW_RADIUS_TILES = 0.42;
 
-// Wide-footprint occupants: town plaza decks run up to 0.94 tiles wide at
+// Wide-footprint occupants: town octagon plates run up to 0.94 tiles wide at
 // the metropolis tier, and fort walls (WALL_LENGTH in
 // client-map-3d-fort-overlay.ts) run 0.86. Diameter 0.96 clears both with a
 // visible rim while staying inside the tile.

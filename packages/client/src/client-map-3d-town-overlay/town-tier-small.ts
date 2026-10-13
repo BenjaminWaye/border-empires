@@ -1,88 +1,60 @@
-// SETTLEMENT, TOWN and CITY layouts. A town grows outward and upward through
-// the tiers: a hamlet of cottages round an aether lamp, with its greenhouse,
-// water condenser and wind turbine; then a market town -- a crescent of
-// townhouses round a fountain square under a geared clock tower; then a city
-// ringed by terraces round a copper-spired sandstone tower, tied to its
-// neighbours by skybridges, with an airship overhead.
-import { airship, condenser } from "./town-air-parts.js";
-import { clockTower, crescent, fountain, house, stall } from "./town-house-parts.js";
-import {
-  aetherPylon,
-  facingOut,
-  hydroDome,
-  lampPost,
-  plazaDeck,
-  polar,
-  skyBridge,
-  tierTower,
-  tree,
-  windTurbine,
-  type TownBuilders
-} from "./town-parts.js";
+// SETTLEMENT, TOWN and CITY layouts: clockwork skyscrapers ringed round an
+// octagonal plate, fronts to the plaza. A town grows outward and upward: a
+// handful of low towers round a cog lamp, then a ring round a brass orrery,
+// then a taller ring round three skybridged central towers.
+import { lampPost, octagonPlate, polar, skyBridge, tree, type TownBuilders } from "./town-parts.js";
+import { cogLamp, orrery, skyscraper, towerRing } from "./town-skyscraper.js";
 
 export const buildSettlement = (t: TownBuilders): void => {
-  plazaDeck(t, 0.32, "plaza");
-  aetherPylon(t, 0, 0, 0.1);
-  const cottages = [
-    { degrees: 205, w: 0.14, d: 0.1, wall: "plaster", roof: "roofThatch" },
-    { degrees: 330, w: 0.12, d: 0.095, wall: "sandstone", roof: "roofTerracotta" },
-    { degrees: 80, w: 0.12, d: 0.09, wall: "plasterRose", roof: "roofThatch" }
-  ] as const;
-  for (const cottage of cottages) {
-    const [x, z] = polar(0.17, cottage.degrees);
-    house(t, { x, z, w: cottage.w, d: cottage.d, wall: cottage.wall, roof: cottage.roof, ry: facingOut(cottage.degrees + 180), chimney: true, lit: 0.6 });
+  octagonPlate(t, 0.32);
+  towerRing(t, { count: 4, radius: 0.19, startDeg: 45, w: 0.085, h: [0.09, 0.13], crowns: ["dome", "flat", "dome", "flat"] });
+  cogLamp(t, 0, 0, 0.035);
+  for (const degrees of [90, 270]) {
+    const [x, z] = polar(0.2, degrees);
+    tree(t, x, z, 0.09);
   }
-  const [gx, gz] = polar(0.2, 140);
-  hydroDome(t, gx, gz, 0.05);
-  condenser(t, 0.34, 0.14, 0.05, 0.028);
-  windTurbine(t, -0.35, -0.04, 0.14);
-  tree(t, -0.3, -0.25, 0.13, "leaf");
-  tree(t, 0.3, -0.26, 0.12, "leaf");
-  tree(t, -0.2, 0.33, 0.11, "pine");
+  lampPost(t, 0.1, 0.0);
+  lampPost(t, -0.1, 0.0);
 };
 
 export const buildTown = (t: TownBuilders): void => {
-  plazaDeck(t, 0.4);
-  // Terraces on three sides, the square open to the south road.
-  crescent(t, 0.3, 190, 350, { depth: 0.085, storeys: [1, 2] });
-  crescent(t, 0.3, 15, 70, { depth: 0.085, storeys: [1, 2] });
-  crescent(t, 0.3, 110, 165, { depth: 0.085, storeys: [1, 2] });
-  clockTower(t, 0, -0.15, 0.07, 0.24);
-  tierTower(t, { x: -0.15, z: -0.07, radius: 0.04, tiers: 2, tierH: 0.062, cap: "glassDome", light: "lamp" });
-  condenser(t, 0.15, -0.08, 0.06, 0.03);
-  fountain(t, 0, 0.05, 0.045);
-  stall(t, -0.1, 0.11, 0.3, "awningRed");
-  stall(t, 0.1, 0.11, -0.3, "awningBlue");
-  lampPost(t, -0.07, -0.03, 0.05, "lamp");
-  lampPost(t, 0.07, 0.17, 0.05, "lamp");
-  for (const degrees of [80, 100]) {
-    const [x, z] = polar(0.36, degrees);
-    tree(t, x, z, 0.09, "leaf");
+  octagonPlate(t, 0.4);
+  towerRing(t, { count: 6, radius: 0.27, startDeg: 30, w: 0.085, h: [0.17, 0.26], crowns: ["clock", "dome", "flat", "spire", "dome", "pod"], annexH: [0.07, 0.1] });
+  orrery(t, 0, 0, 1.2);
+  for (const degrees of [0, 180]) {
+    const [x, z] = polar(0.17, degrees);
+    tree(t, x, z, 0.08);
+  }
+  for (const degrees of [60, 120, 240, 300]) {
+    const [x, z] = polar(0.13, degrees);
+    lampPost(t, x, z);
   }
 };
 
 export const buildCity = (t: TownBuilders): void => {
-  plazaDeck(t, 0.45);
-  crescent(t, 0.36, -75, 75, { depth: 0.08, storeys: [2, 3] });
-  crescent(t, 0.36, 105, 285, { depth: 0.08, storeys: [2, 3] });
-  tierTower(t, { x: 0, z: 0, radius: 0.075, tiers: 4, tierH: 0.08, taper: 0.06, cap: "spire", light: "aether", spireH: 0.14 });
-  const flankers = [
-    { degrees: 200, cap: "dome" },
-    { degrees: 340, cap: "glassDome" }
+  octagonPlate(t, 0.44);
+  towerRing(t, {
+    count: 8, radius: 0.33, startDeg: 22.5, w: 0.08, h: [0.2, 0.3],
+    crowns: ["flat", "dome", "clock", "flat", "pod", "dome", "flat", "spire"], annexH: [0.09, 0.14]
+  });
+  const inner = [
+    { degrees: 90, crown: "clock", h: 0.4, shell: "stoneLight" },
+    { degrees: 210, crown: "pod", h: 0.46, shell: "stone" },
+    { degrees: 330, crown: "fins", h: 0.42, shell: "stoneDark" }
   ] as const;
-  for (const flanker of flankers) {
-    const [x, z] = polar(0.18, flanker.degrees);
-    tierTower(t, { x, z, radius: 0.05, tiers: 3, tierH: 0.07, cap: flanker.cap, light: "lamp", shell: flanker.degrees === 200 ? "brick" : "sandstone" });
-    skyBridge(t, x * 0.42, 0.18, z * 0.42, x * 0.75, 0.16, z * 0.75);
+  const points = inner.map((tower) => polar(0.13, tower.degrees));
+  inner.forEach((tower, i) => {
+    const [x, z] = points[i]!;
+    skyscraper(t, { x, z, w: 0.085, d: 0.085, h: tower.h, ry: Math.PI / 4 + i, crown: tower.crown, shell: tower.shell });
+  });
+  for (let i = 0; i < points.length; i += 1) {
+    const [x0, z0] = points[i]!;
+    const [x1, z1] = points[(i + 1) % points.length]!;
+    skyBridge(t, x0, 0.22, z0, x1, 0.22, z1);
   }
-  const [hx, hz] = polar(0.2, 125);
-  hydroDome(t, hx, hz, 0.05);
-  const [fx, fz] = polar(0.2, 55);
-  fountain(t, fx, fz, 0.04);
-  lampPost(t, -0.06, 0.2, 0.05, "lamp");
-  lampPost(t, 0.06, 0.2, 0.05, "lamp");
-  tree(t, 0.0, 0.25, 0.09, "leaf");
-  tree(t, -0.22, 0.02, 0.08, "leaf");
-  tree(t, 0.22, 0.02, 0.08, "leaf");
-  airship(t, -0.12, 0.5, 0.16, 0.22, 0);
+  orrery(t, 0, 0, 0.7);
+  for (const degrees of [150, 270, 30]) {
+    const [x, z] = polar(0.22, degrees);
+    lampPost(t, x, z);
+  }
 };

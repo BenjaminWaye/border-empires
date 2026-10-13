@@ -49,16 +49,15 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component: [
-          "The shipped procedural town overlay (createTownOverlay): a lived-in steampunk town growing through five tiers --",
-          "sandstone, brick and plaster townhouses under copper, slate and terracotta roofs, with the AFC's brass, blackened",
-          "iron and cyan aether rising out of them in sandstone towers, skybridges and airships. See TownOnTerrain for the",
-          "towns on the real terrain beside an AFC.",
+          "The shipped procedural town overlay (createTownOverlay): clockwork skyscrapers of grey stone banded in the AFC's",
+          "aged brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned",
+          "crystals, ringed round an octagonal plaza. See TownOnTerrain for the towns on the real terrain beside an AFC.",
           "",
-          "SETTLEMENT · a hamlet of cottages round an aether lamp, with a greenhouse, water condenser and wind turbine.",
-          "TOWN · a crescent of townhouses round a fountain square and market under a geared clock tower.",
-          "CITY · terraces ringing a copper-spired sandstone tower, two skybridged towers, a greenhouse and an airship.",
-          "GREAT_CITY · twin towers joined by skybridges behind a terraced garden arcology, a clock tower, a moored airship.",
-          "METROPOLIS · a rooftop monorail circling three-storey terraces round a brass-haloed megaspire, two airships."
+          "SETTLEMENT · four low towers round a cog lamp.",
+          "TOWN · a ring of towers and annexes round a brass orrery.",
+          "CITY · a taller ring round three skybridged central towers.",
+          "GREAT_CITY · ten ring towers round four tall skybridged towers, with an airship.",
+          "METROPOLIS · twelve ring towers and six inner towers round a brass-haloed octagonal megatower, two airships."
         ].join("\n")
       }
     }

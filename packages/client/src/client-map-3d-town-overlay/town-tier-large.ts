@@ -1,70 +1,86 @@
-// GREAT_CITY and METROPOLIS layouts: rings of tall terraces round twin
-// sandstone towers and a terraced garden arcology, or -- for the metropolis --
-// a monorail circling the rooftops round a megaspire haloed in brass and
-// crowned with an aether crystal, with airships overhead.
-import { airship, mooringMast } from "./town-air-parts.js";
-import { clockTower, crescent, fountain } from "./town-house-parts.js";
-import {
-  arcology,
-  lampPost,
-  monorailRing,
-  plazaDeck,
-  polar,
-  skyBridge,
-  tierTower,
-  tree,
-  type TowerCap,
-  type TownBuilders
-} from "./town-parts.js";
+// GREAT_CITY and METROPOLIS layouts: ever taller rings of clockwork
+// skyscrapers round skybridged inner towers -- and, for the metropolis, an
+// octagonal brass-banded megatower with cog clock faces, a brass spire,
+// floating brass halos and an aether crystal -- with airships overhead.
+import { airship, gear, lampPost, octagonPlate, polar, skyBridge, type TownBuilders } from "./town-parts.js";
+import { orrery, skyscraper, towerRing, type Crown } from "./town-skyscraper.js";
+
+/** Skybridged inner ring of tall towers. */
+const innerTowers = (
+  t: TownBuilders, count: number, radius: number, startDeg: number, w: number,
+  h: readonly [number, number], crowns: readonly Crown[], bridgeYs: readonly number[]
+): void => {
+  const points = Array.from({ length: count }, (_, i) => polar(radius, startDeg + (i * 360) / count));
+  points.forEach(([x, z], i) => {
+    skyscraper(t, {
+      x, z, w, d: w,
+      h: h[0] + t.random() * (h[1] - h[0]),
+      ry: Math.PI / 4 + i * 0.7,
+      crown: crowns[i % crowns.length]!,
+      shell: i % 2 === 0 ? "stoneLight" : "stone"
+    });
+  });
+  for (let i = 0; i < points.length; i += 1) {
+    const [x0, z0] = points[i]!;
+    const [x1, z1] = points[(i + 1) % points.length]!;
+    for (const y of bridgeYs) skyBridge(t, x0, y, z0, x1, y, z1);
+  }
+};
 
 export const buildGreatCity = (t: TownBuilders): void => {
-  plazaDeck(t, 0.46);
-  crescent(t, 0.385, -78, 78, { depth: 0.08, storeys: [2, 3] });
-  crescent(t, 0.385, 102, 282, { depth: 0.08, storeys: [2, 3] });
-  arcology(t, 0, 0.06, 0.11, 3, 0.065);
-  // Twin towers behind the arcology, joined high up.
-  const [lx, lz] = polar(0.2, 210);
-  const [rx, rz] = polar(0.2, 330);
-  tierTower(t, { x: lx, z: lz, radius: 0.058, tiers: 6, tierH: 0.068, taper: 0.04, cap: "dome", light: "lamp" });
-  tierTower(t, { x: rx, z: rz, radius: 0.058, tiers: 6, tierH: 0.068, taper: 0.04, cap: "spire", light: "aether", spireH: 0.16 });
-  skyBridge(t, lx + 0.052, 0.33, lz, rx - 0.052, 0.33, rz);
-  skyBridge(t, lx + 0.054, 0.19, lz, rx - 0.054, 0.19, rz);
-  clockTower(t, 0, 0.25, 0.065, 0.2);
-  fountain(t, -0.2, 0.12, 0.035);
-  lampPost(t, -0.08, 0.2, 0.05, "lamp");
-  lampPost(t, 0.08, 0.2, 0.05, "lamp");
-  tree(t, 0.2, 0.13, 0.08, "leaf");
-  tree(t, 0.0, -0.2, 0.08, "leaf");
-  // Airship nosed in to a mast on the north-west terrace.
-  mooringMast(t, -0.28, -0.04, 0.42);
-  airship(t, -0.14, 0.46, -0.04, 0.24, Math.PI);
+  octagonPlate(t, 0.46);
+  towerRing(t, {
+    count: 10, radius: 0.35, startDeg: 18, w: 0.072, h: [0.24, 0.36],
+    crowns: ["flat", "dome", "clock", "flat", "pod", "dome", "spire", "flat", "fins", "dome"], annexH: [0.11, 0.17]
+  });
+  innerTowers(t, 4, 0.16, 45, 0.08, [0.5, 0.6], ["clock", "spire", "fins", "pod"], [0.22, 0.36]);
+  orrery(t, 0, 0, 0.8);
+  lampPost(t, 0.0, 0.25);
+  lampPost(t, 0.0, -0.25);
+  airship(t, -0.14, 0.74, 0.2, 0.22, 0);
+};
+
+/** Octagonal megatower: stacked stone drums in brass bands, lamplit rings,
+ * cog clock faces, a brass spire, brass halos and an aether crystal. */
+const megatower = (t: TownBuilders): void => {
+  t.body.cylinder(0, 0, 0, 0.09, 0.096, 0.02, "graphite", 8, Math.PI / 8);
+  let y = 0.02;
+  const drums = [
+    { r: 0.072, h: 0.3, shell: "stone" },
+    { r: 0.06, h: 0.25, shell: "stoneLight" },
+    { r: 0.047, h: 0.18, shell: "stone" }
+  ] as const;
+  for (const drum of drums) {
+    t.body.cylinder(0, y, 0, drum.r, drum.r, drum.h, drum.shell, 8, Math.PI / 8);
+    for (let band = 0.18; band < 0.95; band += 0.2) {
+      t.glow.cylinder(0, y + drum.h * band, 0, drum.r * 1.01, drum.r * 1.01, drum.h * 0.05, "lamp", 8, Math.PI / 8);
+    }
+    t.body.cylinder(0, y + drum.h - 0.008, 0, drum.r * 1.08, drum.r * 1.08, 0.01, "brass", 8, Math.PI / 8);
+    y += drum.h;
+  }
+  // Cog clock faces on the middle drum.
+  for (const quarter of [0, 1, 2, 3]) {
+    const angle = (quarter * Math.PI) / 2;
+    gear(t, Math.sin(angle) * 0.062, 0.02 + 0.3 + 0.2, Math.cos(angle) * 0.062, 0.03, angle);
+  }
+  t.body.cone(0, y, 0, 0.034, 0.18, "brass", 8);
+  t.body.ring(0, y + 0.06, 0, 0.11, "brass", 0.05);
+  t.body.ring(0, y + 0.13, 0, 0.08, "brassDark", 0.06);
+  t.glow.gem(0, y + 0.22, 0, 0.022, 0.05, "aether");
 };
 
 export const buildMetropolis = (t: TownBuilders): void => {
-  plazaDeck(t, 0.47);
-  crescent(t, 0.385, -80, 80, { depth: 0.07, storeys: [3, 3] });
-  crescent(t, 0.385, 100, 280, { depth: 0.07, storeys: [3, 3] });
-  // The monorail runs round the city above the rooftops.
-  monorailRing(t, 0.44, 0.26, 16);
-  // Megaspire: the AFC's printer tower built tall in sandstone, haloed in brass.
-  tierTower(t, { x: 0, z: 0, radius: 0.1, tiers: 7, tierH: 0.092, taper: 0.075, cap: "spire", light: "aether", spireH: 0.24 });
-  t.body.ring(0, 0.74, 0, 0.12, "brass", 0.05);
-  t.body.ring(0, 0.82, 0, 0.085, "brass", 0.06);
-  const caps: readonly TowerCap[] = ["dome", "glassDome", "garden", "dome"];
-  caps.forEach((cap, i) => {
-    const degrees = 45 + i * 90;
-    const [x, z] = polar(0.23, degrees);
-    tierTower(t, { x, z, radius: 0.052, tiers: i % 2 === 0 ? 5 : 4, tierH: 0.07, taper: 0.03, cap, light: "lamp", shell: i === 2 ? "brick" : "sandstone" });
-    skyBridge(t, x * 0.42, 0.3, z * 0.42, x * 0.78, 0.26, z * 0.78);
+  octagonPlate(t, 0.47);
+  towerRing(t, {
+    count: 12, radius: 0.37, startDeg: 15, w: 0.066, h: [0.3, 0.44],
+    crowns: ["flat", "dome", "clock", "pod", "flat", "spire", "dome", "fins", "flat", "clock", "dome", "pod"], annexH: [0.13, 0.2]
   });
-  const [fx, fz] = polar(0.24, 90);
-  fountain(t, fx, fz, 0.04);
-  for (const degrees of [0, 180, 270]) {
-    const [x, z] = polar(0.25, degrees);
-    tree(t, x, z, 0.08, "leaf");
+  innerTowers(t, 6, 0.2, 0, 0.07, [0.5, 0.64], ["clock", "pod", "spire", "fins", "dome", "clock"], [0.24]);
+  megatower(t);
+  for (let i = 0; i < 6; i += 1) {
+    const [x, z] = polar(0.2, i * 60);
+    skyBridge(t, x * 0.4, 0.36, z * 0.4, x * 0.82, 0.34, z * 0.82);
   }
-  lampPost(t, -0.07, 0.3, 0.05, "lamp");
-  lampPost(t, 0.07, 0.3, 0.05, "lamp");
-  airship(t, -0.2, 0.62, 0.22, 0.24, 0);
-  airship(t, 0.24, 0.74, -0.08, 0.22, Math.PI / 2);
+  airship(t, -0.18, 0.78, 0.22, 0.22, 0);
+  airship(t, 0.24, 0.7, -0.1, 0.2, Math.PI / 2);
 };

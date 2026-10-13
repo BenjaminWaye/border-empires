@@ -6,8 +6,8 @@ export const PROCEDURAL_TOWNS_CHANGELOG: ClientChangelogEntry[] = [{
   title: "New towns on the 3D map",
   why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
   changes: [
-    "Every town tier on the 3D map has new art: lived-in streets of sandstone, brick and plaster townhouses under copper, slate and terracotta roofs, with the same brass and glowing aether technology as your AFC rising out of them",
-    "Towns grow visibly through their tiers, from a hamlet of cottages to a market town under a geared clock tower, a city round a copper-spired tower, a great city with twin skybridged towers, and a metropolis circled by a rooftop monorail round a brass-haloed megaspire, with airships overhead",
+    "Every town tier on the 3D map has new art: clockwork skyscrapers of grey stone banded in brass, with lamplit window strips and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, ringed round an octagonal plaza",
+    "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a ring round a brass orrery, skybridged central towers, and a metropolis round a brass-haloed megatower crowned with an aether crystal, with airships overhead",
     "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
   ]
 }];

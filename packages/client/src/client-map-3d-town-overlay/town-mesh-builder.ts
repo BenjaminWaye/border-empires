@@ -26,52 +26,36 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-// Palette of a lived-in steampunk city: warm sandstone, brick and plaster
-// streets under copper, slate and terracotta roofs, with the AFC's
-// (client-map-3d-fabrication-complex.ts) blackened iron, aged brass and cyan
-// aether as the technology rising out of them. Warm lamplight carries most of
-// the glow; aether is kept for the machines. Colours in
-// TOWN_METAL_COLORS are drawn with the overlay's metallic material, like the
-// AFC's metalwork.
+// Clockwork-city palette: grey stone and graphite skyscrapers trimmed in the
+// AFC's (client-map-3d-fabrication-complex.ts) aged brass and blackened iron,
+// lit by warm lamplight with cyan aether for the stranger machinery. Colours
+// in TOWN_METAL_COLORS are drawn with the overlay's metallic material, like
+// the AFC's metalwork.
 export const TOWN_COLORS = {
-  sandstone: "#c09a68",
-  sandstoneDark: "#93714a",
-  brick: "#a65a40",
-  plaster: "#cdb38a",
-  plasterRose: "#c6977a",
-  timber: "#6e4a30",
-  door: "#4e3322",
-  window: "#2f3540",
-  roofTerracotta: "#a24a2c",
-  roofSlate: "#4a5b6e",
-  roofThatch: "#c4964f",
-  glass: "#5f9a98",
-  plaza: "#98886c",
-  plazaDark: "#73654f",
-  water: "#5ea9cf",
-  awningRed: "#c4553f",
-  awningBlue: "#4b7fae",
-  copper: "#477f6c",
+  stone: "#777a80",
+  stoneLight: "#8b8e94",
+  stoneDark: "#5d6066",
+  graphite: "#4a4d53",
+  plate: "#5e6064",
+  plateDark: "#47494d",
+  window: "#2c3038",
+  water: "#4f8fae",
   brass: "#c9a05a",
   brassDark: "#8b6c3d",
   iron: "#3a3e46",
-  ironLight: "#5a616c",
   ironDark: "#25282e",
-  garden: "#6aa84a",
   foliage: "#5f9a3c",
   foliageLight: "#86b34a",
-  foliageDark: "#3f6e3c",
   trunk: "#6b4a2e",
   // Glow-only colours (drawn unlit by the overlay's glow mesh).
   lamp: "#ffd58a",
-  aether: "#9ff4ff",
-  aetherDeep: "#3fc3d6"
+  aether: "#9ff4ff"
 } as const;
 
 export type TownColor = keyof typeof TOWN_COLORS;
 
 /** Metalwork: drawn with the metallic material, the way the AFC renders its iron and brass. */
-export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironLight", "ironDark"]);
+export const TOWN_METAL_COLORS: ReadonlySet<TownColor> = new Set<TownColor>(["brass", "brassDark", "iron", "ironDark"]);
 
 const UNIT_BOX = new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const UNIT_BOX_CENTRED = new BoxGeometry(1, 1, 1);

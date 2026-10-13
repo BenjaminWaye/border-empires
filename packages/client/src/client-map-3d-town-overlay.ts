@@ -1,9 +1,9 @@
 // Procedural 3D towns. Each tier is baked once into a vertex-coloured,
-// flat-shaded steampunk town (town-tier-geometry.ts): warm sandstone, brick
-// and plaster streets with the AFC's brass, blackened iron and cyan aether
-// rising out of them. Drawn per tier as three instanced meshes that share one
+// flat-shaded clockwork city (town-tier-geometry.ts): grey stone skyscrapers
+// banded in the AFC's aged brass, lit by lamplight and aether, round an
+// octagonal plaza plate. Drawn per tier as three instanced meshes that share one
 // transform buffer: the matte body, the metalwork (metallic, like the AFC's)
-// and the unlit glow (window bands, lamps, aether).
+// and the unlit glow (window strips, lamps, aether).
 //
 // Each town is turned a quarter-turn picked from its world tile, so
 // neighbouring towns of the same tier don't read as stamped copies.
