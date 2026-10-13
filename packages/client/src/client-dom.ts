@@ -110,7 +110,7 @@ export const initClientDom = () => {
   const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
-  const mobileSheetHeadEl = requireElement<HTMLSpanElement>("#mobile-sheet-title"); // the title text; the head also holds the Manifest view toggle
+  const mobileSheetTitleEl = requireElement<HTMLSpanElement>("#mobile-sheet-title");
   const techViewToggleEl = requireElement<HTMLButtonElement>("#tech-view-toggle");
   const mobileTechViewToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-view-toggle");
   const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
@@ -244,7 +244,7 @@ export const initClientDom = () => {
     mobilePanelTechEl,
     mobilePanelDomainsEl,
     mobileSheetEl,
-    mobileSheetHeadEl,
+    mobileSheetTitleEl,
     mobileTechChoiceDetailsEl,
     mobileTechChoicesGridEl,
     mobileTechChooseBtn,
