@@ -193,8 +193,11 @@
   color: var(--sp-brass-300);
 }
 
-.alliance-propose-actions {
-  flex-wrap: wrap;
+/* .alliance-reference-actions is a two-column grid: the alliance / break
+ * buttons take a full row, the two truce lengths share the next one. */
+.alliance-propose-actions .propose-alliance,
+.alliance-propose-actions .break-truce {
+  grid-column: 1 / -1;
 }
 
 /* The player a tile's Diplomacy action jumped to (client-alliance-focus.ts). */
