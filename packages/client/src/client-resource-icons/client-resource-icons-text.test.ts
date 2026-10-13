@@ -21,8 +21,8 @@ describe("setTextWithResourceIcons", () => {
     expect(el.querySelector("b")).toBeNull();
     expect(el.textContent).toBe("Conquered from <b>Evil</b>. Plundered  2 Titanium,  1 Crystal.");
     expect(Array.from(el.querySelectorAll("img")).map((img) => img.getAttribute("src"))).toEqual([
-      "/icons/resources/titanium-48.png",
-      "/icons/resources/crystal-48.png"
+      "/icons/simple/titanium.svg",
+      "/icons/simple/crystal.svg"
     ]);
     expect(Array.from(el.querySelectorAll("img")).map((img) => img.getAttribute("alt"))).toEqual(["Titanium", "Crystal"]);
   });
@@ -40,7 +40,7 @@ describe("setTextWithResourceIcons", () => {
     setTextWithResourceIcons(el, "Plundered ◉ 9.");
     el.textContent = "";
     setTextWithResourceIcons(el, "Plundered ◉ 9.");
-    expect(el.querySelector("img")?.getAttribute("src")).toBe("/icons/resources/gold-48.png");
+    expect(el.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/gold.svg");
     expect(el.textContent).toBe("Plundered  9.");
   });
 });

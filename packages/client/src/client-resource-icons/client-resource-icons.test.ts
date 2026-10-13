@@ -7,12 +7,13 @@ import {
   resourceIconGlyph,
   resourceIconHtml,
   resourceIconUrl,
+  resourceSimpleIconUrl,
   type ResourceIconKey,
   type ResourceIconPx
 } from "./client-resource-icons.js";
 
 const KEYS: ResourceIconKey[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
-const SIZES: ResourceIconPx[] = [48, 72, 96, 256];
+const SIZES: ResourceIconPx[] = [96, 256];
 
 const fakeCtx = () => {
   const ctx = { drawImage: vi.fn(), fillText: vi.fn(), save: vi.fn(), restore: vi.fn(), font: "", textAlign: "", textBaseline: "" };
@@ -20,8 +21,10 @@ const fakeCtx = () => {
 };
 
 describe("resource icon assets", () => {
-  it("ships every size the code references for every resource", () => {
+  it("ships every file the code references for every resource", () => {
     for (const key of KEYS) {
+      const simple = fileURLToPath(new URL(`../../public${resourceSimpleIconUrl(key)}`, import.meta.url));
+      expect(existsSync(simple), simple).toBe(true);
       for (const px of SIZES) {
         const file = fileURLToPath(new URL(`../../public${resourceIconUrl(key, px)}`, import.meta.url));
         expect(existsSync(file), file).toBe(true);
@@ -31,13 +34,13 @@ describe("resource icon assets", () => {
 });
 
 describe("resourceIconHtml", () => {
-  it("renders an inline img with a density srcset and a readable alt", () => {
+  it("renders the simple small-size SVG inline with a readable alt", () => {
     expect(resourceIconHtml("CRYSTAL")).toBe(
-      '<img class="resource-icon-img" src="/icons/resources/crystal-48.png" srcset="/icons/resources/crystal-48.png 1x, /icons/resources/crystal-72.png 1.5x, /icons/resources/crystal-96.png 2x" alt="Crystal" draggable="false" decoding="async">'
+      '<img class="resource-icon-img" src="/icons/simple/crystal.svg" alt="Crystal" draggable="false" decoding="async">'
     );
   });
 
-  it("uses the 96/256 exports for large art slots", () => {
+  it("uses the detailed painted 96/256 exports for large art slots", () => {
     const html = resourceIconHtml("SHARD", "large");
     expect(html).toContain('src="/icons/resources/shard-96.png"');
     expect(html).toContain("/icons/resources/shard-256.png 2x");
@@ -89,6 +92,6 @@ describe("drawResourceIconOnCanvas", () => {
     const { ctx, asCanvas } = fakeCtx();
     drawResourceIconOnCanvas(asCanvas, "UMBRITE", 50, 40, 20);
     expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.drawImage).toHaveBeenCalledWith(expect.objectContaining({ src: "/icons/resources/umbrite-96.png" }), 40, 30, 20, 20);
+    expect(ctx.drawImage).toHaveBeenCalledWith(expect.objectContaining({ src: "/icons/simple/umbrite.svg" }), 40, 30, 20, 20);
   });
 });
