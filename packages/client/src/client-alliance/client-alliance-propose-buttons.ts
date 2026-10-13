@@ -6,8 +6,8 @@ type ProposeButtonDeps = {
 };
 
 /**
- * Wires the per-player "Propose Alliance" / "Truce 12h|24h" buttons rendered by
- * client-alliance-panel.ts. The gateway resolves a request target by display
+ * Wires the per-player "Propose Alliance" / "Truce 12h|24h" / "Break Truce"
+ * buttons rendered by client-alliance-panel.ts. The gateway resolves a request target by display
  * name, so the name is looked up from the player id at click time.
  */
 export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): void => {
@@ -16,6 +16,13 @@ export const bindProposeButtons = (root: ParentNode, deps: ProposeButtonDeps): v
       const targetPlayerName = deps.playerNameForOwner(btn.dataset.proposePlayerId);
       if (!targetPlayerName) return;
       deps.sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName }, "Finish sign-in before sending alliance requests.");
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>(".break-truce").forEach((btn) => {
+    btn.onclick = () => {
+      const targetPlayerId = btn.dataset.breakTrucePlayerId;
+      if (!targetPlayerId) return;
+      deps.sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId }, "Finish sign-in before breaking truces.");
     };
   });
   root.querySelectorAll<HTMLButtonElement>(".propose-truce").forEach((btn) => {

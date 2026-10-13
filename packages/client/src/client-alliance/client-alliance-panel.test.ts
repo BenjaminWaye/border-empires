@@ -80,6 +80,21 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain("18h left");
     expect(html).toContain("propose-alliance");
     expect(html).not.toContain("propose-truce");
+    expect(html).toContain("break-truce");
+    expect(html).toContain('data-break-truce-player-id="p-2"');
+  });
+
+  it("only offers Break Truce while a truce is active", () => {
+    expect(panel({ metPlayerIds: new Set(["p-1"]) })).not.toContain("break-truce");
+  });
+
+  it("still offers Break Truce on a truced player whose name is not known yet", () => {
+    const html = panel({
+      activeTruces: [{ otherPlayerId: "p-9", otherPlayerName: "", startedAt: NOW - 1, endsAt: NOW + 3_600_000, createdByPlayerId: "me" }],
+      playerNameForOwner: () => undefined
+    });
+    expect(html).toContain("break-truce");
+    expect(html).not.toContain("propose-alliance");
   });
 
   it("does not offer actions for a met player whose name is not known yet", () => {
@@ -95,7 +110,7 @@ describe("alliancePanelHtml", () => {
 });
 
 describe("bindProposeButtons", () => {
-  it("sends alliance and truce requests by display name", () => {
+  it("sends alliance and truce requests by display name and breaks truces by id", () => {
     const root = document.createElement("div");
     root.innerHTML = panel({ metPlayerIds: new Set(["p-1"]) });
     const sendGameMessage = vi.fn(() => true);
@@ -103,8 +118,15 @@ describe("bindProposeButtons", () => {
 
     root.querySelector<HTMLButtonElement>(".propose-alliance")!.click();
     root.querySelectorAll<HTMLButtonElement>(".propose-truce")[1]!.click();
+    const trucedRoot = document.createElement("div");
+    trucedRoot.innerHTML = panel({
+      activeTruces: [{ otherPlayerId: "p-2", otherPlayerName: "IronFist", startedAt: NOW - 1, endsAt: NOW + 3_600_000, createdByPlayerId: "me" }]
+    });
+    bindProposeButtons(trucedRoot, { playerNameForOwner: (id) => (id ? names[id] : undefined), sendGameMessage });
+    trucedRoot.querySelector<HTMLButtonElement>(".break-truce")!.click();
 
     expect(sendGameMessage).toHaveBeenNthCalledWith(1, { type: "ALLIANCE_REQUEST", targetPlayerName: "SteamLord" }, expect.any(String));
     expect(sendGameMessage).toHaveBeenNthCalledWith(2, { type: "TRUCE_REQUEST", targetPlayerName: "SteamLord", durationHours: 24 }, expect.any(String));
+    expect(sendGameMessage).toHaveBeenNthCalledWith(3, { type: "TRUCE_BREAK", targetPlayerId: "p-2" }, expect.any(String));
   });
 });

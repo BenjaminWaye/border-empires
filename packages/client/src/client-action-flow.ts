@@ -401,12 +401,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
-  const pendingTruceWithPlayer = (playerId?: string | null): "incoming" | "outgoing" | undefined => {
-    if (!playerId) return undefined;
-    if (state.outgoingTruceRequests.some((request) => request.toPlayerId === playerId && request.expiresAt > Date.now())) return "outgoing";
-    if (state.incomingTruceRequests.some((request) => request.fromPlayerId === playerId && request.expiresAt > Date.now())) return "incoming";
-    return undefined;
-  };
 
   const explainActionFailure = (
     code: string,
@@ -1114,7 +1108,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     supportedOwnedDocksForTile,
     townHasSupportStructure,
     activeTruceWithPlayer,
-    pendingTruceWithPlayer,
     ownerSpawnShieldActive,
     connectedOwnedFrontierKeysFor: (tile: Tile) => connectedOwnedFrontierKeys(state, tile, { keyFor, wrapX, wrapY })
   });

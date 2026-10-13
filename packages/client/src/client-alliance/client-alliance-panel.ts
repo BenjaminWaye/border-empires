@@ -47,13 +47,16 @@ const metPlayerRowHtml = (
     ? `<div class="alliance-reference-status alliance-reference-status-truce"><span>Truce</span></div>
           <div class="alliance-reference-duration-note">${socialRemainingLabel(truce.endsAt, nowMs)} left</div>`
     : `<div class="alliance-reference-duration-note">No agreement</div>`;
+  const breakTruceButton = truce
+    ? `<button class="panel-btn alliance-reference-action alliance-reference-action-break break-truce" type="button" data-break-truce-player-id="${escapeHtml(playerId)}" title="Breaking a truce locks you out of new truces for 24h">Break Truce</button>`
+    : "";
   const actions = !name
-    ? ""
+    ? breakTruceButton
     : `<div class="alliance-reference-actions alliance-propose-actions">
         <button class="panel-btn alliance-reference-action alliance-reference-action-accept propose-alliance" type="button" data-propose-player-id="${escapeHtml(playerId)}">Propose Alliance</button>
         ${
           truce
-            ? ""
+            ? breakTruceButton
             : `<button class="panel-btn alliance-reference-action propose-truce" type="button" data-propose-player-id="${escapeHtml(playerId)}" data-truce-hours="12">Truce 12h</button>
         <button class="panel-btn alliance-reference-action propose-truce" type="button" data-propose-player-id="${escapeHtml(playerId)}" data-truce-hours="24">Truce 24h</button>`
         }

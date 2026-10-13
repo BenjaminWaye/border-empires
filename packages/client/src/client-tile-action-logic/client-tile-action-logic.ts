@@ -166,7 +166,6 @@ export type TileActionLogicDeps = {
   supportedOwnedDocksForTile: (tile: Tile) => Tile[];
   townHasSupportStructure: (townTile: Tile | undefined, structureType: SupportTownStructureKey) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
-  pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
   ownerSpawnShieldActive: (ownerId: string) => boolean;
   connectedOwnedFrontierKeysFor: (tile: Tile) => string[];
 };
