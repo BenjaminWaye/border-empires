@@ -145,6 +145,26 @@ export type TowerRingOptions = {
   readonly annexH?: readonly [number, number];
 };
 
+/** One hand-placed building of a composed layout. */
+export type Building = {
+  readonly x: number;
+  readonly z: number;
+  readonly w: number;
+  readonly d: number;
+  readonly h: number;
+  readonly crown: Crown;
+  readonly glass?: boolean;
+  readonly shell?: TownColor;
+  readonly ry?: number;
+};
+
+/** Places a composed layout's buildings, pushed out from the centre by `spread`. */
+export const buildings = (t: TownBuilders, list: readonly Building[], spread = 1): void => {
+  for (const b of list) {
+    skyscraper(t, { x: b.x * spread, z: b.z * spread, w: b.w, d: b.d, h: b.h, ry: b.ry ?? 0, crown: b.crown, glass: b.glass ?? false, shell: b.shell ?? "stone" });
+  }
+};
+
 /** Ring of skyscrapers round the plate, fronts facing the plaza. */
 export const towerRing = (t: TownBuilders, o: TowerRingOptions): void => {
   const shells = o.shells ?? ["stone", "stoneLight", "stoneDark", "stone"];

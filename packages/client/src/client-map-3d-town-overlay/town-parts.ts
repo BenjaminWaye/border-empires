@@ -56,13 +56,24 @@ export const facingOut = (degrees: number): number => Math.PI / 2 - (degrees * M
 /** Octagonal base plate, its top at y = 0: grey stone inside a brass band on
  * an iron skirt that runs well below 0, so a sloped tile never shows a gap
  * under it (the overlay lifts the whole town; see TOWN_BASE_LIFT). */
-export const octagonPlate = (t: TownBuilders, radius: number): void => {
+export const octagonPlate = (t: TownBuilders, radius: number, plazaRing = true): void => {
   const turn = Math.PI / 8;
   t.body.cylinder(0, -0.1, 0, radius, radius * 1.02, 0.092, "ironDark", 8, turn);
   t.body.cylinder(0, -0.016, 0, radius * 1.012, radius * 1.012, 0.008, "brass", 8, turn);
   t.body.cylinder(0, -0.008, 0, radius * 0.985, radius * 0.985, 0.008, "plate", 8, turn);
   // Inlaid brass ring round the central plaza.
-  t.body.ring(0, 0, 0, radius * 0.42, "brassDark", 0.03);
+  if (plazaRing) t.body.ring(0, 0, 0, radius * 0.42, "brassDark", 0.03);
+};
+
+/** Paved avenue inlaid in the plate from (x0, z0) to (x1, z1), brass-kerbed. */
+export const avenue = (t: TownBuilders, x0: number, z0: number, x1: number, z1: number, width: number): void => {
+  const length = Math.hypot(x1 - x0, z1 - z0);
+  const ry = -Math.atan2(z1 - z0, x1 - x0);
+  t.body.box((x0 + x1) / 2, 0, (z0 + z1) / 2, length, 0.002, width, "plateDark", ry);
+  for (const side of [-1, 1] as const) {
+    const [kx, kz] = at((x0 + x1) / 2, (z0 + z1) / 2, ry, 0, side * width / 2);
+    t.body.box(kx, 0, kz, length, 0.003, 0.004, "brassDark", ry);
+  }
 };
 
 /** Brass cog facing +z (turned ry), centred on (x, y, z), turning slowly. */
