@@ -1,0 +1,45 @@
+/*
+ * Manifest panel tabs (client-manifest-tabs/). Imported after the steampunk
+ * theme files so the --sp-* tokens exist.
+ *
+ * Available: the choice grid. Owned: the bonus chips + "Your Manifests".
+ * The expanded tree already shows every Manifest, so tabs step aside there
+ * and the existing tree-expanded rules decide what is visible.
+ */
+
+#panel-tech.tech-tree-expanded [data-manifest-tab-btn],
+#mobile-panel-tech.tech-tree-expanded [data-manifest-tab-btn] {
+  display: none;
+}
+
+#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #tech-current-mods,
+#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #tech-owned,
+#panel-tech:not(.tech-tree-expanded)[data-manifest-tab="owned"] #tech-choices-grid,
+#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #mobile-tech-current-mods,
+#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="available"] #mobile-tech-owned,
+#mobile-panel-tech:not(.tech-tree-expanded)[data-manifest-tab="owned"] #mobile-tech-choices-grid {
+  display: none;
+}
+
+.manifest-tab {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.manifest-tab.active {
+  background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6));
+  border-color: var(--sp-brass-100);
+  color: var(--sp-brass-100);
+}
+
+/* The mobile sheet gives Expand Tree its own row (style.css); with the tabs
+   beside it, one row of three keeps the list higher up the sheet. */
+#mobile-panel-tech:not(.tech-tree-expanded) .tech-tree-expand-toggle {
+  grid-column: auto;
+  padding: 0 10px;
+}

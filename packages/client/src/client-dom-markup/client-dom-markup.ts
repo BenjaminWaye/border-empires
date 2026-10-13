@@ -271,8 +271,10 @@ export const hudMarkup = `
     </div>
     <div id="side-panel-body">
       <section id="panel-missions" class="panel-body" hidden></section>
-      <section id="panel-tech" class="panel-body">
-        <div class="tech-section-tabs tech-section-tabs-single">
+      <section id="panel-tech" class="panel-body" data-manifest-tab="available">
+        <div class="tech-section-tabs tech-section-tabs-single" role="tablist">
+          <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
+          <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
           <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
@@ -319,8 +321,10 @@ export const hudMarkup = `
   <div id="mobile-sheet">
     <div id="mobile-sheet-head">Panel</div>
     <section id="mobile-panel-missions" class="mobile-panel" hidden></section>
-    <section id="mobile-panel-tech" class="mobile-panel">
-      <div class="tech-section-tabs tech-section-tabs-single">
+    <section id="mobile-panel-tech" class="mobile-panel" data-manifest-tab="available">
+      <div class="tech-section-tabs tech-section-tabs-single" role="tablist">
+        <button class="panel-btn manifest-tab active" type="button" role="tab" aria-selected="true" data-manifest-tab-btn="available">Available</button>
+        <button class="panel-btn manifest-tab" type="button" role="tab" aria-selected="false" data-manifest-tab-btn="owned">Owned</button>
         <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">

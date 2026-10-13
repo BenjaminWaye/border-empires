@@ -343,7 +343,7 @@ export const createInitialState = () => ({
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
-  techSection: "research" as "research" | "domains",
+  techSection: "available" as "available" | "owned", // Manifest panel tab, see client-manifest-tabs.ts
   techTreeExpanded: false,
   techUiSelectedId: "" as string,
   techDetailOpen: false,

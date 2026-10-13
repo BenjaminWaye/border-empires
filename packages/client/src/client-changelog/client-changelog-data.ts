@@ -482,6 +482,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Combat reports for each muster flag",
     why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
+  },
+  {
+    createdAt: 1791922964029, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Manifest panel tabs",
+    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
+    changes: ["The Manifest panel has Available and Owned tabs", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch"]
   }
 ];
 
