@@ -33,7 +33,7 @@ import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
+import { applySocialFocus } from "../client-alliance/client-alliance-focus.js"; import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
@@ -123,10 +123,6 @@ type HudDeps = {
   domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[], chosenTrickleResource?: ChosenTrickleResource) => string;
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
-  alliesHtml: typeof import("../client-panel-html/client-panel-html.js").alliesHtml;
-  activeTrucesHtml: typeof import("../client-panel-html/client-panel-html.js").activeTrucesHtml;
-  allianceRequestsHtml: typeof import("../client-panel-html/client-panel-html.js").allianceRequestsHtml;
-  truceRequestsHtml: typeof import("../client-panel-html/client-panel-html.js").truceRequestsHtml;
   renderSocialInspectCardHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderSocialInspectCardHtml;
   missionCardsHtml: typeof import("../client-panel-html/client-panel-html.js").missionCardsHtml;
   playerNameForOwner: (ownerId?: string | null) => string;
@@ -199,10 +195,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     domainOwnedHtml,
     renderDomainDetailCard,
     sendGameMessage,
-    alliesHtml,
-    activeTrucesHtml,
-    allianceRequestsHtml,
-    truceRequestsHtml,
     renderSocialInspectCardHtml,
     missionCardsHtml,
     playerNameForOwner,
@@ -522,7 +514,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  renderAllianceTargetOptionsIfChanged(dom.allianceTargetOptionsEl, state);
   dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
@@ -685,50 +676,21 @@ export const renderClientHud = (deps: HudDeps): void => {
       return;
     }
   };
-  dom.alliesListEl.innerHTML = safeValue(
-    "alliesHtml",
-    fallbackCard("Alliances"),
-    () => {
-      const nowMs = Date.now();
-      return `<section class="alliance-section-block">
-        <h4 class="alliance-section-title">Current Allies</h4>
-        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner, state.activeAllianceBreaks, nowMs)}</div>
-      </section>
-      <section class="alliance-section-block">
-        <h4 class="alliance-section-title">Active Truces</h4>
-        <div class="alliance-card-stack">${activeTrucesHtml(state.activeTruces, playerNameForOwner, nowMs)}</div>
-      </section>`;
-    }
+  dom.alliesListEl.innerHTML = safeValue("alliancePanelHtml", fallbackCard("Alliances"), () =>
+    alliancePanelHtml({
+      metPlayerIds: refreshMetPlayerIds(state),
+      allies: state.allies,
+      activeAllianceBreaks: state.activeAllianceBreaks,
+      activeTruces: state.activeTruces,
+      incomingAllianceRequests: state.incomingAllianceRequests,
+      outgoingAllianceRequests: state.outgoingAllianceRequests,
+      incomingTruceRequests: state.incomingTruceRequests,
+      outgoingTruceRequests: state.outgoingTruceRequests,
+      playerNameForOwner,
+      nowMs: Date.now()
+    })
   );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
-  dom.allianceRequestsEl.innerHTML = safeValue(
-    "allianceRequestsHtml",
-    fallbackCard("Alliance requests"),
-    () => {
-      const nowMs = Date.now();
-      const pendingAllianceHtml = `${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}${allianceRequestsHtml(
-        state.outgoingAllianceRequests,
-        playerNameForOwner,
-        "outgoing",
-        nowMs
-      )}`;
-      const pendingTruceHtml = `${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, "incoming", nowMs)}${truceRequestsHtml(
-        state.outgoingTruceRequests,
-        playerNameForOwner,
-        "outgoing",
-        nowMs
-      )}`;
-      return `<section class="alliance-section-block">
-        <h4 class="alliance-section-title">Pending Alliance Requests</h4>
-        <div class="alliance-card-stack">${pendingAllianceHtml || '<article class="card alliance-empty-card"><p>No pending requests.</p></article>'}</div>
-      </section>
-      <section class="alliance-section-block">
-        <h4 class="alliance-section-title">Pending Truce Requests</h4>
-        <div class="alliance-card-stack">${pendingTruceHtml || '<article class="card alliance-empty-card"><p>No pending truces.</p></article>'}</div>
-      </section>`;
-    }
-  );
-  dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
+  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML; applySocialFocus([dom.alliesListEl, dom.mobileAlliesListEl], state);
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
@@ -925,6 +887,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".reject-truce", "truceRequestId", (id) => ({ type: "TRUCE_REJECT", requestId: id }), "Finish sign-in before responding to truces.");
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
+  bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage });
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 

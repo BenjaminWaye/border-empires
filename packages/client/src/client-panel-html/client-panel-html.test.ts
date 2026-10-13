@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
+import { allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
 const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
 const emptyAnim = {
@@ -137,7 +137,7 @@ describe("feedHtml", () => {
     expect(html).toContain("Waiting on:");
   });
 
-  it("renders active allies and truces in the new status-card format", () => {
+  it("renders active allies in the status-card format", () => {
     const alliesMarkup = alliesHtml(["player-42"], (id) => (id === "player-42" ? "SteamLord" : undefined));
     const breakingAlliesMarkup = alliesHtml(
       ["player-42"],
@@ -153,20 +153,6 @@ describe("feedHtml", () => {
       ],
       Date.UTC(2026, 3, 13, 12, 0, 0)
     );
-    const trucesMarkup = activeTrucesHtml(
-      [
-        {
-          otherPlayerId: "player-89",
-          otherPlayerName: "IronFist",
-          startedAt: Date.UTC(2026, 3, 13, 6, 0, 0),
-          endsAt: Date.UTC(2026, 3, 14, 6, 0, 0),
-          createdByPlayerId: "player-89"
-        }
-      ],
-      () => undefined,
-      Date.UTC(2026, 3, 13, 12, 0, 0)
-    );
-
     expect(alliesMarkup).toContain("SteamLord");
     expect(alliesMarkup).toContain("Active");
     expect(alliesMarkup).toContain("Break Alliance");
@@ -190,9 +176,6 @@ describe("feedHtml", () => {
     expect(finalizingAlliesMarkup).toContain("Finalizing");
     expect(finalizingAlliesMarkup).toContain("sync pending");
     expect(finalizingAlliesMarkup).not.toContain("Break Alliance");
-    expect(trucesMarkup).toContain("IronFist");
-    expect(trucesMarkup).toContain("18h");
-    expect(trucesMarkup).toContain("remaining");
   });
 
   it("renders incoming truce requests with accept and reject actions", () => {
