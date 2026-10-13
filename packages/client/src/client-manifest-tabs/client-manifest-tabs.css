@@ -69,6 +69,28 @@
   padding: 4px 10px;
 }
 
+/* Other mobile panels open as a sheet below the resource strip. The Manifest
+   panel takes the full height in both views, as the tree always has, so it
+   doesn't jump when you switch between list and tree. */
+@media (max-width: 900px) {
+  #mobile-sheet.tech-panel-open {
+    top: 6px;
+  }
+
+  /* The tree fills the sheet below its head; style.css's fixed
+     calc(100vh - 92px) ignored the head and clipped the tree's bottom. */
+  #mobile-sheet.tech-panel-active #mobile-panel-tech {
+    box-sizing: border-box;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  #mobile-sheet.tech-panel-active #mobile-tech-research-section {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
 /* ---- Desktop tree: keep the header (toggle + Close) and fill the window ---- */
 
 #side-panel.tech-panel-active #side-panel-head {
