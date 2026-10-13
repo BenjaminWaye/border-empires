@@ -12,6 +12,7 @@ import {
   type EmpireStorageCap,
   type SlotResource
 } from "@border-empires/shared";
+import { economyIntegrityCardHtml } from "./client-economy-integrity-card.js";
 import { FOUNDRY_RADIUS, WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
@@ -30,6 +31,8 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 const isSlotResource = (resource: EconomyResource): resource is SlotResource => resource !== "GOLD";
 
 type EconomyPanelArgs = {
+  /** Empire Integrity 0-100 -- shown as its own summary card (client-economy-integrity-card.ts) when given. */
+  integrityPct?: number;
   focus: EconomyFocusKey;
   gold: number;
   me: string;
@@ -417,6 +420,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
     <div class="economy-panel">
       <div class="economy-summary-grid">
         ${revealedResources.map((resource) => economySummaryCardHtml(args, resource, resource === args.focus)).join("")}
+        ${args.integrityPct === undefined ? "" : economyIntegrityCardHtml(args.integrityPct, args.rateToneClass)}
       </div>
       ${totals ? `<div class="economy-overview-note">${args.isMobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : args.isMobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
       ${visibleResources

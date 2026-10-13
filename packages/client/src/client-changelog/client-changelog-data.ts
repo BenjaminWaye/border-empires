@@ -446,6 +446,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   {
+    createdAt: 1791921253260, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Empire Integrity is gentler on new empires",
+    why: "Playtesters watched the Empire Integrity number fall as they expanded and read it as being punished, even though it was still giving them a bonus -- and the protection for new empires ran out after just 50 garrisoned tiles.",
+    changes: [
+      "New empires keep at least 90% integrity until 150 garrisoned tiles (was 50), and the protection then fades out slowly, so integrity can't cost you coin or growth before about 240 garrisoned tiles",
+      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth"
+    ]
+  },
+  {
     createdAt: 1791905157542, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
     title: "Relay Beacons show where to build them",

@@ -1,3 +1,4 @@
+import { INTEGRITY_PENALTY_PCT } from "@border-empires/shared";
 import { selfPlayerIdFromLeaderboard } from "../client-panel-html/client-panel-html.js";
 
 // Top-toolbar "Player" chip. When our player id is known it is a button
@@ -15,8 +16,20 @@ export const integrityWarningTipHtml = (show: boolean): string =>
   show
     ? `<div class="integrity-warning-tip" role="alert">
         <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
-        <p><strong>Integrity below 90%</strong><br />Less Coin &middot; Growth</p>
+        <p><strong>Integrity below ${INTEGRITY_PENALTY_PCT}%</strong><br />Less Coin &middot; Growth</p>
         <button class="integrity-warning-tip-ack" type="button" data-defensibility-open="true">More info</button>
         <button class="integrity-warning-tip-ack" type="button" data-dismiss-integrity-warning="ok">Got it</button>
       </div>`
     : "";
+
+// Empire Integrity lives in the Economy panel (its summary card opens the
+// breakdown). The top-bar chip only appears once integrity actually costs
+// coin/growth -- below INTEGRITY_PENALTY_PCT -- so new players aren't shown a
+// falling number while it is still a bonus.
+export const integrityChipHtml = (args: { pct: number; defClass: string; showWarning: boolean; mobile: boolean }): string =>
+  args.pct >= INTEGRITY_PENALTY_PCT
+    ? ""
+    : `<div class="stat-chip-def-wrap">
+      <button class="stat-chip stat-chip-def${args.defClass}${args.showWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${args.mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(args.pct)}%</strong></button>
+      ${integrityWarningTipHtml(args.showWarning)}
+    </div>`;

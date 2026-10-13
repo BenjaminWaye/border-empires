@@ -6,7 +6,7 @@ import {
   INTEGRITY_GRACE_FADE_TILES,
   INTEGRITY_GRACE_FLOOR,
   INTEGRITY_GRACE_TILES
-} from "./config.js";
+} from "./empire-integrity-config.js";
 import { defensibilityScore } from "./math/math.js";
 
 const lerpByIntegrity = (t: number, min: number, max: number): number => min + t * (max - min);
