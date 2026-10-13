@@ -168,7 +168,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: FOGGED_PRINT_WASH_OPACITY, frontier: FOGGED_PRINT_WASH_OPACITY }, undefined, { settled: "normal", frontier: "normal" }, FOG_OVERLAY_RENDER_ORDERS); // sepia wash: remembered land as a faded print
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" }, FOG_OVERLAY_RENDER_ORDERS);
   await deps.onStage?.("structures");
-  const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
+  const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES, atmosphere.buildingEnvironmentTexture);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
   // Land-filtered copy of the player's reach for the border trace, rebuilt only when reachCacheKey changes. The unfiltered set itself comes from
@@ -1000,7 +1000,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
-          townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          townOverlay.addInstance(x, z, surfaceY, renderedTier, wx, wy);
           // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
           // tiles wide (see the radius comments in
           // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was

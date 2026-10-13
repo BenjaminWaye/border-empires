@@ -31,10 +31,10 @@ describe("newly shadow-wired overlays", () => {
     massifs.dispose();
   });
 
-  it("town buildings cast and receive shadows", () => {
+  it("town buildings cast and receive shadows, except the unlit glow and the steam", () => {
     const scene = new Scene();
     const overlay = createTownOverlay(scene, 4);
-    const meshes = instancedMeshesIn(scene);
+    const meshes = instancedMeshesIn(scene).filter((mesh) => !mesh.name.endsWith("-glow") && !mesh.name.endsWith("-steam"));
     expect(meshes.length).toBeGreaterThan(0);
     for (const mesh of meshes) {
       expect(mesh.castShadow).toBe(true);

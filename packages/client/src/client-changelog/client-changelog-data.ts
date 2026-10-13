@@ -76,233 +76,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791311818491, // Date.now() frozen for this entry
-    introducedIn: "2026.10.06.1",
-    title: "Relay Beacons and forts are built piece by piece",
-    why: "A Relay Beacon or fort under construction looked the same as a finished one, so a multi-hour build gave no sign of progress.",
-    changes: [
-      "A Relay Beacon being built now grows in four phases in both the 3D and 2D maps (with scaffolding around it in 3D): the legs and column rise, and the mirror array is fitted last",
-      "Forts, Palisades and Bastions being built rise wall by wall in four phases, with a crew working inside the walls (and scaffolding in 3D); removing one plays it in reverse",
-      "Upgrading a fort keeps the standing fort fully drawn, since it keeps defending, and shows the crew and scaffolding working around it",
-      "Tall structures, such as towers, now rise gradually through the build phases instead of showing at full height straight away",
-      "Construction crews are now the same small black dots as when settling, and stop where they stand while a build is paused; a stack of glowing fabricated parts sits at the site",
-      "At the start of every phase a pod of freshly fabricated parts now flies in from your Automated Fabrication Complex, instead of dropping from orbit; the farther the site is from it, the longer the flight",
-      "The first five Relay Beacons are still placed instantly, so only later, slower builds show the animation"
-    ]
-  },
-  {
-    createdAt: 1791315189192, // Date.now() frozen for this entry
-    introducedIn: "2026.10.06.1",
-    title: "AI stops building redundant coastal relays",
-    why: "Existing relay coverage hid known water from the AI’s ocean filter, so it mistook offshore fog for new land.",
-    changes: ["AI relay placement now recognizes ocean inside existing reach while preserving exploration toward unseen land"]
-  },
-  {
-    createdAt: 1791208703442, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.3",
-    title: "Border Empires icon now appears everywhere",
-    why: "Some browsers and search results used an old fallback icon instead of the Border Empires castle.",
-    changes: [
-      "The fallback browser icon now uses the Border Empires castle, matching the primary icon"
-    ]
-  },
-  {
-    createdAt: 1791195855000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.1",
-    title: "Muster flags attack launch tiles",
-    why: "Advance and March flags treated any tile an attack had launched from as locked, so on a busy front they reported no target even with enemies all around.",
-    changes: [
-      "Advance and March muster flags can now fire on the tile an enemy attack launched from",
-      "A flag can launch from a tile that already launched another of your attacks; a tile that is itself under attack is still skipped"
-    ]
-  },
-  {
-    createdAt: 1791142179429, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.2",
-    title: "Your reach now scouts the land it covers",
-    why: "Reach could extend across neutral ground without revealing it, so losing frontier tiles could leave you unable to see territory your towns, docks and outposts still allowed you to claim.",
-    changes: [
-      "Every tile inside your current reach now has one tile of vision",
-      "You can see one tile beyond the outer edge of that reach, even when no frontier tiles remain",
-      "Frontier tiles keep their existing scouting vision"
-    ]
-  },
-  {
-    createdAt: 1791002214000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.03.1",
-    title: "Cleaner starting grounds and no trees under towns or docks",
-    why: "A new empire's Automated Fabrication Complex could land on, or right next to, a town, dock or resource, and trees could be left standing on town and dock tiles.",
-    changes: [
-      "Your Automated Fabrication Complex now only lands where its tile and all 8 neighbouring tiles are free of towns, docks and resources, so you settle those yourself",
-      "If a crowded map has no such clear spot left, your Automated Fabrication Complex still lands, crushing any unclaimed towns and resources in its 3x3 footprint (never docks or anything another House owns)",
-      "Trees are now cleared from every town and dock tile"
-    ]
-  },
-  {
-    createdAt: 1791196311458, // Date.now() frozen for this entry
-    introducedIn: "2026.10.05.2",
-    title: "Watch structures get built",
-    why: "Structures take hours to build, but a tile under construction looked the same as a finished one, so there was nothing to tell a slow build from a stuck one.",
-    changes: [
-      "Economic structures under construction now rise in four phases (foundation, frame, cladding, fit-out) with scaffolding around them, in both the 3D and 2D maps",
-      "A stack of glowing parts sits beside each site and shrinks as the ancillary crew carries it over, and fresh parts drop in from orbit at the start of every phase",
-      "The crew moves in lockstep and freezes when a build is overdue; removing a structure plays the phases in reverse",
-      "In the 3D map, forts, siege camps, Aether Towers, Relay Beacons, Umbrite rigs and factories, and Caravanaries still show fully built while under construction"
-    ]
-  },
-  {
-    createdAt: 1791140199531, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "Safer spawns and full AFC reach",
-    why: "New players could spawn with barbarians on their doorstep, and a barbarian-held town nearby could cut away part of the AFC's reach.",
-    changes: [
-      "When your AFC lands, any barbarians inside its reach are cleared away so you start on open ground",
-      "Barbarian-held towns, docks and outposts no longer claim reach, so they can't take reach tiles around your AFC",
-      "On a very crowded map, new spawns still prefer a site with no barbarians within a few tiles"
-    ]
-  },
-  {
-    createdAt: 1791140183000, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "Counter-attack the tile an attack launched from",
-    why: "Locking the tile an enemy attack came from left defenders unable to answer while their frontier was being taken, and two attacks from one tile could cancel each other.",
-    changes: [
-      "You can attack the tile an enemy attack launched from while their attack is still pending; only the tile being attacked is locked",
-      "Several attacks launched from the same tile now all resolve; previously the earlier ones could be dropped without a result",
-      "If the launch tile changes hands mid-fight, the original attack still resolves, and a failed attack no longer hands a captured launch tile to the defender",
-      "Barbarians leave the tile they attack from the moment their attack starts, so it can't be captured to leave them alive on your tile"
-    ]
-  },
-  {
-    createdAt: 1791142473309, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "More reliable new seasons",
-    why: "A crowded small world could reject a new season while placing its final AI starting settlements.",
-    changes: [
-      "New seasons now use remaining valid land for starting settlements after preferred spacing options are exhausted"
-    ]
-  },
-  {
-    createdAt: 1791005011469, // Date.now() frozen for this entry
-    introducedIn: "2026.10.03.1",
-    title: "AI infrastructure and clearer tile details",
-    why: "AI empires missed the AFC grant that runs on human login, and tile details omitted foreign settlement status and some battles.",
-    changes: [
-      "AI empires missing an AFC receive one when the server starts or a season begins; it appears in both the 3D and 2D maps",
-      "Foreign tile details identify settled and frontier territory",
-      "Tile details show muster battles and distinguish resolved combat animations from ongoing attacks"
-    ]
-  },
-  {
-    createdAt: 1791166249102, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.1",
-    title: "Fewer unexpected game server restarts",
-    why: "The game server slowly used more and more memory and ran out roughly every 18 hours, restarting for a minute or two and dropping everyone's connection.",
-    changes: [
-      "Fixed a memory leak in the simulation server that kept every past command and update in memory",
-      "The server should now stay up much longer between restarts"
-    ]
-  },
-  {
-    createdAt: 1791140687838, // Date.now() frozen for this entry
-    introducedIn: "2026.10.04.1",
-    title: "New 3D models for towns and cities",
-    why: "Towns, cities, great cities and metropolises now have hand-detailed steampunk models instead of the simple box buildings, so each tier reads clearly on the map.",
-    changes: [
-      "Town, City, Great City and Metropolis tiles in the 3D map are drawn with textured steampunk models that grow taller and busier with each tier",
-      "Settlements keep their existing look; the 2D map is unchanged"
-    ]
-  },
-  {
-    createdAt: 1791195878000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.2",
-    title: "Battle progress shows your chance of winning",
-    why: "The battle card rarely showed odds: not for muster attacks, often not for manual ones, and never for the defender, so you couldn't tell how likely a battle was to go your way.",
-    changes: [
-      "The battle progress card shows the exact chance of winning, for manual and muster attacks alike",
-      "Defenders now see their own chance of holding the tile when an attack is incoming",
-      "The versus bar labels each side with its percentage"
-    ]
-  },
-  {
-    createdAt: 1791228193000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.05.3",
-    title: "A new season no longer leaves the old one on screen",
-    why: "If the game was open when a new season started, it kept showing the last season's leaderboard, victory standings and map until you reloaded the page.",
-    changes: [
-      "When a new season starts, an open game reconnects on its own and loads the new season",
-      "The leaderboard, victory standings, map and camera from the old season are cleared"
-    ]
-  },
-  {
-    createdAt: 1791277545524, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.1",
-    title: "Extra and Double effort now actually boost muster attacks",
-    why: "Choosing Extra or Double effort for a muster flag was lost on the way to the server, so the flag attacked at Normal effort and the battle card showed Normal odds.",
-    changes: [
-      "A muster flag's chosen effort level is now saved and used for the attacks it launches",
-      "The battle card's chance of winning reflects the effort you committed"
-    ]
-  },
-  {
-    createdAt: 1791280725000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.2",
-    title: "AFC module call-down takes a minute, missing modules restored, and an AFC button",
-    why: "Your AFC could show only one module despite lots of research: modules researched before you had a Fabrication Complex, or lost when an AFC holding them was captured, never docked. The Call down action that moves modules between AFCs was also missing until your next research update after loading in, and there was no quick way to find your AFC.",
-    changes: [
-      "Select one of your AFCs to see a Call down row in its Actions tab for every researched module it doesn't hold",
-      "A called-down module leaves its old AFC straight away and lands on the new one after 1 minute; its countdown shows in the AFC's overview and Actions",
-      "Researched modules that aren't on any of your AFCs are called down to your home AFC automatically when you connect",
-      "A module still in transit is lost if the AFC it's heading to is captured -- call it down again to another AFC",
-      "Researching an AFC module now jumps the map to the AFC it docks on, so you see it land",
-      "The Center button is now an AFC button: it jumps to your home Fabrication Complex and opens its module overview (or centers on your empire if you have no AFC)"
-    ]
-  },
-  {
-    createdAt: 1791311280000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.3",
-    title: "Territory colour shows on hills by the coast",
-    why: "On the 3D map, hills next to the sea often showed no ownership colour, because the colour layer was drawn underneath the hill.",
-    changes: [
-      "Owned, frontier and settling hills along the coast now show their empire colour like any other tile",
-      "The 2D map is unchanged"
-    ]
-  },
-  {
-    createdAt: 1791196969000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.4",
-    title: "Attacks now pause settling and building",
-    why: "A tile could finish settling or construction while an attack on it was already under way, so the battle was fought against a tile that had changed since it was launched.",
-    changes: [
-      "Attacking a tile that is being settled cancels the settle and refunds it",
-      "Buildings under construction on an attacked tile pause, showing \"Paused: ongoing attack\", and resume with the same time remaining if the defender holds",
-      "A tile under attack can't be settled or have a new building started until the battle resolves"
-    ]
-  },
-  {
-    createdAt: 1791317162415, // frozen Date.now() value for this release
-    introducedIn: "2026.10.06.5",
-    title: "Effort levels boost your odds more gently",
-    why: "Committing extra manpower used to square your odds, which made Planetary Defense raids roll at around 1% and effort feel like a coin flip between hopeless and certain.",
-    changes: [
-      "Extra effort now multiplies your odds ratio by 1.5 and Double by 2, so a 50% fight becomes 60% and 67%",
-      "Effort never guarantees a win: the boost matters most in contested fights and barely moves hopeless ones",
-      "Raids are gone: attacking Planetary Defense now works exactly like attacking a player, with the same mustered-manpower requirement and effort levels",
-      "Planetary Defense attacks can no longer be launched from your general manpower pool; you need a funded muster flag nearby"
-    ]
-  },
-  {
-    createdAt: 1791324311000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.07.1",
-    title: "Tile menu names whose reach you are inside",
-    why: "A contested frontier tile just said \"Inside Enemy Reach\", which made you guess which empire was pressing on it.",
-    changes: [
-      "The tile menu now says \"Inside <empire> Reach\" with the empire's name, or both names when two reaches overlap",
-      "Tap the line to see why: you can't settle inside another empire's reach",
-      "It still says \"Inside Enemy Reach\" when the covering empire can't be seen yet (fogged anchors) or when three or more reaches overlap"
-    ]
-  },
-  {
     createdAt: 1791462529729,
     introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
@@ -445,6 +218,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  {
+    createdAt: 1791920134069, // Date.now() frozen for this entry.
+    introducedIn: "2026.10.13.1",
+    title: "New towns on the 3D map",
+    why: "Towns on the 3D map looked out of place next to the bright terrain and the AFC.",
+    changes: [
+      "Every town tier on the 3D map has new art: clockwork skyscrapers of glass and grey stone banded in brass, with lamplit windows and crowns of brass cog clocks, needle spires, glowing alien bulbs and finned crystals, on an octagonal base plate",
+      "Towns and cities are laid out on street grids with lamplit crossings, parks and skybridges between their towers, and cities rise to a downtown of sheer glass skyscrapers",
+      "Towns grow visibly through their tiers, from a few low towers round a cog lamp to a metropolis round a brass-haloed megatower crowned with an aether crystal",
+      "Towns are alive: steam rises from rooftop stacks, windows flicker with lamplight, clock cogs and orreries turn, crystals spin, and airships circle the bigger cities",
+      "Neighbouring towns of the same tier now face different ways, so they no longer look like copies"
+    ]
+  },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
