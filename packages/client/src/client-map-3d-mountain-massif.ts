@@ -33,6 +33,7 @@ import {
   MOUNTAIN_MODELS,
   SUMMIT_MODELS
 } from "./client-map-3d-mountain-models.js";
+import { markUnexploredStormClip } from "./client-map-3d-unexplored-storm/client-map-3d-unexplored-storm-clip.js";
 
 // Per-instance rock colour shift (multiplies the vertex colours).
 const TINT_LIGHTNESS = 0.06;
@@ -56,8 +57,11 @@ export type MountainMassif = {
   /** Instances added since the last clear that carry snow. */
   readonly snowyInstanceCount: () => number;
   readonly clear: () => void;
-  /** (x, z) scene position of the tile centre, (wx, wy) its world tile -- the look is keyed on the latter. */
-  readonly addInstance: (x: number, z: number, surfaceY: number, wx: number, wy: number) => void;
+  /**
+   * (x, z) scene position of the tile centre, (wx, wy) its world tile -- the look is keyed on the latter.
+   * `tint`: optional colour multiply on top of the per-tile shade (remembered tiles print as a faded survey map).
+   */
+  readonly addInstance: (x: number, z: number, surfaceY: number, wx: number, wy: number, tint?: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -109,7 +113,8 @@ export const mountainPlacementAt = (wx: number, wy: number, lookup: MountainNeig
 };
 
 export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: MountainMassifDeps): MountainMassif => {
-  const material = createMountainModelMaterial();
+  // Hidden whole under the unexplored storm (client-map-3d-unexplored-storm-clip.ts).
+  const material = markUnexploredStormClip(createMountainModelMaterial());
   // Each layer can hold half the visible tiles; anything past capacity is dropped.
   const capacity = Math.max(1, Math.ceil(maxInstances / 2));
   const layersFor = (climate: "temperate" | "alpine"): ModelLayer[] =>
@@ -132,7 +137,7 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     snowy = 0;
   };
 
-  const addInstance = (x: number, z: number, surfaceY: number, wx: number, wy: number): void => {
+  const addInstance = (x: number, z: number, surfaceY: number, wx: number, wy: number, tint?: Color): void => {
     const neighbourhood = mountainNeighbourhoodAt(wx, wy, deps);
     const variation = mountainVariationAt(wx, wy, neighbourhood);
     const placement = mountainPlacementAt(wx, wy, deps);
@@ -145,7 +150,9 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number, deps: 
     layer.mesh.setMatrixAt(layer.count, tempMatrix);
     const light = 1 + TINT_LIGHTNESS * variation.tint;
     const warm = TINT_WARMTH * variation.warmth;
-    layer.mesh.setColorAt(layer.count, tempColor.setRGB(light + warm, light, light - warm));
+    tempColor.setRGB(light + warm, light, light - warm);
+    if (tint) tempColor.multiply(tint);
+    layer.mesh.setColorAt(layer.count, tempColor);
     // Shared with the 2D peaks: cold country, and most summits elsewhere.
     const snow = mountainSnowAt(wx, wy, deps, neighbourhood.cold) ? 1 : 0;
     layer.snowLines.setX(layer.count, snow);

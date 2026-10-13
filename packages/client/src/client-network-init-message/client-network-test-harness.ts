@@ -78,8 +78,6 @@ export const bind = (state: any, ws: FakeWebSocket, extraDeps: Record<string, un
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     applyOptimisticTileState: vi.fn(),
     ...extraDeps

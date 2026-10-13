@@ -75,7 +75,6 @@ export const createState = () =>
     playerColors: new Map(),
     playerVisualStyles: new Map(),
     playerShieldUntil: new Map(),
-    pendingCollectTileDelta: new Map(),
     settleProgressByTile: new Map([
       [
         "12,18",
@@ -224,8 +223,6 @@ export const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<st
     clearSettlementProgressByKey,
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue,
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     settlementProgressForTile: vi.fn(() => undefined),
     ...overrides

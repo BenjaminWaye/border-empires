@@ -49,6 +49,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrai
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
@@ -777,6 +778,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
     };
     const tileStartAt = performance.now();
+    const drawTerrainDetail = (dwx: number, dwy: number, dpx: number, dpy: number, dsize: number): void => { deps.drawForestOverlay(dwx, dwy, dpx, dpy, dsize); deps.drawHillsOverlay(dwx, dwy, dpx, dpy, dsize); }; // per frame, not per tile
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
         const wx = deps.wrapX(state.camX + x);
@@ -790,25 +792,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const py = screenCenter ? screenCenter.sy - size / 2 : (y + halfH) * size;
 
         if (!isTrue3DRendererActive()) {
-          if (vis === "unexplored") {
-            deps.ctx.fillStyle = "#06090f";
-            deps.ctx.fillRect(px, py, size, size);
-          } else if (!t) {
-            if (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) {
-              deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
-            } else {
-              deps.ctx.fillStyle = "#06090f";
-              deps.ctx.fillRect(px, py, size, size);
-            }
-          } else if (vis === "fogged") {
-            deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
-            deps.ctx.fillStyle = (t.terrain === "SEA" || t.terrain === "COASTAL_SEA") ? "rgba(7, 20, 34, 0.34)" : "rgba(2, 5, 10, 0.72)";
-            deps.ctx.fillRect(px, py, size, size);
-          } else if (t.terrain === "SEA" || t.terrain === "COASTAL_SEA" || t.terrain === "MOUNTAIN") {
-            deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
-          } else {
-            deps.drawTerrainTile(wx, wy, "LAND", px, py, size);
-          }
+          const terrainWhenMissing = !t && (state.firstChunkAt === 0 || effectiveFogDisabled(state) || revealWholeMapInTrue3DMode) ? terrainAt(wx, wy) : undefined;
+          const neighbourVisibility = (ox: number, oy: number): TileVisibilityState => deps.tileVisibilityStateAt(deps.wrapX(wx + ox), deps.wrapY(wy + oy));
+          drawTileGround2D(deps.ctx, { wx, wy, px, py, size, tile: t, vis, terrainWhenMissing, terrainAt, drawTerrainTile: deps.drawTerrainTile, drawTerrainDetail, neighbourVisibility });
         }
 
         if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") { deps.drawForestOverlay(wx, wy, px, py, size); deps.drawHillsOverlay(wx, wy, px, py, size); }

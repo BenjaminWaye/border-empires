@@ -12,6 +12,7 @@ import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
+import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
@@ -28,6 +29,7 @@ import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { PROCEDURAL_TOWNS_CHANGELOG } from "./client-changelog-procedural-towns.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -39,16 +41,6 @@ export type ClientChangelogEntry = {
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
-  {
-    createdAt: 1791819900184, // Date.now() frozen for this entry, as required by the changelog gate.
-    introducedIn: "2026.10.12.1",
-    title: "River mountains on the 2D map, and matching snow",
-    why: "The 2D map still drew rivers pouring down the mountain while 3D starts them at its foot, and the two maps disagreed on which peaks have snow.",
-    changes: [
-      "On the 2D map, a river now wells up at the foot of its mountain between two boulders and runs in a banked stream to the pool, like the 3D map",
-      "Both maps now cap the same mountains with snow: every mountain in cold country, and most of the tallest peaks elsewhere"
-    ]
-  },
   {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
@@ -72,6 +64,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Manpower panel now shows what one refill pays, when the next refill is, and how long until you are full",
       "The Development chip is now a row of gears, one per slot: busy slots spin, free slots sit still, and a full set glows copper. It takes much less room on the top bar",
       "All top-bar chips (Player, Coin, Manpower, Integrity, Development) now match the brass-and-leather style of the resource pills, and on phones Integrity and Development line up with the other chips"
+    ]
+  },
+  {
+    createdAt: 1791837136490, // Date.now() frozen for this entry
+    introducedIn: "2026.10.12.1",
+    title: "Soldiers now show when you attack enemy frontier land",
+    why: "Launching an attack on an enemy's frontier tile showed the tile changing colour but no soldiers, so it looked like a plain expansion.",
+    changes: [
+      "Your soldiers now step onto the enemy frontier tile you attack and stand there until it is yours, in the 3D map (the 2D map draws no soldiers for attacks)"
     ]
   },
   {
@@ -302,22 +303,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791401674856, // frozen Date.now() value for this release
-    introducedIn: "2026.10.07.2",
-    title: "Rivers look like water again",
-    why: "River water was a pale see-through film drawn on top of everything, so it looked like it floated over the land, glowed through fog, and hung off the edge of explored land.",
-    changes: [
-      "River water is now a solid deep blue-teal with a dark wet bank along the waterline, so it sits down in the land",
-      "Territory colour stops at a dark wet riverbank instead of covering or bleaching the water, in both 3D and 2D",
-      "Fog now darkens rivers like the land around them",
-      "At the edge of explored land you see your half of a river; no more pieces hanging into unexplored space or dry riverbeds",
-      "Rivers cut down through the coast and spill out into the sea instead of stopping at a square end on the shore",
-      "River mouths widen and blend into the sea instead of looking cut off at the coastline (3D and 2D)",
-      "Coastlines are calmer and softer: waves settle near the shore instead of flickering the square sea edges, and a light foam line runs along every coast (3D and 2D)",
-      "Rivers are a little narrower so trees and towns no longer stand in the water, and trees keep off the bank"
-    ]
-  },
-  {
     createdAt: 1791462529729,
     introducedIn: "2026.10.08.4",
     title: "Map effects stay put when you pan",
@@ -341,6 +326,36 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Waystations no longer promise population without a town",
     why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
     changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
+  },
+  {
+    createdAt: 1791832192120,
+    introducedIn: "2026.10.12.2",
+    title: "Storm clouds over unexplored land",
+    why: "The map beyond what you've explored was a black void, which made the area around your start feel dark and empty.",
+    changes: [
+      "Unexplored territory is now a bank of warm iron storm clouds, lit by lantern light along the edge of your known world, in both the 3D map and the 2D map",
+      "Unexplored tiles bordering your land are mostly shrouded, giving just a glimpse of their terrain up to a brass edge, while every tile you've explored stays completely clear",
+      "When you explore new land the clouds roll back off it with a lantern-lit glow instead of vanishing instantly",
+      "Land you've explored but can't currently see now looks like a faded survey print, keeping its forests and mountains, instead of turning near-black",
+      "Faint tile outlines show through the clouds, and distant terrain fades into them instead of into black"
+    ]
+  },
+  {
+    createdAt: 1791832192121,
+    introducedIn: "2026.10.12.2",
+    title: "No error when pressing Esc with nothing to cancel",
+    why: "Pressing Esc to close a menu, with no capture running, popped up an \"Action failed: no active capture to cancel\" warning.",
+    changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
+  },
+  {
+    createdAt: 1791839075156,
+    introducedIn: "2026.10.12.3",
+    title: "Smoother clouds rolling back as you explore",
+    why: "When you explored new land the storm clouds snapped and restarted as the newly seen tiles arrived, and trees and hills popped up through clouds that were still parting.",
+    changes: [
+      "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
+      "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
+    ]
   },
   {
     createdAt: 1791489815345,
@@ -372,23 +387,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791579131298, // Date.now() frozen for this entry
-    introducedIn: "2026.10.09.1",
-    title: "Separate continents, natural coasts and mountain ranges on new worlds",
-    why: "Continent maps often fused into one supercontinent holding most of the land, mountain ranges ran in ruler-straight lines or filled wide gray wedges, and atolls were stretched into ovals or dropped onto continents.",
-    changes: [
-      "Continent maps now have several separate continents divided by sea, instead of one landmass holding most of the land",
-      "Coastlines are more natural: capes, coves and offshore islands, with craggier coasts toward the poles, instead of long smooth or ruler-straight shores",
-      "Coastal mountain ranges now sit just inland of the coast, like the Andes",
-      "Straits between continents now wind and change width, with narrows and wider seas, instead of running dead straight like canals",
-      "On new worlds, mountain ranges are now a thin wandering line (about 2 tiles wide at most) instead of straight lines or thick gray bands",
-      "The land around a range is now hills, so terrain steps down from mountains to hills to open land",
-      "Atolls are now small, irregular rings of reef islets out in open ocean, sometimes with a smaller atoll nearby, instead of continent-sized perfect circles",
-      "Island chains now run along coasts as strings of small, elongated islands, instead of clusters of large round islands in the middle of the ocean",
-      "Seasons already in progress keep their current map"
-    ]
-  },
-  {
     createdAt: 1791581686000, // frozen Date.now() value for this release
     introducedIn: "2026.10.09.2",
     title: "Choose your effort when launching an attack",
@@ -412,6 +410,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
+  ...RESTART_TILE_STATE_CHANGELOG,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -449,12 +448,47 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...PROCEDURAL_TOWNS_CHANGELOG,
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
+  {
+    createdAt: 1791803592000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Resource clues now show on the map",
+    why: "Land near Titanium, Umbrite and Crystal carries a clue (ferrous dust, blackwood canopy, refractive ground), but the clues were lost on every server restart, never sent when you logged in, and drawn too faintly to see. Occupation-survey reports from conquered towns also vanished after a few dozen other events.",
+    changes: [
+      "Clue tiles now get a clear tint on both the 3D and 2D maps: rust for Titanium, violet for Umbrite, ice-cyan for Crystal",
+      "Selecting a clue tile explains it in the tile overview, e.g. \"Ferrous dust: Titanium deposits are likely within a few tiles\"",
+      "Garrisoning a neutral town now surveys the land around it: nearby clues become a report like \"Titanium likely north-east of this town\" (capturing an enemy town no longer does)",
+      "Survey reports are no longer pushed out of your event log by later events"
+    ]
+  },
+  {
+    createdAt: 1791804620000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.2",
+    title: "Manifest panel: clearer details, Good pick badge, clickable owned list",
+    why: "The tech details were boxes inside boxes, listed the same unlocks three times, scrolled the whole panel so the name and Unlock button slid out of view, and never said whether a pick fit your empire. Your owned techs were a list you couldn't click.",
+    changes: [
+      "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
+      "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
+      "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
+      "A Good pick badge appears when it fits your empire right now -- signs of its resource near your land, a survey from a neutral town you garrisoned, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
+      "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
+      "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
+      "Rigging Works Module now lists the Umbrite Rig it unlocks"
+    ]
+  },
   {
     createdAt: 1791827518951, // Date.now() captured once for this release.
     introducedIn: "2026.10.12.1",
     title: "Building machinery waits for construction to finish",
     why: "Fully visible moving parts could start running while their 3D building was still being built.",
     changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  },
+  {
+    createdAt: 1791830000000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Farmsteads are now hydroponic farms",
+    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
+    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];
 

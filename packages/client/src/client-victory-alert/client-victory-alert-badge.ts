@@ -1,5 +1,6 @@
 import { mobileNavLabelHtml } from "../client-panel-nav/client-panel-nav.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
 
 // Pulsing badge on the leaderboard tab (desktop icon strip + mobile bottom
 // nav) while a season-victory hold alert hasn't been acknowledged yet. Kept
@@ -14,12 +15,12 @@ export const applyVictoryHoldAlertNavBadges = (
   panelActionButtons.forEach((btn) => {
     if (btn.dataset.panel !== "leaderboard") return;
     btn.classList.toggle("feed-attention-pulse", unacknowledged);
-    btn.innerHTML = unacknowledged
-      ? '<span class="tab-icon">🏆</span><span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
-      : '<span class="tab-icon">🏆</span>';
+    setTabButtonHtml(btn, unacknowledged
+      ? navTabIconHtml("leaderboard") + '<span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
+      : navTabIconHtml("leaderboard"));
   });
   const mobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='leaderboard']");
   if (!mobileBtn) return;
-  mobileBtn.innerHTML = mobileNavLabelHtml("leaderboard", { victoryHoldAlertUnacknowledged: unacknowledged });
+  setTabButtonHtml(mobileBtn, mobileNavLabelHtml("leaderboard", { victoryHoldAlertUnacknowledged: unacknowledged }));
   mobileBtn.classList.toggle("feed-attention-pulse", unacknowledged);
 };

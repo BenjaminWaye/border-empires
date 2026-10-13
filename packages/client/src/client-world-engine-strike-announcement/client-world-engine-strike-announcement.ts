@@ -59,13 +59,13 @@ const overlayHtml = (info: WorldEngineStrikeAnnouncementInfo): string => {
     <div id="world-engine-strike-modal">
       <div id="world-engine-strike-hero">${artSvg}
         <div id="world-engine-strike-hero-fade"></div>
-        <div id="world-engine-strike-eyebrow">World Engine Strike</div>
+        <div id="world-engine-strike-eyebrow">Sovereign Siege Engine Strike</div>
         <div id="world-engine-strike-name">${escapeHtml(townName)}</div>
         <div id="world-engine-strike-meta">${escapeHtml(tier)} &middot; (${info.x}, ${info.y})</div>
       </div>
       <button id="world-engine-strike-close" class="world-engine-strike-close-btn" type="button" aria-label="Close">&#10005;</button>
       <div id="world-engine-strike-body">
-        <div id="world-engine-strike-owner"><strong>${escapeHtml(info.casterName)}</strong> unleashed the World Engine on <strong>${escapeHtml(info.targetOwnerName)}</strong>'s city</div>
+        <div id="world-engine-strike-owner"><strong>${escapeHtml(info.casterName)}</strong> unleashed the Sovereign Siege Engine on <strong>${escapeHtml(info.targetOwnerName)}</strong>'s city</div>
         <div id="world-engine-strike-stats" class="world-engine-strike-stats-single">
           <div class="world-engine-strike-stat">
             <div class="world-engine-strike-stat-label">Lives Lost</div>

@@ -102,6 +102,11 @@ non-managed runtime, and marks the session as a fog admin.
 
 ## Known Pitfalls
 
+- The 20-AI restart scripts set `SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0`:
+  with a SQLite path the simulation otherwise refuses to start on an empty DB
+  ("requires durable state"). If you boot the stack by hand against a new
+  SQLite file with a seed profile, pass that flag too.
+
 - `pnpm ops:prod-shape:clone-snapshot` needs `flyctl` access to the source
   app; it is a real (if read-only) network operation against prod/staging,
   not purely local — don't run it reflexively for every small fix.

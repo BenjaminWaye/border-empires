@@ -34,7 +34,8 @@ const makeState = () => ({
   changelog: { open: false, seenAt: 1, scrollTop: 0 },
   authSessionReady: true,
   profileSetupRequired: false,
-  playerNames: new Map<string, string>([["player-2", "Rival Name"]])
+  playerNames: new Map<string, string>([["player-2", "Rival Name"]]),
+  techCatalog: []
 });
 
 const makeDeps = (state: ReturnType<typeof makeState>) => ({

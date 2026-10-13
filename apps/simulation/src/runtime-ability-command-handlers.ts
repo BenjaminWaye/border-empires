@@ -199,7 +199,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
   const revealNow = context.now();
   const revealObservatoryKey = context.pickReadyOwnedObservatoryAny(actor.id, revealNow);
   if (!revealObservatoryKey) {
-    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "no ready observatory available");
+    rejectCommand(context, command, "REVEAL_EMPIRE_STATS_INVALID", "no ready aether tower available");
     return;
   }
   context.stampObservatoryCooldown(
@@ -238,20 +238,20 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     observatory.ownerId !== actor.id ||
     observatory.status !== "active"
   ) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "target an active owned observatory");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "target an active owned aether tower");
     return;
   }
   const now = context.now();
   if (isObservatoryInSiphonMode(observatory)) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is in siphon mode");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is in siphon mode");
     return;
   }
   if ((observatory.cooldownUntil ?? 0) > now) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is cooling down");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower is cooling down");
     return;
   }
   if (context.isStructureDormant(actor.id, observatoryKey, "observatory")) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory has no free resource slot");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "aether tower has no free resource slot");
     return;
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
@@ -302,7 +302,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   const bridgeNow = context.now();
   const bridgeObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, bridgeNow);
   if (!bridgeObservatoryKey) {
-    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no ready observatory in range");
+    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(
@@ -358,7 +358,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
   const wallNow = context.now();
   const wallObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, payload.x, payload.y, wallNow);
   if (!wallObservatoryKey) {
-    rejectCommand(context, command, "AETHER_WALL_INVALID", "no ready observatory in range");
+    rejectCommand(context, command, "AETHER_WALL_INVALID", "no ready aether tower in range");
     return;
   }
   const segments = context.wallSegments(payload.x, payload.y, payload.direction, payload.length);

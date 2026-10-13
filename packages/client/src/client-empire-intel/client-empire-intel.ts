@@ -35,7 +35,7 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
     <section class="intel-modal card" role="dialog" aria-modal="true" aria-labelledby="intel-title">
       <div class="intel-hero">
         <div class="intel-hero-copy">
-          <div class="intel-kicker">Observatory dossier • One-shot empire intel</div>
+          <div class="intel-kicker">Aether Tower dossier • One-shot empire intel</div>
           <h2 id="intel-title" class="intel-title">${escapeHtml(stats.playerName)}</h2>
           <p class="intel-summary">Surveyors decoded a snapshot of this empire's economy, territory, manpower, and strategic reserves.</p>
         </div>

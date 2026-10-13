@@ -1,14 +1,16 @@
+import { navTabIconHtml } from "../client-nav-icons/client-nav-icons.js";
+
 export const hudMarkup = `
   <div id="top-strip">
     <div id="stats-chips"></div>
     <div id="panel-actions">
-      <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-      <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
-      <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
-      <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
-      <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts"><span class="tab-icon">🔔</span></button>
-      <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity"><span class="tab-icon">📜</span></button>
-      <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
+      <button class="icon-btn icon-only" hidden data-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
+      <button class="icon-btn icon-only" data-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
+      <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies">${navTabIconHtml("alliance")}</button>
+      <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks">${navTabIconHtml("leaderboard")}</button>
+      <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts">${navTabIconHtml("feed")}</button>
+      <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
+      <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding">${navTabIconHtml("domains")}</button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
     </div>
   </div>
 
@@ -241,15 +243,15 @@ export const hudMarkup = `
   <div id="tech-detail-overlay" style="display:none;"></div>
 
   <div id="mobile-nav">
-    <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
-    <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-    <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
-    <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
-    <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard"><span class="tab-icon">🏆</span></button>
-    <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
-    <button data-mobile-panel="feed" title="Alerts" aria-label="Alerts"><span class="tab-icon">🔔</span></button>
-    <button data-open-activity-dashboard title="Activity" aria-label="Activity"><span class="tab-icon">📜</span></button>
-    <button data-mobile-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
+    <button data-mobile-panel="core" title="Core" aria-label="Core">${navTabIconHtml("core")}</button>
+    <button hidden data-mobile-panel="missions" title="Missions" aria-label="Missions">${navTabIconHtml("missions")}</button>
+    <button data-mobile-panel="tech" title="Manifest" aria-label="Manifest">${navTabIconHtml("tech")}</button>
+    <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding">${navTabIconHtml("domains")}</button>
+    <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard">${navTabIconHtml("leaderboard")}</button>
+    <button data-mobile-panel="social" title="Social" aria-label="Social">${navTabIconHtml("alliance")}</button>
+    <button data-mobile-panel="feed" title="Alerts" aria-label="Alerts">${navTabIconHtml("feed")}</button>
+    <button data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
+    <button data-mobile-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
   </div>
 
   <div id="mobile-core" class="mobile-panel">

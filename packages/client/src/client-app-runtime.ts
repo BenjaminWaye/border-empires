@@ -19,7 +19,7 @@ import {
 import { renderDefensibilityPanelHtml } from "./client-defensibility-html/client-defensibility-html.js";
 import { exposedSidesForTile } from "./client-defensibility-tile.js";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
-import { createClientCollectSupport } from "./client-app-runtime-collect-support.js";
+import { hasCollectableYield } from "./client-collect-optimism.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
@@ -59,7 +59,6 @@ import {
   formatUpkeepSummary,
   formatYieldSummary,
   resourceColor,
-  resourceIconForKey,
   resourceLabel,
   storedYieldSummary,
   strategicResourceKeyForTile,
@@ -67,6 +66,7 @@ import {
   tileUpkeepHtml
 } from "./client-map-display.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
+import { resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
 import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
@@ -99,7 +99,8 @@ import { createInitialState, storageSet } from "./client-state/client-state.js";
 import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { startPhotoMode } from "./client-photo-mode/client-photo-mode.js";
-import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
+import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml } from "./client-tech-html/client-tech-html.js";
+import { techOwnedHtml } from "./client-manifest-detail/client-manifest-owned-html.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,
@@ -196,16 +197,6 @@ const {
   hasCollectableYield: (tile) => hasCollectableYield(tile)
 });
 const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, manhattanToroid } = createClientMapMath({ state });
-
-const {
-  hasCollectableYield,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta
-} = createClientCollectSupport({
-  state,
-  tileVisibilityStateAt,
-  keyFor: key
-});
 
 const {
   pushFeed,
@@ -361,7 +352,7 @@ bootstrapClientApp({
   pushFeedEntry,
   requestViewRefresh,
   prettyToken,
-  resourceIconForKey,
+  resourceIconHtml,
   resourceLabel,
   economicStructureName,
   leaderboardHtml,
@@ -422,8 +413,6 @@ bootstrapClientApp({
   wasPredictedCombatAlreadyShown,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
-  clearPendingCollectTileDelta,
-  revertOptimisticTileCollectDelta,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
   applyOptimisticStructureRemoval,

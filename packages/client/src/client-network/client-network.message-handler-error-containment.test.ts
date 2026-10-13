@@ -150,8 +150,6 @@ const bindDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, unkno
     clearSettlementProgressByKey: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     settlementProgressForTile: vi.fn(() => undefined),
     ...overrides

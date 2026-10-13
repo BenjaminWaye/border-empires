@@ -3347,7 +3347,7 @@ export class SimulationRuntime {
   private resolvePendingSettlement(input: SettlementResolutionInput): void {
     resolvePendingSettlementImpl({
       pendingSettlementsByTile: this.pendingSettlementsByTile,
-      tiles: this.state.tiles,
+      tiles: this.state.tiles, players: this.state.players,
       removePendingSettlement: (key) => this.removePendingSettlement(key),
       drainDevQueue: (ownerId) => tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId),
       retireQueuedSettlement: (ownerId, key) => {

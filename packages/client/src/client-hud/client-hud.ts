@@ -42,6 +42,8 @@ import { refreshLiveTechRequirements } from "../client-tech-live-requirements/cl
 import type { StructureInfoKey } from "../client-map-display.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
+import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav-icons.js";
+import { applyHudTabBadges } from "./client-hud-tab-badges.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -134,7 +136,7 @@ type HudDeps = {
   pushFeed: (message: string, type: import("../client-types.js").FeedType, severity?: import("../client-types.js").FeedSeverity) => void;
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
   prettyToken: (token: string) => string;
-  resourceIconForKey: (key: string) => string;
+  resourceIconHtml: (key: string) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (structureType: string) => string;
   leaderboardHtml: typeof import("../client-panel-html/client-panel-html.js").leaderboardHtml;
@@ -210,7 +212,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     pushFeed,
     requestViewRefresh,
     prettyToken,
-    resourceIconForKey,
+    resourceIconHtml,
     resourceLabel,
     economicStructureName,
     leaderboardHtml,
@@ -309,37 +311,15 @@ export const renderClientHud = (deps: HudDeps): void => {
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   const feedUnreadCount = state.feedUnreadCount;
   const feedAttentionActive = state.feedAttentionUntil > Date.now();
-  dom.panelActionButtons.forEach((btn: HTMLButtonElement) => {
-    btn.classList.toggle("feed-attention-pulse", btn.dataset.panel === "feed" && feedAttentionActive);
-    if (btn.dataset.panel === "tech") {
-      btn.innerHTML = techReady
-        ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-        : '<span class="tab-icon">⚡</span>';
-      return;
-    }
-    if (btn.dataset.panel === "feed") {
-      btn.innerHTML = attackAlertUnread || feedUnreadCount > 0
-        ? `<span class="tab-icon">🔔</span><span class="feed-alert-dot" aria-label="${attackAlertUnread ? "under attack" : "new activity"}">${attackAlertUnread ? "!" : Math.min(9, feedUnreadCount)}</span>`
-        : '<span class="tab-icon">🔔</span>';
-    }
-  });
+  applyHudTabBadges(dom.hud, dom.panelActionButtons, { techReady, attackAlertUnread, feedUnreadCount, feedAttentionActive });
   applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  const coreMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='core']") as HTMLButtonElement | null;
-  if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
-  const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
-  if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
   applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
-  const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
-  if (feedMobileBtn) {
-    feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
-    feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
-  }
   const activityUnread = activityDashboardUnreadCount(state);
   const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
   activityButtons.forEach((btn: HTMLButtonElement) => {
-    btn.innerHTML = activityUnread > 0
-      ? `<span class="tab-icon">📜</span><span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
-      : '<span class="tab-icon">📜</span>';
+    setTabButtonHtml(btn, activityUnread > 0
+      ? `${navTabIconHtml("activity")}<span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
+      : navTabIconHtml("activity"));
     btn.onclick = () => toggleActivityDashboard({
       state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
       renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
@@ -490,11 +470,11 @@ export const renderClientHud = (deps: HudDeps): void => {
     if (selectedTechValue && catalogById.has(selectedTechValue)) state.techUiSelectedId = selectedTechValue;
   }
 
-  dom.techPointsEl.textContent = "Tech unlocks use coin + strategic resources";
-  dom.mobileTechPointsEl.textContent = "Tech unlocks use coin + strategic resources";
+  dom.techPointsEl.textContent = "Manifests cost coin + strategic resources";
+  dom.mobileTechPointsEl.textContent = "Manifests cost coin + strategic resources";
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
-    fallbackCard("Technology modifiers"),
+    fallbackCard("Manifest bonuses"),
     () =>
       deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown, {
         techCatalog: state.techCatalog,
@@ -504,14 +484,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       })
   );
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
-  dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Technology choices"), () => renderTechChoiceGrid());
+  dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
   dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
   dom.techDetailCardEl.innerHTML = safeValue(
     "renderTechDetailCard",
-    fallbackCard("Technology detail"),
+    fallbackCard("Manifest details"),
     () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
   );
-  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Technology detail"), () => deps.renderTechDetailPrompt());
+  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
     : state.crystalAbilityInfoKey
@@ -532,7 +512,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
-    fallbackCard("Owned technologies"),
+    fallbackCard("Your Manifests"),
     () => deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock)
   );
   dom.mobileTechOwnedEl.innerHTML = dom.techOwnedEl.innerHTML;
@@ -819,7 +799,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       tiles: state.tiles.values(),
       isMobile: window.matchMedia("(max-width: 900px)").matches,
       prettyToken,
-      resourceIconForKey,
+      resourceIconHtml,
       rateToneClass,
       resourceLabel,
       economicStructureName,

@@ -51,7 +51,7 @@ type EconomyPanelArgs = {
   economyBreakdown: EconomyBreakdown | undefined;
   isMobile: boolean;
   prettyToken: (value: string) => string;
-  resourceIconForKey: (resource: string) => string;
+  resourceIconHtml: (resource: string) => string;
   rateToneClass: (rate: number) => string;
   resourceLabel: (resource: string) => string;
   economicStructureName: (type: EconomicStructureType) => string;
@@ -65,19 +65,6 @@ type EconomyPanelArgs = {
 };
 
 const resources: EconomyResource[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
-
-const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, string> = {
-  WOODEN_FORT: "Palisade",
-  FORT: "Fort",
-  TITANIUM_BASTION: "Titanium Bastion",
-  THUNDER_BASTION: "Thunder Bastion"
-};
-
-const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] & string, string> = {
-  SIEGE_OUTPOST: "Siege Battery",
-  SIEGE_TOWER: "Siege Tower",
-  DREAD_TOWER: "Dread Tower"
-};
 
 // §14.1 item 2 / §14.2: which structures/towns are occupying a slot of this
 // resource right now, for the "Occupied by" column of the detail card. Reuses
@@ -123,16 +110,16 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
-      add(FORT_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "fort", resource));
+      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "fort", resource));
     }
     if (tile.siegeOutpost && tile.siegeOutpost.status !== "removing") {
       const variant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
-      add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
+      add(STRUCTURE_DISPLAY_NAMES[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
     }
     if (tile.observatory && tile.observatory.status !== "removing" && tile.observatory.status !== "inactive") {
       const count = structureSlotRequirements("OBSERVATORY").find((r) => r.resource === resource)?.count ?? 0;
-      add(STRUCTURE_DISPLAY_NAMES.OBSERVATORY ?? "Aether Tower", count, isDormantOccupant(args, tile, "observatory", resource));
+      add(STRUCTURE_DISPLAY_NAMES.OBSERVATORY, count, isDormantOccupant(args, tile, "observatory", resource));
     }
     if (
       tile.economicStructure &&
@@ -240,13 +227,13 @@ const slotStatusLine = (supply: number, demand: number): { text: string; tone: n
 
 const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
-  resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
+  resourceIconHtml: EconomyPanelArgs["resourceIconHtml"]
 ): string => {
   // §5/§12.1: FOOD/TITANIUM/CRYSTAL/UMBRITE stopped being stockpiled flows — their
   // upkeep is the slot occupancy shown in the per-resource cards, so only the
   // GOLD flow upkeep belongs in this summary line.
   const parts: string[] = [];
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconHtml("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
 
@@ -374,7 +361,7 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
 };
 
 const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResource, selected: boolean): string => {
-  const icon = args.resourceIconForKey(resource);
+  const icon = args.resourceIconHtml(resource);
   const label = args.prettyToken(resource);
   const head = `<div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>`;
   if (isSlotResource(resource)) {
@@ -425,7 +412,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
   const visibleResources = (
     args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus]
   ).filter(isResourceRevealed);
-  const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconForKey);
+  const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconHtml);
   return `
     <div class="economy-panel">
       <div class="economy-summary-grid">
@@ -450,7 +437,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${demand} / ${supply} slots used</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(status.tone)}">${status.text}</div>
@@ -473,7 +460,7 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
           return `<section class="economy-detail-card card">
             <div class="economy-detail-head">
               <div>
-                <div class="economy-detail-kicker">${args.resourceIconForKey(resource)} ${args.prettyToken(resource)}</div>
+                <div class="economy-detail-kicker">${args.resourceIconHtml(resource)} ${args.prettyToken(resource)}</div>
                 <strong>${args.gold.toFixed(1)} in reserve</strong>
               </div>
               <div class="economy-rate ${args.rateToneClass(net)}">${net >= 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day</div>
