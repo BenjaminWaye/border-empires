@@ -43,7 +43,7 @@ import {
   type DomainStrategicResourceKey,
   type TownDefinition
 } from "@border-empires/game-domain";
-import { OBSERVATORY_UPKEEP_PER_MIN, terrainAt } from "@border-empires/shared";
+import { OBSERVATORY_UPKEEP_PER_MIN, structureDisplayName, terrainAt } from "@border-empires/shared";
 
 type EconomyResourceKey = "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
@@ -289,13 +289,8 @@ const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   return 0;
 };
 
-const structureLabel = (structureType: string): string => {
-  return structureType
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-};
+// Player-facing name ("Trade Nexus"), never the title-cased internal id.
+const structureLabel = (structureType: string): string => structureDisplayName(structureType);
 
 const sourceLabelForTile = (args: {
   tileKey: string;
@@ -590,7 +585,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       }
       if (structure.type === "AIRPORT") {
         upkeep.crystal += AIRPORT_CRYSTAL_UPKEEP_PER_MIN;
-        addBucket(sinkBuckets.CRYSTAL, "Airport upkeep", AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
+        addBucket(sinkBuckets.CRYSTAL, `${structureLabel("AIRPORT")} upkeep`, AIRPORT_CRYSTAL_UPKEEP_PER_MIN, { count: 1 });
       }
     }
 

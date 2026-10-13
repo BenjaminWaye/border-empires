@@ -60,7 +60,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
   const now = context.now();
   const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
   if (!observatoryKey) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready observatory in range");
+    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
@@ -113,7 +113,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
   const now = context.now();
   const observatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, now);
   if (!observatoryKey) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready observatory in range");
+    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready aether tower in range");
     return;
   }
   context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);

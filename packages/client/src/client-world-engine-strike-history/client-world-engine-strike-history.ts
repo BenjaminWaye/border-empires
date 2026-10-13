@@ -41,7 +41,7 @@ export const fetchWorldEngineStrikeHistory = async (wsUrl: string): Promise<Worl
 // existing feedHtml() renderer for the "World Events" history section
 // (client-hud.ts) instead of building bespoke history UI.
 export const worldEngineStrikeRecordToFeedEntry = (record: WorldEngineStrikeHistoryRecord): FeedEntry => ({
-  text: `${record.casterName} struck ${record.targetOwnerName}'s ${record.townName || "city"} with the World Engine — ${Math.round(record.populationLost).toLocaleString()} lives lost.`,
+  text: `${record.casterName} struck ${record.targetOwnerName}'s ${record.townName || "city"} with the Sovereign Siege Engine — ${Math.round(record.populationLost).toLocaleString()} lives lost.`,
   type: "combat",
   severity: "error",
   at: record.occurredAt,
