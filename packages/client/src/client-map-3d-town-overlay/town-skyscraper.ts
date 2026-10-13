@@ -24,6 +24,8 @@ export type SkyscraperOptions = {
   readonly shell?: TownColor;
   /** Glass curtain walls between stone corner piers and floor bands. */
   readonly glass?: boolean;
+  /** Sheer all-glass tower, only thin brass bands every few floors. */
+  readonly allGlass?: boolean;
   /** Share of window strips lit, 0..1. */
   readonly lit?: number;
 };
@@ -43,11 +45,21 @@ const windowStrips = (
   }
 };
 
-/** Glass curtain-wall section framed by stone corner piers and floor bands. */
+/** Glass curtain-wall section framed by stone corner piers and floor bands,
+ * or (sheer) all glass with only thin brass bands. */
 const glassSection = (
-  t: TownBuilders, x: number, y: number, z: number, w: number, h: number, d: number, ry: number, frame: TownColor
+  t: TownBuilders, x: number, y: number, z: number, w: number, h: number, d: number, ry: number, frame: TownColor,
+  sheer = false
 ): void => {
-  t.body.box(x, y, z, w - 0.004, h, d - 0.004, (x * 13 + z * 7) % 1 > 0.5 ? "glass" : "glassLight", ry);
+  const pane: TownColor = Math.abs(x * 13 + z * 7) % 1 > 0.5 ? "glass" : "glassLight";
+  if (sheer) {
+    t.body.box(x, y, z, w, h, d, pane, ry);
+    for (let band = y + 0.06; band < y + h - 0.02; band += 0.06) {
+      t.body.box(x, band, z, w + 0.003, 0.003, d + 0.003, "brassDark", ry);
+    }
+    return;
+  }
+  t.body.box(x, y, z, w - 0.004, h, d - 0.004, pane, ry);
   const pier = Math.min(w, d) * 0.16;
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
     const [px, pz] = at(x, z, ry, sx * (w / 2 - pier / 2), sz * (d / 2 - pier / 2));
@@ -72,13 +84,13 @@ export const skyscraper = (t: TownBuilders, o: SkyscraperOptions): number => {
     w = o.w * insets[i]!;
     d = o.d * insets[i]!;
     const sh = o.h * share;
-    if (o.glass) glassSection(t, o.x, y, o.z, w, sh, d, o.ry, shell);
+    if (o.glass || o.allGlass) glassSection(t, o.x, y, o.z, w, sh, d, o.ry, shell, o.allGlass);
     else t.body.box(o.x, y, o.z, w, sh, d, shell, o.ry);
     for (const quarter of [0, 1, 2, 3]) {
       const faceRy = o.ry + (quarter * Math.PI) / 2;
       const across = quarter % 2 === 0 ? w : d;
       const depth = quarter % 2 === 0 ? d : w;
-      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + sh * 0.06, sh * 0.82, o.glass ? lit * 0.6 : lit, !o.glass);
+      windowStrips(t, o.x, o.z, faceRy, across * 0.86, depth / 2, y + sh * 0.06, sh * 0.82, o.allGlass ? lit * 0.35 : o.glass ? lit * 0.6 : lit, !o.glass && !o.allGlass);
     }
     t.body.box(o.x, y + sh - 0.007, o.z, w + 0.007, 0.007, d + 0.007, "brassDark", o.ry);
     y += sh;
@@ -143,26 +155,6 @@ export type TowerRingOptions = {
   readonly shells?: readonly TownColor[];
   /** Height range of the lower annexes set between the towers; none if omitted. */
   readonly annexH?: readonly [number, number];
-};
-
-/** One hand-placed building of a composed layout. */
-export type Building = {
-  readonly x: number;
-  readonly z: number;
-  readonly w: number;
-  readonly d: number;
-  readonly h: number;
-  readonly crown: Crown;
-  readonly glass?: boolean;
-  readonly shell?: TownColor;
-  readonly ry?: number;
-};
-
-/** Places a composed layout's buildings, pushed out from the centre by `spread`. */
-export const buildings = (t: TownBuilders, list: readonly Building[], spread = 1): void => {
-  for (const b of list) {
-    skyscraper(t, { x: b.x * spread, z: b.z * spread, w: b.w, d: b.d, h: b.h, ry: b.ry ?? 0, crown: b.crown, glass: b.glass ?? false, shell: b.shell ?? "stone" });
-  }
 };
 
 /** Ring of skyscrapers round the plate, fronts facing the plaza. */

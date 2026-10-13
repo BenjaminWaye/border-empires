@@ -55,8 +55,8 @@ const meta: Meta<Args> = {
           "cogs and orreries, spinning crystals and circling airships. See TownOnTerrain for the towns beside an AFC.",
           "",
           "SETTLEMENT · four low towers round a cog lamp.",
-          "TOWN · a lamplit avenue lined by a stepped skyline up to a glass clock tower, with a garden plaza and orrery.",
-          "CITY · three quarters: a skybridged glass downtown, an old stone quarter, and a park with the orrery and a pool.",
+          "TOWN · a street grid of blocks with lamplit crossings, rising to a few glass towers, round a small park with the orrery.",
+          "CITY · a denser grid rising to a Manhattan-style downtown of sheer glass towers tied by skybridges, with two parks.",
           "GREAT_CITY · ten ring towers round four tall skybridged towers, with an airship.",
           "METROPOLIS · twelve ring towers and six inner towers round a brass-haloed octagonal megatower, two airships."
         ].join("\n")

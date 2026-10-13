@@ -40,6 +40,32 @@ describe("procedural town tiers", () => {
     }
   });
 
+  it.each(TOWN_TIERS)("%s keeps everything standing at street level on its octagonal plate", (tier) => {
+    // The plate is the widest thing on the ground; anything at street level
+    // further out than its edge hangs off it.
+    const { body, metal } = getTownTierGeometry(tier);
+    let plateApothem = 0;
+    const position = body.getAttribute("position");
+    for (let i = 0; i < position.count; i += 1) {
+      // The plate's top face; its vertices sit 22.5° off the axes, so their
+      // largest z is exactly the distance to the flat edges.
+      if (Math.abs(position.getY(i) + 0.008) < 1e-4) plateApothem = Math.max(plateApothem, Math.abs(position.getZ(i)));
+    }
+    for (const part of [body, metal]) {
+      if (!part) continue;
+      const p = part.getAttribute("position");
+      for (let i = 0; i < p.count; i += 1) {
+        const y = p.getY(i);
+        if (y < 0.004 || y > 0.03) continue;
+        for (let k = 0; k < 4; k += 1) {
+          const angle = (k * Math.PI) / 4;
+          const reach = Math.abs(p.getX(i) * Math.cos(angle) + p.getZ(i) * Math.sin(angle));
+          expect(reach, `${tier} vertex at (${p.getX(i).toFixed(3)}, ${y.toFixed(3)}, ${p.getZ(i).toFixed(3)})`).toBeLessThanOrEqual(plateApothem + 0.002);
+        }
+      }
+    }
+  });
+
   it.each(TOWN_TIERS)("%s bakes colour per vertex and has lit windows", (tier) => {
     const { body, glow } = getTownTierGeometry(tier);
     expect(body.getAttribute("color")?.count).toBe(body.getAttribute("position").count);
