@@ -8,6 +8,7 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
+import { registerFarmsteadStructures } from "./client-map-3d-structure-farmstead.js";
 import { registerMintworksStructures } from "./client-map-3d-structure-mintworks.js";
 
 export type EconomicStructureKind =
@@ -66,10 +67,10 @@ export const registerEconomicStructures = (
   const C = builder.maxTiles;
 
   // ─── Materials ──────────────────────────────────────────────────────
-  const barnRedMaterial = new MeshStandardMaterial({ color: "#a0432e", roughness: 0.88, metalness: 0, flatShading: true });
+  // The Farmstead art (a hydroponic glass dome) lives in its own module
+  // (client-map-3d-structure-farmstead.ts). barnRoofMaterial is kept here only
+  // because industrial.ts reuses it for the FOUNDRY roof.
   const barnRoofMaterial = new MeshStandardMaterial({ color: "#3a261c", roughness: 0.92, metalness: 0, flatShading: true });
-  const siloMaterial = new MeshStandardMaterial({ color: "#c8b890", roughness: 0.86, metalness: 0, flatShading: true });
-  const woodFenceMaterial = new MeshStandardMaterial({ color: "#5e4530", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneMaterial = new MeshStandardMaterial({ color: "#8a857a", roughness: 0.92, metalness: 0, flatShading: true });
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
   const waterWheelMaterial = new MeshStandardMaterial({ color: "#6a4a32", roughness: 0.88, metalness: 0, flatShading: true });
@@ -101,11 +102,6 @@ export const registerEconomicStructures = (
   const granarySackMaterial = new MeshStandardMaterial({ color: "#b58541", roughness: 0.92, metalness: 0, flatShading: true });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  const barnBodyGeo = new BoxGeometry(0.32, 0.22, 0.22);
-  const barnRoofGeo = new ConeGeometry(0.22, 0.14, 4);
-  const siloBodyGeo = new CylinderGeometry(0.07, 0.07, 0.28, 10);
-  const siloCapGeo = new ConeGeometry(0.075, 0.07, 10);
-  const fenceGeo = new BoxGeometry(0.018, 0.06, 0.16);
   const wwTowerGeo = new BoxGeometry(0.22, 0.32, 0.22);
   const wwRoofGeo = new ConeGeometry(0.18, 0.12, 4);
   const wwWheelGeo = new CylinderGeometry(0.13, 0.13, 0.05, 12);
@@ -147,12 +143,8 @@ export const registerEconomicStructures = (
   const granarySackGeo = new BoxGeometry(0.06, 0.05, 0.05);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  // Farmstead
-  builder.makeSlot("barnBody", barnBodyGeo, barnRedMaterial, C);
-  builder.makeSlot("barnRoof", barnRoofGeo, barnRoofMaterial, C);
-  builder.makeSlot("siloBody", siloBodyGeo, siloMaterial, C);
-  builder.makeSlot("siloCap", siloCapGeo, siloMaterial, C);
-  builder.makeSlot("fence", fenceGeo, woodFenceMaterial, C * 4);
+  // Farmstead slots are registered by registerFarmsteadStructures
+  // (client-map-3d-structure-farmstead.ts).
   // Waterworks
   builder.makeSlot("wwTower", wwTowerGeo, stoneMaterial, C);
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
@@ -196,20 +188,9 @@ export const registerEconomicStructures = (
   // 500-line cap and the mint instanced meshes don't duplicate pools.
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addFarmstead: EconomicStructureLayout = (sx, sy, sz) => {
-    // Barn + silo + back fence. The crop field comes from the FARM
-    // farmland overlay (client-map-3d-farmland/client-map-3d-farmland.ts). Both overlays
-    // render together on a farmstead tile so the in-game tile reads as
-    // "barn on a farm field" — an upgraded farm, not a replacement.
-    builder.addPiece("barnBody", sx, sy, sz, -0.10, 0.11, 0.04);
-    builder.addPiece("barnRoof", sx, sy, sz, -0.10, 0.29, 0.04, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("siloBody", sx, sy, sz, 0.16, 0.14, 0.04);
-    builder.addPiece("siloCap", sx, sy, sz, 0.16, 0.32, 0.04);
-    builder.addPiece("fence", sx, sy, sz, -0.18, 0.03, -0.18);
-    builder.addPiece("fence", sx, sy, sz, -0.02, 0.03, -0.18);
-    builder.addPiece("fence", sx, sy, sz, 0.14, 0.03, -0.18);
-    builder.addPiece("fence", sx, sy, sz, 0.30, 0.03, -0.18);
-  };
+  // Farmstead (hydroponic glass biodome) is registered by
+  // registerFarmsteadStructures (client-map-3d-structure-farmstead.ts).
+  const addFarmstead = registerFarmsteadStructures(builder);
 
   const addWaterworks: EconomicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("wwTower", sx, sy, sz, -0.06, 0.16, 0);

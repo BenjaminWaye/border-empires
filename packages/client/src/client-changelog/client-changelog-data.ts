@@ -345,6 +345,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Pressing Esc or Cancel when nothing is in progress no longer shows an error"]
   },
   {
+    createdAt: 1791839075156,
+    introducedIn: "2026.10.12.3",
+    title: "Smoother clouds rolling back as you explore",
+    why: "When you explored new land the storm clouds snapped and restarted as the newly seen tiles arrived, and trees and hills popped up through clouds that were still parting.",
+    changes: [
+      "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
+      "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
+    ]
+  },
+  {
     createdAt: 1791489815345,
     introducedIn: "2026.10.08.7",
     title: "Relay Beacon build time and rush price fixed",
@@ -466,6 +476,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Building machinery waits for construction to finish",
     why: "Fully visible moving parts could start running while their 3D building was still being built.",
     changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
+  },
+  {
+    createdAt: 1791830000000, // frozen Date.now() value for this release
+    introducedIn: "2026.10.12.1",
+    title: "Farmsteads are now hydroponic farms",
+    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
+    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
   }
 ];
 
