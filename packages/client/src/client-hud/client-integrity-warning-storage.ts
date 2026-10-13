@@ -65,14 +65,19 @@ export const wireIntegrityWarningDismissButtons = (
   });
 };
 
-// Resets the persisted dismissal once integrity recovers out of the penalty
-// range (>= INTEGRITY_PENALTY_PCT), so the warning reappears promptly the
-// next time integrity starts costing coin and growth.
+// Resets the persisted dismissal once integrity has clearly recovered out of
+// the penalty range, so the warning reappears promptly the next time
+// integrity starts costing coin and growth. The margin above
+// INTEGRITY_PENALTY_PCT keeps an empire hovering around 50% (common once the
+// new-empire grace floor has faded) from re-arming a dismissed warning on
+// every 49%/50% wobble.
+const INTEGRITY_WARNING_REARM_MARGIN_PCT = 10;
+
 export const resetIntegrityWarningIfRecovered = (
   defensibilityPct: number,
   authEmail?: string | null
 ): boolean => {
-  if (defensibilityPct < INTEGRITY_PENALTY_PCT) return false;
+  if (defensibilityPct < INTEGRITY_PENALTY_PCT + INTEGRITY_WARNING_REARM_MARGIN_PCT) return false;
   clearIntegrityWarningDismissed(authEmail);
   return true;
 };

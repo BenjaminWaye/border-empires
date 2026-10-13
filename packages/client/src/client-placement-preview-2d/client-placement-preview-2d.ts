@@ -6,6 +6,7 @@ import {
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
 import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
+import { resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
 
 // Outpost-family structures (RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see
@@ -66,7 +67,7 @@ const renderPlacementBeneficiaryTiles = (
 };
 
 // Ghost-outlines the new reach disk an outpost-family structure would add.
-// Tiles already inside the player's current reach (state.myReach — see
+// Tiles already inside the player's current reach (resolveMyReachCached — see
 // client-reach-overlay.ts's MOCK-DATA SEAM) are left alone so the ghost
 // only highlights *newly* reachable ground, which is the actual siting
 // decision the player is making.
@@ -81,7 +82,7 @@ const renderOutpostReachGhostPreview = (
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
   const preview = computeOutpostReachPreview(x, y);
-  const existingReach = state.myReach;
+  const existingReach = resolveMyReachCached(state); // same source as the true-3D beacon preview
   for (const key of preview) {
     const [kxRaw, kyRaw] = key.split(",");
     const kx = Number(kxRaw);

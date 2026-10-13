@@ -61,7 +61,7 @@ export type PlacementRangeOverlay = {
 // invalid) plus a green highlight on every tile within radius that would
 // benefit from the structure being placed (MINE tiles for Foundry,
 // FARMSTEAD tiles for Waterworks). A Relay Beacon gets its reach-radius ring
-// here too, with its new-reach tint and recommended-spot rings drawn by
+// here too, with its new-reach tint drawn by
 // client-map-3d-beacon-placement-overlay.ts. Beneficiary highlighting is bounded to
 // MAX_BENEFICIARY_TILES (441 at the current largest radius, 10) regardless
 // of world/map size.

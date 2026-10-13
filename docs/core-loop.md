@@ -580,12 +580,11 @@ deliberately no decay for simply being offline.
    (`docs/galactic-campaign-design.md` §20).
 3. **Empire integrity** is live but inert in practice, because its input
    metric parks near 50% for almost everyone (expansion brief §7). New
-   empires get a grace period: integrity stays at 90%+ until 150 settled tiles,
-   then the floor fades out by 350 tiles (`INTEGRITY_GRACE_*` in
-   `packages/shared/src/config.ts`), so no empire pays an integrity penalty
-   (below 50%) before ~240 settled tiles. The HUD keeps integrity in the
-   Economy panel and only puts a top-bar chip and warning up once it is in
-   the penalty range.
+   empires get a grace period: integrity stays at 90%+ until 50 settled tiles,
+   then the floor fades out by 100 tiles (`INTEGRITY_GRACE_*` in
+   `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
+   panel and only puts a top-bar chip and warning up once it is below 50%
+   (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
 4. **Onboarding teaches the wrong growth verb.** The checklist (and the
    removed intro guide) frame Expand To as how you grow ("Tap a neutral tile next to your border to
    claim it… Settle it"). In the live game, beacons and town/dock anchors move

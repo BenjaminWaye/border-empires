@@ -448,10 +448,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1791921253260, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
-    title: "Empire Integrity is gentler on new empires",
-    why: "Playtesters watched the Empire Integrity number fall as they expanded and read it as being punished, even though it was still giving them a bonus -- and the protection for new empires ran out after just 50 garrisoned tiles.",
+    title: "Empire Integrity moves to the Economy panel",
+    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
     changes: [
-      "New empires keep at least 90% integrity until 150 garrisoned tiles (was 50), and the protection then fades out slowly, so integrity can't cost you coin or growth before about 240 garrisoned tiles",
       "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
       "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
     ]
