@@ -282,6 +282,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Economy panel says Coin",
     why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
     changes: ["The economy panel's currency card and detail heading now read Coin"]
+  },
+  {
+    createdAt: 1791925963317,
+    introducedIn: "2026.10.13.3",
+    title: "3D map catches frontier attack claims starting and ending",
+    why: "The 3D map checked frontier-attack claims against the wrong clock, so it missed muster attacks starting their claim and claims finishing.",
+    changes: ["An enemy's frontier colour now clears when your muster attack's claim sweep begins", "A frontier tile's colour returns as soon as a failed or finished claim ends, not on the next unrelated map refresh"]
   }
 ];
 
