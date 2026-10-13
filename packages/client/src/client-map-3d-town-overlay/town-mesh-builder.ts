@@ -36,8 +36,8 @@ export const TOWN_COLORS = {
   stoneLight: "#8b8e94",
   stoneDark: "#5d6066",
   graphite: "#4a4d53",
-  plate: "#5e6064",
-  plateDark: "#47494d",
+  plate: "#a3a4a6",
+  plateDark: "#86888c",
   window: "#2c3038",
   // Curtain-wall glass: drawn with the metallic material so it mirrors the sky.
   glass: "#3f5b69",
