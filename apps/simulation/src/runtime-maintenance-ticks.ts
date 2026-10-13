@@ -81,7 +81,7 @@ export async function tickTileShedding(input: {
       // town is deliberately preserved: shedding releases ownership of the
       // tile, not the town itself (mirrors handleUncaptureTileCommand, which
       // leaves an abandoned town intact as a neutral town). fort/observatory/
-      // siegeOutpost/economicStructure carry their own ownerId and don't
+      // siegeBattery/economicStructure carry their own ownerId and don't
       // survive losing the owning player, same as on uncapture. Any staged
       // muster manpower is refunded to the pool before the flag is dropped,
       // same as handleUncaptureTileCommand.
@@ -98,7 +98,7 @@ export async function tickTileShedding(input: {
         ownershipState: undefined,
         fort: undefined,
         observatory: undefined,
-        siegeOutpost: undefined,
+        siegeBattery: undefined,
         economicStructure: undefined,
         muster: undefined
       };
@@ -114,7 +114,7 @@ export async function tickTileShedding(input: {
             ownershipState: "",
             fortJson: "",
             observatoryJson: "",
-            siegeOutpostJson: "",
+            siegeBatteryJson: "",
             economicStructureJson: "",
             musterJson: ""
           }

@@ -84,7 +84,7 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
       history: { lastCapturedAt: nowMs - 100, previousOwners: [], captureCount: 1, structureHistory: [] },
       economicStructure: {
         ownerId: "player-1",
-        type: "FARMSTEAD",
+        type: "HYDROGARDEN",
         status: "inactive",
         disabledUntil: nowMs + 5 * 60_000
       }

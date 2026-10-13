@@ -9,11 +9,11 @@ import {
 import {
   AEGIS_DOME_PROTECTION_RADIUS,
   AETHER_BRIDGE_MAX_SEA_TILES,
-  AETHER_TOWER_RADIUS,
+  AMBARIC_TRANSFORMER_RADIUS,
   MANPOWER_BASE_CAP,
   OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS,
-  RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS
+  RESONANCE_GRID_BOMBARD_BLOCK_RADIUS
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -75,7 +75,7 @@ export function isStructurePowered(
   tileKey: string,
   structureType: EconomicStructureType,
   // §5.4: an Ambaric Transformer itself demands a FOOD + CRYSTAL slot
-  // (STRUCTURE_SLOT_REQUIREMENTS.AETHER_TOWER) and can go dormant like any
+  // (STRUCTURE_SLOT_REQUIREMENTS.AMBARIC_TRANSFORMER) and can go dormant like any
   // other structure — a dormant tower provides no bonus, including its own
   // powering radius, same as every other structure this class of check
   // gates (monument abilities, Observatory abilities). Optional so existing
@@ -95,9 +95,9 @@ export function isStructurePowered(
   if (structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") return false;
   for (const candidate of tiles.values()) {
     const tower = candidate.economicStructure;
-    if (!tower || tower.ownerId !== ownerId || tower.type !== "AETHER_TOWER" || tower.status !== "active") continue;
+    if (!tower || tower.ownerId !== ownerId || tower.type !== "AMBARIC_TRANSFORMER" || tower.status !== "active") continue;
     if ((tower.disabledUntil ?? 0) > now) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AETHER_TOWER_RADIUS) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, tile.x, tile.y) > AMBARIC_TRANSFORMER_RADIUS) continue;
     if (isStructureDormant(ownerId, simulationTileKey(candidate.x, candidate.y), "economicStructure")) continue;
     return true;
   }
@@ -125,7 +125,7 @@ export function isTileShieldedByEnemyAegisDome(
   return false;
 }
 
-// §5.4/aether-tower-protection: server-side counterpart of the client's
+// §5.4/ambaric-transformer-protection: server-side counterpart of the client's
 // hostileObservatoryProtectingTileAt (client-observatory-cooldown.ts) — that
 // client function only decides what a well-behaved client greys out as
 // targetable, so an ability handler that skips this check is enforceable
@@ -204,9 +204,9 @@ export function isTileBombardBlockedByRadar(
 ): boolean {
   for (const candidate of tiles.values()) {
     const s = candidate.economicStructure;
-    if (!s || s.type !== "RADAR_SYSTEM" || s.status !== "active") continue;
+    if (!s || s.type !== "RESONANCE_GRID" || s.status !== "active") continue;
     if (!s.ownerId || s.ownerId === actorId) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > RESONANCE_GRID_BOMBARD_BLOCK_RADIUS) continue;
     const radarKey = simulationTileKey(candidate.x, candidate.y);
     if (!isStructurePowered(tiles, s.ownerId, radarKey, s.type, isStructureDormant, now)) continue;
     if (isStructureDormant(s.ownerId, radarKey, "economicStructure")) continue;

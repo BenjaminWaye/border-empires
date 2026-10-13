@@ -5,7 +5,7 @@ export type ConverterActionDeps = {
   selected: Tile;
   sendGameMessage: (payload: unknown) => boolean;
   sendDevelopmentBuild: (
-    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: "ADVANCED_UMBRITE_SYNTHESIZER" | "ADVANCED_TITANIUM_WORKS" | "ADVANCED_CRYSTAL_SYNTHESIZER" },
+    payload: { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: "HIGH_YIELD_UMBRITE_WORKS" | "HIGH_YIELD_TITANIUM_WORKS" | "HIGH_YIELD_AETHER_CONDENSER" },
     optimistic: () => void,
     opts: {
       x: number;
@@ -23,7 +23,7 @@ export type ConverterActionDeps = {
 const upgradeStructure = (
   actionId: TileActionDef["id"],
   deps: ConverterActionDeps,
-  structureType: "ADVANCED_UMBRITE_SYNTHESIZER" | "ADVANCED_TITANIUM_WORKS" | "ADVANCED_CRYSTAL_SYNTHESIZER",
+  structureType: "HIGH_YIELD_UMBRITE_WORKS" | "HIGH_YIELD_TITANIUM_WORKS" | "HIGH_YIELD_AETHER_CONDENSER",
   label: string
 ): boolean =>
   deps.sendDevelopmentBuild(
@@ -37,12 +37,12 @@ const upgradeStructure = (
 // converter action (upgrades, enable/disable, mode flip) lives here and is
 // dispatched from handleTileAction via handleConverterTileAction.
 export const handleConverterTileAction = (deps: ConverterActionDeps) => (actionId: string): boolean => {
-  if (actionId === "upgrade_umbrite_synthesizer")
-    return upgradeStructure(actionId, deps, "ADVANCED_UMBRITE_SYNTHESIZER", `High-Yield Umbrite Works at (${deps.selected.x}, ${deps.selected.y})`);
+  if (actionId === "upgrade_umbrite_works")
+    return upgradeStructure(actionId, deps, "HIGH_YIELD_UMBRITE_WORKS", `High-Yield Umbrite Works at (${deps.selected.x}, ${deps.selected.y})`);
   if (actionId === "upgrade_titanium_works")
-    return upgradeStructure(actionId, deps, "ADVANCED_TITANIUM_WORKS", `High-Yield Titanium Works at (${deps.selected.x}, ${deps.selected.y})`);
-  if (actionId === "upgrade_crystal_synthesizer")
-    return upgradeStructure(actionId, deps, "ADVANCED_CRYSTAL_SYNTHESIZER", `High-Yield Aether Condenser at (${deps.selected.x}, ${deps.selected.y})`);
+    return upgradeStructure(actionId, deps, "HIGH_YIELD_TITANIUM_WORKS", `High-Yield Titanium Works at (${deps.selected.x}, ${deps.selected.y})`);
+  if (actionId === "upgrade_aether_condenser")
+    return upgradeStructure(actionId, deps, "HIGH_YIELD_AETHER_CONDENSER", `High-Yield Aether Condenser at (${deps.selected.x}, ${deps.selected.y})`);
   if (actionId === "enable_converter_structure")
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: true });
   if (actionId === "disable_converter_structure")

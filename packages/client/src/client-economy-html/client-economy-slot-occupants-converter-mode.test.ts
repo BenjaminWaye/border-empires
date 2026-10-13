@@ -46,7 +46,7 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
           terrain: "LAND",
           ownerId: "me",
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" }
+          economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "SYNTHESIZE" }
         }
       ]
     });
@@ -69,7 +69,7 @@ describe("renderEconomyPanelHtml — converter mode gates slot occupancy", () =>
           terrain: "LAND",
           ownerId: "me",
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+          economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
         }
       ]
     });

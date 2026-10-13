@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_AUTO_SETTLE_PREFS, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, setWorldSeed, terrainAt, upgradeLegacyStructureNames } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type {
   SnapshotSystemsSection,
@@ -18,7 +18,7 @@ import {
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
+  incubationEngineGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
@@ -116,7 +116,7 @@ const isAiPlayer = (playerId: string, authIdentities: LegacySnapshotAuthIdentity
 
 const readSnapshotJson = <T>(snapshotDir: string, filename: string): T => {
   const file = path.join(snapshotDir, filename);
-  return JSON.parse(fs.readFileSync(file, "utf8")) as T;
+  return upgradeLegacyStructureNames(JSON.parse(fs.readFileSync(file, "utf8")) as T);
 };
 
 const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
@@ -244,12 +244,12 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         structuresByTile,
         meta.world
       );
-    const hasGranary =
+    const hasIncubationEngine =
       Boolean(ownerId) &&
       supportedStructureAtTown(
         town.tileKey,
         ownerId!,
-        "GRANARY",
+        "INCUBATION_ENGINE",
         ownershipByTile,
         ownershipStateByTile,
         structuresByTile,
@@ -279,7 +279,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         : (() => {
             const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
             if (logisticFactor <= 0) return 0;
-            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * granaryGrowthMultiplier(hasGranary);
+            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * incubationEngineGrowthMultiplier(hasIncubationEngine);
             return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
           })();
     const growthModifiers = townGrowthModifiersForSnapshot({
@@ -314,8 +314,8 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       hasMintworks,
       mintworksActive: hasMintworks && isFed,
       mintworksCount,
-      hasGranary,
-      granaryActive: hasGranary,
+      hasIncubationEngine,
+      incubationEngineActive: hasIncubationEngine,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
       ...(growthModifiers.length > 0 ? { growthModifiers } : {})
     };

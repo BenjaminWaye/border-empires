@@ -25,7 +25,7 @@ export type SimClientTileDelta = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   shardSiteJson?: string | undefined;
@@ -78,8 +78,8 @@ export type ProtoTileDelta = {
   fortJson?: string;
   observatory_json?: string;
   observatoryJson?: string;
-  siege_outpost_json?: string;
-  siegeOutpostJson?: string;
+  siege_battery_json?: string;
+  siegeBatteryJson?: string;
   economic_structure_json?: string;
   economicStructureJson?: string;
   sabotage_json?: string;
@@ -150,7 +150,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("fort_json" in tile || "fortJson" in tile) normalized.fortJson = tile.fort_json || tile.fortJson || undefined;
   if ("observatory_json" in tile || "observatoryJson" in tile) normalized.observatoryJson = tile.observatory_json || tile.observatoryJson || undefined;
-  if ("siege_outpost_json" in tile || "siegeOutpostJson" in tile) normalized.siegeOutpostJson = tile.siege_outpost_json || tile.siegeOutpostJson || undefined;
+  if ("siege_battery_json" in tile || "siegeBatteryJson" in tile) normalized.siegeBatteryJson = tile.siege_battery_json || tile.siegeBatteryJson || undefined;
   if ("economic_structure_json" in tile || "economicStructureJson" in tile) {
     normalized.economicStructureJson = tile.economic_structure_json || tile.economicStructureJson || undefined;
   }

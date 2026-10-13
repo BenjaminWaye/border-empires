@@ -479,8 +479,8 @@ describe("client network tile detail regression", () => {
               connectedTownBonus: 0,
               hasMintworks: false,
               mintworksActive: false,
-              hasGranary: false,
-              granaryActive: false,
+              hasIncubationEngine: false,
+              incubationEngineActive: false,
             })
           }
         ]

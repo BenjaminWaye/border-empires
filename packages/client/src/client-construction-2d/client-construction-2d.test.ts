@@ -33,7 +33,7 @@ const site = (over: Partial<ConstructionSite> = {}): ConstructionSite => ({
   afcOffset: undefined,
   direction: "build",
   field: "economicStructure",
-  structureType: "FOUNDRY",
+  structureType: "ORE_REFINERY",
   ownerId: "me",
   fraction: 0.3,
   visibleBands: 2,

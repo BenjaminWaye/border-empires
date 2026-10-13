@@ -54,7 +54,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
     expect(result).toBeUndefined();
   });
 
-  it("proposes WATERWORKS on plain open land when FOOD_SLOTS is acutely deficient", () => {
+  it("proposes HYDROWORKS on plain open land when FOOD_SLOTS is acutely deficient", () => {
     const plainLand = tile(5, 5, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const tilesByKey = new Map<string, StructurePlannerTile>([["5,5", plainLand]]);
     const needVector: NeedVector = { ...ZERO_NEED_VECTOR, FOOD_SLOTS: 1 };
@@ -66,7 +66,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
       [plainLand],
       needVector
     );
-    expect(result?.structureType).toBe("WATERWORKS");
+    expect(result?.structureType).toBe("HYDROWORKS");
   });
 
   it("does not propose a catalog type on plain land when its need is fully satisfied (deficit 0)", () => {
@@ -83,7 +83,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
     expect(result).toBeUndefined();
   });
 
-  it("proposes a town-support catalog type (LOGISTICS_GUILD) scored by MANPOWER_THROUGHPUT deficit", () => {
+  it("proposes a town-support catalog type (ANCILLARY_FACTORY) scored by MANPOWER_THROUGHPUT deficit", () => {
     const town = tile(20, 20, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -95,8 +95,8 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
       ["21,20", openSupportTile]
     ]);
     // MANPOWER_THROUGHPUT fully acute, everything else zero (including
-    // FOOD_SLOTS, so MINTWORKS/GRANARY score 0 via foodLow's unrelated
-    // stockpile check but the catalog's LOGISTICS_GUILD still wins on need).
+    // FOOD_SLOTS, so MINTWORKS/INCUBATION_ENGINE score 0 via foodLow's unrelated
+    // stockpile check but the catalog's ANCILLARY_FACTORY still wins on need).
     const needVector: NeedVector = { ...ZERO_NEED_VECTOR, MANPOWER_THROUGHPUT: 1 };
 
     const result = chooseBestEconomicBuild(
@@ -106,7 +106,7 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
       [town, openSupportTile],
       needVector
     );
-    expect(result?.structureType).toBe("LOGISTICS_GUILD");
+    expect(result?.structureType).toBe("ANCILLARY_FACTORY");
   });
 
   it("still proposes a synthesizer at a second town even after already owning one elsewhere (no empire-wide cap)", () => {
@@ -132,13 +132,13 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
     const player = {
       ...ECONOMIC_BUILD_PLAYER,
       techIds: [...TECH_FOR_CATALOG, "trade", "pottery"],
-      // Already owns one UMBRITE_SYNTHESIZER, built elsewhere (not on this
+      // Already owns one UMBRITE_WORKS, built elsewhere (not on this
       // town's support ring, per this fixture's tiles).
-      ownedStructureCounts: { FORT: 0, SIEGE_OUTPOST: 0, UMBRITE_SYNTHESIZER: 1 }
+      ownedStructureCounts: { FORT: 0, SIEGE_BATTERY: 0, UMBRITE_WORKS: 1 }
     };
 
     const result = chooseBestEconomicBuild(player, [town, openSupportTile], tilesByKey, [town, openSupportTile], needVector);
-    expect(result?.structureType).toBe("UMBRITE_SYNTHESIZER");
+    expect(result?.structureType).toBe("UMBRITE_WORKS");
   });
 
   it("gates catalog types on their required tech, same as the original 5 types", () => {
@@ -154,8 +154,8 @@ describe("chooseBestEconomicBuild — need-weighted catalog", () => {
     ]);
     const needVector: NeedVector = { ...ZERO_NEED_VECTOR, MANPOWER_THROUGHPUT: 1 };
 
-    // Without "remade-concordat" (LOGISTICS_GUILD's tech requirement),
-    // LOGISTICS_GUILD's raw score (160, fully acute MANPOWER_THROUGHPUT)
+    // Without "remade-concordat" (ANCILLARY_FACTORY's tech requirement),
+    // ANCILLARY_FACTORY's raw score (160, fully acute MANPOWER_THROUGHPUT)
     // would beat MINTWORKS's flat 54 if the tech gate weren't applied — the
     // gate must exclude it regardless of how it scores.
     const result = chooseBestEconomicBuild(

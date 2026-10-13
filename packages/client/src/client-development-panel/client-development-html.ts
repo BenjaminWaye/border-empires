@@ -63,9 +63,9 @@ const activeStructureEntries = (tiles: Map<string, Tile>, me: string): Structure
     if (obs && (obs.status === "under_construction" || obs.status === "removing")) {
       entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName("OBSERVATORY"), completesAt: obs.completesAt, ...(obs.pausedAt !== undefined ? { pausedAt: obs.pausedAt } : {}) });
     }
-    const siege = tile.siegeOutpost;
+    const siege = tile.siegeBattery;
     if (siege && (siege.status === "under_construction" || siege.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(siege.variant ?? "SIEGE_OUTPOST"), completesAt: siege.completesAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: structureDisplayName(siege.variant ?? "SIEGE_BATTERY"), completesAt: siege.completesAt, ...(siege.pausedAt !== undefined ? { pausedAt: siege.pausedAt } : {}) });
     }
     const econ = tile.economicStructure;
     if (econ && (econ.status === "under_construction" || econ.status === "removing")) {

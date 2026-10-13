@@ -14,7 +14,7 @@ import {
 } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
-// SIEGE_OUTPOST 3D overlay — a compact futuristic armored siege machine,
+// SIEGE_BATTERY 3D overlay — a compact futuristic armored siege machine,
 // the kind of heavy forward-deployed artillery platform that gets planted
 // on a battlefield rather than built as a camp. It replaces the old wooden
 // watchtower + catapult: a black-iron hull with aged-brass trim sits on a

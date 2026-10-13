@@ -51,10 +51,10 @@ import {
   type AstralDockPartStructureKind
 } from "../client-map-3d-structure-astral-dock-part.js";
 import {
-  POPULATION_BUREAU_PART_STRUCTURE_KINDS,
-  registerPopulationBureauPartStructures,
-  type PopulationBureauPartStructureKind
-} from "../client-map-3d-structure-population-bureau-part.js";
+  CENSUS_DIRECTORATE_PART_STRUCTURE_KINDS,
+  registerCensusDirectoratePartStructures,
+  type CensusDirectoratePartStructureKind
+} from "../client-map-3d-structure-census-directorate-part.js";
 import { CONSTRUCTION_PHASES, type ConstructionSite } from "../client-construction-phase/client-construction-phase.js";
 import { createLazyConstructionPresentation } from "../client-map-3d-construction/client-map-3d-construction-presentation.js";
 
@@ -84,7 +84,7 @@ export type StructureKind =
   | WorldbreakerPartStructureKind
   | ImperialExchangePartStructureKind
   | AstralDockPartStructureKind
-  | PopulationBureauPartStructureKind;
+  | CensusDirectoratePartStructureKind;
 
 export type { StructureResourceHint } from "../client-map-3d-structure-economic.js";
 
@@ -98,19 +98,19 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   ...WORLDBREAKER_PART_STRUCTURE_KINDS,
   ...IMPERIAL_EXCHANGE_PART_STRUCTURE_KINDS,
   ...ASTRAL_DOCK_PART_STRUCTURE_KINDS,
-  ...POPULATION_BUREAU_PART_STRUCTURE_KINDS
+  ...CENSUS_DIRECTORATE_PART_STRUCTURE_KINDS
 ]);
 
 // Structure kinds rendered by client-map-3d.ts through a dedicated
 // hardcoded branch rather than the generic instanced-mesh overlay above
-// (e.g. CARAVANARY's trade-nexus range overlay, the Umbrite rig/factory
+// (e.g. TRADE_NEXUS's trade-nexus range overlay, the Umbrite rig/factory
 // models). They still need to suppress the 2D canvas fallback, so this
 // is the single source of truth both the 3D orchestrator's dispatch and
 // the 2D renderer's suppression check should consult.
 const STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH = new Set<string>([
   "UMBRITE_RIG",
   "UMBRITE_WEAPONS_FACTORY",
-  "CARAVANARY"
+  "TRADE_NEXUS"
 ]);
 
 export function isStructureHandledBy3D(kind: string): boolean {
@@ -171,8 +171,8 @@ export const createStructureOverlay = (
     createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
 
   // Economic registers first so its `shared` assets (forge palette +
-  // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS
-  // reuse the forge palette; the crystal synthesizers reuse the blue
+  // blue crystal) are available to industrial (ORE_REFINERY/ADV_TITANIUM_WORKS
+  // reuse the forge palette; the aether condensers reuse the blue
   // crystal material).
   const economic = registerEconomicStructures(builder);
   const lateGame = registerLateGameStructures(builder);
@@ -183,7 +183,7 @@ export const createStructureOverlay = (
   const worldbreakerPart = registerWorldbreakerPartStructures(builder);
   const imperialExchangePart = registerImperialExchangePartStructures(builder);
   const astralDockPart = registerAstralDockPartStructures(builder);
-  const populationBureauPart = registerPopulationBureauPartStructures(builder);
+  const censusDirectoratePart = registerCensusDirectoratePartStructures(builder);
 
   // Build a uniform dispatch table. Only the economic family uses
   // `resource`; we ignore it for the others by wrapping their layouts.
@@ -218,18 +218,18 @@ export const createStructureOverlay = (
   for (const [k, fn] of Object.entries(astralDockPart.layouts)) {
     layouts[k as AstralDockPartStructureKind] = ignoreResource(fn);
   }
-  for (const [k, fn] of Object.entries(populationBureauPart.layouts)) {
-    layouts[k as PopulationBureauPartStructureKind] = ignoreResource(fn);
+  for (const [k, fn] of Object.entries(censusDirectoratePart.layouts)) {
+    layouts[k as CensusDirectoratePartStructureKind] = ignoreResource(fn);
   }
   // Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
-  // ASSEMBLY_WORKS ("Reserve Lattice") and RAIL_DEPOT ("Neural Works") swap
+  // RESERVE_LATTICE ("Reserve Lattice") and NEURAL_WORKS ("Neural Works") swap
   // 3D art -- they live in different families (manpower/infrastructure), so
   // this is done post-merge rather than inside either family file. No new
   // 3D assets this pass, per user decision.
-  const assemblyWorksLayout = layouts.ASSEMBLY_WORKS as UniformLayoutFn;
-  const railDepotLayout = layouts.RAIL_DEPOT as UniformLayoutFn;
-  layouts.ASSEMBLY_WORKS = railDepotLayout;
-  layouts.RAIL_DEPOT = assemblyWorksLayout;
+  const reserveLatticeLayout = layouts.RESERVE_LATTICE as UniformLayoutFn;
+  const neuralWorksLayout = layouts.NEURAL_WORKS as UniformLayoutFn;
+  layouts.RESERVE_LATTICE = neuralWorksLayout;
+  layouts.NEURAL_WORKS = reserveLatticeLayout;
 
   // Construction pipeline. Each kind's finished height is measured once, up
   // front, by dry-running its layout (nothing is placed); the dry runs may

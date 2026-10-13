@@ -40,7 +40,7 @@ export type RuntimeExportState = {
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     fortJson?: string;
     observatoryJson?: string;
-    siegeOutpostJson?: string;
+    siegeBatteryJson?: string;
     economicStructureJson?: string;
     sabotageJson?: string;
     musterJson?: string;
@@ -167,7 +167,7 @@ const toRuntimeExportTile = (
   if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
   if (cached.fortJson) entry.fortJson = cached.fortJson;
   if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
-  if (cached.siegeOutpostJson) entry.siegeOutpostJson = cached.siegeOutpostJson;
+  if (cached.siegeBatteryJson) entry.siegeBatteryJson = cached.siegeBatteryJson;
   if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
   if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
   if (cached.musterJson) entry.musterJson = cached.musterJson;

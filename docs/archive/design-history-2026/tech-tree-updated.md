@@ -13,7 +13,7 @@ Total techs: 54
 - Time: 30 min
 - Requirements: None
 - Description: Turns dirt into policy and policy into bread.
-- Benefits: Unlocks Farmstead
+- Benefits: Unlocks Hydrogarden
 - Unlocks Next: Animal Husbandry (T2), Irrigation (T2), Pottery (T2)
 
 ### Cartography (`cartography`)
@@ -29,7 +29,7 @@ Total techs: 54
 - Time: 40 min
 - Requirements: toolmaking
 - Description: Turns hides into straps, and straps into military confidence.
-- Benefits: Unlocks Camp | Unlocks Siege Outposts
+- Benefits: Unlocks Camp | Unlocks Siege Batteries
 - Unlocks Next: Chainmail (T4), Siegecraft (T3)
 
 ### Masonry (`masonry`)
@@ -104,7 +104,7 @@ Total techs: 54
 - Requirements: agriculture
 - Description: Convincing water to report for work on time.
 - Benefits: Town food upkeep -10%
-- Unlocks Next: Crop Rotation (T3), Granaries (T3)
+- Unlocks Next: Crop Rotation (T3), Incubation Engines (T3)
 
 ### Ledger Keeping (`ledger-keeping`)
 - Cost: 5500 GOLD · 70 CRYSTAL
@@ -128,7 +128,7 @@ Total techs: 54
 - Requirements: agriculture
 - Description: The ancient art of storing things instead of losing them.
 - Benefits: Town gold cap +25%
-- Unlocks Next: Granaries (T3)
+- Unlocks Next: Incubation Engines (T3)
 
 ### Road Building (`road-building`)
 - Cost: 6000 GOLD · 90 SUPPLY
@@ -164,7 +164,7 @@ Total techs: 54
 - Benefits: Fort defense +10% | Settled defense +10%
 - Unlocks Next: Heavy Masonry (T4)
 
-### Granaries (`granaries`)
+### Incubation Engines (`incubation engines`)
 - Cost: 9000 GOLD · 140 FOOD
 - Time: 2 h
 - Requirements: irrigation, pottery
@@ -236,7 +236,7 @@ Total techs: 54
 - Requirements: crop-rotation, surveying
 - Description: Now expansion arrives with paperwork and suspicious accuracy.
 - Benefits: Settlement speed +10% | Settled food upkeep -10%
-- Unlocks Next: Civil Service (T5), State Granaries (T5)
+- Unlocks Next: Civil Service (T5), State Incubation Engines (T5)
 
 ### Coinage (`coinage`)
 - Cost: 15000 GOLD · 100 FOOD · 180 CRYSTAL
@@ -289,10 +289,10 @@ Total techs: 54
 ### Watermills (`watermills`)
 - Cost: 14000 GOLD · 220 FOOD
 - Time: 3 h 30 min
-- Requirements: granaries
+- Requirements: incubation engines
 - Description: The river finally joins the payroll.
 - Benefits: Fed town gold output +15%
-- Unlocks Next: State Granaries (T5), Urban Markets (T6)
+- Unlocks Next: State Incubation Engines (T5), Urban Markets (T6)
 
 ## Tier 5
 
@@ -352,7 +352,7 @@ Total techs: 54
 - Benefits: Settlement speed +10% | Outpost supply upkeep -25%
 - Unlocks Next: Arms Guilds (T5), Supply Trains (T6), Terrain Engineering (T5)
 
-### State Granaries (`state-granaries`)
+### State Incubation Engines (`state-incubation-engines`)
 - Cost: 22000 GOLD · 380 FOOD
 - Time: 5 h 30 min
 - Requirements: watermills, civil-survey
@@ -397,7 +397,7 @@ Total techs: 54
 ### Frontier Administration (`frontier-administration`)
 - Cost: 34000 GOLD · 500 FOOD · 180 SUPPLY
 - Time: 8 h 30 min
-- Requirements: bureaucracy, state-granaries
+- Requirements: bureaucracy, state-incubation-engines
 - Description: Expansion, but with clipboards and alarming efficiency.
 - Benefits: Settlement speed +20% | Settled food upkeep -10%
 - Unlocks Next: No downstream techs

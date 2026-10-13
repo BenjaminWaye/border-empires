@@ -81,8 +81,8 @@ describe("client gateway sync — town summaries (part 2)", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]

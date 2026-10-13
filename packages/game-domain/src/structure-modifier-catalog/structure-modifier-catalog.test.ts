@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { structureModifiersFor } from "./structure-modifier-catalog.js";
 
 describe("structureModifiersFor", () => {
-  it("returns a static, context-free entry for a fixed-effect building (Farmstead)", () => {
-    const modifiers = structureModifiersFor("FARMSTEAD");
+  it("returns a static, context-free entry for a fixed-effect building (Hydrogarden)", () => {
+    const modifiers = structureModifiersFor("HYDROGARDEN");
     expect(modifiers).toEqual([
       { statLabel: "FOOD slot", valueText: "+2", tone: "positive", isTownWide: false }
     ]);
@@ -30,7 +30,7 @@ describe("structureModifiersFor", () => {
   });
 
   it("marks a sample of support-tile buildings as town-wide and tile-local buildings as not", () => {
-    expect(structureModifiersFor("GARRISON_HALL").every((m) => m.isTownWide === true)).toBe(true);
+    expect(structureModifiersFor("ANCILLARY_DEPOT").every((m) => m.isTownWide === true)).toBe(true);
     expect(structureModifiersFor("MINTWORKS").every((m) => m.isTownWide === true)).toBe(true);
     expect(structureModifiersFor("FORT").every((m) => m.isTownWide === false)).toBe(true);
     expect(structureModifiersFor("OBSERVATORY").every((m) => m.isTownWide === false)).toBe(true);
@@ -38,15 +38,15 @@ describe("structureModifiersFor", () => {
   });
 
   it("only carries rawValue on flat, additive-per-copy numbers", () => {
-    const garrisonHall = structureModifiersFor("GARRISON_HALL");
-    expect(garrisonHall[0]?.rawValue).toBe(150);
+    const ancillaryDepot = structureModifiersFor("ANCILLARY_DEPOT");
+    expect(ancillaryDepot[0]?.rawValue).toBe(150);
     const mintworks = structureModifiersFor("MINTWORKS");
     const stackedPercent = mintworks.find((m) => m.statLabel === "Gold production");
     expect(stackedPercent?.rawValue).toBeUndefined();
   });
 
   it("returns an empty array for a monument component with no numeric effect", () => {
-    expect(structureModifiersFor("POPULATION_BUREAU_PART_1")).toEqual([]);
+    expect(structureModifiersFor("CENSUS_DIRECTORATE_PART_1")).toEqual([]);
   });
 
   it("marks Weapons Workshop family attack/defense as percent-per-copy rawValue for town aggregation", () => {
@@ -77,16 +77,16 @@ describe("structureModifiersFor", () => {
     expect(modifiers.some((m) => m.statLabel === "Offense")).toBe(false);
   });
 
-  // Regression: a converter structure (Aether Condenser / CRYSTAL_SYNTHESIZER
+  // Regression: a converter structure (Aether Condenser / AETHER_CONDENSER
   // etc.) in EXCHANGE (Sell Off) mode still showed "Refine mode supplies:
   // +1 CRYSTAL slot" -- synthesizerModifiers had no way to see the live
   // converterMode, so the Modifiers panel contradicted the structure's own
   // status line ("selling off its slot... No gold upkeep while selling off").
   it("shows the Refine-mode slot modifier only in SYNTHESIZE mode, and omits it in EXCHANGE mode", () => {
-    const synth = structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "SYNTHESIZE" } });
+    const synth = structureModifiersFor("AETHER_CONDENSER", { tile: { converterMode: "SYNTHESIZE" } });
     expect(synth).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 CRYSTAL slot", tone: "positive", isTownWide: false });
 
-    const exchange = structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } });
+    const exchange = structureModifiersFor("AETHER_CONDENSER", { tile: { converterMode: "EXCHANGE" } });
     expect(exchange.find((m) => m.statLabel === "Refine mode supplies")).toBeUndefined();
   });
 
@@ -101,18 +101,18 @@ describe("structureModifiersFor", () => {
     // townModifierTotalsFromCounts/CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES)
     // is the flat per-instance gold/day figure, matching the payout named in
     // valueText.
-    expect(structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+    expect(structureModifiersFor("AETHER_CONDENSER", { tile: { converterMode: "EXCHANGE" } }))
       .toContainEqual({ statLabel: "Sell Off gold", valueText: "+10/day", tone: "positive", isTownWide: true, rawValue: 10 });
-    expect(structureModifiersFor("ADVANCED_CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+    expect(structureModifiersFor("HIGH_YIELD_AETHER_CONDENSER", { tile: { converterMode: "EXCHANGE" } }))
       .toContainEqual({ statLabel: "Sell Off gold", valueText: "+15/day", tone: "positive", isTownWide: true, rawValue: 15 });
     expect(structureModifiersFor("TITANIUM_WORKS", { tile: { converterMode: "EXCHANGE" } }))
       .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
-    expect(structureModifiersFor("UMBRITE_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+    expect(structureModifiersFor("UMBRITE_WORKS", { tile: { converterMode: "EXCHANGE" } }))
       .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
   });
 
   it("defaults to showing the Refine-mode slot modifier when no converterMode is supplied (back-compat)", () => {
-    const modifiers = structureModifiersFor("UMBRITE_SYNTHESIZER");
+    const modifiers = structureModifiersFor("UMBRITE_WORKS");
     expect(modifiers).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 UMBRITE slot", tone: "positive", isTownWide: false });
   });
 });

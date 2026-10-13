@@ -25,8 +25,8 @@ const townTile = (x: number, y: number, populationTier: NonNullable<Tile["town"]
     connectedTownBonus: 0,
     hasMintworks: false,
     mintworksActive: false,
-    hasGranary: false,
-    granaryActive: false,
+    hasIncubationEngine: false,
+    incubationEngineActive: false,
   }
 });
 
@@ -48,20 +48,20 @@ const tileMap = (tiles: Tile[]): ReadonlyMap<string, Tile> => new Map(tiles.map(
 describe("townHasSupportStructureType", () => {
   it("treats under-construction support buildings as occupying the town slot", () => {
     const town = townTile(10, 10);
-    const tiles = tileMap([town, supportTile(11, 10, "UMBRITE_SYNTHESIZER", "under_construction")]);
-    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(true);
+    const tiles = tileMap([town, supportTile(11, 10, "UMBRITE_WORKS", "under_construction")]);
+    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_WORKS")).toBe(true);
   });
 
   it("treats advanced variants as occupying the same base support-building slot", () => {
     const town = townTile(10, 10);
-    const tiles = tileMap([town, supportTile(10, 11, "ADVANCED_CRYSTAL_SYNTHESIZER", "active")]);
-    expect(townHasSupportStructureType(tiles, town, "me", "CRYSTAL_SYNTHESIZER")).toBe(true);
+    const tiles = tileMap([town, supportTile(10, 11, "HIGH_YIELD_AETHER_CONDENSER", "active")]);
+    expect(townHasSupportStructureType(tiles, town, "me", "AETHER_CONDENSER")).toBe(true);
   });
 
   it("ignores unrelated support structures", () => {
     const town = townTile(10, 10);
     const tiles = tileMap([town, supportTile(11, 11, "MINTWORKS", "active")]);
-    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(false);
+    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_WORKS")).toBe(false);
   });
 
   it("assigns a shared support structure to only the lowest-coordinate town", () => {

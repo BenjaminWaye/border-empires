@@ -1,6 +1,6 @@
 /**
  * Pure parsing helpers for converting wire-format tile-delta JSON fields
- * (townJson/fortJson/observatoryJson/siegeOutpostJson/economicStructureJson)
+ * (townJson/fortJson/observatoryJson/siegeBatteryJson/economicStructureJson)
  * into PlannerTileView structures. Extracted from ai-planner-worker.ts so
  * that file stays within the repo's file-line-limit gate (see AGENTS.md).
  */
@@ -19,7 +19,7 @@ export type SimulationTileDelta = {
   townJson?: string | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
 };
 

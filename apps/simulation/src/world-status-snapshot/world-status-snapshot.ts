@@ -54,7 +54,7 @@ const toFallbackWorldTile = (tile: DomainTileState): WorldTile => ({
   ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
   ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
   ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+  ...(tile.siegeBattery ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
   ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
   ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
   ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),

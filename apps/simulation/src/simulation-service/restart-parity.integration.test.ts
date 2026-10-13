@@ -37,18 +37,18 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "EXPAND":
     case "CAST_AETHER_BRIDGE":
     case "CAST_AETHER_WALL":
-    case "AIRPORT_BOMBARD":
+    case "SKY_DOCK_BOMBARD":
       return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
     case "SETTLE":
       return { x: 999, y: 999 };
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
-    case "BUILD_SIEGE_OUTPOST":
+    case "BUILD_SIEGE_BATTERY":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":
     case "CANCEL_SETTLE":
     case "REMOVE_STRUCTURE":
-    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "CANCEL_SIEGE_BATTERY_BUILD":
     case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
     case "AETHER_LANCE":
@@ -67,7 +67,7 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "CHOOSE_DOMAIN":
       return { domainId: "frontier-doctrine" };
     case "SET_CONVERTER_STRUCTURE_ENABLED":
-    case "SET_SIEGE_OUTPOST_AUTO_ATTACK":
+    case "SET_SIEGE_BATTERY_AUTO_ATTACK":
       return { x: 10, y: 10, enabled: true };
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":

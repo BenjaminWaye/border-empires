@@ -51,9 +51,9 @@ const buildInput = (
     ]),
     tiles: tileMap,
     musterTilesByOwner: new Map([["player-1", new Set([`${musterTile.x},${musterTile.y}`])]]),
-    activeSiegeOutpostsByOwner: new Map(),
+    activeSiegeBatteriesByOwner: new Map(),
     activeRelayBeaconsByOwner: new Map(),
-    railDepotPositionsForPlayer: () => [],
+    neuralWorksPositionsForPlayer: () => [],
     applyManpowerRegen: () => {},
     playerManpowerCap: () => 1_000,
     replaceTileState: (tileKey, newTile) => {

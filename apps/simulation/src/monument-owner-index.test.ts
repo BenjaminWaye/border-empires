@@ -22,7 +22,7 @@ const tileWithMonument = (
     terrain: "LAND",
     ...(overrides.tileOwnerId ? { ownerId: overrides.tileOwnerId, ownershipState: "SETTLED" } : {}),
     economicStructure: {
-      type: overrides.type ?? "POPULATION_BUREAU",
+      type: overrides.type ?? "CENSUS_DIRECTORATE",
       ownerId: overrides.structureOwnerId ?? "player-1",
       status: overrides.status ?? "active"
     }
@@ -49,21 +49,21 @@ describe("activeMonumentOwnerByType index", () => {
 
     const index = seedIndex(tiles);
 
-    expect(index.get("POPULATION_BUREAU")?.ownerId).toBe(monumentClaimOwnerId(tiles, "POPULATION_BUREAU"));
-    expect(index.get("POPULATION_BUREAU")?.ownerId).toBe("player-1");
+    expect(index.get("CENSUS_DIRECTORATE")?.ownerId).toBe(monumentClaimOwnerId(tiles, "CENSUS_DIRECTORATE"));
+    expect(index.get("CENSUS_DIRECTORATE")?.ownerId).toBe("player-1");
   });
 
   it("ignores a monument that is still under construction, matching the scan", () => {
     const tiles = new Map<string, DomainTileState>();
     tiles.set(simulationTileKey(1, 1), tileWithMonument(1, 1, { status: "under_construction" }));
 
-    expect(seedIndex(tiles).get("POPULATION_BUREAU")).toBeUndefined();
-    expect(monumentClaimOwnerId(tiles, "POPULATION_BUREAU")).toBeUndefined();
+    expect(seedIndex(tiles).get("CENSUS_DIRECTORATE")).toBeUndefined();
+    expect(monumentClaimOwnerId(tiles, "CENSUS_DIRECTORATE")).toBeUndefined();
   });
 
   it("ignores non-monument economic structures", () => {
     const tiles = new Map<string, DomainTileState>();
-    tiles.set(simulationTileKey(1, 1), tileWithMonument(1, 1, { type: "GARRISON_HALL" }));
+    tiles.set(simulationTileKey(1, 1), tileWithMonument(1, 1, { type: "ANCILLARY_DEPOT" }));
 
     expect(seedIndex(tiles).size).toBe(0);
   });
@@ -73,12 +73,12 @@ describe("activeMonumentOwnerByType index", () => {
     const tileKey = simulationTileKey(5, 5);
     const before = tileWithMonument(5, 5, { structureOwnerId: "player-1", tileOwnerId: "player-1" });
     refreshMonumentOwnerIndexForTile({ tileKey, previous: undefined, next: before, activeMonumentOwnerByType: index });
-    expect(index.get("POPULATION_BUREAU")?.ownerId).toBe("player-1");
+    expect(index.get("CENSUS_DIRECTORATE")?.ownerId).toBe("player-1");
 
     // Capture rewrites both the tile owner and the structure owner.
     const after = tileWithMonument(5, 5, { structureOwnerId: "player-2", tileOwnerId: "player-2" });
     refreshMonumentOwnerIndexForTile({ tileKey, previous: before, next: after, activeMonumentOwnerByType: index });
-    expect(index.get("POPULATION_BUREAU")?.ownerId).toBe("player-2");
+    expect(index.get("CENSUS_DIRECTORATE")?.ownerId).toBe("player-2");
   });
 
   it("clears the claim when the monument is removed from its tile", () => {
@@ -90,7 +90,7 @@ describe("activeMonumentOwnerByType index", () => {
     const cleared: DomainTileState = { x: 7, y: 7, terrain: "LAND" };
     refreshMonumentOwnerIndexForTile({ tileKey, previous: before, next: cleared, activeMonumentOwnerByType: index });
 
-    expect(index.get("POPULATION_BUREAU")).toBeUndefined();
+    expect(index.get("CENSUS_DIRECTORATE")).toBeUndefined();
   });
 
   it("does not let an unrelated tile's clear evict a still-standing monument's claim", () => {
@@ -107,6 +107,6 @@ describe("activeMonumentOwnerByType index", () => {
     const otherCleared: DomainTileState = { x: 9, y: 9, terrain: "LAND" };
     refreshMonumentOwnerIndexForTile({ tileKey: otherKey, previous: otherBefore, next: otherCleared, activeMonumentOwnerByType: index });
 
-    expect(index.get("POPULATION_BUREAU")).toEqual({ ownerId: "player-1", tileKey: standingKey });
+    expect(index.get("CENSUS_DIRECTORATE")).toEqual({ ownerId: "player-1", tileKey: standingKey });
   });
 });

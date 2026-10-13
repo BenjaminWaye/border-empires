@@ -333,7 +333,7 @@ Staging is isolated; nothing to roll back in prod. Legacy monolith keeps running
 
 What actually landed:
 
-- `apps/simulation/src/ai/planner-world-view.ts`: serializable `PlannerWorldView` / `PlannerTileView` / `PlannerPlayerView` types. `buildPlannerWorldView()` strips heavy JSON blobs (fort, observatory, siege outpost, economic structure payloads) before `postMessage` to keep worker transfer cheap.
+- `apps/simulation/src/ai/planner-world-view.ts`: serializable `PlannerWorldView` / `PlannerTileView` / `PlannerPlayerView` types. `buildPlannerWorldView()` strips heavy JSON blobs (fort, observatory, siege battery, economic structure payloads) before `postMessage` to keep worker transfer cheap.
 - `apps/simulation/src/ai/ai-planner-worker.ts`: Node worker thread. Runs settle + frontier planning from `PlannerWorldView`. Handles pause / resume / shutdown protocol.
 - `apps/simulation/src/ai/system-job-worker.ts`: Node worker thread. Runs barbarian / upkeep frontier planning. Same message protocol.
 - `apps/simulation/src/ai/ai-command-producer-worker.ts`: worker-backed drop-in for `ai-command-producer.ts`. Skips tick when `human_interactive > 0` and sends `pause` to worker; resumes on drain.
@@ -413,8 +413,8 @@ Command and action surface — already routed in `command-lane.ts`, needs proof-
 
 - `ATTACK`, `EXPAND`, `BREAKTHROUGH_ATTACK`, `ATTACK_PREVIEW`
 - `SETTLE`, `CANCEL_CAPTURE`, `UNCAPTURE_TILE`
-- `BUILD_FORT`, `BUILD_OBSERVATORY`, `BUILD_SIEGE_OUTPOST`, `BUILD_ECONOMIC_STRUCTURE`
-- `CANCEL_FORT_BUILD`, `CANCEL_STRUCTURE_BUILD`, `CANCEL_SIEGE_OUTPOST_BUILD`, `REMOVE_STRUCTURE`
+- `BUILD_FORT`, `BUILD_OBSERVATORY`, `BUILD_SIEGE_BATTERY`, `BUILD_ECONOMIC_STRUCTURE`
+- `CANCEL_FORT_BUILD`, `CANCEL_STRUCTURE_BUILD`, `CANCEL_SIEGE_BATTERY_BUILD`, `REMOVE_STRUCTURE`
 - `COLLECT_TILE`, `COLLECT_VISIBLE`, `COLLECT_SHARD`
 - `CHOOSE_TECH`, `CHOOSE_DOMAIN`
 - `SET_TILE_COLOR`, `SET_PROFILE`
@@ -423,7 +423,7 @@ Command and action surface — already routed in `command-lane.ts`, needs proof-
 - `CAST_AETHER_BRIDGE`, `CAST_AETHER_WALL`
 - `SIPHON_TILE`, `PURGE_SIPHON`
 - `CREATE_MOUNTAIN`, `REMOVE_MOUNTAIN`
-- `AIRPORT_BOMBARD`
+- `SKY_DOCK_BOMBARD`
 - `ALLIANCE_{REQUEST,ACCEPT,REJECT,CANCEL,BREAK}`
 - `TRUCE_{REQUEST,ACCEPT,REJECT,CANCEL,BREAK}`
 
@@ -433,7 +433,7 @@ Render and UX parity — each gets a dedicated parity test (legacy vs rewrite sn
 - Economy breakdown (gold sources, per-minute rates, strategic production)
 - Visibility (vision radius, revealed-state masks, observatory effect)
 - Frontier ownership display (contested states, combat locks, attacker indicator)
-- Structure render (forts, observatories, siege outposts, economic buildings, sabotage, shard sites)
+- Structure render (forts, observatories, siege batteries, economic buildings, sabotage, shard sites)
 - Docks and sea-tile rendering
 - Leaderboard (by tiles, income, techs; self entry)
 - Season victory cards (all paths, progress labels, hold remaining)

@@ -52,8 +52,8 @@ export type TownWireSummary = {
   // exactOptionalPropertyTypes; every real read site treats a missing
   // value as 0 via `?? 0`.
   mintworksCount?: number;
-  hasGranary: boolean;
-  granaryActive: boolean;
+  hasIncubationEngine: boolean;
+  incubationEngineActive: boolean;
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;
@@ -68,13 +68,13 @@ export type TownWireSummary = {
   };
   // Census Hall (tech-tree redesign): the population/cap bonus currently
   // granted by this town's own Census Hall (+20,000 per connected city
-  // with an active Incubation Engine/Granary) -- tracked so a later drop
-  // in connected Granaries can claw the bonus back down rather than only
+  // with an active Incubation Engine) -- tracked so a later drop
+  // in connected Incubation Engines can claw the bonus back down rather than only
   // ever growing it.
   censusHallAppliedBonus?: number;
   // Unified building modifier display (stage 3): one group per building
   // type this town's support ring has active copies of, each with a
-  // "<count> <Building>" heading (e.g. "3 Garrison Halls") and every
+  // "<count> <Building>" heading (e.g. "3 Ancillary Depots") and every
   // numeric stat that building contributes, summed across its own active
   // copies. Building types are never merged into a shared, unlabeled stat
   // bucket (Weapons Workshop and Titanium Weapons Factory both feed
@@ -83,8 +83,8 @@ export type TownWireSummary = {
   // per-copy numbers and percent-per-copy ones (rendered as a percentage —
   // see StructureModifier's `unit` field in game-domain). Buildings whose
   // effect scales off something other than their own count in this town
-  // (Census Hall off connected Incubation Engines, Customs House off
-  // connected docks, Rail Depot/Assembly Works off other network
+  // (Census Hall off connected Incubation Engines, Harbor Exchange off
+  // connected docks, Neural Works/Reserve Lattice off other network
   // buildings, one-time bursts) are deliberately excluded — see
   // structureModifiersFor's rawValue contract in game-domain.
   townModifierTotals?: Array<{

@@ -22,10 +22,10 @@ describe("converter toggle regression guard", () => {
     expect(converterMenu).toContain('id: "set_converter_structure_mode" as TileActionDef["id"]');
   });
 
-  it("preloads and renders the base crystal synthesizer overlay", () => {
+  it("preloads and renders the base aether condenser overlay", () => {
     const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
-    expect(overlayImages).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
+    expect(overlayImages).toContain('AETHER_CONDENSER: loadOverlayImage("aether-condenser-overlay.svg")');
     expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });
 
@@ -34,33 +34,33 @@ describe("converter toggle regression guard", () => {
     const loop = clientSource("../client-runtime-loop.ts");
     const dedicatedStructureOverlays = [
       ["CLEARING_HOUSE", "clearing-house-overlay.svg"],
-      ["AIRPORT", "airport-overlay.svg"],
-      ["CARAVANARY", "trade-nexus-overlay.svg"],
-      ["FOUNDRY", "foundry-overlay.svg"],
-      // GARRISON_HALL ("Ancillary Depot") got its own storage-drum overlay;
-      // LOGISTICS_GUILD ("Ancillary Factory") keeps the hopper manufactory.
-      // RAIL_DEPOT ("Neural Works") and ASSEMBLY_WORKS ("Reserve Lattice")
+      ["SKY_DOCK", "sky-dock-overlay.svg"],
+      ["TRADE_NEXUS", "trade-nexus-overlay.svg"],
+      ["ORE_REFINERY", "ore-refinery-overlay.svg"],
+      // ANCILLARY_DEPOT ("Ancillary Depot") got its own storage-drum overlay;
+      // ANCILLARY_FACTORY ("Ancillary Factory") keeps the hopper manufactory.
+      // NEURAL_WORKS ("Neural Works") and RESERVE_LATTICE ("Reserve Lattice")
       // still swap.
-      ["GARRISON_HALL", "ancillary-depot-overlay.svg"],
-      ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
-      ["RAIL_DEPOT", "assembly-works-overlay.svg"],
-      ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],
-      ["RADAR_SYSTEM", "radar-system-overlay.svg"],
+      ["ANCILLARY_DEPOT", "ancillary-depot-overlay.svg"],
+      ["HARBOR_EXCHANGE", "harbor-exchange-overlay.svg"],
+      ["NEURAL_WORKS", "neural-works-overlay.svg"],
+      ["MINISTRY_HALL", "ministry-hall-overlay.svg"],
+      ["RESONANCE_GRID", "resonance-grid-overlay.svg"],
       ["AEGIS_DOME", "aegis-dome-overlay.svg"],
       ["ASTRAL_DOCK", "astral-dock-overlay.svg"],
       ["IMPERIAL_EXCHANGE", "imperial-exchange-overlay.svg"],
-      ["WORLD_ENGINE", "world-engine-overlay.svg"],
+      ["SOVEREIGN_SIEGE_ENGINE", "sovereign-siege-engine-overlay.svg"],
       ["QUARTERMASTERS_OFFICE", "quartermasters-office-overlay.svg"],
-      ["LOGISTICS_GUILD", "ancillary-factory-overlay.svg"],
-      ["ASSEMBLY_WORKS", "rail-depot-overlay.svg"],
-      ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
+      ["ANCILLARY_FACTORY", "ancillary-factory-overlay.svg"],
+      ["RESERVE_LATTICE", "reserve-lattice-overlay.svg"],
+      ["CENSUS_DIRECTORATE", "census-directorate-overlay.svg"],
       ["TITANIUM_LEVY", "titanium-levy-overlay.svg"],
-      // GRANARY/AETHER_TOWER are the real wire-protocol structure types for
+      // INCUBATION_ENGINE/AMBARIC_TRANSFORMER are the real wire-protocol structure types for
       // Incubation Engine/Ambaric Transformer Station (display names only) — using the
       // display names here previously let this test pass while the real
       // structureOverlayImages entries pointed at the wrong/missing art.
-      ["GRANARY", "incubation-engine-overlay.svg"],
-      ["AETHER_TOWER", "ambaric-tower-overlay.svg"]
+      ["INCUBATION_ENGINE", "incubation-engine-overlay.svg"],
+      ["AMBARIC_TRANSFORMER", "ambaric-tower-overlay.svg"]
     ] as const;
 
     for (const [structureType, asset] of dedicatedStructureOverlays) {

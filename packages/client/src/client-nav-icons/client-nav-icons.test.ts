@@ -7,7 +7,7 @@ import { navTabIconHtml, setTabButtonHtml, type NavTabIconKey } from "./client-n
 
 const KEYS: NavTabIconKey[] = ["core", "missions", "tech", "domains", "alliance", "leaderboard", "feed", "activity", "settings"];
 
-const srcsOf = (html: string): string[] => [...html.matchAll(/\/icons\/[a-z]+\/[a-z]+-\d+\.png/g)].map((match) => match[0]);
+const srcsOf = (html: string): string[] => [...html.matchAll(/\/icons\/[a-z]+\/[a-z-]+\.svg/g)].map((match) => match[0]);
 
 describe("navTabIconHtml", () => {
   it("references only PNGs that ship in public/", () => {
@@ -22,12 +22,7 @@ describe("navTabIconHtml", () => {
   });
 
   it("reuses the Shard resource icon for the Sharding tab", () => {
-    expect(srcsOf(navTabIconHtml("domains"))).toEqual([
-      "/icons/resources/shard-48.png",
-      "/icons/resources/shard-48.png",
-      "/icons/resources/shard-72.png",
-      "/icons/resources/shard-96.png"
-    ]);
+    expect(srcsOf(navTabIconHtml("domains"))).toEqual(["/icons/simple/shard.svg"]);
   });
 
   it("keeps the tab-icon wrapper so existing button styling still applies", () => {
@@ -52,7 +47,7 @@ describe("setTabButtonHtml", () => {
     const button = document.createElement("button");
     setTabButtonHtml(button, navTabIconHtml("tech"));
     setTabButtonHtml(button, navTabIconHtml("feed"));
-    expect(button.querySelector("img")?.getAttribute("src")).toBe("/icons/nav/feed-48.png");
+    expect(button.querySelector("img")?.getAttribute("src")).toBe("/icons/simple/feed.svg");
     expect(button.querySelectorAll("img")).toHaveLength(1);
   });
 

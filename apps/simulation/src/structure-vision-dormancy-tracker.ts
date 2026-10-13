@@ -1,6 +1,6 @@
 /**
  * §5.4: a resource tile gained or lost anywhere in a player's territory can
- * push one of their Relay Beacons/Siege Outposts or their Observatory into
+ * push one of their Relay Beacons/Siege Batteries or their Observatory into
  * or out of dormancy without that structure's own tile changing at all, so
  * reconcileOutpostVisionBonus/reconcileObservatoryVisionBonus (which only
  * ever look at the one tile that just mutated) can't catch it.
@@ -22,7 +22,7 @@
  * command-driven path) and from the end of tickTerritoryAutomation (the
  * tick-driven path).
  *
- * Relay Beacon/Siege Outpost and Observatory share this one dirty-flag/flush
+ * Relay Beacon/Siege Battery and Observatory share this one dirty-flag/flush
  * pair rather than each carrying its own — same underlying trigger, so one
  * per-player Set add and one lazy flush covers both.
  */

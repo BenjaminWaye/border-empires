@@ -20,7 +20,7 @@ export type RuntimeState = {
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     fortJson?: string;
     observatoryJson?: string;
-    siegeOutpostJson?: string;
+    siegeBatteryJson?: string;
     economicStructureJson?: string;
     sabotageJson?: string;
     shardSiteJson?: string;
@@ -142,11 +142,11 @@ export const parseStructure = <T>(json: string | undefined): T | undefined => {
 };
 
 // §5.4/§14.3 bugfix: economicStructure is included so every reconnect-path
-// consumer of domainTilesByKey (dockSupportedByCustomsHouse, and
+// consumer of domainTilesByKey (dockSupportedByHarborExchange, and
 // economy-network.ts's hasSupportedStructure for Clearing House/Garrison
-// Hall/Rail Depot) can actually see it — this field used to be omitted
+// Hall/Neural Works) can actually see it — this field used to be omitted
 // entirely, which silently zeroed the Harbor Exchange dock-gold bonus (and,
-// less visibly, the Clearing House/Garrison Hall/Rail Depot network bonuses
+// less visibly, the Clearing House/Ancillary Depot/Neural Works network bonuses
 // too, since they read the exact same tiles map) for every player on the
 // cold/reconnect snapshot path, never on the live incremental path. Checked
 // every other domainTilesByKey/settledDomainTilesByPlayerId consumer first —
@@ -194,8 +194,8 @@ export const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<str
 // support-structure/dock bonus check (economicStructure) — see
 // buildResourceSlotDormancyByPlayer in snapshot-economy-helpers.ts.
 export const resourceSlotDormancyByPlayerCache: WeakMap<RuntimeState, Map<string, ResourceSlotDormancy>> = new WeakMap();
-export const waterworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
-export const foundryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+export const hydroworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
+export const oreRefineryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 
 // Cached helper — toDomainTile calls JSON.parse(townJson) per town tile;
 // rebuilding for all 202,500 tiles on every player bootstrap is the single
@@ -292,42 +292,42 @@ export const buildFirstThreeTownKeysByPlayer = (
   return result;
 };
 
-// Active Waterworks tile keys per owning player — mirrors
-// SimulationRuntime.tileYieldEconomyContextForPlayer's waterworksKeys so the
+// Active Hydroworks tile keys per owning player — mirrors
+// SimulationRuntime.tileYieldEconomyContextForPlayer's hydroworksKeys so the
 // snapshot/bootstrap path applies the same +50% radius boost as live ticks.
 // Reads economicStructureJson directly off the raw wire tiles (domainTilesByKey
 // strips economicStructure), cached per runtimeState like the sibling builders above.
-export const buildWaterworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
-  const cached = waterworksKeysByPlayerCache.get(runtimeState);
+export const buildHydroworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
+  const cached = hydroworksKeysByPlayerCache.get(runtimeState);
   if (cached) return cached;
   const byPlayerId = new Map<string, Set<string>>();
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
     const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-    if (structure?.type !== "WATERWORKS" || structure.status !== "active") continue;
+    if (structure?.type !== "HYDROWORKS" || structure.status !== "active") continue;
     const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
     keys.add(keyFor(tile.x, tile.y));
     byPlayerId.set(tile.ownerId, keys);
   }
-  waterworksKeysByPlayerCache.set(runtimeState, byPlayerId);
+  hydroworksKeysByPlayerCache.set(runtimeState, byPlayerId);
   return byPlayerId;
 };
 
-// Mirrors buildWaterworksKeysByPlayer for FOUNDRY — the radius source for the
+// Mirrors buildHydroworksKeysByPlayer for ORE_REFINERY — the radius source for the
 // Mine iron/crystal boost. See docs/plans/2026-07-06-radius-yield-delivery.md.
-export const buildFoundryKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
-  const cached = foundryKeysByPlayerCache.get(runtimeState);
+export const buildOreRefineryKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
+  const cached = oreRefineryKeysByPlayerCache.get(runtimeState);
   if (cached) return cached;
   const byPlayerId = new Map<string, Set<string>>();
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
     const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-    if (structure?.type !== "FOUNDRY" || structure.status !== "active") continue;
+    if (structure?.type !== "ORE_REFINERY" || structure.status !== "active") continue;
     const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
     keys.add(keyFor(tile.x, tile.y));
     byPlayerId.set(tile.ownerId, keys);
   }
-  foundryKeysByPlayerCache.set(runtimeState, byPlayerId);
+  oreRefineryKeysByPlayerCache.set(runtimeState, byPlayerId);
   return byPlayerId;
 };
 

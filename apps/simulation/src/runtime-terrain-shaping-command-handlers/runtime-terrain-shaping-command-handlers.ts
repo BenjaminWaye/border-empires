@@ -18,7 +18,7 @@ function rejectCommand(context: RuntimeMapCommandContext, command: CommandEnvelo
 
 // A hostile (not allied/truced) owner's active Aether Tower shields their own
 // tiles only; unowned land and the actor's own land are never shielded.
-function isTargetShieldedByHostileAetherTower(context: RuntimeMapCommandContext, actor: DomainPlayer, target: DomainTileState): boolean {
+function isTargetShieldedByHostileAmbaricTransformer(context: RuntimeMapCommandContext, actor: DomainPlayer, target: DomainTileState): boolean {
   if (!target.ownerId || isAlliedOrTruced(actor, target.ownerId)) return false;
   return isTileShieldedByEnemyObservatory(context.tiles, context.isStructureDormant, actor.id, target.x, target.y, context.now());
 }
@@ -43,7 +43,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     target.dockId ||
     target.fort ||
     target.observatory ||
-    target.siegeOutpost ||
+    target.siegeBattery ||
     target.economicStructure
   ) {
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "cannot create mountain on this tile");
@@ -53,7 +53,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "target must be within 2 tiles of your land");
     return;
   }
-  if (isTargetShieldedByHostileAetherTower(context, actor, target)) {
+  if (isTargetShieldedByHostileAmbaricTransformer(context, actor, target)) {
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "blocked by an Aether Tower");
     return;
   }
@@ -74,7 +74,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     fort: undefined,
     observatory: undefined,
     naturalWonder: undefined,
-    siegeOutpost: undefined,
+    siegeBattery: undefined,
     economicStructure: undefined,
     muster: undefined // mirrors bombardment/capture/shed: ownership loss destroys a staged muster flag
   };
@@ -106,7 +106,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "target must be mountain");
     return;
   }
-  if (isTargetShieldedByHostileAetherTower(context, actor, target)) {
+  if (isTargetShieldedByHostileAmbaricTransformer(context, actor, target)) {
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "blocked by an Aether Tower");
     return;
   }

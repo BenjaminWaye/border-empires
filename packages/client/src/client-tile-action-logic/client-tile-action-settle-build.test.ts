@@ -9,9 +9,9 @@
  * structure's own cost/time ("settle + build" label) plus a
  * " • settles this tile first" detail suffix.
  *
- * Covers a representative sample: FARMSTEAD (resource-gated, no slot),
+ * Covers a representative sample: HYDROGARDEN (resource-gated, no slot),
  * MINTWORKS (town-support), RELAY_BEACON (previously only ever built directly on
- * a settled tile via a bespoke path), and FOUNDRY (placement-overlay type).
+ * a settled tile via a bespoke path), and ORE_REFINERY (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
 import { SETTLE_COST, SETTLE_MANPOWER_COST, structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
@@ -92,15 +92,15 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   return `${totalGold} coin, ${totalManpower} m.p. • garrison + build • ${buildTimeLabel(totalMs)} total`;
 };
 
-describe("settle + build — resource-gated building (FARMSTEAD)", () => {
-  it("shows build_farmstead on a SETTLED owned FARM tile with the plain cost and no garrison suffix", () => {
+describe("settle + build — resource-gated building (HYDROGARDEN)", () => {
+  it("shows build_hydrogarden on a SETTLED owned FARM tile with the plain cost and no garrison suffix", () => {
     const state = richState();
     state.techIds = ["agriculture"];
     const garrisoned: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), garrisoned);
 
     const actions = menuActionsForSingleTile(state, garrisoned, baseDeps as never);
-    const action = findAction(actions, "build_farmstead");
+    const action = findAction(actions, "build_hydrogarden");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe("");
@@ -115,23 +115,23 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     const garrisoned: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), garrisoned);
 
-    const action = findAction(menuActionsForSingleTile(state, garrisoned, baseDeps as never), "build_farmstead");
-    expect(action?.cost).toContain(` • ${buildTimeLabel(Math.round(structureBuildDurationMs("FARMSTEAD") / 1.25))} • `);
-    expect(action?.cost).not.toContain(` • ${buildTimeLabel(structureBuildDurationMs("FARMSTEAD"))} • `);
+    const action = findAction(menuActionsForSingleTile(state, garrisoned, baseDeps as never), "build_hydrogarden");
+    expect(action?.cost).toContain(` • ${buildTimeLabel(Math.round(structureBuildDurationMs("HYDROGARDEN") / 1.25))} • `);
+    expect(action?.cost).not.toContain(` • ${buildTimeLabel(structureBuildDurationMs("HYDROGARDEN"))} • `);
   });
 
-  it("shows build_farmstead on a FRONTIER owned FARM tile with a garrison + build total and suffix", () => {
+  it("shows build_hydrogarden on a FRONTIER owned FARM tile with a garrison + build total and suffix", () => {
     const state = richState();
     state.techIds = ["agriculture"];
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_farmstead");
+    const action = findAction(actions, "build_hydrogarden");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "FARMSTEAD"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "HYDROGARDEN"));
   });
 
   it("stays disabled for missing tech on a FRONTIER owned tile", () => {
@@ -140,7 +140,7 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_farmstead");
+    const action = findAction(actions, "build_hydrogarden");
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
     expect(action?.disabledReason).toBe("Requires Agrarian Works");
@@ -204,8 +204,8 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
   });
 });
 
-describe("settle + build — placement-overlay building (FOUNDRY)", () => {
-  it("shows build_foundry on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
+describe("settle + build — placement-overlay building (ORE_REFINERY)", () => {
+  it("shows build_ore_refinery on a FRONTIER owned TITANIUM tile with a garrison + build total", () => {
     const state = richState();
     state.techIds = ["industrial-extraction"];
     state.resourceSlots.supply.FOOD = 1;
@@ -214,15 +214,15 @@ describe("settle + build — placement-overlay building (FOUNDRY)", () => {
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_foundry");
+    const action = findAction(actions, "build_ore_refinery");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "FOUNDRY"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "ORE_REFINERY"));
   });
 });
 
-describe("settle + build — settled-only building with no resource/town/dock surface (WOODEN_FORT / OBSERVATORY)", () => {
+describe("settle + build — settled-only building with no resource/town/dock surface (PALISADE / OBSERVATORY)", () => {
   const bareFrontierState = (techIds: string[]): ReturnType<typeof createInitialState> => {
     const state = richState();
     state.techIds = techIds;
@@ -232,13 +232,13 @@ describe("settle + build — settled-only building with no resource/town/dock su
     return state;
   };
 
-  it("shows build_wooden_fort on a bare FRONTIER owned LAND tile with no resource, town, or dock", () => {
+  it("shows build_palisade on a bare FRONTIER owned LAND tile with no resource, town, or dock", () => {
     const state = bareFrontierState([]);
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_wooden_fort");
+    const action = findAction(actions, "build_palisade");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • garrisons this tile first");
@@ -301,10 +301,10 @@ describe("settle + build — settled-only building with no resource/town/dock su
   });
 });
 
-describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
+describe("Palisade / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
 
-  it("hides build_wooden_fort once Stoneworks is known and a free TITANIUM slot exists (upgrade path is buildable)", () => {
+  it("hides build_palisade once Stoneworks is known and a free TITANIUM slot exists (upgrade path is buildable)", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 1;
@@ -312,13 +312,13 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    expect(findAction(actions, "build_wooden_fort")).toBeUndefined();
+    expect(findAction(actions, "build_palisade")).toBeUndefined();
     const upgrade = findAction(actions, "build_fortification");
     expect(upgrade?.label).toBe("Build Fort");
     expect(upgrade?.disabled).not.toBe(true);
   });
 
-  it("keeps build_wooden_fort visible when Stoneworks is known but no free TITANIUM slot is available", () => {
+  it("keeps build_palisade visible when Stoneworks is known but no free TITANIUM slot is available", () => {
     const state = richState();
     state.techIds = ["masonry"];
     state.resourceSlots.supply.TITANIUM = 0;
@@ -326,8 +326,8 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const woodenFort = findAction(actions, "build_wooden_fort");
-    expect(woodenFort).toBeDefined();
+    const palisade = findAction(actions, "build_palisade");
+    expect(palisade).toBeDefined();
     const upgrade = findAction(actions, "build_fortification");
     expect(upgrade?.disabled).toBe(true);
     expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
@@ -374,14 +374,14 @@ describe("Palisade / Fort builds on a tile with an existing Relay Beacon", () =>
     economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
   } as Tile);
 
-  it("shows build_wooden_fort (Build Palisade) on a Relay Beacon tile, matching the server's carve-out for replacing the beacon", () => {
+  it("shows build_palisade (Build Palisade) on a Relay Beacon tile, matching the server's carve-out for replacing the beacon", () => {
     const state = richState();
     state.resourceSlots.supply.FOOD = 1;
     const tile = relayBeaconTile();
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const action = findAction(actions, "build_wooden_fort");
+    const action = findAction(actions, "build_palisade");
     expect(action).toBeDefined();
     expect(action?.label).toBe("Build Palisade");
     expect(action?.disabled).not.toBe(true);

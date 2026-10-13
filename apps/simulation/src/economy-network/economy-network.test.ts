@@ -4,10 +4,10 @@ import { DOCK_INCOME_PER_MIN } from "@border-empires/game-domain";
 import {
   buildConnectedTownNetworkForPlayer,
   dockBaseGoldPerMinuteForPlayer,
-  dockSupportedByCustomsHouse,
+  dockSupportedByHarborExchange,
   HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
-  railDepotAlreadyInNetwork,
-  railDepotNetworkGarrisonHallCountForPlayer,
+  neuralWorksAlreadyInNetwork,
+  neuralWorksNetworkAncillaryDepotCountForPlayer,
   type EconomyPlayer
 } from "./economy-network.js";
 import {
@@ -79,7 +79,7 @@ describe("connected town network", () => {
         townTile(2, 0, "Gamma"),
         {
           x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-          economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+          economicStructure: { ownerId: "player-1", type: "TRADE_NEXUS" as const, status: "active" as const }
         }
       ].map((tile) => [`${tile.x},${tile.y}`, tile])
     );
@@ -235,9 +235,9 @@ describe("connected town network", () => {
       economicStructure: { ownerId: "player-1", type: "CLEARING_HOUSE" as const, status: "active" as const }
     };
 
-    const caravanarySupportTile: DomainTileState = {
+    const tradeNexusSupportTile: DomainTileState = {
       x: 0, y: 3, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "TRADE_NEXUS" as const, status: "active" as const }
     };
 
     const tiles = new Map<string, DomainTileState>([
@@ -247,7 +247,7 @@ describe("connected town network", () => {
       ["2,0", townTile(2, 0, "South")],
       ["1,1", landTile(1, 1)],
       ["0,1", supportTile],
-      ["0,3", caravanarySupportTile]
+      ["0,3", tradeNexusSupportTile]
     ]);
 
     const network = buildConnectedTownNetworkForPlayer(
@@ -273,32 +273,32 @@ describe("connected town network", () => {
     expect(network.get("2,0")!.connectedClearingHouseKeys).toEqual([chTownKey]);
   });
 
-  it("propagates Garrison Hall and Rail Depot membership through a shared corridor group (§4.4)", () => {
+  it("propagates Ancillary Depot and Neural Works membership through a shared corridor group (§4.4)", () => {
     // Same star layout as the Clearing House test above, but one town has a
-    // Garrison Hall and another has a Rail Depot on their support tiles.
+    // Ancillary Depot and another has a Neural Works on their support tiles.
     const landTile = (x: number, y: number): DomainTileState => ({
       x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
     });
 
-    const garrisonHallTownKey = "0,0";
-    const railDepotTownKey = "2,0";
-    const garrisonHallSupportTile: DomainTileState = {
+    const ancillaryDepotTownKey = "0,0";
+    const neuralWorksTownKey = "2,0";
+    const ancillaryDepotSupportTile: DomainTileState = {
       x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "GARRISON_HALL" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "ANCILLARY_DEPOT" as const, status: "active" as const }
     };
-    const railDepotSupportTile: DomainTileState = {
+    const neuralWorksSupportTile: DomainTileState = {
       x: 2, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "RAIL_DEPOT" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "NEURAL_WORKS" as const, status: "active" as const }
     };
 
     const tiles = new Map<string, DomainTileState>([
-      [garrisonHallTownKey, townTile(0, 0, "GH-Town")],
+      [ancillaryDepotTownKey, townTile(0, 0, "GH-Town")],
       ["0,2", townTile(0, 2, "North")],
       ["2,2", townTile(2, 2, "East")],
-      [railDepotTownKey, townTile(2, 0, "RD-Town")],
+      [neuralWorksTownKey, townTile(2, 0, "RD-Town")],
       ["1,1", landTile(1, 1)],
-      ["0,1", garrisonHallSupportTile],
-      ["2,1", railDepotSupportTile]
+      ["0,1", ancillaryDepotSupportTile],
+      ["2,1", neuralWorksSupportTile]
     ]);
 
     const network = buildConnectedTownNetworkForPlayer(
@@ -308,15 +308,15 @@ describe("connected town network", () => {
     );
 
     // Each town excludes itself from its own connected-membership lists.
-    expect(network.get(garrisonHallTownKey)!.connectedGarrisonHallKeys).toBeUndefined();
-    expect(network.get(garrisonHallTownKey)!.connectedRailDepotKeys).toEqual([railDepotTownKey]);
-    expect(network.get(railDepotTownKey)!.connectedRailDepotKeys).toBeUndefined();
-    expect(network.get(railDepotTownKey)!.connectedGarrisonHallKeys).toEqual([garrisonHallTownKey]);
+    expect(network.get(ancillaryDepotTownKey)!.connectedAncillaryDepotKeys).toBeUndefined();
+    expect(network.get(ancillaryDepotTownKey)!.connectedNeuralWorksKeys).toEqual([neuralWorksTownKey]);
+    expect(network.get(neuralWorksTownKey)!.connectedNeuralWorksKeys).toBeUndefined();
+    expect(network.get(neuralWorksTownKey)!.connectedAncillaryDepotKeys).toEqual([ancillaryDepotTownKey]);
 
     // The other two towns (no structures of their own) see both.
     for (const key of ["0,2", "2,2"]) {
-      expect(network.get(key)!.connectedGarrisonHallKeys).toEqual([garrisonHallTownKey]);
-      expect(network.get(key)!.connectedRailDepotKeys).toEqual([railDepotTownKey]);
+      expect(network.get(key)!.connectedAncillaryDepotKeys).toEqual([ancillaryDepotTownKey]);
+      expect(network.get(key)!.connectedNeuralWorksKeys).toEqual([neuralWorksTownKey]);
     }
   });
 
@@ -342,7 +342,7 @@ describe("connected town network", () => {
     const ironTownKey = "10,10";
     const furTownKey = "12,10";
     const tiles = new Map<string, DomainTileState>([
-      // Same star layout as the Garrison Hall/Rail Depot test above: four towns sharing one corridor tile at (11,11).
+      // Same star layout as the Ancillary Depot/Neural Works test above: four towns sharing one corridor tile at (11,11).
       [ironTownKey, townTile(10, 10, "Iron-Town")],
       ["10,12", townTile(10, 12, "North")],
       ["12,12", townTile(12, 12, "East")],
@@ -404,11 +404,11 @@ describe("connected town network", () => {
       }
     }
 
-    // Give town0's support tile a Caravanary so the shared network's road
+    // Give town0's support tile a Trade Nexus so the shared network's road
     // (and thus its gold bonus) actually exists.
     tiles.set("1,1", {
       ...tiles.get("1,1")!,
-      economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "TRADE_NEXUS" as const, status: "active" as const }
     });
 
     const start = performance.now();
@@ -429,67 +429,67 @@ describe("connected town network", () => {
   });
 });
 
-describe("Rail Depot network manpower bonus (§4.4)", () => {
+describe("Neural Works network manpower bonus (§4.4)", () => {
   const landTile = (x: number, y: number): DomainTileState => ({
     x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
   });
-  const garrisonHallSupportTile = (x: number, y: number): DomainTileState => ({
+  const ancillaryDepotSupportTile = (x: number, y: number): DomainTileState => ({
     x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-    economicStructure: { ownerId: "player-1", type: "GARRISON_HALL" as const, status: "active" as const }
+    economicStructure: { ownerId: "player-1", type: "ANCILLARY_DEPOT" as const, status: "active" as const }
   });
-  const railDepotSupportTile = (x: number, y: number): DomainTileState => ({
+  const neuralWorksSupportTile = (x: number, y: number): DomainTileState => ({
     x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-    economicStructure: { ownerId: "player-1", type: "RAIL_DEPOT" as const, status: "active" as const }
+    economicStructure: { ownerId: "player-1", type: "NEURAL_WORKS" as const, status: "active" as const }
   });
 
-  it("counts the Rail Depot's own town's Garrison Hall plus every connected one, summed across Rail-Depot-hosting towns", () => {
-    // Two separate networks: network A has a Rail Depot + 2 Garrison Halls
+  it("counts the Neural Works's own town's Ancillary Depot plus every connected one, summed across Neural-Works-hosting towns", () => {
+    // Two separate networks: network A has a Neural Works + 2 Ancillary Depots
     // (one on the depot's own town, one on a connected town); network B has
-    // no Rail Depot at all, so its Garrison Hall must NOT be counted.
+    // no Neural Works at all, so its Ancillary Depot must NOT be counted.
     const tiles = new Map<string, DomainTileState>([
-      // Network A: RD-Town(0,0) — corridor(1,0) — GH-Town(2,0), RD-Town has its own Garrison Hall too.
+      // Network A: RD-Town(0,0) — corridor(1,0) — GH-Town(2,0), RD-Town has its own Ancillary Depot too.
       // Both support tiles must be within 8-neighbor range of (0,0) — not just "nearby".
       ["0,0", { ...townTile(0, 0, "RD-Town"), ownerId: "player-1" }],
-      ["0,1", railDepotSupportTile(0, 1)],
-      ["1,1", garrisonHallSupportTile(1, 1)],
+      ["0,1", neuralWorksSupportTile(0, 1)],
+      ["1,1", ancillaryDepotSupportTile(1, 1)],
       ["1,0", landTile(1, 0)],
       ["2,0", townTile(2, 0, "GH-Town")],
-      ["2,1", garrisonHallSupportTile(2, 1)],
-      // Network B: isolated single town with a Garrison Hall, no Rail Depot.
+      ["2,1", ancillaryDepotSupportTile(2, 1)],
+      // Network B: isolated single town with a Ancillary Depot, no Neural Works.
       ["10,10", townTile(10, 10, "Lone-GH-Town")],
-      ["10,9", garrisonHallSupportTile(10, 9)]
+      ["10,9", ancillaryDepotSupportTile(10, 9)]
     ]);
 
     const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
     const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
 
-    const count = railDepotNetworkGarrisonHallCountForPlayer(
+    const count = neuralWorksNetworkAncillaryDepotCountForPlayer(
       "player-1",
       tiles,
       network,
       ["0,0", "2,0", "10,10"]
     );
 
-    // RD-Town's own Garrison Hall (1) + GH-Town's connected one (1) = 2.
-    // Lone-GH-Town's Garrison Hall doesn't count — no Rail Depot in its network.
+    // RD-Town's own Ancillary Depot (1) + GH-Town's connected one (1) = 2.
+    // Lone-GH-Town's Ancillary Depot doesn't count — no Neural Works in its network.
     expect(count).toBe(2);
   });
 
-  it("returns 0 when the player has no Rail Depot anywhere", () => {
+  it("returns 0 when the player has no Neural Works anywhere", () => {
     const tiles = new Map<string, DomainTileState>([
       ["0,0", townTile(0, 0, "GH-Town")],
-      ["0,-1", garrisonHallSupportTile(0, -1)]
+      ["0,-1", ancillaryDepotSupportTile(0, -1)]
     ]);
     const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
     const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
 
-    expect(railDepotNetworkGarrisonHallCountForPlayer("player-1", tiles, network, ["0,0"])).toBe(0);
+    expect(neuralWorksNetworkAncillaryDepotCountForPlayer("player-1", tiles, network, ["0,0"])).toBe(0);
   });
 
-  it("railDepotAlreadyInNetwork is true at the Rail Depot's own town and every connected town, false elsewhere", () => {
+  it("neuralWorksAlreadyInNetwork is true at the Neural Works's own town and every connected town, false elsewhere", () => {
     const tiles = new Map<string, DomainTileState>([
       ["0,0", townTile(0, 0, "RD-Town")],
-      ["0,1", railDepotSupportTile(0, 1)],
+      ["0,1", neuralWorksSupportTile(0, 1)],
       ["1,0", landTile(1, 0)],
       ["2,0", townTile(2, 0, "Connected-Town")],
       // Separate, unconnected town.
@@ -498,44 +498,44 @@ describe("Rail Depot network manpower bonus (§4.4)", () => {
     const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
     const network = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values());
 
-    expect(railDepotAlreadyInNetwork("player-1", "0,0", tiles, network)).toBe(true);
-    expect(railDepotAlreadyInNetwork("player-1", "2,0", tiles, network)).toBe(true);
-    expect(railDepotAlreadyInNetwork("player-1", "10,10", tiles, network)).toBe(false);
+    expect(neuralWorksAlreadyInNetwork("player-1", "0,0", tiles, network)).toBe(true);
+    expect(neuralWorksAlreadyInNetwork("player-1", "2,0", tiles, network)).toBe(true);
+    expect(neuralWorksAlreadyInNetwork("player-1", "10,10", tiles, network)).toBe(false);
   });
 });
 
-describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
+describe("Harbor Exchange (HARBOR_EXCHANGE) dock income", () => {
   const player: EconomyPlayer = { id: "player-1", techIds: [], domainIds: [] };
 
   const dockTile = (x: number, y: number, dockId: string): DomainTileState => ({
     x, y, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", dockId
   });
 
-  it("dockSupportedByCustomsHouse is false with no adjacent CUSTOMS_HOUSE", () => {
+  it("dockSupportedByHarborExchange is false with no adjacent HARBOR_EXCHANGE", () => {
     const tiles = new Map<string, DomainTileState>([["10,10", dockTile(10, 10, "dock-a")]]);
-    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(false);
+    expect(dockSupportedByHarborExchange("10,10", player.id, tiles)).toBe(false);
   });
 
-  it("dockSupportedByCustomsHouse is true when an adjacent tile has an active owned CUSTOMS_HOUSE", () => {
+  it("dockSupportedByHarborExchange is true when an adjacent tile has an active owned HARBOR_EXCHANGE", () => {
     const tiles = new Map<string, DomainTileState>([
       ["10,10", dockTile(10, 10, "dock-a")],
       ["11,10", {
         x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
-        economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+        economicStructure: { type: "HARBOR_EXCHANGE", status: "active", ownerId: player.id }
       }]
     ]);
-    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(true);
+    expect(dockSupportedByHarborExchange("10,10", player.id, tiles)).toBe(true);
   });
 
-  it("dockSupportedByCustomsHouse ignores an inactive (under-construction) CUSTOMS_HOUSE", () => {
+  it("dockSupportedByHarborExchange ignores an inactive (under-construction) HARBOR_EXCHANGE", () => {
     const tiles = new Map<string, DomainTileState>([
       ["10,10", dockTile(10, 10, "dock-a")],
       ["11,10", {
         x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
-        economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: player.id }
+        economicStructure: { type: "HARBOR_EXCHANGE", status: "under_construction", ownerId: player.id }
       }]
     ]);
-    expect(dockSupportedByCustomsHouse("10,10", player.id, tiles)).toBe(false);
+    expect(dockSupportedByHarborExchange("10,10", player.id, tiles)).toBe(false);
   });
 
   it("dockBaseGoldPerMinuteForPlayer grants base income only when not supported by a Harbor Exchange", () => {
@@ -552,14 +552,14 @@ describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
   it("dockBaseGoldPerMinuteForPlayer adds +1 gold/min per connected owned dock when supported by an active Harbor Exchange", () => {
     const dockA = dockTile(10, 10, "dock-a");
     const dockB = dockTile(50, 50, "dock-b");
-    const customsHouse: DomainTileState = {
+    const harborExchange: DomainTileState = {
       x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([
       ["10,10", dockA],
       ["50,50", dockB],
-      ["11,10", customsHouse]
+      ["11,10", harborExchange]
     ]);
     const dockLinksByDockTileKey = new Map([["10,10", ["50,50"]], ["50,50", ["10,10"]]]);
 
@@ -577,15 +577,15 @@ describe("Harbor Exchange (CUSTOMS_HOUSE) dock income", () => {
     const dockA = dockTile(10, 10, "dock-a");
     const dockB = dockTile(50, 50, "dock-b");
     const dockC = dockTile(60, 60, "dock-c");
-    const customsHouse: DomainTileState = {
+    const harborExchange: DomainTileState = {
       x: 11, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
-      economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: player.id }
+      economicStructure: { type: "HARBOR_EXCHANGE", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([
       ["10,10", dockA],
       ["50,50", dockB],
       ["60,60", dockC],
-      ["11,10", customsHouse]
+      ["11,10", harborExchange]
     ]);
     // dock-a is linked to both dock-b and dock-c (2 connected owned docks).
     const dockLinksByDockTileKey = new Map([

@@ -11,15 +11,15 @@ const baseTile = (x: number, y: number): Tile => ({
 });
 
 describe("hasActiveOwnedOutpostAura", () => {
-  it("returns true for an active owned siege outpost", () => {
+  it("returns true for an active owned siege battery", () => {
     const tile: Tile = {
       ...baseTile(1, 1),
-      siegeOutpost: { ownerId: "p1", status: "active" }
+      siegeBattery: { ownerId: "p1", status: "active" }
     };
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(true);
   });
 
-  // Regression: previously the 3D map only checked `tile.siegeOutpost`, so
+  // Regression: previously the 3D map only checked `tile.siegeBattery`, so
   // selecting an active Relay Beacon never showed the aura sweep-range
   // overlay even though Relay Beacons grant the same attack aura bonus.
   it("returns true for an active owned Relay Beacon", () => {
@@ -30,10 +30,10 @@ describe("hasActiveOwnedOutpostAura", () => {
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(true);
   });
 
-  it("returns false when the siege outpost is under construction", () => {
+  it("returns false when the siege battery is under construction", () => {
     const tile: Tile = {
       ...baseTile(3, 3),
-      siegeOutpost: { ownerId: "p1", status: "under_construction" }
+      siegeBattery: { ownerId: "p1", status: "under_construction" }
     };
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(false);
   });

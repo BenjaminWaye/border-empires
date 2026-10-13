@@ -107,8 +107,8 @@ export const createStructurePieceBuilder = (
 ): StructurePieceBuilderInternals => {
   const slots = new Map<string, Slot>();
   // Sets so a geo/material shared across multiple slots (e.g. a forge
-  // material reused by TITANIUM_WORKS + FOUNDRY + ADVANCED_TITANIUM_WORKS, or the
-  // blue crystal shared between OBSERVATORY + MINE + CRYSTAL_SYNTHESIZER)
+  // material reused by TITANIUM_WORKS + ORE_REFINERY + HIGH_YIELD_TITANIUM_WORKS, or the
+  // blue crystal shared between OBSERVATORY + MINE + AETHER_CONDENSER)
   // is only disposed once.
   const ownedGeos = new Set<BufferGeometry>();
   const ownedMaterials = new Set<MeshStandardMaterial>();
@@ -123,7 +123,7 @@ export const createStructurePieceBuilder = (
     mesh.frustumCulled = false;
     mesh.count = 0;
     // Every economic/late-game/civic/infrastructure/industrial/manpower/
-    // worldbreaker/imperial-exchange/astral-dock/population-bureau structure
+    // worldbreaker/imperial-exchange/astral-dock/census-directorate structure
     // piece funnels through this one factory, so casting/receiving real
     // shadows here covers all of them at once instead of touching each
     // per-family file. Town buildings, forts, watchtowers, mountains, and

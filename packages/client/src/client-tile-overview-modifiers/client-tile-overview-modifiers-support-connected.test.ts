@@ -9,7 +9,7 @@ import type { Tile } from "../client-types.js";
 describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers", () => {
   // Regression test: connectedTownCount > 0 with connectedTownBonus === 0
   // means a real connected-town network exists but no member town has a
-  // built Caravanary yet (networkHasCaravanary gate in
+  // built Trade Nexus yet (networkHasTradeNexus gate in
   // apps/simulation/src/economy-network/economy-network.ts) — the panel
   // used to say nothing at all in this case, silently withholding the
   // reason the bonus reads +0%.
@@ -35,8 +35,8 @@ describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     } satisfies Tile);
     expect(modifiers).toContainEqual({
@@ -72,8 +72,8 @@ describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     } satisfies Tile);
     expect(modifiers).toContainEqual({ reason: "Support 7/8", effect: "-12% coin production", tone: "negative" });
@@ -101,8 +101,8 @@ describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason.startsWith("Support "))).toBe(false);

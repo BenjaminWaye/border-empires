@@ -6,7 +6,7 @@
  * builds, scoreBuildBeacon (utility/decisions.ts) gets a strong additive
  * boost on top of its normal graduated site-value consideration; the next
  * build in the cycle (the 5th) uses the plain score with no boost, then the
- * cycle repeats. "Completed" means a BUILD_FORT/BUILD_SIEGE_OUTPOST/
+ * cycle repeats. "Completed" means a BUILD_FORT/BUILD_SIEGE_BATTERY/
  * BUILD_ECONOMIC_STRUCTURE command was accepted (not rejected) — counting at
  * acceptance, not construction finish (which can be minutes later), so the
  * cadence tracks build ACTIONS the AI actually took, not slow real-time

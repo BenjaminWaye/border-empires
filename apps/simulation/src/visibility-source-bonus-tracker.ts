@@ -1,7 +1,7 @@
 /**
  * Generic per-(source, tile) permanent vision-bonus tracker, shared by
  * VisibilityCoverageTracker's structure-vision-bonus features (Relay
- * Beacon/Siege Outpost — runtime-outpost-vision.ts — and Observatory —
+ * Beacon/Siege Battery — runtime-outpost-vision.ts — and Observatory —
  * runtime-observatory-vision.ts). Both features are "a flat extra radius
  * around one specific owned tile, tagged with a fixed reason string, that
  * needs to be removed/re-set exactly (including when a tech unlock moves the

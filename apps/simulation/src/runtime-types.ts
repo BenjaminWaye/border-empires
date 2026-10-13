@@ -16,12 +16,12 @@ export type RuntimeTileYieldEconomyContext = {
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
-  /** Precomputed tile keys of active WATERWORKS structures owned by this player. */
-  waterworksKeys: Set<string>;
-  /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
-  foundryKeys: Set<string>;
+  /** Precomputed tile keys of active HYDROWORKS structures owned by this player. */
+  hydroworksKeys: Set<string>;
+  /** Precomputed tile keys of active ORE_REFINERY structures owned by this player. */
+  oreRefineryKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Caravanary/Clearing House stops granting its gold
+  // dormant Mintworks/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
@@ -317,7 +317,7 @@ export type SimulationTileWireDelta = {
   breachShockUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
   sabotageJson?: string | undefined;
   musterJson?: string | undefined;

@@ -28,8 +28,8 @@ const townTile = (overrides: Partial<Tile> = {}): Tile =>
       connectedTownBonus: 0,
       hasMintworks: true,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false,
     },
     ...overrides
   }) as Tile;
@@ -279,8 +279,8 @@ describe("emitTownCaptureIfCaptured", () => {
       connectedTownBonus: 0,
       hasMintworks: false,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false,
     };
     const previousTileByKey = new Map<string, PreviousTileSnapshot>([["10,20", { ownerId: "enemy-1", town: previousTown }]]);
     emitTownCaptureIfCaptured(

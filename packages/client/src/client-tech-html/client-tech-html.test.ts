@@ -73,7 +73,7 @@ describe("tech benefit summaries", () => {
     expect(formatTechBenefitSummary(tech)).toBe("Unlocks Aether Bridge");
   });
 
-  it("surfaces Aether Lance and Waterworks as visible unlocks", () => {
+  it("surfaces Aether Lance and Hydroworks as visible unlocks", () => {
     const signalFires: TechInfo = {
       id: "signal-fires",
       tier: 2,
@@ -97,10 +97,10 @@ describe("tech benefit summaries", () => {
       id: "irrigation",
       tier: 2,
       name: "Irrigation",
-      description: "Unlocks Waterworks.",
+      description: "Unlocks Hydroworks.",
       mods: {},
       effects: {
-        unlockWaterworksUpgrade: true,
+        unlockHydroworksUpgrade: true,
         townFoodUpkeepMult: 0.95
       },
       requirements: {
@@ -166,10 +166,10 @@ describe("tech benefit summaries", () => {
       id: "organized-supply",
       tier: 4,
       name: "Organized Supply",
-      description: "Unlocks Garrison Halls.",
+      description: "Unlocks Ancillary Depots.",
       mods: {},
       effects: {
-        unlockGarrisonHall: true,
+        unlockAncillaryDepot: true,
         outpostUmbriteSlotWaiverCount: 3
       },
       requirements: {
@@ -217,7 +217,7 @@ describe("tech benefit summaries", () => {
       description: "Unlocks resonance grids and Stormfront.",
       mods: {},
       effects: {
-        unlockRadarSystem: true,
+        unlockResonanceGrid: true,
         unlockStormfront: true,
         visionRadiusBonus: 1
       },

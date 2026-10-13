@@ -1,8 +1,8 @@
 import type { BuildableStructureType } from "./structure-costs/structure-costs.js";
 import structurePlacementMetadataJson from "./structure-placement-metadata.json" with { type: "json" };
-import type { FortVariant, OwnershipState, PopulationTier, ResourceType, SiegeOutpostVariant } from "./types.js";
+import type { FortVariant, OwnershipState, PopulationTier, ResourceType, SiegeBatteryVariant } from "./types.js";
 
-export type StructurePlacementType = BuildableStructureType | FortVariant | SiegeOutpostVariant;
+export type StructurePlacementType = BuildableStructureType | FortVariant | SiegeBatteryVariant;
 export type StructureTileSurface = "settled" | "frontier" | "resource" | "town" | "support" | "dock" | "dock_support";
 export type StructurePlacementMode = "same_tile" | "town_support" | "dock_support";
 export type StructureSortGroup = "support" | "general" | "resource" | "military";
@@ -31,7 +31,7 @@ export const structurePlacementMetadata = (type: StructurePlacementType): Struct
 
 // NOTE: placementMode is NOT "where this structure is allowed to be built" --
 // it's "does this structure cap at one per town (town_support) or can it
-// stack (same_tile)". MINTWORKS, GARRISON_HALL, TITANIUM_WEAPONS_FACTORY and
+// stack (same_tile)". MINTWORKS, ANCILLARY_DEPOT, TITANIUM_WEAPONS_FACTORY and
 // UMBRITE_WEAPONS_FACTORY are placementMode "same_tile" specifically so they
 // can stack multiple copies per town (see
 // apps/simulation/src/runtime-structure-town-support-target.ts,
@@ -50,10 +50,10 @@ export const isDockSupportPlacementStructure = (type: StructurePlacementType): b
 // Whether this structure can ONLY be built on a town tile or its support
 // ring (never on generic owned settled land) -- derived from showOn, not
 // placementMode (see the NOTE above). True for both the one-per-town
-// town_support structures (Caravanary, Granary, synthesizers, ...) and the
+// town_support structures (Trade Nexus, Incubation Engine, synthesizers, ...) and the
 // stacking same_tile ones that are still support-ring-only (Mintworks,
-// Garrison Hall, both Weapons Factories). False for structures like
-// Observatory/Relay Beacon/Waterworks/Airport whose showOn also includes
+// Ancillary Depot, both Weapons Factories). False for structures like
+// Observatory/Relay Beacon/Hydroworks/Sky Dock whose showOn also includes
 // "settled", meaning they're buildable on any owned settled tile.
 export const structureRequiresTownOrSupportTile = (type: StructurePlacementType): boolean => {
   const { showOn } = structurePlacementMetadata(type);

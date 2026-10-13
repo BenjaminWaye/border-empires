@@ -63,7 +63,7 @@ export const manifestGainRows = (tech: TechInfo, deps: ManifestGainDeps): Manife
   }
   // Hydrogarden's structure row covers the building; its fish-tile bonus is a
   // separate passive effect of the same unlock key.
-  if (tech.effects?.unlockFarmstead === true) rows.push({ kind: "effect", html: `+${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile` });
+  if (tech.effects?.unlockHydrogarden === true) rows.push({ kind: "effect", html: `+${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile` });
   if (tech.grantsPowerup) rows.push({ kind: "effect", html: `Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}` });
   return rows;
 };

@@ -95,8 +95,8 @@ const threeTownRows = [
   { label: "Mintworks", mintworks: true, bank: false, connectedTownBonusMultiplier: 1 },
   { label: "Bank", mintworks: false, bank: true, connectedTownBonusMultiplier: 1 },
   { label: "Mintworks + Bank", mintworks: true, bank: true, connectedTownBonusMultiplier: 1 },
-  { label: "Mintworks + Bank + Caravanary x2", mintworks: true, bank: true, connectedTownBonusMultiplier: 2 },
-  { label: "Mintworks + Bank + Caravanary x1.5", mintworks: true, bank: true, connectedTownBonusMultiplier: 1.5 }
+  { label: "Mintworks + Bank + Trade Nexus x2", mintworks: true, bank: true, connectedTownBonusMultiplier: 2 },
+  { label: "Mintworks + Bank + Trade Nexus x1.5", mintworks: true, bank: true, connectedTownBonusMultiplier: 1.5 }
 ];
 
 const currentScenarios = {
@@ -132,13 +132,13 @@ const goldSaturationReference = {
   developmentSlots: 3,
   economicBuildMinutes: 5,
   structureCosts: {
-    FARMSTEAD: 400,
+    HYDROGARDEN: 400,
     UMBRITE_RIG: 500,
     MINE: 500,
     MINTWORKS: 600,
-    GRANARY: 400,
+    INCUBATION_ENGINE: 400,
     BANK: 700,
-    AIRPORT: 900,
+    SKY_DOCK: 900,
     TERRAIN_SHAPING: 8000
   }
 };

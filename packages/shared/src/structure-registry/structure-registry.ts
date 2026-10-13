@@ -1,4 +1,4 @@
-import type { EconomicStructureType, FortVariant, SiegeOutpostVariant, Tile, TileUpkeepEntry } from "../types.js";
+import type { EconomicStructureType, FortVariant, SiegeBatteryVariant, Tile, TileUpkeepEntry } from "../types.js";
 
 // ── Kind discriminator ────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ export interface PlacementContext {
   > & {
     fort?: unknown;
     observatory?: unknown;
-    siegeOutpost?: unknown;
+    siegeBattery?: unknown;
     economicStructure?: unknown;
   };
   /** The building player. */
@@ -28,7 +28,7 @@ export interface PlacementContext {
    *  structure already exists should return null when this is true. */
   isUpgrade: boolean;
   /** Tile field that the new structure will write to. */
-  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure";
   /** Per-spec context passed through from the registry entry. */
   extra?: Record<string, unknown>;
 }
@@ -61,7 +61,7 @@ export interface StructureSpec {
   /** Family this structure belongs to. Drives which tile field it writes and
    *  which completion hook fires. */
   kind: StructureKind;
-  /** Variant within the family (e.g. SIEGE_OUTPOST/SIEGE_TOWER for OUTPOST).
+  /** Variant within the family (e.g. SIEGE_BATTERY/SIEGE_TOWER for OUTPOST).
    *  Undefined for kinds with no variants. */
   variant?: string;
   /** Per-build resource cost. */
@@ -76,7 +76,7 @@ export interface StructureSpec {
   buildMs: number;
   /** Tech prerequisites (all must be present). */
   techIds: ReadonlyArray<string>;
-  /** Other structures that must exist on the tile (e.g. ADVANCED_TITANIUM_WORKS
+  /** Other structures that must exist on the tile (e.g. HIGH_YIELD_TITANIUM_WORKS
    *  requires TITANIUM_WORKS). */
   prerequisiteStructureTypes?: ReadonlyArray<string>;
   /** Whether this structure consumes a development slot on its tile. */
@@ -93,7 +93,7 @@ export interface StructureSpec {
   upkeep: ReadonlyArray<TileUpkeepEntry>;
   /** Tile field this structure populates. Phase 2 collapses to a single field;
    *  Phase 1 keeps this as the routing key. */
-  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure";
 }
 
 // ── Placement predicates ──────────────────────────────────────────
@@ -119,7 +119,7 @@ export const tileIsLand: PlacementCheck = (ctx) => {
 /**
  * Reject if the target tile field already has a structure that isn't being
  * upgraded. Accounts for the upgrade path: the handler may upgrade from a
- * wooden fort, Relay Beacon, or lower-tier variant.
+ * palisade, Relay Beacon, or lower-tier variant.
  *
  * In Phase 1 this is a composite check that mirrors the per-handler logic.
  * In Phase 2 the generic handler will call this with per-kind diff.
@@ -131,9 +131,9 @@ export const noConflictingStructure: PlacementCheck = (ctx) => {
   const existingIsRelayBeacon = (ctx.tile.economicStructure as { type?: string } | undefined)?.type === "RELAY_BEACON";
 
   const conflicting: string[] = [];
-  if (ctx.tileField === "siegeOutpost" && ctx.tile.fort) conflicting.push("fort");
+  if (ctx.tileField === "siegeBattery" && ctx.tile.fort) conflicting.push("fort");
   if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("aether tower");
-  if (ctx.tileField !== "siegeOutpost" && ctx.tile.siegeOutpost) conflicting.push("siege battery");
+  if (ctx.tileField !== "siegeBattery" && ctx.tile.siegeBattery) conflicting.push("siege battery");
   if (
     ctx.tileField !== "economicStructure" &&
     ctx.tile.economicStructure &&

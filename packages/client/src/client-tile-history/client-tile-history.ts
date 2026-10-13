@@ -12,8 +12,8 @@ export const tileHistoryLines = (
   const currentStructureType =
     tile.fort
       ? "FORT"
-      : tile.siegeOutpost
-        ? "SIEGE_OUTPOST"
+      : tile.siegeBattery
+        ? "SIEGE_BATTERY"
         : tile.observatory
           ? "OBSERVATORY"
           : tile.economicStructure?.type;

@@ -316,7 +316,7 @@ describe("relay beacon coverage excludes ground already inside a town's or dock'
   // EXPAND range"). That's wrong — EXPAND/SETTLE legality is governed by the
   // real reach system (packages/shared/src/reach/reach.ts): TOWN_REACH_RADIUS
   // (3) around a town, DOCK_REACH_RADIUS (1) around a dock, OUTPOST_REACH_RADIUS
-  // (5) around a beacon/siege outpost. A resource 2-3 tiles from a town was
+  // (5) around a beacon/siege battery. A resource 2-3 tiles from a town was
   // already legally EXPAND-able (and, once claimed, permanently held — inside
   // the town's reach) despite not being adjacent to any owned tile, so it
   // must not be credited to a beacon's coverage score either.

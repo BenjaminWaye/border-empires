@@ -127,7 +127,7 @@ export const createSeasonSeedWorldAsync = async (
     observatoriesByTile: new Map(),
     ownership,
     players: playersForTerrain,
-    siegeOutpostsByTile: new Map(),
+    siegeBatteriesByTile: new Map(),
     terrainShapesByTile,
     townsByTile,
     economicStructuresByTile: new Map()

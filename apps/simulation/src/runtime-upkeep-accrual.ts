@@ -92,8 +92,8 @@ export const consumeUpkeepFromTileYield = (
       player,
       fedTownKeys: economyContext.fedTownKeys,
       firstThreeTownKeys: economyContext.firstThreeTownKeys,
-      waterworksKeys: economyContext.waterworksKeys,
-      foundryKeys: economyContext.foundryKeys,
+      hydroworksKeys: economyContext.hydroworksKeys,
+      oreRefineryKeys: economyContext.oreRefineryKeys,
       tiles: ctx.tiles,
       dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
     });

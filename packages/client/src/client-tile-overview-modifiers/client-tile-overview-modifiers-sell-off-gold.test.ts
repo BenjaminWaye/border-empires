@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
 import type { Tile } from "../client-types.js";
 
-// Regression: switching a converter (Aether Condenser / CRYSTAL_SYNTHESIZER,
+// Regression: switching a converter (Aether Condenser / AETHER_CONDENSER,
 // Titanium Works, Umbrite Works) to Sell Off (EXCHANGE) mode always produced
 // real gold (EXCHANGE_GOLD_PER_SLOT_PER_DAY, player-update-economy.ts), but
 // the Modifiers panel showed nothing at all for it -- synthesizerModifiers
@@ -21,7 +21,7 @@ describe("tileOverviewModifiersForTile — converter Sell Off gold", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+      economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
     } satisfies Tile);
     expect(modifiers).toContainEqual({ reason: "Sell Off gold", effect: "+10/day", tone: "positive" });
   });

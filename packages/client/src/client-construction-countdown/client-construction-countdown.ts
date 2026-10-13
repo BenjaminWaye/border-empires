@@ -21,11 +21,11 @@ export const constructionCountdownLineForTile = (
   if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
     return `Removing Aether Tower... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
   }
-  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-    return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - constructionClockMs(tile.siegeOutpost))}${tile.siegeOutpost.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;
+  if (tile.siegeBattery?.status === "under_construction" && typeof tile.siegeBattery.completesAt === "number") {
+    return `Building Siege Camp... ${formatCountdownClock(tile.siegeBattery.completesAt - constructionClockMs(tile.siegeBattery))}${tile.siegeBattery.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;
   }
-  if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-    return `Removing Siege Battery... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
+  if (tile.siegeBattery?.status === "removing" && typeof tile.siegeBattery.completesAt === "number") {
+    return `Removing Siege Battery... ${formatCountdownClock(tile.siegeBattery.completesAt - Date.now())}`;
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     return `Building ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - constructionClockMs(tile.economicStructure))}${tile.economicStructure.pausedAt !== undefined ? CONSTRUCTION_PAUSED_SUFFIX : ""}`;

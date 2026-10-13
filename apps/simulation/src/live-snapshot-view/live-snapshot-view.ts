@@ -10,8 +10,8 @@ import {
   getDomainTilesByKey,
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
-  buildWaterworksKeysByPlayer,
-  buildFoundryKeysByPlayer,
+  buildHydroworksKeysByPlayer,
+  buildOreRefineryKeysByPlayer,
   townKeysWithNearbyWar
 } from "../snapshot-tile-cache.js";
 import { buildTownSummary } from "../live-town-summary.js";
@@ -38,8 +38,8 @@ type EnrichmentContext = {
   nearbyWarTownKeys: ReturnType<typeof townKeysWithNearbyWar>;
   fedTownKeysByPlayer: LivePlayerEconomySnapshot["fedTownKeysByPlayer"];
   fedTownKeys: LivePlayerEconomySnapshot["fedTownKeys"];
-  waterworksKeysByPlayer: Map<string, Set<string>>;
-  foundryKeysByPlayer: Map<string, Set<string>>;
+  hydroworksKeysByPlayer: Map<string, Set<string>>;
+  oreRefineryKeysByPlayer: Map<string, Set<string>>;
   // §5.4: dormant economicStructure tile keys ("x,y") per player.
   dormantEconomicStructureKeysByPlayer: Map<string, ReadonlySet<string>>;
 };
@@ -67,8 +67,8 @@ const buildSnapshotTileYieldFields = (
     player?: EconomyPlayer | undefined;
     fedTownKeys?: ReadonlySet<string> | undefined;
     firstThreeTownKeys?: ReadonlySet<string> | undefined;
-    waterworksKeys?: ReadonlySet<string> | undefined;
-    foundryKeys?: ReadonlySet<string> | undefined;
+    hydroworksKeys?: ReadonlySet<string> | undefined;
+    oreRefineryKeys?: ReadonlySet<string> | undefined;
     tiles: ReadonlyMap<string, DomainTileState>;
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   }
@@ -128,8 +128,8 @@ export const enrichSnapshotTilesForGlobalVisibility = (
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
-  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
-  const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
+  const hydroworksKeysByPlayer = buildHydroworksKeysByPlayer(runtimeState);
+  const oreRefineryKeysByPlayer = buildOreRefineryKeysByPlayer(runtimeState);
   return [...runtimeState.tiles]
     .sort((left, right) => (left.x - right.x) || (left.y - right.y))
     .map((tile) => {
@@ -152,8 +152,8 @@ export const enrichSnapshotTilesForGlobalVisibility = (
         ...(economyPlayer ? { player: economyPlayer } : {}),
         fedTownKeys,
         ...(tile.ownerId ? { firstThreeTownKeys: firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
-        ...(tile.ownerId ? { waterworksKeys: waterworksKeysByPlayer.get(tile.ownerId) } : {}),
-        ...(tile.ownerId ? { foundryKeys: foundryKeysByPlayer.get(tile.ownerId) } : {}),
+        ...(tile.ownerId ? { hydroworksKeys: hydroworksKeysByPlayer.get(tile.ownerId) } : {}),
+        ...(tile.ownerId ? { oreRefineryKeys: oreRefineryKeysByPlayer.get(tile.ownerId) } : {}),
         tiles: domainTilesByKey,
         dockLinksByDockTileKey
       });
@@ -209,8 +209,8 @@ const buildEnrichmentContext = (
   }
   const firstThreeTownKeysByPlayer = buildFirstThreeTownKeysByPlayer(runtimeState);
   const nearbyWarTownKeys = townKeysWithNearbyWar(runtimeState);
-  const waterworksKeysByPlayer = buildWaterworksKeysByPlayer(runtimeState);
-  const foundryKeysByPlayer = buildFoundryKeysByPlayer(runtimeState);
+  const hydroworksKeysByPlayer = buildHydroworksKeysByPlayer(runtimeState);
+  const oreRefineryKeysByPlayer = buildOreRefineryKeysByPlayer(runtimeState);
   return {
     collectedAtByTile,
     playerYieldCollectionEpochByPlayer,
@@ -224,8 +224,8 @@ const buildEnrichmentContext = (
     nearbyWarTownKeys,
     fedTownKeysByPlayer: playerEconomy.fedTownKeysByPlayer,
     fedTownKeys: playerEconomy.fedTownKeys,
-    waterworksKeysByPlayer,
-    foundryKeysByPlayer
+    hydroworksKeysByPlayer,
+    oreRefineryKeysByPlayer
   };
 };
 
@@ -255,8 +255,8 @@ const buildEnrichedTile = (
       ? { fedTownKeys: tile.ownerId === playerId ? ctx.fedTownKeys : (ctx.fedTownKeysByPlayer.get(tile.ownerId) ?? new Set<string>()) }
       : {}),
     ...(tile.ownerId ? { firstThreeTownKeys: ctx.firstThreeTownKeysByPlayer.get(tile.ownerId) } : {}),
-    ...(tile.ownerId ? { waterworksKeys: ctx.waterworksKeysByPlayer.get(tile.ownerId) } : {}),
-    ...(tile.ownerId ? { foundryKeys: ctx.foundryKeysByPlayer.get(tile.ownerId) } : {}),
+    ...(tile.ownerId ? { hydroworksKeys: ctx.hydroworksKeysByPlayer.get(tile.ownerId) } : {}),
+    ...(tile.ownerId ? { oreRefineryKeys: ctx.oreRefineryKeysByPlayer.get(tile.ownerId) } : {}),
     tiles: ctx.domainTilesByKey,
     dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
   });

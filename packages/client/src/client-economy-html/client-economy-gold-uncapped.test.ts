@@ -25,7 +25,7 @@ describe("renderEconomyPanelHtml gold display", () => {
       tiles: [],
       economyBreakdown: emptyEconomyBreakdown(),
       isMobile: true,
-      prettyToken: (value) => value,
+      prettyToken: (value) => value.charAt(0) + value.slice(1).toLowerCase(),
       resourceIconHtml: (resource) => resource,
       rateToneClass: () => "positive",
       resourceLabel: (resource) => resource,
@@ -33,6 +33,9 @@ describe("renderEconomyPanelHtml gold display", () => {
     });
 
     expect(html).toContain("24.5 in reserve");
+    // The currency is named Coin to players, never Gold.
+    expect(html).toContain("Coin");
+    expect(html).not.toMatch(/>\s*Gold\s*</);
     expect(html).not.toMatch(/24\.5\s*(<[^>]*>\s*)*\/\s*\d/);
   });
 });
