@@ -1,3 +1,4 @@
+import { captureMusterScrollAnchor, restoreMusterScrollAnchor } from "../client-muster-combat-reports/client-muster-combat-scroll.js";
 import { locationThemeForTile } from "./client-location-theme.js";
 import { injectMusterCombatReports, wireMusterReports, openMusterReportIds, restoreOpenMusterReports } from "../client-muster-combat-reports/client-muster-combat-reports-ui.js";
 import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, applyOddsScale, commitOddsMultiplier, wrapCoord } from "@border-empires/shared";
@@ -74,6 +75,7 @@ export const renderTileActionMenu = (
     }
   }
   const previousScrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
+  const reportScrollAnchor = captureMusterScrollAnchor(previousScrollBody);
   if (previousScrollBody) {
     state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, previousScrollBody.scrollTop);
   }
@@ -382,6 +384,7 @@ export const renderTileActionMenu = (
     const scrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
     if (scrollBody) {
       scrollBody.scrollTop = restoreTileMenuScrollTop(state.tileActionMenu.scrollTopByTab, activeTab);
+      restoreMusterScrollAnchor(scrollBody, reportScrollAnchor);
       scrollBody.ontouchstart = (event) => event.stopPropagation();
       scrollBody.ontouchmove = (event) => event.stopPropagation();
       scrollBody.onwheel = (event) => event.stopPropagation();

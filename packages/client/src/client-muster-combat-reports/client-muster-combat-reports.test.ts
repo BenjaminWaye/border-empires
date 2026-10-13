@@ -94,3 +94,14 @@ describe("muster combat history", () => {
     expect(musterReportsHtml(undefined)).toContain("No combat reports yet");
   });
 });
+
+it("retains a distant flag's identity until a long transit battle actually resolves", () => {
+  const state = stateFor(); let now = 1_000_000;
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  try {
+    const msg = result("long-transit");
+    trackMusterReportStart(state, { ...msg, musterOrigin: { x: 20, y: 8 }, resolvesAt: now + 300_000 });
+    now += 300_000;
+    expect(musterReportFlagKey(state, msg)).toBe("20,8");
+  } finally { clock.mockRestore(); }
+});

@@ -16,9 +16,9 @@ const reportDetailHtml = (detail: string): string => escapeHtml(detail)
   .replace(/Lost [\d,.]+ manpower\./g, '<span class="muster-report-loss">$&</span>');
 export const musterReportsHtml = (view: MusterReportsView | undefined): string => {
   if (!view?.reports.length) return '<div class="tile-menu-empty">No combat reports yet. This flag’s battles will appear here when they resolve.</div>';
-  return `<section class="muster-reports" aria-label="Recent combat">
+  return `<section class="muster-reports" aria-label="Recent combat" data-muster-reports-flag="${escapeHtml(view.flagKey)}">
     <div class="muster-reports-head"><span>Latest ${view.reports.length} battles</span>${view.unread ? '<button type="button" class="muster-reports-read" data-muster-reports-read>Mark as read</button>' : ''}</div>
-    ${view.reports.map((report) => `<article class="muster-report${report.read ? '' : ' is-unread'}">
+    ${view.reports.map((report) => `<article data-muster-report-row="${escapeHtml(report.id)}" class="muster-report${report.read ? '' : ' is-unread'}">
       <div class="muster-report-heading"><strong>${escapeHtml(report.title)}</strong>${report.read ? '' : '<span class="muster-report-badge">New</span>'}</div>
       <div class="muster-report-context">(${report.targetX}, ${report.targetY}) · <time datetime="${new Date(report.at).toISOString()}">${escapeHtml(new Date(report.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</time></div>
       <div class="muster-report-values">

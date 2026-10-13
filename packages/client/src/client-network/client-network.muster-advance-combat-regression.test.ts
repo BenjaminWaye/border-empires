@@ -254,3 +254,22 @@ describe("muster result presentation", () => {
     expect(showCaptureAlert).not.toHaveBeenCalled();
   });
 });
+
+describe("parallel muster results keep manual command tracking", () => {
+  it("preserves the unrelated manual capture, command identity and queue until its own result arrives", () => {
+    const state = createState(); state.me = "me";
+    const manual = { x: 20, y: 20, retries: 0, commandId: "manual-attack", actionType: "ATTACK" };
+    const capture = { target: { x: 20, y: 20 }, startAt: Date.now(), resolvesAt: Date.now() + 30_000 };
+    state.actionCurrent = manual; state.capture = capture; state.actionInFlight = true;
+    state.actionTargetKey = "20,20"; state.actionAcceptedAck = true; state.combatStartAck = true;
+    const ws = new FakeWebSocket(); bind(state, ws);
+    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_START", commandId: "territory-auto:muster-advance:parallel", origin: { x: 3, y: 3 }, target: { x: 4, y: 3 }, resolvesAt: Date.now() + 25_000 }) });
+    ws.emit("message", { data: JSON.stringify({ type: "COMBAT_RESULT", commandId: "territory-auto:muster-advance:parallel", origin: { x: 3, y: 3 }, target: { x: 4, y: 3 }, attackType: "ATTACK", attackerWon: true, manpowerDelta: -60, changes: [] }) });
+    expect(state.capture).toBe(capture);
+    expect(state.actionCurrent).toBe(manual);
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("20,20");
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
+  });
+});

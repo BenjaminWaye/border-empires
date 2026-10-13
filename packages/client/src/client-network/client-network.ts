@@ -651,51 +651,53 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     const { resultAlert, resultTargetKey } = notifyCombatResult(state, msg, {
       targetTileBefore: targetBefore, originTileBefore: originBefore
     }, reportFlagKey, { keyFor, combatResolutionAlert, wasPredictedCombatAlreadyShown, appendFeedEntry, showCaptureAlert });
-    if (resultTargetKey) {
-      if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
-      else state.revealedPredictedCombatByKey.delete(resultTargetKey);
-    }
-    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
-    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
-    let handedOffToSettle = false;
-    if (targetKey && state.autoSettleTargets.has(targetKey)) {
-      const settledTile = state.tiles.get(targetKey);
-      if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (requestSettlement(settledTile.x, settledTile.y)) {
-          handedOffToSettle = true;
-          pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+    if (!isMusterAdvanceCommandId(msg.commandId)) {
+      if (resultTargetKey) {
+        if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
+        else state.revealedPredictedCombatByKey.delete(resultTargetKey);
+      }
+      if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
+      const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
+      let handedOffToSettle = false;
+      if (targetKey && state.autoSettleTargets.has(targetKey)) {
+        const settledTile = state.tiles.get(targetKey);
+        if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
+          if (requestSettlement(settledTile.x, settledTile.y)) {
+            handedOffToSettle = true;
+            pushFeed(`Auto-garrison started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+          }
+        }
+        state.autoSettleTargets.delete(targetKey);
+      }
+      state.capture = undefined;
+      if (!handedOffToSettle) {
+        if (targetKey) state.autoBuildTargets.delete(targetKey);
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
+        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+        let startedNext = false;
+        if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
+          resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
+        } else {
+          startedNext = processActionQueue();
+        }
+        if (!startedNext) {
+          state.actionTargetKey = "";
+          state.actionCurrent = undefined;
         }
       }
-      state.autoSettleTargets.delete(targetKey);
-    }
-    state.capture = undefined;
-    if (!handedOffToSettle) {
-      if (targetKey) state.autoBuildTargets.delete(targetKey);
-      state.actionInFlight = false;
-      state.actionAcceptedAck = false;
-      state.combatStartAck = false;
-      state.actionAcceptTimeoutHandledAt = 0;
-      state.actionStartedAt = 0;
-      if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
-      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-      let startedNext = false;
-      if (msg.attackType === "ATTACK" && state.actionQueue.length > 0) {
-        resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
-      } else {
-        startedNext = processActionQueue();
-      }
-      if (!startedNext) {
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-      }
+      resetAttackPreviewState(state);
     }
     for (const change of changes) {
       if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
         clearSettlementProgressForTile(change.x, change.y);
       }
     }
-    resetAttackPreviewState(state);
     if (target) {
       const targetKeyForCapture = keyFor(target.x, target.y);
       emitTownCaptureIfCaptured({
@@ -1512,7 +1514,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         !("defEff" in msg) &&
         !("winChance" in msg) &&
         !("pointsDelta" in msg);
-      applyCombatOutcomeMessage(resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
+      applyCombatOutcomeMessage(isMusterAdvanceCommandId(msg.commandId)
+        ? msg as Record<string, unknown>
+        : resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
       return;
     }
       if (msg.type === "COMBAT_START") {

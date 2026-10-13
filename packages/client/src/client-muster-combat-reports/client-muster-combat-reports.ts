@@ -9,7 +9,7 @@ export type MusterCombatReport = {
   coins: number; read: boolean;
 };
 export type CombatReportAlert = { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string };
-type Store = { scope: string; reports: MusterCombatReport[]; pending: Map<string, { flagKey: string; at: number }>; evictions: number };
+type Store = { scope: string; reports: MusterCombatReport[]; pending: Map<string, { flagKey: string; expiresAt: number }>; evictions: number };
 const stores = new WeakMap<ReportState, Store>();
 const STORAGE_KEY = "border-empires:muster-combat-reports:v1";
 export const MAX_MUSTER_REPORTS = 200;
@@ -65,7 +65,7 @@ const persist = (store: Store): void => {
 };
 const prunePending = (store: Store, now: number): void => {
   for (const [id, pending] of store.pending) {
-    if (now - pending.at > 180_000) { store.pending.delete(id); store.evictions += 1; }
+    if (now > pending.expiresAt) { store.pending.delete(id); store.evictions += 1; }
   }
 };
 /** Retain the actual flag's coordinates: the attack origin may be a remote foothold. */
@@ -75,7 +75,10 @@ export const trackMusterReportStart = (state: ReportState, msg: Record<string, u
   if (!origin) return;
   const store = storeFor(state);
   prunePending(store, Date.now());
-  store.pending.set(msg.commandId, { flagKey: `${origin.x},${origin.y}`, at: Date.now() });
+  store.pending.set(msg.commandId, {
+    flagKey: `${origin.x},${origin.y}`,
+    expiresAt: Math.max(Date.now() + 180_000, finite(msg.resolvesAt) ? msg.resolvesAt + 60_000 : 0)
+  });
   while (store.pending.size > MAX_PENDING) {
     const oldest = store.pending.keys().next().value;
     if (oldest === undefined) break;
