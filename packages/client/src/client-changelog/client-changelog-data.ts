@@ -1,3 +1,4 @@
+import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
 // visibility) to keep that file under the 500-line cap. Entries are unordered --
@@ -260,19 +261,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Rigging Works Module now lists the Umbrite Rig it unlocks"
     ]
   },
+  ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   {
-    createdAt: 1791827518951, // Date.now() captured once for this release.
-    introducedIn: "2026.10.12.1",
-    title: "Building machinery waits for construction to finish",
-    why: "Fully visible moving parts could start running while their 3D building was still being built.",
-    changes: ["Moving parts on 3D buildings stay still during construction and removal, then animate when complete"]
-  },
-  {
-    createdAt: 1791830000000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Farmsteads are now hydroponic farms",
-    why: "The Farmstead's barn-and-silo art didn't convey the advanced farming upgrade it represents.",
-    changes: ["Farmsteads now appear as a glowing hydroponic glass dome, with the matching overlay on the 2D map"]
+    createdAt: 1791836603366, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.1",
+    title: "Combat reports for each muster flag",
+    why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
+    changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
   }
 ];
 
