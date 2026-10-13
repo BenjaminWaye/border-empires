@@ -1,4 +1,5 @@
 import { tileHash } from "./client-map-3d-forest.js";
+import { afcHillCutMask, type AfcPadOffset } from "./client-map-3d-afc-hill-cut/client-map-3d-afc-hill-cut.js";
 
 // Hills render as a small cluster of 3 irregularly placed, low bumps per
 // tile instead of one perfectly centered symmetric dome, so a hill tile
@@ -227,11 +228,14 @@ export const hillBumpsWithCorridorAt = (wx: number, wy: number, neighbors: HillN
 // matching the corridor bumps' own directions), fading to 0 by
 // ROAD_CUT_FADE_WIDTH. Diagonal road segments (northeast, etc.) aren't
 // covered -- only whichever of north/south/east/west this tile's road uses.
+// `afcPads` adds an AFC's levelled pad (client-map-3d-afc-hill-cut.ts) when
+// this hill tile lies within AFC_HILL_CUT_TILE_RADIUS of an AFC.
 export type RoadCutDirections = {
   readonly north?: boolean;
   readonly south?: boolean;
   readonly east?: boolean;
   readonly west?: boolean;
+  readonly afcPads?: readonly AfcPadOffset[];
 };
 
 const ROAD_CUT_FULL_WIDTH = 0.09;
@@ -262,12 +266,14 @@ const distanceToRoadArms = (u: number, v: number, dirs: RoadCutDirections): numb
 };
 
 export const hillRoadCutMask = (u: number, v: number, dirs: RoadCutDirections | undefined): number => {
-  if (!dirs || !(dirs.north || dirs.south || dirs.east || dirs.west)) return 0;
+  if (!dirs) return 0;
+  const afcCut = afcHillCutMask(u, v, dirs.afcPads);
+  if (afcCut >= 1 || !(dirs.north || dirs.south || dirs.east || dirs.west)) return afcCut;
   const d = distanceToRoadArms(u, v, dirs);
   if (d <= ROAD_CUT_FULL_WIDTH) return 1;
-  if (d >= ROAD_CUT_FADE_WIDTH) return 0;
+  if (d >= ROAD_CUT_FADE_WIDTH) return afcCut;
   const t = 1 - (d - ROAD_CUT_FULL_WIDTH) / (ROAD_CUT_FADE_WIDTH - ROAD_CUT_FULL_WIDTH);
-  return t * t * (3 - 2 * t);
+  return Math.max(afcCut, t * t * (3 - 2 * t));
 };
 
 // Height (>= 0, rarely above ~0.4) of a hill tile at tile-local (u, v), each
