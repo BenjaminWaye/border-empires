@@ -4,7 +4,7 @@ import { supportTileBelongsToTown } from "./economy-network-support-ring.js";
 
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
 
-export const customsHouseTradeMultiplierForDock = (
+export const harborExchangeTradeMultiplierForDock = (
   dockTileKey: string,
   playerId: string,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -16,7 +16,7 @@ export const customsHouseTradeMultiplierForDock = (
   if (!Number.isFinite(x) || !Number.isFinite(y)) return 1;
   for (const { tile: candidate } of supportRingCandidates(tiles, x, y, 1)) {
     const candidateKey = keyFor(candidate.x, candidate.y);
-    if (candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED" || candidate.economicStructure?.type !== "CUSTOMS_HOUSE" || candidate.economicStructure.status !== "active" || dormantEconomicStructureKeys.has(candidateKey)) continue;
+    if (candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED" || candidate.economicStructure?.type !== "HARBOR_EXCHANGE" || candidate.economicStructure.status !== "active" || dormantEconomicStructureKeys.has(candidateKey)) continue;
     for (const town of tiles.values()) {
       if (town.ownerId !== playerId || town.ownershipState !== "SETTLED" || !town.town) continue;
       if (supportTileBelongsToTown(playerId, candidate, town, tiles)) return townTerrainModifiers(resolvedTownTerrainProfileId(town.town.terrainProfile, town.landBiome), resolvedTownCoastal(town.town.terrainProfile, town.landBiome, town.town.coastal)).goldMultiplier;

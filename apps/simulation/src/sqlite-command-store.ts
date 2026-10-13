@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { upgradeLegacyStructureNamesInJson, upgradeLegacyStructureToken } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 import type {
@@ -28,8 +29,9 @@ const toStored = (row: Row): StoredSimulationCommand => ({
   sessionId: row.session_id,
   playerId: row.player_id,
   clientSeq: row.client_seq,
-  type: row.command_type,
-  payloadJson: row.payload_json,
+  // Commands queued before the structure id rename carry old names.
+  type: upgradeLegacyStructureToken(row.command_type) as CommandEnvelope["type"],
+  payloadJson: upgradeLegacyStructureNamesInJson(row.payload_json),
   queuedAt: row.queued_at,
   status: row.status,
   ...(row.accepted_at !== null ? { acceptedAt: row.accepted_at } : {}),

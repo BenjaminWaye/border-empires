@@ -4,7 +4,7 @@ import { buildPlayer } from "./runtime.test-helpers.js";
 
 // §15: finalized design — single target chosen by the caster (identified
 // by a rival-owned tile at fromX/fromY -> toX/toY, same origin->target
-// shape as World Engine Strike/Airport Bombard), takes 100% of the
+// shape as Sovereign Siege Engine Strike/Sky Dock Bombard), takes 100% of the
 // target's GOLD, 24hr cooldown, free activation (no CRYSTAL cost, §17).
 //
 // Split out of runtime.test.ts (which was already over the repo's 500-line
@@ -28,13 +28,13 @@ describe("imperial exchange levy", () => {
         economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
       },
       // §5.4: CRYSTAL supply so IMPERIAL_EXCHANGE (4 slots, post-part-
-      // consumption rebalance)/AETHER_TOWER aren't dormant.
+      // consumption rebalance)/AMBARIC_TRANSFORMER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
+      // §5.4: FOOD supply so AMBARIC_TRANSFORMER (1 FOOD slot) isn't dormant.
       { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
     if (!options.omitTower) {
@@ -44,7 +44,7 @@ describe("imperial exchange levy", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
       });
     }
     const players = new Map<string, Record<string, unknown>>();

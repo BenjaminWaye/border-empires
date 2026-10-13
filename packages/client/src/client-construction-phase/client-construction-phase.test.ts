@@ -70,8 +70,8 @@ describe("constructionSiteForTile", () => {
     expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", structureType: "FORT" });
     const obs = { ...baseTile(), observatory: { ownerId: "me", status: "under_construction", startedAt: 0, completesAt: HOUR } } as Tile;
     expect(constructionSiteForTile(obs, 0)).toMatchObject({ field: "observatory" });
-    const siege = { ...baseTile(), siegeOutpost: { ownerId: "me", status: "removing", variant: "SIEGE_TOWER", startedAt: 0, completesAt: HOUR } } as Tile;
-    expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeOutpost", direction: "remove" });
+    const siege = { ...baseTile(), siegeBattery: { ownerId: "me", status: "removing", variant: "SIEGE_TOWER", startedAt: 0, completesAt: HOUR } } as Tile;
+    expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeBattery", direction: "remove" });
   });
 });
 
@@ -86,8 +86,8 @@ describe("constructionSiteForTile with types this client does not know", () => {
     const fort = unknown({ fort: { ownerId: "me", status: "under_construction", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
     expect(constructionSiteForTile(fort, 0)).toMatchObject({ field: "fort", crew: 4 });
 
-    const siege = unknown({ siegeOutpost: { ownerId: "me", status: "removing", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
-    expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeOutpost", direction: "remove" });
+    const siege = unknown({ siegeBattery: { ownerId: "me", status: "removing", variant: "NOPE", startedAt: 0, completesAt: HOUR } });
+    expect(constructionSiteForTile(siege, 0)).toMatchObject({ field: "siegeBattery", direction: "remove" });
   });
 
   it("still produces a usable window when the record also lacks startedAt", () => {
@@ -189,8 +189,8 @@ describe("constructionSiteForTile without startedAt", () => {
   // Regression: the fort estimate used the base Fort's duration for every tier, so a quicker
   // tier placed just now came out part-built.
   it("estimates a fort's window from its own tier", () => {
-    const palisadeMs = structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.WOODEN_FORT.manpower);
-    const tile = { ...baseTile(), fort: { ownerId: "me", status: "under_construction", variant: "WOODEN_FORT", completesAt: palisadeMs } } as Tile;
+    const palisadeMs = structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.PALISADE.manpower);
+    const tile = { ...baseTile(), fort: { ownerId: "me", status: "under_construction", variant: "PALISADE", completesAt: palisadeMs } } as Tile;
     expect(constructionSiteForTile(tile, 0, "fort")).toMatchObject({ fraction: 0, phase: 0 });
   });
 

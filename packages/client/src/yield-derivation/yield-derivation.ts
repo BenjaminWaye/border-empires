@@ -9,10 +9,10 @@
  */
 
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  HIGH_YIELD_AETHER_CONDENSER_CRYSTAL_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_TITANIUM_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY,
+  AETHER_CONDENSER_CRYSTAL_PER_DAY,
   DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT,
   DOCK_INCOME_PER_MIN,
   HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
@@ -22,13 +22,13 @@ import {
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE,
   TITANIUM_WORKS_TITANIUM_PER_DAY,
-  UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY
+  UMBRITE_WORKS_UMBRITE_PER_DAY
 } from "@border-empires/game-domain";
 
 // Mirrors dockBaseGoldPerMinuteForPlayer's shape (apps/simulation/src/economy-network/economy-network.ts):
 // base income + a per-connected-dock connection bonus, plus a flat
 // per-connected-dock Harbor Exchange bonus when supported by an active,
-// owned CUSTOMS_HOUSE. The client cannot see per-player tech multipliers
+// owned HARBOR_EXCHANGE. The client cannot see per-player tech multipliers
 // (dockGoldOutputMultiplierForPlayer, wonderDockGoldMultiplier), so this
 // uses the default connection-bonus rate absent tech overrides — a known
 // approximation, same limitation as the rest of this module's dock income
@@ -36,13 +36,13 @@ import {
 // the connection and Harbor Exchange bonuses instead of a flat constant.
 export const dockDisplayGoldPerMinute = (
   connectedDockCount: number,
-  supportedByCustomsHouse: boolean
+  supportedByHarborExchange: boolean
 ): number => {
   const base =
     DOCK_INCOME_PER_MIN *
     PASSIVE_INCOME_MULT *
     (1 + DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT * connectedDockCount);
-  const harborExchangeBonus = supportedByCustomsHouse
+  const harborExchangeBonus = supportedByHarborExchange
     ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
     : 0;
   return base + harborExchangeBonus;
@@ -67,26 +67,26 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
 };
 
 // Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput. These
-// structure types (ADVANCED synths, MINE/UMBRITE_RIG, FOUNDRY-boosted MINE) require
+// structure types (ADVANCED synths, MINE/UMBRITE_RIG, ORE-REFINERY-boosted MINE) require
 // server-authoritative yieldRate/yieldCap (see tileYieldNeedsServerAuthority
 // on the sim side) — this fallback only runs before the server value arrives
 // or as a last resort, so it now matches the corrected server constants
 // rather than intentionally under-reporting.
 const converterDailyOutput = (structureType: string | undefined): Record<string, number> => {
   switch (structureType) {
-    case "UMBRITE_SYNTHESIZER":
-      return { UMBRITE: UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
-    case "ADVANCED_UMBRITE_SYNTHESIZER":
-      return { UMBRITE: ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
+    case "UMBRITE_WORKS":
+      return { UMBRITE: UMBRITE_WORKS_UMBRITE_PER_DAY };
+    case "HIGH_YIELD_UMBRITE_WORKS":
+      return { UMBRITE: HIGH_YIELD_UMBRITE_WORKS_UMBRITE_PER_DAY };
     case "TITANIUM_WORKS":
       return { TITANIUM: TITANIUM_WORKS_TITANIUM_PER_DAY };
-    case "ADVANCED_TITANIUM_WORKS":
-      return { TITANIUM: ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER":
-      return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-    case "FARMSTEAD":
+    case "HIGH_YIELD_TITANIUM_WORKS":
+      return { TITANIUM: HIGH_YIELD_TITANIUM_WORKS_TITANIUM_PER_DAY };
+    case "AETHER_CONDENSER":
+      return { CRYSTAL: AETHER_CONDENSER_CRYSTAL_PER_DAY };
+    case "HIGH_YIELD_AETHER_CONDENSER":
+      return { CRYSTAL: HIGH_YIELD_AETHER_CONDENSER_CRYSTAL_PER_DAY };
+    case "HYDROGARDEN":
       return { FOOD: 48 * 0.5 };
     default:
       return {};
@@ -143,16 +143,16 @@ export const deriveTileYieldRate = (
 
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type) {
     const converterOutput = converterDailyOutput(tile.economicStructure.type);
-    // FARMSTEAD on a non-FARM tile (e.g. FISH) gets no food bonus — strip it.
-    if (tile.economicStructure.type === "FARMSTEAD" && tile.resource !== "FARM") {
+    // HYDROGARDEN on a non-FARM tile (e.g. FISH) gets no food bonus — strip it.
+    if (tile.economicStructure.type === "HYDROGARDEN" && tile.resource !== "FARM") {
       delete converterOutput.FOOD;
     }
-    // Additive merge so FARMSTEAD on a FARM tile gives 48+24=72, not 24.
+    // Additive merge so HYDROGARDEN on a FARM tile gives 48+24=72, not 24.
     for (const [key, value] of Object.entries(converterOutput)) {
       strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
     }
     // MINE/UMBRITE_RIG: active structure multiplies the tile's base resource output
-    // by STRUCTURE_OUTPUT_MULT (matches server tile-yield-view.ts). Foundry's
+    // by STRUCTURE_OUTPUT_MULT (matches server tile-yield-view.ts). Ore Refinery's
     // additional radius boost on MINE cannot be derived locally (no topology
     // data) and stays server-authoritative.
     if (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "UMBRITE_RIG") {

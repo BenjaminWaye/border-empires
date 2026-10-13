@@ -18,7 +18,7 @@ describe("The Titanium Levy muster ability", () => {
         economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" }
       },
       // CRYSTAL supply so TITANIUM_LEVY (4 slots, post-part-consumption
-      // rebalance)/AETHER_TOWER aren't dormant.
+      // rebalance)/AMBARIC_TRANSFORMER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
@@ -32,7 +32,7 @@ describe("The Titanium Levy muster ability", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "AMBARIC_TRANSFORMER", status: "active" }
       });
     }
     const players = new Map<string, Record<string, unknown>>();

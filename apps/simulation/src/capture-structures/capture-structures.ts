@@ -1,7 +1,7 @@
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
 import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
 
-type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "afc">;
+type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeBattery" | "economicStructure" | "afc">;
 
 // activatedAt is refreshed to the capture moment (not just carried over from
 // the previous owner) — the dormancy tie-break rule
@@ -36,7 +36,7 @@ const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: str
 // converter can't be harvested for gold the instant it changes hands.
 const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["economicStructure"] => {
   if (!tile?.economicStructure || tile.economicStructure.status === "under_construction") return undefined;
-  // Relay beacons don't survive capture — like siege outposts, they're razed
+  // Relay beacons don't survive capture — like siege batteries, they're razed
   // rather than handed to the attacker, so a captured beacon can't
   // instantly extend the attacker's reach on the spot.
   if (tile.economicStructure.type === "RELAY_BEACON") return undefined;
@@ -81,7 +81,7 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
 
 /**
  * What survives when a player *abandons* a tile (UNCAPTURE_TILE) rather than
- * losing it in combat. Same razing rules as a capture -- siege outposts and
+ * losing it in combat. Same razing rules as a capture -- siege batteries and
  * relay beacons are razed, half-built structures don't survive -- but there
  * is no next owner, so each surviving structure keeps its record as-is and
  * simply stops doing anything: every active-structure index and reach-anchor
@@ -94,7 +94,7 @@ const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now
 export const abandonedStructureFields = (tile: DomainTileState): CapturableStructureFields => ({
   fort: tile.fort?.status === "under_construction" ? standingFortAfterLostUpgrade(tile.fort) : tile.fort,
   observatory: tile.observatory?.status === "under_construction" ? undefined : tile.observatory,
-  siegeOutpost: undefined,
+  siegeBattery: undefined,
   economicStructure:
     tile.economicStructure?.status === "under_construction" || tile.economicStructure?.type === "RELAY_BEACON"
       ? undefined
@@ -105,7 +105,7 @@ export const abandonedStructureFields = (tile: DomainTileState): CapturableStruc
 export const capturedStructureFields = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): CapturableStructureFields => ({
   fort: capturedFort(tile, nextOwnerId, now),
   observatory: capturedObservatory(tile, nextOwnerId, now),
-  siegeOutpost: undefined,
+  siegeBattery: undefined,
   economicStructure: capturedEconomicStructure(tile, nextOwnerId, now),
   afc: capturedAfc(tile, nextOwnerId, now)
 });

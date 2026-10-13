@@ -68,15 +68,15 @@ describe("crystal targeting cost gates", () => {
     { ability: "siphon", techIds: ["logistics"], gate: "needs 15 CRYSTAL" },
     { ability: "aether_wall", techIds: ["harborcraft"], gate: "needs 25 CRYSTAL" },
     {
-      ability: "world_engine_strike",
+      ability: "sovereign_siege_engine_strike",
       techIds: [],
-      selected: ownedStructureTile("WORLD_ENGINE"),
+      selected: ownedStructureTile("SOVEREIGN_SIEGE_ENGINE"),
       gate: "needs 500 CRYSTAL"
     },
     {
-      ability: "airport_bombard",
+      ability: "sky_dock_bombard",
       techIds: [],
-      selected: ownedStructureTile("AIRPORT"),
+      selected: ownedStructureTile("SKY_DOCK"),
       gate: "needs 1 CRYSTAL"
     }
   ];
@@ -95,11 +95,11 @@ describe("crystal targeting cost gates", () => {
     state.me = "me";
     state.strategicResources.CRYSTAL = 0;
     state.gold = 10;
-    const selected = ownedStructureTile("WORLD_ENGINE");
+    const selected = ownedStructureTile("SOVEREIGN_SIEGE_ENGINE");
     state.tiles.set(keyFor(selected.x, selected.y), selected);
     const feed: string[] = [];
 
-    beginCrystalTargeting(state, "world_engine_strike", depsWithFeed(feed, selected));
+    beginCrystalTargeting(state, "sovereign_siege_engine_strike", depsWithFeed(feed, selected));
 
     expect(feed).toContain("Worldbreaker Shot needs 1,000 coin.");
   });

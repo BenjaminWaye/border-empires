@@ -18,7 +18,7 @@ Status against §10 (implementation order):
 | 2 | Gold → Coin (display text; internal field names unchanged) | Done |
 | 3 | Manifest metadata (`manifestCategory` per tech) | Done for category; delivery type / visual asset still open |
 | 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, House-module redeploy, and player-built additional AFC authority done; pre-AFC empire migration grant done (PR #2150). Landing-site picker/highlight parity remains (§4). Module delivery events use tile-delta diff, no new wire type. |
-| 5 | Rename/re-map buildings, remove Seed Granary | Done |
+| 5 | Rename/re-map buildings, remove Seed Incubation Engine | Done |
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
@@ -568,7 +568,7 @@ document.
 | Alchemical Forges | Titanium Synthesis Module | AFC Module | Titanium Works |
 | Steam-Driven Extraction | Tuned Separation Process | Offworld industrial process | Ore Refinery; richer Mine output |
 | Bureaucratic Reform | Provincial Stewardship Corps | Crew | Provincial Provisioning Office; territory-scale food allocation |
-| Aether-Infused Synthesis | Catalyst Fabricator Module | AFC Module | Advanced Umbrite Works, Advanced Titanium Works, Advanced Aether Condensers |
+| Aether-Infused Synthesis | Catalyst Fabricator Module | AFC Module | Advanced Umbrite Works, High Yield Titanium Works, Advanced Aether Condensers |
 | Grand Bazaars | Imperial Exchange Dossier | Dossier | Imperial Exchange project |
 
 The Catalyst Fabricator makes sealed catalyst hearts. Advanced converters
@@ -585,12 +585,12 @@ cost in Refine mode.
 | The Remade Concordat | Ancillary Control Core | AFC Module | Ancillary Factory; +0.05 Manpower/min |
 | Conveyor Networks | Reserve Lattice Module | AFC Module | Reserve Lattice; +150 cap and +35% terrain-adjusted base capacity |
 | Rail & Wire Networks | Neural Assembly Core | AFC Module | Neural Works; +0.1 Manpower/min per Ancillary Factory in its connected network |
-| Demographic Registry | Population Registry Dossier | Dossier | Population Bureau project |
+| Demographic Registry | Population Registry Dossier | Dossier | Census Directorate project |
 | Grand Levy Doctrine | Titanium Levy Dossier | Dossier | Titanium Levy project |
 
 The Ancillary Factory and Neural Works are conversion/regeneration
 buildings. The Ancillary Depot is storage. The Reserve Lattice inherits the
-old Assembly Works capacity statistics.
+old Reserve Lattice capacity statistics.
 
 ### War
 
@@ -598,8 +598,8 @@ old Assembly Works capacity statistics.
 |---|---|---|---|
 | Titanium-Clad Masonry | Titanium Forge Module | AFC Module | Fort, Titanium Weapons Factory |
 | Reinforced Plating | Bastion Master-Die Module | AFC Module | Titanium Bastion |
-| Steel Foundries | Thunderplate Induction Module | AFC Module | Thunder Bastion |
-| Rigging Works | Rigging Works Module | AFC Module | Umbrite Rig, Siege Outpost, Umbrite Weapons Factory |
+| Steel Ore Refineries | Thunderplate Induction Module | AFC Module | Thunder Bastion |
+| Rigging Works | Rigging Works Module | AFC Module | Umbrite Rig, Siege Battery, Umbrite Weapons Factory |
 | Siege Engineering | Siege Lens Foundry Module | AFC Module | Siege Tower |
 | Standing Legion | Dread Tower Cadre | Crew | Dread Tower |
 | Muster Discipline | Hive Mind Module I | AFC Module | One additional regional Muster commander |
@@ -687,21 +687,21 @@ Use these player-facing names consistently:
 | Old/internal name | Target display name |
 |---|---|
 | Observatory | Aether Tower |
-| Airport | Sky Dock |
-| Caravanary | Trade Nexus |
-| Customs House | Harbor Exchange |
-| Farmstead | Hydrogarden |
-| Waterworks | Hydroworks |
-| Garrison Hall | Ancillary Depot |
-| Logistics Guild | Ancillary Factory |
-| Assembly Works | Reserve Lattice |
-| Rail Depot | Neural Works |
-| Foundry | Ore Refinery |
-| Governor's Office / Ministry Hall | Provincial Provisioning Office |
-| Crystal Synthesizer | Aether Condenser |
-| Advanced Crystal Synthesizer | Advanced Aether Condenser |
+| Sky Dock | Sky Dock |
+| Trade Nexus | Trade Nexus |
+| Harbor Exchange | Harbor Exchange |
+| Hydrogarden | Hydrogarden |
+| Hydroworks | Hydroworks |
+| Ancillary Depot | Ancillary Depot |
+| Ancillary Factory | Ancillary Factory |
+| Reserve Lattice | Reserve Lattice |
+| Neural Works | Neural Works |
+| Ore Refinery | Ore Refinery |
+| Ministry Hall | Provincial Provisioning Office |
+| Aether Condenser | Aether Condenser |
+| High Yield Aether Condenser | Advanced Aether Condenser |
 
-Delete Seed Granary entirely: types, tech data, structure registry, slot
+Delete Seed Incubation Engine entirely: types, tech data, structure registry, slot
 logic, overlays, UI, tests, upgrade handling, and migrations.
 
 ## 9. 3D delivery and overlay plan
@@ -768,7 +768,7 @@ rather than create a forest of separate overlays.
    asset, and user copy.
 4. Implement AFC module state, assignment, capture/dormancy, and delivery
    events.
-5. Rename/re-map buildings and remove Seed Granary.
+5. Rename/re-map buildings and remove Seed Incubation Engine.
 6. Apply the target tech-to-Manifest mapping.
 7. Split Matterwright Retort from Catalyst Fabricator.
 8. Move Harbor Exchange to Trade Circuit Charter.

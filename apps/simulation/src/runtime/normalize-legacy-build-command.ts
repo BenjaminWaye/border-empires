@@ -10,7 +10,7 @@ export const normalizeLegacyBuildCommand = (command: CommandEnvelope): CommandEn
   let structureType: string;
   if (command.type === "BUILD_FORT") structureType = "FORT";
   else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
-  else if (command.type === "BUILD_SIEGE_OUTPOST") structureType = "SIEGE_OUTPOST";
+  else if (command.type === "BUILD_SIEGE_BATTERY") structureType = "SIEGE_BATTERY";
   else if (command.type === "BUILD_ECONOMIC_STRUCTURE") structureType = payload.structureType as string;
   else structureType = command.type;
   return {

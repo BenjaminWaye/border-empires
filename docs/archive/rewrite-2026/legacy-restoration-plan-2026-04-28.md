@@ -46,7 +46,7 @@ track is dead, Phase E removes the rewrite code from `main`.
    Staging is just a parallel Fly app + volume + fresh world. No Postgres,
    no special workflow.
 4. "attack debug, simulation lag, sim startup are not portable to prod so
-   don't think about that. What I think about is behaviour like wooden fort,
+   don't think about that. What I think about is behaviour like palisade,
    any new popups or prompts or metrics we are logging." → Parity audit
    scope is *player-visible* changes only. Skip rewrite-only architectural
    work.
@@ -411,7 +411,7 @@ For each commit in `/tmp/parity-candidates.txt`, classify as:
   or packages/client are auto-in-legacy because legacy builds from the same
   packages. Mark these for spot-check, not porting.
 
-Specifically watch for: wooden fort, new popups, new prompts, new HUD
+Specifically watch for: palisade, new popups, new prompts, new HUD
 metrics, 3D ownership rendering, active-edge AI frontier planning,
 season rollover semantics, leaderboard ghost players, logout button
 behavior, settlement support areas UI, public HQ summary endpoint.

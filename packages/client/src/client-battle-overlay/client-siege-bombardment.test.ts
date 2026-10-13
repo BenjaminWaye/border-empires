@@ -5,20 +5,20 @@ import type { Tile } from "../client-types.js";
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (value: number): number => value;
 
-const siegeOutpostTile = (x: number, y: number, ownerId: string): Tile => ({
+const siegeBatteryTile = (x: number, y: number, ownerId: string): Tile => ({
   x,
   y,
   terrain: "LAND",
   ownerId,
   ownershipState: "SETTLED",
-  siegeOutpost: { ownerId, status: "active" }
+  siegeBattery: { ownerId, status: "active" }
 });
 
 const battle = { attackerOwnerId: "attacker", targetX: 5, targetY: 4 };
 
 describe("triggerSiegeBombardmentForNewBattle", () => {
   it("aims the nearest attacker-owned battery and queues the purple bombard FX", () => {
-    const battery = siegeOutpostTile(5, 5, "attacker");
+    const battery = siegeBatteryTile(5, 5, "attacker");
     const fortDeps = { tiles: new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]), keyFor, wrapX: wrap, wrapY: wrap };
     const state = { siegeAimOverrides: new Map<string, { targetX: number; targetY: number; expiresAt: number }>(), siegeBombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }> };
 
@@ -40,7 +40,7 @@ describe("triggerSiegeBombardmentForNewBattle", () => {
   });
 
   it("retargets to the most recent battle when a battery is in range of two", () => {
-    const battery = siegeOutpostTile(5, 5, "attacker");
+    const battery = siegeBatteryTile(5, 5, "attacker");
     const fortDeps = { tiles: new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]), keyFor, wrapX: wrap, wrapY: wrap };
     const state = { siegeAimOverrides: new Map<string, { targetX: number; targetY: number; expiresAt: number }>(), siegeBombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }> };
 
@@ -53,8 +53,8 @@ describe("triggerSiegeBombardmentForNewBattle", () => {
   });
 
   it("prunes expired overrides so the map doesn't grow unbounded", () => {
-    const batteryA = siegeOutpostTile(5, 5, "attacker");
-    const batteryB = siegeOutpostTile(50, 50, "attacker");
+    const batteryA = siegeBatteryTile(5, 5, "attacker");
+    const batteryB = siegeBatteryTile(50, 50, "attacker");
     const fortDeps = {
       tiles: new Map<string, Tile>([
         [keyFor(batteryA.x, batteryA.y), batteryA],

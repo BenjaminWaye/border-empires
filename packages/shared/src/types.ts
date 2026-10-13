@@ -1,6 +1,6 @@
 import type { MusterState } from "./muster-state.js"; import type { WaystationTileState } from "./waystation-types.js";
-import type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeOutpostState } from "./tile-structure-state-types.js";
-export type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeOutpostState };
+import type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeBatteryState } from "./tile-structure-state-types.js";
+export type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeBatteryState };
 
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
@@ -12,9 +12,9 @@ export type ClusterType = "FERTILE_PLAINS" | "TITANIUM_HILLS" | "CRYSTAL_BASIN" 
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FrontierDecayKind = "ENCIRCLEMENT" | "OUT_OF_REACH";
 export type FortStatus = "under_construction" | "active" | "removing";
-export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
-export type FortVariant = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
-export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+export type SiegeBatteryStatus = "under_construction" | "active" | "removing";
+export type FortVariant = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "PALISADE";
+export type SiegeBatteryVariant = "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 // Automated Fabrication Complex / AFC (Phase 6, docs/manifest-tree-mapping-plan.md):
 // placed instantly at spawn, not built through the normal queue -- "inactive"
@@ -33,57 +33,57 @@ import type { ConverterMode, EconomicStructure } from "./economic-structure.js";
 export type { ConverterMode, EconomicStructure };
 
 export type EconomicStructureType =
-  | "FARMSTEAD"
-  | "WATERWORKS"
+  | "HYDROGARDEN"
+  | "HYDROWORKS"
   | "UMBRITE_RIG"
   | "MINE"
   | "MINTWORKS"
-  | "GRANARY"
+  | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
-  | "AIRPORT"
-  | "AETHER_TOWER"
-  | "WOODEN_FORT"
+  | "SKY_DOCK"
+  | "AMBARIC_TRANSFORMER"
+  | "PALISADE"
   | "RELAY_BEACON"
-  | "UMBRITE_SYNTHESIZER"
-  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "UMBRITE_WORKS"
+  | "HIGH_YIELD_UMBRITE_WORKS"
   | "TITANIUM_WORKS"
-  | "ADVANCED_TITANIUM_WORKS"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "CARAVANARY"
-  | "FOUNDRY"
-  | "GARRISON_HALL"
-  | "CUSTOMS_HOUSE"
-  | "RAIL_DEPOT"
-  | "GOVERNORS_OFFICE"
-  | "RADAR_SYSTEM"
+  | "HIGH_YIELD_TITANIUM_WORKS"
+  | "AETHER_CONDENSER"
+  | "HIGH_YIELD_AETHER_CONDENSER"
+  | "TRADE_NEXUS"
+  | "ORE_REFINERY"
+  | "ANCILLARY_DEPOT"
+  | "HARBOR_EXCHANGE"
+  | "NEURAL_WORKS"
+  | "MINISTRY_HALL"
+  | "RESONANCE_GRID"
   | "QUARTERMASTERS_OFFICE"
-  | "LOGISTICS_GUILD"
-  | "ASSEMBLY_WORKS"
+  | "ANCILLARY_FACTORY"
+  | "RESERVE_LATTICE"
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
-  | "WORLD_ENGINE_PART_1"
-  | "WORLD_ENGINE_PART_2"
-  | "WORLD_ENGINE_PART_3"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_1"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_2"
+  | "SOVEREIGN_SIEGE_ENGINE_PART_3"
   | "AEGIS_DOME_PART_1"
   | "AEGIS_DOME_PART_2"
   | "AEGIS_DOME_PART_3"
   | "ASTRAL_DOCK_PART_1"
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
-  | "POPULATION_BUREAU_PART_1"
-  | "POPULATION_BUREAU_PART_2"
-  | "POPULATION_BUREAU_PART_3"
+  | "CENSUS_DIRECTORATE_PART_1"
+  | "CENSUS_DIRECTORATE_PART_2"
+  | "CENSUS_DIRECTORATE_PART_3"
   | "TITANIUM_LEVY_PART_1"
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
   | "IMPERIAL_EXCHANGE"
-  | "WORLD_ENGINE"
+  | "SOVEREIGN_SIEGE_ENGINE"
   | "AEGIS_DOME"
   | "ASTRAL_DOCK"
-  | "POPULATION_BUREAU"
+  | "CENSUS_DIRECTORATE"
   | "TITANIUM_LEVY"
   | "WEAPONS_WORKSHOP"
   | "TITANIUM_WEAPONS_FACTORY"
@@ -92,7 +92,7 @@ export type EconomicStructureType =
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season
 // winner stats).
-export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const;
+export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"] as const;
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
@@ -116,8 +116,8 @@ export interface TileHistory {
   previousOwners: PlayerId[];
   captureCount: number;
   lastCapturedAt?: number | null;
-  lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType | null;
-  structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType>;
+  lastStructureType?: "FORT" | "SIEGE_BATTERY" | "OBSERVATORY" | EconomicStructureType | null;
+  structureHistory: Array<"FORT" | "SIEGE_BATTERY" | "OBSERVATORY" | EconomicStructureType>;
   wasMountainCreatedByPlayer?: boolean;
   wasMountainRemovedByPlayer?: boolean;
 }
@@ -219,7 +219,7 @@ export interface StrategicReplayEvent {
   y?: number;
   from?: { x: number; y: number };
   to?: { x: number; y: number };
-  structureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType;
+  structureType?: "FORT" | "SIEGE_BATTERY" | "OBSERVATORY" | EconomicStructureType;
   objectiveId?: SeasonVictoryPathId;
   objectiveName?: string;
   isBookmark?: boolean;
@@ -272,7 +272,7 @@ export interface Tile {
     strategicEach: number;
   };
   fort?: TileFortState;
-  siegeOutpost?: TileSiegeOutpostState;
+  siegeBattery?: TileSiegeBatteryState;
   observatory?: TileObservatoryState;
   afc?: TileAfcState;
   economicStructure?: TileEconomicStructureState;
@@ -429,12 +429,12 @@ export interface Fort {
   previousStatus?: "active";
 }
 
-export interface SiegeOutpost {
-  siegeOutpostId: string;
+export interface SiegeBattery {
+  siegeBatteryId: string;
   ownerId: PlayerId;
   tileKey: TileKey;
-  variant: SiegeOutpostVariant;
-  status: SiegeOutpostStatus;
+  variant: SiegeBatteryVariant;
+  status: SiegeBatteryStatus;
   startedAt: number;
   completesAt?: number;
   previousStatus?: "active";

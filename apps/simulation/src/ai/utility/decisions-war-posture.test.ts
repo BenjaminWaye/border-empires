@@ -33,7 +33,7 @@ const BASE: DecisionInputs = {
   needsFood: false,
   hasEconomicBuild: true,
   hasFortBuild: true,
-  hasSiegeOutpost: false,
+  hasSiegeBattery: false,
   hasRelayBeaconBuild: true,
   relayBeaconSiteValue: 20,
   beaconBoostActive: false,
@@ -101,7 +101,7 @@ describe("ATTACK and BUILD_DEFENSE boosted under WAR posture", () => {
   });
 
   it("the WAR boost cannot revive a BUILD_DEFENSE that's still illegal (no fort/siege build)", () => {
-    expect(scoreDecision("BUILD_DEFENSE", { ...BASE, hasFortBuild: false, hasSiegeOutpost: false })).toBe(0);
+    expect(scoreDecision("BUILD_DEFENSE", { ...BASE, hasFortBuild: false, hasSiegeBattery: false })).toBe(0);
   });
 });
 

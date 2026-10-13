@@ -5,7 +5,7 @@ import {
   RELAY_BEACON_FIRST_TIER_COUNT,
   SIEGE_TIER_LADDER,
   economicStructureBuildDurationMs,
-  siegeOutpostBuildDurationMs,
+  siegeBatteryBuildDurationMs,
   structureBuildDurationMs,
   structureBuildDurationMsForManpowerCost,
   structureBuildManpowerCost,
@@ -45,7 +45,7 @@ export type ConstructionSite = {
   // Which structure record this is. Only "economicStructure" goes through the
   // shared 3D piece builder (and so gets phase-gated pieces); the others keep
   // their dedicated overlays and only get the ambient crew/crates.
-  readonly field: "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+  readonly field: "fort" | "observatory" | "siegeBattery" | "economicStructure";
   readonly structureType: string;
   readonly ownerId: string;
   // 0..1 share of the construction window that has elapsed.
@@ -136,7 +136,7 @@ const recordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined):
 };
 
 const buildRecordForTile = (tile: Tile, only: ConstructionSite["field"] | undefined): ConstructionRecord | undefined => {
-  const { fort, observatory, siegeOutpost, economicStructure } = tile;
+  const { fort, observatory, siegeBattery, economicStructure } = tile;
   const allowed = (field: ConstructionSite["field"]): boolean => only === undefined || only === field;
   if (allowed("fort") && fort && inFlight(fort.status) && typeof fort.completesAt === "number") {
     const variant = fort.variant ?? "FORT";
@@ -148,9 +148,9 @@ const buildRecordForTile = (tile: Tile, only: ConstructionSite["field"] | undefi
   if (allowed("observatory") && observatory && inFlight(observatory.status) && typeof observatory.completesAt === "number") {
     return { field: "observatory", structureType: "OBSERVATORY", ownerId: observatory.ownerId, status: observatory.status, completesAt: observatory.completesAt, startedAt: observatory.startedAt, manpower: safely(() => structureBuildManpowerCost("OBSERVATORY"), FALLBACK_MANPOWER), estimatedDurationMs: safely(() => structureBuildDurationMs("OBSERVATORY"), FALLBACK_DURATION_MS) };
   }
-  if (allowed("siegeOutpost") && siegeOutpost && inFlight(siegeOutpost.status) && typeof siegeOutpost.completesAt === "number") {
-    const variant = siegeOutpost.variant ?? "SIEGE_OUTPOST";
-    return { field: "siegeOutpost", structureType: variant, ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, completesAt: siegeOutpost.completesAt, startedAt: siegeOutpost.startedAt, manpower: safely(() => SIEGE_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER), estimatedDurationMs: safely(() => siegeOutpostBuildDurationMs(variant), FALLBACK_DURATION_MS) };
+  if (allowed("siegeBattery") && siegeBattery && inFlight(siegeBattery.status) && typeof siegeBattery.completesAt === "number") {
+    const variant = siegeBattery.variant ?? "SIEGE_BATTERY";
+    return { field: "siegeBattery", structureType: variant, ownerId: siegeBattery.ownerId, status: siegeBattery.status, completesAt: siegeBattery.completesAt, startedAt: siegeBattery.startedAt, manpower: safely(() => SIEGE_TIER_LADDER[variant].manpower, FALLBACK_MANPOWER), estimatedDurationMs: safely(() => siegeBatteryBuildDurationMs(variant), FALLBACK_DURATION_MS) };
   }
   if (allowed("economicStructure") && economicStructure && inFlight(economicStructure.status) && typeof economicStructure.completesAt === "number") {
     const type = economicStructure.type as EconomicStructureType;

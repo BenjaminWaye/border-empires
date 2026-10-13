@@ -44,12 +44,12 @@ The rewrite path now supports the following core actions end-to-end through the 
 - `SETTLE`
 - `BUILD_FORT`
 - `BUILD_OBSERVATORY`
-- `BUILD_SIEGE_OUTPOST`
+- `BUILD_SIEGE_BATTERY`
 - `BUILD_ECONOMIC_STRUCTURE`
 - `CANCEL_FORT_BUILD`
 - `CANCEL_STRUCTURE_BUILD`
 - `REMOVE_STRUCTURE`
-- `CANCEL_SIEGE_OUTPOST_BUILD`
+- `CANCEL_SIEGE_BATTERY_BUILD`
 - `CANCEL_CAPTURE`
 - `COLLECT_TILE`
 - `COLLECT_VISIBLE`
@@ -71,7 +71,7 @@ Additional migrated rewrite actions now in `main`:
 - `PURGE_SIPHON`
 - `CREATE_MOUNTAIN`
 - `REMOVE_MOUNTAIN`
-- `AIRPORT_BOMBARD`
+- `SKY_DOCK_BOMBARD`
 - `COLLECT_SHARD`
 
 #### Social/diplomacy migration

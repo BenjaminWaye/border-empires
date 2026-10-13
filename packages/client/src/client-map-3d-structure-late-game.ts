@@ -11,11 +11,11 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 
 export type LateGameStructureKind =
   | "AEGIS_DOME"
-  | "WORLD_ENGINE"
+  | "SOVEREIGN_SIEGE_ENGINE"
   | "IMPERIAL_EXCHANGE";
 
 export const LATE_GAME_STRUCTURE_KINDS: ReadonlySet<LateGameStructureKind> = new Set([
-  "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"
+  "AEGIS_DOME", "SOVEREIGN_SIEGE_ENGINE", "IMPERIAL_EXCHANGE"
 ]);
 
 export type LateGameStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -40,9 +40,9 @@ export const registerLateGameStructures = (
   const aegisCoreMaterial = new MeshStandardMaterial({ color: "#2c2e34", roughness: 0.5, metalness: 0.6, flatShading: true });
   const aegisDomeMaterial = new MeshStandardMaterial({ color: "#7ad9f0", roughness: 0.35, metalness: 0.1, flatShading: true, transparent: true, opacity: 0.45, emissive: "#2a9ec0", emissiveIntensity: 0.55, depthWrite: false });
   const aegisCrystalMaterial = new MeshStandardMaterial({ color: "#9ce8f8", roughness: 0.3, metalness: 0.2, flatShading: true, emissive: "#2a9ec0", emissiveIntensity: 0.8 });
-  const worldEngineStoneMaterial = new MeshStandardMaterial({ color: "#8a7a5a", roughness: 0.94, metalness: 0.02, flatShading: true });
-  const worldEngineDarkMaterial = new MeshStandardMaterial({ color: "#2a241e", roughness: 0.86, metalness: 0.1, flatShading: true });
-  const worldEngineCoreMaterial = new MeshStandardMaterial({ color: "#ffd34a", roughness: 0.25, metalness: 0.4, flatShading: true, emissive: "#d68a18", emissiveIntensity: 0.95 });
+  const sovereignSiegeEngineStoneMaterial = new MeshStandardMaterial({ color: "#8a7a5a", roughness: 0.94, metalness: 0.02, flatShading: true });
+  const sovereignSiegeEngineDarkMaterial = new MeshStandardMaterial({ color: "#2a241e", roughness: 0.86, metalness: 0.1, flatShading: true });
+  const sovereignSiegeEngineCoreMaterial = new MeshStandardMaterial({ color: "#ffd34a", roughness: 0.25, metalness: 0.4, flatShading: true, emissive: "#d68a18", emissiveIntensity: 0.95 });
   const exchangeMarbleMaterial = new MeshStandardMaterial({ color: "#eee6d2", roughness: 0.78, metalness: 0.05, flatShading: true });
   const exchangeColumnMaterial = new MeshStandardMaterial({ color: "#f6f0df", roughness: 0.76, metalness: 0.05, flatShading: true });
   const exchangeDomeMaterial = new MeshStandardMaterial({ color: "#e8b840", roughness: 0.35, metalness: 0.65, flatShading: true, emissive: "#7a5210", emissiveIntensity: 0.18 });
@@ -74,11 +74,11 @@ export const registerLateGameStructures = (
   const aegisDomeGeo = new SphereGeometry(0.20, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const aegisPylonGeo = new CylinderGeometry(0.018, 0.022, 0.10, 6);
   const aegisPylonTipGeo = new OctahedronGeometry(0.028, 0);
-  const worldEngineTier1Geo = new BoxGeometry(0.44, 0.10, 0.32);
-  const worldEngineTier2Geo = new BoxGeometry(0.30, 0.10, 0.22);
-  const worldEngineTier3Geo = new BoxGeometry(0.18, 0.10, 0.14);
-  const worldEngineSpireGeo = new CylinderGeometry(0.022, 0.045, 0.22, 8);
-  const worldEngineCoreGeo = new OctahedronGeometry(0.08, 0);
+  const sovereignSiegeEngineTier1Geo = new BoxGeometry(0.44, 0.10, 0.32);
+  const sovereignSiegeEngineTier2Geo = new BoxGeometry(0.30, 0.10, 0.22);
+  const sovereignSiegeEngineTier3Geo = new BoxGeometry(0.18, 0.10, 0.14);
+  const sovereignSiegeEngineSpireGeo = new CylinderGeometry(0.022, 0.045, 0.22, 8);
+  const sovereignSiegeEngineCoreGeo = new OctahedronGeometry(0.08, 0);
   const exchangeBaseGeo = new CylinderGeometry(0.22, 0.24, 0.04, 18);
   const exchangeDrumGeo = new CylinderGeometry(0.16, 0.16, 0.18, 18);
   const exchangeDomeGeo = new SphereGeometry(0.16, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.5);
@@ -112,11 +112,11 @@ export const registerLateGameStructures = (
   builder.makeSlot("aegisDome", aegisDomeGeo, aegisDomeMaterial, C);
   builder.makeSlot("aegisPylon", aegisPylonGeo, aegisStoneMaterial, C * 4);
   builder.makeSlot("aegisPylonTip", aegisPylonTipGeo, aegisCrystalMaterial, C * 4);
-  builder.makeSlot("worldEngineTier1", worldEngineTier1Geo, worldEngineStoneMaterial, C);
-  builder.makeSlot("worldEngineTier2", worldEngineTier2Geo, worldEngineStoneMaterial, C);
-  builder.makeSlot("worldEngineTier3", worldEngineTier3Geo, worldEngineStoneMaterial, C);
-  builder.makeSlot("worldEngineSpire", worldEngineSpireGeo, worldEngineDarkMaterial, C);
-  builder.makeSlot("worldEngineCore", worldEngineCoreGeo, worldEngineCoreMaterial, C);
+  builder.makeSlot("sovereignSiegeEngineTier1", sovereignSiegeEngineTier1Geo, sovereignSiegeEngineStoneMaterial, C);
+  builder.makeSlot("sovereignSiegeEngineTier2", sovereignSiegeEngineTier2Geo, sovereignSiegeEngineStoneMaterial, C);
+  builder.makeSlot("sovereignSiegeEngineTier3", sovereignSiegeEngineTier3Geo, sovereignSiegeEngineStoneMaterial, C);
+  builder.makeSlot("sovereignSiegeEngineSpire", sovereignSiegeEngineSpireGeo, sovereignSiegeEngineDarkMaterial, C);
+  builder.makeSlot("sovereignSiegeEngineCore", sovereignSiegeEngineCoreGeo, sovereignSiegeEngineCoreMaterial, C);
   builder.makeSlot("exchangeBase", exchangeBaseGeo, exchangeMarbleMaterial, C);
   builder.makeSlot("exchangeDrum", exchangeDrumGeo, exchangeMarbleMaterial, C);
   builder.makeSlot("exchangeDome", exchangeDomeGeo, exchangeDomeMaterial, C);
@@ -201,12 +201,12 @@ export const registerLateGameStructures = (
     }
   };
 
-  const addWorldEngine: LateGameStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("worldEngineTier1", sx, sy, sz, 0, 0.05, 0);
-    builder.addPiece("worldEngineTier2", sx, sy, sz, 0, 0.15, 0);
-    builder.addPiece("worldEngineTier3", sx, sy, sz, 0, 0.25, 0);
-    builder.addPiece("worldEngineSpire", sx, sy, sz, 0, 0.41, 0);
-    builder.addPiece("worldEngineCore", sx, sy, sz, 0, 0.56, 0, 1, 1.2, 1, Math.PI * 0.125, 0, 0);
+  const addSovereignSiegeEngine: LateGameStructureLayout = (sx, sy, sz) => {
+    builder.addPiece("sovereignSiegeEngineTier1", sx, sy, sz, 0, 0.05, 0);
+    builder.addPiece("sovereignSiegeEngineTier2", sx, sy, sz, 0, 0.15, 0);
+    builder.addPiece("sovereignSiegeEngineTier3", sx, sy, sz, 0, 0.25, 0);
+    builder.addPiece("sovereignSiegeEngineSpire", sx, sy, sz, 0, 0.41, 0);
+    builder.addPiece("sovereignSiegeEngineCore", sx, sy, sz, 0, 0.56, 0, 1, 1.2, 1, Math.PI * 0.125, 0, 0);
   };
 
   const addImperialExchange: LateGameStructureLayout = (sx, sy, sz) => {
@@ -228,7 +228,7 @@ export const registerLateGameStructures = (
   return {
     layouts: {
       AEGIS_DOME: addAegisDome,
-      WORLD_ENGINE: addWorldEngine,
+      SOVEREIGN_SIEGE_ENGINE: addSovereignSiegeEngine,
       IMPERIAL_EXCHANGE: addImperialExchange
     }
   };

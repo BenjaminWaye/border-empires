@@ -1,6 +1,6 @@
 import {
   DREAD_TOWER_ATTACK_MULT,
-  SIEGE_OUTPOST_ATTACK_MULT,
+  SIEGE_BATTERY_ATTACK_MULT,
   SIEGE_TOWER_ATTACK_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -17,7 +17,7 @@ export const OUTPOST_AURA_RADIUS = 5;
  */
 export type OutpostAuraTileFacts = {
   ownerId?: string | undefined;
-  siegeOutpost?: { ownerId?: string | undefined; status?: string | undefined; variant?: string | undefined } | undefined;
+  siegeBattery?: { ownerId?: string | undefined; status?: string | undefined; variant?: string | undefined } | undefined;
   economicStructure?: { ownerId?: string | undefined; type?: string | undefined; status?: string | undefined } | undefined;
 };
 
@@ -25,7 +25,7 @@ export type OutpostAuraTileFacts = {
  * Returns the multiplier this single tile contributes to a player's attack
  * aura, accounting for per-variant multipliers.
  *
- * Siege outposts can be built on FRONTIER tiles (they skip the SETTLED
+ * Siege Batteries can be built on FRONTIER tiles (they skip the SETTLED
  * placement requirement) and their attack bonus applies there too — unlike
  * other structures' auras, this one isn't gated on the tile being settled.
  */
@@ -35,20 +35,20 @@ export const tileOutpostMult = (
 ): { mult: number } => {
   if (tile.ownerId !== playerId) return { mult: 1 };
   if (
-    tile.siegeOutpost?.ownerId === playerId &&
-    tile.siegeOutpost.status === "active"
+    tile.siegeBattery?.ownerId === playerId &&
+    tile.siegeBattery.status === "active"
   ) {
-    const variant = tile.siegeOutpost.variant;
+    const variant = tile.siegeBattery.variant;
     if (variant === "SIEGE_TOWER") return { mult: SIEGE_TOWER_ATTACK_MULT };
     if (variant === "DREAD_TOWER") return { mult: DREAD_TOWER_ATTACK_MULT };
-    // Default: SIEGE_OUTPOST (or undefined variant → treat as SIEGE_OUTPOST)
-    return { mult: SIEGE_OUTPOST_ATTACK_MULT };
+    // Default: SIEGE_BATTERY (or undefined variant → treat as SIEGE_BATTERY)
+    return { mult: SIEGE_BATTERY_ATTACK_MULT };
   }
   return { mult: 1 };
 };
 
 /** Outpost-family variants that can contribute an attack aura (Relay Beacon does not). */
-export type OutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+export type OutpostVariant = "SIEGE_BATTERY" | "SIEGE_TOWER" | "DREAD_TOWER";
 
 /**
  * Minimal position + variant descriptor needed to evaluate outpost aura from
@@ -64,7 +64,7 @@ export type OutpostPosition = {
 const multiplierFor = (variant: OutpostVariant): number => {
   if (variant === "DREAD_TOWER") return DREAD_TOWER_ATTACK_MULT;
   if (variant === "SIEGE_TOWER") return SIEGE_TOWER_ATTACK_MULT;
-  return SIEGE_OUTPOST_ATTACK_MULT;
+  return SIEGE_BATTERY_ATTACK_MULT;
 };
 
 /** Wrapped Chebyshev distance between two world positions. */

@@ -47,12 +47,12 @@ export const hasSupportedStructure = (
   structureType: string,
   tiles: ReadonlyMap<string, DomainTileState>,
   // Callers checking for a live, functioning bonus (Clearing House gold,
-  // Garrison Hall/Rail Depot manpower) want the default active-only
+  // Ancillary Depot/Neural Works manpower) want the default active-only
   // semantics. Callers enforcing a *uniqueness* constraint (§4.4: "only one
-  // Rail Depot per network") need under_construction to count too — the
+  // Neural Works per network") need under_construction to count too — the
   // build handler never re-validates uniqueness at completion
   // (completeStructureBuild in runtime-structure-command-handlers.ts just
-  // flips status to active unconditionally), so two Rail Depot builds
+  // flips status to active unconditionally), so two Neural Works builds
   // submitted before either finishes would otherwise both pass validation
   // and leave the network with two permanent depots.
   includeUnderConstruction = false,
@@ -60,7 +60,7 @@ export const hasSupportedStructure = (
   // function even though it's still "active" in construction terms — plain
   // "x,y" tile keys (Runtime.dormantFieldKeysForPlayer("economicStructure")).
   // Deliberately NOT consulted when includeUnderConstruction is true: that
-  // mode is a uniqueness check (§4.4's "only one Rail Depot per network"),
+  // mode is a uniqueness check (§4.4's "only one Neural Works per network"),
   // and dormancy is a transient power state, not a reason to let a second
   // instance be built.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
@@ -87,7 +87,7 @@ export const hasSupportedStructure = (
  *
  * Mintworks's structure-placement-metadata.json placementMode is "same_tile"
  * (verified — NOT "town_support"; it shares that placement mode with
- * GARRISON_HALL/IRON_WEAPONS_FACTORY/FUR_WEAPONS_FACTORY), meaning a copy can
+ * ANCILLARY_DEPOT/IRON_WEAPONS_FACTORY/FUR_WEAPONS_FACTORY), meaning a copy can
  * sit directly ON the town tile itself as well as on any support tile in its
  * ring — so this mirrors countWeaponsFactoriesAt's dual on-tile +
  * support-ring loop below, not hasSupportedStructure's support-ring-only

@@ -421,7 +421,7 @@ describe("frontier combat", () => {
     // commitment a manual attack can make until the commitment-choice UI ships.
     it("estimated loss is the fort tier's attack-muster floor", () => {
       expect(estimatedSettledAttackManpowerLoss(undefined)).toBe(60);
-      expect(estimatedSettledAttackManpowerLoss("WOODEN_FORT")).toBe(150);
+      expect(estimatedSettledAttackManpowerLoss("PALISADE")).toBe(150);
       expect(estimatedSettledAttackManpowerLoss("FORT")).toBe(300);
       expect(estimatedSettledAttackManpowerLoss("TITANIUM_BASTION")).toBe(480);
       expect(estimatedSettledAttackManpowerLoss("THUNDER_BASTION")).toBe(960);

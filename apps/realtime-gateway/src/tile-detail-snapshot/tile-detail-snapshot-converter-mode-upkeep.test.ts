@@ -10,7 +10,7 @@ import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aware", () => {
   // Regression: structureUpkeepPerMinute (tile-detail-snapshot.ts) always
   // reported the SYNTHESIZE-mode GOLD upkeep rate for converter structures
-  // (Aether Condenser / CRYSTAL_SYNTHESIZER etc.), even when the structure
+  // (Aether Condenser / AETHER_CONDENSER etc.), even when the structure
   // was actually in EXCHANGE (Sell Off) mode, which pays no gold upkeep
   // (economicStructureGoldUpkeepPerInterval in runtime-structure-rules.ts).
   // The tile-detail Upkeep panel showed a stale "40.0/day" GOLD charge next
@@ -25,7 +25,7 @@ describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aw
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" })
         }
       ]
     };
@@ -45,7 +45,7 @@ describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aw
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active", converterMode: "SYNTHESIZE" })
         }
       ]
     };
@@ -53,7 +53,7 @@ describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aw
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 21, 21);
 
     expect(detail?.upkeepEntries).toEqual([
-      { label: "CRYSTAL_SYNTHESIZER", perMinute: { GOLD: expect.any(Number) } }
+      { label: "AETHER_CONDENSER", perMinute: { GOLD: expect.any(Number) } }
     ]);
   });
 
@@ -67,7 +67,7 @@ describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aw
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "CRYSTAL_SYNTHESIZER", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "AETHER_CONDENSER", status: "active" })
         }
       ]
     };
@@ -75,7 +75,7 @@ describe("buildSnapshotTileDetail — converter structure GOLD upkeep is mode-aw
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 22, 22);
 
     expect(detail?.upkeepEntries).toEqual([
-      { label: "CRYSTAL_SYNTHESIZER", perMinute: { GOLD: expect.any(Number) } }
+      { label: "AETHER_CONDENSER", perMinute: { GOLD: expect.any(Number) } }
     ]);
   });
 });

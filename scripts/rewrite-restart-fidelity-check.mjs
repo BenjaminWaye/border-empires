@@ -67,7 +67,7 @@ const normalizeTile = (tile) => ({
   townPopulationTier: tile.town_population_tier ?? null,
   fort: parseJson(tile.fort_json) ?? null,
   observatory: parseJson(tile.observatory_json) ?? null,
-  siegeOutpost: parseJson(tile.siege_outpost_json) ?? null,
+  siegeBattery: parseJson(tile.siege_battery_json) ?? null,
   economicStructure: parseJson(tile.economic_structure_json) ?? null,
   sabotage: parseJson(tile.sabotage_json) ?? null,
   shardSite: parseJson(tile.shard_site_json) ?? null,
@@ -90,7 +90,7 @@ const isInterestingTile = (tile) =>
   tile.economicStructure !== null ||
   tile.fort !== null ||
   tile.observatory !== null ||
-  tile.siegeOutpost !== null;
+  tile.siegeBattery !== null;
 
 const canonicalize = (value) => JSON.stringify(value, Object.keys(value).sort());
 

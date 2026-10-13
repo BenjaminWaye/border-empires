@@ -2,12 +2,12 @@
 // pure per-structure converter output/upkeep formulas, self-contained and
 // unrelated to the snapshot-builder loop they're consumed by.
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
+  HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   UPKEEP_MINUTES_PER_DAY,
   type DomainStrategicResourceKey
@@ -16,7 +16,7 @@ import { SYNTHESIZER_TYPE_SET, SYNTHESIZER_FAMILY_RESOURCE, type BuildableStruct
 
 type EconomyResourceKey = DomainStrategicResourceKey | "GOLD";
 
-// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
+// TITANIUM_WORKS/UMBRITE_WORKS/AETHER_CONDENSER no longer produce a stockpiled
 // resource (§5.6); EXCHANGE-mode converters produce gold from a slot instead.
 export const converterOutputPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
   if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
@@ -40,12 +40,12 @@ export const structureUpkeepPerMinute = (structureType: string, mode?: string): 
     // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
     // are slot-based (structure-slots.ts), not a per-minute drain, and only
     // the synthesizers still have a real GOLD cost for their conversion.
-    case "UMBRITE_SYNTHESIZER": return { GOLD: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_UMBRITE_SYNTHESIZER": return { GOLD: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "UMBRITE_WORKS": return { GOLD: UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_UMBRITE_WORKS": return { GOLD: HIGH_YIELD_UMBRITE_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "TITANIUM_WORKS": return { GOLD: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_TITANIUM_WORKS": return { GOLD: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_TITANIUM_WORKS": return { GOLD: HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "AETHER_CONDENSER": return { GOLD: AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "HIGH_YIELD_AETHER_CONDENSER": return { GOLD: HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     default: return {};
   }
 };

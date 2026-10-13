@@ -58,11 +58,11 @@ describe("converter mode economy", () => {
     const player = makePlayer();
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "ADVANCED_TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" }
+      economicStructure: { ownerId: "player-1", type: "HIGH_YIELD_TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" }
     };
     const tiles = new Map([["10,10", tile]]);
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined);
-    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "ADVANCED_TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(12 / 1440, 5);
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "HIGH_YIELD_TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(12 / 1440, 5);
   });
 
   it("EXCHANGE-mode gold payout routes through the player's income multiplier", () => {
@@ -122,7 +122,7 @@ describe("converter mode economy", () => {
       };
       const converter: DomainTileState = {
         x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+        economicStructure: { ownerId: "player-1", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
       };
       return new Map([["10,10", town], ["11,10", converter]]);
     };
@@ -132,7 +132,7 @@ describe("converter mode economy", () => {
       const tiles = townPlusConverterTiles();
       const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
       const converterAmount = 10 / 1440;
-      expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "CRYSTAL_SYNTHESIZER" }));
+      expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "AETHER_CONDENSER" }));
       const townsBucket = economy.economyBreakdown.GOLD.sources.find((s) => s.label === "Towns");
       expect(townsBucket?.amountPerMinute).toBeGreaterThanOrEqual(converterAmount);
     });
@@ -154,11 +154,11 @@ describe("converter mode economy", () => {
       };
       const farConverter: DomainTileState = {
         x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+        economicStructure: { ownerId: "player-1", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
       };
       const tiles = new Map([["10,10", town], ["30,30", farConverter]]);
       const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-      expect(economy.economyBreakdown.GOLD.sources).toContainEqual(expect.objectContaining({ label: "CRYSTAL_SYNTHESIZER" }));
+      expect(economy.economyBreakdown.GOLD.sources).toContainEqual(expect.objectContaining({ label: "AETHER_CONDENSER" }));
     });
   });
 });

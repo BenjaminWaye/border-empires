@@ -4,20 +4,20 @@ import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
 import { upkeepDescriptorFor, upkeepSuffixFor } from "./client-structure-upkeep-text.js";
 
 describe("upkeepDescriptorFor", () => {
-  it("Farmstead has no ongoing upkeep at all", () => {
-    expect(upkeepDescriptorFor("FARMSTEAD")).toEqual([]);
+  it("Hydrogarden has no ongoing upkeep at all", () => {
+    expect(upkeepDescriptorFor("HYDROGARDEN")).toEqual([]);
   });
 
   it("Titanium Works shows both its TITANIUM slot and its real gold/day drain", () => {
     expect(upkeepDescriptorFor("TITANIUM_WORKS")).toEqual(["1 TITANIUM slot", "30 gold/day"]);
   });
 
-  it("Advanced Crystal Synthesizer shows its CRYSTAL slot and its 60 gold/day drain", () => {
-    expect(upkeepDescriptorFor("ADVANCED_CRYSTAL_SYNTHESIZER")).toEqual(["1 CRYSTAL slot", "60 gold/day"]);
+  it("High Yield Aether Condenser shows its CRYSTAL slot and its 60 gold/day drain", () => {
+    expect(upkeepDescriptorFor("HIGH_YIELD_AETHER_CONDENSER")).toEqual(["1 CRYSTAL slot", "60 gold/day"]);
   });
 
-  it("Airport has no gold/day upkeep -- only its real 3 CRYSTAL slots", () => {
-    expect(upkeepDescriptorFor("AIRPORT")).toEqual(["3 CRYSTAL slots"]);
+  it("Sky Dock has no gold/day upkeep -- only its real 3 CRYSTAL slots", () => {
+    expect(upkeepDescriptorFor("SKY_DOCK")).toEqual(["3 CRYSTAL slots"]);
   });
 
   it("a first-built Observatory costs 1 CRYSTAL slot", () => {
@@ -47,7 +47,7 @@ describe("upkeepDescriptorFor", () => {
 
 describe("upkeepSuffixFor", () => {
   it("returns an empty string for a no-upkeep structure", () => {
-    expect(upkeepSuffixFor("WATERWORKS")).toBe("");
+    expect(upkeepSuffixFor("HYDROWORKS")).toBe("");
   });
 
   it("formats a single bit as a labeled Upkeep segment", () => {

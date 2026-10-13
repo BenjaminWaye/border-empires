@@ -8,7 +8,7 @@ describe("computeFortificationRanking", () => {
       { fort: { ownerId: "p1", status: "active", variant: "FORT" } }, // weight 2.5
       { fort: { ownerId: "p1", status: "active", variant: "THUNDER_BASTION" } }, // weight 6.5
       { fort: { ownerId: "p1", status: "under_construction", variant: "FORT" } }, // excluded
-      { fort: { ownerId: "p2", status: "active", variant: "WOODEN_FORT" } } // weight 1.35
+      { fort: { ownerId: "p2", status: "active", variant: "PALISADE" } } // weight 1.35
     ];
     const ranking = computeFortificationRanking(tiles);
     expect(ranking[0]).toEqual({ playerId: "p1", score: 9, forts: 2 });

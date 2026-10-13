@@ -5,7 +5,7 @@ type Args = {
   size: number;
 };
 
-const icons = import.meta.glob("../../../client/public/overlays/{relay-beacon,siege-outpost}-overlay.svg", {
+const icons = import.meta.glob("../../../client/public/overlays/{relay-beacon,siege-battery}-overlay.svg", {
   eager: true,
   query: "?url",
   import: "default"
@@ -18,7 +18,7 @@ for (const [path, url] of Object.entries(icons)) {
 }
 
 const beaconUrl = OVERLAY_URLS["relay-beacon-overlay"] ?? "";
-const outpostUrl = OVERLAY_URLS["siege-outpost-overlay"] ?? "";
+const outpostUrl = OVERLAY_URLS["siege-battery-overlay"] ?? "";
 
 const BACKGROUNDS: Record<Args["background"], string> = {
   grass: "#3f5d3a",
@@ -173,4 +173,4 @@ export const Readability: Story = { render: renderReadability };
 
 // Side-by-side against the existing light-brown Siege Battery tile icon so
 // the dark brass beacon silhouette can be told apart at a glance.
-export const ContrastWithSiegeOutpost: Story = { render: renderContrast };
+export const ContrastWithSiegeBattery: Story = { render: renderContrast };

@@ -99,28 +99,28 @@ describe("converter mode flips (Phase 7)", () => {
           clientSeq,
           issuedAt: 1_000,
           type: "BUILD_ECONOMIC_STRUCTURE",
-          payloadJson: JSON.stringify({ x, y, structureType: "UMBRITE_SYNTHESIZER" })
+          payloadJson: JSON.stringify({ x, y, structureType: "UMBRITE_WORKS" })
         });
 
       // Build 3 converters sequentially
       buildAt("build-1", 1, 16, 16);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       buildAt("build-2", 2, 18, 16);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       buildAt("build-3", 3, 20, 16);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       // None should be rejected for cap
       const buildRejections = seen.filter((event) => event.eventType === "COMMAND_REJECTED" && event.commandId.startsWith("build-"));
       expect(buildRejections).toHaveLength(0);
 
       // Now flip them all to EXCHANGE and back to SYNTHESIZE — no cap on flip
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + CONVERTER_MODE_FLIP_COOLDOWN_MS + 1);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + CONVERTER_MODE_FLIP_COOLDOWN_MS + 1);
 
       // The BUILD_ECONOMIC_STRUCTURE command's (x, y) targets the town-support
       // resolution, which places the actual structure on the town's open
@@ -129,24 +129,24 @@ describe("converter mode flips (Phase 7)", () => {
       submitFlip(runtime, "flip-1-away", 4, 16, 17, "EXCHANGE");
       await Promise.resolve();
 
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + 2 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 2);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + 2 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 2);
       submitFlip(runtime, "flip-2-away", 5, 18, 17, "EXCHANGE");
       await Promise.resolve();
 
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + 3 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 3);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + 3 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 3);
       submitFlip(runtime, "flip-3-away", 6, 20, 17, "EXCHANGE");
       await Promise.resolve();
 
       // Flip all back to SYNTHESIZE — no rejections
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + 4 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 4);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + 4 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 4);
       submitFlip(runtime, "flip-1-back", 7, 16, 17, "SYNTHESIZE");
       await Promise.resolve();
 
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + 5 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 5);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + 5 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 5);
       submitFlip(runtime, "flip-2-back", 8, 18, 17, "SYNTHESIZE");
       await Promise.resolve();
 
-      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_SYNTHESIZER") + 6 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 6);
+      setNow(1_000 + 3 * structureBuildDurationMs("UMBRITE_WORKS") + 6 * CONVERTER_MODE_FLIP_COOLDOWN_MS + 6);
       submitFlip(runtime, "flip-3-back", 9, 20, 17, "SYNTHESIZE");
       await Promise.resolve();
 
@@ -194,10 +194,10 @@ describe("converter mode flips (Phase 7)", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "UMBRITE_SYNTHESIZER" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "UMBRITE_WORKS" })
       });
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
       const structure = JSON.parse(exported!.economicStructureJson);
@@ -292,8 +292,8 @@ describe("converter mode flips (Phase 7)", () => {
       // Two converters with no converterMode — both default to SYNTHESIZE.
       // With cap removed, flipping one to EXCHANGE and back should have no cap rejection.
       const { runtime, setNow } = buildRuntime([
-        converterTile(15, 16, "UMBRITE_SYNTHESIZER"),
-        converterTile(15, 17, "UMBRITE_SYNTHESIZER")
+        converterTile(15, 16, "UMBRITE_WORKS"),
+        converterTile(15, 17, "UMBRITE_WORKS")
       ]);
       const seen = collectEvents(runtime);
 
@@ -322,7 +322,7 @@ describe("converter mode flips (Phase 7)", () => {
   it("emits a TILE_DELTA_BATCH carrying the new converterMode and lock timestamp on the wire", async () => {
     vi.useFakeTimers();
     try {
-      const { runtime } = buildRuntime([converterTile(15, 16, "UMBRITE_SYNTHESIZER")]);
+      const { runtime } = buildRuntime([converterTile(15, 16, "UMBRITE_WORKS")]);
       const batches: Array<{ x: number; y: number; economicStructureJson?: string }>[] = [];
       runtime.onEvent((event) => {
         if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "flip-wire") batches.push(event.tileDeltas);
@@ -391,18 +391,18 @@ describe("converter mode flips (Phase 7)", () => {
           clientSeq,
           issuedAt: 1_000,
           type: "BUILD_ECONOMIC_STRUCTURE",
-          payloadJson: JSON.stringify({ x, y, structureType: "UMBRITE_SYNTHESIZER" })
+          payloadJson: JSON.stringify({ x, y, structureType: "UMBRITE_WORKS" })
         });
 
       // First converter (town 1) completes in SYNTHESIZE (default)
       buildAt("build-first", 1, 16, 16);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       // Second converter at town 2 should also build (no cap)
       buildAt("build-second-ok", 2, 18, 16);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("UMBRITE_WORKS"));
 
       const capped = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "build-second-ok");
       expect(capped).toBeUndefined();
@@ -411,7 +411,7 @@ describe("converter mode flips (Phase 7)", () => {
     }
   });
 
-  it("allows stacking multiple Aether Condensers (CRYSTAL_SYNTHESIZER) on the same town's support ring", async () => {
+  it("allows stacking multiple Aether Condensers (AETHER_CONDENSER) on the same town's support ring", async () => {
     vi.useFakeTimers();
     try {
       // Give the default town (16,16) a second open support tile at
@@ -429,24 +429,24 @@ describe("converter mode flips (Phase 7)", () => {
           clientSeq,
           issuedAt: 1_000,
           type: "BUILD_ECONOMIC_STRUCTURE",
-          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "CRYSTAL_SYNTHESIZER" })
+          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "AETHER_CONDENSER" })
         });
 
       // Both builds target the town tile itself; resolveTownSupportTarget
       // auto-places each one onto a different open support tile.
       buildAt("build-first-condenser", 1);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("AETHER_CONDENSER"));
 
       buildAt("build-second-condenser", 2);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("AETHER_CONDENSER"));
 
       const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "build-second-condenser");
       expect(rejected).toBeUndefined();
 
       const tiles = runtime.exportState().tiles;
-      const condenserTiles = tiles.filter((tile) => tile.economicStructureJson?.includes("CRYSTAL_SYNTHESIZER"));
+      const condenserTiles = tiles.filter((tile) => tile.economicStructureJson?.includes("AETHER_CONDENSER"));
       expect(condenserTiles).toHaveLength(2);
     } finally {
       vi.useRealTimers();
@@ -468,12 +468,12 @@ describe("converter mode flips (Phase 7)", () => {
           clientSeq,
           issuedAt: 1_000,
           type: "BUILD_ECONOMIC_STRUCTURE",
-          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "CRYSTAL_SYNTHESIZER" })
+          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "AETHER_CONDENSER" })
         });
 
       buildAt("build-first-condenser", 1);
       await Promise.resolve();
-      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+      vi.advanceTimersByTime(structureBuildDurationMs("AETHER_CONDENSER"));
 
       buildAt("build-second-condenser", 2);
       await Promise.resolve();

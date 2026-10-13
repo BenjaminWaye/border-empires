@@ -30,7 +30,7 @@ type PreviewTile = {
   dockId?: string | undefined;
   townType?: string | undefined;
   economicStructureJson?: string | undefined;
-  siegeOutpostJson?: string | undefined;
+  siegeBatteryJson?: string | undefined;
   fortJson?: string | undefined;
   breachShockUntil?: number | undefined;
 };
@@ -56,12 +56,12 @@ const parseStructureJson = <T>(json: string | undefined): T | undefined => {
 export const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
   const map = new Map<string, PreviewTileWithAura>();
   for (const tile of tiles) {
-    const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
+    const siegeBattery = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeBatteryJson);
     const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
     const fort = parseStructureJson<{ ownerId?: string; status?: string; variant?: FortVariant; upgradingFrom?: FortVariant }>(tile.fortJson);
     map.set(previewTileKey(tile.x, tile.y), {
       ...tile,
-      ...(siegeOutpost ? { siegeOutpost } : {}),
+      ...(siegeBattery ? { siegeBattery } : {}),
       ...(economicStructure ? { economicStructure } : {}),
       ...(fort ? { fort } : {})
     });

@@ -1,7 +1,7 @@
-import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "../types.js";
+import type { EconomicStructureType, FortVariant, SiegeBatteryVariant } from "../types.js";
 
 export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
-export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType;
+export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_BATTERY" | EconomicStructureType;
 
 type StructureScaling =
   | { kind: "doubling" }
@@ -29,12 +29,12 @@ export type StructureCostDefinition = {
 // STRUCTURE_COST_DEFINITIONS and FORT_TIER_LADDER/SIEGE_TIER_LADDER below
 // both read from these same constants instead of repeating a literal, so a
 // tier's cost can never drift between "what's charged" and "what a ladder
-// says" the way WOODEN_FORT's old 30-vs-150 split once did.
-const WOODEN_FORT_MANPOWER = 30;
+// says" the way PALISADE's old 30-vs-150 split once did.
+const PALISADE_MANPOWER = 30;
 const FORT_MANPOWER = 300;
 const TITANIUM_BASTION_MANPOWER = 480;
 const THUNDER_BASTION_MANPOWER = 960;
-const SIEGE_OUTPOST_MANPOWER = 60;
+const SIEGE_BATTERY_MANPOWER = 60;
 // D13: siege tiers now scale their manpower (60 / 120 / 240) instead of 60
 // at every tier, so their build time scales too (B2's time-follows-cost).
 const SIEGE_TOWER_MANPOWER = 120;
@@ -66,9 +66,9 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     manpowerCost: 80,
     scaling: { kind: "doubling" }
   },
-  SIEGE_OUTPOST: {
+  SIEGE_BATTERY: {
     baseGoldCost: 0,
-    manpowerCost: SIEGE_OUTPOST_MANPOWER,
+    manpowerCost: SIEGE_BATTERY_MANPOWER,
     resourceCost: { resource: "UMBRITE", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
@@ -78,28 +78,28 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // 20 (acquisition always a little cheaper than optimization, §4.2's ordering
   // rule). Resource costs are left as-is here — converting them to the slot
   // model is §5 (Step 5), out of scope for this pass.
-  FARMSTEAD: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
-  WATERWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
+  HYDROGARDEN: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
+  HYDROWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   UMBRITE_RIG: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "UMBRITE", amount: 30 } },
   MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
   MINTWORKS: { baseGoldCost: 0, manpowerCost: 150 },
-  GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
+  INCUBATION_ENGINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
   CLEARING_HOUSE: { baseGoldCost: 0, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
-  AIRPORT: {
+  SKY_DOCK: {
     baseGoldCost: 0,
     manpowerCost: 150,
     scaling: { kind: "doubling" }
   },
-  AETHER_TOWER: {
+  AMBARIC_TRANSFORMER: {
     baseGoldCost: 0,
     manpowerCost: 400,
     resourceCost: { resource: "CRYSTAL", amount: 160 },
     scaling: { kind: "incremental", rate: 0.15 }
   },
-  WOODEN_FORT: {
+  PALISADE: {
     baseGoldCost: 0,
-    manpowerCost: WOODEN_FORT_MANPOWER,
+    manpowerCost: PALISADE_MANPOWER,
     scaling: { kind: "incremental", rate: 0.1 }
   },
   // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
@@ -112,22 +112,22 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // generically (client cost-display fallback, STRUCTURE_REGISTRY's econSpec)
   // show a sane number rather than 0.
   RELAY_BEACON: { baseGoldCost: 0, manpowerCost: RELAY_BEACON_MANPOWER },
-  UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
-  ADVANCED_UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "UMBRITE", amount: 40 } },
+  UMBRITE_WORKS: { baseGoldCost: 0, manpowerCost: 150 },
+  HIGH_YIELD_UMBRITE_WORKS: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "UMBRITE", amount: 40 } },
   TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 150 },
-  ADVANCED_TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "TITANIUM", amount: 40 } },
-  CRYSTAL_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
-  ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
-  CARAVANARY: { baseGoldCost: 0, manpowerCost: 150 },
-  FOUNDRY: { baseGoldCost: 0, manpowerCost: 300 },
-  GARRISON_HALL: { baseGoldCost: 0, manpowerCost: 150 },
-  CUSTOMS_HOUSE: { baseGoldCost: 0, manpowerCost: 100 },
-  RAIL_DEPOT: { baseGoldCost: 0, manpowerCost: 300 },
-  GOVERNORS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
-  RADAR_SYSTEM: { baseGoldCost: 0, manpowerCost: 300 },
+  HIGH_YIELD_TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "TITANIUM", amount: 40 } },
+  AETHER_CONDENSER: { baseGoldCost: 0, manpowerCost: 150 },
+  HIGH_YIELD_AETHER_CONDENSER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
+  TRADE_NEXUS: { baseGoldCost: 0, manpowerCost: 150 },
+  ORE_REFINERY: { baseGoldCost: 0, manpowerCost: 300 },
+  ANCILLARY_DEPOT: { baseGoldCost: 0, manpowerCost: 150 },
+  HARBOR_EXCHANGE: { baseGoldCost: 0, manpowerCost: 100 },
+  NEURAL_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
+  MINISTRY_HALL: { baseGoldCost: 0, manpowerCost: 150 },
+  RESONANCE_GRID: { baseGoldCost: 0, manpowerCost: 300 },
   QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
-  LOGISTICS_GUILD: { baseGoldCost: 0, manpowerCost: 150 },
-  ASSEMBLY_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
+  ANCILLARY_FACTORY: { baseGoldCost: 0, manpowerCost: 150 },
+  RESERVE_LATTICE: { baseGoldCost: 0, manpowerCost: 300 },
   // Retired (see structure-registry-economic.ts) — not in ECONOMIC_SPECS so
   // it can no longer be built, but the cost definition stays here since
   // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType
@@ -143,26 +143,26 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  WORLD_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  WORLD_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  WORLD_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  SOVEREIGN_SIEGE_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  SOVEREIGN_SIEGE_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  SOVEREIGN_SIEGE_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  POPULATION_BUREAU_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  POPULATION_BUREAU_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
-  POPULATION_BUREAU_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  CENSUS_DIRECTORATE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  CENSUS_DIRECTORATE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
+  CENSUS_DIRECTORATE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   TITANIUM_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   TITANIUM_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   TITANIUM_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  WORLD_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  SOVEREIGN_SIEGE_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  POPULATION_BUREAU: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
+  CENSUS_DIRECTORATE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
 };
 
@@ -190,7 +190,7 @@ export type FortTierInfo = {
 // fortTier.titanium` check on a stockpile that no longer accumulates,
 // silently blocking every AI fort build.
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
-  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: WOODEN_FORT_MANPOWER,      defenseMult: 1.35 },
+  PALISADE:      { variant: "PALISADE",      gold: 0,  titanium: 0,   manpower: PALISADE_MANPOWER,      defenseMult: 1.35 },
   FORT:             { variant: "FORT",             gold: 0,  titanium: 0,   manpower: FORT_MANPOWER,             defenseMult: 2.5 },
   TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 0,   manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
   THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 0,   manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
@@ -215,7 +215,7 @@ export type AttackManpowerLossRange = { min: number; max: number };
 
 export const ATTACK_MANPOWER_LOSS_RANGE: Record<"NONE" | FortVariant, AttackManpowerLossRange> = {
   NONE:             { min: 40,  max: 60 },
-  WOODEN_FORT:      { min: 100, max: 150 },
+  PALISADE:      { min: 100, max: 150 },
   FORT:             { min: 200, max: 300 },
   TITANIUM_BASTION: { min: 350, max: 480 },
   THUNDER_BASTION:  { min: 800, max: 960 },
@@ -228,7 +228,7 @@ export const requiredMusterForFort = (fortVariant: FortVariant | undefined): num
   attackManpowerLossRangeForFort(fortVariant).max;
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
-  WOODEN_FORT: "Palisade",
+  PALISADE: "Palisade",
   FORT: "Fort",
   TITANIUM_BASTION: "Titanium Bastion",
   THUNDER_BASTION: "Thunder Bastion",
@@ -245,7 +245,7 @@ export const nextFortTierForUpgrade = (
   has: (id: string) => boolean,
 ): FortTierInfo | null => {
   const resolved = current ?? "FORT";
-  if (resolved === "WOODEN_FORT") return FORT_TIER_LADDER.FORT;
+  if (resolved === "PALISADE") return FORT_TIER_LADDER.FORT;
   if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.TITANIUM_BASTION;
   if (resolved === "TITANIUM_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   return null;
@@ -278,17 +278,17 @@ export const fortTierForBuild = (
   currentVariant: FortVariant | undefined,
   has: (id: string) => boolean,
 ): FortTierInfo | null => {
-  if (structureType === "WOODEN_FORT") return currentVariant ? null : FORT_TIER_LADDER.WOODEN_FORT;
-  if (!currentVariant || currentVariant === "WOODEN_FORT") return bestFortTierForTech(has);
+  if (structureType === "PALISADE") return currentVariant ? null : FORT_TIER_LADDER.PALISADE;
+  if (!currentVariant || currentVariant === "PALISADE") return bestFortTierForTech(has);
   return nextFortTierForUpgrade(currentVariant, has);
 };
 
-// ── Siege outpost tier ladder ──────────────────────────────────────
-// Single source of truth for siege outpost variant costs and attack multipliers.
+// ── Siege Battery tier ladder ──────────────────────────────────────
+// Single source of truth for siege battery variant costs and attack multipliers.
 // Attack mults match the config constants used by outpost-aura.ts at combat time.
 
 export type SiegeTierInfo = {
-  variant: SiegeOutpostVariant;
+  variant: SiegeBatteryVariant;
   gold: number;
   umbrite: number;
   titanium: number;
@@ -296,14 +296,14 @@ export type SiegeTierInfo = {
   attackMult: number;
 };
 
-export const SIEGE_TIER_LADDER: Record<SiegeOutpostVariant, SiegeTierInfo> = {
-  SIEGE_OUTPOST: { variant: "SIEGE_OUTPOST", gold: 0, umbrite: 45,  titanium: 0,   manpower: SIEGE_OUTPOST_MANPOWER, attackMult: 1.6 },
+export const SIEGE_TIER_LADDER: Record<SiegeBatteryVariant, SiegeTierInfo> = {
+  SIEGE_BATTERY: { variant: "SIEGE_BATTERY", gold: 0, umbrite: 45,  titanium: 0,   manpower: SIEGE_BATTERY_MANPOWER, attackMult: 1.6 },
   SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
   DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
 };
 
-export const SIEGE_VARIANT_LABELS: Record<SiegeOutpostVariant, string> = {
-  SIEGE_OUTPOST: "Siege Battery",
+export const SIEGE_VARIANT_LABELS: Record<SiegeBatteryVariant, string> = {
+  SIEGE_BATTERY: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower",
 };
@@ -311,15 +311,15 @@ export const SIEGE_VARIANT_LABELS: Record<SiegeOutpostVariant, string> = {
 export const bestSiegeTierForTech = (has: (id: string) => boolean): SiegeTierInfo => {
   if (has("standing-army")) return SIEGE_TIER_LADDER.DREAD_TOWER;
   if (has("siegecraft")) return SIEGE_TIER_LADDER.SIEGE_TOWER;
-  return SIEGE_TIER_LADDER.SIEGE_OUTPOST;
+  return SIEGE_TIER_LADDER.SIEGE_BATTERY;
 };
 
 export const nextSiegeTierForUpgrade = (
-  current: SiegeOutpostVariant | undefined,
+  current: SiegeBatteryVariant | undefined,
   has: (id: string) => boolean,
 ): SiegeTierInfo | null => {
-  const resolved = current ?? "SIEGE_OUTPOST";
-  if (resolved === "SIEGE_OUTPOST" && has("siegecraft")) return SIEGE_TIER_LADDER.SIEGE_TOWER;
+  const resolved = current ?? "SIEGE_BATTERY";
+  if (resolved === "SIEGE_BATTERY" && has("siegecraft")) return SIEGE_TIER_LADDER.SIEGE_TOWER;
   if (resolved === "SIEGE_TOWER" && has("standing-army")) return SIEGE_TIER_LADDER.DREAD_TOWER;
   return null;
 };
@@ -367,8 +367,8 @@ export const structureBuildManpowerCostScaled = (type: BuildableStructureType, e
 // manpower refill -- manpower, not build time, is the limit). Structures only (settle,
 // expand, attacks and muster keep their own, unrelated timers -- this
 // function family never covered those). Replaces the old flat per-type
-// FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_OUTPOST_BUILD_MS/
-// ECONOMIC_STRUCTURE_BUILD_MS/WOODEN_FORT_BUILD_MS/RELAY_BEACON_BUILD_MS
+// FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_BATTERY_BUILD_MS/
+// ECONOMIC_STRUCTURE_BUILD_MS/PALISADE_BUILD_MS/RELAY_BEACON_BUILD_MS
 // constants (config.js) these two functions used to read.
 export const MANPOWER_COST_MS_PER_POINT = 1_000;
 
@@ -386,7 +386,7 @@ export const MANPOWER_COST_REMOVAL_MS_PER_POINT = 500;
 export const fortBuildDurationMs = (variant: FortVariant = "FORT"): number =>
   structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);
 
-export const siegeOutpostBuildDurationMs = (variant: SiegeOutpostVariant = "SIEGE_OUTPOST"): number =>
+export const siegeBatteryBuildDurationMs = (variant: SiegeBatteryVariant = "SIEGE_BATTERY"): number =>
   structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
 
 export const structureRemovalDurationMsForManpowerCost = (manpowerCost: number): number =>
@@ -395,7 +395,7 @@ export const structureRemovalDurationMsForManpowerCost = (manpowerCost: number):
 export const fortRemovalDurationMs = (variant: FortVariant = "FORT"): number =>
   structureRemovalDurationMsForManpowerCost(FORT_TIER_LADDER[variant].manpower);
 
-export const siegeOutpostRemovalDurationMs = (variant: SiegeOutpostVariant = "SIEGE_OUTPOST"): number =>
+export const siegeBatteryRemovalDurationMs = (variant: SiegeBatteryVariant = "SIEGE_BATTERY"): number =>
   structureRemovalDurationMsForManpowerCost(SIEGE_TIER_LADDER[variant].manpower);
 
 export const structureRemovalDurationMs = (type: BuildableStructureType): number =>
@@ -416,12 +416,12 @@ export const economicStructureBuildDurationMs = (type: EconomicStructureType, ex
 };
 
 export const structureBuildDurationMs = (type: BuildableStructureType, existingCount = 0): number => {
-  // FORT/SIEGE_OUTPOST here mean each family's BASE tier (WOODEN_FORT-less
-  // FORT, first SIEGE_OUTPOST) -- a resolved tier upgrade's real duration is
+  // FORT/SIEGE_BATTERY here mean each family's BASE tier (PALISADE-less
+  // FORT, first SIEGE_BATTERY) -- a resolved tier upgrade's real duration is
   // computed server-side straight from that tier's own manpower cost
   // (runtime-structure-command-handlers.ts), not through this lookup.
   if (type === "FORT") return structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.FORT.manpower);
-  if (type === "SIEGE_OUTPOST") return structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER.SIEGE_OUTPOST.manpower);
+  if (type === "SIEGE_BATTERY") return structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER.SIEGE_BATTERY.manpower);
   if (type === "OBSERVATORY") return structureBuildDurationMsForManpowerCost(structureBuildManpowerCost("OBSERVATORY"));
   return economicStructureBuildDurationMs(type, existingCount);
 };

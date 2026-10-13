@@ -5,7 +5,7 @@ import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-
 
 // These must be the real backend economicStructure.type strings (what
 // client-map-3d.ts actually passes to addInstance), not display names —
-// GARRISON_HALL/GRANARY/AETHER_TOWER are the wire-protocol identifiers for
+// ANCILLARY_DEPOT/INCUBATION_ENGINE/AMBARIC_TRANSFORMER are the wire-protocol identifiers for
 // Ancillary Factory/Incubation Engine/Ambaric Transformer Station. Using the display
 // names here previously let this test pass while the real dedicated 3D
 // models were unreachable dead code (shadowed by stale registrations in
@@ -13,13 +13,13 @@ import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-
 // real backend type).
 const MANPOWER_KINDS = [
   "QUARTERMASTERS_OFFICE",
-  "LOGISTICS_GUILD",
-  "ASSEMBLY_WORKS",
-  "POPULATION_BUREAU",
+  "ANCILLARY_FACTORY",
+  "RESERVE_LATTICE",
+  "CENSUS_DIRECTORATE",
   "TITANIUM_LEVY",
-  "GARRISON_HALL",
-  "GRANARY",
-  "AETHER_TOWER"
+  "ANCILLARY_DEPOT",
+  "INCUBATION_ENGINE",
+  "AMBARIC_TRANSFORMER"
 ] as const;
 
 describe("manpower structure overlay", () => {

@@ -744,7 +744,7 @@ describe("worker AI command producer pause/resume", () => {
               clientSeq: 1,
               issuedAt: 1000,
               type: "BUILD_ECONOMIC_STRUCTURE",
-              payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "FARMSTEAD" })
+              payloadJson: JSON.stringify({ x: 0, y: 0, structureType: "HYDROGARDEN" })
             }
           });
         });

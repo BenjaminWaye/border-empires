@@ -418,16 +418,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
-      if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
-        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
-        const marker = Math.max(4, Math.floor(size * 0.22));
-        const mx = px + 3;
-        const my = py + 3;
-        deps.ctx.fillStyle = `rgba(15, 18, 28, ${0.68 + pulse * 0.18})`;
-        deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-        deps.ctx.fillStyle = `rgba(255, 220, 90, ${0.75 + pulse * 0.25})`;
-        deps.ctx.fillRect(mx, my, marker, marker);
-      }
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
@@ -472,7 +462,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // image / fallback so the canvas stays clean over them.
         // isStructureHandledBy3D() is the authoritative check, covering
         // both the generic instanced-mesh set and structures (like the
-        // Umbrite rig/factory and CARAVANARY) rendered via a dedicated
+        // Umbrite rig/factory and TRADE_NEXUS) rendered via a dedicated
         // branch in client-map-3d.ts.
         const handled3DStructure =
           isTrue3DRendererActive() &&
@@ -482,7 +472,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (t.economicStructure.type === "RELAY_BEACON" || handled3DStructure) {
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-        } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+        } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
             active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
@@ -933,16 +923,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
 
         if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
-        if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
-          const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
-          const marker = Math.max(4, Math.floor(size * 0.22));
-          const mx = px + 3;
-          const my = py + 3;
-          deps.ctx.fillStyle = `rgba(15, 18, 28, ${0.68 + pulse * 0.18})`;
-          deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-          deps.ctx.fillStyle = `rgba(255, 220, 90, ${0.75 + pulse * 0.25})`;
-          deps.ctx.fillRect(mx, my, marker, marker);
-        }
 
         if (t && vis === "visible" && t.fort) {
           deps.ctx.fillStyle = deps.structureAccentColor(
@@ -952,10 +932,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
         }
-        if (t && vis === "visible" && t.siegeOutpost) {
+        if (t && vis === "visible" && t.siegeBattery) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
-            t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
+            t.siegeBattery.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
           );
           const dot = Math.max(3, Math.floor(size * 0.25));
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
@@ -985,7 +965,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (handled3DStructure2) {
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+          } else if (t.economicStructure.type === "HYDROGARDEN" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
               active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"

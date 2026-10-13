@@ -54,7 +54,7 @@ describe("season activity persistence", () => {
     const logs: PersistedActivityLogs = {
       flips: [],
       combat: [],
-      personalImpacts: [{ id: "building:1", kind: "BUILDING_COMPLETED", playerId: "p1", occurredAt: NOW, x: 1, y: 2, structureType: "GRANARY" }]
+      personalImpacts: [{ id: "building:1", kind: "BUILDING_COMPLETED", playerId: "p1", occurredAt: NOW, x: 1, y: 2, structureType: "INCUBATION_ENGINE" }]
     };
 
     await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs }));

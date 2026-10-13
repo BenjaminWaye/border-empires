@@ -46,7 +46,7 @@ export type LandConnectivityQuery = (x: number, y: number) => boolean;
 export const reachRadiusForKind = (kind: ReachAnchorKind): number => {
   if (kind === "TOWN") return TOWN_REACH_RADIUS;
   if (kind === "DOCK") return DOCK_REACH_RADIUS;
-  return OUTPOST_REACH_RADIUS; // OUTPOST: RELAY_BEACON, SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER
+  return OUTPOST_REACH_RADIUS; // OUTPOST: RELAY_BEACON, SIEGE_BATTERY, SIEGE_TOWER, DREAD_TOWER
 };
 
 export const reachRadiusForAnchor = (anchor: ReachAnchor): number =>

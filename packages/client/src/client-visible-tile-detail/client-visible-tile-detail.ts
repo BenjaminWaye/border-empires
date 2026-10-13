@@ -50,7 +50,7 @@ const visibleTilePriority = (tile: Tile, me: string, camX: number, camY: number)
     !tile.dockId &&
     !tile.fort &&
     !tile.observatory &&
-    !tile.siegeOutpost &&
+    !tile.siegeBattery &&
     !tile.economicStructure;
 
   let score = 0;
@@ -61,7 +61,7 @@ const visibleTilePriority = (tile: Tile, me: string, camX: number, camY: number)
   if (tileHasTownIdentity(tile)) score += 340;
   if (tile.resource) score += 300;
   if (tile.dockId) score += 280;
-  if (tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) score += 260;
+  if (tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure) score += 260;
   if (tile.shardSite) score += 220;
   if (shellLikeOwnedSummary) score += 240;
   return score - distancePenalty * 8;

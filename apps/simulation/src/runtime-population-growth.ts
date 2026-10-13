@@ -5,7 +5,7 @@ import {
   NEARBY_WAR_PAUSE_MS,
   NEARBY_WAR_RADIUS,
   POPULATION_GROWTH_BASE_RATE,
-  granaryGrowthMultiplier,
+  incubationEngineGrowthMultiplier,
   SETTLEMENT_GROWTH_RATE_MULT,
   type DomainTileState
 } from "@border-empires/game-domain";
@@ -15,17 +15,17 @@ import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runti
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 
-export function granaryGrowthMultForTile(input: {
+export function incubationEngineGrowthMultForTile(input: {
   tile: DomainTileState;
   playerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Granary stops granting its growth bonus.
+  // dormant Incubation Engine stops granting its growth bonus.
   dormantEconomicStructureKeys?: ReadonlySet<string>;
 }): number {
   const dormantEconomicStructureKeys = input.dormantEconomicStructureKeys ?? new Set<string>();
-  const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles, false, dormantEconomicStructureKeys);
-  return granaryGrowthMultiplier(hasGranary);
+  const hasIncubationEngine = hasSupportedStructure(input.playerId, input.tile, "INCUBATION_ENGINE", input.tiles, false, dormantEconomicStructureKeys);
+  return incubationEngineGrowthMultiplier(hasIncubationEngine);
 }
 
 export function tickPopulationGrowth(input: {
@@ -45,8 +45,8 @@ export function tickPopulationGrowth(input: {
   // fed check (there's only one food mechanic now: slots).
   foodDormantTownKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player
-  // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Granary/Seed
-  // Granary doesn't grant its growth bonus.
+  // (Runtime.dormantEconomicStructureKeysForPlayer) — a dormant Incubation Engine/Seed
+  // Incubation Engine doesn't grant its growth bonus.
   dormantEconomicStructureKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }): {
   growthStalledNoFood: number;
@@ -215,7 +215,7 @@ export function tickPopulationGrowth(input: {
         continue;
       }
 
-      const granaryGrowthMult = granaryGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
+      const incubationEngineGrowthMult = incubationEngineGrowthMultForTile({ tile, playerId: player.id, tiles: input.tiles, dormantEconomicStructureKeys });
       const firstThreeMult = firstThreeKeys.has(tileKey) ? firstThreePopMult : 1;
       const hasLongPeace = !town.nearbyWarLastAt || input.nowMs - town.nearbyWarLastAt >= LONG_PEACE_MS;
       const longPeaceMult = hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1;
@@ -231,7 +231,7 @@ export function tickPopulationGrowth(input: {
         town.population *
         POPULATION_GROWTH_BASE_RATE *
         settlementRateMult *
-        granaryGrowthMult *
+        incubationEngineGrowthMult *
         firstThreeMult *
         longPeaceMult *
         integrityGrowthMult *

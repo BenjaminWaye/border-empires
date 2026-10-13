@@ -2335,7 +2335,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             town_population_tier?: string;
             fort_json?: string;
             observatory_json?: string;
-            siege_outpost_json?: string;
+            siege_battery_json?: string;
             economic_structure_json?: string;
             sabotage_json?: string;
             shard_site_json?: string;

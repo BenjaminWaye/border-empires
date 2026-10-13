@@ -1,6 +1,6 @@
 // AETHER_EMP (Manifest plan §7 item 6 -- docs/manifest-aether-fixes-plan.md).
 // The caster targets a hostile owned tile within observatory range; every
-// Ambaric Transformer (AETHER_TOWER) that tile's owner controls within
+// Ambaric Transformer (AMBARIC_TRANSFORMER) that tile's owner controls within
 // AETHER_EMP_RADIUS of it goes dark for AETHER_EMP_DURATION_MS. This stamps
 // disabledUntil on the Tower's own economicStructure record and leaves
 // status alone, the same lazy-expiry pattern fort.disabledUntil already
@@ -52,7 +52,7 @@ export function handleAetherEmpCommand(context: RuntimeAbilityCommandContext, co
   const struck: DomainTileState[] = [];
   for (const candidate of context.tiles.values()) {
     const tower = candidate.economicStructure;
-    if (!tower || tower.type !== "AETHER_TOWER" || tower.ownerId !== target.ownerId || tower.status !== "active") continue;
+    if (!tower || tower.type !== "AMBARIC_TRANSFORMER" || tower.ownerId !== target.ownerId || tower.status !== "active") continue;
     if (wrappedChebyshev(candidate.x, candidate.y, target.x, target.y) > AETHER_EMP_RADIUS) continue;
     struck.push({ ...candidate, economicStructure: { ...tower, disabledUntil } });
   }

@@ -108,8 +108,8 @@ const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["tow
   hasMintworks: false,
   mintworksActive: false,
   mintworksCount: 0,
-  hasGranary: false,
-  granaryActive: false
+  hasIncubationEngine: false,
+  incubationEngineActive: false
 });
 
 export const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {
@@ -127,7 +127,7 @@ export const createTerrainRuntime = (state: {
   observatoriesByTile: Map<TileKey, unknown>;
   ownership: Map<TileKey, string>;
   players: Map<string, Player>;
-  siegeOutpostsByTile: Map<TileKey, unknown>;
+  siegeBatteriesByTile: Map<TileKey, unknown>;
   terrainShapesByTile: Map<TileKey, TerrainShapeState>;
   townsByTile: Map<TileKey, TownDefinition>;
   economicStructuresByTile: Map<TileKey, unknown>;
@@ -168,12 +168,12 @@ export const createTerrainRuntime = (state: {
     townsByTile: state.townsByTile,
     docksByTile: state.docksByTile as Map<TileKey, never>,
     fortsByTile: state.fortsByTile as Map<TileKey, never>,
-    siegeOutpostsByTile: state.siegeOutpostsByTile as Map<TileKey, never>,
+    siegeBatteriesByTile: state.siegeBatteriesByTile as Map<TileKey, never>,
     observatoriesByTile: state.observatoriesByTile as Map<TileKey, never>,
     economicStructuresByTile: state.economicStructuresByTile as Map<TileKey, never>,
     playerTile,
-    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
+    SKY_DOCK_BOMBARD_MIN_FIELD_TILES: 2,
+    SKY_DOCK_BOMBARD_MAX_FIELD_TILES: 4,
     activeSeason: state.activeSeason,
     clustersById: state.clustersById,
     ownership: state.ownership,
@@ -237,7 +237,7 @@ export const createSeasonSeedWorld = (
     observatoriesByTile: new Map(),
     ownership,
     players: playersForTerrain,
-    siegeOutpostsByTile: new Map(),
+    siegeBatteriesByTile: new Map(),
     terrainShapesByTile,
     townsByTile,
     economicStructuresByTile: new Map()

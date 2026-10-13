@@ -4,7 +4,7 @@
  * avoid duplicating the merge/convert logic (previously this and
  * planner-apply-tile-delta.ts independently reimplemented the same merge,
  * with the latter being the only one that applied town/fort/observatory/
- * siegeOutpost/economicStructure deltas — the former silently dropped those
+ * siegeBattery/economicStructure deltas — the former silently dropped those
  * fields for its callers).
  */
 
@@ -57,10 +57,10 @@ export const mergePlannerTileDelta = (
     if (observatory) next.observatory = observatory;
     else delete next.observatory;
   }
-  if ("siegeOutpostJson" in tileDelta) {
-    const siegeOutpost = parseOwnedStructure(tileDelta.siegeOutpostJson);
-    if (siegeOutpost) next.siegeOutpost = siegeOutpost;
-    else delete next.siegeOutpost;
+  if ("siegeBatteryJson" in tileDelta) {
+    const siegeBattery = parseOwnedStructure(tileDelta.siegeBatteryJson);
+    if (siegeBattery) next.siegeBattery = siegeBattery;
+    else delete next.siegeBattery;
   }
   if ("economicStructureJson" in tileDelta) {
     const economicStructure = parseEconomicStructure(tileDelta.economicStructureJson);
@@ -98,6 +98,6 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
   ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
   ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeOutpost !== undefined ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+  ...(tile.siegeBattery !== undefined ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
   ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})
 });

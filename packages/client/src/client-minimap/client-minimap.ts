@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-map-render.js";
-import { resourceIconForKey } from "../client-map-display.js";
+import { drawResourceIconOnCanvas } from "../client-resource-icons/client-resource-icons.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
 import { visibleShardSiteForTile, type ClientShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -296,8 +296,14 @@ export const drawMiniMap = (options: {
       if (!inBox(tile.x, tile.y)) continue;
       const tx = Math.floor(wxToPx(tile.x));
       const ty = Math.floor(wyToPy(tile.y));
-      cctx.fillStyle = shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
-      cctx.fillText(resourceIconForKey("SHARD"), tx, ty);
+      // The halo keeps the old tint cue: warm for a falling shard, cyan for a landed site.
+      const tint = shardSite.kind === "FALL" ? "255, 244, 176" : "147, 235, 255";
+      cctx.fillStyle = `rgba(${tint}, 0.45)`;
+      cctx.beginPath();
+      cctx.arc(tx, ty, 5, 0, Math.PI * 2);
+      cctx.fill();
+      cctx.fillStyle = `rgba(${tint}, 0.98)`;
+      drawResourceIconOnCanvas(cctx, "SHARD", tx, ty, 11, "8px monospace");
     }
     const rainStatus = options.state.shardRainStatus;
     const rainOngoing = rainStatus?.phase === "started" && options.nowMs < rainStatus.expiresAt;

@@ -139,11 +139,11 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
 - `frontierState` – Counts of frontier opportunities: neutral, economic, town-support, scout, enemy, barbarian
 - Resource state: gold, manpower, dev slot availability
 - `canExpand` / `canAttack` flags
-- `economicBuildCandidate` – The economic structure type (MINTWORKS/BANK/GRANARY/etc.) the
+- `economicBuildCandidate` – The economic structure type (MINTWORKS/BANK/INCUBATION_ENGINE/etc.) the
   planner most recently proposed for this player, if any
 - `lastRejection` – `{ commandType, code, message, at }` for the most recent runtime-rejected
   command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has
-  granary"). Use this to catch propose-then-reject loops that burn planner cycles without
+  incubation engine"). Use this to catch propose-then-reject loops that burn planner cycles without
   producing accepted commands.
 - `needVector` – **Diagnostic-only, Phase 1 of `docs/ai-structure-building-rewrite-plan.md`.**
   Ten measured deficits in `[0, 1]` (`MANPOWER_THROUGHPUT`, `MANPOWER_CEILING`, `FOOD_SLOTS`,
@@ -313,8 +313,8 @@ beacon should become affordable as soon as the pool reaches 30, regardless of th
     `BUILD_OBSERVATORY` is never emitted (it appears only in command-classifier
     lists). Wiring it up means adding a `chooseBestObservatoryBuild` and a
     `BUILD_OBSERVATORY` path in the planner/utility policy.
-  - The AI never uses **crystal abilities** (`AIRPORT_BOMBARD` / Sky Dock
-    Bombard, `CRYSTAL_SYNTHESIZER`, `ADVANCED_CRYSTAL_SYNTHESIZER`). No AI code
+  - The AI never uses **crystal abilities** (`SKY_DOCK_BOMBARD` / Sky Dock
+    Bombard, `AETHER_CONDENSER`, `HIGH_YIELD_AETHER_CONDENSER`). No AI code
     references them — the AI accumulates crystal but never spends it on abilities.
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time

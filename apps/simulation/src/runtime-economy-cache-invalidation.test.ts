@@ -74,7 +74,7 @@ describe("refreshEconomyCachesForTileChange — field-aware invalidation", () =>
   it("still drops the caches when an economy-relevant field changed", () => {
     for (const mutate of [
       (t: DomainTileState): DomainTileState => ({ ...t, ownershipState: "FRONTIER" }),
-      (t: DomainTileState): DomainTileState => ({ ...t, economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } }),
+      (t: DomainTileState): DomainTileState => ({ ...t, economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } }),
       (t: DomainTileState): DomainTileState => ({ ...t, town: { type: "MARKET", populationTier: "TOWN" } })
     ]) {
       const input = buildInput([player("p1")]);

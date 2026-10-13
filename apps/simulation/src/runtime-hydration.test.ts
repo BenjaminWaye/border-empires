@@ -41,7 +41,7 @@ describe("createTilesFromInitialState", () => {
     const tile = result.get("1,2");
     expect(tile?.fort).toEqual(fort);
     expect(tile?.observatory).toBeUndefined();
-    expect(tile?.siegeOutpost).toBeUndefined();
+    expect(tile?.siegeBattery).toBeUndefined();
     expect(tile?.economicStructure).toBeUndefined();
   });
 
@@ -54,16 +54,16 @@ describe("createTilesFromInitialState", () => {
     expect(tile?.fort).toBeUndefined();
   });
 
-  it("hydrates siegeOutpost from legacy shape", () => {
-    const siegeOutpost = {
+  it("hydrates siegeBattery from legacy shape", () => {
+    const siegeBattery = {
       ownerId: "p1",
       status: "active" as const,
-      variant: "SIEGE_OUTPOST" as const
+      variant: "SIEGE_BATTERY" as const
     };
-    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, siegeOutpost }]);
+    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, siegeBattery }]);
     const result = createTilesFromInitialState(state, new Map(), false);
     const tile = result.get("1,2");
-    expect(tile?.siegeOutpost).toEqual(siegeOutpost);
+    expect(tile?.siegeBattery).toEqual(siegeBattery);
   });
 
   it("hydrates economicStructure from legacy shape", () => {

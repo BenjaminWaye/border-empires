@@ -24,7 +24,7 @@ const makePlayer = (id: string) => ({
 
 // Flag at (50,50) holding `amount`. A SETTLED enemy sits one hop away at
 // (51,50); a cheap FRONTIER enemy sits three hops away at (47,50).
-const scenario = (amount: number, settledFort?: "WOODEN_FORT" | "FORT" | "THUNDER_BASTION") => {
+const scenario = (amount: number, settledFort?: "PALISADE" | "FORT" | "THUNDER_BASTION") => {
   const tiles: SeedTileInput[] = [
     {
       x: 50,
@@ -102,7 +102,7 @@ describe("ADVANCE saves up for its nearest target", () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      const { frontier, flag } = await runOnce(scenario(30, "WOODEN_FORT"));
+      const { frontier, flag } = await runOnce(scenario(30, "PALISADE"));
       expect(frontier?.ownerId).toBe("player-2");
       const muster = JSON.parse(flag?.musterJson ?? "{}");
       expect(muster.amount).toBe(30);

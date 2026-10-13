@@ -4,7 +4,7 @@ import {
   fortificationOverlayKindForTile,
   fortificationOverlayAlphaForTile,
   isFortificationOverlayTile,
-  nearestSiegeOutpostTileForBattle,
+  nearestSiegeBatteryTileForBattle,
   siegeAimAwareFacingRadiansForTile,
   stackedRelayBeaconForTile
 } from "./client-fortification-overlays.js";
@@ -58,21 +58,21 @@ describe("fortification overlay selection", () => {
     expect(fortificationOpeningForTile(east, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("WEST");
   });
 
-  it("treats wooden forts and Relay Beacons as fortification overlay tiles", () => {
-    const woodenFort = {
+  it("treats palisades and Relay Beacons as fortification overlay tiles", () => {
+    const palisade = {
       ...landTile(1, 1),
-      fort: { ownerId: "p1", status: "under_construction" as const, variant: "WOODEN_FORT" as const }
+      fort: { ownerId: "p1", status: "under_construction" as const, variant: "PALISADE" as const }
     };
     const relayBeacon = {
       ...landTile(2, 1),
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "removing" as const }
     };
 
-    expect(isFortificationOverlayTile(woodenFort)).toBe(true);
+    expect(isFortificationOverlayTile(palisade)).toBe(true);
     expect(isFortificationOverlayTile(relayBeacon)).toBe(true);
-    expect(fortificationOverlayKindForTile(woodenFort)).toBe("WOODEN_FORT");
+    expect(fortificationOverlayKindForTile(palisade)).toBe("PALISADE");
     expect(fortificationOverlayKindForTile(relayBeacon)).toBe("RELAY_BEACON");
-    expect(fortificationOverlayAlphaForTile(woodenFort)).toBe(0.82);
+    expect(fortificationOverlayAlphaForTile(palisade)).toBe(0.82);
     expect(fortificationOverlayAlphaForTile(relayBeacon)).toBe(0.64);
   });
 
@@ -95,11 +95,11 @@ describe("fortification overlay selection", () => {
   it("draws a fort mid-upgrade as the standing tier at full strength", () => {
     const upgrading = {
       ...landTile(5, 1),
-      fort: { ownerId: "p1", status: "under_construction" as const, variant: "FORT" as const, upgradingFrom: "WOODEN_FORT" as const }
+      fort: { ownerId: "p1", status: "under_construction" as const, variant: "FORT" as const, upgradingFrom: "PALISADE" as const }
     };
 
-    expect(fortificationOverlayKindForTile(upgrading)).toBe("WOODEN_FORT");
-    expect(fortificationOverlayAlphaForTile(upgrading, "WOODEN_FORT")).toBe(1);
+    expect(fortificationOverlayKindForTile(upgrading)).toBe("PALISADE");
+    expect(fortificationOverlayAlphaForTile(upgrading, "PALISADE")).toBe(1);
   });
 
   it("keeps Relay Beacons non-directional", () => {
@@ -112,18 +112,18 @@ describe("fortification overlay selection", () => {
     expect(fortificationOpeningForTile(tile, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
   });
 
-  it("keeps siege outposts non-directional", () => {
-    const siegeOutpost = {
+  it("keeps siege batteries non-directional", () => {
+    const siegeBattery = {
       ...landTile(5, 5),
-      siegeOutpost: { ownerId: "p1", status: "active" as const }
+      siegeBattery: { ownerId: "p1", status: "active" as const }
     };
     const enemy = { ...landTile(6, 5), ownerId: "p2" };
     const tiles = new Map<string, Tile>([
-      [keyFor(siegeOutpost.x, siegeOutpost.y), siegeOutpost],
+      [keyFor(siegeBattery.x, siegeBattery.y), siegeBattery],
       [keyFor(enemy.x, enemy.y), enemy]
     ]);
 
-    expect(fortificationOpeningForTile(siegeOutpost, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
+    expect(fortificationOpeningForTile(siegeBattery, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
   });
 
   it("does not open toward enemy or mixed fortifications", () => {
@@ -150,39 +150,39 @@ describe("fortification overlay selection", () => {
   });
 });
 
-const siegeOutpostTile = (x: number, y: number, ownerId: string): Tile => ({
+const siegeBatteryTile = (x: number, y: number, ownerId: string): Tile => ({
   ...landTile(x, y),
   ownerId,
-  siegeOutpost: { ownerId, status: "active" }
+  siegeBattery: { ownerId, status: "active" }
 });
 
-describe("nearestSiegeOutpostTileForBattle", () => {
+describe("nearestSiegeBatteryTileForBattle", () => {
   it("finds the nearest attacker-owned siege structure within range", () => {
-    const near = siegeOutpostTile(5, 5, "attacker");
-    const far = siegeOutpostTile(2, 2, "attacker");
-    const rival = siegeOutpostTile(5, 6, "defender");
+    const near = siegeBatteryTile(5, 5, "attacker");
+    const far = siegeBatteryTile(2, 2, "attacker");
+    const rival = siegeBatteryTile(5, 6, "defender");
     const tiles = new Map<string, Tile>([
       [keyFor(near.x, near.y), near],
       [keyFor(far.x, far.y), far],
       [keyFor(rival.x, rival.y), rival]
     ]);
 
-    const result = nearestSiegeOutpostTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker");
+    const result = nearestSiegeBatteryTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker");
 
     expect(result).toEqual({ x: 5, y: 5 });
   });
 
   it("returns undefined when no attacker-owned siege structure is in range", () => {
-    const rival = siegeOutpostTile(5, 5, "defender");
+    const rival = siegeBatteryTile(5, 5, "defender");
     const tiles = new Map<string, Tile>([[keyFor(rival.x, rival.y), rival]]);
 
-    expect(nearestSiegeOutpostTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker")).toBeUndefined();
+    expect(nearestSiegeBatteryTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker")).toBeUndefined();
   });
 });
 
 describe("siegeAimAwareFacingRadiansForTile", () => {
   it("aims at the override target while it hasn't expired", () => {
-    const battery = siegeOutpostTile(5, 5, "attacker");
+    const battery = siegeBatteryTile(5, 5, "attacker");
     const tiles = new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]);
     const overrides = new Map([[keyFor(5, 5), { targetX: 8, targetY: 5, expiresAt: 1000 }]]);
 
@@ -192,7 +192,7 @@ describe("siegeAimAwareFacingRadiansForTile", () => {
   });
 
   it("falls back to the nearest-rival heuristic once the override expires", () => {
-    const battery = siegeOutpostTile(5, 5, "attacker");
+    const battery = siegeBatteryTile(5, 5, "attacker");
     const rival = { ...landTile(6, 5), ownerId: "defender" };
     const tiles = new Map<string, Tile>([
       [keyFor(battery.x, battery.y), battery],

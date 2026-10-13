@@ -4,8 +4,8 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { buildTechUpdatePayload, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { claimedMonumentUnlockTechIds } from "./tech-monument-unlock-lock.js";
 
-// §16: a monument (Imperial Exchange/World Engine/Aegis Dome/Astral Dock/
-// Population Bureau/Titanium Levy) is a single, season-unique prize
+// §16: a monument (Imperial Exchange/Sovereign Siege Engine/Aegis Dome/Astral Dock/
+// Census Directorate/Titanium Levy) is a single, season-unique prize
 // (monument-uniqueness.ts). Once anyone's assembly of one stands, the tech
 // that unlocks it (MONUMENT_UNLOCK_TECH_ID, packages/shared) should become
 // unresearchable for every player who doesn't already own it, both at the

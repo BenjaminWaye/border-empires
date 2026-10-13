@@ -82,7 +82,7 @@ import {
 import { announceDiscoveryTipForState } from "./client-onboarding-ui-gate/client-onboarding-ui-overlays.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
-  buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
+  buildSiegeBatteryOnSelected as buildSiegeBatteryOnSelectedFromModule,
   cancelOngoingCapture as cancelOngoingCaptureFromModule,
   collectSelectedShard as collectSelectedShardFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
@@ -113,7 +113,7 @@ import {
 } from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
-  dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
+  dockSupportedByHarborExchangeForTile as dockSupportedByHarborExchangeForTileFromModule,
   dormantResourcesForTile as dormantResourcesForTileFromModule, observatoryTileRank,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
@@ -286,7 +286,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "PURGE_SIPHON", "CANCEL_SIPHON",
     "CREATE_MOUNTAIN",
     "REMOVE_MOUNTAIN",
-    "AIRPORT_BOMBARD",
+    "SKY_DOCK_BOMBARD",
     "COLLECT_SHARD"
   ]);
 
@@ -548,7 +548,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   // Once a queued tile lands SETTLED (or, for the settle-free siege ladder, as soon as it's owned), clear its bookkeeping.
-  // The BUILD itself is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
+  // The BUILD itself is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). ORE_REFINERY/HYDROWORKS need player-picked placement, so still fire here.
   const processAutoBuildTargets = (): void => {
     if (state.autoBuildTargets.size === 0) return;
     for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
@@ -769,7 +769,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
-  const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
+  const buildSiegeBatteryOnSelected = (): void => buildSiegeBatteryOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
   const collectSelectedShard = (): void =>
@@ -808,7 +808,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       case "SETTLE_INVALID":
       case "FORT_BUILD_INVALID":
       case "OBSERVATORY_BUILD_INVALID":
-      case "SIEGE_OUTPOST_BUILD_INVALID":
+      case "SIEGE_BATTERY_BUILD_INVALID":
       case "ECONOMIC_STRUCTURE_BUILD_INVALID":
       case "STRUCTURE_CANCEL_INVALID":
       case "TOWN_UNFED":
@@ -951,7 +951,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
-  const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
+  const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeBattery" | "economicStructure"): SlotResource[] | undefined =>
     dormantResourcesForTileFromModule(state, tile, field);
   const observatoryCrystalSlotCountForTile = (tile: Tile): number => observatoryTileRank(state, tile);
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
@@ -979,7 +979,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
-      dockSupportedByCustomsHouseForTile: (dockTile: Tile) => dockSupportedByCustomsHouseForTileFromModule(state, dockTile),
+      dockSupportedByHarborExchangeForTile: (dockTile: Tile) => dockSupportedByHarborExchangeForTileFromModule(state, dockTile),
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
@@ -1353,7 +1353,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     if (handleGenericBuildAction({ actionId, selected, handleBuildAction, pushFeed, hideMenu: hideTileActionMenu })) return;
-    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
+    if (actionId === "upgrade_umbrite_works" || actionId === "upgrade_titanium_works" || actionId === "upgrade_aether_condenser" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_relay_beacon_frontier") {
@@ -1373,15 +1373,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           ? "FORT"
           : selected.observatory
             ? "OBSERVATORY"
-            : selected.siegeOutpost
-              ? "SIEGE_OUTPOST"
+            : selected.siegeBattery
+              ? "SIEGE_BATTERY"
               : selected.economicStructure?.type;
       const structureLabel =
         selected.fort
           ? "Fort"
           : selected.observatory
             ? "Aether Tower"
-            : selected.siegeOutpost
+            : selected.siegeBattery
               ? "Siege Battery"
               : selected.economicStructure
                 ? deps.economicStructureName(selected.economicStructure.type)
@@ -1459,8 +1459,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
-    if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
-    if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
+    if (actionId === "sovereign_siege_engine_strike") beginCrystalTargeting("sovereign_siege_engine_strike");
+    if (actionId === "sky_dock_bombard") beginCrystalTargeting("sky_dock_bombard");
     if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
   };
 
@@ -1716,7 +1716,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     attackPreviewManpowerCostForTarget,
     buildFortOnSelected,
     settleSelected,
-    buildSiegeOutpostOnSelected,
+    buildSiegeBatteryOnSelected,
     uncaptureSelected,
     cancelOngoingCapture,
     collectSelectedShard,

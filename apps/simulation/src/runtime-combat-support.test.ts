@@ -74,14 +74,14 @@ describe("attackerOutpostMult", () => {
     };
   }
 
-  it("still grants the attack bonus from a siege outpost sitting on a FRONTIER (unsettled) tile", () => {
+  it("still grants the attack bonus from a siege battery sitting on a FRONTIER (unsettled) tile", () => {
     const context = makeOutpostContext({
       x: 10,
       y: 10,
       terrain: "LAND",
       ownerId: ATTACKER_ID,
       ownershipState: "FRONTIER",
-      siegeOutpost: { ownerId: ATTACKER_ID, status: "active", variant: "SIEGE_OUTPOST" }
+      siegeBattery: { ownerId: ATTACKER_ID, status: "active", variant: "SIEGE_BATTERY" }
     });
 
     // Target within the outpost's aura radius (chebyshev distance 4 <= 5).

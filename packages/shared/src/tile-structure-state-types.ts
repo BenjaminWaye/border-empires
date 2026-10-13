@@ -1,4 +1,4 @@
-// State shapes for the structure fields on a Tile (fort / siegeOutpost /
+// State shapes for the structure fields on a Tile (fort / siegeBattery /
 // observatory / afc / economicStructure), extracted from types.ts. See
 // docs/structure-slot-unification-plan.md for where these are heading.
 //
@@ -19,8 +19,8 @@ import type {
   FortVariant,
   ObservatoryStatus,
   PlayerId,
-  SiegeOutpostStatus,
-  SiegeOutpostVariant
+  SiegeBatteryStatus,
+  SiegeBatteryVariant
 } from "./types.js";
 
 export type TileFortState = {
@@ -37,10 +37,10 @@ export type TileFortState = {
   disabledUntil?: number;
 };
 
-export type TileSiegeOutpostState = {
+export type TileSiegeBatteryState = {
   ownerId: PlayerId;
-  status: SiegeOutpostStatus;
-  variant?: SiegeOutpostVariant;
+  status: SiegeBatteryStatus;
+  variant?: SiegeBatteryVariant;
   completesAt?: number;
   startedAt?: number;
   pausedAt?: number;

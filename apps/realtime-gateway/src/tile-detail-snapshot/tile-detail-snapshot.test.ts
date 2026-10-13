@@ -80,8 +80,8 @@ describe("buildSnapshotTileDetail", () => {
             connectedTownBonus: 0.1,
             hasMintworks: true,
             mintworksActive: true,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             foodUpkeepPerMinute: 0.1,
             baseGoldPerMinute: 2
           }),
@@ -137,8 +137,8 @@ describe("buildSnapshotTileDetail", () => {
             connectedTownBonus: 0.1,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             // foodUpkeepPerMinute intentionally omitted - the regression shape.
             baseGoldPerMinute: 2
           }),
@@ -258,8 +258,8 @@ describe("buildSnapshotTileDetail", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             foodUpkeepPerMinute: 0,
             baseGoldPerMinute: 1
           }),
@@ -508,8 +508,8 @@ describe("buildSnapshotTileDetail", () => {
             connectedTownBonus: 1.2,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }),
           townType: "FARMING",
           townPopulationTier: "TOWN"
@@ -573,8 +573,8 @@ describe("buildSnapshotTileDetail", () => {
             connectedTownBonus: 1.2,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           }),
           townType: "FARMING",
           townPopulationTier: "TOWN"
@@ -732,7 +732,7 @@ describe("buildSnapshotTileDetail", () => {
         { x: 301, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
         { x: 299, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
         { x: 300, y: 301, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
-        { x: 300, y: 299, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GARRISON_HALL", status: "active" }) }
+        { x: 300, y: 299, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "ANCILLARY_DEPOT", status: "active" }) }
       ]
     };
 
@@ -754,7 +754,7 @@ describe("buildSnapshotTileDetail", () => {
         { statLabel: "Gold production", valueText: "+30%", tone: "positive" }
       ]
     });
-    // 1 Garrison Hall, its own heading: flat manpower cap bonus.
+    // 1 Ancillary Depot, its own heading: flat manpower cap bonus.
     expect(town?.townModifierTotals).toContainEqual({
       heading: "1 Ancillary Depot",
       modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }]

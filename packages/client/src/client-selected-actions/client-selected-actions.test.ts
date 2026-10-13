@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildFortOnSelected, buildSiegeOutpostOnSelected, cancelOngoingCapture, dismissOngoingCapture } from "./client-selected-actions.js";
+import { buildFortOnSelected, buildSiegeBatteryOnSelected, cancelOngoingCapture, dismissOngoingCapture } from "./client-selected-actions.js";
 import { createInitialState } from "../client-state/client-state.js";
 
 describe("selected action helpers", () => {
@@ -40,10 +40,10 @@ describe("selected action helpers", () => {
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_FORT", x: 10, y: 11 });
   });
 
-  it("sends siege outpost builds with the supported gateway message", () => {
+  it("sends siege battery builds with the supported gateway message", () => {
     const sendGameMessage = vi.fn(() => true);
 
-    buildSiegeOutpostOnSelected(
+    buildSiegeBatteryOnSelected(
       { selected: { x: 12, y: 13 }, tiles: new Map() },
       {
         keyFor: (x, y) => `${x},${y}`,
@@ -53,7 +53,7 @@ describe("selected action helpers", () => {
       }
     );
 
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_SIEGE_OUTPOST", x: 12, y: 13 });
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_SIEGE_BATTERY", x: 12, y: 13 });
   });
 });
 

@@ -64,7 +64,7 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
             ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
             ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-            ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+            ...(tile.siegeBattery ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
             ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
             ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
             ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
@@ -274,8 +274,8 @@ export const buildPlayerSubscriptionSnapshot = (
             tile.fortJson?.includes("\"removing\"") ||
             tile.observatoryJson?.includes("\"under_construction\"") ||
             tile.observatoryJson?.includes("\"removing\"") ||
-            tile.siegeOutpostJson?.includes("\"under_construction\"") ||
-            tile.siegeOutpostJson?.includes("\"removing\"") ||
+            tile.siegeBatteryJson?.includes("\"under_construction\"") ||
+            tile.siegeBatteryJson?.includes("\"removing\"") ||
             tile.economicStructureJson?.includes("\"under_construction\"") ||
             tile.economicStructureJson?.includes("\"removing\"")
           );

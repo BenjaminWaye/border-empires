@@ -68,7 +68,7 @@ const buildState = (
     preferredEnemyAttack: undefined,
     economicBuild: undefined,
     fortBuild: undefined,
-    siegeOutpostBuild: undefined,
+    siegeBatteryBuild: undefined,
     relayBeaconBuild: undefined,
     foodSlotReliefTarget: undefined,
     foodSlotsExhausted: true,

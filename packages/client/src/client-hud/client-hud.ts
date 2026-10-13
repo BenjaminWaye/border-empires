@@ -36,7 +36,7 @@ import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-re
 import { applySocialFocus } from "../client-alliance/client-alliance-focus.js"; import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
-import { worldEngineStrikeRecordToFeedEntry, WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
+import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
 import type { StructureInfoKey } from "../client-map-display.js";
@@ -796,17 +796,17 @@ export const renderClientHud = (deps: HudDeps): void => {
       enabled: debugTileLoggingEnabled(),
       selectedTileKey: state.selected ? `${state.selected.x},${state.selected.y}` : undefined
     });
-    // World Engine strikes stay discoverable here for up to 12h even after
+    // Sovereign Siege Engine strikes stay discoverable here for up to 12h even after
     // they've scrolled off the live feed above (see client-network.ts's
-    // silent history backfill and WORLD_ENGINE_STRIKE_ANNOUNCEMENT handling).
+    // silent history backfill and SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT handling).
     // Filtered by age here (not just capped by count) since live-received
     // entries are never locally expired — a long-lived connected session
     // would otherwise keep showing strikes well past the "last 12h" label.
-    const recentStrikes = state.worldEngineStrikeAnnouncements.filter(
-      (entry) => Date.now() - entry.occurredAt <= WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS
+    const recentStrikes = state.sovereignSiegeEngineStrikeAnnouncements.filter(
+      (entry) => Date.now() - entry.occurredAt <= SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS
     );
     if (recentStrikes.length === 0) return liveFeedHtml;
-    const worldEventsHtml = feedHtml(recentStrikes.map(worldEngineStrikeRecordToFeedEntry));
+    const worldEventsHtml = feedHtml(recentStrikes.map(sovereignSiegeEngineStrikeRecordToFeedEntry));
     return `${liveFeedHtml}<h4 class="feed-section-heading">World Events (last 12h)</h4>${worldEventsHtml}`;
   });
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;

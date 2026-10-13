@@ -34,8 +34,8 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
         firstThreeTownGoldMult: 1.5,
         firstThreeTownPopGrowthMult: 1.25
       }
@@ -67,8 +67,8 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false
+        hasIncubationEngine: false,
+        incubationEngineActive: false
       }
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason === "Mercantile Charter")).toBe(false);

@@ -113,7 +113,7 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   canExpand: boolean;
   economicBuildAvailable: boolean;
   fortBuildAvailable: boolean;
-  siegeOutpostBuildAvailable: boolean;
+  siegeBatteryBuildAvailable: boolean;
   previousVictoryPath?: AutomationVictoryPath | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   activeMusterCount?: number;

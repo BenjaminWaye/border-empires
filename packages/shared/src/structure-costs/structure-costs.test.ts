@@ -7,25 +7,25 @@ import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, 
 // on ongoing upkeep, never on the build itself) — scaling still multiplies
 // zero by the same factor, so it stays at zero regardless of existing count.
 describe("structureBuildGoldCost", () => {
-  test("scaling structures (forts, siege outposts, observatory, airport) stay at zero gold regardless of existing count", () => {
+  test("scaling structures (forts, siege batteries, observatory, sky dock) stay at zero gold regardless of existing count", () => {
     expect(structureBuildGoldCost("FORT", 0)).toBe(0);
     expect(structureBuildGoldCost("FORT", 1)).toBe(0);
     expect(structureBuildGoldCost("FORT", 2)).toBe(0);
-    expect(structureBuildGoldCost("SIEGE_OUTPOST", 0)).toBe(0);
-    expect(structureBuildGoldCost("SIEGE_OUTPOST", 3)).toBe(0);
+    expect(structureBuildGoldCost("SIEGE_BATTERY", 0)).toBe(0);
+    expect(structureBuildGoldCost("SIEGE_BATTERY", 3)).toBe(0);
     expect(structureBuildGoldCost("OBSERVATORY", 0)).toBe(0);
     expect(structureBuildGoldCost("OBSERVATORY", 1)).toBe(0);
     expect(structureBuildGoldCost("OBSERVATORY", 2)).toBe(0);
-    expect(structureBuildGoldCost("AIRPORT", 0)).toBe(0);
-    expect(structureBuildGoldCost("AIRPORT", 1)).toBe(0);
-    expect(structureBuildGoldCost("AIRPORT", 2)).toBe(0);
+    expect(structureBuildGoldCost("SKY_DOCK", 0)).toBe(0);
+    expect(structureBuildGoldCost("SKY_DOCK", 1)).toBe(0);
+    expect(structureBuildGoldCost("SKY_DOCK", 2)).toBe(0);
   });
 
   test("keeps non-scaling structures at zero gold too", () => {
     expect(structureBuildGoldCost("MINTWORKS", 0)).toBe(0);
     expect(structureBuildGoldCost("MINTWORKS", 4)).toBe(0);
-    expect(structureBuildGoldCost("CARAVANARY", 3)).toBe(0);
-    expect(structureBuildGoldCost("FOUNDRY", 2)).toBe(0);
+    expect(structureBuildGoldCost("TRADE_NEXUS", 3)).toBe(0);
+    expect(structureBuildGoldCost("ORE_REFINERY", 2)).toBe(0);
   });
 });
 
@@ -61,13 +61,13 @@ describe("structureBuildManpowerCostScaled", () => {
 describe("structureCostDefinition", () => {
   test("keeps income-support structures gold-only and preserves strategic-resource costs elsewhere", () => {
     expect(structureCostDefinition("MINTWORKS").resourceCost).toBeUndefined();
-    expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("TRADE_NEXUS").resourceCost).toBeUndefined();
     // #1134 removed these as stale build-time crystal costs — the slot
     // system (structure-slots.ts) is the real FOOD/TITANIUM/CRYSTAL/UMBRITE gate
     // now, not a spent build cost (RETIRED_STOCKPILE_RESOURCE_KEYS strips
     // these before spend regardless of what's declared here).
-    expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toBeUndefined();
-    expect(structureCostDefinition("GARRISON_HALL").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("HARBOR_EXCHANGE").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("ANCILLARY_DEPOT").resourceCost).toBeUndefined();
   });
 
   // Wonders already cost 2 SHARD on final assembly; each of their 3 prerequisite
@@ -76,10 +76,10 @@ describe("structureCostDefinition", () => {
   test("charges 1 SHARD for every wonder part, on top of the completed wonder's own SHARD cost", () => {
     const wonderParts = [
       "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-      "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+      "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
       "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-      "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+      "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
       "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
     ] as const;
 
@@ -88,7 +88,7 @@ describe("structureCostDefinition", () => {
     }
 
     const completedWonders = [
-      "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"
+      "IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"
     ] as const;
     for (const wonder of completedWonders) {
       expect(structureCostDefinition(wonder).resourceCost, wonder).toEqual({ resource: "SHARD", amount: 2 });
@@ -97,23 +97,23 @@ describe("structureCostDefinition", () => {
 });
 
 describe("FORT_TIER_LADDER", () => {
-  // docs/replenishment-update-plan.md D17: WOODEN_FORT (the Palisade) is
+  // docs/replenishment-update-plan.md D17: PALISADE (the Palisade) is
   // "ECONOMIC" kind in the structure registry, not "FORT" kind, so it never
   // actually goes through this ladder at build time (STRUCTURE_COST_
-  // DEFINITIONS.WOODEN_FORT.manpowerCost, read via econSpec, is what's
+  // DEFINITIONS.PALISADE.manpowerCost, read via econSpec, is what's
   // charged) -- but the two used to disagree (150 here vs. 30 charged). Both
-  // now read the same WOODEN_FORT_MANPOWER constant, so this is 30, matching
+  // now read the same PALISADE_MANPOWER constant, so this is 30, matching
   // what a player actually pays and what its build time (D9) derives from.
-  test("WOODEN_FORT costs 0 gold, 0 titanium, 30 manpower, 1.35x defense", () => {
-    const tier = FORT_TIER_LADDER.WOODEN_FORT;
+  test("PALISADE costs 0 gold, 0 titanium, 30 manpower, 1.35x defense", () => {
+    const tier = FORT_TIER_LADDER.PALISADE;
     expect(tier.gold).toBe(0);
     expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(30);
     expect(tier.defenseMult).toBe(1.35);
   });
 
-  test("WOODEN_FORT's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS, via structureBuildManpowerCost)", () => {
-    expect(FORT_TIER_LADDER.WOODEN_FORT.manpower).toBe(structureBuildManpowerCost("WOODEN_FORT"));
+  test("PALISADE's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS, via structureBuildManpowerCost)", () => {
+    expect(FORT_TIER_LADDER.PALISADE.manpower).toBe(structureBuildManpowerCost("PALISADE"));
   });
 
   test("FORT's ladder manpower matches its STRUCTURE_COST_DEFINITIONS base-tier cost", () => {
@@ -201,8 +201,8 @@ describe("nextFortTierForUpgrade", () => {
 describe("SIEGE_TIER_LADDER", () => {
   // D13: siege tiers now scale their manpower (60/120/240) instead of 60 at
   // every tier, so build time (D9) scales with it too.
-  test("SIEGE_OUTPOST costs 0 gold, 45 umbrite, 0 titanium, 60 manpower, 1.6x attack", () => {
-    const tier = SIEGE_TIER_LADDER.SIEGE_OUTPOST;
+  test("SIEGE_BATTERY costs 0 gold, 45 umbrite, 0 titanium, 60 manpower, 1.6x attack", () => {
+    const tier = SIEGE_TIER_LADDER.SIEGE_BATTERY;
     expect(tier.gold).toBe(0);
     expect(tier.umbrite).toBe(45);
     expect(tier.titanium).toBe(0);
@@ -228,13 +228,13 @@ describe("SIEGE_TIER_LADDER", () => {
     expect(tier.attackMult).toBe(2.0);
   });
 
-  test("SIEGE_OUTPOST's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS)", () => {
-    expect(SIEGE_TIER_LADDER.SIEGE_OUTPOST.manpower).toBe(structureBuildManpowerCost("SIEGE_OUTPOST"));
+  test("SIEGE_BATTERY's ladder manpower matches what's actually charged (STRUCTURE_COST_DEFINITIONS)", () => {
+    expect(SIEGE_TIER_LADDER.SIEGE_BATTERY.manpower).toBe(structureBuildManpowerCost("SIEGE_BATTERY"));
   });
 
-  test("bestSiegeTierForTech returns SIEGE_OUTPOST with no siege tech", () => {
+  test("bestSiegeTierForTech returns SIEGE_BATTERY with no siege tech", () => {
     const hasTech = (id: string) => false;
-    expect(bestSiegeTierForTech(hasTech).variant).toBe("SIEGE_OUTPOST");
+    expect(bestSiegeTierForTech(hasTech).variant).toBe("SIEGE_BATTERY");
   });
 
   test("bestSiegeTierForTech returns SIEGE_TOWER with siegecraft but no standing-army", () => {
@@ -253,12 +253,12 @@ describe("nextSiegeTierForUpgrade", () => {
   const hasAllTech = (id: string) => id === "siegecraft" || id === "standing-army";
   const hasNoTech = (id: string) => false;
 
-  test("SIEGE_OUTPOST → SIEGE_TOWER when siegecraft is researched", () => {
-    expect(nextSiegeTierForUpgrade("SIEGE_OUTPOST", hasBasicTech)?.variant).toBe("SIEGE_TOWER");
+  test("SIEGE_BATTERY → SIEGE_TOWER when siegecraft is researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_BATTERY", hasBasicTech)?.variant).toBe("SIEGE_TOWER");
   });
 
-  test("SIEGE_OUTPOST → null when no siege tech is researched", () => {
-    expect(nextSiegeTierForUpgrade("SIEGE_OUTPOST", hasNoTech)).toBeNull();
+  test("SIEGE_BATTERY → null when no siege tech is researched", () => {
+    expect(nextSiegeTierForUpgrade("SIEGE_BATTERY", hasNoTech)).toBeNull();
   });
 
   test("SIEGE_TOWER → DREAD_TOWER when standing-army is researched", () => {
@@ -273,11 +273,11 @@ describe("nextSiegeTierForUpgrade", () => {
     expect(nextSiegeTierForUpgrade("DREAD_TOWER", hasAllTech)).toBeNull();
   });
 
-  test("undefined variant treated as SIEGE_OUTPOST → SIEGE_TOWER with siegecraft", () => {
+  test("undefined variant treated as SIEGE_BATTERY → SIEGE_TOWER with siegecraft", () => {
     expect(nextSiegeTierForUpgrade(undefined, hasBasicTech)?.variant).toBe("SIEGE_TOWER");
   });
 
-  test("undefined variant treated as SIEGE_OUTPOST → null with no tech", () => {
+  test("undefined variant treated as SIEGE_BATTERY → null with no tech", () => {
     expect(nextSiegeTierForUpgrade(undefined, hasNoTech)).toBeNull();
   });
 });
@@ -288,9 +288,9 @@ describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
     expect(requiredMusterForFort(undefined)).toBe(60);
   });
 
-  test("WOODEN_FORT (Palisade) ranges 100-150", () => {
-    expect(attackManpowerLossRangeForFort("WOODEN_FORT")).toEqual({ min: 100, max: 150 });
-    expect(requiredMusterForFort("WOODEN_FORT")).toBe(150);
+  test("PALISADE (Palisade) ranges 100-150", () => {
+    expect(attackManpowerLossRangeForFort("PALISADE")).toEqual({ min: 100, max: 150 });
+    expect(requiredMusterForFort("PALISADE")).toBe(150);
   });
 
   test("FORT ranges 200-300", () => {
@@ -311,7 +311,7 @@ describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
   // required muster always equals the range's max: an attacker can never
   // lose more manpower than they mustered to launch the attack.
   test("required muster equals the max of every tier's loss range", () => {
-    for (const variant of ["WOODEN_FORT", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
+    for (const variant of ["PALISADE", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
       expect(requiredMusterForFort(variant)).toBe(attackManpowerLossRangeForFort(variant).max);
     }
   });

@@ -34,7 +34,7 @@ const isLandForReach =
  * Unlike the walk it also drops `economicStructure`: a capture re-stamps a
  * structure's owner to the capturer (capturedStructureFields), so a surviving
  * one would sit on a tile the new player is about to auto-claim while still
- * owned by `barbarian-1`. (Forts, observatories and siege outposts a barbarian
+ * owned by `barbarian-1`. (Forts, observatories and siege batteries a barbarian
  * captured are not carried over by the walk's release either.)
  *
  * Goes through `replaceTileState`, so barbarian walk progress is dropped by the

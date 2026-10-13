@@ -14,7 +14,7 @@ const baseInput: NeedVectorInput = {
   frontierEnemyTargetCount: 0,
   stalematedTargetCount: 0,
   ownedForts: 0,
-  ownedSiegeOutposts: 0,
+  ownedSiegeBatteries: 0,
   victoryPathProgress: 0.5
 };
 
@@ -153,12 +153,12 @@ describe("computeNeedVector", () => {
 
   describe("OFFENSE", () => {
     it("is 0 with no stalemated targets", () => {
-      const result = computeNeedVector({ ...baseInput, stalematedTargetCount: 0, ownedSiegeOutposts: 0 });
+      const result = computeNeedVector({ ...baseInput, stalematedTargetCount: 0, ownedSiegeBatteries: 0 });
       expect(result.OFFENSE).toBe(0);
     });
 
     it("is positive even with zero owned outposts (denominator floors at 1)", () => {
-      const result = computeNeedVector({ ...baseInput, stalematedTargetCount: 1, ownedSiegeOutposts: 0 });
+      const result = computeNeedVector({ ...baseInput, stalematedTargetCount: 1, ownedSiegeBatteries: 0 });
       expect(result.OFFENSE).toBe(1);
     });
   });
