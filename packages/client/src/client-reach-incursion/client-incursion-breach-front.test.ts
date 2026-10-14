@@ -73,26 +73,18 @@ describe("organicSideFront", () => {
     }
   });
 
-  it("draws teeth as shark fins: a root that flares along the line and concave flanks up to a sharp tip", () => {
-    const outline = toothOutlines(organicSideFront(NORTH, true, 0, 0, around({ "1,0": "pocket", "-1,0": "pocket" })))[1]!;
-    const tip = outline.reduce((a, b) => (b.y < a.y ? b : a));
-    const root = outline.filter((p) => p.y > tip.y + 0.15);
-    // Flared root: much wider than the tooth is near its tip.
-    expect(Math.max(...root.map((p) => p.x)) - Math.min(...root.map((p) => p.x))).toBeGreaterThan(0.15);
-    // Concave flank: halfway up, the flank is well inside the straight line from root corner to tip.
-    const halfway = outline.filter((p) => p.x > tip.x && Math.abs(p.y - (tip.y + 0.09)) < 0.04);
-    for (const p of halfway) expect(p.x - tip.x).toBeLessThan(0.05);
-  });
-
-  it("alternates large and small teeth, keeping the rhythm unbroken from one tile to the next", () => {
+  it("draws every tooth as the same tall, straight-sided triangle, evenly spaced across tiles", () => {
     const run = around({ "1,0": "pocket", "-1,0": "pocket" });
-    const heights = [0, 1].flatMap((worldX) => toothOutlines(organicSideFront(NORTH, true, worldX, 0, run)).map(toothHeight));
-    expect(heights).toHaveLength(8);
-    const large = Math.max(...heights);
-    const isLarge = heights.map((h) => h > large * 0.8);
-    // Strictly alternating across both tiles: large, small, large, small, ...
-    isLarge.forEach((big, i) => expect(big).toBe(i % 2 === 0 ? isLarge[0] : !isLarge[0]));
-    expect(Math.min(...heights)).toBeLessThan(large * 0.75);
+    const outlines = [0, 1].flatMap((worldX) => toothOutlines(organicSideFront(NORTH, true, worldX, 0, run)));
+    expect(outlines).toHaveLength(8);
+    const heights = outlines.map(toothHeight);
+    const widths = outlines.map((pts) => Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x)));
+    // All the same size (only the meander tilts them a hair)...
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.02);
+    // ...and tall: well over twice as high as they are wide.
+    for (let i = 0; i < heights.length; i += 1) expect(heights[i]! / widths[i]!).toBeGreaterThan(2);
+    // Straight-sided: a triangle is just its two base corners and its tip.
+    for (const pts of outlines) expect(new Set(pts.map((p) => `${p.x.toFixed(5)},${p.y.toFixed(5)}`)).size).toBe(3);
   });
 
   it("swells and thins the stroke along the front, like an inked line", () => {

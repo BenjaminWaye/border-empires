@@ -10,9 +10,9 @@
 //     moves the same way, neighbouring tiles' pieces still meet exactly;
 //   - teeth follow the curve's normal, with one on each rounded outer corner;
 //   - drawn like an inked campaign map: the stroke swells and thins along the
-//     front (calligraphic), teeth are shark fins whose concave flanks flow
-//     out of the line, and where the front meets the old border the stroke
-//     tapers to a point instead of stopping bluntly.
+//     front (calligraphic), teeth are tall, even, straight-sided triangles,
+//     and where the front meets the old border the stroke tapers to a point
+//     instead of stopping bluntly.
 // Pure + renderer-agnostic: convex polygons in tile-local space (the tile
 // spans [-0.5, 0.5] on both axes, +x east, +y south = scene +z).
 
@@ -42,13 +42,10 @@ const LINE_SWELL = 0.5;
 const LINE_SWELL_FREQUENCY = 2.3;
 /** Path length (tiles) over which the stroke tapers to a point where the front meets the old border. */
 const BORDER_TAPER = 0.3;
-/** Teeth alternate large and small (an engraved front-line rhythm); 4 per side keeps the rhythm unbroken across tiles. */
+/** Teeth: tall isosceles triangles, all the same size, evenly spaced (so the spacing runs on unbroken across tiles). */
 const TEETH_PER_SIDE = 4;
-const TOOTH_HEIGHT = 0.24;
-const SMALL_TOOTH_SCALE = 0.6;
-/** Shark-fin teeth: the root flares along the line to this half-width, the flanks curving in to the tip. */
-const TOOTH_ROOT_HALF = 0.1;
-const FLANK_STEPS = 4;
+const TOOTH_HEIGHT = 0.27;
+const TOOTH_HALF_BASE = 0.055;
 /** Outline thickness, in tiles. */
 const OUTLINE_WIDTH = 0.011;
 /** Rounding radius (tiles) where the front line turns a corner; the 3D hatch rounds its outer corners to match. */
@@ -138,35 +135,19 @@ const swellAt =
   (p: BreachPoint): number =>
     (LINE_WIDTH / 2) * (1 + LINE_SWELL * noise((worldX + p.x) * LINE_SWELL_FREQUENCY, (worldY + p.y) * LINE_SWELL_FREQUENCY, 3));
 
-const bezier = (a: BreachPoint, c: BreachPoint, b: BreachPoint, s: number): BreachPoint => ({
-  x: (1 - s) * (1 - s) * a.x + 2 * s * (1 - s) * c.x + s * s * b.x,
-  y: (1 - s) * (1 - s) * a.y + 2 * s * (1 - s) * c.y + s * s * b.y
-});
-
 /**
- * A shark-fin tooth standing on the warped curve at `base`, pointing along the
- * curve normal on the `outward` side: the root flares out along the line and
- * each flank sweeps in on a concave curve to a sharp tip. Star-shaped about
- * its root centre, so it's drawn as a fan of triangles from there -- and the
- * outline as the same fan over the boundary pushed out by OUTLINE_WIDTH.
+ * A tall triangular tooth standing on the warped curve at `base`, pointing
+ * along the curve normal on the `outward` side. Drawn as a fan from its root
+ * centre (on the line), with the rim as the same fan over the triangle's
+ * corners pushed out by OUTLINE_WIDTH (mitred, capped at the sharp tip).
  */
-const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint, scale = 1): BreachFrontPiece[] => {
-  const height = TOOTH_HEIGHT * scale;
-  const rootHalf = TOOTH_ROOT_HALF * (0.6 + 0.4 * scale);
+const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece[] => {
   const eps = 0.01;
   const centre = warp(base);
   const t = unit(add(warp(add(base, tangent, eps)), warp(add(base, tangent, -eps)), -1));
   let n = { x: -t.y, y: t.x };
   if (n.x * outward.x + n.y * outward.y < 0) n = { x: -n.x, y: -n.y };
-  const tip = add(centre, n, LINE_WIDTH / 2 + height);
-  const flank = (side: 1 | -1): BreachPoint[] => {
-    const root = add(centre, t, rootHalf * side);
-    // Control point low and close to the axis: the flank leaves the line almost flat (a fillet), then rises to the tip.
-    const control = add(add(centre, t, rootHalf * 0.3 * side), n, LINE_WIDTH / 2 + height * 0.12);
-    return Array.from({ length: FLANK_STEPS + 1 }, (_, i) => bezier(root, control, tip, i / FLANK_STEPS));
-  };
-  const boundary = [...flank(-1), ...flank(1).reverse().slice(1)];
-  // Push each boundary point out along its averaged outward normal (mitred, capped at the sharp tip).
+  const boundary = [add(centre, t, -TOOTH_HALF_BASE), add(centre, n, LINE_WIDTH / 2 + TOOTH_HEIGHT), add(centre, t, TOOTH_HALF_BASE)];
   const edgeOut = (i: number): BreachPoint => {
     const p = boundary[i]!;
     const q = boundary[i + 1]!;
@@ -238,17 +219,11 @@ export const organicSideFront = (
   const pieces = strip(path.map(warp), halfWidths);
   if (!withTeeth) return pieces;
   pieces.push(...arcTooth);
-  // Large/small parity by WORLD position along the side, so the rhythm runs on unbroken from tile to tile.
-  const alongWorld = (u: number): number => {
-    const p = at(u);
-    return side.t.x !== 0 ? worldX + p.x : worldY + p.y;
-  };
   for (let i = 0; i < TEETH_PER_SIDE; i += 1) {
     const u = (i + 0.5) / TEETH_PER_SIDE;
     // Teeth on the straight stretch only; the rounded corners handle their own.
     if (u < u0 || u > u1) continue;
-    const large = Math.floor(alongWorld(u) * TEETH_PER_SIDE + 1e-6) % 2 === 0;
-    pieces.push(...tooth(warp, at(u), side.t, out, large ? 1 : SMALL_TOOTH_SCALE));
+    pieces.push(...tooth(warp, at(u), side.t, out));
   }
   return pieces;
 };
