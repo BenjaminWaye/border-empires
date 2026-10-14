@@ -210,7 +210,9 @@
  * player -- name, status, chevron -- with the action buttons revealed only on
  * the row the player tapped (client-alliance-row-toggle.ts). Keeps a 50-player
  * list around 3,000px instead of ~9,600px on mobile. */
+/* minmax(0, 1fr): a long unbroken name must truncate, not widen the list. */
 .alliance-card-stack.alliance-player-stack {
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -234,9 +236,10 @@
   white-space: nowrap;
 }
 
+/* The status never shrinks; the name truncates first. */
 .alliance-player-status {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   align-items: baseline;
   justify-content: flex-end;
   gap: 4px;
