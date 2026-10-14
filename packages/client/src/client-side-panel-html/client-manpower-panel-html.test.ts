@@ -8,8 +8,7 @@ const baseArgs = {
   manpowerRegenPerMinute: 1,
   manpowerBreakdown: { cap: [], regen: [] },
   formatManpowerAmount: (value: number) => `${value}`,
-  rateToneClass: () => "",
-  formatDuration: (ms: number) => `${Math.round(ms / 60_000)}m`
+  rateToneClass: () => ""
 };
 
 describe("renderManpowerPanelHtml refill summary", () => {
@@ -18,6 +17,36 @@ describe("renderManpowerPanelHtml refill summary", () => {
     expect(html).toContain("+96 per batch");
     expect(html).not.toContain("/m<");
     expect(html).toContain("Regen modifiers (per minute)");
+  });
+});
+
+describe("renderManpowerPanelHtml next batch headline", () => {
+  const MIN = 60_000;
+
+  it("shows the next batch countdown as its own callout, not inside the explainer text", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
+    expect(html).toMatch(/manpower-next-batch-label">Next batch in<\/span><strong class="manpower-next-batch-value">19m<\/strong>/);
+  });
+
+  it("formats the time until full in hours and minutes instead of raw minutes", () => {
+    // 1.3/min x 240 = 312 per batch; 1035 missing needs 4 batches: 19m + 3 x 4h = 12h 19m.
+    const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
+    expect(html).toContain("Manpower full in 12h 19m.");
+    expect(html).not.toContain("739m");
+  });
+
+  it("tucks the explainer behind a collapsed toggle", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, musterFlags: [] });
+    expect(html).toMatch(/<details class="manpower-info" data-manpower-info>\s*<summary[^>]*>.*How manpower works<\/summary>\s*<div[^>]*>Manpower gates attacks\./s);
+  });
+
+  it("says Full or Paused in the callout instead of a countdown", () => {
+    const full = renderManpowerPanelHtml({ ...baseArgs, manpower: 200, nextRefillAtMs: Date.now() + MIN, musterFlags: [] });
+    expect(full).toContain('manpower-next-batch-value">Full<');
+    expect(full).not.toContain("Next batch in");
+    const paused = renderManpowerPanelHtml({ ...baseArgs, manpowerRegenPerMinute: 0, nextRefillAtMs: Date.now() + MIN, musterFlags: [] });
+    expect(paused).toContain('manpower-next-batch-value">Paused<');
+    expect(paused).not.toContain("Manpower full in");
   });
 });
 
