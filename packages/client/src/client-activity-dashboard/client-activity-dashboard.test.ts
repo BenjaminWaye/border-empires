@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import type { WorldPulse } from "@border-empires/game-domain";
+import type { ClientEventLogEntry } from "../client-event-log-html.js";
 import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "./client-activity-dashboard.js";
 
@@ -35,7 +36,9 @@ const makeState = () => ({
   authSessionReady: true,
   profileSetupRequired: false,
   playerNames: new Map<string, string>([["player-2", "Rival Name"]]),
-  techCatalog: []
+  techCatalog: [],
+  eventLog: [] as ClientEventLogEntry[],
+  techIds: [] as string[]
 });
 
 const makeDeps = (state: ReturnType<typeof makeState>) => ({
@@ -104,6 +107,28 @@ describe("toggleActivityDashboard", () => {
 });
 
 describe("renderClientActivityDashboardOverlay", () => {
+  it("shows unresolved surveys without Alerts or a timeline, and View survey closes Activity and focuses the clue", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.eventLog = [{
+      id: "survey-standing", type: "OCCUPATION_SURVEY", occurredAt: 1,
+      text: "Ferrous dust east of this town indicates likely Titanium-bearing territory.",
+      surveyResource: "TITANIUM", surveyX: 17, surveyY: 9
+    }];
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).toContain("Resource surveys");
+    expect(deps.overlayEl.textContent).toContain("Likely Titanium territory");
+    deps.overlayEl.querySelector<HTMLButtonElement>('[data-activity-survey="true"]')?.click();
+    expect(state.activityDashboard.open).toBe(false);
+    expect(state.selected).toEqual({ x: 17, y: 9 });
+    expect(deps.requestViewRefresh).toHaveBeenCalled();
+
+    state.activityDashboard.open = true;
+    state.techIds = ["masonry"];
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).not.toContain("Resource surveys");
+  });
   it("hides and clears the overlay when closed", () => {
     const state = makeState();
     const deps = makeDeps(state);
