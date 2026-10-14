@@ -1,6 +1,6 @@
 import type { ClientMessage } from "@border-empires/shared";
 import { readIncomingTruceRequestAlert, type EmailAlertOutcome } from "../email-alerts/email-alerts.js";
-import { extractTruceRequestFromPayloads } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
+import { extractTruceRequestFromPayloads } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialTruceRequest } from "../social-state/social-state.js";
 
 type SocialTruceActionResult =

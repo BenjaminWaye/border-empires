@@ -415,6 +415,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
     ]
   },
+  {
+    createdAt: 1792009197862, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires weigh your truce and alliance offers",
+    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    changes: [
+      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
+      "AI empires now answer alliance offers too",
+      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

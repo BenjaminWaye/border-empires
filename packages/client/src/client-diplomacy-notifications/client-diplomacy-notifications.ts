@@ -1,6 +1,6 @@
-import { storageGet, storageSet } from "./client-state/client-state.js";
-import type { ClientState } from "./client-state/client-state.js";
-import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "./client-types.js";
+import { storageGet, storageSet } from "../client-state/client-state.js";
+import type { ClientState } from "../client-state/client-state.js";
+import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
@@ -105,6 +105,42 @@ export const applyTruceUpdateMessage = (
   const tone = declined || broken ? "warn" : "success";
   deps.pushFeed(announcement, "alliance", tone);
   deps.showCaptureAlert(declined ? "Truce declined" : broken ? "Truce broken" : "Truce accepted", announcement, tone);
+};
+
+type AllianceUpdateNotificationState = Pick<
+  ClientState,
+  "allies" | "activeAllianceBreaks" | "recentAllianceBreaks" | "incomingAllianceRequests" | "outgoingAllianceRequests"
+>;
+
+// Popup title for an ALLIANCE_UPDATE announcement. Besides break notices,
+// announcements now also carry an (AI) answer to an alliance offer, e.g.
+// "Milo declined your alliance offer. Milo is wary of you ...".
+export const allianceAnnouncementTitle = (announcement: string): { title: string; tone: "info" | "success" | "warn" } => {
+  const normalized = announcement.toLocaleLowerCase();
+  if (normalized.includes("now broken")) return { title: "Alliance broken", tone: "warn" };
+  if (normalized.includes("declined")) return { title: "Alliance declined", tone: "warn" };
+  if (normalized.includes("accepted")) return { title: "Alliance formed", tone: "success" };
+  return { title: "Alliance break notice", tone: "info" };
+};
+
+// Applies an ALLIANCE_UPDATE socket message's fields and surfaces its
+// announcement, extracted out of client-network.ts (already over the repo's
+// 500-line file-size gate and may not grow further).
+export const applyAllianceUpdateMessage = (
+  state: AllianceUpdateNotificationState,
+  msg: Record<string, unknown>,
+  deps: DiplomacyNotificationDeps
+): void => {
+  state.allies = (msg.allies as string[]) ?? [];
+  state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
+  state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
+  state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
+  state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
+  const announcement = msg.announcement as string | undefined;
+  if (!announcement) return;
+  const { title, tone } = allianceAnnouncementTitle(announcement);
+  deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
+  deps.showCaptureAlert(title, announcement, tone);
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
