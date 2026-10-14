@@ -52,6 +52,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {
+    createdAt: 1791969340091, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Manifest details stay where you scroll",
+    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
+    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
+  },
+  {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
     title: "Better starter sites and accurate checklist goals",
