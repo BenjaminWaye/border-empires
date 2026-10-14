@@ -1,6 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js";
 import { serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { incursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
 
 /**
  * Non-tile state that forces client-map-3d.ts's maybeRebuild to re-run
@@ -14,9 +15,12 @@ export type Map3DRebuildTriggers = {
   frontierAttackClaimKeys: string;
   // See reach3DRebuildKey.
   reachKey: string;
+  // Admin pocket-edge style switch (client-incursion-breach-style.ts): redraws
+  // the incursion outlines as soon as it changes, without waiting for a pan.
+  incursionBreachStyle: string;
 };
 
-export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "" };
+export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: "straight" };
 
 /**
  * What the 3D reach overlay (survey-line pylons/walls, dormant-frontier and
@@ -64,10 +68,12 @@ export const captureMap3DRebuildTriggers = (
 ): Map3DRebuildTriggers => ({
   crystalTargetingActive: state.crystalTargeting.active,
   frontierAttackClaimKeys: frontierAttackClaimRebuildSnapshot(state, keyFor),
-  reachKey: reach3DRebuildKey(reach3DActive, state)
+  reachKey: reach3DRebuildKey(reach3DActive, state),
+  incursionBreachStyle: incursionBreachStyle()
 });
 
 export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Map3DRebuildTriggers): boolean =>
   built.crystalTargetingActive !== now.crystalTargetingActive ||
   built.frontierAttackClaimKeys !== now.frontierAttackClaimKeys ||
-  built.reachKey !== now.reachKey;
+  built.reachKey !== now.reachKey ||
+  built.incursionBreachStyle !== now.incursionBreachStyle;

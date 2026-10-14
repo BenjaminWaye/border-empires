@@ -12,6 +12,7 @@ import { autoSettleSettingsFieldHtml } from "../client-auto-settle-prompt/client
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
 import { lightingTunerCardHtml } from "../client-lighting-tuner/client-lighting-tuner-ui.js";
 import { rendererSettingsFieldHtml } from "../client-renderer-switch/client-renderer-settings-ui.js";
+import { incursionBreachSettingsFieldHtml } from "../client-reach-incursion/client-incursion-breach-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
@@ -138,6 +139,7 @@ export const settingsAdminPageHtml = (
   return `
     <div class="card auth-settings-card">${mapRevealCardHtml(state)}</div>
     <div class="card auth-settings-card">${lightingTunerCardHtml()}</div>
+    <div class="card auth-settings-card">${incursionBreachSettingsFieldHtml()}</div>
   `;
 };
 

@@ -13,7 +13,8 @@ const dockPairs: DockPair[] = [
   { ax: 99, ay: 99, bx: 98, by: 98 } // unrelated pair
 ];
 
-const makeState = () => ({ dockPairs, camX: 10, camY: 10, camSubX: 0.3, camSubY: 0.4 });
+const discovery = { fogDisabled: false, discoveredDockTiles: new Set(["10,10", "40,10", "15,12", "10,30", "13,14"]) };
+const makeState = () => ({ ...discovery, dockPairs, camX: 10, camY: 10, camSubX: 0.3, camSubY: 0.4 });
 
 const makeView = (): TileMenuView => ({ title: "", subtitle: "", tabs: ["overview"], overviewLines: [], actions: [], buildings: [], crystal: [] });
 
@@ -27,7 +28,7 @@ describe("connectedDockStops", () => {
   });
 
   it("says 'away' rather than 'by sea' when no route was shipped for a link", () => {
-    const state = { dockPairs: [{ ax: 10, ay: 10, bx: 13, by: 14 }], camX: 10, camY: 10, camSubX: 0, camSubY: 0 };
+    const state = { ...discovery, dockPairs: [{ ax: 10, ay: 10, bx: 13, by: 14 }], camX: 10, camY: 10, camSubX: 0, camSubY: 0 };
     expect(stepDockNavigator(state, 10, 10, "next")).toBe("Dock 1/1 · 7 tiles away");
   });
 
@@ -76,5 +77,23 @@ describe("injectDockNavigatorRow", () => {
     const view = makeView();
     injectDockNavigatorRow(view, { x: 10, y: 10 } as Tile, makeState());
     expect(view.overviewLines).toHaveLength(0);
+  });
+});
+
+
+describe("undiscovered connected docks", () => {
+  it("does not show navigation or move the camera from an enemy dock to hidden links", () => {
+    const state = { ...makeState(), discoveredDockTiles: new Set(["10,10"]) };
+    const view = makeView();
+    injectDockNavigatorRow(view, { x: 10, y: 10, terrain: "LAND", dockId: "a", ownerId: "enemy", ownershipState: "SETTLED" }, state);
+    expect(view.overviewLines).toEqual([]);
+    expect(stepDockNavigator(state, 10, 10, "next")).toBeUndefined();
+    expect([state.camX, state.camY]).toEqual([10, 10]);
+  });
+
+  it("allows navigation as linked docks are discovered after garrisoning", () => {
+    const state = { ...makeState(), discoveredDockTiles: new Set(["10,10", "15,12"]) };
+    expect(stepDockNavigator(state, 10, 10, "next")).toBe("Dock 1/1 · 7 tiles by sea");
+    expect([state.camX, state.camY]).toEqual([15, 12]);
   });
 });

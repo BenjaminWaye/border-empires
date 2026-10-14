@@ -20,7 +20,7 @@ import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-dia
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
-import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
+import { buildManpowerPanelMusterFlags, wireManpowerPanel } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
@@ -33,7 +33,9 @@ import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { applySocialFocus } from "../client-alliance/client-alliance-focus.js"; import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
+import { renderAllianceLists } from "./client-hud-alliance-lists.js";
+import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
+import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
@@ -676,21 +678,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       return;
     }
   };
-  dom.alliesListEl.innerHTML = safeValue("alliancePanelHtml", fallbackCard("Alliances"), () =>
-    alliancePanelHtml({
-      metPlayerIds: refreshMetPlayerIds(state),
-      allies: state.allies,
-      activeAllianceBreaks: state.activeAllianceBreaks,
-      activeTruces: state.activeTruces,
-      incomingAllianceRequests: state.incomingAllianceRequests,
-      outgoingAllianceRequests: state.outgoingAllianceRequests,
-      incomingTruceRequests: state.incomingTruceRequests,
-      outgoingTruceRequests: state.outgoingTruceRequests,
-      playerNameForOwner,
-      nowMs: Date.now()
-    })
-  );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML; applySocialFocus([dom.alliesListEl, dom.mobileAlliesListEl], state);
+  renderAllianceLists(state, dom, safeValue, fallbackCard("Alliances"));
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
@@ -780,11 +768,11 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
-      rateToneClass, formatDuration: deps.formatCooldownShort, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
+      rateToneClass, nextRefillAtMs: nextManpowerRefillForPlayer(state.me, Date.now())
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  wireMusterFocusButtons(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  wireManpowerPanel(dom.hud, state, { wrapX, wrapY, requestViewRefresh, rerender: () => renderClientHud(deps) });
   dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
@@ -888,6 +876,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
   bindProposeButtons(dom.hud, { playerNameForOwner, sendGameMessage });
+  bindMetPlayerRowToggles(dom.hud, state);
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
   breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 

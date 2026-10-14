@@ -84,6 +84,30 @@ describe("alliancePanelHtml", () => {
     expect(html).toContain('data-break-truce-player-id="p-2"');
   });
 
+  it("renders met players as collapsed rows, expanding only the requested one", () => {
+    const collapsed = panel({ metPlayerIds: new Set(["p-1", "ai-3"]) });
+    expect(collapsed).toContain("alliance-player-stack");
+    expect(collapsed).not.toContain("is-expanded");
+    expect(collapsed.match(/aria-expanded="false"/g)).toHaveLength(2);
+
+    const expanded = panel({ metPlayerIds: new Set(["p-1", "ai-3"]), expandedPlayerId: "p-1" });
+    expect(expanded.match(/is-expanded/g)).toHaveLength(1);
+    expect(expanded).toMatch(/is-expanded" data-player-row-id="p-1"/);
+    expect(expanded.match(/aria-expanded="true"/g)).toHaveLength(1);
+  });
+
+  it("sorts met players with numbers in natural order", () => {
+    const html = panel({ metPlayerIds: new Set(["a-10", "a-2", "a-1"]), playerNameForOwner: (id) => id?.replace("a-", "AI ") });
+    const order = [...html.matchAll(/data-inspect-player="([^"]+)"/g)].map((match) => match[1]);
+    expect(order).toEqual(["a-1", "a-2", "a-10"]);
+  });
+
+  it("gives a row with no actions no toggle, even if asked to expand it", () => {
+    const html = panel({ metPlayerIds: new Set(["p-unknown"]), expandedPlayerId: "p-unknown" });
+    expect(html).not.toContain("alliance-player-toggle");
+    expect(html).not.toContain("is-expanded");
+  });
+
   it("only offers Break Truce while a truce is active", () => {
     expect(panel({ metPlayerIds: new Set(["p-1"]) })).not.toContain("break-truce");
   });

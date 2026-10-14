@@ -320,7 +320,10 @@ export const tileFeatureLeadLines = (
   const lines: TileOverviewLine[] = [];
   const structureKeys = structureKeysForTile(tile);
   if (structureKeys.length > 0) lines.push({ html: `Built: ${structureKeys.map((key) => deps.structureInfoButtonHtml(key)).join(", ")}` });
-  lines.push(...waystationOverviewLines(tile, deps));
+  lines.push(...waystationOverviewLines(tile, {
+    ...deps,
+    techName: (techId) => deps.techCatalog.find((tech) => tech.id === techId)?.name
+  }));
   const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
   if (wonderLine) lines.push({ html: wonderLine });
   if (tile.shardSite) {

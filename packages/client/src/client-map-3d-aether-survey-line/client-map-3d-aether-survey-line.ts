@@ -416,6 +416,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     }
     lastNowMs = nowMs;
     segments.update(nowMs);
+    incursion.update(nowMs);
   };
 
   const commitPylons = (): void => {

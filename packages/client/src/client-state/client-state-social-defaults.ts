@@ -25,6 +25,9 @@ export const createInitialSocialState = () => ({
   // Set by a tile's Diplomacy action: the Alliances panel highlights and
   // scrolls to this player's card until `until`. See client-alliance-focus.ts.
   socialFocus: undefined as { playerId: string; until: number; scrollPending: boolean } | undefined,
+  // The one "Players you've met" row showing its action buttons; the rest are
+  // collapsed to a line each. See client-alliance-row-toggle.ts.
+  expandedSocialPlayerId: undefined as string | undefined,
   activePlayerProfileId: undefined as string | undefined,
   // "loading" while a GET /hq/galaxy/by-player/:playerId fetch is in flight;
   // absent key means not yet fetched for that player this session.

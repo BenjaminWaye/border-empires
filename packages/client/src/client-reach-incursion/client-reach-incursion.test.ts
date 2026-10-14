@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { incursionHatchColors, incursionMarkColor, incursionOwnerAt, incursionPocketEdges, type IncursionTile } from "./client-reach-incursion.js";
+import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, incursionPocketEdges, type IncursionTile } from "./client-reach-incursion.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => ((v % 10) + 10) % 10;
@@ -59,5 +59,18 @@ describe("incursionHatchColors", () => {
     expect(theirs).toBe("#e25822");
     expect(mine).not.toBe("#e8602a");
     expect(parseInt(mine.slice(3, 5), 16)).toBeGreaterThan(0x60);
+  });
+});
+
+describe("incursionNeighbourKindAt", () => {
+  it("tells the intruder's pocket inside my reach apart from their own land behind the old border", () => {
+    // Rival tiles at (2,1) (inside my reach) and (3,1) (outside it); mine at (1,1); a third empire at (2,2).
+    const tiles = tilesFrom({ "1,1": "me", "2,1": "rival", "3,1": "rival", "2,2": "other-empire" });
+    const kindAt = incursionNeighbourKindAt(2, 1, "rival", "me", { tiles, keyFor, wrapX: wrap, wrapY: wrap }, new Set(["1,1", "2,1"]));
+    expect(kindAt(0, 0)).toBe("pocket");
+    expect(kindAt(1, 0)).toBe("rival");
+    expect(kindAt(-1, 0)).toBe("mine");
+    expect(kindAt(0, 1)).toBe("other");
+    expect(kindAt(0, -1)).toBe("other"); // unknown / unowned
   });
 });
