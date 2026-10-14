@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { organicSideFront, type BreachPoint, type FrontNeighbourKind, type FrontSide } from "./client-incursion-breach-front.js";
 
 const NORTH: FrontSide = { dx: 0, dy: -1, a: { x: -0.5, y: -0.5 }, t: { x: 1, y: 0 } };
@@ -37,6 +38,16 @@ describe("organicSideFront", () => {
     const leftEnd = centreline(leftLine[leftLine.length - 1]!, 1);
     const rightStart = centreline(rightLine[0]!, 0);
     // Tile-local: the right tile's start sits one tile east of the left tile's end.
+    expect(rightStart.x + 1).toBeCloseTo(leftEnd.x, 6);
+    expect(rightStart.y).toBeCloseTo(leftEnd.y, 6);
+  });
+
+  it("still meets the neighbouring tile's line where the toroidal map wraps", () => {
+    const run = around({ "1,0": "pocket", "-1,0": "pocket" });
+    const lastColumn = organicSideFront(NORTH, true, WORLD_WIDTH - 1, 7, run).filter((p) => p.points.length === 4);
+    const firstColumn = organicSideFront(NORTH, true, 0, 7, run).filter((p) => p.points.length === 4);
+    const leftEnd = centreline(lastColumn[lastColumn.length - 1]!, 1);
+    const rightStart = centreline(firstColumn[0]!, 0);
     expect(rightStart.x + 1).toBeCloseTo(leftEnd.x, 6);
     expect(rightStart.y).toBeCloseTo(leftEnd.y, 6);
   });

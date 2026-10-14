@@ -16,6 +16,8 @@
 // Pure + renderer-agnostic: convex polygons in tile-local space (the tile
 // spans [-0.5, 0.5] on both axes, +x east, +y south = scene +z).
 
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+
 export type BreachPoint = { readonly x: number; readonly y: number };
 
 /**
@@ -61,25 +63,37 @@ const fract = (v: number): number => v - Math.floor(v);
 const lattice = (ix: number, iy: number, seed: number): number => fract(Math.sin(ix * 127.1 + iy * 311.7 + seed * 74.7) * 43758.5453);
 const smooth = (t: number): number => t * t * (3 - 2 * t);
 
-/** Smooth 2D value noise in [-1, 1]. */
-const noise = (x: number, y: number, seed: number): number => {
+const wrapIndex = (i: number, period: number): number => ((i % period) + period) % period;
+
+/**
+ * Smooth 2D value noise in [-1, 1] over WORLD coordinates, at roughly
+ * `frequency` cells per tile -- snapped to a whole number of cells across the
+ * world and wrapped, so the field is seamless where the toroidal map wraps
+ * (a tile at the last column and one at column 0 see the same values at
+ * their shared edge).
+ */
+const worldNoise = (worldX: number, worldY: number, frequency: number, seed: number): number => {
+  const periodX = Math.max(1, Math.round(WORLD_WIDTH * frequency));
+  const periodY = Math.max(1, Math.round(WORLD_HEIGHT * frequency));
+  const x = (worldX * periodX) / WORLD_WIDTH;
+  const y = (worldY * periodY) / WORLD_HEIGHT;
   const ix = Math.floor(x);
   const iy = Math.floor(y);
   const u = smooth(x - ix);
   const v = smooth(y - iy);
-  const top = lattice(ix, iy, seed) * (1 - u) + lattice(ix + 1, iy, seed) * u;
-  const bottom = lattice(ix, iy + 1, seed) * (1 - u) + lattice(ix + 1, iy + 1, seed) * u;
+  const at = (cx: number, cy: number): number => lattice(wrapIndex(cx, periodX), wrapIndex(cy, periodY), seed);
+  const top = at(ix, iy) * (1 - u) + at(ix + 1, iy) * u;
+  const bottom = at(ix, iy + 1) * (1 - u) + at(ix + 1, iy + 1) * u;
   return (top * (1 - v) + bottom * v) * 2 - 1;
 };
 
 /** Pushes a tile-local point by the world-space meander field. Same world point in, same offset out. */
 const warpAt =
   (worldX: number, worldY: number) =>
-  (p: BreachPoint): BreachPoint => {
-    const wx = (worldX + p.x) * WARP_FREQUENCY;
-    const wy = (worldY + p.y) * WARP_FREQUENCY;
-    return { x: p.x + noise(wx, wy, 1) * WARP_AMPLITUDE, y: p.y + noise(wx, wy, 2) * WARP_AMPLITUDE };
-  };
+  (p: BreachPoint): BreachPoint => ({
+    x: p.x + worldNoise(worldX + p.x, worldY + p.y, WARP_FREQUENCY, 1) * WARP_AMPLITUDE,
+    y: p.y + worldNoise(worldX + p.x, worldY + p.y, WARP_FREQUENCY, 2) * WARP_AMPLITUDE
+  });
 
 const add = (p: BreachPoint, q: BreachPoint, s = 1): BreachPoint => ({ x: p.x + q.x * s, y: p.y + q.y * s });
 const unit = (p: BreachPoint): BreachPoint => {
@@ -133,7 +147,7 @@ const strip = (pts: readonly BreachPoint[], halfWidths: readonly number[]): Brea
 const swellAt =
   (worldX: number, worldY: number) =>
   (p: BreachPoint): number =>
-    (LINE_WIDTH / 2) * (1 + LINE_SWELL * noise((worldX + p.x) * LINE_SWELL_FREQUENCY, (worldY + p.y) * LINE_SWELL_FREQUENCY, 3));
+    (LINE_WIDTH / 2) * (1 + LINE_SWELL * worldNoise(worldX + p.x, worldY + p.y, LINE_SWELL_FREQUENCY, 3));
 
 /**
  * A tall triangular tooth standing on the warped curve at `base`, pointing

@@ -13,6 +13,7 @@
 // client-map-3d-incursion-overlay.ts; rebuilt with it (clear/add/commit).
 
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Mesh, MeshBasicMaterial, NormalBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Blending } from "three";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { IncursionEdges } from "../client-reach-incursion/client-reach-incursion.js";
 import type { BreachPoint, IncursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout.js";
 import type { IncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
@@ -27,6 +28,8 @@ const FRONT_LIFT = 0.004;
 const BAND_LIFT = 0.003;
 /** Veil height in tiles. */
 const VEIL_HEIGHT = 0.55;
+
+const wrapWorld = (v: number, size: number): number => ((v % size) + size) % size;
 
 const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2, spikes: 3 };
 
@@ -260,7 +263,6 @@ export type IncursionBreachTile = {
 
 export type IncursionBreachFx3D = {
   readonly clear: () => void;
-  /** `theirs` = the attacker's colour. */
   /** `theirs` = the attacker's colour; `mark` = the pocket's outline colour (black on light attackers, white on dark). */
   readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color, mark: Color) => void;
   readonly commit: () => void;
@@ -305,7 +307,8 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
       for (const tile of breach.layout.band) {
         const worldX = breach.worldX + tile.dx;
         const worldY = breach.worldY + tile.dy;
-        const key = `${worldX},${worldY}`;
+        // Wrapped, so a tile of mine just across the map seam is still recognised as already drawn.
+        const key = `${wrapWorld(worldX, WORLD_WIDTH)},${wrapWorld(worldY, WORLD_HEIGHT)}`;
         if (bandTilesThisRebuild.has(key)) continue;
         bandTilesThisRebuild.add(key);
         const cx = x + tile.dx;

@@ -4,9 +4,10 @@
 // strip, so for now this is an admin-only switch (Settings > Admin):
 //
 //  - "straight": the original solid strip just inside the pocket (default).
-//  - "spikes":   a thin front line in the attacker's colour round the pocket,
-//                with small evenly spaced teeth pointing into my land
-//                (Hearts of Iron IV front lines).
+//  - "spikes":   an inked, gently meandering front line in the attacker's
+//                colour round the pocket, with tall, even triangular teeth
+//                pointing into my land and a soft glow of the attacker's
+//                colour spreading out in front (Hearts of Iron IV front lines).
 //  - "ember":    a thin glowing fissure along the boundary with a soft
 //                flickering glow either side (Total War: Warhammer
 //                corruption fronts, Diablo lava seams).

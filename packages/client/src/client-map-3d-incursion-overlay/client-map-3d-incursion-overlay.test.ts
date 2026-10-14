@@ -23,10 +23,26 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
+  it("only creates the breach effect meshes once a non-straight breach style is actually drawn", () => {
+    const group = new Group();
+    const overlay = createIncursionOverlay3D(group, 2);
+    const noEdges = { north: false, east: false, south: false, west: false };
+    const straight = { straightEdges: { north: true, east: true, south: true, west: true }, front: [], roundedCorners: 0, band: [], veilSides: [] };
+    overlay.addTile(0, 0, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", straight.straightEdges, { style: "straight", worldX: 0, worldY: 0, layout: straight });
+    overlay.commit();
+    overlay.update(1000);
+    expect(group.children).toHaveLength(2); // just hatch + edge strips
+    overlay.clear();
+    overlay.addTile(0, 0, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", noEdges, { style: "veil", worldX: 0, worldY: 0, layout: { ...straight, straightEdges: noEdges, veilSides: ["north"] } });
+    overlay.commit();
+    expect(group.children.length).toBeGreaterThan(2);
+    overlay.dispose();
+    expect(group.children).toHaveLength(0);
+  });
+
   it("draws the breach band once per world tile, and a veil quad per breached side", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 4);
-    const [, , band, veil] = group.children as Mesh[];
     const noEdges = { north: false, east: false, south: false, west: false };
     const hatch = { theirs: "#ff0000", mine: "#00ff00" };
     // Two pocket tiles side by side, both listing the same tile of mine north of the seam.
@@ -35,6 +51,7 @@ describe("createIncursionOverlay3D", () => {
     overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, front: [], roundedCorners: 0, band: [{ ...shared, dx: -1 }], veilSides: [] } });
     overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, front: [], roundedCorners: 0, band: [], veilSides: ["north", "east"] } });
     overlay.commit();
+    const [, , band, veil] = group.children as Mesh[];
     expect(drawnQuads(band!)).toBe(1);
     expect(drawnQuads(veil!)).toBe(2);
     // The veil stands up off the ground.
@@ -52,7 +69,6 @@ describe("createIncursionOverlay3D", () => {
   it("draws the spikes front line flat in the attacker's colour over a thin rim in the outline colour", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 1);
-    const [, , , , outline, front] = group.children as Mesh[];
     const noEdges = { north: false, east: false, south: false, west: false };
     const line = {
       points: [{ x: -0.5, y: -0.52 }, { x: 0.5, y: -0.52 }, { x: 0.5, y: -0.48 }, { x: -0.5, y: -0.48 }],
@@ -66,6 +82,7 @@ describe("createIncursionOverlay3D", () => {
       layout: { straightEdges: noEdges, front: [line, tooth], roundedCorners: 0, band: [], veilSides: [] }
     });
     overlay.commit();
+    const [, , , , outline, front] = group.children as Mesh[];
     expect(drawnQuads(front!)).toBe(2);
     expect(drawnQuads(outline!)).toBe(2);
     // Outlines draw before fills.

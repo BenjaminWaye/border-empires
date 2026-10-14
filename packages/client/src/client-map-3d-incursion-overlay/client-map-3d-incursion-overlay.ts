@@ -11,7 +11,7 @@
 //   - solid strips just inside every pocket edge in a colour contrasting with
 //     the intruder's fill (incursionMarkColor), so the pocket has a crisp
 //     outline inside the viewer's bright reach border.
-//   - optionally, an animated "breach" look (ember / ink / veil) on the
+//   - optionally, an animated "breach" look (spikes / ember / ink / veil) on the
 //     boundary with the viewer's own land, in place of the strip there --
 //     see client-map-3d-incursion-breach-fx.ts.
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
@@ -20,7 +20,7 @@
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, LinearSRGBColorSpace, Material, Mesh, MeshBasicMaterial, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import type { IncursionEdges, incursionHatchColors } from "../client-reach-incursion/client-reach-incursion.js";
-import { createIncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
+import { createIncursionBreachFx3D, type IncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
 import { FRONT_CORNER_RADIUS } from "../client-reach-incursion/client-incursion-breach-front.js";
 
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
@@ -183,7 +183,9 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
   const edges = createQuadBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, edgeMaterial, ["color"], undefined, 9);
   const buffers = [hatch, edges];
   parent.add(hatch.mesh, edges.mesh);
-  const breachFx = createIncursionBreachFx3D(parent);
+  // Created on first use: the breach looks are an admin-only, default-off
+  // option, so most clients never pay for their buffers (several MB) or shaders.
+  let breachFx: IncursionBreachFx3D | undefined;
   const theirs = new Color();
   const mine = new Color();
   const edge = new Color();
@@ -205,26 +207,29 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     if (tileEdges.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
     if (tileEdges.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
     if (tileEdges.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
-    if (breach) breachFx.add(x, z, surfaceY, breach, theirs, edge);
+    if (breach && breach.style !== "straight") {
+      breachFx ??= createIncursionBreachFx3D(parent);
+      breachFx.add(x, z, surfaceY, breach, theirs, edge);
+    }
   };
 
   return {
     clear: () => {
       for (const b of buffers) b.count = 0;
-      breachFx.clear();
+      breachFx?.clear();
     },
     addTile,
     commit: () => {
       for (const b of buffers) upload(b);
-      breachFx.commit();
+      breachFx?.commit();
     },
-    update: breachFx.update,
+    update: (nowMs) => breachFx?.update(nowMs),
     dispose: () => {
       for (const b of buffers) {
         parent.remove(b.mesh);
         b.geometry.dispose();
       }
-      breachFx.dispose();
+      breachFx?.dispose();
       hatchMaterial.dispose();
       edgeMaterial.dispose();
     }
