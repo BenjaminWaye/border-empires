@@ -1,8 +1,10 @@
-// Bindings for Settings > Admin (map reveal + the lighting tuner). Split out
-// of client-hud.ts, which is already over the repo's per-file line cap and
-// must not grow (AGENTS.md), so the HUD only needs one call.
+// Bindings for Settings > Admin (map reveal, the lighting tuner and the breach
+// edge style switch). Split out of client-hud.ts, which is already over the
+// repo's per-file line cap and must not grow (AGENTS.md), so the HUD only
+// needs one call.
 import { fogRevealLog } from "../client-debug/client-debug.js";
 import { bindLightingTunerControls } from "../client-lighting-tuner/client-lighting-tuner-ui.js";
+import { bindIncursionBreachSettingsControls } from "../client-reach-incursion/client-incursion-breach-settings-ui.js";
 import { mapRevealAvailable, setMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 
@@ -43,4 +45,5 @@ export const bindAdminSettingsControls = (root: ParentNode, deps: AdminSettingsD
     };
   });
   bindLightingTunerControls(root, rerender);
+  bindIncursionBreachSettingsControls(root, rerender);
 };

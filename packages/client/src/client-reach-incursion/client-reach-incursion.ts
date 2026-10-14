@@ -49,6 +49,18 @@ export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps
   };
 };
 
+/**
+ * Classifier for the breach outline (client-incursion-breach-shapes.ts): what
+ * sits at offset (dx, dy) from the incursion tile at (x, y) -- more of the same
+ * intruder's pocket, the viewer's own land, or anything else.
+ */
+export const incursionNeighbourKindAt =
+  (x: number, y: number, ownerId: string, me: string, deps: IncursionDeps) =>
+  (dx: number, dy: number): "pocket" | "mine" | "other" => {
+    const neighbourOwner = deps.tiles.get(deps.keyFor(deps.wrapX(x + dx), deps.wrapY(y + dy)))?.ownerId;
+    return neighbourOwner === ownerId ? "pocket" : neighbourOwner === me ? "mine" : "other";
+  };
+
 const LIGHT_MARK = "#ffffff";
 const DARK_MARK = "#141414";
 /** Relative-luminance cutoff above which the intruder colour is "light" and gets dark marks. */

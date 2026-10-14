@@ -1,25 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { incursionHatchColors, incursionMarkColor } from "@client/client-reach-incursion/client-reach-incursion.js";
-import {
-  BREACH_EDGE_LABELS,
-  BREACH_EDGE_STYLES,
-  MINE_HALF_HEIGHT,
-  MINE_HALF_WIDTH,
-  buildBreachDemoWorld,
-  buildBreachEdgePolygons,
-  parseTileKey,
-  type BreachEdgeStyle
-} from "../incursion-breach/incursion-breach-prototypes.js";
+import { INCURSION_STRIP_WIDTH, incursionBreachOutline } from "@client/client-reach-incursion/client-incursion-breach-shapes.js";
+import { INCURSION_BREACH_STYLES, type IncursionBreachStyle } from "@client/client-reach-incursion/client-incursion-breach-style.js";
+import { BREACH_STYLE_LABELS, MINE_HALF_HEIGHT, MINE_HALF_WIDTH, buildBreachDemoWorld, demoKindAt, parseTileKey } from "../incursion-breach/incursion-breach-demo-world.js";
 
 /**
- * 2D canvas twin of 3D Library/IncursionBreachEdge: the same prototype edge
- * shapes (incursion-breach-prototypes.ts) drawn top-down, the way the 2D
- * fallback renderer would show them. The hatch mirrors
- * client-reach-incursion-2d.ts (4 stripe pairs per tile at 60% alpha).
+ * 2D canvas preview of 3D Library/IncursionBreachEdge: the same production
+ * outline shapes (client-incursion-breach-shapes.ts) drawn top-down, the way
+ * the 2D fallback renderer would show them. The game's 2D renderer does NOT
+ * draw these yet (3D first) -- this only previews how they'd read there. The
+ * hatch mirrors client-reach-incursion-2d.ts (4 stripe pairs per tile at 60%).
  */
 
 type Args = {
-  style: BreachEdgeStyle;
+  style: IncursionBreachStyle;
   tileSize: number;
   myColor: string;
   intruderColor: string;
@@ -96,16 +90,26 @@ const renderPanel = (args: Args, label: string): HTMLElement => {
       drawHatch(ctx, toPx(x), toPy(y), size, hatch.theirs, hatch.mine);
     }
 
-    const mark = incursionMarkColor(args.intruderColor);
-    // Polygon points are tile-space with tile centres on integers, so shift by half a tile.
-    const sx = (x: number): number => toPx(x + 0.5);
-    const sy = (y: number): number => toPy(y + 0.5);
-    for (const polygon of buildBreachEdgePolygons(world, args.style)) {
-      ctx.fillStyle = polygon.paint === "intruder" ? args.intruderColor : mark;
-      ctx.beginPath();
-      polygon.points.forEach((p, i) => (i === 0 ? ctx.moveTo(sx(p.x), sy(p.y)) : ctx.lineTo(sx(p.x), sy(p.y))));
-      ctx.closePath();
-      ctx.fill();
+    ctx.fillStyle = incursionMarkColor(args.intruderColor);
+    const strip = INCURSION_STRIP_WIDTH * size;
+    for (const key of world.pocket) {
+      const { x, y } = parseTileKey(key);
+      const outline = incursionBreachOutline(args.style, x, y, demoKindAt(world, x, y));
+      const px = toPx(x);
+      const py = toPy(y);
+      if (outline.straightEdges.north) ctx.fillRect(px, py, size, strip);
+      if (outline.straightEdges.south) ctx.fillRect(px, py + size - strip, size, strip);
+      if (outline.straightEdges.west) ctx.fillRect(px, py, strip, size);
+      if (outline.straightEdges.east) ctx.fillRect(px + size - strip, py, strip, size);
+      // Shapes are tile-local around the tile centre.
+      const cx = px + size / 2;
+      const cy = py + size / 2;
+      for (const shape of outline.shapes) {
+        ctx.beginPath();
+        shape.points.forEach((p, i) => (i === 0 ? ctx.moveTo(cx + p.x * size, cy + p.y * size) : ctx.lineTo(cx + p.x * size, cy + p.y * size)));
+        ctx.closePath();
+        ctx.fill();
+      }
     }
   }
 
@@ -128,19 +132,19 @@ const page = (children: HTMLElement[]): HTMLElement => {
 const meta: Meta<Args> = {
   title: "2D Library/IncursionBreachEdge2D",
   argTypes: {
-    style: { control: { type: "select" }, options: [...BREACH_EDGE_STYLES] },
+    style: { control: { type: "select" }, options: [...INCURSION_BREACH_STYLES] },
     tileSize: { control: { type: "range", min: 16, max: 72, step: 2 } },
     myColor: { control: { type: "color" } },
     intruderColor: { control: { type: "color" } }
   },
   args: { style: "spikes", tileSize: 44, myColor: "#e0535d", intruderColor: "#7be05a" },
-  render: (args) => page([renderPanel(args, BREACH_EDGE_LABELS[args.style])])
+  render: (args) => page([renderPanel(args, BREACH_STYLE_LABELS[args.style])])
 };
 
 export default meta;
 type Story = StoryObj<Args>;
 
-const renderCompare = (args: Args): HTMLElement => page(BREACH_EDGE_STYLES.map((style) => renderPanel({ ...args, style }, BREACH_EDGE_LABELS[style])));
+const renderCompare = (args: Args): HTMLElement => page(INCURSION_BREACH_STYLES.map((style) => renderPanel({ ...args, style }, BREACH_STYLE_LABELS[style])));
 
 export const CompareAll: Story = { render: renderCompare };
 export const CompareAllDarkIntruder: Story = { args: { intruderColor: "#2b3a8c" }, render: renderCompare };

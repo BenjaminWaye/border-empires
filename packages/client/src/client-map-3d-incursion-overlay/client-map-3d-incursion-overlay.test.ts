@@ -23,6 +23,32 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
+  it("fan-triangulates breach shapes into their own mesh in the outline colour", () => {
+    const group = new Group();
+    const overlay = createIncursionOverlay3D(group, 2);
+    const breach = group.children[2] as Mesh;
+    const shapes = [
+      { points: [{ x: 0, y: -0.5 }, { x: 0.2, y: -0.5 }, { x: 0.1, y: -0.9 }] },
+      { points: [{ x: -0.5, y: -0.5 }, { x: 0.5, y: -0.5 }, { x: 0.5, y: -0.45 }, { x: -0.5, y: -0.45 }] }
+    ];
+    overlay.addTile(3, 4, 1, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", { north: false, east: false, south: false, west: false }, shapes);
+    overlay.commit();
+    const geometry = breach.geometry as BufferGeometry;
+    expect(geometry.drawRange.count).toBe(9); // 1 triangle + a quad's 2
+    const position = geometry.getAttribute("position");
+    // Tile-local (0.1, -0.9) lands at scene (3.1, y, 3.1): spikes reach into the neighbouring tile.
+    expect(position.getX(2)).toBeCloseTo(3.1);
+    expect(position.getZ(2)).toBeCloseTo(3.1);
+    expect(position.getY(2)).toBeGreaterThan(1);
+    const color = geometry.getAttribute("color");
+    expect([color.getX(0), color.getY(0), color.getZ(0)]).toEqual([1, 1, 1]); // the "#ffffff" outline colour
+    overlay.clear();
+    overlay.commit();
+    expect(geometry.drawRange.count).toBe(0);
+    overlay.dispose();
+    expect(group.children).toHaveLength(0);
+  });
+
   it("stops adding tiles (and their edges) once the hatch buffer is full", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 1);

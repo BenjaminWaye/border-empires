@@ -312,6 +312,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "3D map shows frontier claims on time",
     why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
     changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
+  },
+  {
+    createdAt: 1791977894863,
+    introducedIn: "2026.10.14.2",
+    title: "Trying new outlines for enemy land inside your border",
+    why: "The plain outline around enemy tiles taken inside your reach doesn't read as a break-in. We're comparing three new looks on the 3D map before choosing one.",
+    changes: [
+      "Admins can switch the outline between front-line spikes, a jagged torn line and a shattered wall with cracks (Settings > Admin)",
+      "The new looks only go on sides that border your own land; for everyone else the outline is unchanged for now"
+    ]
   }
 ];
 
