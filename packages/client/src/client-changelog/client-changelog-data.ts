@@ -297,11 +297,25 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   {
+    createdAt: 1791922964029, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Manifest panel tabs",
+    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
+    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
+  },
+  {
     createdAt: 1791836603366, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.1",
     title: "Combat reports for each muster flag",
     why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
+  },
+  {
+    createdAt: 1791969446372, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Smoother fog reveals in the 3D map",
+    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
+    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
   },
   {
     createdAt: 1791921497137,
@@ -391,12 +405,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791922964029, // Date.now() captured once for this release.
-    introducedIn: "2026.10.13.2",
-    title: "Manifest panel tabs",
-    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
-    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
-  }
+    createdAt: 1791982864990, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.1",
+    title: "Town resource discoveries get a lasting popup",
+    why: "Important resource clues were easy to miss in brief map labels and the retiring Alerts panel.",
+    changes: [
+      "Town surveys use the game's brass panels, parchment text, and familiar buttons in both map renderers",
+      "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
+      "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

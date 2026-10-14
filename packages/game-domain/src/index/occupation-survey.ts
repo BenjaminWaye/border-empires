@@ -65,5 +65,8 @@ export const appendOccupationSurveyReports = (
   player.eventLog = existing.filter((entry) => entry.type !== "OCCUPATION_SURVEY");
   for (const report of reports.values()) {
     appendPlayerEventLogEntry(player, report);
+    // Retained standing intelligence is the same discovery, not a new popup.
+    const appended = player.eventLog?.at(-1);
+    if (appended && existing.some((entry) => entry.id === report.id)) appended.id = report.id;
   }
 };
