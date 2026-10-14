@@ -2,6 +2,7 @@ import { musterFlagCap } from "@border-empires/shared";
 import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { Tile } from "../client-types.js";
 import { predictedMusterAmount, type MusterRateCache } from "../client-muster-prediction/client-muster-prediction.js";
+import { setManpowerInfoOpen } from "../client-manpower-panel-info/client-manpower-panel-info.js";
 
 /**
  * Builds the "Active muster flags" list for the manpower detail panel, mirroring
@@ -64,5 +65,17 @@ export const wireMusterFocusButtons = (
       deps.requestViewRefresh();
       deps.rerender();
     };
+  });
+};
+
+/** Wires every interactive bit of the manpower panel: muster flag focus rows and the "how manpower works" toggle. */
+export const wireManpowerPanel = (
+  root: ParentNode,
+  state: Parameters<typeof wireMusterFocusButtons>[1],
+  deps: Parameters<typeof wireMusterFocusButtons>[2]
+): void => {
+  wireMusterFocusButtons(root, state, deps);
+  root.querySelectorAll<HTMLDetailsElement>("details[data-manpower-info]").forEach((details) => {
+    details.ontoggle = () => setManpowerInfoOpen(details.open);
   });
 };

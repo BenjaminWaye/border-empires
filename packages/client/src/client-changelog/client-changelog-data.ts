@@ -314,6 +314,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "3D map shows frontier claims on time",
     why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
     changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
+  },
+  {
+    createdAt: 1791971113032,
+    introducedIn: "2026.10.14.2",
+    title: "Next manpower batch front and centre",
+    why: "The manpower panel buried when your next batch arrives inside a long paragraph, and showed the time until full as raw minutes like \"738m 18s\".",
+    changes: [
+      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top in hours and minutes, e.g. \"0h 19m\" (or \"Full\" / \"Paused\")",
+      "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
+      "The explanation of how manpower works is tucked behind a \"?\" toggle"
+    ]
   }
 ];
 
