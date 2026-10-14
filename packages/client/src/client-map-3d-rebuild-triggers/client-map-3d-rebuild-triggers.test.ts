@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 import { applyServerReachUpdate, clearServerReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { setIncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
 import {
   EMPTY_MAP_3D_REBUILD_TRIGGERS,
   captureMap3DRebuildTriggers,
@@ -67,6 +68,17 @@ describe("3D map rebuild triggers", () => {
     const state = createState();
     expect(reach3DRebuildKey(false, state)).toBe("");
     expect(reach3DRebuildKey(true, state)).not.toBe("");
+  });
+
+  it("asks for a rebuild when the admin breach edge style changes, so the pocket outlines redraw without a pan", () => {
+    const state = createState();
+    setIncursionBreachStyle("straight");
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
+    setIncursionBreachStyle("ember");
+    const afterSwitch = captureMap3DRebuildTriggers(state, keyFor, true);
+    expect(map3DRebuildTriggersChanged(built, afterSwitch)).toBe(true);
+    expect(map3DRebuildTriggersChanged(afterSwitch, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);
+    setIncursionBreachStyle("straight");
   });
 
   it("still asks for a rebuild on crystal-targeting toggles", () => {
