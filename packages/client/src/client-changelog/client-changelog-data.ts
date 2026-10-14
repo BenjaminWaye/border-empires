@@ -389,7 +389,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Hydroworks recommendations require a nearby active Hydrogarden that does not already have its bonus",
       "Hydrogarden, Hydroworks and Fish Food bonuses are only recommended with one spare Food slot or less"
     ]
-  }
+  },
+  {
+    createdAt: 1791982864990, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.1",
+    title: "Town resource discoveries get a lasting popup",
+    why: "Important resource clues were easy to miss in brief map labels and the retiring Alerts panel.",
+    changes: [
+      "Town surveys use the game's brass panels, parchment text, and familiar buttons in both map renderers",
+      "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
+      "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

@@ -6,11 +6,12 @@ import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-
 import { activityCardCoordinates, activityCardText, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardScroll, syncActivityDashboardScroll } from "./client-activity-dashboard-scroll.js";
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
+import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.js";
 
 type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
-    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "techCatalog" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail"
+    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "techCatalog" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail" | "eventLog" | "techIds"
   >;
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
@@ -75,7 +76,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
   }
 
   const timeline = state.activityDashboard.timeline;
-  const yoursBodyHtml = state.activityDashboard.loading && !timeline
+  const yoursTimelineHtml = state.activityDashboard.loading && !timeline
     ? `<div class="activity-dashboard-empty-state">Loading your activity…</div>`
     : state.activityDashboard.error && !timeline
       ? `<div class="activity-dashboard-empty-state">${escapeActivityDashboardHtml(state.activityDashboard.error)}</div>`
@@ -86,6 +87,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
           ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id), (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
+  const yoursBodyHtml = resourceSurveySectionHtml(state.eventLog, state.techIds) + yoursTimelineHtml;
   const activeView = state.activityDashboard.activeView;
   const updates = unseenClientChangelogEntries(state.changelog.seenAt);
   // Viewing Updates marks them seen; pin the list to what was unseen when the tab opened so it
@@ -150,6 +152,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
     wrapX: deps.wrapX,
     wrapY: deps.wrapY,
     requestViewRefresh: deps.requestViewRefresh,
+    onSurveyFocused: () => { state.activityDashboard.open = false; resetActivityDashboardView(state); },
     rerender: deps.renderHud
   });
 
