@@ -431,7 +431,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.14.3",
     title: "AI empires stand down after a truce",
     items: [
-      "An AI empire now disbands a muster flag once there's no enemy left for it to fight, such as after it signs a truce or alliance, and gets that manpower back",
+      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
       "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
     ]
   },
