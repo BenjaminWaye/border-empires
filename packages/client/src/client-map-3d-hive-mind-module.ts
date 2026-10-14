@@ -244,7 +244,7 @@ export const createHiveMindModuleOverlay = (scene: Scene, maxInstances: number, 
   // conduit that reaches from the orb's surface at that height to the relay's
   // inner face, and each carrying one cyan signal light on its outward face.
   const addRelayNetwork = (wx: number, sy: number, wz: number): void => {
-    for (const [i, a] of HMM_RELAY_AZIMUTHS.entries()) {
+    for (const a of HMM_RELAY_AZIMUTHS) {
       const ux = Math.cos(a);
       const uz = Math.sin(a);
       addPiece("relay", wx, sy, wz, HMM_RELAY.radius * ux, HMM_RELAY.y, HMM_RELAY.radius * uz);

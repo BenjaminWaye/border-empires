@@ -1,0 +1,91 @@
+/*
+ * Manifest tree layout + header toolbar: the unlocked/ready/total counts and
+ * the zoom control sit on one row. Imported after the steampunk theme files so the
+ * --sp-* tokens exist. The zoom buttons had no styles of their own, so they
+ * rendered as loose default panel buttons stacked under the counts.
+ */
+
+/* The expanded tree splits its height between the header and the graph, so
+   the graph's bottom edge stays on screen; its old fixed min-height pushed
+   the bottom of the tree past the panel. */
+.tech-tree-shell.expanded {
+  box-sizing: border-box;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.tech-tree-shell.expanded .tech-tree-graph-scroll {
+  height: auto;
+  min-height: 0;
+}
+
+.tech-tree-shell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tech-tree-zoom-controls {
+  display: inline-flex;
+  align-items: stretch;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 999px;
+  background: rgba(20, 16, 10, 0.6);
+}
+
+.tech-tree-zoom-controls .tech-tree-zoom-btn {
+  min-width: 30px;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--sp-parchment-300);
+  font: 600 13px/1 var(--sp-font-mono);
+  cursor: pointer;
+}
+
+.tech-tree-zoom-controls .tech-tree-zoom-btn + .tech-tree-zoom-btn {
+  border-left: 1px solid var(--sp-brass-700);
+}
+
+.tech-tree-zoom-controls .tech-tree-zoom-btn:hover {
+  background: rgba(90, 61, 32, 0.6);
+  color: var(--sp-brass-100);
+}
+
+.tech-tree-zoom-controls .tech-tree-zoom-readout {
+  min-width: 50px;
+  font-size: 12px;
+}
+
+/* Mobile: the counts drop their pill chrome and read as one line of stats,
+   so the zoom control fits beside them instead of on a row of its own. */
+@media (max-width: 900px) {
+  .tech-tree-shell-actions {
+    justify-content: space-between;
+  }
+
+  .tech-tree-shell-head .tech-tree-overview-metrics {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .tech-tree-shell-head .tech-tree-overview-metrics span {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .tech-tree-shell-head .tech-tree-overview-metrics strong {
+    margin-right: 3px;
+    font-size: 13px;
+  }
+}

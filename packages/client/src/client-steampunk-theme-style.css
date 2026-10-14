@@ -79,6 +79,7 @@ body {
 h1, h2, h3,
 .auth-panel-title,
 #side-panel-head h3,
+#mobile-sheet-title,
 .auth-brand-text {
   font-family: var(--sp-font-display);
   letter-spacing: 0.01em;
@@ -224,7 +225,8 @@ h1, h2, h3,
 /* ---- Top strip / resource gauges ---- */
 
 #top-strip,
-#side-panel {
+#side-panel,
+#mobile-sheet {
   border-radius: 6px;
   border: 1px solid var(--sp-brass-700);
   background: var(--sp-panel-bg);
@@ -233,11 +235,13 @@ h1, h2, h3,
     inset 0 0 0 1px rgba(217, 173, 82, 0.1);
 }
 
-#side-panel-head {
+#side-panel-head,
+#mobile-sheet-head {
   border-bottom: 1px solid var(--sp-brass-700);
 }
 
-#side-panel-head h3 {
+#side-panel-head h3,
+#mobile-sheet-title {
   color: var(--sp-brass-100);
 }
 

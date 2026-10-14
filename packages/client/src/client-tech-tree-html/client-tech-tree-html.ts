@@ -1,3 +1,4 @@
+import { techAgeMetaForTier } from "./client-tech-tree-ages.js";
 import { techBranchTagHtml } from "../client-tech-html/client-tech-html.js";
 import { renderTechHighlightTagsHtml, techHighlightTags } from "../client-tech-payoffs.js";
 import { techBlockedReasonSummary, techMissingResourceSummary, techMissingResourceSummaryHtml } from "../client-tech-requirements/client-tech-requirements.js";
@@ -25,6 +26,7 @@ type TechTreeNodeLayout = {
 type CurrentResearch = { techId?: string; completesAt?: number } | null | undefined;
 
 type TechTreeArgs = {
+  isGoodPick?: (tech: TechInfo) => boolean;
   techCatalog: TechInfo[];
   techUiSelectedId: string | undefined;
   techRootId: string | undefined;
@@ -45,51 +47,6 @@ type TechTreeArgs = {
   pulseUntilByTechId?: ReadonlyMap<string, number>; // "reward is ready" pulse, §7.3 — tech id -> pulse-expiry ms
 };
 
-type TechAgeMeta = {
-  name: string;
-  blurb: string;
-  stageBlurb: string;
-};
-
-const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
-  1: {
-    name: "Founding Age",
-    blurb: "Food, trade, scouting, and warbands establish a viable frontier state.",
-    stageBlurb: "Garrison basics, first mintworks, first maps."
-  },
-  2: {
-    name: "Mechanical Age",
-    blurb: "Measured stonework, prospecting, docks, and field gear turn survival into systems.",
-    stageBlurb: "Machine craft, fortification, extraction."
-  },
-  3: {
-    name: "Industrial Age",
-    blurb: "Guild production, ledgers, convoy planning, and siege engines make expansion scalable.",
-    stageBlurb: "Scaled production, finance, and campaign logistics."
-  },
-  4: {
-    name: "Aether Age",
-    blurb: "Resonance networks, state accounting, and advanced extraction create aetherpunk empire play.",
-    stageBlurb: "Aether infrastructure, signal control, and heavy industry."
-  },
-  5: {
-    name: "Sky Age",
-    blurb: "Ministries, intelligence, long campaigns, and civic systems harden the imperial core.",
-    stageBlurb: "Administrative power, covert reach, and strategic mobility."
-  },
-  6: {
-    name: "Astral Age",
-    blurb: "Sky docks, resonance grids, and imperial circulation prepare the world for a future orbital leap.",
-    stageBlurb: "Air power, refined fuel, and world-scale coordination."
-  },
-  7: {
-    name: "Monument Age",
-    blurb: "Empire-scale monuments, shield domes, and global aether systems decide the season.",
-    stageBlurb: "Monuments, power grids, and world-shaping systems."
-  }
-};
-
-const techAgeMetaForTier = (tier: number): TechAgeMeta => TECH_AGE_BY_TIER[tier] ?? { name: `Tier ${tier}`, blurb: "Advanced empire technology.", stageBlurb: "Advanced unlocks." };
 
 const techCardStatusLine = (
   tech: TechInfo,
@@ -112,14 +69,14 @@ const techTierNodeOffset = (index: number, count: number): number => {
   return Math.round(lane === 0 ? 0 : TECH_TREE_TIER_SPREAD);
 };
 
-const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPrereqIds" | "techNameList" | "formatTechCost">): number => {
+const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPrereqIds" | "techNameList" | "formatTechCost" | "isGoodPick">): number => {
   const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
   const highlightCount = techHighlightTags(tech).length;
   const payoffRows = highlightCount > 0 ? Math.max(1, Math.ceil(Math.min(highlightCount, 3) / 2)) : 0;
   const prereqText = args.techPrereqIds(tech).length > 0 ? `Requires ${args.techNameList(args.techPrereqIds(tech))}` : "Entry technology";
   const costText = techCardStatusLine(tech, prereqText, args.formatTechCost).text;
   const costLines = Math.max(1, Math.ceil(costText.length / 30));
-  const estimate = 28 + titleLines * 24 + payoffRows * 26 + 12 + costLines * 20 + 26;
+  const estimate = (args.isGoodPick?.(tech) ? 30 : 0) + 28 + titleLines * 24 + payoffRows * 26 + 12 + costLines * 20 + 26;
   return Math.max(TECH_TREE_NODE_MIN_H, estimate);
 };
 
@@ -215,6 +172,7 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
               <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
+            ${!isOwned && !isPending && args.isGoodPick?.(tech) ? `<span class="manifest-chip manifest-chip--good-pick">Good pick</span>` : ""}
             ${renderTechHighlightTagsHtml(tech)}
             <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
           </button>`;
@@ -504,6 +462,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
           <span class="tech-tree-card-badge">${stateLabel}</span>
         </div>
+        ${!isOwned && !isPending && args.isGoodPick?.(tech) ? `<span class="manifest-chip manifest-chip--good-pick">Good pick</span>` : ""}
         ${renderTechHighlightTagsHtml(tech)}
         <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
       </button>`;
@@ -513,8 +472,6 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   return `<article class="card tech-tree-shell expanded" data-tech-tree-shell>
     <div class="tech-tree-shell-head">
       <div>
-        <div class="domain-summary-kicker">Research</div>
-        <strong>Technology tree</strong>
         <p>Drag across the six ages to see how frontier survival becomes machine empire, then sky power.</p>
       </div>
       <div class="tech-tree-shell-actions">
@@ -523,7 +480,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
           <span><strong>${args.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
           <span><strong>${args.techCatalog.length}</strong> total</span>
         </div>
-        <div class="tech-tree-zoom-controls" aria-label="Technology tree zoom controls">
+        <div class="tech-tree-zoom-controls" aria-label="Manifest tree zoom controls">
           <button class="panel-btn tech-tree-zoom-btn" type="button" data-tech-tree-zoom="out" aria-label="Zoom out">-</button>
           <button class="panel-btn tech-tree-zoom-btn tech-tree-zoom-readout" type="button" data-tech-tree-zoom="reset" aria-label="Reset zoom">${Math.round(
             zoom * 100

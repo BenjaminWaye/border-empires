@@ -15,8 +15,8 @@
 // the contour recedes smoothly, with a lantern flash (B) as it parts.
 // The contour is cut from a blurred field of "deep fog" (unexplored tiles
 // with no explored neighbour), so it rounds corners instead of following
-// tile squares. Tiles' own edges against explored land are anti-aliased
-// inward only. All derivatives and texture reads happen before the single
+// tile squares. Coverage is continuous across tile boundaries, including
+// during a reveal. All derivatives and texture reads happen before the single
 // `discard`.
 
 import { STORM_FIELD_GLSL } from "./client-map-3d-unexplored-storm-field-glsl.js";
@@ -58,11 +58,6 @@ float lines(float x, float halfWidth) {
   return l * clamp(1.6 - fw * 5.0, 0.0, 1.0);
 }
 
-float maskR(vec2 tile) {
-  vec2 uv = (tile + 0.5 - uMaskMin) / uMaskSize;
-  return (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? 1.0 : texture2D(uMask, uv).r;
-}
-
 void main() {
   vec2 w = vWorldXZ;
   vec2 drift = vec2(uTime * 0.09, uTime * 0.035);
@@ -70,33 +65,12 @@ void main() {
   float mass = stormFbm(w * 0.08 - drift * 0.05 + body * 0.6);
   float edgeNoise = stormEdgeNoise(w, uTime);
 
-  // R: 1 = unexplored, for this tile and its 4 edge neighbours.
-  vec2 tile = floor(vSceneXZ);
-  vec2 f = vSceneXZ - tile;
-  // Covered until fully explored: a tile rolling back (R between 0 and 1)
-  // keeps its cloud, and the contour below pulls back over it smoothly.
-  float hard = step(0.002, maskR(tile));
-  float l = maskR(tile + vec2(-1.0, 0.0));
-  float r = maskR(tile + vec2(1.0, 0.0));
-  float u = maskR(tile + vec2(0.0, -1.0));
-  float d = maskR(tile + vec2(0.0, 1.0));
-  // Inward-only anti-aliasing along edges shared with explored tiles.
-  vec2 fwScene = fwidth(vSceneXZ);
-  // Eased by the neighbour's exploredness (1 - R), so it fades in while a
-  // neighbour rolls back instead of switching on at once.
-  float edgeAa = min(
-    min(mix(smoothstep(0.0, fwScene.x, f.x), 1.0, l), mix(smoothstep(0.0, fwScene.x, 1.0 - f.x), 1.0, r)),
-    min(mix(smoothstep(0.0, fwScene.y, f.y), 1.0, u), mix(smoothstep(0.0, fwScene.y, 1.0 - f.y), 1.0, d))
-  );
-
-  // G: deep-fog field. Exactly 1 at a deep tile's centre (it's always
-  // storm), lower across the ring; bilinear + a 5-tap average rounds the
-  // contour instead of notching or pinching it at tile corners.
+  // All coverage comes from continuous fields. Per-tile opacity gates
+  // leave cuts where a partially revealed neighbour meets this tile.
   vec2 uv = (vSceneXZ - uMaskMin) / uMaskSize;
-  vec2 uvTile = (tile + 0.5 - uMaskMin) / uMaskSize;
   bool outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
-  float deep = outside ? 1.0 : smoothstep(0.97, 0.995, texture2D(uMask, uvTile).g);
   float soft = outside ? 1.0 : stormSoftField(uMask, uv, uMaskSize);
+  float deep = smoothstep(0.97, 0.995, soft);
   // Reveal (client-map-3d-unexplored-storm-reveal.ts): a newly explored
   // tile's R eases from 1 to 0, which shrinks the deep-fog field and pulls the
   // clearance in around it, so the contour, brass edge and lantern glow roll
@@ -151,8 +125,9 @@ void main() {
   // Lantern flash on the clouds as they roll back off newly explored tiles.
   col += uLantern * revealFront * 0.5;
 
-  // Explored tiles are never drawn on.
-  float alpha = hard * edgeAa * coverAlpha;
+  // Clearance makes s zero on fully explored land, below both cloud and
+  // brass coverage. No hard tile gate is needed to keep it clear.
+  float alpha = coverAlpha;
   if (alpha < 0.01) discard;
   gl_FragColor = vec4(col, alpha);
   #include <colorspace_fragment>

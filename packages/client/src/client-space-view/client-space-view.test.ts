@@ -14,14 +14,8 @@ const resetView = vi.fn();
 const resize = vi.fn();
 const dispose = vi.fn();
 const focusSystem = vi.fn();
-let zoomedOutCallback: (() => void) | undefined;
-const onFocusChange = vi.fn((callback: (focused: boolean) => void) => {
-  focusCallback = callback;
-});
-let focusCallback: ((focused: boolean) => void) | undefined;
-const onZoomedOut = vi.fn((callback: () => void) => {
-  zoomedOutCallback = callback;
-});
+const onFocusChange = vi.fn((_callback: (focused: boolean) => void) => {});
+const onZoomedOut = vi.fn((_callback: () => void) => {});
 vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
   createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, focusSystem, onZoomedOut, onFocusChange, resize, dispose }))
 }));
@@ -61,7 +55,6 @@ afterEach(() => {
   dispose.mockClear();
   focusSystem.mockClear();
   onZoomedOut.mockClear();
-  zoomedOutCallback = undefined;
 });
 
 describe("mountSpaceView gating", () => {
