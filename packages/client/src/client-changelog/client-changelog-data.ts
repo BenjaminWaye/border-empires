@@ -346,6 +346,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AI names in Alliances",
     why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
     changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
+  },
+  {
+    createdAt: 1791977894863,
+    introducedIn: "2026.10.14.4",
+    title: "Testing new outlines for enemy land inside your border",
+    why: "Enemy tiles taken inside your reach only get a plain outline, which doesn't read as a break-in. Admins are trying new looks on the 3D map before one becomes the default.",
+    changes: [
+      "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
+      "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
+    ]
   }
 ];
 
