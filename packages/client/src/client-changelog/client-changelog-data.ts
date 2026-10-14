@@ -43,6 +43,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.14.3",
+    title: "Enemy frontier warnings refer to their owner's reach",
+    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
+    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
+  },
+  {
     createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.14.2",
     title: "Waystation rewards show current technology names",
