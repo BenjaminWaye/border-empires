@@ -17,7 +17,7 @@ export const scanAdvanceCandidates = (
   musterTile: DomainTileState,
   playerId: string,
   availableMuster: number
-): { nearest: AdvanceCandidate | undefined; nearestAffordable: AdvanceCandidate | undefined } => {
+): { nearest: AdvanceCandidate | undefined; nearestAffordable: AdvanceCandidate | undefined; engagedResolvesAt: number | undefined } => {
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
@@ -43,6 +43,12 @@ export const scanAdvanceCandidates = (
   // Nearest tile the flag can pay for right now -- only used as the fallback
   // when `nearest` costs more than this flag can hold (its musterFlagCap).
   let nearestAffordable: AdvanceCandidate | undefined;
+  // An otherwise-attackable enemy tile at our border was skipped only because
+  // it (or the tile we'd launch from) is mid-fight. The front is right here,
+  // so the caller must wait on that fight rather than treat "no candidate" as
+  // "no enemy nearby" and wander off expanding toward it. Holds the soonest
+  // such fight's resolvesAt.
+  let engagedResolvesAt: number | undefined;
 
   while (head < queue.length) {
     const current = queue[head++]!;
@@ -93,13 +99,16 @@ export const scanAdvanceCandidates = (
         // An ally's or truced player's tile is not a target: the attack would
         // only be rejected, and as the nearest candidate it would be re-picked
         // every tick in front of real enemies.
-        !(actor && isAlliedOrTruced(actor, neighbor.ownerId)) &&
+        !(actor && isAlliedOrTruced(actor, neighbor.ownerId))
+      ) {
         // Only a tile already under attack is off-limits, as a launch tile or a
         // target. Being the origin of some other fight (ours or the enemy's) is
         // not a lock -- see CombatLockIndex and validateFrontierCommand.
-        !input.locksByTile.targetLockAt(currentKey) &&
-        !input.locksByTile.targetLockAt(nKey)
-      ) {
+        const blockingLock = input.locksByTile.targetLockAt(currentKey) ?? input.locksByTile.targetLockAt(nKey);
+        if (blockingLock) {
+          if (engagedResolvesAt === undefined || blockingLock.resolvesAt < engagedResolvesAt) engagedResolvesAt = blockingLock.resolvesAt;
+          continue;
+        }
         const candidate: AdvanceCandidate = {
           from: current,
           enemy: neighbor,
@@ -113,6 +122,5 @@ export const scanAdvanceCandidates = (
     }
   }
 
-
-  return { nearest, nearestAffordable };
+  return { nearest, nearestAffordable, engagedResolvesAt };
 };
