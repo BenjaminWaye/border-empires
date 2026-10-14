@@ -17,10 +17,11 @@
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
 // dormant-frontier tint it sits beside in client-map-3d-aether-survey-line.ts.
 
-import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
+import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, LinearSRGBColorSpace, Material, Mesh, MeshBasicMaterial, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import type { IncursionEdges, incursionHatchColors } from "../client-reach-incursion/client-reach-incursion.js";
 import { createIncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
+import { FRONT_CORNER_RADIUS } from "../client-reach-incursion/client-incursion-breach-front.js";
 
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
 
@@ -57,13 +58,16 @@ const HATCH_VERTEX_SHADER = /* glsl */ `
   attribute vec3 hatchTheirs;
   attribute vec3 hatchMine;
   attribute vec2 hatchUv;
+  attribute vec3 hatchRound;
   varying vec3 vTheirs;
   varying vec3 vMine;
   varying vec2 vHatchUv;
+  varying vec2 vRound;
   void main() {
     vTheirs = hatchTheirs;
     vMine = hatchMine;
     vHatchUv = hatchUv;
+    vRound = hatchRound.xy;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -77,7 +81,19 @@ const HATCH_FRAGMENT_SHADER = /* glsl */ `
   varying vec3 vTheirs;
   varying vec3 vMine;
   varying vec2 vHatchUv;
+  varying vec2 vRound; // (corner bitmask NW=1 NE=2 SE=4 SW=8, radius in tiles)
   void main() {
+    // Round off the outer corners the breach front line curves round (client-incursion-breach-front.ts).
+    vec2 p = vec2(vHatchUv.x, 1.0 - vHatchUv.y); // 0..1 from the NW corner, +x east, +y south
+    float mask = floor(vRound.x + 0.5);
+    float r = vRound.y;
+    for (int i = 0; i < 4; i++) {
+      if (mod(floor(mask / exp2(float(i))), 2.0) < 0.5) continue;
+      vec2 corner = vec2(i == 1 || i == 2 ? 1.0 : 0.0, i >= 2 ? 1.0 : 0.0);
+      vec2 inward = sign(vec2(0.5) - corner);
+      vec2 local = (p - corner) * inward; // 0..1 into the tile from this corner
+      if (local.x < r && local.y < r && length(local - vec2(r)) > r) discard;
+    }
     // t advances by 1 per theirs+mine stripe pair along the diagonal.
     float t = (vHatchUv.x + vHatchUv.y) * uStripePairs;
     float tri = abs(fract(t) - 0.5); // 0..0.5; the two colours meet where tri == 0.25
@@ -162,7 +178,7 @@ const upload = (buf: QuadBuffer): void => {
 
 export const createIncursionOverlay3D = (parent: Group, maxTiles: number): IncursionOverlay3D => {
   const hatchMaterial = createHatchMaterial();
-  const hatch = createQuadBuffer(maxTiles, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
+  const hatch = createQuadBuffer(maxTiles, hatchMaterial, ["hatchTheirs", "hatchMine", "hatchRound"], "hatchUv", 8);
   const edgeMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, opacity: EDGE_OPACITY, depthWrite: false, side: DoubleSide });
   const edges = createQuadBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, edgeMaterial, ["color"], undefined, 9);
   const buffers = [hatch, edges];
@@ -171,6 +187,8 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
   const theirs = new Color();
   const mine = new Color();
   const edge = new Color();
+  // Not a colour: (corner bitmask, radius, 0) for the hatch's corner rounding, carried in a per-quad vec3 slot.
+  const round = new Color();
 
   const addTile: IncursionOverlay3D["addTile"] = (x, z, surfaceY, hatchColors, edgeColor, tileEdges, breach) => {
     const x0 = x - 0.5;
@@ -179,7 +197,8 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     const z1 = z + 0.5;
     theirs.set(normalizeColorForThree(hatchColors.theirs));
     mine.set(normalizeColorForThree(hatchColors.mine));
-    if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine])) return;
+    round.setRGB(breach?.layout.roundedCorners ?? 0, FRONT_CORNER_RADIUS, 0, LinearSRGBColorSpace);
+    if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine, round])) return;
     edge.set(normalizeColorForThree(edgeColor));
     const y = surfaceY + EDGE_LIFT;
     if (tileEdges.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);

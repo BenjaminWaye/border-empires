@@ -81,7 +81,7 @@ const renderOne = (args: Args, label?: string): HTMLElement => {
   overlay.clear();
   for (const key of world.pocket) {
     const { x, y } = parseTileKey(key);
-    const layout = incursionBreachLayout(args.style, demoKindAt(world, x, y));
+    const layout = incursionBreachLayout(args.style, demoKindAt(world, x, y), x, y);
     overlay.addTile(x, y, HATCH_Y, hatch, mark, layout.straightEdges, { style: args.style, worldX: x, worldY: y, layout });
   }
   overlay.commit();

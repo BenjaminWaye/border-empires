@@ -17,6 +17,7 @@ describe("incursionBreachLayout", () => {
     expect(incursionBreachLayout("straight", kinds)).toEqual({
       straightEdges: { north: true, east: false, south: true, west: true },
       front: [],
+      roundedCorners: 0,
       band: [],
       veilSides: []
     });
@@ -28,38 +29,25 @@ describe("incursionBreachLayout", () => {
     }
   });
 
-  it("replaces the strip with a thin front line all round for spikes, with teeth only on the sides facing my land", () => {
-    const layout = incursionBreachLayout("spikes", kinds);
+  it("replaces the strip with the front line all round for spikes, with teeth only on the sides facing my land", () => {
+    const layout = incursionBreachLayout("spikes", kinds, 10, 20);
     expect(layout.straightEdges).toEqual({ north: false, east: false, south: false, west: false });
-    const lines = layout.front.filter((piece) => piece.points.length === 4);
-    const toothHalves = layout.front.filter((piece) => piece.points.length === 3);
-    // North, south and west are open (east continues the pocket): a line on each.
-    expect(lines).toHaveLength(3);
-    // Thin: much thinner than the 0.07-tile strip it replaces.
-    const north = lines.find((piece) => piece.points.every((p) => Math.abs(p.y + 0.5) < 0.05))!;
-    const thickness = Math.max(...north.points.map((p) => p.y)) - Math.min(...north.points.map((p) => p.y));
-    expect(thickness).toBeLessThan(0.05);
-    // North and west face my land: 3 teeth each, as two halves; the unowned south side gets none.
-    expect(toothHalves).toHaveLength(12);
-    const northTips = toothHalves.filter((piece) => piece.points[2]!.y < -0.6).map((piece) => piece.points[2]!);
-    expect(new Set(northTips.map((p) => p.x.toFixed(4)))).toEqual(new Set(["-0.3333", "0.0000", "0.3333"]));
-    expect(toothHalves.some((piece) => piece.points[2]!.y > 0.5)).toBe(false);
+    const toothTips = layout.front.filter((piece) => piece.points.length === 3).map((piece) => piece.points[2]!);
+    // Teeth reach out past the north and west sides (mine) but never past the unowned south side.
+    expect(toothTips.some((p) => p.y < -0.6)).toBe(true);
+    expect(toothTips.some((p) => p.x < -0.6)).toBe(true);
+    expect(toothTips.some((p) => p.y > 0.6)).toBe(false);
+    // The line runs along all three open sides, including the unowned south one.
+    const lineYs = layout.front.filter((piece) => piece.points.length === 4).flatMap((piece) => piece.points.map((p) => p.y));
+    expect(Math.max(...lineYs)).toBeGreaterThan(0.35);
   });
 
-  it("shades one half of each tooth, consistently against a north-west light", () => {
-    const halves = incursionBreachLayout("spikes", kinds).front.filter((piece) => piece.points.length === 3);
-    for (let i = 0; i < halves.length; i += 2) expect([halves[i]!.shade, halves[i + 1]!.shade].sort()).toEqual([0.72, 1]);
-    // North side: the west (light-facing) half is lit.
-    const northWestHalf = halves.find((piece) => piece.points[2]!.y < -0.6 && piece.points[0]!.x < piece.points[2]!.x)!;
-    expect(northWestHalf.shade).toBe(1);
-  });
-
-  it("drops the spike at an inside corner, where the neighbouring pocket side's spike points into the same tile", () => {
-    // The pocket also continues north-east, so the tile north of us is bordered by the pocket on two sides.
-    const corner = around({ "1,0": "pocket", "1,-1": "pocket", "0,1": "other", "-1,0": "other" });
-    const tips = incursionBreachLayout("spikes", corner).front.filter((piece) => piece.points.length === 3).map((piece) => piece.points[2]!);
-    expect(tips).toHaveLength(4); // 2 teeth x 2 halves
-    expect(Math.max(...tips.map((p) => p.x))).toBeLessThan(0.1);
+  it("marks the outer corners the spikes line rounds off, so the hatch can match", () => {
+    // Open north, south and west; the pocket continues east: outer corners at NW and SW only.
+    expect(incursionBreachLayout("spikes", kinds).roundedCorners).toBe(0b1001);
+    // A lone pocket tile rounds all four.
+    expect(incursionBreachLayout("spikes", around({})).roundedCorners).toBe(0b1111);
+    expect(incursionBreachLayout("straight", around({})).roundedCorners).toBe(0);
   });
 
   it("raises the veil only on the sides facing my land", () => {

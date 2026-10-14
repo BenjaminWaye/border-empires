@@ -319,7 +319,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Trying new outlines for enemy land inside your border",
     why: "The plain outline around enemy tiles taken inside your reach doesn't read as a break-in. We're comparing three new looks on the 3D map before choosing one.",
     changes: [
-      "Admins can switch the outline to a thin front line with spikes in the attacker's colour, a glowing ember seam, an ink bleed or a rising aether veil (Settings > Admin)",
+      "Admins can switch the outline to a thin, gently curving front line with spikes in the attacker's colour, a glowing ember seam, an ink bleed or a rising aether veil (Settings > Admin)",
       "The new looks only go on sides that border your own land; for everyone else the outline is unchanged for now"
     ]
   }
