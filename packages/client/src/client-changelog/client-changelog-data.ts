@@ -286,6 +286,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Economy panel says Coin",
     why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
     changes: ["The economy panel's currency card and detail heading now read Coin"]
+  },
+  {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
   }
 ];
 
