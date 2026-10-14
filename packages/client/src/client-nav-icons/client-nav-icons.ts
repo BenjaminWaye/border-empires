@@ -1,8 +1,8 @@
-// Steampunk HUD/nav tab icons (PNGs under public/icons/nav, 48/72/96 px).
-// The Sharding tab reuses the Shard resource icon so the tab and the resource
-// read as the same thing.
+// HUD/nav tab icons: simple emoji-style SVGs under public/icons/simple, so
+// they read at 30px. The Sharding tab reuses the Shard resource icon so the
+// tab and the resource read as the same thing.
 
-import { resourceIconUrl, type ResourceIconPx } from "../client-resource-icons/client-resource-icons.js";
+import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 
 export type NavTabIconKey =
   | "core"
@@ -15,17 +15,18 @@ export type NavTabIconKey =
   | "activity"
   | "settings";
 
-type NavIconPx = Exclude<ResourceIconPx, 256>;
-
-const navTabIconUrl = (key: NavTabIconKey, px: NavIconPx): string =>
-  key === "domains" ? resourceIconUrl("SHARD", px) : `/icons/nav/${key}-${px}.png`;
+// The "tech" panel is shown to players as Manifest (charters, grants, warrants,
+// dossiers), so its icon is a sealed ledger rather than a tech symbol.
+const navTabIconUrl = (key: NavTabIconKey): string => {
+  if (key === "domains") return resourceSimpleIconUrl("SHARD");
+  if (key === "tech") return "/icons/simple/manifest.svg";
+  return `/icons/simple/${key}.svg`;
+};
 
 // The button around the icon already carries the title/aria-label, so the
 // image itself is decorative.
-export const navTabIconHtml = (key: NavTabIconKey): string => {
-  const src = (px: NavIconPx): string => navTabIconUrl(key, px);
-  return `<span class="tab-icon tab-icon-art"><img class="tab-icon-img" src="${src(48)}" srcset="${src(48)} 1x, ${src(72)} 1.5x, ${src(96)} 2x" alt="" aria-hidden="true" draggable="false"></span>`;
-};
+export const navTabIconHtml = (key: NavTabIconKey): string =>
+  `<span class="tab-icon tab-icon-art"><img class="tab-icon-img" src="${navTabIconUrl(key)}" alt="" aria-hidden="true" draggable="false"></span>`;
 
 // The HUD re-renders tab buttons on every refresh, and some buttons have two
 // writers that disagree on the badge (e.g. renderMobilePanels writes Tech

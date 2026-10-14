@@ -30,13 +30,13 @@ const tilesByKeyOf = (tiles: readonly AutomationPlannerTile[]): ReadonlyMap<stri
 
 describe("chooseFoodConsumingStructureToDisable", () => {
   it("returns undefined when this player owns no FOOD-consuming structure", () => {
-    expect(chooseFoodConsumingStructureToDisable([tile(1, 1, { type: "FARMSTEAD" })], PLAYER_ID, undefined)).toBeUndefined();
+    expect(chooseFoodConsumingStructureToDisable([tile(1, 1, { type: "HYDROGARDEN" })], PLAYER_ID, undefined)).toBeUndefined();
   });
 
   it("prefers a FOOD-dormant structure over an equally-eligible non-dormant one", () => {
     const dormant = new Set(["2,3"]);
-    const notDormant = tile(1, 1, { type: "GRANARY" });
-    const dormantStructure = tile(2, 3, { type: "GRANARY" });
+    const notDormant = tile(1, 1, { type: "INCUBATION_ENGINE" });
+    const dormantStructure = tile(2, 3, { type: "INCUBATION_ENGINE" });
     const result = chooseFoodConsumingStructureToDisable([notDormant, dormantStructure], PLAYER_ID, dormant);
     expect(result).toEqual({ x: 2, y: 3, kind: "disable" });
   });
@@ -49,8 +49,8 @@ describe("chooseFoodConsumingStructureToDisable", () => {
     expect(chooseFoodConsumingStructureToDisable([structure], PLAYER_ID, undefined)).toEqual({ x: 4, y: 5, kind: "disable" });
   });
 
-  it("skips a structure type with no FOOD slot requirement (e.g. FARMSTEAD)", () => {
-    expect(chooseFoodConsumingStructureToDisable([tile(1, 1, { type: "FARMSTEAD" })], PLAYER_ID, new Set(["1,1"]))).toBeUndefined();
+  it("skips a structure type with no FOOD slot requirement (e.g. HYDROGARDEN)", () => {
+    expect(chooseFoodConsumingStructureToDisable([tile(1, 1, { type: "HYDROGARDEN" })], PLAYER_ID, new Set(["1,1"]))).toBeUndefined();
   });
 
   it("skips RELAY_BEACON — that's chooseLowValueBeaconToDisable's job, not this fallback's", () => {
@@ -58,19 +58,19 @@ describe("chooseFoodConsumingStructureToDisable", () => {
   });
 
   it("ignores a structure belonging to a different player", () => {
-    const enemyTile = tile(2, 3, { type: "GRANARY", ownerId: "ai-2" });
+    const enemyTile = tile(2, 3, { type: "INCUBATION_ENGINE", ownerId: "ai-2" });
     expect(chooseFoodConsumingStructureToDisable([enemyTile], PLAYER_ID, new Set(["2,3"]))).toBeUndefined();
   });
 
   it("skips a structure already mid-removal, under construction, or already manually disabled", () => {
-    const removing = tile(2, 3, { type: "GRANARY", status: "removing" });
-    const underConstruction = tile(4, 5, { type: "GRANARY", status: "under_construction" });
-    const alreadyDisabled = tile(6, 6, { type: "GRANARY", status: "inactive", inactiveReason: "manual" });
+    const removing = tile(2, 3, { type: "INCUBATION_ENGINE", status: "removing" });
+    const underConstruction = tile(4, 5, { type: "INCUBATION_ENGINE", status: "under_construction" });
+    const alreadyDisabled = tile(6, 6, { type: "INCUBATION_ENGINE", status: "inactive", inactiveReason: "manual" });
     expect(chooseFoodConsumingStructureToDisable([removing, underConstruction, alreadyDisabled], PLAYER_ID, undefined)).toBeUndefined();
   });
 
   it("picks deterministically (lowest x, then y) among multiple candidates", () => {
-    const tiles = [tile(5, 5, { type: "GRANARY" }), tile(1, 9, { type: "GRANARY" }), tile(1, 2, { type: "GRANARY" })];
+    const tiles = [tile(5, 5, { type: "INCUBATION_ENGINE" }), tile(1, 9, { type: "INCUBATION_ENGINE" }), tile(1, 2, { type: "INCUBATION_ENGINE" })];
     expect(chooseFoodConsumingStructureToDisable(tiles, PLAYER_ID, undefined)).toEqual({ x: 1, y: 2, kind: "disable" });
   });
 });
@@ -217,8 +217,8 @@ describe("chooseManuallyDisabledBeaconToReenable", () => {
   });
 
   it("ignores a non-beacon structure that happens to be manually disabled", () => {
-    const disabledGranary = tile(10, 10, { type: "GRANARY", status: "inactive", inactiveReason: "manual" });
-    expect(chooseManuallyDisabledBeaconToReenable([disabledGranary], PLAYER_ID)).toBeUndefined();
+    const disabledIncubationEngine = tile(10, 10, { type: "INCUBATION_ENGINE", status: "inactive", inactiveReason: "manual" });
+    expect(chooseManuallyDisabledBeaconToReenable([disabledIncubationEngine], PLAYER_ID)).toBeUndefined();
   });
 
   it("picks deterministically (lowest x, then y) among multiple manually-disabled beacons", () => {
@@ -262,7 +262,7 @@ describe("foodSlotReliefFromPlannerInput", () => {
   });
 
   it("falls back to the FOOD-consuming-structure target when there's no beacon at all", () => {
-    const structure = tile(2, 3, { type: "GRANARY" });
+    const structure = tile(2, 3, { type: "INCUBATION_ENGINE" });
     const result = foodSlotReliefFromPlannerInput([structure], PLAYER_ID, new Set(), undefined, 3, 3);
     expect(result).toEqual({ reliefTarget: { x: 2, y: 3, kind: "disable" }, exhausted: true, reenableTarget: undefined });
   });

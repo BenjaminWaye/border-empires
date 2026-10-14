@@ -41,14 +41,14 @@ import {
   type WaystationTileState
 } from "@border-empires/shared";
 import type { DomainAfcState } from "../domain-afc-state.js";
-import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeOutpostState } from "../domain-tile-structure-states.js";
+import type { DomainEconomicStructureState, DomainFortState, DomainObservatoryState, DomainSiegeBatteryState } from "../domain-tile-structure-states.js";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
   if (!isFortDefending(tile.fort)) return 1;
   const variant = defendingFortVariant(tile.fort);
   if (variant === "THUNDER_BASTION") return 20;
   if (variant === "TITANIUM_BASTION") return 10;
-  if (variant === "WOODEN_FORT") return 1.5;
+  if (variant === "PALISADE") return 1.5;
   return 5;
 };
 
@@ -192,8 +192,8 @@ export type DomainTileState = {
             | "hasMintworks"
             | "mintworksActive"
             | "mintworksCount"
-            | "hasGranary"
-            | "granaryActive"
+            | "hasIncubationEngine"
+            | "incubationEngineActive"
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"
@@ -208,7 +208,7 @@ export type DomainTileState = {
     | undefined;
   fort?: DomainFortState | undefined;
   observatory?: DomainObservatoryState | undefined;
-  siegeOutpost?: DomainSiegeOutpostState | undefined;
+  siegeBattery?: DomainSiegeBatteryState | undefined;
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   afc?: DomainAfcState | undefined;
   economicStructure?: DomainEconomicStructureState | undefined;

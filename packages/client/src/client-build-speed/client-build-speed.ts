@@ -7,11 +7,11 @@ import {
   buildDurationWithSpeedMult,
   economicStructureBuildDurationMs,
   fortBuildDurationMs,
-  siegeOutpostBuildDurationMs,
+  siegeBatteryBuildDurationMs,
   structureBuildSpeedEffectKey,
   type EconomicStructureType,
   type FortVariant,
-  type SiegeOutpostVariant,
+  type SiegeBatteryVariant,
   type StructureBuildSpeedEffectKey
 } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -45,5 +45,5 @@ export const economicBuildMsForState = (state: BuildSpeedState, type: EconomicSt
 export const fortBuildMsForState = (state: BuildSpeedState, variant: FortVariant): number =>
   buildMsWithSpeedForState(state, variant, fortBuildDurationMs(variant));
 
-export const siegeBuildMsForState = (state: BuildSpeedState, variant: SiegeOutpostVariant): number =>
-  buildMsWithSpeedForState(state, variant, siegeOutpostBuildDurationMs(variant));
+export const siegeBuildMsForState = (state: BuildSpeedState, variant: SiegeBatteryVariant): number =>
+  buildMsWithSpeedForState(state, variant, siegeBatteryBuildDurationMs(variant));

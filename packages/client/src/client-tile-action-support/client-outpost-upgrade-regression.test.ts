@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("starter fort and outpost regression guard", () => {
-  it("keeps wooden fort and Relay Beacon available from the start and upgrades into the advanced versions", () => {
+  it("keeps palisade and Relay Beacon available from the start and upgrades into the advanced versions", () => {
     const source =
       readFileSync(resolve(here, "../main.ts"), "utf8") +
       readFileSync(resolve(here, "../client-tile-action-logic/client-tile-action-logic.ts"), "utf8") +
@@ -18,6 +18,6 @@ describe("starter fort and outpost regression guard", () => {
     // A Palisade lives in tile.fort, so "Upgrade to <Fort tier>" covers it.
     expect(source).toContain('label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`');
     expect(source).toContain('label: "Build Relay Beacon"');
-    expect(source).toContain('label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
+    expect(source).toContain('label: tile.siegeBattery || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
   });
 });

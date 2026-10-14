@@ -4,7 +4,7 @@ import { registerCivicStructures } from "@client/client-map-3d-structure-civic.j
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // Standalone focused story for Census Hall, same pattern as other
-// single-structure stories (e.g. Farmstead's custom render).
+// single-structure stories (e.g. Hydrogarden's custom render).
 
 type Args = {
   cameraDistance: number;
@@ -23,7 +23,7 @@ const render = (args: Args): HTMLElement => {
 const meta: Meta<Args> = {
   title: "3D Library/CensusHall",
   parameters: {
-    docs: { description: { component: "Census Hall: a modest records office with a small brass tally drum, scaled like the other minor support structures (Customs House, Exchange House)." } }
+    docs: { description: { component: "Census Hall: a modest records office with a small brass tally drum, scaled like the other minor support structures (Harbor Exchange, Exchange House)." } }
   },
   argTypes: {
     cameraDistance: { control: { type: "range", min: 1.5, max: 8, step: 0.25 } }

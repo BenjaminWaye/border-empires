@@ -11,6 +11,7 @@
 // a dismissal/mute on one account doesn't suppress tips for a different
 // account signed into the same browser/device.
 
+import { upgradeLegacyStructureNames } from "@border-empires/shared";
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
 import { sendHintStateUpdate } from "./client-hint-server-sync.js";
 
@@ -25,7 +26,8 @@ const readTimestamps = (authEmail?: string | null): Record<string, number> => {
   try {
     const raw = window.localStorage.getItem(scopedKey(DISCOVERY_TIPS_STORAGE_KEY, authEmail));
     if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
+    // Tip ids seen before the structure id rename were saved under old names.
+    const parsed: unknown = upgradeLegacyStructureNames(JSON.parse(raw) as unknown);
     if (!parsed || typeof parsed !== "object") return {};
     const result: Record<string, number> = {};
     for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {

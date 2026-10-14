@@ -86,8 +86,8 @@ describe("splitTileActionsIntoTabs", () => {
   it("keeps a disabled-only Buildings tab visible", () => {
     const disabledBuildings: TileActionDef[] = [
       {
-        id: "build_foundry",
-        label: "Build Foundry",
+        id: "build_ore_refinery",
+        label: "Build Ore Refinery",
         disabled: true,
         disabledReason: "Need 4500 gold",
         cost: "Need 4500 gold"
@@ -121,24 +121,24 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
-  it("shows build_farmstead in both Actions and Buildings while it's actually buildable, but Buildings only once disabled", () => {
-    const farmsteadResearchedState = { ...state, techIds: [...state.techIds, "agriculture"] };
+  it("shows build_hydrogarden in both Actions and Buildings while it's actually buildable, but Buildings only once disabled", () => {
+    const hydrogardenResearchedState = { ...state, techIds: [...state.techIds, "agriculture"] };
 
-    const readyFarmstead: TileActionDef[] = [
-      { id: "build_farmstead", label: "Build Hydrogarden", detail: "50 coin • 2m • +2 FOOD slot", disabled: false }
+    const readyHydrogarden: TileActionDef[] = [
+      { id: "build_hydrogarden", label: "Build Hydrogarden", detail: "50 coin • 2m • +2 FOOD slot", disabled: false }
     ];
-    expect(splitTileActionsIntoTabs(readyFarmstead, farmsteadResearchedState)).toEqual({
-      actions: readyFarmstead,
-      buildings: readyFarmstead,
+    expect(splitTileActionsIntoTabs(readyHydrogarden, hydrogardenResearchedState)).toEqual({
+      actions: readyHydrogarden,
+      buildings: readyHydrogarden,
       crystal: []
     });
 
-    const disabledFarmstead: TileActionDef[] = [
-      { id: "build_farmstead", label: "Build Hydrogarden", detail: "", disabled: true, disabledReason: "Tile already has structure" }
+    const disabledHydrogarden: TileActionDef[] = [
+      { id: "build_hydrogarden", label: "Build Hydrogarden", detail: "", disabled: true, disabledReason: "Tile already has structure" }
     ];
-    expect(splitTileActionsIntoTabs(disabledFarmstead, farmsteadResearchedState)).toEqual({
+    expect(splitTileActionsIntoTabs(disabledHydrogarden, hydrogardenResearchedState)).toEqual({
       actions: [],
-      buildings: disabledFarmstead,
+      buildings: disabledHydrogarden,
       crystal: []
     });
   });
@@ -146,8 +146,8 @@ describe("splitTileActionsIntoTabs", () => {
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {
-        id: "build_foundry",
-        label: "Build Foundry",
+        id: "build_ore_refinery",
+        label: "Build Ore Refinery",
         disabled: false
       },
       {
@@ -165,7 +165,7 @@ describe("splitTileActionsIntoTabs", () => {
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
       "build_mintworks",
       "build_clearing_house",
-      "build_foundry"
+      "build_ore_refinery"
     ]);
   });
 
@@ -177,8 +177,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_foundry",
-        label: "Build Foundry",
+        id: "build_ore_refinery",
+        label: "Build Ore Refinery",
         disabled: false
       },
       {
@@ -200,7 +200,7 @@ describe("splitTileActionsIntoTabs", () => {
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
       "build_mintworks",
-      "build_foundry",
+      "build_ore_refinery",
       "build_fortification",
       "build_observatory",
       "build_relay_beacon"
@@ -246,8 +246,8 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
       connectedTownBonus: 0,
       hasMintworks: false,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false,
     }
   };
 
@@ -260,7 +260,7 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   };
 
   it("skips optimistic town-square builds for town-support structures", () => {
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_granary", townTile)).toBe(false);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_incubation_engine", townTile)).toBe(false);
     expect(shouldOptimisticallyBuildOnSelectedTile("build_titanium_works", townTile)).toBe(false);
   });
 
@@ -271,8 +271,8 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   it("keeps same-tile structures optimistic on town tiles", () => {
     // Mintworks moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it's optimistic on the town tile now too,
-    // same as Foundry.
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
+    // same as Ore Refinery.
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_ore_refinery", townTile)).toBe(true);
     expect(shouldOptimisticallyBuildOnSelectedTile("build_mintworks", townTile)).toBe(true);
   });
 });
@@ -308,8 +308,8 @@ describe("town support tile actions", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     });
 
@@ -362,7 +362,7 @@ describe("tileActionAvailabilityWithDevelopmentSlot", () => {
 
   it("keeps otherwise-valid builds enabled and marked as queued when development slots are full", () => {
     expect(
-      tileActionAvailabilityWithDevelopmentSlot(true, "Build Wooden Fort", "900 gold", fullSlots, {
+      tileActionAvailabilityWithDevelopmentSlot(true, "Build Palisade", "900 gold", fullSlots, {
         developmentSlotReason: () => "No available development slots (3/3 busy)"
       })
     ).toEqual({

@@ -23,7 +23,7 @@ describe("computeSeasonWinnerStats", () => {
           y: 0,
           ownerId: "player-1",
           townJson: JSON.stringify({ population: 100 }),
-          economicStructureJson: JSON.stringify({ type: "WORLD_ENGINE", status: "active", ownerId: "player-1" })
+          economicStructureJson: JSON.stringify({ type: "SOVEREIGN_SIEGE_ENGINE", status: "active", ownerId: "player-1" })
         },
         {
           x: 1,
@@ -36,7 +36,7 @@ describe("computeSeasonWinnerStats", () => {
           x: 2,
           y: 0,
           ownerId: "player-1",
-          economicStructureJson: JSON.stringify({ type: "WORLD_ENGINE", status: "active", ownerId: "player-1" })
+          economicStructureJson: JSON.stringify({ type: "SOVEREIGN_SIEGE_ENGINE", status: "active", ownerId: "player-1" })
         },
         {
           // Still under construction — must not count.
@@ -50,7 +50,7 @@ describe("computeSeasonWinnerStats", () => {
           x: 4,
           y: 0,
           ownerId: "player-1",
-          economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active", ownerId: "player-1" })
+          economicStructureJson: JSON.stringify({ type: "INCUBATION_ENGINE", status: "active", ownerId: "player-1" })
         },
         {
           // Belongs to the other player — must be excluded entirely.
@@ -70,7 +70,7 @@ describe("computeSeasonWinnerStats", () => {
       foodPerMinute: 10,
       crystalPerMinute: 3,
       totalPopulation: 350,
-      monumentalBuildings: { WORLD_ENGINE: 2 }
+      monumentalBuildings: { SOVEREIGN_SIEGE_ENGINE: 2 }
     });
   });
 

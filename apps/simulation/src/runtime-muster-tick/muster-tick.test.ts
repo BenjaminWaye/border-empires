@@ -10,7 +10,7 @@ import {
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_FLAG_BASE_CAP_FLOOR,
   musterFlagCap,
-  RAIL_DEPOT_BOOSTED_MUSTER_MULT
+  NEURAL_WORKS_BOOSTED_MUSTER_MULT
 } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
@@ -253,11 +253,11 @@ describe("muster accumulation tick", () => {
     expect(b).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 2);
   });
 
-  it("applies the Rail Depot boost when the nearest outpost isn't the depot-backed one", async () => {
+  it("applies the Neural Works boost when the nearest outpost isn't the depot-backed one", async () => {
     // Muster tile at (200,200). Outpost A at distance 1 is the *nearest* outpost
-    // to the muster tile but is NOT within RAIL_DEPOT_MUSTER_RADIUS of the depot.
+    // to the muster tile but is NOT within NEURAL_WORKS_MUSTER_RADIUS of the depot.
     // Outpost B at distance 5 is farther from the muster tile (still within
-    // OUTPOST_DEPOT_RADIUS) but IS within RAIL_DEPOT_MUSTER_RADIUS of the depot.
+    // OUTPOST_DEPOT_RADIUS) but IS within NEURAL_WORKS_MUSTER_RADIUS of the depot.
     // The tile should get the depot-boosted rate because *some* nearby outpost
     // is depot-backed, not just because the closest one is.
     let nowMs = 1_000;
@@ -267,10 +267,10 @@ describe("muster accumulation tick", () => {
       initialState: {
         tiles: [
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
-          { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
-          { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "RAIL_DEPOT", status: "active", ownerId: "player-1" } },
-          // §5.4: 2 SIEGE_OUTPOSTs need 2 UMBRITE slots; RAIL_DEPOT needs
+          { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeBattery: { ownerId: "player-1", status: "active" } },
+          { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeBattery: { ownerId: "player-1", status: "active" } },
+          { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "NEURAL_WORKS", status: "active", ownerId: "player-1" } },
+          // §5.4: 2 SIEGE_BATTERIES need 2 UMBRITE slots; NEURAL_WORKS needs
           // 1 FOOD + 1 CRYSTAL slot — none of them dormant.
           { x: 210, y: 210, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 211, y: 210, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" },
@@ -288,7 +288,7 @@ describe("muster accumulation tick", () => {
     runtime.tickMuster(nowMs);
 
     const accumulated = musterAmount(runtime, 200, 200)!;
-    const boostedExpected = (MUSTER_BASE_RATE_PER_MIN * RAIL_DEPOT_BOOSTED_MUSTER_MULT * 10_000) / 60_000;
+    const boostedExpected = (MUSTER_BASE_RATE_PER_MIN * NEURAL_WORKS_BOOSTED_MUSTER_MULT * 10_000) / 60_000;
     const unboostedExpected = (MUSTER_BASE_RATE_PER_MIN * MUSTER_DEPOT_SPEED_MULT * 10_000) / 60_000;
     expect(accumulated).toBeCloseTo(boostedExpected, 2);
     expect(accumulated).not.toBeCloseTo(unboostedExpected, 2);

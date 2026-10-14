@@ -91,7 +91,7 @@ export const parseConverterModePayload = (payloadJson: string): { x: number; y: 
   }
 };
 
-export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
+export const parseSiegeBatteryAutoAttackPayload = parseConverterTogglePayload;
 
 export const parseSetMusterPayload = (
   payloadJson: string
@@ -225,7 +225,7 @@ export const parseAetherWallPayload = (
   }
 };
 
-export const parseAirportBombardPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+export const parseSkyDockBombardPayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (
@@ -265,7 +265,7 @@ export const parseImperialExchangeLevyPayload = (payloadJson: string): { fromX: 
   }
 };
 
-export const parseWorldEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
+export const parseSovereignSiegeEngineStrikePayload = (payloadJson: string): { fromX: number; fromY: number; toX: number; toY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (

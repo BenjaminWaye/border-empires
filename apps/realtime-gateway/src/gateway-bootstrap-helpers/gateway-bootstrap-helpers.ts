@@ -27,7 +27,7 @@ export const jsonSafeTileDeltaBatch = (
     ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
-    ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
+    ...("siegeBatteryJson" in tileDelta && tileDelta.siegeBatteryJson === undefined ? { siegeBatteryJson: "" } : {}),
     ...("economicStructureJson" in tileDelta && tileDelta.economicStructureJson === undefined
       ? { economicStructureJson: "" }
       : {}),

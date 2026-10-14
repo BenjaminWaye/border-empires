@@ -1,6 +1,6 @@
 // 3D Siege Tower overlay — the upgraded SIEGE_TOWER and DREAD_TOWER variants
 // render as a tall, futuristic-steampunk siege engine instead of the low
-// watchtower+catapult used for base siege outposts (that stays on the fort
+// watchtower+catapult used for base siege batteries (that stays on the fort
 // overlay). Each instance is a heavy black-iron lattice tower carrying one
 // enormous glowing aether lens in a yoke of aged-brass gimbal rings, firing a
 // cyan-violet additive lance down at the battlefield.
@@ -11,7 +11,7 @@
 // mode (siegeTowerRotationMode) decides whether only that lens assembly swings
 // or the whole tower wheels around to face the battle.
 //
-// The write path follows the aether-tower overlay: matrices are appended per
+// The write path follows the ambaric-transformer overlay: matrices are appended per
 // addInstance (recording each piece's base slot index in `bases`), commit()
 // publishes counts, and update() rewrites the touched slices of the per-piece
 // buffers through those recorded bases.

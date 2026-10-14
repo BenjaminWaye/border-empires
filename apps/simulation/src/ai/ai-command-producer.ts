@@ -84,7 +84,7 @@ const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 // Every structure-build command type the beacon cadence (ai-beacon-cadence.ts)
 // counts toward its cycle, including beacons themselves.
-const BEACON_CADENCE_BUILD_COMMAND_TYPES: ReadonlySet<CommandEnvelope["type"]> = new Set(["BUILD_FORT", "BUILD_SIEGE_OUTPOST", "BUILD_ECONOMIC_STRUCTURE"]);
+const BEACON_CADENCE_BUILD_COMMAND_TYPES: ReadonlySet<CommandEnvelope["type"]> = new Set(["BUILD_FORT", "BUILD_SIEGE_BATTERY", "BUILD_ECONOMIC_STRUCTURE"]);
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
 type PreplanOutcome = "applied" | "rejected" | "timed_out";
 type TrackedPreplanCommand = { playerId: string; trackedAt: number };

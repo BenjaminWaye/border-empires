@@ -9,7 +9,7 @@ import type { TileActionDef } from "../client-types.js";
 // UI-facing building category, distinct from the shared sortGroup field.
 // sortGroup (structure-placement.ts) only encodes build-priority sort
 // order, not player-facing theme -- its "support" tier mixes weapons
-// factories in with granaries, and its "military" tier includes
+// factories in with incubation engines, and its "military" tier includes
 // vision/utility structures like Relay Beacon and Observatory. This module
 // classifies by actual function instead, in this order (first match wins):
 //   1. Monument     -- the 6 monuments + their components (curated set)
@@ -35,22 +35,22 @@ export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   monument: "Monuments"
 };
 
-// Fort/siege families, Airport (bombardment), and the defensive detection
-// structures (Observatory blocks hostile crystal actions, Radar System blocks
-// sky bombardment). Garrison Hall (a manpower hub), Aether Tower (a power
+// Fort/siege families, Sky Dock (bombardment), and the defensive detection
+// structures (Observatory blocks hostile crystal actions, Resonance Grid blocks
+// sky bombardment). Ancillary Depot (a manpower hub), Aether Tower (a power
 // node) and the Weapons Factories (support-ring empire-wide bonuses) are
 // deliberately NOT here -- they fall through to Town Support / Infrastructure.
 const MILITARY_STRUCTURE_TYPES = new Set<StructurePlacementType>([
   "FORT",
-  "WOODEN_FORT",
+  "PALISADE",
   "TITANIUM_BASTION",
   "THUNDER_BASTION",
-  "SIEGE_OUTPOST",
+  "SIEGE_BATTERY",
   "SIEGE_TOWER",
   "DREAD_TOWER",
-  "AIRPORT",
+  "SKY_DOCK",
   "OBSERVATORY",
-  "RADAR_SYSTEM"
+  "RESONANCE_GRID"
 ]);
 
 // The 6 monuments and their 3 components each (see MONUMENT_COMPONENT_TYPES
@@ -58,7 +58,7 @@ const MILITARY_STRUCTURE_TYPES = new Set<StructurePlacementType>([
 // Monumental City builds, so they get their own category rather than being
 // split across Military / Town Support / Infrastructure by effect.
 const MONUMENT_STRUCTURE_TYPES = new Set<StructurePlacementType>(
-  (["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const).flatMap((monument) => [
+  (["IMPERIAL_EXCHANGE", "SOVEREIGN_SIEGE_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "CENSUS_DIRECTORATE", "TITANIUM_LEVY"] as const).flatMap((monument) => [
     monument,
     `${monument}_PART_1` as const,
     `${monument}_PART_2` as const,

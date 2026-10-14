@@ -95,8 +95,8 @@ describe("client optimistic state", () => {
         connectedTownBonus: 0,
         hasMintworks: false,
         mintworksActive: false,
-        hasGranary: false,
-        granaryActive: false,
+        hasIncubationEngine: false,
+        incubationEngineActive: false,
       }
     });
     const state = {

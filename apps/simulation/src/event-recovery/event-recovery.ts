@@ -29,7 +29,7 @@ type RecoveredTileState = {
   town?: DomainTileState["town"];
   fort?: DomainTileState["fort"];
   observatory?: DomainTileState["observatory"];
-  siegeOutpost?: DomainTileState["siegeOutpost"];
+  siegeBattery?: DomainTileState["siegeBattery"];
   economicStructure?: DomainTileState["economicStructure"];
   sabotage?: DomainTileState["sabotage"];
   muster?: DomainTileState["muster"];
@@ -103,7 +103,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
-  ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+  ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
   ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
   ...(tile.afc ? { afc: tile.afc } : {})
@@ -223,12 +223,12 @@ const applyTileDeltaToRecoveredAccumulator = (
       : existing?.observatory
         ? { observatory: existing.observatory }
         : {}),
-    ...("siegeOutpostJson" in tileDelta
-      ? (tileDelta.siegeOutpostJson
-          ? { siegeOutpost: parseOptionalJson<DomainTileState["siegeOutpost"]>(tileDelta.siegeOutpostJson) }
+    ...("siegeBatteryJson" in tileDelta
+      ? (tileDelta.siegeBatteryJson
+          ? { siegeBattery: parseOptionalJson<DomainTileState["siegeBattery"]>(tileDelta.siegeBatteryJson) }
           : {})
-      : existing?.siegeOutpost
-        ? { siegeOutpost: existing.siegeOutpost }
+      : existing?.siegeBattery
+        ? { siegeBattery: existing.siegeBattery }
         : {}),
     ...("economicStructureJson" in tileDelta
       ? (tileDelta.economicStructureJson

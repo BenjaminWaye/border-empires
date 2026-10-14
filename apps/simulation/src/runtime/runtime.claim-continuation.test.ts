@@ -152,7 +152,7 @@ describe("claim continuation (server-durable settle+build tail)", () => {
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           // A resource tile so structureShowsOnTile's "resource" visibility
-          // rule is satisfied on FRONTIER ground (SIEGE_OUTPOST otherwise
+          // rule is satisfied on FRONTIER ground (SIEGE_BATTERY otherwise
           // only shows on settled/town/support/dock tiles).
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" }
         ],
@@ -169,19 +169,19 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "CLAIM_CONTINUATION_SET",
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" })
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" })
     });
     await Promise.resolve();
 
     expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "claim-continuation-siege" }));
 
     // No SETTLE ever ran -- the tile stays FRONTIER (a SETTLE would have
-    // flipped it to SETTLED) and the siege outpost starts construction
+    // flipped it to SETTLED) and the siege battery starts construction
     // immediately, synchronously off the CLAIM_CONTINUATION_SET command
     // itself, with no intervening scheduled step to fire.
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(tile?.ownershipState).toBe("FRONTIER");
-    expect(tile?.siegeOutpostJson).toContain('"status":"under_construction"');
+    expect(tile?.siegeBatteryJson).toContain('"status":"under_construction"');
   });
 
   // Regression for the "settle completes, tile shows no construction until

@@ -8,10 +8,10 @@ import { ECONOMIC_SPECS } from "./structure-registry-economic.js";
  * Combined structure registry covering every buildable structure type.
  *
  * Sources:
- * - 4 fort variants (WOODEN_FORT, FORT, TITANIUM_BASTION, THUNDER_BASTION)
+ * - 4 fort variants (PALISADE, FORT, TITANIUM_BASTION, THUNDER_BASTION)
  * - 1 observatory (OBSERVATORY)
- * - 4 outpost variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER, RELAY_BEACON)
- * - the economic structures (every EconomicStructureType except WOODEN_FORT
+ * - 4 outpost variants (SIEGE_BATTERY, SIEGE_TOWER, DREAD_TOWER, RELAY_BEACON)
+ * - the economic structures (every EconomicStructureType except PALISADE
  *   and RELAY_BEACON)
  */
 export const STRUCTURE_REGISTRY: Record<string, StructureSpec> = {
@@ -25,7 +25,7 @@ export const STRUCTURE_REGISTRY: Record<string, StructureSpec> = {
 export const STRUCTURE_REGISTRY_SIZE = Object.keys(STRUCTURE_REGISTRY).length;
 
 /**
- * True for the siege ladder (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER) — the
+ * True for the siege ladder (SIEGE_BATTERY/SIEGE_TOWER/DREAD_TOWER) — the
  * only structures buildable directly on an owned FRONTIER tile, no SETTLE
  * step required first (see the OUT_OF_REACH/SETTLED gates in
  * runtime-structure-command-handlers.ts's handleBuildStructureCommand).
@@ -51,7 +51,7 @@ export const structureSkipsSettledRequirement = (type: string): boolean => {
  * ServerDevQueueEntry.origin).
  */
 export const structureRequiresClientPlacement = (type: string): boolean =>
-  type === "FOUNDRY" || type === "WATERWORKS";
+  type === "ORE_REFINERY" || type === "HYDROWORKS";
 
 /**
  * Which tech/domain build-speed effect shortens this structure's build, the

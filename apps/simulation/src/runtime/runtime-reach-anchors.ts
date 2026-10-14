@@ -35,7 +35,7 @@ export interface GatherReachAnchorsDeps {
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
   tiles: ReadonlyMap<string, DomainTileState>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  activeSiegeOutpostsByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  activeSiegeBatteriesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   docks: readonly DockRouteDefinition[];
   tileSettledAtByKey: ReadonlyMap<string, number>;
   now: number;
@@ -43,9 +43,9 @@ export interface GatherReachAnchorsDeps {
 
 // Every reach anchor world-wide, right now: every player's town tiles,
 // every active outpost-family structure tile (RELAY_BEACON /
-// SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
+// SIEGE_BATTERY / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
 // outpost-aura.ts uses, sourced from the already-maintained
-// activeRelayBeaconsByOwner / activeSiegeOutpostsByOwner indexes), and
+// activeRelayBeaconsByOwner / activeSiegeBatteriesByOwner indexes), and
 // every owned dock tile. Used both for `liveReachForOwner`'s "can this
 // owner currently defend this tile" check during a contest, and once at
 // startup to seed `reachBorder`. `activatedAt` is unused by the current
@@ -53,14 +53,14 @@ export interface GatherReachAnchorsDeps {
 // not build order) but is still populated for API completeness / possible
 // future use.
 export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] {
-  const { playerSummaries, tiles, activeRelayBeaconsByOwner, activeSiegeOutpostsByOwner, docks, tileSettledAtByKey, now } = deps;
+  const { playerSummaries, tiles, activeRelayBeaconsByOwner, activeSiegeBatteriesByOwner, docks, tileSettledAtByKey, now } = deps;
   const anchors: ReachAnchor[] = [];
   for (const [playerId, summary] of playerSummaries) {
     if (isBarbarianOwner(playerId)) continue;
     for (const tileKey of summary.ownedTownTierByTile.keys()) {
       const tile = tiles.get(tileKey);
       // ownershipState gate: a tile that was overtaken by the unsettle
-      // transition keeps its `town`/`siegeOutpost`/`economicStructure`
+      // transition keeps its `town`/`siegeBattery`/`economicStructure`
       // fields untouched (structures stay, only ownershipState flips), so
       // without this check a dormant/downgraded structure would keep
       // functioning as a full reach anchor forever — contradicting the
@@ -87,12 +87,12 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
       anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.economicStructure?.activatedAt ?? now, kind: "OUTPOST" });
     }
   }
-  for (const [ownerId, keys] of activeSiegeOutpostsByOwner) {
+  for (const [ownerId, keys] of activeSiegeBatteriesByOwner) {
     if (isBarbarianOwner(ownerId)) continue;
     for (const tileKey of keys) {
       const tile = tiles.get(tileKey);
       if (!tile || tile.ownershipState !== "SETTLED") continue;
-      anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.siegeOutpost?.activatedAt ?? now, kind: "OUTPOST" });
+      anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.siegeBattery?.activatedAt ?? now, kind: "OUTPOST" });
     }
   }
   for (const dock of docks) {
@@ -134,10 +134,10 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   if (isActiveTown && isActiveTown !== wasActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: now, kind: "TOWN", ...landedAfcGuarantee(tile) });
   }
-  const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
-  const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
+  const wasActiveSiege = wasSettled && previous?.siegeBattery?.status === "active" ? previous.siegeBattery.ownerId : undefined;
+  const isActiveSiege = isSettled && tile.siegeBattery?.status === "active" ? tile.siegeBattery.ownerId : undefined;
   if (isActiveSiege && isActiveSiege !== wasActiveSiege) {
-    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveSiege, activatedAt: tile.siegeOutpost?.activatedAt ?? now, kind: "OUTPOST" });
+    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveSiege, activatedAt: tile.siegeBattery?.activatedAt ?? now, kind: "OUTPOST" });
   }
   const wasActiveBeacon =
     wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
@@ -180,8 +180,8 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   if (wasActiveTown && wasActiveTown !== isActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: now, kind: "TOWN" });
   }
-  const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
-  const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
+  const wasActiveSiege = wasSettled && previous?.siegeBattery?.status === "active" ? previous.siegeBattery.ownerId : undefined;
+  const isActiveSiege = isSettled && tile.siegeBattery?.status === "active" ? tile.siegeBattery.ownerId : undefined;
   if (wasActiveSiege && wasActiveSiege !== isActiveSiege) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveSiege, activatedAt: now, kind: "OUTPOST" });
   }

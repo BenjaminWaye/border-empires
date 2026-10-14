@@ -11,14 +11,14 @@ import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerAdminWorldRoute } from "./register-admin-world-route.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
-import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
+import { registerSovereignSiegeEngineStrikeRoutes } from "../sovereign-siege-engine-strike-routes/sovereign-siege-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import type { PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
 import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
-import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
+import type { SovereignSiegeEngineStrikeStore } from "../sovereign-siege-engine-strike-store/sovereign-siege-engine-strike-store.js";
 
 export type GatewayDebugEvent = {
   at: number;
@@ -100,7 +100,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore; galaxySenateStore?: GalaxySenateStore;
   galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: GalaxyFleetStore; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore; galaxyDukeService?: import("../galaxy-duke-service/galaxy-duke-service.js").GalaxyDukeService;
   authBindingStore?: GatewayAuthBindingStore;
-  worldEngineStrikeStore?: WorldEngineStrikeStore;
+  sovereignSiegeEngineStrikeStore?: SovereignSiegeEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
   playerInsights?: PlayerInsightsRouteDeps;
 };
@@ -377,8 +377,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
   registerSocialRoutes(app, { ...(deps.getSocialSnapshotForPlayer ? { getSocialSnapshotForPlayer: deps.getSocialSnapshotForPlayer } : {}) });
 
-  registerWorldEngineStrikeRoutes(app, {
-    ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})
+  registerSovereignSiegeEngineStrikeRoutes(app, {
+    ...(deps.sovereignSiegeEngineStrikeStore ? { sovereignSiegeEngineStrikeStore: deps.sovereignSiegeEngineStrikeStore } : {})
   });
   if (deps.activityApi) registerActivityApiRoute(app, deps.activityApi);
 };

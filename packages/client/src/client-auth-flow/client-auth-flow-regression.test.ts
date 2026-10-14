@@ -310,6 +310,37 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     expect(dom.authOverlayEl.dataset.busy).toBe("true");
   });
 
+  it("keeps a localhost dev-login session when Firebase reports no signed-in user", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { onAuthStateChanged } = await import("firebase/auth");
+    vi.mocked(onAuthStateChanged).mockClear();
+
+    const dom = makeDom();
+    const state = makeState();
+    const fakeFirebaseAuth = {} as unknown as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>;
+    const authFlow = createClientAuthFlow({
+      state,
+      dom,
+      firebaseAuth: fakeFirebaseAuth,
+      ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
+      wsUrl: "ws://127.0.0.1:3101/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false,
+      devAuthPlayerId: "player-1"
+    });
+    authFlow.bindFirebaseAuth();
+
+    // INIT has already arrived for the dev-login player...
+    state.authSessionReady = true;
+    // ...then Firebase resolves with no persisted user. Before the fix this
+    // reset authSessionReady and put the sign-in overlay back over the game.
+    const onChange = vi.mocked(onAuthStateChanged).mock.calls[0]?.[1] as (user: null) => Promise<void>;
+    await onChange(null);
+
+    expect(state.authSessionReady).toBe(true);
+  });
+
   it("blocks Google sign-in inside the Facebook Messenger in-app browser instead of letting it fail with a cryptic Firebase error", async () => {
     const { createClientAuthFlow } = await import("./client-auth-flow.js");
     const { signInWithPopup } = await import("firebase/auth");

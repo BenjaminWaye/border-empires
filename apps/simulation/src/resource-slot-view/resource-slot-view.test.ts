@@ -33,16 +33,16 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 1, CRYSTAL: 1, UMBRITE: 1 });
   });
 
-  it("an active Farmstead adds +2 FOOD slots to its own FARM tile", () => {
+  it("an active Hydrogarden adds +2 FOOD slots to its own FARM tile", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })
+      tile({ x: 0, y: 0, resource: "FARM", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } })
     ]);
     expect(totals.FOOD).toBe(3);
   });
 
-  it("a Farmstead still under construction does not yet boost its tile", () => {
+  it("a Hydrogarden still under construction does not yet boost its tile", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "under_construction" } })
+      tile({ x: 0, y: 0, resource: "FARM", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "under_construction" } })
     ]);
     expect(totals.FOOD).toBe(1);
   });
@@ -56,31 +56,31 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.UMBRITE).toBe(2);
   });
 
-  it("an active Farmstead within Waterworks radius jumps from 3 to 5 FOOD slots", () => {
-    const farmstead = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } });
-    const totals = resourceSlotSupplyForPlayer([farmstead], new Set(["5,6"]));
+  it("an active Hydrogarden within Hydroworks radius jumps from 3 to 5 FOOD slots", () => {
+    const hydrogarden = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } });
+    const totals = resourceSlotSupplyForPlayer([hydrogarden], new Set(["5,6"]));
     expect(totals.FOOD).toBe(5);
   });
 
-  it("Waterworks radius bonus does not apply outside WATERWORKS_RADIUS", () => {
-    const farmstead = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } });
-    const totals = resourceSlotSupplyForPlayer([farmstead], new Set(["5,100"]));
+  it("Hydroworks radius bonus does not apply outside HYDROWORKS_RADIUS", () => {
+    const hydrogarden = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } });
+    const totals = resourceSlotSupplyForPlayer([hydrogarden], new Set(["5,100"]));
     expect(totals.FOOD).toBe(3);
   });
 
-  it("FISH gets no Farmstead or Waterworks bonus (fixed 2 slots forever)", () => {
+  it("FISH gets no Hydrogarden or Hydroworks bonus (fixed 2 slots forever)", () => {
     const fish = tile({ x: 5, y: 5, resource: "FISH" });
     const totals = resourceSlotSupplyForPlayer([fish], new Set(["5,6"]));
     expect(totals.FOOD).toBe(2);
   });
 
-  it("an active Mine within Foundry radius jumps from 2 to 4 slots of its resource", () => {
+  it("an active Mine within Ore Refinery radius jumps from 2 to 4 slots of its resource", () => {
     const mine = tile({ x: 5, y: 5, resource: "GEMS", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
     const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,6"]));
     expect(totals.CRYSTAL).toBe(4);
   });
 
-  it("Foundry radius bonus does not apply outside FOUNDRY_RADIUS", () => {
+  it("Ore Refinery radius bonus does not apply outside ORE_REFINERY_RADIUS", () => {
     const mine = tile({ x: 5, y: 5, resource: "TITANIUM", economicStructure: { ownerId: "p1", type: "MINE", status: "active" } });
     const totals = resourceSlotSupplyForPlayer([mine], new Set(), new Set(["5,100"]));
     expect(totals.TITANIUM).toBe(2);
@@ -91,16 +91,16 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
   });
 
-  it("§5.3: an active Farmstead built on a FISH tile (placement-legal per structure-placement-metadata.json) does NOT boost it past the base 2", () => {
+  it("§5.3: an active Hydrogarden built on a FISH tile (placement-legal per structure-placement-metadata.json) does NOT boost it past the base 2", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })
+      tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } })
     ]);
     expect(totals.FOOD).toBe(2);
   });
 
-  it("fishFoodSlotBonus stacks with an active Farmstead's own (blocked) attempt on a FISH tile", () => {
+  it("fishFoodSlotBonus stacks with an active Hydrogarden's own (blocked) attempt on a FISH tile", () => {
     const totals = resourceSlotSupplyForPlayer(
-      [tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })],
+      [tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "HYDROGARDEN", status: "active" } })],
       new Set(),
       new Set(),
       undefined,
@@ -125,23 +125,23 @@ describe("resourceSlotSupplyForPlayer", () => {
 
   it("§6.4: an active synthesizer grants +1 slot of its own resource, even on a tile with no matching resource", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "active" } }),
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "active" } }),
       tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "TITANIUM_WORKS", status: "active" } }),
-      tile({ x: 2, y: 0, economicStructure: { ownerId: "p1", type: "CRYSTAL_SYNTHESIZER", status: "active" } })
+      tile({ x: 2, y: 0, economicStructure: { ownerId: "p1", type: "AETHER_CONDENSER", status: "active" } })
     ]);
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 1, CRYSTAL: 1, UMBRITE: 1 });
   });
 
   it("a synthesizer still under construction does not yet grant its slot", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "under_construction" } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "under_construction" } })
     ]);
     expect(totals.UMBRITE).toBe(0);
   });
 
   it("an Advanced synthesizer grants the same +1 as its base tier (no doubling)", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active" } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "HIGH_YIELD_UMBRITE_WORKS", status: "active" } })
     ]);
     expect(totals.UMBRITE).toBe(1);
   });
@@ -156,7 +156,7 @@ describe("resourceSlotSupplyForPlayer", () => {
 
   it("an EXCHANGE-mode synthesizer grants no supply slot (it sells its slot off instead)", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } }),
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "active", converterMode: "EXCHANGE" } }),
       tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" } })
     ]);
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
@@ -164,7 +164,7 @@ describe("resourceSlotSupplyForPlayer", () => {
 
   it("an EXCHANGE-mode Advanced synthesizer also grants no supply slot", () => {
     const totals = resourceSlotSupplyForPlayer([
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "HIGH_YIELD_UMBRITE_WORKS", status: "active", converterMode: "EXCHANGE" } })
     ]);
     expect(totals.UMBRITE).toBe(0);
   });
@@ -267,13 +267,13 @@ describe("resourceSlotDemandForPlayer", () => {
       [
         {
           fort: { ownerId: "p1", status: "under_construction", variant: "FORT" },
-          economicStructure: { ownerId: "p1", type: "WOODEN_FORT", status: "active" }
+          economicStructure: { ownerId: "p1", type: "PALISADE", status: "active" }
         } as PartialTile as DomainTileState
       ],
       "p1"
     );
     // The in-progress FORT upgrade draws its own 1 TITANIUM slot; the still-active
-    // Wooden Fort it's replacing draws 1 FOOD slot (not TITANIUM) — both fields
+    // Palisade it's replacing draws 1 FOOD slot (not TITANIUM) — both fields
     // count independently while they transiently coexist mid-upgrade.
     expect(totals.TITANIUM).toBe(1);
     expect(totals.FOOD).toBe(1);
@@ -282,8 +282,8 @@ describe("resourceSlotDemandForPlayer", () => {
   it("§6.4: a synthesizer contributes zero demand — it's a slot source, not a consumer", () => {
     const totals = resourceSlotDemandForPlayer(
       [
-        { economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "active" } } as PartialTile as DomainTileState,
-        { economicStructure: { ownerId: "p1", type: "ADVANCED_TITANIUM_WORKS", status: "active" } } as PartialTile as DomainTileState
+        { economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "active" } } as PartialTile as DomainTileState,
+        { economicStructure: { ownerId: "p1", type: "HIGH_YIELD_TITANIUM_WORKS", status: "active" } } as PartialTile as DomainTileState
       ],
       "p1"
     );
@@ -293,9 +293,9 @@ describe("resourceSlotDemandForPlayer", () => {
   it("an EXCHANGE-mode synthesizer consumes 1 slot of its family resource", () => {
     const totals = resourceSlotDemandForPlayer(
       [
-        { economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState,
+        { economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState,
         { economicStructure: { ownerId: "p1", type: "TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState,
-        { economicStructure: { ownerId: "p1", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState
+        { economicStructure: { ownerId: "p1", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" } } as PartialTile as DomainTileState
       ],
       "p1"
     );
@@ -305,18 +305,18 @@ describe("resourceSlotDemandForPlayer", () => {
   it("a SYNTHESIZE-mode synthesizer contributes zero demand even with the mode field set", () => {
     const totals = resourceSlotDemandForPlayer(
       [
-        { economicStructure: { ownerId: "p1", type: "UMBRITE_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" } } as PartialTile as DomainTileState
+        { economicStructure: { ownerId: "p1", type: "UMBRITE_WORKS", status: "active", converterMode: "SYNTHESIZE" } } as PartialTile as DomainTileState
       ],
       "p1"
     );
     expect(totals.UMBRITE).toBe(0);
   });
 
-  it("sums observatory and siege outpost demand alongside fort/economic demand", () => {
+  it("sums observatory and siege battery demand alongside fort/economic demand", () => {
     const totals = resourceSlotDemandForPlayer(
       [
         { observatory: { ownerId: "p1", status: "active" } } as PartialTile as DomainTileState,
-        { siegeOutpost: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" } } as PartialTile as DomainTileState
+        { siegeBattery: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" } } as PartialTile as DomainTileState
       ],
       "p1"
     );
@@ -362,8 +362,8 @@ describe("currentTileFieldSlotRequirements", () => {
     expect(currentTileFieldSlotRequirements(target, "fort", "p1")).toEqual([{ resource: "TITANIUM", count: 1 }]);
   });
 
-  it("returns [] for the fort field when a WOODEN_FORT (economicStructure) is what's actually there", () => {
-    const target = { economicStructure: { ownerId: "p1", type: "WOODEN_FORT", status: "active" } } as PartialTile as DomainTileState;
+  it("returns [] for the fort field when a PALISADE (economicStructure) is what's actually there", () => {
+    const target = { economicStructure: { ownerId: "p1", type: "PALISADE", status: "active" } } as PartialTile as DomainTileState;
     expect(currentTileFieldSlotRequirements(target, "fort", "p1")).toEqual([]);
   });
 
@@ -393,9 +393,9 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
 
   it("a structure needing multiple resources is only dormant for the resource that's actually short", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FOUNDRY", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active", activatedAt: 100 } })
     ];
-    // FOUNDRY needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
+    // ORE_REFINERY needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 1, UMBRITE: 0 });
     expect([...dormancy.FOOD]).toEqual(["0,0:economicStructure"]);
     expect(dormancy.CRYSTAL.size).toBe(0);
@@ -467,9 +467,9 @@ describe("dormantStructureDetailsFromDormancy", () => {
 
   it("groups a multi-resource structure's dormancy into one entry with both resources", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FOUNDRY", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "ORE_REFINERY", status: "active", activatedAt: 100 } })
     ];
-    // FOUNDRY needs 1 FOOD + 1 CRYSTAL; neither is supplied.
+    // ORE_REFINERY needs 1 FOOD + 1 CRYSTAL; neither is supplied.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
     const details = dormantStructureDetailsFromDormancy(dormancy);
     expect(details).toHaveLength(1);

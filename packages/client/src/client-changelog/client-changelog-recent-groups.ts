@@ -22,6 +22,7 @@ import { CLIENT_CHANGELOG_ENTRIES_AFC_MODULE_SLOTS } from "./client-changelog-af
 import { CLIENT_CHANGELOG_ENTRIES_SMALLER_TREES } from "./client-changelog-smaller-trees.js";
 import { CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_RESOURCE_ICONS } from "./client-changelog-steampunk-resource-icons.js";
 import { CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS } from "./client-changelog-steampunk-build-menu-icons.js";
+import { CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY } from "./client-changelog-steampunk-icon-legibility.js";
 import { CLIENT_CHANGELOG_ENTRIES_ARROW_CLICK_TARGETING } from "./client-changelog-arrow-click-targeting.js";
 import { CLIENT_CHANGELOG_ENTRIES_RELAY_BEACON_INSTANT } from "./client-changelog-relay-beacon-instant.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_CONSTRUCTION } from "./client-changelog-afc-construction.js";
@@ -67,5 +68,6 @@ export const CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_SOFTER_METAL_REFLECTIONS,
   ...CLIENT_CHANGELOG_ENTRIES_STRANDED_FRONTIER_CLEANUP,
   ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_RESOURCE_ICONS,
-  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS
+  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_BUILD_MENU_ICONS,
+  ...CLIENT_CHANGELOG_ENTRIES_STEAMPUNK_ICON_LEGIBILITY
 ];

@@ -1,6 +1,6 @@
 import type { ActiveBattleOverlay } from "./client-battle-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { nearestSiegeOutpostTileForBattle, type FortificationOverlayDeps } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { nearestSiegeBatteryTileForBattle, type FortificationOverlayDeps } from "../client-fortification-overlays/client-fortification-overlays.js";
 
 // How long a battery's cosmetic aim override sticks before it falls back to
 // its normal nearest-rival-tile idle facing (client-fortification-overlays.ts).
@@ -40,7 +40,7 @@ export const triggerSiegeBombardmentForNewBattle = (
   for (const [key, override] of state.siegeAimOverrides) {
     if (override.expiresAt <= nowMs) state.siegeAimOverrides.delete(key);
   }
-  const battery = nearestSiegeOutpostTileForBattle(fortDeps, battle.targetX, battle.targetY, battle.attackerOwnerId);
+  const battery = nearestSiegeBatteryTileForBattle(fortDeps, battle.targetX, battle.targetY, battle.attackerOwnerId);
   if (!battery) return;
   state.siegeAimOverrides.set(fortDeps.keyFor(battery.x, battery.y), {
     targetX: battle.targetX,

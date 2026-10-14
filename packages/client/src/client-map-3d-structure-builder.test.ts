@@ -4,7 +4,7 @@ import { createStructurePieceBuilder } from "./client-map-3d-structure-builder.j
 
 // Regression: makeSlot() is the single choke point every economic/late-game/
 // civic/infrastructure/industrial/manpower/worldbreaker/imperial-exchange/
-// astral-dock/population-bureau structure piece funnels through -- it used
+// astral-dock/census-directorate structure piece funnels through -- it used
 // to leave every slot's InstancedMesh at castShadow/receiveShadow's default
 // (false), so structures never cast or received a real shadow the way trees
 // now do (client-map-3d-forest.ts), reading as flatly lit by comparison.

@@ -30,13 +30,13 @@ The user-rule constraints at the bottom of this document are mandatory. They are
 |---|---|---|---|
 | `BUILD_FORT` | `handleBuildFortCommand` ([runtime.ts:6801](apps/simulation/src/runtime/runtime.ts#L6801)) | `tile.fort` | 175 |
 | `BUILD_OBSERVATORY` | `handleBuildObservatoryCommand` ([runtime.ts:6976](apps/simulation/src/runtime/runtime.ts#L6976)) | `tile.observatory` | 148 |
-| `BUILD_SIEGE_OUTPOST` | `handleBuildSiegeOutpostCommand` ([runtime.ts:7124](apps/simulation/src/runtime/runtime.ts#L7124)) | `tile.siegeOutpost` | 248 |
+| `BUILD_SIEGE_BATTERY` | `handleBuildSiegeBatteryCommand` ([runtime.ts:7124](apps/simulation/src/runtime/runtime.ts#L7124)) | `tile.siegeBattery` | 248 |
 | `BUILD_ECONOMIC_STRUCTURE` | `handleBuildEconomicStructureCommand` ([runtime.ts:7372](apps/simulation/src/runtime/runtime.ts#L7372)) | `tile.economicStructure` | ~750 |
 
 Each handler does the same *shape* of work (parse payload, validate owner, check tech, check tile state, charge cost, schedule completion, emit deltas) but diverged on which fields it reads/writes and which side-effects it triggers. The dispatcher at [runtime.ts:8673-8742](apps/simulation/src/runtime/runtime.ts#L8673-L8742) selects one of four by command type. This is the root cause of:
 
 - RELAY_BEACON being awkwardly classified as an `EconomicStructureType` (an attacker living in the economic pipeline)
-- Sweep state needing a duplicate tick path because RELAY_BEACON and SIEGE_OUTPOST live on different tile fields
+- Sweep state needing a duplicate tick path because RELAY_BEACON and SIEGE_BATTERY live on different tile fields
 - Every "is this tile already built on?" check having to consult four fields
 - Capture / removal / status-change logic being duplicated four times
 - New structure families being added by copying one of the existing handlers (the original organic-accretion mechanism)
@@ -49,7 +49,7 @@ There are two strategies for "one build command," and they have *very* different
 
 ### Strategy A — One wire command, four tile fields (entry-point unification only)
 
-Collapse the four wire messages and four handlers into one `BUILD_STRUCTURE` command + handler. The handler reads a per-structure-type spec from a registry and dispatches to per-family **completion hooks** that still write to the appropriate tile field. `tile.fort`, `tile.observatory`, `tile.siegeOutpost`, `tile.economicStructure` all stay.
+Collapse the four wire messages and four handlers into one `BUILD_STRUCTURE` command + handler. The handler reads a per-structure-type spec from a registry and dispatches to per-family **completion hooks** that still write to the appropriate tile field. `tile.fort`, `tile.observatory`, `tile.siegeBattery`, `tile.economicStructure` all stay.
 
 **Upside:** the entire client-facing build UX is one code path. ~30 hours of work. No snapshot migration — the on-disk shape is unchanged. Low rollback risk. Most of the duplication the user actually feels (4 build menus, 4 cost-lookup paths, 4 tech-gate checks) is gone.
 
@@ -57,7 +57,7 @@ Collapse the four wire messages and four handlers into one `BUILD_STRUCTURE` com
 
 ### Strategy B — Strategy A + tile-shape unification (`tile.structure`)
 
-After A: collapse `tile.fort`, `tile.observatory`, `tile.siegeOutpost`, `tile.economicStructure` into a single `tile.structure: { kind, type, variant?, status, completesAt?, sweepBudget?, ... }` discriminated union.
+After A: collapse `tile.fort`, `tile.observatory`, `tile.siegeBattery`, `tile.economicStructure` into a single `tile.structure: { kind, type, variant?, status, completesAt?, sweepBudget?, ... }` discriminated union.
 
 **Upside:** the symptom IS fixed. RELAY_BEACON is just `{ kind: "OUTPOST", variant: "RELAY_BEACON" }`. One place to read structure state. The sweep type-lie is deleted for good. 3D overlays simplify. History (`lastStructureType`, `structureHistory`) collapses to one type.
 
@@ -81,12 +81,12 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 
 1. **Orient.** Read these files top-to-bottom before writing anything:
    - `apps/simulation/src/runtime/runtime.ts` — the four `handleBuild*Command` functions
-   - `packages/shared/src/types.ts` — `EconomicStructureType`, `SiegeOutpostVariant`, `EconomicStructure`, the `DomainTileState.fort/observatory/siegeOutpost/economicStructure` shape
-   - `packages/shared/src/config.ts` — structure cost constants (`SIEGE_OUTPOST_BUILD_COST`, etc.)
+   - `packages/shared/src/types.ts` — `EconomicStructureType`, `SiegeBatteryVariant`, `EconomicStructure`, the `DomainTileState.fort/observatory/siegeBattery/economicStructure` shape
+   - `packages/shared/src/config.ts` — structure cost constants (`SIEGE_BATTERY_BUILD_COST`, etc.)
    - `packages/shared/src/structure-costs/structure-costs.ts` — the existing cost lookup tables
    - `packages/shared/src/structure-placement-metadata.ts` and `structure-placement-metadata.json` — existing placement rules
    - `packages/shared/src/structure-costs/structure-costs.test.ts` — pattern to mirror in registry tests
-2. **Enumerate the universe.** Build a checklist of every distinct structure type the game can build today. Source: `EconomicStructureType` union ([types.ts:25-57](packages/shared/src/types.ts#L25-L57)) + `SiegeOutpostVariant` ([types.ts:13](packages/shared/src/types.ts#L13)) + `FortVariant` (grep) + OBSERVATORY. Expect ~35 entries. Save the list — it's your "is the registry complete?" check.
+2. **Enumerate the universe.** Build a checklist of every distinct structure type the game can build today. Source: `EconomicStructureType` union ([types.ts:25-57](packages/shared/src/types.ts#L25-L57)) + `SiegeBatteryVariant` ([types.ts:13](packages/shared/src/types.ts#L13)) + `FortVariant` (grep) + OBSERVATORY. Expect ~35 entries. Save the list — it's your "is the registry complete?" check.
 3. **Define the spec type.** Create `packages/shared/src/structure-registry/structure-registry.ts`. Start with the `StructureSpec` interface from this plan. Add `PlacementCheck`, `PlacementContext`, `CompletionContext`, `RemovalContext` types in the same file. **Do not export the registry constant yet.**
 4. **Extract placement predicates.** Read all four handlers and list every distinct placement check (`tile.ownerId === playerId`, `tile.ownershipState === "SETTLED"`, `!hasAnyStructure(tile)`, `adjacent-to-owned-town`, `dock-pair`, `terrain-restricted`, etc.). Implement each as a named exported `PlacementCheck`. Expect 12-15 distinct predicates. Cover them with unit tests in `structure-registry.test.ts`.
 5. **Populate the registry, one family at a time, in this order:**
@@ -129,7 +129,7 @@ export interface StructureSpec {
   /** Family this structure belongs to. Drives which tile field it writes
    *  (in Phase 2) and which completion hook fires. */
   kind: StructureKind;
-  /** Variant within the family (e.g. SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER
+  /** Variant within the family (e.g. SIEGE_BATTERY/SIEGE_TOWER/DREAD_TOWER
    *  for OUTPOST). Undefined for kinds with no variants. */
   variant?: string;
   /** Per-build resource cost. */
@@ -156,7 +156,7 @@ export interface StructureSpec {
   onRemoval?: (ctx: RemovalContext) => void;
   /** Tile field this structure populates. Phase 2 collapses to a single
    *  field; Phase 1 keeps this as the routing key. */
-  tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure";
+  tileField: "fort" | "observatory" | "siegeBattery" | "economicStructure";
 }
 
 export const STRUCTURE_REGISTRY: Record<string, StructureSpec> = { ... };
@@ -168,7 +168,7 @@ For each of the ~35 structure types currently in the codebase, extract its rules
 
 - **Fort family** (FORT/IRON_BASTION/THUNDER_BASTION): cost/duration from `structure-costs.ts`, tech from [runtime.ts:6116](apps/simulation/src/runtime/runtime.ts#L6116) (`masonry` for base fort, plus per-variant tech), `tileField: "fort"`. Placement: own settled tile, no other structure. `onCompletion`: just set status to active.
 - **Observatory** (OBSERVATORY): cost/duration from `structure-costs.ts`, tech check at the existing site, `tileField: "observatory"`. `onCompletion`: initialize `cooldownUntil`.
-- **Outpost family** (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER/RELAY_BEACON): cost/duration per variant, tech per variant, `tileField: "siegeOutpost"` for the three siege variants, `tileField: "economicStructure"` for RELAY_BEACON (acknowledged debt — Phase 4 collapses this). `onCompletion`: initialize `sweepBudget: 300`, `sweepActive: false`.
+- **Outpost family** (SIEGE_BATTERY/SIEGE_TOWER/DREAD_TOWER/RELAY_BEACON): cost/duration per variant, tech per variant, `tileField: "siegeBattery"` for the three siege variants, `tileField: "economicStructure"` for RELAY_BEACON (acknowledged debt — Phase 4 collapses this). `onCompletion`: initialize `sweepBudget: 300`, `sweepActive: false`.
 - **Economic family** (~30 types in [types.ts:25-57](packages/shared/src/types.ts#L25-L57)): mostly mechanical extraction from `handleBuildEconomicStructureCommand` since that handler is *already* table-driven internally. The work here is moving the table out of the handler into the registry, with the per-type `placement`, `upkeep`, `prerequisiteStructureTypes`, etc. preserved verbatim.
 
 ### Placement checks — extract these as composable predicates
@@ -186,7 +186,7 @@ const consumesDevelopmentSlot: PlacementCheck = ...;
 // etc.
 ```
 
-Today each handler inlines its placement logic. Each existing check pattern (`tile.ownerId === playerId`, `tile.ownershipState === "SETTLED"`, `tile.economicStructure || tile.fort || tile.observatory || tile.siegeOutpost`, etc.) becomes a named predicate. Audit the four handlers; expect ~12-15 distinct predicates total.
+Today each handler inlines its placement logic. Each existing check pattern (`tile.ownerId === playerId`, `tile.ownershipState === "SETTLED"`, `tile.economicStructure || tile.fort || tile.observatory || tile.siegeBattery`, etc.) becomes a named predicate. Audit the four handlers; expect ~12-15 distinct predicates total.
 
 ### What this phase does NOT do
 
@@ -223,7 +223,7 @@ z.object({
 }),
 ```
 
-Keep `BUILD_FORT`, `BUILD_OBSERVATORY`, `BUILD_SIEGE_OUTPOST`, `BUILD_ECONOMIC_STRUCTURE` as wire-protocol **aliases** for one release window. Each old message gets a normalizer that rewrites it into a `BUILD_STRUCTURE` envelope before dispatch — so old clients keep working during the rolling deploy. Drop the aliases in a follow-up PR after prod confirms the new client is universal.
+Keep `BUILD_FORT`, `BUILD_OBSERVATORY`, `BUILD_SIEGE_BATTERY`, `BUILD_ECONOMIC_STRUCTURE` as wire-protocol **aliases** for one release window. Each old message gets a normalizer that rewrites it into a `BUILD_STRUCTURE` envelope before dispatch — so old clients keep working during the rolling deploy. Drop the aliases in a follow-up PR after prod confirms the new client is universal.
 
 ### New handler shape
 
@@ -303,7 +303,7 @@ if (command.type === "BUILD_STRUCTURE") {
 }
 // Legacy aliases — keep for one release window.
 if (command.type === "BUILD_FORT" || command.type === "BUILD_OBSERVATORY" ||
-    command.type === "BUILD_SIEGE_OUTPOST" || command.type === "BUILD_ECONOMIC_STRUCTURE") {
+    command.type === "BUILD_SIEGE_BATTERY" || command.type === "BUILD_ECONOMIC_STRUCTURE") {
   this.handleBuildStructureCommand(normalizeLegacyBuildCommand(command));
   continue;
 }
@@ -311,7 +311,7 @@ if (command.type === "BUILD_FORT" || command.type === "BUILD_OBSERVATORY" ||
 
 ### Client
 
-`packages/client/src/client-action-flow.ts` and the build menu: every place that sends `BUILD_FORT` / `BUILD_OBSERVATORY` / `BUILD_SIEGE_OUTPOST` / `BUILD_ECONOMIC_STRUCTURE` switches to `BUILD_STRUCTURE { structureType }`. The 30+ build menu entries collapse to one factory function that reads the registry and produces a `TileAction` per spec.
+`packages/client/src/client-action-flow.ts` and the build menu: every place that sends `BUILD_FORT` / `BUILD_OBSERVATORY` / `BUILD_SIEGE_BATTERY` / `BUILD_ECONOMIC_STRUCTURE` switches to `BUILD_STRUCTURE { structureType }`. The 30+ build menu entries collapse to one factory function that reads the registry and produces a `TileAction` per spec.
 
 The 3D overlay code that visualizes structures is **unchanged in Phase 2** — it still reads from the four tile fields.
 
@@ -339,7 +339,7 @@ One PR. Staging soak for ≥24h with a load test (per user memory "Load-test tic
 - 3D overlay still has 4 code paths
 - Capture/removal still partially family-specific
 
-If you stop here, the symptom you originally yelled about is one config flip away — a follow-up small PR can move RELAY_BEACON's `tileField` in the registry from `"economicStructure"` to a new `"siegeOutpost"` write path and update the tick. That's bridge work to Phase 3+.
+If you stop here, the symptom you originally yelled about is one config flip away — a follow-up small PR can move RELAY_BEACON's `tileField` in the registry from `"economicStructure"` to a new `"siegeBattery"` write path and update the tick. That's bridge work to Phase 3+.
 
 ---
 
@@ -401,7 +401,7 @@ export interface DomainTileState {
   // OLD (delete):
   // fort?: { ... };
   // observatory?: { ... };
-  // siegeOutpost?: { ... };
+  // siegeBattery?: { ... };
   // economicStructure?: { ... };
   // NEW:
   structure?: TileStructureState;
@@ -416,12 +416,12 @@ For every persisted snapshot, on load, upgrade tiles in place:
 function upgradeTileStructure(raw: any): void {
   if (raw.structure) return; // already migrated
   const legacy =
-    raw.fort ?? raw.observatory ?? raw.siegeOutpost ?? raw.economicStructure;
+    raw.fort ?? raw.observatory ?? raw.siegeBattery ?? raw.economicStructure;
   if (!legacy) return;
   raw.structure = projectLegacyToUnified(raw);
   delete raw.fort;
   delete raw.observatory;
-  delete raw.siegeOutpost;
+  delete raw.siegeBattery;
   delete raw.economicStructure;
 }
 ```
@@ -432,13 +432,13 @@ function upgradeTileStructure(raw: any): void {
 
 ### Sim runtime
 
-Every read of `tile.fort` / `tile.observatory` / `tile.siegeOutpost` / `tile.economicStructure` in `runtime.ts` becomes a read of `tile.structure` with a `kind`/`type` check. The duplicate sweep tick path at [runtime.ts:991-1014](apps/simulation/src/runtime/runtime.ts#L991-L1014) collapses with the siege-outpost path because both now read from the same `tile.structure`. Expect ~200 hits across `runtime.ts` (8000+ lines) — most are mechanical rewrites.
+Every read of `tile.fort` / `tile.observatory` / `tile.siegeBattery` / `tile.economicStructure` in `runtime.ts` becomes a read of `tile.structure` with a `kind`/`type` check. The duplicate sweep tick path at [runtime.ts:991-1014](apps/simulation/src/runtime/runtime.ts#L991-L1014) collapses with the siege-battery path because both now read from the same `tile.structure`. Expect ~200 hits across `runtime.ts` (8000+ lines) — most are mechanical rewrites.
 
 ### Client
 
 `packages/client/src/client-types.ts`: same field collapse. The client `Tile` type follows the shared type.
 
-3D overlay rendering currently has separate code paths for fort / observatory / siege outpost / economic structure. Each becomes a switch on `tile.structure?.kind`. Estimate ~15 files touched: `client-map-3d.ts`, `client-map-3d-ownership-overlay.ts`, `client-tile-action-logic.ts`, `client-tile-menu-view.ts`, `client-tile-action-support.ts`, plus per-family overlay modules in `storybook/src/3d/`.
+3D overlay rendering currently has separate code paths for fort / observatory / siege battery / economic structure. Each becomes a switch on `tile.structure?.kind`. Estimate ~15 files touched: `client-map-3d.ts`, `client-map-3d-ownership-overlay.ts`, `client-tile-action-logic.ts`, `client-tile-menu-view.ts`, `client-tile-action-support.ts`, plus per-family overlay modules in `storybook/src/3d/`.
 
 `packages/shared/src/outpost-aura/outpost-aura.ts`: the projection types `OutpostAuraTileFacts` already use a minimal shape — easy retarget to `tile.structure`.
 

@@ -3,8 +3,8 @@
 // While a siphon is active on an enemy RESOURCE tile, that tile's slots stop
 // counting toward its owner's slot supply and count toward the caster's
 // instead — the same slot resource and the same count the owner would get
-// from it, boosts included (same-tile Farmstead/Mine, the owner's own
-// Waterworks/Foundry radius bonuses, the owner's Agrarian Works fish bonus).
+// from it, boosts included (same-tile Hydrogarden/Mine, the owner's own
+// Hydroworks/Ore Refinery radius bonuses, the owner's Agrarian Works fish bonus).
 // When the siphon ends (siphon-mode-lifecycle.ts) the sabotage stamp is gone
 // and both players' supply goes back to normal on the next read.
 //
@@ -37,8 +37,8 @@ export type SiphonSlotSupplyInput = {
 
 /** What `ownerId` would get from `drained` if it weren't siphoned — computed in the owner's own boost context. */
 const ownerSlotsForTiles = (input: SiphonSlotSupplyInput, ownerId: string, drained: DomainTileState[]): ResourceSlotTotals => {
-  const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(input.settledTilesForPlayer(ownerId));
-  return resourceSlotSupplyForPlayer(drained, waterworksKeys, foundryKeys, undefined, input.fishFoodSlotBonusForPlayer(ownerId));
+  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(input.settledTilesForPlayer(ownerId));
+  return resourceSlotSupplyForPlayer(drained, hydroworksKeys, oreRefineryKeys, undefined, input.fishFoodSlotBonusForPlayer(ownerId));
 };
 
 /** Slots the caster is currently receiving through its siphoning towers. */
@@ -71,14 +71,14 @@ export const siphonedInSlotsForPlayer = (input: SiphonSlotSupplyInput): Resource
  */
 export const resourceSlotSupplyWithSiphonTransfer = (input: SiphonSlotSupplyInput): ResourceSlotTotals => {
   const settledTiles = input.settledTilesForPlayer(input.playerId);
-  // Radius bonuses come from the full list: the owner's Waterworks/Foundries
+  // Radius bonuses come from the full list: the owner's Hydroworks/Ore Refineries
   // still stand even when the tile under them is being drained.
-  const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
+  const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
   const kept = settledTiles.filter((tile) => !isResourceTileSiphonedAway(tile, input.playerId));
   const totals = resourceSlotSupplyForPlayer(
     kept,
-    waterworksKeys,
-    foundryKeys,
+    hydroworksKeys,
+    oreRefineryKeys,
     input.grantedSupplyForPlayer(input.playerId),
     input.fishFoodSlotBonusForPlayer(input.playerId)
   );

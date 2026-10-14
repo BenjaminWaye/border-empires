@@ -100,14 +100,10 @@ export const initClientDom = () => {
   const techDetailCardEl = requireElement<HTMLDivElement>("#tech-detail-card");
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
-  const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
-  const allianceTargetOptionsEl = requireElement<HTMLDataListElement>("#alliance-target-options");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
-  const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
   const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const missionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
-  const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
   const mobileSheetTitleEl = requireElement<HTMLSpanElement>("#mobile-sheet-title");
@@ -129,9 +125,6 @@ export const initClientDom = () => {
   const mobileTechDetailCardEl = requireElement<HTMLDivElement>("#mobile-tech-detail-card");
   const mobileTechOwnedEl = requireElement<HTMLDivElement>("#mobile-tech-owned");
   const mobileTechChoiceDetailsEl = requireElement<HTMLDivElement>("#mobile-tech-choice-details");
-  const mobileAllianceTargetEl = requireElement<HTMLInputElement>("#mobile-alliance-target");
-  const mobileAllianceSendBtn = requireElement<HTMLButtonElement>("#mobile-alliance-send");
-  const mobileAllianceRequestsEl = requireElement<HTMLDivElement>("#mobile-alliance-requests");
   const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
   const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
   const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
@@ -151,10 +144,6 @@ export const initClientDom = () => {
 
   return {
     alliancePlayerInspectEl,
-    allianceRequestsEl,
-    allianceSendBtn,
-    allianceTargetEl,
-    allianceTargetOptionsEl,
     alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
@@ -224,9 +213,6 @@ export const initClientDom = () => {
     miniMapWrapEl,
     missionsEl,
     mobileAlliancePlayerInspectEl,
-    mobileAllianceRequestsEl,
-    mobileAllianceSendBtn,
-    mobileAllianceTargetEl,
     mobileAlliesListEl,
     mobileCoreEl,
     mobileCoreHelpEl,

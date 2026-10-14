@@ -3,7 +3,7 @@ import type { ClientState } from "../client-state/client-state.js";
 type TileActionMenuState = Pick<ClientState["tileActionMenu"], "visible" | "mode" | "currentTileKey">;
 
 // TILE_DELTA only forces a renderHud() when it resolves a queued frontier
-// capture, so any other update (a fort/observatory/siege-outpost/economic-
+// capture, so any other update (a fort/observatory/siege-battery/economic-
 // structure flipping from under_construction to active, for example) lands
 // in state.tiles but the open single-tile action menu popup keeps rendering
 // its stale cached view until some unrelated event happens to call

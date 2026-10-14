@@ -1,7 +1,7 @@
 import type { Tile } from "../client-types.js";
 
 // Structure construction/removal completes via a one-shot server timer that
-// flips fort/observatory/siegeOutpost/economicStructure status and pushes a
+// flips fort/observatory/siegeBattery/economicStructure status and pushes a
 // TILE_DELTA. If that delta is dropped, delayed, or missed while
 // disconnected, the client's cached tile keeps stale under_construction
 // status with a completesAt already in the past, so the on-map countdown

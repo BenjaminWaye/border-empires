@@ -46,7 +46,7 @@ and assembled on site by ancillaries (bodies run by one AI).
 ## Data change
 
 `startedAt` (ms) is stamped next to `completesAt` on `fort`, `observatory`,
-`siegeOutpost` and `economicStructure` records at build/removal start, and is
+`siegeBattery` and `economicStructure` records at build/removal start, and is
 dropped wherever `completesAt` is dropped (completion, capture, cancel). The
 client previously guessed total duration from flat per-type constants, which is
 wrong for forts/siege camps/tier upgrades/relay-beacon discounts. Records
@@ -57,7 +57,7 @@ estimate. Structures cross the wire as opaque JSON, so no protocol change.
 
 | Renderer | Coverage |
 |---|---|
-| True 3D | Phase gating for shared-builder structures (economic, late-game, civic, infrastructure, industrial, manpower, part-structures); scaffolding, crates, crew, pods. Structures with dedicated 3D branches (Observatory/Aether Tower, forts, siege camps, Umbrite rig/factory, Caravanary, Relay Beacon) keep rendering fully built — listed as follow-up. |
+| True 3D | Phase gating for shared-builder structures (economic, late-game, civic, infrastructure, industrial, manpower, part-structures); scaffolding, crates, crew, pods. Structures with dedicated 3D branches (Observatory/Aether Tower, forts, siege camps, Umbrite rig/factory, Trade Nexus, Relay Beacon) keep rendering fully built — listed as follow-up. |
 | 2D canvas | Stepped bottom-up fill + dashed outline of the unbuilt part, crew dots at the site edge, same phase maths. Covers every structure drawn through the 2D structure overlay. |
 
 ## Work breakdown
@@ -108,7 +108,7 @@ Notes on what shipped (several design points above were settled during implement
 
 Not covered (still render fully built while under construction in 3D; the 2D
 renderer draws them as before): Observatory/Aether Tower, forts, siege camps,
-Umbrite rig/factory, Caravanary and Relay Beacons, i.e. every structure with a
+Umbrite rig/factory, Trade Nexus and Relay Beacons, i.e. every structure with a
 dedicated 3D branch. Each needs its own gate and a stack/crew placement that
 fits its footprint.
 
@@ -155,7 +155,7 @@ Steps:
 
 Follow-up 2 (next): forts (note: a fort *upgrade* keeps the old fort standing
 and defending, so it must not be hidden by phasing) and siege camps. Then
-Aether Tower, Umbrite rig/factory and Caravanary.
+Aether Tower, Umbrite rig/factory and Trade Nexus.
 
 ### Follow-up 1 status
 
@@ -170,7 +170,7 @@ Implemented: Relay Beacon construction in 3D and 2D, as planned above. Notes:
 - `ConstructionPresentation` (scaffold, crates/crew, pods, phase-diff, boundary
   tracking) now backs both the shared structure overlay and the beacon overlay,
   and is what the remaining overlays (forts, siege camps, Aether Tower, Umbrite,
-  Caravanary) will use.
+  Trade Nexus) will use.
 - 2D: `drawFortificationOverlay2D` routes only `RELAY_BEACON` sites through the
   construction renderer; forts and siege camps stay flat until follow-up 2.
 - A beacon stacked under a fort shares the economic-structure record, so it
@@ -178,9 +178,9 @@ Implemented: Relay Beacon construction in 3D and 2D, as planned above. Notes:
 
 ## Follow-up 2: Forts (3D + 2D)
 
-Scope: the four fort tiers (Palisade/`WOODEN_FORT`, `FORT`, `TITANIUM_BASTION`,
+Scope: the four fort tiers (Palisade/`PALISADE`, `FORT`, `TITANIUM_BASTION`,
 `THUNDER_BASTION`), drawn by `client-map-3d-fort-overlay.ts`. Siege camps
-(`SIEGE_OUTPOST`, `SIEGE_TOWER`, `DREAD_TOWER`) share that overlay but are built
+(`SIEGE_BATTERY`, `SIEGE_TOWER`, `DREAD_TOWER`) share that overlay but are built
 by `client-map-3d-siege-machine-overlay.ts` (494 lines, animated head), so they
 stay a separate follow-up.
 
@@ -232,9 +232,9 @@ Implemented: forts in 3D and 2D, as planned above. Notes:
   shared one would need a single owner for clear/commit/update across overlays; not
   worth it yet.
 
-Still not covered: siege camps (`SIEGE_OUTPOST`, `SIEGE_TOWER`, `DREAD_TOWER`; the
+Still not covered: siege camps (`SIEGE_BATTERY`, `SIEGE_TOWER`, `DREAD_TOWER`; the
 siege-machine overlay is 494 lines and animated), Aether Tower, Umbrite rig/factory
-and Caravanary. They render fully built while under construction in 3D, and siege
+and Trade Nexus. They render fully built while under construction in 3D, and siege
 camps keep the flat translucent look in 2D.
 
 ## Revision: growth and crew look (after review in Storybook)
@@ -244,7 +244,7 @@ camps keep the flat translucent look in 2D.
   now cuts any tall (>= 0.1) *upright* piece at the build height, base fixed, so
   towers and walls climb about a quarter per phase (Aether Tower: 0.25 / 0.50 /
   0.75 / 1.00 of its height). Tilted and small pieces still appear whole, so a
-  structure whose tallest part is a horizontal tank or ring (Waterworks, Granary,
+  structure whose tallest part is a horizontal tank or ring (Hydroworks, Incubation Engine,
   Astral Dock) still starts taller than a quarter. Only boxes and cylinders grow:
   a cone, sphere or torus cut in Y just looks squashed, so a tall upright one waits
   until the build passes its top and then appears whole (the roof goes on last).

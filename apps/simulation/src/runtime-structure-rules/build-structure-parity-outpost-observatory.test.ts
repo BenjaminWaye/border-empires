@@ -9,7 +9,7 @@ import { afcModuleFixtureTile } from "../afc-test-fixture/afc-test-fixture.js";
  */
 
 describe("BUILD_STRUCTURE parity — outpost family", () => {
-  it("builds SIEGE_OUTPOST via BUILD_STRUCTURE", async () => {
+  it("builds SIEGE_BATTERY via BUILD_STRUCTURE", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -32,15 +32,15 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
     runtime.submitCommand({
       commandId: "s1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" }),
     });
     await Promise.resolve();
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.siegeOutpostJson).toContain('"status":"under_construction"');
+    expect(tile?.siegeBatteryJson).toContain('"status":"under_construction"');
   });
 
-  it("upgrades SIEGE_OUTPOST → SIEGE_TOWER", async () => {
+  it("upgrades SIEGE_BATTERY → SIEGE_TOWER", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -56,7 +56,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
           { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 7, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           { x: 6, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } }
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", siegeBattery: { ownerId: "player-1", status: "active", variant: "SIEGE_BATTERY" as const } }
         ],
         activeLocks: [],
       },
@@ -65,15 +65,15 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
     runtime.submitCommand({
       commandId: "st1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" }),
     });
     await Promise.resolve();
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(tile?.siegeOutpostJson).toContain('"variant":"SIEGE_TOWER"');
+    expect(tile?.siegeBatteryJson).toContain('"variant":"SIEGE_TOWER"');
   });
 
-  it("rejects SIEGE_OUTPOST when the tile already has a fort", async () => {
+  it("rejects SIEGE_BATTERY when the tile already has a fort", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -100,13 +100,13 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
     runtime.submitCommand({
       commandId: "siege-fort-block-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_BATTERY" }),
     });
     await Promise.resolve();
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(rejections.map((r) => r.code)).toEqual(["BUILD_INVALID"]);
-    expect(tile?.siegeOutpostJson).toBeUndefined();
+    expect(tile?.siegeBatteryJson).toBeUndefined();
   });
 
   it("builds SIEGE_TOWER on a resource tile", async () => {
@@ -142,7 +142,7 @@ describe("BUILD_STRUCTURE parity — outpost family", () => {
 
     const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(rejections).toEqual([]);
-    expect(tile?.siegeOutpostJson).toContain('"variant":"SIEGE_TOWER"');
+    expect(tile?.siegeBatteryJson).toContain('"variant":"SIEGE_TOWER"');
   });
 });
 

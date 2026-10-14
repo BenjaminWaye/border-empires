@@ -11,29 +11,29 @@ const overlays = () => ({
   umbriteExtractionRigOverlay: { addInstance: vi.fn() },
   umbriteWeaponsFactoryOverlay: { addInstance: vi.fn() },
   tradeNexusOverlay: { addInstance: vi.fn() },
-  aetherTowerOverlay: { addInstance: vi.fn() },
+  ambaricTransformerOverlay: { addInstance: vi.fn() },
   observatoryCooldownBadgeOverlay: { addInstance: vi.fn(), addSiphonModeInstance: vi.fn() }
 });
 
 describe.each(["under_construction", "removing", "active", "inactive"] as const)("%s building routing", (status) => {
-  it.each(["CARAVANARY", "UMBRITE_WEAPONS_FACTORY"] as const)("passes construction state to %s", (type) => {
+  it.each(["TRADE_NEXUS", "UMBRITE_WEAPONS_FACTORY"] as const)("passes construction state to %s", (type) => {
     const target = overlays();
     const tile: Tile = { x: 0, y: 0, terrain: "LAND", economicStructure: { type, status, ownerId: "me", pausedAt: 10 } };
     addBuildingInstancesForTile(tile, site, target, state, 0, undefined);
-    const add = type === "CARAVANARY" ? target.tradeNexusOverlay.addInstance : target.umbriteWeaponsFactoryOverlay.addInstance;
+    const add = type === "TRADE_NEXUS" ? target.tradeNexusOverlay.addInstance : target.umbriteWeaponsFactoryOverlay.addInstance;
     expect(add).toHaveBeenCalledWith(0, 0, 0, 0, 0, status === "under_construction" || status === "removing");
   });
   it("passes construction state to the observatory", () => {
     const target = overlays();
     const tile: Tile = { x: 0, y: 0, terrain: "LAND", observatory: { status, ownerId: "me", pausedAt: 10 } };
     addBuildingInstancesForTile(tile, site, target, state, 0, undefined);
-    expect(target.aetherTowerOverlay.addInstance).toHaveBeenCalledWith(0, 0, 0, 0, 0, status === "under_construction" || status === "removing");
+    expect(target.ambaricTransformerOverlay.addInstance).toHaveBeenCalledWith(0, 0, 0, 0, 0, status === "under_construction" || status === "removing");
   });
 });
 
 it.each(["under_construction", "removing", "active"] as const)("routes %s siege tower construction state", (status) => {
   const addInstance = vi.fn();
-  const tile: Tile = { x: 0, y: 0, terrain: "LAND", siegeOutpost: { status, ownerId: "me", variant: "SIEGE_TOWER" } };
+  const tile: Tile = { x: 0, y: 0, terrain: "LAND", siegeBattery: { status, ownerId: "me", variant: "SIEGE_TOWER" } };
   addFortificationInstancesForTile(tile, site, {
     siegeTowerOverlay: { addInstance }, fortOverlay: { addInstance: vi.fn() },
     relayBeaconOverlay: { addInstance: vi.fn() }, contactShadowOverlay: { addShadow: vi.fn() }

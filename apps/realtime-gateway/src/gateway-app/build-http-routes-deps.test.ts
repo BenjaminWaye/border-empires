@@ -62,7 +62,7 @@ const buildMinimalCtx = (
   galaxyEconomyStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyEconomyStore"],
   galaxyEndorsementStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyEndorsementStore"],
   authBindingStore: {} as BuildGatewayHttpRoutesDepsContext["authBindingStore"],
-  worldEngineStrikeStore: {} as BuildGatewayHttpRoutesDepsContext["worldEngineStrikeStore"],
+  sovereignSiegeEngineStrikeStore: {} as BuildGatewayHttpRoutesDepsContext["sovereignSiegeEngineStrikeStore"],
   ...overrides
 });
 

@@ -1,9 +1,8 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
-import { resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
+import { resourceGlyphsToIconHtml, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
 import type {
-  ActiveTruceView,
   ActiveAllianceBreakView,
   AllianceRequest,
   FeedEntry,
@@ -103,7 +102,7 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
         <div class="feed-icon">${feedIcon(entry.type)}</div>
         <div>
           ${entry.title ? `<strong>${entry.title}</strong>` : ""}
-          <div>${entry.text}</div>
+          <div>${resourceGlyphsToIconHtml(entry.text)}</div>
           <span>${feedAgeLabel(entry.at, Date.now())} ago</span>
           ${
             typeof entry.focusX === "number" && typeof entry.focusY === "number"
@@ -285,33 +284,6 @@ export const truceRequestsHtml = (
     </article>`;
       }
     )
-    .join("");
-};
-
-export const activeTrucesHtml = (
-  truces: ActiveTruceView[],
-  playerNameForOwner: (ownerId?: string | null) => string | undefined,
-  nowMs = Date.now()
-): string => {
-  if (truces.length === 0) return `<article class="card alliance-empty-card"><p>No active truces.</p></article>`;
-  return truces
-    .map((truce) => {
-      const remainingLabel = socialRemainingLabel(truce.endsAt, nowMs);
-      return `<article class="card alliance-reference-card">
-      <div class="alliance-reference-top">
-        <div class="alliance-reference-copy">
-          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${truce.otherPlayerId}">${
-            truce.otherPlayerName ?? playerNameForOwner(truce.otherPlayerId) ?? truce.otherPlayerId.slice(0, 8)
-          }</button>
-          <div class="alliance-reference-id">${socialPlayerIdLabel(truce.otherPlayerId)}</div>
-        </div>
-        <div class="alliance-reference-right">
-          <div class="alliance-reference-duration">${socialClockIcon()}<span>${remainingLabel}</span></div>
-          <div class="alliance-reference-duration-note">remaining</div>
-        </div>
-      </div>
-    </article>`;
-    })
     .join("");
 };
 

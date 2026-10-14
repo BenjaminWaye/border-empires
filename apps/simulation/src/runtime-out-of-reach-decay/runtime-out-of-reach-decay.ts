@@ -160,7 +160,7 @@ const clearedTile = (tile: DomainTileState, healAt: number): DomainTileState => 
   frontierDecayKind: undefined,
   fort: undefined,
   observatory: undefined,
-  siegeOutpost: undefined,
+  siegeBattery: undefined,
   economicStructure: undefined,
   muster: undefined,
   sabotage: undefined,

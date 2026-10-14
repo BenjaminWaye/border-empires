@@ -4815,16 +4815,10 @@ body {
   margin: -10px;
 }
 
-.alliance-form-section,
 .alliance-section-block,
 .alliance-player-inspect-slot:not(:empty) {
   padding: 18px 16px;
   border-bottom: 1px solid #21262d;
-}
-
-.alliance-form-section {
-  display: grid;
-  gap: 16px;
 }
 
 #hud #panel-alliance input,
@@ -5953,7 +5947,6 @@ button:disabled,
     min-height: 50px;
   }
 
-  .alliance-form-section,
   .alliance-section-block,
   .alliance-player-inspect-slot:not(:empty) {
     padding: 16px;

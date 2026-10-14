@@ -1,5 +1,5 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
+import { type Terrain, upgradeLegacyStructureNames, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import type { SeaRouteTerrainReader } from "../dock-network/dock-sea-routes.js";
 
@@ -78,7 +78,7 @@ export const createWorldgenBaselineCache = async (options: {
       .get(cacheKey) as { tiles_json: string } | undefined;
     if (!row) return undefined;
     try {
-      return JSON.parse(row.tiles_json) as WorldgenTiles;
+      return upgradeLegacyStructureNames(JSON.parse(row.tiles_json) as WorldgenTiles);
     } catch (err) {
       log.error({ err, cacheKey }, "worldgen_baselines row corrupt — falling back to cold generation");
       return undefined;

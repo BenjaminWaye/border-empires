@@ -81,8 +81,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -149,8 +149,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -240,8 +240,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -303,8 +303,8 @@ describe("client gateway sync — town summaries", () => {
             manpowerCap: 100,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
             nextPopulationTierUpgrade: {
               targetTier: "CITY",
               requiredPopulation: 100000,
@@ -339,8 +339,8 @@ describe("client gateway sync — town summaries", () => {
           connectedTownBonus: 0.1,
           hasMintworks: true,
           mintworksActive: true,
-          hasGranary: false,
-          granaryActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false,
         })
       }
     ]);
@@ -390,8 +390,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]
@@ -438,8 +438,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             hasMintworks: false,
             mintworksActive: false,
-            hasGranary: false,
-            granaryActive: false,
+            hasIncubationEngine: false,
+            incubationEngineActive: false,
           })
         }
       ]

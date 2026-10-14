@@ -17,7 +17,7 @@ export const structureDisplayLabel = (
         ? "Titanium Bastion"
         : "Fort";
   }
-  if (structureType === "SIEGE_OUTPOST") {
+  if (structureType === "SIEGE_BATTERY") {
     return state.techIds.includes("standing-army")
       ? "Dread Tower"
       : state.techIds.includes("siegecraft")

@@ -344,6 +344,10 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     if (firebaseAuth) {
       void setPersistence(firebaseAuth, browserLocalPersistence);
       onAuthStateChanged(firebaseAuth, async (user) => {
+        // The localhost dev login (?devPlayerId=) authenticates the socket with
+        // the raw player id and never has a Firebase user, so Firebase's
+        // "signed out" callback must not tear down that already-ready session.
+        if (!user && devAuthPlayerId) return;
         if (!user) {
           setDebugAuthEmail("");
           state.mapRevealEligible = false;

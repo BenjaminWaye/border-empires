@@ -87,7 +87,7 @@ export type DecisionInputs = {
   // Build candidates
   hasEconomicBuild: boolean;
   hasFortBuild: boolean;
-  hasSiegeOutpost: boolean;
+  hasSiegeBattery: boolean;
   // Fixed-borders-via-reach plan: best RELAY_BEACON site available
   // (chooseBestRelayBeaconBuild already requires it to newly cover some
   // unowned land, so its mere existence is the whole precondition — see
@@ -232,7 +232,7 @@ const scoreMuster = (inp: DecisionInputs): number =>
 
 const scoreBuildDefense = (inp: DecisionInputs): number => {
   const base = scoreConsiderations([
-    boolVeto(inp.hasFortBuild || inp.hasSiegeOutpost),
+    boolVeto(inp.hasFortBuild || inp.hasSiegeBattery),
     boolVeto(inp.frontierEnemyCount > 0),
     boolVeto(inp.devSlotAvailable),
     // Only worth spending a slot when there's meaningful attack pressure
@@ -361,7 +361,7 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
 
 // Last-resort action: reversibly disable a low-value or already-FOOD-dormant
 // (already producing zero effect) structure to free its slot, when the
-// direct fix (BUILD_ECONOMY growing FOOD via FARMSTEAD/WATERWORKS/GRANARY)
+// direct fix (BUILD_ECONOMY growing FOOD via HYDROGARDEN/HYDROWORKS/INCUBATION_ENGINE)
 // isn't available. Vetoed by hasEconomicBuild so the direct fix is always
 // preferred over disabling something when both are legal. Vetoed by
 // pressureThreatensCore — don't disable infrastructure while defending,

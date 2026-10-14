@@ -89,7 +89,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
     }
   });
 
-  it("completes an under_construction siege outpost", async () => {
+  it("completes an under_construction siege battery", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -103,7 +103,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "FRONTIER",
-              siegeOutpost: { ownerId: "player-1", status: "under_construction", completesAt: 50_000 }
+              siegeBattery: { ownerId: "player-1", status: "under_construction", completesAt: 50_000 }
             }
           ],
           activeLocks: []
@@ -112,7 +112,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
 
       await Promise.resolve();
       vi.advanceTimersByTime(1);
-      const outpostState = JSON.parse(tileAt(runtime, 7, 7)?.siegeOutpostJson ?? "{}") as Record<string, unknown>;
+      const outpostState = JSON.parse(tileAt(runtime, 7, 7)?.siegeBatteryJson ?? "{}") as Record<string, unknown>;
       expect(outpostState.ownerId).toBe("player-1");
       expect(outpostState.status).toBe("active");
     } finally {

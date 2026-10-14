@@ -14,7 +14,7 @@ type Args = {
 const buildDepot = (content: Scene): { layout: () => void; commit: () => void; dispose: () => void } => {
   const { builder, commit, dispose } = createStructurePieceBuilder(content, 4);
   const manpower = registerManpowerStructures(builder);
-  return { layout: () => manpower.layouts.GARRISON_HALL(0, 0, 0), commit, dispose };
+  return { layout: () => manpower.layouts.ANCILLARY_DEPOT(0, 0, 0), commit, dispose };
 };
 
 const buildStage = (stage: Stage, opts: { displayYaw?: number; grassRadius: number; contactShadowRadius?: number }): (() => void)[] => {

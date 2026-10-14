@@ -31,7 +31,7 @@ const baseInput = {
   canExpand: true,
   economicBuildAvailable: false,
   fortBuildAvailable: false,
-  siegeOutpostBuildAvailable: false
+  siegeBatteryBuildAvailable: false
 };
 
 describe("WAR front posture", () => {

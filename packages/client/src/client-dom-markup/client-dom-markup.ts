@@ -296,13 +296,7 @@ export const hudMarkup = `
         <div id="panel-domains-content"></div>
       </section>
       <section id="panel-alliance" class="panel-body alliance-panel">
-        <div class="alliance-form-section">
-          <input id="alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
-          <button id="alliance-send" class="panel-btn" type="button">Send</button>
-        </div>
-        <datalist id="alliance-target-options"></datalist>
         <div id="allies-list" class="alliance-section-stack"></div>
-        <div id="alliance-requests" class="alliance-section-stack"></div>
         <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
@@ -346,12 +340,7 @@ export const hudMarkup = `
     </section>
     <section id="mobile-panel-domains" class="mobile-panel"></section>
     <section id="mobile-panel-social" class="mobile-panel alliance-panel">
-      <div class="alliance-form-section">
-        <input id="mobile-alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
-        <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
-      </div>
       <div id="mobile-allies-list" class="alliance-section-stack"></div>
-      <div id="mobile-alliance-requests" class="alliance-section-stack"></div>
       <div id="mobile-alliance-player-inspect" class="alliance-player-inspect-slot"></div>
     </section>
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>

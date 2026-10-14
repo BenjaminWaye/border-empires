@@ -52,7 +52,7 @@ wall-clock inflation** on the oversubscribed vCPU, not planner code cost.
 
 Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `CHOOSE_DOMAIN`, `BUILD_FORT`, `BUILD_ECONOMIC_STRUCTURE`,
-`BUILD_SIEGE_OUTPOST`, `SETTLE`, `COLLECT_VISIBLE`; barbarian planner:
+`BUILD_SIEGE_BATTERY`, `SETTLE`, `COLLECT_VISIBLE`; barbarian planner:
 `EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
 The AI does **NOT** emit `BUILD_OBSERVATORY`. Any AI code computing
@@ -195,7 +195,7 @@ consolidation, planning cadence), not deletion.
   stays permanently unscanned. Not yet fixed — flagged for follow-up; any
   fix needs CPU-impact analysis per `docs/agents/ai-guardrails.md` before
   broadening how often/far the broad fallback runs.
-- **`chooseBestFortBuild`/`chooseBestSiegeOutpostBuild` affordability
+- **`chooseBestFortBuild`/`chooseBestSiegeBatteryBuild` affordability
   prechecks were tier-unaware** (`structure-command-planner.ts`): they
   hardcoded the base-tier IRON/SUPPLY/gold cost (e.g. 45 iron for FORT)
   regardless of tech, but `runtime-structure-command-handlers.ts` always

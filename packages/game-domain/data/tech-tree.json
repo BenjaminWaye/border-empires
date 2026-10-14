@@ -12,7 +12,7 @@
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockFarmstead": true
+        "unlockHydrogarden": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -60,7 +60,7 @@
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockUmbriteRig": true,
-        "unlockSiegeOutposts": true,
+        "unlockSiegeBatteries": true,
         "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
       },
@@ -77,7 +77,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockGarrisonHall": true
+        "unlockAncillaryDepot": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -94,7 +94,7 @@
       "effects": {
         "unlockObservatory": true,
         "unlockAetherLance": true,
-        "unlockCrystalSynthesizer": true,
+        "unlockAetherCondenser": true,
         "revealResource": "crystal"
       },
       "manifestCategory": "AFC_MODULE"
@@ -131,7 +131,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockWaterworksUpgrade": true
+        "unlockHydroworksUpgrade": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -149,7 +149,7 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockGranary": true
+        "unlockIncubationEngine": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -167,7 +167,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockUmbriteSynthesizer": true
+        "unlockUmbriteWorks": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -185,8 +185,8 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockCaravanary": true,
-        "unlockCustomsHouse": true
+        "unlockTradeNexus": true,
+        "unlockHarborExchange": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },
@@ -294,7 +294,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockFoundry": true
+        "unlockOreRefinery": true
       },
       "manifestCategory": "CHARTER_WARRANT"
     },
@@ -312,7 +312,7 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockGovernorsOffice": true
+        "unlockMinistryHall": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
@@ -402,7 +402,7 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockRailDepot": true
+        "unlockNeuralWorks": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -420,7 +420,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockAssemblyWorks": true
+        "unlockReserveLattice": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -438,7 +438,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockLogisticsGuild": true
+        "unlockAncillaryFactory": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -456,7 +456,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockPopulationBureau": true
+        "unlockCensusDirectorate": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -475,7 +475,7 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockTitaniumLevy": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -621,8 +621,8 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockAirport": true,
-        "unlockAetherTower": true
+        "unlockSkyDock": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -641,8 +641,8 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockRadarSystem": true,
-        "unlockAetherTower": true
+        "unlockResonanceGrid": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "AFC_MODULE"
     },
@@ -655,7 +655,7 @@
         "alchemy",
         "workshops"
       ],
-      "description": "AFC module: manufactures sealed catalyst hearts for this planet's converters. Unlocks Advanced Umbrite Works, Advanced Titanium Works, and Advanced Aether Condensers (20% more output, retaining their higher Coin refining cost).",
+      "description": "AFC module: manufactures sealed catalyst hearts for this planet's converters. Unlocks Advanced Umbrite Works, High Yield Titanium Works, and Advanced Aether Condensers (20% more output, retaining their higher Coin refining cost).",
       "cost": {
         "gold": 10
       },
@@ -680,7 +680,7 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockImperialExchange": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -698,9 +698,9 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockWorldEngine": true,
-        "unlockWorldEngineStrike": true,
-        "unlockAetherTower": true
+        "unlockSovereignSiegeEngine": true,
+        "unlockSovereignSiegeEngineStrike": true,
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -720,7 +720,7 @@
       "effects": {
         "unlockAegisDome": true,
         "unlockAegisLock": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },
@@ -740,7 +740,7 @@
       "effects": {
         "unlockAstralDock": true,
         "unlockAstralDockLaunch": true,
-        "unlockAetherTower": true
+        "unlockAmbaricTransformer": true
       },
       "manifestCategory": "DOSSIER"
     },

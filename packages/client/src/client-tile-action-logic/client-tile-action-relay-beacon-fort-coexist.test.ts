@@ -83,7 +83,7 @@ describe("Build Relay Beacon shows on a tile that already has a Fort", () => {
       ownerId: "me",
       ownershipState: "SETTLED",
       dockId: "dock-1",
-      fort: { ownerId: "me", variant: "WOODEN_FORT", status: "active" }
+      fort: { ownerId: "me", variant: "PALISADE", status: "active" }
     } as Tile;
     state.tiles.set(keyFor(3, 3), dockWithFort);
 
@@ -92,7 +92,7 @@ describe("Build Relay Beacon shows on a tile that already has a Fort", () => {
     expect(action).toBeDefined();
   });
 
-  it("still hides build_relay_beacon when the tile has a siege outpost, observatory, or economic structure", () => {
+  it("still hides build_relay_beacon when the tile has a siege battery, observatory, or economic structure", () => {
     const state = richState();
     const withSiege: Tile = {
       x: 4,
@@ -100,7 +100,7 @@ describe("Build Relay Beacon shows on a tile that already has a Fort", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      siegeOutpost: { ownerId: "me", variant: "SIEGE_OUTPOST", status: "active" }
+      siegeBattery: { ownerId: "me", variant: "SIEGE_BATTERY", status: "active" }
     } as Tile;
     state.tiles.set(keyFor(4, 4), withSiege);
 

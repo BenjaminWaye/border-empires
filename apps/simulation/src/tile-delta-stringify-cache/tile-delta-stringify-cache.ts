@@ -35,7 +35,7 @@ export type TileLastEmittedRefs = {
   townRef: unknown;
   fortRef: unknown;
   observatoryRef: unknown;
-  siegeOutpostRef: unknown;
+  siegeBatteryRef: unknown;
   economicStructureRef: unknown;
   sabotageRef: unknown;
   shardSiteRef: unknown;
@@ -53,8 +53,8 @@ interface Entry {
   fortRef: unknown;
   observatoryJson: string | undefined;
   observatoryRef: unknown;
-  siegeOutpostJson: string | undefined;
-  siegeOutpostRef: unknown;
+  siegeBatteryJson: string | undefined;
+  siegeBatteryRef: unknown;
   economicStructureJson: string | undefined;
   economicStructureRef: unknown;
   sabotageJson: string | undefined;
@@ -78,7 +78,7 @@ export type AllSubstructureJson = {
   townJson: string | undefined;
   fortJson: string | undefined;
   observatoryJson: string | undefined;
-  siegeOutpostJson: string | undefined;
+  siegeBatteryJson: string | undefined;
   economicStructureJson: string | undefined;
   sabotageJson: string | undefined;
   shardSiteJson: string | undefined;
@@ -103,7 +103,7 @@ export class TileDeltaStringifyCache {
         townJson: undefined, townRef: undefined,
         fortJson: undefined, fortRef: undefined,
         observatoryJson: undefined, observatoryRef: undefined,
-        siegeOutpostJson: undefined, siegeOutpostRef: undefined,
+        siegeBatteryJson: undefined, siegeBatteryRef: undefined,
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
@@ -129,9 +129,9 @@ export class TileDeltaStringifyCache {
       entry.observatoryRef = tile.observatory;
       entry.observatoryJson = tile.observatory ? JSON.stringify(tile.observatory) : undefined;
     }
-    if (tile.siegeOutpost !== entry.siegeOutpostRef) {
-      entry.siegeOutpostRef = tile.siegeOutpost;
-      entry.siegeOutpostJson = tile.siegeOutpost ? JSON.stringify(tile.siegeOutpost) : undefined;
+    if (tile.siegeBattery !== entry.siegeBatteryRef) {
+      entry.siegeBatteryRef = tile.siegeBattery;
+      entry.siegeBatteryJson = tile.siegeBattery ? JSON.stringify(tile.siegeBattery) : undefined;
     }
     if (tile.economicStructure !== entry.economicStructureRef) {
       entry.economicStructureRef = tile.economicStructure;
@@ -170,7 +170,7 @@ export class TileDeltaStringifyCache {
       townJson: entry.townJson,
       fortJson: entry.fortJson,
       observatoryJson: entry.observatoryJson,
-      siegeOutpostJson: entry.siegeOutpostJson,
+      siegeBatteryJson: entry.siegeBatteryJson,
       economicStructureJson: entry.economicStructureJson,
       sabotageJson: entry.sabotageJson,
       shardSiteJson: entry.shardSiteJson,
@@ -270,7 +270,7 @@ export class TileDeltaStringifyCache {
     if (tile.town !== last.townRef) { (delta as Record<string, unknown>).townJson = fullDelta.townJson; hasFieldChanges = true; }
     if (tile.fort !== last.fortRef) { (delta as Record<string, unknown>).fortJson = fullDelta.fortJson; hasFieldChanges = true; }
     if (tile.observatory !== last.observatoryRef) { (delta as Record<string, unknown>).observatoryJson = fullDelta.observatoryJson; hasFieldChanges = true; }
-    if (tile.siegeOutpost !== last.siegeOutpostRef) { (delta as Record<string, unknown>).siegeOutpostJson = fullDelta.siegeOutpostJson; hasFieldChanges = true; }
+    if (tile.siegeBattery !== last.siegeBatteryRef) { (delta as Record<string, unknown>).siegeBatteryJson = fullDelta.siegeBatteryJson; hasFieldChanges = true; }
     if (tile.economicStructure !== last.economicStructureRef) { (delta as Record<string, unknown>).economicStructureJson = fullDelta.economicStructureJson; hasFieldChanges = true; }
     if (tile.sabotage !== last.sabotageRef) { (delta as Record<string, unknown>).sabotageJson = fullDelta.sabotageJson; hasFieldChanges = true; }
     if (tile.muster !== last.musterRef) { (delta as Record<string, unknown>).musterJson = fullDelta.musterJson; hasFieldChanges = true; }
@@ -321,7 +321,7 @@ export class TileDeltaStringifyCache {
         townJson: undefined, townRef: undefined,
         fortJson: undefined, fortRef: undefined,
         observatoryJson: undefined, observatoryRef: undefined,
-        siegeOutpostJson: undefined, siegeOutpostRef: undefined,
+        siegeBatteryJson: undefined, siegeBatteryRef: undefined,
         economicStructureJson: undefined, economicStructureRef: undefined,
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
@@ -347,7 +347,7 @@ export class TileDeltaStringifyCache {
       townRef: tile.town,
       fortRef: tile.fort,
       observatoryRef: tile.observatory,
-      siegeOutpostRef: tile.siegeOutpost,
+      siegeBatteryRef: tile.siegeBattery,
       economicStructureRef: tile.economicStructure,
       sabotageRef: tile.sabotage,
       shardSiteRef: tile.shardSite,
@@ -371,7 +371,7 @@ export class TileDeltaStringifyCache {
       entry.townJson = undefined; entry.townRef = undefined;
       entry.fortJson = undefined; entry.fortRef = undefined;
       entry.observatoryJson = undefined; entry.observatoryRef = undefined;
-      entry.siegeOutpostJson = undefined; entry.siegeOutpostRef = undefined;
+      entry.siegeBatteryJson = undefined; entry.siegeBatteryRef = undefined;
       entry.economicStructureJson = undefined; entry.economicStructureRef = undefined;
       entry.sabotageJson = undefined; entry.sabotageRef = undefined;
       entry.shardSiteJson = undefined; entry.shardSiteRef = undefined;

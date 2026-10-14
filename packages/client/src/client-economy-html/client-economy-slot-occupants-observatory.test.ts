@@ -4,9 +4,9 @@ import { EMPIRE_STORAGE_FLOOR } from "@border-empires/shared";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 
 // Regression: slotOccupantsForResource only inspected tile.fort,
-// tile.siegeOutpost, and tile.economicStructure — Observatory ("Aether
+// tile.siegeBattery, and tile.economicStructure — Observatory ("Aether
 // Tower" in the UI) lives on its own tile.observatory field (mirroring
-// fort/siegeOutpost), so it was never counted in the "Occupied by" CRYSTAL
+// fort/siegeBattery), so it was never counted in the "Occupied by" CRYSTAL
 // breakdown even though it bills 1 CRYSTAL slot per instance
 // (structure-slots.ts OBSERVATORY entry). This left the breakdown's total
 // visibly short of the authoritative resourceSlots.demand figure.

@@ -31,8 +31,8 @@ describe("tileHistoryLines", () => {
         { me: "blue", playerNameForOwner: () => undefined }
       ).find((line) => line.startsWith("Former"));
 
-    expect(formerSiteLine("CARAVANARY")).toBe("Former Trade Nexus site");
-    expect(formerSiteLine("GRANARY")).toBe("Former Incubation Engine site");
+    expect(formerSiteLine("TRADE_NEXUS")).toBe("Former Trade Nexus site");
+    expect(formerSiteLine("INCUBATION_ENGINE")).toBe("Former Incubation Engine site");
     expect(formerSiteLine("OBSERVATORY")).toBe("Former Aether Tower site");
   });
 });

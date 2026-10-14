@@ -79,7 +79,6 @@ export const realBuildingMenuView = (scenario: RealMenuScenario, title: string, 
     supportedOwnedDocksForTile: () => [],
     townHasSupportStructure: () => false,
     activeTruceWithPlayer: () => undefined,
-    pendingTruceWithPlayer: () => undefined,
     ownerSpawnShieldActive: () => false,
     connectedOwnedFrontierKeysFor: () => []
   };

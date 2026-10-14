@@ -3,24 +3,24 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   AEGIS_LOCK_COOLDOWN_MS,
   AEGIS_LOCK_DURATION_MS,
-  AIRPORT_BOMBARD_BASE_MISS_CHANCE,
-  AIRPORT_BOMBARD_COOLDOWN_MS,
-  AIRPORT_BOMBARD_FORT_MISS_BONUS,
-  AIRPORT_BOMBARD_GOLD_COST,
-  AIRPORT_BOMBARD_MAX_MISS_CHANCE,
-  AIRPORT_BOMBARD_RANGE,
+  SKY_DOCK_BOMBARD_BASE_MISS_CHANCE,
+  SKY_DOCK_BOMBARD_COOLDOWN_MS,
+  SKY_DOCK_BOMBARD_FORT_MISS_BONUS,
+  SKY_DOCK_BOMBARD_GOLD_COST,
+  SKY_DOCK_BOMBARD_MAX_MISS_CHANCE,
+  SKY_DOCK_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
-  WORLD_ENGINE_STRIKE_COOLDOWN_MS,
-  WORLD_ENGINE_STRIKE_GOLD_COST,
-  WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
+  SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS,
+  SOVEREIGN_SIEGE_ENGINE_STRIKE_GOLD_COST,
+  SOVEREIGN_SIEGE_ENGINE_STRIKE_POPULATION_LOSS_RATIO
 } from "@border-empires/game-domain";
 import { AEGIS_LOCK_ACTIVE_UNTIL_KEY, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY } from "./runtime-ability-helpers.js";
 import {
   parseAegisLockPayload,
-  parseAirportBombardPayload,
+  parseSkyDockBombardPayload,
   parseAstralDockLaunchPayload,
-  parseWorldEngineStrikePayload
+  parseSovereignSiegeEngineStrikePayload
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { EconomicStructureType } from "@border-empires/shared";
@@ -36,7 +36,7 @@ export type RuntimeMapCommandContext = {
   stampObservatoryCooldown: (tileKey: string, durationMs: number, now: number, commandId: string, playerId: string) => void;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
-  // Re-checks a victim's frontier connectivity after AIRPORT_BOMBARD stripped some of their tiles.
+  // Re-checks a victim's frontier connectivity after SKY_DOCK_BOMBARD stripped some of their tiles.
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   bumpTerrainEpoch: () => void;
@@ -82,54 +82,54 @@ export function rejectCommand(
   });
 }
 
-export function handleAirportBombardCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
+export function handleSkyDockBombardCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
-  const payload = parseAirportBombardPayload(command.payloadJson);
+  const payload = parseSkyDockBombardPayload(command.payloadJson);
   if (!actor || !payload) {
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
   }
-  const airportKey = simulationTileKey(payload.fromX, payload.fromY);
-  const airport = context.tiles.get(airportKey);
-  const airportStructure = airport?.economicStructure;
+  const skyDockKey = simulationTileKey(payload.fromX, payload.fromY);
+  const skyDock = context.tiles.get(skyDockKey);
+  const skyDockStructure = skyDock?.economicStructure;
   if (
-    !airport ||
-    airport.ownerId !== actor.id ||
-    !airportStructure ||
-    airportStructure.ownerId !== actor.id ||
-    airportStructure.type !== "AIRPORT" ||
-    airportStructure.status !== "active"
+    !skyDock ||
+    skyDock.ownerId !== actor.id ||
+    !skyDockStructure ||
+    skyDockStructure.ownerId !== actor.id ||
+    skyDockStructure.type !== "SKY_DOCK" ||
+    skyDockStructure.status !== "active"
   ) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "select an active sky dock first");
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "select an active sky dock first");
     return;
   }
-  if (Math.max(Math.abs(payload.toX - payload.fromX), Math.abs(payload.toY - payload.fromY)) > AIRPORT_BOMBARD_RANGE) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "target must be within 30 tiles of the sky dock");
+  if (Math.max(Math.abs(payload.toX - payload.fromX), Math.abs(payload.toY - payload.fromY)) > SKY_DOCK_BOMBARD_RANGE) {
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "target must be within 30 tiles of the sky dock");
     return;
   }
-  if (!context.isStructurePowered(actor.id, airportKey, "AIRPORT")) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock requires a nearby Ambaric Transformer");
+  if (!context.isStructurePowered(actor.id, skyDockKey, "SKY_DOCK")) {
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "sky dock requires a nearby Ambaric Transformer");
     return;
   }
-  if (context.isStructureDormant(actor.id, airportKey, "economicStructure")) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock has no free resource slot");
+  if (context.isStructureDormant(actor.id, skyDockKey, "economicStructure")) {
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "sky dock has no free resource slot");
     return;
   }
   const now = context.now();
-  const bombardCooldownUntil = airportStructure.bombardCooldownUntil ?? 0;
+  const bombardCooldownUntil = skyDockStructure.bombardCooldownUntil ?? 0;
   if (bombardCooldownUntil > now) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "sky dock bombardment on cooldown");
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "sky dock bombardment on cooldown");
     return;
   }
   if (context.isTileBombardBlockedByRadar(actor.id, payload.toX, payload.toY)) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "blocked by a Resonance Grid");
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "blocked by a Resonance Grid");
     return;
   }
-  if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient coin for bombardment");
+  if (actor.points < SKY_DOCK_BOMBARD_GOLD_COST) {
+    rejectCommand(context, command, "SKY_DOCK_BOMBARD_INVALID", "insufficient coin for bombardment");
     return;
   }
-  actor.points -= AIRPORT_BOMBARD_GOLD_COST;
+  actor.points -= SKY_DOCK_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
   const broadcastMusterClears: SimulationTileWireDelta[] = [];
   const hitTileKeysByOwner = new Map<string, string[]>();
@@ -144,8 +144,8 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || (actor.allies.has(tile.ownerId) || actor.truces?.has(tile.ownerId))) continue;
       targetableTiles += 1;
       const missChance = Math.min(
-        AIRPORT_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? AIRPORT_BOMBARD_FORT_MISS_BONUS : 0),
-        AIRPORT_BOMBARD_MAX_MISS_CHANCE
+        SKY_DOCK_BOMBARD_BASE_MISS_CHANCE + (tile.fort ? SKY_DOCK_BOMBARD_FORT_MISS_BONUS : 0),
+        SKY_DOCK_BOMBARD_MAX_MISS_CHANCE
       );
       if (Math.random() < missChance) {
         missedTiles += 1;
@@ -176,16 +176,16 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       }
     }
   }
-  // Stamp cooldown on the airport tile and broadcast it
-  const updatedAirport: DomainTileState = {
-    ...airport,
+  // Stamp cooldown on the sky dock tile and broadcast it
+  const updatedSkyDock: DomainTileState = {
+    ...skyDock,
     economicStructure: {
-      ...airportStructure,
-      bombardCooldownUntil: now + AIRPORT_BOMBARD_COOLDOWN_MS
+      ...skyDockStructure,
+      bombardCooldownUntil: now + SKY_DOCK_BOMBARD_COOLDOWN_MS
     }
   };
-  context.replaceTileState(airportKey, updatedAirport, command.commandId);
-  changedTiles.push(context.tileDeltaFromState(updatedAirport));
+  context.replaceTileState(skyDockKey, updatedSkyDock, command.commandId);
+  changedTiles.push(context.tileDeltaFromState(updatedSkyDock));
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,
@@ -211,7 +211,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     strategicResources: actor.strategicResources
   });
   context.emitPlayerMessage(command, {
-    type: "AIRPORT_BOMBARD_RESULT",
+    type: "SKY_DOCK_BOMBARD_RESULT",
     x: payload.toX,
     y: payload.toY,
     targetableTiles,
@@ -225,9 +225,9 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
 // §15: Imperial Exchange Levy — moved to runtime-imperial-exchange-levy-command.ts
 // (already over the 500-line soft cap here; see scripts/check-file-line-limits.mjs).
 
-export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
+export function handleSovereignSiegeEngineStrikeCommand(context: RuntimeMapCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
-  const payload = parseWorldEngineStrikePayload(command.payloadJson);
+  const payload = parseSovereignSiegeEngineStrikePayload(command.payloadJson);
   if (!actor || !payload) {
     rejectCommand(context, command, "BAD_COMMAND", "invalid command payload");
     return;
@@ -238,38 +238,38 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     !anchor ||
     anchor.ownerId !== actor.id ||
     anchor.economicStructure?.ownerId !== actor.id ||
-    anchor.economicStructure.type !== "WORLD_ENGINE" ||
+    anchor.economicStructure.type !== "SOVEREIGN_SIEGE_ENGINE" ||
     anchor.economicStructure.status !== "active"
   ) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "select an active Sovereign Siege Engine");
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "select an active Sovereign Siege Engine");
     return;
   }
   // Worldbreaker Ignition (tech "worldbreaker-fire") was cut — the strike
-  // ability now fires immediately once World Engine is built, gated only by
+  // ability now fires immediately once Sovereign Siege Engine is built, gated only by
   // owning an active, powered monument (checked above/below).
-  if (!context.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine requires a nearby Ambaric Transformer");
+  if (!context.isStructurePowered(actor.id, anchorKey, "SOVEREIGN_SIEGE_ENGINE")) {
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine has no free resource slot");
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "Sovereign Siege Engine has no free resource slot");
     return;
   }
   const now = context.now();
-  if (context.getAbilityCooldownUntil(actor.id, "world_engine_strike") > now) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "ability on cooldown");
+  if (context.getAbilityCooldownUntil(actor.id, "sovereign_siege_engine_strike") > now) {
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "ability on cooldown");
     return;
   }
   const targetKey = simulationTileKey(payload.toX, payload.toY);
   if (context.isTileShieldedByEnemyAegisDome(actor.id, payload.toX, payload.toY)) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "blocked by an Aegis Dome");
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "blocked by an Aegis Dome");
     return;
   }
-  if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient coin");
+  if (actor.points < SOVEREIGN_SIEGE_ENGINE_STRIKE_GOLD_COST) {
+    rejectCommand(context, command, "SOVEREIGN_SIEGE_ENGINE_STRIKE_INVALID", "insufficient coin");
     return;
   }
-  actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;
+  actor.points -= SOVEREIGN_SIEGE_ENGINE_STRIKE_GOLD_COST;
   const target = context.tiles.get(targetKey);
   if (target) {
     let updated: DomainTileState = target;
@@ -278,7 +278,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     }
     if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
       const pop = typeof target.town.population === "number" ? target.town.population : 0;
-      const loss = Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
+      const loss = Math.floor(pop * SOVEREIGN_SIEGE_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
       let nextTier = updated.town!.populationTier;
       if (loss > 0) {
         const newPop = Math.max(1, pop - loss);
@@ -291,7 +291,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
         }
         updated = { ...updated, town: { ...updated.town!, population: newPop, populationTier: nextTier } };
       }
-      // Tell every connected player a World Engine leveled a city, regardless
+      // Tell every connected player a Sovereign Siege Engine leveled a city, regardless
       // of their fog-of-war visibility — this bypasses normal per-player
       // TILE_DELTA_BATCH visibility filtering via the "__broadcast__" sentinel
       // (same mechanism handleSetMusterCommand uses in
@@ -300,7 +300,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
       context.emitPlayerMessage(
         { commandId: `${command.commandId}:bc`, playerId: "__broadcast__" },
         {
-          type: "WORLD_ENGINE_STRIKE_ANNOUNCEMENT",
+          type: "SOVEREIGN_SIEGE_ENGINE_STRIKE_ANNOUNCEMENT",
           strikeId: `${command.commandId}:bc`,
           occurredAt: now,
           casterName: actor.name ?? actor.id,
@@ -323,7 +323,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
       });
     }
   }
-  context.setAbilityCooldownUntil(actor.id, "world_engine_strike", now + WORLD_ENGINE_STRIKE_COOLDOWN_MS);
+  context.setAbilityCooldownUntil(actor.id, "sovereign_siege_engine_strike", now + SOVEREIGN_SIEGE_ENGINE_STRIKE_COOLDOWN_MS);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 

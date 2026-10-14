@@ -14,8 +14,8 @@ export const constructionRemainingMsForTile = (tile: Tile): number | undefined =
       ? tile.fort
       : tile.observatory?.status === "under_construction" || tile.observatory?.status === "removing"
         ? tile.observatory
-        : tile.siegeOutpost?.status === "under_construction" || tile.siegeOutpost?.status === "removing"
-          ? tile.siegeOutpost
+        : tile.siegeBattery?.status === "under_construction" || tile.siegeBattery?.status === "removing"
+          ? tile.siegeBattery
           : tile.economicStructure?.status === "under_construction" || tile.economicStructure?.status === "removing"
             ? tile.economicStructure
             : undefined;

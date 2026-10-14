@@ -15,7 +15,7 @@ export type AiTrainingTileRecord = Pick<
   | "town"
   | "fort"
   | "observatory"
-  | "siegeOutpost"
+  | "siegeBattery"
   | "economicStructure"
 >;
 
@@ -134,7 +134,7 @@ const serializeTile = (tile: AutomationPlannerTile): AiTrainingTileRecord => ({
   ...(tile.town ? { town: { ...tile.town } } : {}),
   ...(tile.fort ? { fort: { ...tile.fort } } : {}),
   ...(tile.observatory ? { observatory: { ...tile.observatory } } : {}),
-  ...(tile.siegeOutpost ? { siegeOutpost: { ...tile.siegeOutpost } } : {}),
+  ...(tile.siegeBattery ? { siegeBattery: { ...tile.siegeBattery } } : {}),
   ...(tile.economicStructure ? { economicStructure: { ...tile.economicStructure } } : {})
 });
 
@@ -164,7 +164,7 @@ const commandTileKeys = (payload: Record<string, unknown> | null): ReadonlySet<s
 };
 
 const hasStructure = (tile: AutomationPlannerTile): boolean =>
-  Boolean(tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure);
+  Boolean(tile.fort || tile.observatory || tile.siegeBattery || tile.economicStructure);
 
 const tilePriority = (
   tile: AutomationPlannerTile,

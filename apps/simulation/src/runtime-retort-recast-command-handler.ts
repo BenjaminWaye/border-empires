@@ -27,7 +27,7 @@ export function handleRetortRecastCommand(context: RuntimeMapCommandContext, com
     rejectCommand(context, command, "RETORT_RECAST_INVALID", "target must be a tile you own");
     return;
   }
-  if (target.town || target.dockId || target.fort || target.siegeOutpost || target.observatory || target.economicStructure) {
+  if (target.town || target.dockId || target.fort || target.siegeBattery || target.observatory || target.economicStructure) {
     rejectCommand(context, command, "RETORT_RECAST_INVALID", "cannot recast this tile");
     return;
   }

@@ -12,10 +12,10 @@ import type { SupportTownStructureKey } from "../client-support-structures/clien
 // hand-listing 6 or 18 types at each call site.
 export const MONUMENT_COMPONENT_TYPES: readonly SupportTownStructureKey[] = [
   "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "SOVEREIGN_SIEGE_ENGINE_PART_1", "SOVEREIGN_SIEGE_ENGINE_PART_2", "SOVEREIGN_SIEGE_ENGINE_PART_3",
   "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
   "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-  "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+  "CENSUS_DIRECTORATE_PART_1", "CENSUS_DIRECTORATE_PART_2", "CENSUS_DIRECTORATE_PART_3",
   "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
 ];
 
@@ -36,18 +36,18 @@ export const MONUMENT_COMPONENT_BUILD_DEFS: readonly MonumentComponentBuildDef[]
   { actionId: "build_imperial_exchange_part_1", structureType: "IMPERIAL_EXCHANGE_PART_1", actionLabel: "Build Golden Ledger", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
   { actionId: "build_imperial_exchange_part_2", structureType: "IMPERIAL_EXCHANGE_PART_2", actionLabel: "Build Counting Engine", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
   { actionId: "build_imperial_exchange_part_3", structureType: "IMPERIAL_EXCHANGE_PART_3", actionLabel: "Build Sovereign Seal", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-  { actionId: "build_world_engine_part_1", structureType: "WORLD_ENGINE_PART_1", actionLabel: "Build The Long Barrel", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
-  { actionId: "build_world_engine_part_2", structureType: "WORLD_ENGINE_PART_2", actionLabel: "Build Fracture Core", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
-  { actionId: "build_world_engine_part_3", structureType: "WORLD_ENGINE_PART_3", actionLabel: "Build Sky-Marking Array", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
+  { actionId: "build_sovereign_siege_engine_part_1", structureType: "SOVEREIGN_SIEGE_ENGINE_PART_1", actionLabel: "Build The Long Barrel", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
+  { actionId: "build_sovereign_siege_engine_part_2", structureType: "SOVEREIGN_SIEGE_ENGINE_PART_2", actionLabel: "Build Fracture Core", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
+  { actionId: "build_sovereign_siege_engine_part_3", structureType: "SOVEREIGN_SIEGE_ENGINE_PART_3", actionLabel: "Build Sky-Marking Array", techId: "world-engine", techLabel: "Sovereign Siege Engine", monumentLabel: "Sovereign Siege Engine" },
   { actionId: "build_aegis_dome_part_1", structureType: "AEGIS_DOME_PART_1", actionLabel: "Build Shield Lattice", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
   { actionId: "build_aegis_dome_part_2", structureType: "AEGIS_DOME_PART_2", actionLabel: "Build Ward Anchor", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
   { actionId: "build_aegis_dome_part_3", structureType: "AEGIS_DOME_PART_3", actionLabel: "Build Aegis Crown", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
   { actionId: "build_astral_dock_part_1", structureType: "ASTRAL_DOCK_PART_1", actionLabel: "Build Launch Cradle", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
   { actionId: "build_astral_dock_part_2", structureType: "ASTRAL_DOCK_PART_2", actionLabel: "Build Orbital Array", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
   { actionId: "build_astral_dock_part_3", structureType: "ASTRAL_DOCK_PART_3", actionLabel: "Build Aether Sail", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
-  { actionId: "build_population_bureau_part_1", structureType: "POPULATION_BUREAU_PART_1", actionLabel: "Build Census Engine", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
-  { actionId: "build_population_bureau_part_2", structureType: "POPULATION_BUREAU_PART_2", actionLabel: "Build Registry Vault", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
-  { actionId: "build_population_bureau_part_3", structureType: "POPULATION_BUREAU_PART_3", actionLabel: "Build Levy Charter", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
+  { actionId: "build_census_directorate_part_1", structureType: "CENSUS_DIRECTORATE_PART_1", actionLabel: "Build Census Engine", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
+  { actionId: "build_census_directorate_part_2", structureType: "CENSUS_DIRECTORATE_PART_2", actionLabel: "Build Registry Vault", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
+  { actionId: "build_census_directorate_part_3", structureType: "CENSUS_DIRECTORATE_PART_3", actionLabel: "Build Levy Charter", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Census Directorate" },
   { actionId: "build_titanium_levy_part_1", structureType: "TITANIUM_LEVY_PART_1", actionLabel: "Build Muster Klaxon", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
   { actionId: "build_titanium_levy_part_2", structureType: "TITANIUM_LEVY_PART_2", actionLabel: "Build Titanium Standard", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
   { actionId: "build_titanium_levy_part_3", structureType: "TITANIUM_LEVY_PART_3", actionLabel: "Build Levy Writ", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" }

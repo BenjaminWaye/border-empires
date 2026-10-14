@@ -20,6 +20,13 @@ every step below keys off it.
 Every other union in the codebase that needs to represent this structure
 either derives from this one or duplicates a subset of it (see step 8).
 
+Name the id after the player-facing name (`TRADE_NEXUS` for "Trade Nexus")
+and add that name to `STRUCTURE_DISPLAY_NAMES` in
+`packages/shared/src/structure-display-names/structure-display-names.ts`.
+If a building is later renamed, rename its id everywhere as well and add the
+old spelling to `packages/shared/src/legacy-structure-names/legacy-structure-names.ts`,
+which upgrades saved worlds, the event log, queued commands and older clients.
+
 ## 2. Build cost (required)
 
 `packages/shared/src/structure-costs/structure-costs.ts` — add an entry to
@@ -41,7 +48,7 @@ dormant and stops granting its effect).
 
 `packages/shared/src/structure-registry-economic.ts`:
 - Add `<TYPE>: "<tech-id>"` to `TECH_REQUIREMENTS_BY_STRUCTURE` (omit if the
-  structure should have no tech gate, like Wooden Fort/Relay Beacon).
+  structure should have no tech gate, like Palisade/Relay Beacon).
 - Add `<TYPE>: econSpec("<TYPE>")` to `ECONOMIC_SPECS` (pass `{ upkeep, buildMs }`
   as the second arg if it needs non-default upkeep or build time).
 
@@ -79,7 +86,7 @@ the structure does. Some precedent to reuse rather than reinvent:
 - **A tech/domain-driven multiplicative stat effect**: read via
   `multiplicativeEffectForPlayer` (`tech-domain-bridge.ts`) — see
   `attackVsFortsMult`/`fortDefenseMult` for the pattern.
-- **A radius-based area effect** (like Waterworks/Governor's Office):
+- **A radius-based area effect** (like Hydroworks/Ministry Hall):
   `packages/client/src/client-structure-effects/client-structure-effects.ts`
   plus the matching server-side scan in `apps/simulation/src`.
 - **A resource-producing structure**: see the Synthesizer family in
@@ -117,7 +124,7 @@ auto-discovers every file in that directory via `import.meta.glob`, and
 All in `packages/client/src/client-map-display.ts`:
 - Add the type to `StructureInfoKey` and to `STRUCTURE_BRANCH_BY_KEY`
   (War/Economy/Manpower/Aether — for the branch-tag UI).
-- Display name: add a branch in the name-lookup function.
+- Display name: comes from `STRUCTURE_DISPLAY_NAMES` (step 1); never hardcode it.
 - `structureBaseKey()`'s return-type union: add the type here too (only if
   it isn't an upgrade-tier alias of an existing type).
 - `effectsFor()`: bullet-point list shown in the detail tooltip.
@@ -125,7 +132,7 @@ All in `packages/client/src/client-map-display.ts`:
 - **The explicit `if (type === "<TYPE>") { return structure({...}) }`
   tooltip block.** This is easy to skip because there's a silent fallback
   at the end of the function — skip this and the structure's tooltip
-  silently renders as "Siege Outpost" (a real, still-unfixed bug for
+  silently renders as "Siege Battery" (a real, still-unfixed bug for
   several older structures; don't add a new instance of it).
 - `costBitsFor()` usually needs no per-type entry — it derives generically
   from `structureCostDefinition` unless the structure has a non-standard
@@ -148,8 +155,8 @@ All in `packages/client/src/client-map-display.ts`:
   `upkeepSuffixFor()` from the same module (` • Upkeep: ...` appended to the
   template literal) — copy an existing entry (e.g. `MINE` or `RELAY_BEACON`)
   rather than writing the string from scratch. Real precedent: the build
-  menu shipped Airport with a completely fabricated "36 crystal/day upkeep"
-  line (no such drain exists anywhere in the simulation — Airport's real
+  menu shipped Sky Dock with a completely fabricated "36 crystal/day upkeep"
+  line (no such drain exists anywhere in the simulation — Sky Dock's real
   cost is its 3 CRYSTAL slots) and, separately, a one-off hand-rolled
   Observatory progressive-cost sentence that the info modal and the
   dormant-structure warning line each duplicated with their own,
@@ -165,7 +172,7 @@ All in `packages/client/src/client-map-display.ts`:
 latter drives optimistic UI). Several OTHER narrower unions in this file
 (used for lastStructureType, victory-objective stats, etc.) intentionally
 don't need every structure type — check whether an existing recent
-addition (e.g. `POPULATION_BUREAU`) is already in a given union before
+addition (e.g. `CENSUS_DIRECTORATE`) is already in a given union before
 adding yours; if it isn't, that union doesn't need this one either.
 
 ## 10. Client: build button + tile-action wiring (required to build it at all)
@@ -174,7 +181,7 @@ adding yours; if it isn't, that union doesn't need this one either.
 add a `buildShowsOnTile("<TYPE>", ...)` block that pushes a `build_<type>`
 action with tech/slot-availability gating (`hasFreeResourceSlots`,
 `missingResourceSlotReason`) and a cost/detail label. Copy an existing
-same-shaped entry (e.g. `LOGISTICS_GUILD`) rather than writing from
+same-shaped entry (e.g. `ANCILLARY_FACTORY`) rather than writing from
 scratch — the gating boilerplate is identical for every same-tile,
 tech-gated, resource-slot-consuming structure.
 
@@ -195,7 +202,7 @@ message sent to the server, no error. This exact bug shipped twice for real
 structures because this file lives in a different directory than
 `client-tile-action-logic.ts` and is easy to forget once the button itself
 looks done: Weapons Workshop's two replacements (Titanium/Umbrite Weapons
-Factory, #1253), then Quartermaster's Office/Assembly Works/Logistics Guild
+Factory, #1253), then Quartermaster's Office/Reserve Lattice/Ancillary Factory
 found alongside them (#1265). `unmappedBuildActionWarning()` in this same
 file now catches a *future* instance of this at runtime (logs and shows the
 player an error instead of dead silence) — that's a safety net for when this

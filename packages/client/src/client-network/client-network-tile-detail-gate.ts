@@ -25,7 +25,7 @@ export const maybeRequestTileDetail = (
     !tileHasTownIdentity(tile) &&
     !tile.fort &&
     !tile.observatory &&
-    !tile.siegeOutpost &&
+    !tile.siegeBattery &&
     !tile.economicStructure &&
     !tile.afc
   ) {
@@ -43,7 +43,7 @@ export const maybeRequestTileDetail = (
     tileHasTownIdentity(tile) ||
     tile.fort ||
     tile.observatory ||
-    tile.siegeOutpost ||
+    tile.siegeBattery ||
     tile.economicStructure ||
     tile.afc
   ) {

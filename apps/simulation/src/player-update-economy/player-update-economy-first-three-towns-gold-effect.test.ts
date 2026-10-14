@@ -33,8 +33,8 @@ const makeTownTile = (): DomainTileState => ({
     connectedTownBonus: 0,
     hasMintworks: false,
     mintworksActive: false,
-    hasGranary: false,
-    granaryActive: false
+    hasIncubationEngine: false,
+    incubationEngineActive: false
   }
 });
 

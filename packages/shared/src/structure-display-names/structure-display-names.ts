@@ -2,70 +2,71 @@
 // client (tile menus, tech chips, activity dashboard, ...) and the simulation
 // (rejection toasts, economy breakdown labels), so neither side ever shows an
 // internal type constant or keeps its own copy that drifts out of sync.
-import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "../types.js";
+// Structure ids follow these names (TRADE_NEXUS = "Trade Nexus"); when a
+// building is renamed, rename its id too and add the old spelling to
+// legacy-structure-names.ts so saved data keeps loading.
+import type { EconomicStructureType, FortVariant, SiegeBatteryVariant } from "../types.js";
 
-export type StructureDisplayKey = EconomicStructureType | FortVariant | SiegeOutpostVariant | "OBSERVATORY";
+export type StructureDisplayKey = EconomicStructureType | FortVariant | SiegeBatteryVariant | "OBSERVATORY";
 
 export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, string>> = {
   FORT: "Fort",
   TITANIUM_BASTION: "Titanium Bastion",
   THUNDER_BASTION: "Thunder Bastion",
   OBSERVATORY: "Aether Tower",
-  SIEGE_OUTPOST: "Siege Battery",
+  SIEGE_BATTERY: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower",
-  FARMSTEAD: "Hydrogarden",
-  WATERWORKS: "Hydroworks",
+  HYDROGARDEN: "Hydrogarden",
+  HYDROWORKS: "Hydroworks",
   UMBRITE_RIG: "Umbrite Rig",
   MINE: "Mine",
-  GRANARY: "Incubation Engine",
+  INCUBATION_ENGINE: "Incubation Engine",
   CENSUS_HALL: "Census Hall",
   CLEARING_HOUSE: "Clearing House",
-  AIRPORT: "Sky Dock",
-  AETHER_TOWER: "Ambaric Transformer",
-  WOODEN_FORT: "Palisade",
+  SKY_DOCK: "Sky Dock",
+  AMBARIC_TRANSFORMER: "Ambaric Transformer",
+  PALISADE: "Palisade",
   RELAY_BEACON: "Relay Beacon",
-  CARAVANARY: "Trade Nexus",
-  // converter-mode-flip plan §Phase 6: these buildings now run either
-  // direction (Refine gold->resource, or Sell off resource->gold), so the
-  // display name is direction-neutral. The underlying type constants
-  // (UMBRITE_SYNTHESIZER/TITANIUM_WORKS/ADVANCED_*) are unchanged — they're
-  // persisted identifiers, this is a copy-only change.
-  UMBRITE_SYNTHESIZER: "Umbrite Works",
-  ADVANCED_UMBRITE_SYNTHESIZER: "High-Yield Umbrite Works",
+  TRADE_NEXUS: "Trade Nexus",
+  // converter-mode-flip plan §Phase 6: these buildings run either direction
+  // (Refine gold->resource, or Sell off resource->gold), so the names are
+  // direction-neutral.
+  UMBRITE_WORKS: "Umbrite Works",
+  HIGH_YIELD_UMBRITE_WORKS: "High-Yield Umbrite Works",
   TITANIUM_WORKS: "Titanium Works",
-  ADVANCED_TITANIUM_WORKS: "High-Yield Titanium Works",
-  CRYSTAL_SYNTHESIZER: "Aether Condenser",
-  ADVANCED_CRYSTAL_SYNTHESIZER: "High-Yield Aether Condenser",
-  FOUNDRY: "Ore Refinery",
-  GARRISON_HALL: "Ancillary Depot",
-  CUSTOMS_HOUSE: "Harbor Exchange",
-  GOVERNORS_OFFICE: "Ministry Hall",
-  RADAR_SYSTEM: "Resonance Grid",
+  HIGH_YIELD_TITANIUM_WORKS: "High-Yield Titanium Works",
+  AETHER_CONDENSER: "Aether Condenser",
+  HIGH_YIELD_AETHER_CONDENSER: "High-Yield Aether Condenser",
+  ORE_REFINERY: "Ore Refinery",
+  ANCILLARY_DEPOT: "Ancillary Depot",
+  HARBOR_EXCHANGE: "Harbor Exchange",
+  MINISTRY_HALL: "Ministry Hall",
+  RESONANCE_GRID: "Resonance Grid",
   QUARTERMASTERS_OFFICE: "Quartermaster's Office",
-  LOGISTICS_GUILD: "Ancillary Factory",
-  ASSEMBLY_WORKS: "Reserve Lattice",
+  ANCILLARY_FACTORY: "Ancillary Factory",
+  RESERVE_LATTICE: "Reserve Lattice",
   ASTRAL_DOCK_PART_1: "Launch Cradle",
   ASTRAL_DOCK_PART_2: "Orbital Array",
   ASTRAL_DOCK_PART_3: "Aether Sail",
   ASTRAL_DOCK: "Astral Dock",
-  RAIL_DEPOT: "Neural Works",
+  NEURAL_WORKS: "Neural Works",
   IMPERIAL_EXCHANGE_PART_1: "Golden Ledger",
   IMPERIAL_EXCHANGE_PART_2: "Counting Engine",
   IMPERIAL_EXCHANGE_PART_3: "Sovereign Seal",
-  WORLD_ENGINE_PART_1: "The Long Barrel",
-  WORLD_ENGINE_PART_2: "Fracture Core",
-  WORLD_ENGINE_PART_3: "Sky-Marking Array",
+  SOVEREIGN_SIEGE_ENGINE_PART_1: "The Long Barrel",
+  SOVEREIGN_SIEGE_ENGINE_PART_2: "Fracture Core",
+  SOVEREIGN_SIEGE_ENGINE_PART_3: "Sky-Marking Array",
   IMPERIAL_EXCHANGE: "Imperial Exchange",
   AEGIS_DOME_PART_1: "Shield Lattice",
   AEGIS_DOME_PART_2: "Ward Anchor",
   AEGIS_DOME_PART_3: "Aegis Crown",
   AEGIS_DOME: "Aegis Dome",
-  WORLD_ENGINE: "Sovereign Siege Engine",
-  POPULATION_BUREAU_PART_1: "Census Engine",
-  POPULATION_BUREAU_PART_2: "Registry Vault",
-  POPULATION_BUREAU_PART_3: "Levy Charter",
-  POPULATION_BUREAU: "Census Directorate",
+  SOVEREIGN_SIEGE_ENGINE: "Sovereign Siege Engine",
+  CENSUS_DIRECTORATE_PART_1: "Census Engine",
+  CENSUS_DIRECTORATE_PART_2: "Registry Vault",
+  CENSUS_DIRECTORATE_PART_3: "Levy Charter",
+  CENSUS_DIRECTORATE: "Census Directorate",
   TITANIUM_LEVY_PART_1: "Muster Klaxon",
   TITANIUM_LEVY_PART_2: "Titanium Standard",
   TITANIUM_LEVY_PART_3: "Levy Writ",

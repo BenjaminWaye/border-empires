@@ -35,13 +35,13 @@ describe("createClientOriginSelection", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      siegeOutpost: { ownerId: "me", status: "active" }
+      siegeBattery: { ownerId: "me", status: "active" }
     });
 
     expect(selector.pickOriginForTarget(10, 10)).toMatchObject({ x: 11, y: 10 });
   });
 
-  it("applies owned outpost attack bonuses when ranking siege outposts", () => {
+  it("applies owned outpost attack bonuses when ranking siege batteries", () => {
     const { state, selector } = createSelector();
     state.techIds = ["outpost-doctrine"];
     state.techCatalog = [
@@ -70,7 +70,7 @@ describe("createClientOriginSelection", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      siegeOutpost: { ownerId: "me", status: "active" }
+      siegeBattery: { ownerId: "me", status: "active" }
     });
 
     expect(selector.pickOriginForTarget(20, 20)).toMatchObject({ x: 21, y: 20 });
@@ -323,13 +323,13 @@ describe("createClientOriginSelection", () => {
       connectedTownBonus: 0,
       hasMintworks: false,
       mintworksActive: false,
-      hasGranary: false,
-      granaryActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false,
     }
   });
 
   // Regression: this drives client-tile-action-logic.ts's townBuildSource,
-  // which gates whether the building menu offers MINTWORKS/GRANARY/etc. on a
+  // which gates whether the building menu offers MINTWORKS/INCUBATION_ENGINE/etc. on a
   // clicked tile -- a Great City/Metropolis's 2nd support ring (distance-2,
   // see supportRingRadiusForTier) must resolve to its town here too, or the
   // overlay renders the ring but the menu shows nothing when it's clicked.

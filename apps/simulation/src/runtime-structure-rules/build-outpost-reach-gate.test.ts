@@ -55,7 +55,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
     );
   });
 
-  it("rejects building a siege outpost on an out-of-reach frontier tile", async () => {
+  it("rejects building a siege battery on an out-of-reach frontier tile", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", buildPlayer()]]),
@@ -67,7 +67,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
           // OUT_OF_REACH gate this FRONTIER tile would otherwise be
           // buildable directly, leapfrogging reach. A resource tile so
           // structureShowsOnTile's "resource" visibility rule is satisfied
-          // on FRONTIER ground (SIEGE_OUTPOST otherwise only shows on
+          // on FRONTIER ground (SIEGE_BATTERY otherwise only shows on
           // settled/town/support/dock tiles).
           { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" }
         ],
@@ -84,7 +84,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "SIEGE_OUTPOST" })
+      payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "SIEGE_BATTERY" })
     });
     await Promise.resolve();
 
@@ -93,7 +93,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
     );
   });
 
-  it("allows building a siege outpost on an owned FRONTIER tile that sits inside ANOTHER player's reach", async () => {
+  it("allows building a siege battery on an owned FRONTIER tile that sits inside ANOTHER player's reach", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -105,7 +105,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
           // player-1's own reach never covers (20, 10) — same as the
           // rejection case above.
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
-          // A resource slot for the siege outpost's UMBRITE requirement.
+          // A resource slot for the siege battery's UMBRITE requirement.
           { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
           // player-2's town anchor sits right next to (20, 10), so the
           // persistent border assigns that key to player-2 -- but the tile
@@ -126,7 +126,7 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "SIEGE_OUTPOST" })
+      payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "SIEGE_BATTERY" })
     });
     await Promise.resolve();
 
@@ -134,6 +134,6 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
       expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "build-outpost-2" })
     );
     const tile = runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10);
-    expect(tile?.siegeOutpostJson).toContain('"status":"under_construction"');
+    expect(tile?.siegeBatteryJson).toContain('"status":"under_construction"');
   });
 });

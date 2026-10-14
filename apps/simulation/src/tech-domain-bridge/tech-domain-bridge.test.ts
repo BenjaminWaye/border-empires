@@ -47,7 +47,7 @@ describe("tech-domain bridge progression sources", () => {
     const ledgerKeeping = techTree.techs.find((tech) => tech.id === "ledger-keeping");
 
     expect(ledgerKeeping?.effects).toMatchObject({
-      unlockCustomsHouse: true
+      unlockHarborExchange: true
     });
   });
 

@@ -3,7 +3,7 @@ import type { RuntimeStructureCommandContext } from "../runtime-structure-comman
 /**
  * Every field the structure command context (BUILD_STRUCTURE, SET_MUSTER,
  * CLEAR_MUSTER, WATCH_MUSTER, UNWATCH_MUSTER, CANCEL_FORT_BUILD,
- * CANCEL_STRUCTURE_BUILD, REMOVE_STRUCTURE, CANCEL_SIEGE_OUTPOST_BUILD)
+ * CANCEL_STRUCTURE_BUILD, REMOVE_STRUCTURE, CANCEL_SIEGE_BATTERY_BUILD)
  * needs is already a thin pass-through of a SimulationRuntime private
  * field/method, so the deps port is identical in shape to the context it
  * builds — see `structureCommandContext()` in runtime.ts for the `this.*`

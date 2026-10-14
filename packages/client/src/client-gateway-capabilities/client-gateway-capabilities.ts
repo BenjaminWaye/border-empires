@@ -7,7 +7,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   BUILD_ECONOMIC_STRUCTURE: "Economic structures",
   BUILD_FORT: "Fort building",
   BUILD_OBSERVATORY: "Aether Tower building",
-  BUILD_SIEGE_OUTPOST: "Siege Battery building",
+  BUILD_SIEGE_BATTERY: "Siege Battery building",
   CANCEL_CAPTURE: "Capture cancellation",
   CANCEL_STRUCTURE_BUILD: "Build cancellation",
   CAST_AETHER_BRIDGE: "Aether Bridge",

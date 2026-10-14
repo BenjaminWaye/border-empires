@@ -24,7 +24,7 @@ import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-bat
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyDukeService } from "../galaxy-duke-service/galaxy-duke-service.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
-import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
+import type { SovereignSiegeEngineStrikeStore } from "../sovereign-siege-engine-strike-store/sovereign-siege-engine-strike-store.js";
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
 import type { SimulationSeedProfile } from "../seed-fallback.js";
 import type { createSimulationClient } from "../sim-client/sim-client.js";
@@ -77,7 +77,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyExplorationStore?: GalaxyExplorationStore;
   galaxyDukeService?: GalaxyDukeService;
   authBindingStore: GatewayAuthBindingStore;
-  worldEngineStrikeStore: WorldEngineStrikeStore;
+  sovereignSiegeEngineStrikeStore: SovereignSiegeEngineStrikeStore;
   // Static admin token (ADMIN_API_TOKEN) and the one admin identity
   // (ADMIN_EMAIL). The email enables Google sign-in on the read-only admin
   // endpoints (admin-firebase-auth.ts).
@@ -182,7 +182,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.galaxyExplorationStore ? { galaxyExplorationStore: ctx.galaxyExplorationStore } : {}),
     ...(ctx.galaxyDukeService ? { galaxyDukeService: ctx.galaxyDukeService } : {}),
     authBindingStore: ctx.authBindingStore,
-    worldEngineStrikeStore: ctx.worldEngineStrikeStore,
+    sovereignSiegeEngineStrikeStore: ctx.sovereignSiegeEngineStrikeStore,
     ...(ctx.playerFunnel
       ? {
           playerInsights: {
