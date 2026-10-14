@@ -140,12 +140,12 @@ describe("gateway tile-delta path", () => {
   };
 
   // The reported symptom: battle dots only appeared for the last ~2s of an
-  // attack. A besieged tile receives routine yield/population/muster deltas
+  // attack. A besieged tile receives routine yieldRate/population/muster deltas
   // throughout its ~30s countdown, and every one of them used to evict the
   // siege that drives the pre-resolution dots.
-  it("keeps the siege across a routine yield refresh on the besieged tile", () => {
+  it("keeps the siege across a routine yieldRate refresh on the besieged tile", () => {
     const deps = createDeps();
-    applyGatewayTileDeltaBatch(deps as never, [{ x: 4, y: 7, yield: 3 } as never]);
+    applyGatewayTileDeltaBatch(deps as never, [{ x: 4, y: 7, yieldRate: { goldPerMinute: 3 } } as never]);
     expect(deps.state.incomingAttacksByTile.has("4,7")).toBe(true);
   });
 

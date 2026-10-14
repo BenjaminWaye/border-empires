@@ -26,7 +26,6 @@ const makeDeps = (onContextResolve: () => void): TileDeltaFromStateDeps => ({
   players: new Map([[player.id, player]]),
   tileDeltaStringifyCache: new TileDeltaStringifyCache(),
   now: () => 0,
-  tileYieldCollectedAt: () => undefined,
   tileYieldEconomyContextForPlayer: () => {
     onContextResolve();
     return {
@@ -34,8 +33,6 @@ const makeDeps = (onContextResolve: () => void): TileDeltaFromStateDeps => ({
       townNetwork: new Map(),
       fedTownKeys: new Set(),
       firstThreeTownKeys: new Set(),
-      hydroworksKeys: new Set(),
-      oreRefineryKeys: new Set(),
       dormantEconomicStructureKeys: new Set()
     } satisfies RuntimeTileYieldEconomyContext;
   },

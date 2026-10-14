@@ -90,7 +90,7 @@ describe("SqliteWriterChannel backpressure", () => {
         op: "appendEvent",
         commandId: `cmd-${i}`,
         playerId: "player-1",
-        eventType: "TILE_YIELD_ANCHOR_BATCH",
+        eventType: "TILE_DELTA_BATCH",
         payloadJson: JSON.stringify({ i }),
         createdAt: Date.now()
       })
@@ -115,7 +115,7 @@ describe("SqliteWriterChannel backpressure", () => {
           op: "appendEvent",
           commandId,
           playerId: "player-1",
-          eventType: "TILE_YIELD_ANCHOR_BATCH",
+          eventType: "TILE_DELTA_BATCH",
           payloadJson: JSON.stringify({ commandId }),
           createdAt: Date.now()
         })
@@ -140,7 +140,7 @@ describe("SqliteWriterChannel backpressure", () => {
       op: "appendEvent",
       commandId: "cmd-occupies-slot",
       playerId: "player-1",
-      eventType: "TILE_YIELD_ANCHOR_BATCH",
+      eventType: "TILE_DELTA_BATCH",
       payloadJson: "{}",
       createdAt: Date.now()
     });
@@ -149,7 +149,7 @@ describe("SqliteWriterChannel backpressure", () => {
       op: "appendEvent",
       commandId: "cmd-queued-behind-cap",
       playerId: "player-1",
-      eventType: "TILE_YIELD_ANCHOR_BATCH",
+      eventType: "TILE_DELTA_BATCH",
       payloadJson: "{}",
       createdAt: Date.now()
     });
@@ -169,7 +169,7 @@ describe("SqliteWriterChannel backpressure", () => {
         op: "appendEvent",
         commandId: "cmd-after-death",
         playerId: "player-1",
-        eventType: "TILE_YIELD_ANCHOR_BATCH",
+        eventType: "TILE_DELTA_BATCH",
         payloadJson: "{}",
         createdAt: Date.now()
       })

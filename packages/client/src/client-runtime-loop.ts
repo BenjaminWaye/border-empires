@@ -115,7 +115,6 @@ type StartClientRuntimeLoopDeps = {
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
   drawTownOverlay: (tile: Tile, px: number, py: number, size: number) => void;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
   structureAccentColor: (ownerId: string, fallback: string) => string;
   structureOverlayImages: Record<string, HTMLImageElement>;
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;

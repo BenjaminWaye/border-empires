@@ -4,7 +4,6 @@ import {
 } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
 import { bootstrapClientApp } from "./client-bootstrap/client-bootstrap.js";
-import { hasCollectableYield } from "./client-collect-optimism.js";
 import { createClientRuntimeDisplaySupport } from "./client-app-runtime-display-support/client-app-runtime-display-support.js";
 import {
   computeDragPreview as computeDragPreviewFromModule,
@@ -111,8 +110,7 @@ const {
   parseKey,
   wrapX,
   wrapY,
-  resourceColor,
-  hasCollectableYield: (tile) => hasCollectableYield(tile)
+  resourceColor
 });
 const { toroidDelta, worldToScreen } = createClientMapMath({ state });
 
@@ -273,7 +271,6 @@ bootstrapClientApp({
   drawTownOverlay,
   drawTownMarker,
   drawDockMarker,
-  hasCollectableYield,
   structureAccentColor,
   structureOverlayImages,
   shouldDrawOwnershipBorder,

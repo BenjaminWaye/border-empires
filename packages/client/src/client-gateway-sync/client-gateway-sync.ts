@@ -51,9 +51,7 @@ type NormalizedGatewayTileUpdate = {
   reachOwnerId?: Tile["reachOwnerId"] | undefined;
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
-  yield?: Tile["yield"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
-  yieldCap?: Tile["yieldCap"] | undefined;
   upkeepEntries?: Tile["upkeepEntries"] | undefined;
   history?: Tile["history"] | undefined;
   landBiome?: Tile["landBiome"] | undefined;
@@ -87,9 +85,7 @@ export type GatewayTileUpdate = {
   waystationJson?: string;
   musterJson?: string;
   afcJson?: string;
-  yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
-  yieldCap?: Tile["yieldCap"];
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
   landBiome?: Tile["landBiome"];
@@ -167,9 +163,7 @@ export const normalizeGatewayTileUpdate = (
         ? update.frontierDecayKind
         : undefined;
   }
-  if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
-  if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
   if ("upkeepEntries" in update) normalized.upkeepEntries = update.upkeepEntries;
   if ("history" in update) normalized.history = update.history;
   if ("landBiome" in update) normalized.landBiome = update.landBiome;
@@ -272,7 +266,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   }
   // Confirmed-identical fields (ownerId/ownershipState/frontierDecayAt/
   // frontierDecayKind/shardSite/town/fort/observatory/economicStructure/
-  // siegeBattery/sabotage/muster/yield/yieldRate/yieldCap/upkeepEntries/
+  // siegeBattery/sabotage/muster/yieldRate/upkeepEntries/
   // history) merged via the shared helper -- see client-tile-merge.ts.
   applyCommonTileFields(existing, merged, normalizedGateway, { me: deps.state.me });
 
@@ -329,7 +323,6 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     ("resource" in normalizedGateway && normalizedGateway.resource !== existing?.resource) ||
     ("dockId" in normalizedGateway && normalizedGateway.dockId !== existing?.dockId);
   if (staleYieldInputsChanged && !("yieldRate" in normalizedGateway)) delete resolved.yieldRate;
-  if (staleYieldInputsChanged && !("yieldCap" in normalizedGateway)) delete resolved.yieldCap;
   const ownIncomeMultiplier =
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
       ? deps.state.mods?.income ?? 1.0
@@ -338,7 +331,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
   // Computed against the PRE-ensureTileYield snapshot: that call unconditionally
-  // recomputes yield/yieldRate/yieldCap on every single tile update as part of
+  // recomputes yieldRate on every single tile update as part of
   // the ordinary economy tick, which would otherwise make almost every gateway
   // delta look "changed" and defeat the whole point of this check.
   if (!skipRevision && revisionRelevant) { deps.state.tilesRevision += 1; recordTileRevisionChange(deps.state, update.x, update.y); }

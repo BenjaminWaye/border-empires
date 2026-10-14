@@ -90,15 +90,7 @@ export type ProtoSimulationEvent = {
     musterJson?: string | undefined;
     afcJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
-    yield?: {
-      gold?: number;
-      strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    } | undefined;
-    yieldRate?: {
-      goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
+    yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
     combatJson?: string | undefined;
@@ -114,10 +106,7 @@ export type ProtoSimulationEvent = {
 // as empty-code COMMAND_REJECTED. Filter them at the wire boundary so the
 // gateway never sees them in the first place.
 export const WIRE_INTERNAL_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
-  "SETTLEMENT_STARTED",
-  "TILE_YIELD_ANCHOR_UPDATED",
-  "TILE_YIELD_ANCHOR_BATCH",
-  "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED"
+  "SETTLEMENT_STARTED"
 ]);
 
 export const isWireInternalEvent = (event: SimulationEvent): boolean =>
@@ -185,9 +174,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
-          ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-          ...("yieldCap" in tile && tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {}),
           ...("combatJson" in tile && tile.combatJson ? { combat_json: tile.combatJson } : {})
         }))
       : [],
@@ -214,9 +201,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
-          ...("yield" in tile ? { yield: tile.yield } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
-          ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {}),
           ...("combatJson" in tile && tile.combatJson ? { combatJson: tile.combatJson } : {})
         }))
       }
@@ -244,7 +229,7 @@ export const toFullSnapshotProtoTile = (tile: {
   musterJson?: string | undefined;
   afcJson?: string | undefined;
   breachShockUntil?: number | undefined;
-  yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
+  yieldRate?: unknown;
 }) => ({
   x: tile.x,
   y: tile.y,
@@ -263,7 +248,5 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
   ...overlaySnakeTruthyFields(tile as unknown as Record<string, unknown>),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
-  ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
-  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
-  ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})
+  ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });
