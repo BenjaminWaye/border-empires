@@ -36,16 +36,18 @@ export type FrontNeighbourKind = "pocket" | "rival" | "mine" | "other";
 /** One open side of the pocket tile: outward direction (dx, dy), its start corner, and its unit tangent (clockwise round the pocket). */
 export type FrontSide = { readonly dx: number; readonly dy: number; readonly a: BreachPoint; readonly t: BreachPoint };
 
-const LINE_WIDTH = 0.035;
+const LINE_WIDTH = 0.048;
 /** Calligraphic swell: the stroke's width varies by up to this fraction along the front (world-space, so seamless). */
-const LINE_SWELL = 0.4;
+const LINE_SWELL = 0.5;
 const LINE_SWELL_FREQUENCY = 2.3;
 /** Path length (tiles) over which the stroke tapers to a point where the front meets the old border. */
 const BORDER_TAPER = 0.3;
-const TEETH_PER_SIDE = 3;
-const TOOTH_HEIGHT = 0.17;
+/** Teeth alternate large and small (an engraved front-line rhythm); 4 per side keeps the rhythm unbroken across tiles. */
+const TEETH_PER_SIDE = 4;
+const TOOTH_HEIGHT = 0.24;
+const SMALL_TOOTH_SCALE = 0.6;
 /** Shark-fin teeth: the root flares along the line to this half-width, the flanks curving in to the tip. */
-const TOOTH_ROOT_HALF = 0.105;
+const TOOTH_ROOT_HALF = 0.1;
 const FLANK_STEPS = 4;
 /** Outline thickness, in tiles. */
 const OUTLINE_WIDTH = 0.011;
@@ -148,17 +150,19 @@ const bezier = (a: BreachPoint, c: BreachPoint, b: BreachPoint, s: number): Brea
  * its root centre, so it's drawn as a fan of triangles from there -- and the
  * outline as the same fan over the boundary pushed out by OUTLINE_WIDTH.
  */
-const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece[] => {
+const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint, scale = 1): BreachFrontPiece[] => {
+  const height = TOOTH_HEIGHT * scale;
+  const rootHalf = TOOTH_ROOT_HALF * (0.6 + 0.4 * scale);
   const eps = 0.01;
   const centre = warp(base);
   const t = unit(add(warp(add(base, tangent, eps)), warp(add(base, tangent, -eps)), -1));
   let n = { x: -t.y, y: t.x };
   if (n.x * outward.x + n.y * outward.y < 0) n = { x: -n.x, y: -n.y };
-  const tip = add(centre, n, LINE_WIDTH / 2 + TOOTH_HEIGHT);
+  const tip = add(centre, n, LINE_WIDTH / 2 + height);
   const flank = (side: 1 | -1): BreachPoint[] => {
-    const root = add(centre, t, TOOTH_ROOT_HALF * side);
+    const root = add(centre, t, rootHalf * side);
     // Control point low and close to the axis: the flank leaves the line almost flat (a fillet), then rises to the tip.
-    const control = add(add(centre, t, TOOTH_ROOT_HALF * 0.3 * side), n, LINE_WIDTH / 2 + TOOTH_HEIGHT * 0.12);
+    const control = add(add(centre, t, rootHalf * 0.3 * side), n, LINE_WIDTH / 2 + height * 0.12);
     return Array.from({ length: FLANK_STEPS + 1 }, (_, i) => bezier(root, control, tip, i / FLANK_STEPS));
   };
   const boundary = [...flank(-1), ...flank(1).reverse().slice(1)];
@@ -234,11 +238,17 @@ export const organicSideFront = (
   const pieces = strip(path.map(warp), halfWidths);
   if (!withTeeth) return pieces;
   pieces.push(...arcTooth);
+  // Large/small parity by WORLD position along the side, so the rhythm runs on unbroken from tile to tile.
+  const alongWorld = (u: number): number => {
+    const p = at(u);
+    return side.t.x !== 0 ? worldX + p.x : worldY + p.y;
+  };
   for (let i = 0; i < TEETH_PER_SIDE; i += 1) {
     const u = (i + 0.5) / TEETH_PER_SIDE;
     // Teeth on the straight stretch only; the rounded corners handle their own.
     if (u < u0 || u > u1) continue;
-    pieces.push(...tooth(warp, at(u), side.t, out));
+    const large = Math.floor(alongWorld(u) * TEETH_PER_SIDE + 1e-6) % 2 === 0;
+    pieces.push(...tooth(warp, at(u), side.t, out, large ? 1 : SMALL_TOOTH_SCALE));
   }
   return pieces;
 };

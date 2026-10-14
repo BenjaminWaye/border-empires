@@ -11,6 +11,17 @@ const around =
 
 const linePoints = (pieces: ReturnType<typeof organicSideFront>): BreachPoint[] => pieces.filter((p) => p.points.length === 4).flatMap((p) => p.points);
 const teeth = (pieces: ReturnType<typeof organicSideFront>) => pieces.filter((p) => p.points.length === 3);
+/** One tooth = a fan of triangles about its root centre: group by that centre, return each tooth's outline points, west to east. */
+const toothOutlines = (pieces: ReturnType<typeof organicSideFront>): BreachPoint[][] => {
+  const byRoot = new Map<string, BreachPoint[]>();
+  for (const p of teeth(pieces)) {
+    const key = `${p.points[0]!.x.toFixed(5)},${p.points[0]!.y.toFixed(5)}`;
+    byRoot.set(key, [...(byRoot.get(key) ?? []), p.points[1]!, p.points[2]!]);
+  }
+  return [...byRoot.values()].sort((a, b) => a[0]!.x - b[0]!.x);
+};
+const toothHeight = (outline: readonly BreachPoint[]): number => Math.max(...outline.map((p) => p.y)) - Math.min(...outline.map((p) => p.y));
+
 const centreline = (piece: { points: readonly BreachPoint[] }, end: 0 | 1): BreachPoint => {
   const [a, b, c, d] = piece.points as [BreachPoint, BreachPoint, BreachPoint, BreachPoint];
   return end === 0 ? { x: (a.x + d.x) / 2, y: (a.y + d.y) / 2 } : { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
@@ -63,10 +74,7 @@ describe("organicSideFront", () => {
   });
 
   it("draws teeth as shark fins: a root that flares along the line and concave flanks up to a sharp tip", () => {
-    const fan = teeth(organicSideFront(NORTH, true, 0, 0, around({ "1,0": "pocket", "-1,0": "pocket" })));
-    // One tooth = a fan of triangles about its root centre; take the middle tooth (u = 1/2).
-    const middle = fan.filter((p) => Math.abs(p.points[0]!.x) < 0.1);
-    const outline = middle.flatMap((p) => [p.points[1]!, p.points[2]!]);
+    const outline = toothOutlines(organicSideFront(NORTH, true, 0, 0, around({ "1,0": "pocket", "-1,0": "pocket" })))[1]!;
     const tip = outline.reduce((a, b) => (b.y < a.y ? b : a));
     const root = outline.filter((p) => p.y > tip.y + 0.15);
     // Flared root: much wider than the tooth is near its tip.
@@ -74,6 +82,17 @@ describe("organicSideFront", () => {
     // Concave flank: halfway up, the flank is well inside the straight line from root corner to tip.
     const halfway = outline.filter((p) => p.x > tip.x && Math.abs(p.y - (tip.y + 0.09)) < 0.04);
     for (const p of halfway) expect(p.x - tip.x).toBeLessThan(0.05);
+  });
+
+  it("alternates large and small teeth, keeping the rhythm unbroken from one tile to the next", () => {
+    const run = around({ "1,0": "pocket", "-1,0": "pocket" });
+    const heights = [0, 1].flatMap((worldX) => toothOutlines(organicSideFront(NORTH, true, worldX, 0, run)).map(toothHeight));
+    expect(heights).toHaveLength(8);
+    const large = Math.max(...heights);
+    const isLarge = heights.map((h) => h > large * 0.8);
+    // Strictly alternating across both tiles: large, small, large, small, ...
+    isLarge.forEach((big, i) => expect(big).toBe(i % 2 === 0 ? isLarge[0] : !isLarge[0]));
+    expect(Math.min(...heights)).toBeLessThan(large * 0.75);
   });
 
   it("swells and thins the stroke along the front, like an inked line", () => {

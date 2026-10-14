@@ -42,6 +42,14 @@ describe("incursionBreachLayout", () => {
     expect(Math.max(...lineYs)).toBeGreaterThan(0.35);
   });
 
+  it("lays the spikes' pressure wash on my side of the front only", () => {
+    const { band } = incursionBreachLayout("spikes", kinds);
+    expect(band.length).toBeGreaterThan(0);
+    expect(band.every((t) => t.side === 1)).toBe(true);
+    // Never on the unowned south side or the pocket continuing east.
+    expect(band.some((t) => (t.dx === 0 && t.dy === 1) || (t.dx === 1 && t.dy === 0))).toBe(false);
+  });
+
   it("marks the outer corners the spikes line rounds off, so the hatch can match", () => {
     // Open north, south and west; the pocket continues east: outer corners at NW and SW only.
     expect(incursionBreachLayout("spikes", kinds).roundedCorners).toBe(0b1001);

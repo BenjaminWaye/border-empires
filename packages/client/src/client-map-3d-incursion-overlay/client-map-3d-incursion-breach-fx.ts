@@ -2,7 +2,9 @@
 // own land (client-incursion-breach-layout.ts decides where; the admin
 // switch in client-incursion-breach-style.ts decides which):
 //   - spikes: a thin Hearts-of-Iron-style front line with teeth, flat in the
-//     attacker's colour, over a hair-thin rim in the pocket's outline colour.
+//     attacker's colour, over a hair-thin rim in the pocket's outline colour,
+//     with a soft breathing "pressure wash" of the attacker's colour on the
+//     band beneath it (same distance field as ember / ink).
 //   - ember / ink: flat quads over the tiles either side of the boundary,
 //     shaded from a per-pixel distance field to it (8-neighbour box distance),
 //     so the effect is seamless across tiles and round at corners.
@@ -26,7 +28,7 @@ const BAND_LIFT = 0.003;
 /** Veil height in tiles. */
 const VEIL_HEIGHT = 0.55;
 
-const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2 };
+const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2, spikes: 3 };
 
 const NOISE_GLSL = /* glsl */ `
   float bHash(vec2 p) {
@@ -105,6 +107,16 @@ const BAND_FRAGMENT = /* glsl */ `
       vec3 ember = mix(vec3(1.0, 0.36, 0.06), vTheirs, 0.2);
       col = mix(ember, vec3(1.0, 0.93, 0.78), clamp(core * 1.3, 0.0, 1.0));
       alpha = clamp(core + glow * 0.72 * flicker, 0.0, 1.0);
+    } else if (vBand.z > 2.5) {
+      // Spikes' pressure wash: the attacker's colour glows out from the front
+      // line into my land and fades, in soft streaks that drift slowly
+      // forward, breathing -- the shaded advance zone of a war map.
+      if (s <= 0.0) discard;
+      float streak = 0.7 + 0.3 * bFbm(wp * 2.4 + vec2(uTime * 0.07, uTime * 0.05));
+      float reach = 0.42 * (0.85 + 0.15 * sin(uTime * 0.9 + (wp.x + wp.y) * 0.7));
+      float fade = exp(-s / reach);
+      col = vTheirs;
+      alpha = 0.65 * fade * fade * streak;
     } else {
       // Ink: the intruder's colour soaks into my land like watercolour --
       // irregular feathered front, pigment pooling darker at the front, a

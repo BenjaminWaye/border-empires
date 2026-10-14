@@ -45,7 +45,7 @@ export type IncursionBreachLayout = {
   readonly front: readonly BreachFrontPiece[];
   /** Spikes style: the tile's outer corners the line rounds off (bit 0 NW, 1 NE, 2 SE, 3 SW), so the hatch can round them too. */
   readonly roundedCorners: number;
-  /** Distance-field band tiles (ember / ink). My tiles may be listed by several pocket tiles; the renderer de-duplicates by world tile. */
+  /** Distance-field band tiles (ember / ink / the spikes' pressure wash). My tiles may be listed by several pocket tiles; the renderer de-duplicates by world tile. */
   readonly band: readonly BreachBandTile[];
   /** Sides that raise the veil (veil style). */
   readonly veilSides: readonly (keyof IncursionEdges)[];
@@ -84,7 +84,8 @@ export const incursionBreachLayout = (
     else if (style === "straight" || across !== "mine") straightEdges[side.key] = true;
     else if (style === "veil") veilSides.push(side.key);
   });
-  if (style !== "ember" && style !== "ink") return { straightEdges, front, roundedCorners, band: [], veilSides };
+  // Spikes also get a band: the pressure wash under the front line, on my side only.
+  if (style !== "ember" && style !== "ink" && style !== "spikes") return { straightEdges, front, roundedCorners, band: [], veilSides };
 
   const band: BreachBandTile[] = [];
   const ownMask = maskAround(0, 0, "mine", kindAt);
