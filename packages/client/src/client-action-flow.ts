@@ -59,7 +59,6 @@ import {
   queuedDevelopmentActionExists,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
-  queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
   queuedEntryIndexForTile as queuedEntryIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
@@ -75,7 +74,6 @@ import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./cl
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
 import {
-  dispatchGenericBuild as dispatchGenericBuildFromModule,
   triggerBuildForStructureType as triggerBuildForStructureTypeFromModule,
   type BuildDispatchDeps
 } from "./client-structure-build-trigger/client-structure-build-trigger.js";
@@ -121,7 +119,6 @@ import {
   requiredTechForTileAction as requiredTechForTileActionFromModule,
   shouldOptimisticallyBuildOnSelectedTile as shouldOptimisticallyBuildOnSelectedTileFromModule,
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
-  structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
@@ -204,7 +201,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state,
     ws,
     wsUrl,
-    canvas,
     techPickEl,
     mobileTechPickEl,
     tileActionMenuEl,
@@ -229,9 +225,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureCancel,
     mergeServerTileWithOptimisticState,
     hideTileActionMenu: hideTileActionMenuFromDeps,
-    playerNameForOwner,
     ownerSpawnShieldActive,
-    hasCollectableYield,
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
@@ -244,7 +238,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     terrainLabel,
     displayTownGoldPerMinute,
     tileHistoryLines,
-    growthModifierPercentLabel,
     structureGoldCost,
     structureCostText
   } = deps;
@@ -508,9 +501,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     structureDisplayLabelFromModule(structureType, state);
 
   const buildDispatchDeps = (): BuildDispatchDeps => ({ sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel });
-
-  const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile): void =>
-    dispatchGenericBuildFromModule(structureType, tile, buildDispatchDeps());
 
   const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
     triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
@@ -868,8 +858,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const devQueueStateForTile = (tileKey: string): "planned" | "queued" =>
     devQueueTierForIndex(queuedEntryIndexForTileFromModule(state, tileKey));
-
-  const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
 

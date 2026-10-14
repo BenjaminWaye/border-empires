@@ -139,7 +139,6 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
 
   const settledTileCount = input.settledTileCount ?? 0;
   const townCount = input.townCount ?? 0;
-  const incomePerMinute = input.incomePerMinute ?? 0;
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(input.manpower ?? 0, settledTileCount);
 
@@ -185,7 +184,6 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
     },
     input.ownedTiles
   );
-  const hasAffordableProgression = Boolean(techChoice?.affordable || domainChoice?.affordable);
   const techChoiceAffordable = techChoice?.affordable === true;
   const domainChoiceAffordable = domainChoice?.affordable === true;
   const hasAnyProgressionChoice = techChoice !== undefined || domainChoice !== undefined;

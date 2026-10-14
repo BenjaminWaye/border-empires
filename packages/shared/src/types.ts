@@ -290,7 +290,7 @@ export interface StatsMods {
   vision: number;
 }
 
-import type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
+import type { MissionState, MissionStats, PendingResearch } from "./mission-types.js";
 export type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
 
 export interface PlayerActivityEntry {

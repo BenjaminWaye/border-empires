@@ -1,8 +1,7 @@
-import type { ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
+import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState, FrontierCommandType, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
-import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";

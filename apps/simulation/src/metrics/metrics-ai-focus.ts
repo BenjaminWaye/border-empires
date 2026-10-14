@@ -26,5 +26,3 @@ export const createAiFocusMetrics = () => {
     }
   };
 };
-
-export type AiFocusMetrics = ReturnType<typeof createAiFocusMetrics>;

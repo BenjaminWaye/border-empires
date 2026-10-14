@@ -3,7 +3,7 @@ import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME, type SeasonVictoryPathId } from "@border-empires/shared";
 import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP, type DomainTileState } from "@border-empires/game-domain";
-import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
+import type { LeaderboardMetricEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -174,4 +174,3 @@ export const buildLeaderboardFromPlayers = (
   const byTechs = rankMetric(overall.map((e) => ({ id: e.id, name: e.name, value: e.techs })));
   return { overall, byTiles, byIncome, byTechs };
 };
-

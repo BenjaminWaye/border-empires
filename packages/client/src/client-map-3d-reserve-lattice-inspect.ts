@@ -15,7 +15,7 @@
 
 import { InstancedMesh, Matrix4, MeshStandardMaterial, Scene, Vector3 } from "three";
 // CAD constants read by the probes.
-import { RL_BAR, RL_CLAMP, RL_CONDUIT, RL_DRUM, RL_DRUM_CORE, RL_GLOW, RL_NODE, RL_RIB } from "./client-map-3d-reserve-lattice-parts.js";
+import { RL_BAR, RL_CLAMP, RL_CONDUIT, RL_DRUM_CORE, RL_GLOW, RL_NODE, RL_RIB } from "./client-map-3d-reserve-lattice-parts.js";
 
 export const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);

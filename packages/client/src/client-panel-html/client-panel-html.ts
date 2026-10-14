@@ -461,6 +461,3 @@ export const leaderboardHtml = (
     </article>
   `;
 };
-
-export const developmentSlotPipsHtml = (summary: { busy: number; limit: number }): string =>
-  Array.from({ length: summary.limit }, (_, index) => `<span class="dev-slot-pip${index < summary.busy ? " is-busy" : ""}"></span>`).join("");

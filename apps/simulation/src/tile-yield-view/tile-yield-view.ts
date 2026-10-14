@@ -37,8 +37,6 @@ export type TileYieldView = {
   yieldCap: TileYieldCapView;
 };
 
-const HYDROGARDEN_FOOD_BONUS_PER_DAY = 48 * 0.5;
-
 // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced —
 // there's only one food mechanic now (slot
 // dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
@@ -114,30 +112,6 @@ const roundPositive = (value: number, digits: number): number => {
 const wrappedAxisDistance = (a: number, b: number, span: number): number => {
   const raw = Math.abs(a - b);
   return Math.min(raw, span - raw);
-};
-
-/**
- * Hydrogarden's empire-wide FOOD contribution (used by the "food detailed
- * production" breakdown / strategicProductionPerMinute in
- * player-update-economy.ts). Mirrors the per-tile logic in
- * `converterDailyOutput`/`buildTileYieldView` below: +50% food, FARM tiles
- * only (FISH gets nothing), doubled again when within HYDROWORKS_RADIUS of
- * an active Hydroworks. Exported here — rather than duplicated — so both
- * the per-tile yield view and the empire-wide production total can never
- * drift out of sync again.
- */
-export const hydrogardenFoodBonusPerMinute = (
-  // Structural param (not Pick<DomainTileState>) so both live-runtime DomainTiles
-  // and snapshot-path tiles carrying a loosely-parsed economicStructure
-  // ({ type?, status? } from economicStructureJson) can call this one helper.
-  tile: { x: number; y: number; resource?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined },
-  hydroworksKeys: ReadonlySet<string>
-): number => {
-  if (tile.resource !== "FARM") return 0;
-  if (tile.economicStructure?.type !== "HYDROGARDEN" || tile.economicStructure.status !== "active") return 0;
-  const withinHydroworksRadius = hydroworksKeys.size > 0 && withinRadiusOfAnyKey(tile.x, tile.y, hydroworksKeys, HYDROWORKS_RADIUS);
-  const dailyBonus = withinHydroworksRadius ? HYDROGARDEN_FOOD_BONUS_PER_DAY * HYDROWORKS_OUTPUT_MULT : HYDROGARDEN_FOOD_BONUS_PER_DAY;
-  return dailyBonus / 1440;
 };
 
 // Exported for reuse by resource-slot-view.ts (§5.3's Hydroworks->Hydrogarden

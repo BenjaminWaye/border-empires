@@ -19,7 +19,6 @@ import type { EconomyPlayer } from "../economy-network/economy-network.js";
 import {
   buildFedTownKeysByPlayer,
   buildResourceSlotDormancyByPlayer,
-  buildResourceSlotDormancyByPlayerAsync,
   dormantEconomicStructureKeysFromDormancy
 } from "../snapshot-economy-helpers.js";
 

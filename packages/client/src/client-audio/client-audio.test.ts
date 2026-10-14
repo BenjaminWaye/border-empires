@@ -2,11 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAmbientAudioVolume,
   isAmbientAudioMuted,
-  playLocationTheme,
   setAmbientAudioMuted,
   setAmbientAudioVolume,
-  startAmbientAudio,
-  updateMusicForGameState
+  startAmbientAudio
 } from "./client-audio.js";
 
 const stubWindowWithoutAudioContext = (): Map<string, string> => {

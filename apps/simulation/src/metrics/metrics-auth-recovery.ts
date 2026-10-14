@@ -44,5 +44,3 @@ export const createAuthRecoveryMetrics = () => {
     }
   };
 };
-
-export type AuthRecoveryMetrics = ReturnType<typeof createAuthRecoveryMetrics>;

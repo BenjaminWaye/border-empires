@@ -13,18 +13,6 @@ const statCardHtml = (label: string, value: string, detail?: string): string => 
     ${detail ? `<div class="intel-stat-detail">${escapeHtml(detail)}</div>` : ""}
   </div>`;
 
-export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | undefined): string[] => {
-  if (!stats) return [];
-  return [
-    `Intel: ${stats.playerName}`,
-    `Economy ${(stats.incomePerMinute * 1440).toFixed(1)}/day • Coin ${formatInt(stats.gold)}`,
-    `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} garrisoned • ${formatInt(stats.frontierTiles)} frontier`,
-    `Towns ${formatInt(stats.controlledTowns)} • Tech ${formatInt(stats.techCount)}`,
-    `Manpower ${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`,
-    `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} T ${formatInt(stats.strategicResources.TITANIUM)} C ${formatInt(stats.strategicResources.CRYSTAL)} U ${formatInt(stats.strategicResources.UMBRITE)} Sh ${formatInt(stats.strategicResources.SHARD)}`
-  ];
-};
-
 export const revealEmpireStatsFeedText = (stats: RevealEmpireStatsView): string =>
   `${stats.playerName}: ${(stats.incomePerMinute * 1440).toFixed(1)}/day, ${formatInt(stats.tiles)} tiles, ${formatInt(stats.controlledTowns)} towns, ${formatInt(stats.gold)} coin.`;
 

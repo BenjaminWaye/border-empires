@@ -339,7 +339,6 @@ export const splitTileActionsIntoTabs = (
   state: TileActionFilterState
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
-  const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
   const actionRows = filtered.filter(
     (action) =>
       (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyHydrogarden(action)) &&

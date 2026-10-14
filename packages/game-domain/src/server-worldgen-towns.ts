@@ -21,7 +21,6 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     docksByTile,
     clusterByTile,
     POPULATION_MAX,
-    POPULATION_TOWN_MIN,
     now,
     wrapX,
     wrapY,
