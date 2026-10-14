@@ -339,6 +339,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AI names in Alliances",
     why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
     changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
+  },
+  {
+    createdAt: 1791969446372, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Smoother fog reveals in the 3D map",
+    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
+    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
   }
 ];
 
