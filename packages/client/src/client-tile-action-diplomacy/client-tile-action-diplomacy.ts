@@ -42,12 +42,12 @@ export const diplomacyActionForOwner = (
 
 /**
  * Opens the Alliances panel (desktop side panel, or the mobile social sheet)
- * and marks the player to scroll to and highlight there. Sets panel state
+ * and marks the player to scroll to, highlight and expand there. Sets panel state
  * directly rather than via the toggling setActivePanel, so pressing Diplomacy
  * while the panel is already open does not close it. The caller re-renders.
  */
 export const openDiplomacyForPlayer = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "socialFocus">,
+  state: Pick<ClientState, "activePanel" | "mobilePanel" | "socialFocus" | "expandedSocialPlayerId">,
   playerId: string,
   isMobileViewport: boolean,
   nowMs: number = Date.now()
@@ -55,6 +55,8 @@ export const openDiplomacyForPlayer = (
   state.activePanel = "alliance";
   if (isMobileViewport) state.mobilePanel = "social";
   state.socialFocus = { playerId, until: nowMs + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true };
+  // Open the player's row so its Propose / Truce buttons are ready to tap.
+  state.expandedSocialPlayerId = playerId;
 };
 
 export const SOCIAL_FOCUS_HIGHLIGHT_MS = 8_000;
