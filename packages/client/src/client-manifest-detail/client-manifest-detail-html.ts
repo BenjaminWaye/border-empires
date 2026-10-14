@@ -73,6 +73,7 @@ const gainsHtml = (rows: ManifestGainRow[], owned: boolean): string => {
   const items = rows
     .map(
       (row) => `<li class="manifest-gain manifest-gain--${row.kind}">
+        <span class="manifest-gain__icon" aria-hidden="true">${row.icon}</span>
         <span class="manifest-gain__main">${row.html}</span>${row.detail ? `<span class="manifest-gain__detail">${escapeHtml(row.detail)}</span>` : ""}
       </li>`
     )

@@ -50,7 +50,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   survey_sweep: {
     id: "survey_sweep",
     name: "Survey Sweep",
-    requiredTechIds: ["surveying"],
+    requiredTechIds: ["beacon-towers"],
     crystalCost: SURVEY_SWEEP_CRYSTAL_COST,
     cooldownMs: SURVEY_SWEEP_COOLDOWN_MS
   },

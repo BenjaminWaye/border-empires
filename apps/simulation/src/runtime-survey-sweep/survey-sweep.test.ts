@@ -27,7 +27,7 @@ describe("survey sweep", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", makePlayer("player-1", ["surveying"])],
+        ["player-1", makePlayer("player-1", ["beacon-towers"])],
         ["player-2", makePlayer("player-2")]
       ]),
       seedTiles: new Map(),
