@@ -3,12 +3,9 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   SETTLE_COST, SETTLE_MANPOWER_COST,
-  SIEGE_BATTERY_ATTACK_MULT,
   PALISADE_DEFENSE_MULT,
-  structureBuildGoldCost,
   structureBuildManpowerCost,
   structureBuildDurationMs,
-  structurePlacementMetadata,
   terrainAt,
   structureSlotRequirements,
   observatoryCrystalSlotCostForOwnedCount,
@@ -29,7 +26,6 @@ import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js"
 import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { SKY_DOCK_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
-import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureName, MONUMENT_COMPONENT_KEYS } from "../client-map-display.js";
@@ -46,7 +42,6 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type {
   ActiveTruceView,
-  CrystalTargetingAbility,
   FeedSeverity,
   FeedType,
   Tile,
@@ -175,13 +170,6 @@ export const hasRetortRecastingCapability = (state: ClientState): boolean => pla
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
 
-export const aetherWallDirectionLabel = (direction: ClientState["aetherWallTargeting"]["direction"]): string => {
-  if (direction === "N") return "North";
-  if (direction === "E") return "East";
-  if (direction === "S") return "South";
-  return "West";
-};
-
 export const canPlaceAetherWallFromOrigin = (
   state: ClientState,
   originX: number,
@@ -275,24 +263,6 @@ export const tileActionAvailability = (
 ): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
   if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
-};
-
-const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
-  structurePlacementMetadata(structureType).requiresBorder === "border";
-
-export const isAdjacentToUnexplored = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
-): boolean => {
-  const neighbors = [
-    deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)),
-    deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)),
-    deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)),
-    deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y))
-  ];
-  return neighbors.some((key) => !state.discoveredTiles.has(key));
 };
 
 export const isOwnedBorderTile = (
@@ -630,10 +600,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       goldCostOverride?: number
     ): [boolean, string, string] => chainedBuildAvailabilityFromModule(deps, state, tile, structureType, eligible, ineligible, cost, goldCostOverride);
     const out: TileActionDef[] = [];
-    const isSettlementTile = tile.town?.populationTier === "SETTLEMENT";
-    const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-    const hasYield =
-      Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.siegeBattery || tile.observatory || tile.economicStructure);
     const buildAfcAction = buildAfcActionForTile(state, tile, tileActionAvailability);
     if (buildAfcAction) out.push(buildAfcAction);

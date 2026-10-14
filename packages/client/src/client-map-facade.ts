@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -71,7 +71,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapBaseCtx,
     keyFor,
     parseKey,
-    terrainAt,
     wrapX,
     wrapY,
     resourceColor,
@@ -338,7 +337,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const isDockRouteVisibleForPlayer = (pair: DockPair): boolean =>
     isDockRouteVisibleForPlayerFromModule(pair, {
       fogDisabled: effectiveFogDisabled(state),
-      selected: state.selected,
       discoveredDockTiles: state.discoveredDockTiles,
       keyFor
     });

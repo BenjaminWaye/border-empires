@@ -12,7 +12,7 @@ import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
-import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
+import { applyResourceTileSteal } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";

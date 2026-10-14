@@ -1,7 +1,7 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
-import { baseDeps, keyFor, stateWith, tiebreakDeps, tile } from "./client-waypoint-planner-fixtures.js";
+import { baseDeps, stateWith, tiebreakDeps, tile } from "./client-waypoint-planner-fixtures.js";
 import { planWaypoint } from "./client-waypoint-planner.js";
 import type { WaypointPlannerDeps } from "./client-waypoint-planner.js";
 import type { Tile } from "../client-types.js";

@@ -145,7 +145,3 @@ export const maybeSaveDiscoveredTiles = (state: {
   lastDiscoveredTilesSaveAt = now;
   flushDiscoveredTiles(state);
 };
-
-export const resetDiscoveredTilesSaveThrottleForTests = (): void => {
-  lastDiscoveredTilesSaveAt = 0;
-};

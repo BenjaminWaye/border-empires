@@ -1,4 +1,4 @@
-import type { EconomicStructureType, FortVariant, SiegeBatteryVariant, Tile, TileUpkeepEntry } from "../types.js";
+import type { Tile, TileUpkeepEntry } from "../types.js";
 
 // ── Kind discriminator ────────────────────────────────────────────
 

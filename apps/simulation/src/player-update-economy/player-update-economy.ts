@@ -60,14 +60,6 @@ export type PlayerUpdateEconomySnapshot = {
   economyBreakdown: EconomyBreakdown;
 };
 
-const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
-  FOOD: 0,
-  TITANIUM: 0,
-  CRYSTAL: 0,
-  UMBRITE: 0,
-  SHARD: 0
-});
-
 // Rounding precision here (and on every other .toFixed(...) in this file)
 // was bumped from 4 to 6 decimal places for the gold rescope: gold
 // amounts are now ~288x

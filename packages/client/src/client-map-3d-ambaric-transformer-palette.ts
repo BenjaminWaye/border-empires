@@ -19,5 +19,3 @@ export const AMBARIC_TRANSFORMER_COLORS = {
   aetherMid: "#9fe6ff",
   aetherDeep: "#46bbee"
 } as const;
-
-export type AmbaricTransformerColor = (typeof AMBARIC_TRANSFORMER_COLORS)[keyof typeof AMBARIC_TRANSFORMER_COLORS];

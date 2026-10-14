@@ -6,8 +6,6 @@
 // pass in whether a given playerId currently holds a Planet (from
 // ClientState.dukePlayers, populated from the server's per-player
 // broadcast, or from a fetched GalaxyHoldingsView for the profile modal).
-const escapeHtml = (value: string): string =>
-  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
 // Simplified crown mark (viewBox 0 0 48 48), sized down for inline use next
 // to a name. currentColor lets callers tint it via CSS.

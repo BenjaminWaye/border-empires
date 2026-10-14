@@ -60,14 +60,6 @@ export const markDiscoveryTipSeen = (tipId: string, authEmail?: string | null): 
   sendHintStateUpdate({ dismissedHints: Object.keys(readTimestamps(authEmail)) });
 };
 
-export const clearDiscoveryTipsSeen = (authEmail?: string | null): void => {
-  try {
-    window.localStorage.removeItem(scopedKey(DISCOVERY_TIPS_STORAGE_KEY, authEmail));
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
-};
-
 export const isDiscoveryTipsMuted = (authEmail?: string | null): boolean => {
   try {
     const raw = window.localStorage.getItem(scopedKey(DISCOVERY_TIPS_MUTE_STORAGE_KEY, authEmail));

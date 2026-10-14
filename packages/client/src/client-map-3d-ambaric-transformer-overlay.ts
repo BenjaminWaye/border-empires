@@ -121,8 +121,6 @@ const CAPS: readonly CapSpec[] = [
   { key: "clusterRing", mult: 2 }
 ];
 
-type Slot = { mesh: InstancedMesh; count: number; cap: number };
-
 export const createAmbaricTransformerOverlay = (
   scene: Scene,
   maxTiles: number,

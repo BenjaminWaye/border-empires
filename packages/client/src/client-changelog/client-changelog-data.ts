@@ -43,6 +43,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.14.3",
+    title: "Enemy frontier warnings refer to their owner's reach",
+    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
+    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
+  },
+  {
     createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.14.2",
     title: "Waystation rewards show current technology names",
@@ -57,6 +64,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Manifest details stay where you scroll",
     why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
     changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
+  },
+  {
+    createdAt: 1791970194502,
+    introducedIn: "2026.10.14.2",
+    title: "Hidden dock connections stay hidden",
+    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
+    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
@@ -346,6 +360,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "AI names in Alliances",
     why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
     changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
+  },
+  {
+    createdAt: 1791977894863,
+    introducedIn: "2026.10.14.4",
+    title: "Testing new outlines for enemy land inside your border",
+    why: "Enemy tiles taken inside your reach only get a plain outline, which doesn't read as a break-in. Admins are trying new looks on the 3D map before one becomes the default.",
+    changes: [
+      "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
+      "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
+    ]
   }
 ];
 

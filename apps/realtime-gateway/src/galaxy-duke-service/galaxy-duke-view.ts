@@ -8,7 +8,7 @@ import { CYCLE_DAYS, MIN_MOVE_AGAINST_COURT_WAGER, WARDEN_POOL_PER_CYCLE } from 
 import { developmentUpkeepPerCycle } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DigestEntry, DukeIntel } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { incursionRatePerCycle } from "../galaxy-duke-engine/galaxy-duke-incursion.js";
-import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
+import type { DukeContext } from "./galaxy-duke-context.js";
 import { buildAttention, type AttentionItem } from "./galaxy-duke-attention.js";
 import { buildSystemView, type SystemView } from "./galaxy-duke-system-view.js";
 import { courtNow, domainWeights } from "./galaxy-duke-court.js";
@@ -98,4 +98,3 @@ export const buildCourtPublicStatus = async (ctx: DukeContext): Promise<CourtPub
   const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
   return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era };
 };
-

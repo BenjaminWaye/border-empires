@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { landBiomeAt } from "@border-empires/shared";
 import { terrainTextureIdAt } from "./client-map-render-texture-id.js";
 import { terrainTextures } from "./client-map-render-terrain-textures.js";
 import { drawReliefTerrainTile } from "./client-map-render-relief-tile.js";
@@ -10,10 +10,8 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 import {
   aetherBridgeAnchorImage,
   aetherWallPylonImage,
-  dockOverlayVariants,
   fortificationOverlayImages,
-  overlaySrc,
-  structureOverlayImages
+  overlaySrc
 } from "./client-map-overlay-images.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
@@ -22,8 +20,6 @@ import type { RoadDirections } from "../client-road-network/client-road-network.
 import type { EmpireVisualStyle, Tile } from "../client-types.js";
 
 export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
-
-type TileMap = Map<string, Tile>;
 
 export { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render-terrain-relief.js";
 export { drawShardFallback } from "./client-map-render-shard-fallback.js";
