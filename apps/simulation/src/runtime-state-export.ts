@@ -451,6 +451,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        nonHostilePlayerIds: [...player.allies, ...(player.truces ?? [])],
         musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
         ownedTileCount,
         frontierTileCount,
