@@ -1,9 +1,9 @@
-// Shared demo world for the IncursionBreachEdge stories (3D + 2D): my empire is
+// Demo world for the IncursionBreachEdge story: my empire is
 // an 11x7 block, and inside it sit an L-shaped rival pocket, a single-tile
 // pocket, and a pocket on my outer border whose east side faces unowned land
-// (that side keeps the plain strip in every style). The edge shapes
-// themselves come from the production client-incursion-breach-shapes.ts.
-import type { BreachNeighbourKind } from "@client/client-reach-incursion/client-incursion-breach-shapes.js";
+// (that side keeps the plain strip in every style). Where the breach look
+// goes comes from the production client-incursion-breach-layout.ts.
+import type { BreachNeighbourKind } from "@client/client-reach-incursion/client-incursion-breach-layout.js";
 import type { IncursionBreachStyle } from "@client/client-reach-incursion/client-incursion-breach-style.js";
 
 export const MINE_HALF_WIDTH = 5;
@@ -11,9 +11,9 @@ export const MINE_HALF_HEIGHT = 3;
 
 export const BREACH_STYLE_LABELS: Readonly<Record<IncursionBreachStyle, string>> = {
   straight: "Current — straight outline",
-  spikes: "Option 1 — front-line spikes",
-  jagged: "Option 2 — jagged torn line",
-  shattered: "Option 3 — shattered wall + cracks"
+  ember: "Option 1 — ember seam",
+  ink: "Option 2 — ink bleed",
+  veil: "Option 3 — aether veil"
 };
 
 export type BreachDemoWorld = {
@@ -47,7 +47,7 @@ export const buildBreachDemoWorld = (): BreachDemoWorld => {
   return { mine, pocket };
 };
 
-/** The production breach outline's neighbour classifier, for a pocket tile of the demo world. */
+/** The production breach layout's neighbour classifier, for a pocket tile of the demo world. */
 export const demoKindAt =
   (world: BreachDemoWorld, x: number, y: number) =>
   (dx: number, dy: number): BreachNeighbourKind => {

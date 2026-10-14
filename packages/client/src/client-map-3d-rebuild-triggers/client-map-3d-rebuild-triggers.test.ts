@@ -74,7 +74,7 @@ describe("3D map rebuild triggers", () => {
     const state = createState();
     setIncursionBreachStyle("straight");
     const built = captureMap3DRebuildTriggers(state, keyFor, true);
-    setIncursionBreachStyle("spikes");
+    setIncursionBreachStyle("ember");
     const afterSwitch = captureMap3DRebuildTriggers(state, keyFor, true);
     expect(map3DRebuildTriggersChanged(built, afterSwitch)).toBe(true);
     expect(map3DRebuildTriggersChanged(afterSwitch, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);

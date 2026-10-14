@@ -1,6 +1,6 @@
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { incursionHatchColors, incursionMarkColor, incursionNeighbourKindAt, incursionOwnerAt, type IncursionDeps } from "../client-reach-incursion/client-reach-incursion.js";
-import { incursionBreachOutline } from "../client-reach-incursion/client-incursion-breach-shapes.js";
+import { incursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout.js";
 import { incursionBreachStyle, type IncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
 import type { ReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import type { Tile } from "../client-types.js";
@@ -36,14 +36,15 @@ export const addReachTileOverlays3D = (
   const intruder = incursionOwnerAt(tile, deps.keyFor(wx, wy), deps.me, myReach);
   if (!intruder) return;
   const intruderColor = deps.ownerColor(intruder);
-  const outline = incursionBreachOutline(deps.breachStyle ?? incursionBreachStyle(), wx, wy, incursionNeighbourKindAt(wx, wy, intruder, deps.me, deps));
+  const style = deps.breachStyle ?? incursionBreachStyle();
+  const layout = incursionBreachLayout(style, incursionNeighbourKindAt(wx, wy, intruder, deps.me, deps));
   overlay.addIncursionTile(
     scene.x,
     scene.z,
     scene.y,
     incursionHatchColors(intruderColor, deps.ownerColor(deps.me)),
     incursionMarkColor(intruderColor),
-    outline.straightEdges,
-    outline.shapes
+    layout.straightEdges,
+    { style, worldX: wx, worldY: wy, layout }
   );
 };

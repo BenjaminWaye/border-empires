@@ -1,6 +1,5 @@
 // The "Breach Edge Style" field on Settings > Admin: switches the 3D incursion
-// pocket outline between the straight strip and the three candidate breach
-// looks (client-incursion-breach-style.ts) so they can be compared in-game.
+// pocket outline between the straight strip and the candidate breach looks (client-incursion-breach-style.ts) so they can be compared in-game.
 // Admin-only while the look is being chosen.
 import {
   INCURSION_BREACH_STYLES,
@@ -12,9 +11,9 @@ import {
 
 const LABELS: Readonly<Record<IncursionBreachStyle, string>> = {
   straight: "Straight outline (current)",
-  spikes: "Spikes into my territory",
-  jagged: "Jagged torn line",
-  shattered: "Shattered wall + cracks"
+  ember: "Ember seam",
+  ink: "Ink bleed",
+  veil: "Aether veil"
 };
 
 export const incursionBreachSettingsFieldHtml = (current: IncursionBreachStyle = incursionBreachStyle()): string => `

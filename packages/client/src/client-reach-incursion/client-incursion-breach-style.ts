@@ -1,21 +1,26 @@
 // Which look the incursion pocket edge uses where a rival pocket borders the
-// viewer's own land (see client-incursion-breach-shapes.ts). Three candidate
+// viewer's own land (see client-incursion-breach-layout.ts). Candidate
 // "breach" looks are being compared in-game before one replaces the straight
 // strip, so for now this is an admin-only switch (Settings > Admin):
 //
-//  - "straight":  the original solid strip just inside the pocket (default).
-//  - "spikes":    rival-coloured teeth pushing out into the viewer's tiles.
-//  - "jagged":    the outline becomes an irregular zig-zag.
-//  - "shattered": the outline breaks into offset wall chunks with cracks
-//                 running out into the viewer's tiles.
+//  - "straight": the original solid strip just inside the pocket (default).
+//  - "ember":    a thin glowing fissure along the boundary with a soft
+//                flickering glow either side (Total War: Warhammer
+//                corruption fronts, Diablo lava seams).
+//  - "ink":      the intruder's colour bleeds into my land like watercolour,
+//                with a feathered, pigment-darkened front (Civilization VI's
+//                watercolour map).
+//  - "veil":     a low translucent curtain of the intruder's light rising
+//                from the boundary (Stellaris borders, and our own Aether
+//                Survey Line).
 //
 // Persisted to localStorage, with a `?breachedge=<style>` URL param taking
 // precedence (handy for screenshots and regression checks) -- same pattern as
 // client-siege-tower-rotation-mode.ts.
 
-export type IncursionBreachStyle = "straight" | "spikes" | "jagged" | "shattered";
+export type IncursionBreachStyle = "straight" | "ember" | "ink" | "veil";
 
-export const INCURSION_BREACH_STYLES: readonly IncursionBreachStyle[] = ["straight", "spikes", "jagged", "shattered"];
+export const INCURSION_BREACH_STYLES: readonly IncursionBreachStyle[] = ["straight", "ember", "ink", "veil"];
 
 const STORAGE_KEY = "border-empires-incursion-breach-style";
 

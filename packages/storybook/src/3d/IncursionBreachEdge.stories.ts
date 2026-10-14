@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Mesh, MeshBasicMaterial } from "three";
 import { createIncursionOverlay3D } from "@client/client-map-3d-incursion-overlay/client-map-3d-incursion-overlay.js";
 import { incursionHatchColors, incursionMarkColor } from "@client/client-reach-incursion/client-reach-incursion.js";
-import { incursionBreachOutline } from "@client/client-reach-incursion/client-incursion-breach-shapes.js";
+import { incursionBreachLayout } from "@client/client-reach-incursion/client-incursion-breach-layout.js";
 import { INCURSION_BREACH_STYLES, type IncursionBreachStyle } from "@client/client-reach-incursion/client-incursion-breach-style.js";
 import { normalizeColorForThree } from "@client/client-three-color/client-three-color.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
@@ -11,8 +11,8 @@ import { BREACH_STYLE_LABELS, buildBreachDemoWorld, demoKindAt, parseTileKey, ty
 /**
  * The incursion pocket edge -- the outline around a rival's tiles inside my
  * reach -- in each breach style, through the REAL production 3D overlay
- * (createIncursionOverlay3D) and outline geometry (incursionBreachOutline),
- * exactly as addReachTileOverlays3D feeds them in-game. In the game the style
+ * (createIncursionOverlay3D, animated via update()) and layout
+ * (incursionBreachLayout), exactly as addReachTileOverlays3D feeds them in-game. In the game the style
  * is the Settings > Admin "Breach Edge Style" switch.
  *
  * The pocket on my east border keeps the plain strip on its outer side in
@@ -81,12 +81,20 @@ const renderOne = (args: Args, label?: string): HTMLElement => {
   overlay.clear();
   for (const key of world.pocket) {
     const { x, y } = parseTileKey(key);
-    const outline = incursionBreachOutline(args.style, x, y, demoKindAt(world, x, y));
-    overlay.addTile(x, y, HATCH_Y, hatch, mark, outline.straightEdges, outline.shapes);
+    const layout = incursionBreachLayout(args.style, demoKindAt(world, x, y));
+    overlay.addTile(x, y, HATCH_Y, hatch, mark, layout.straightEdges, { style: args.style, worldX: x, worldY: y, layout });
   }
   overlay.commit();
 
+  let animId = 0;
+  const animate = (): void => {
+    overlay.update(performance.now());
+    animId = requestAnimationFrame(animate);
+  };
+  animate();
+
   const container = wrapWithCleanup(stage, [
+    () => cancelAnimationFrame(animId),
     overlay.dispose,
     () => {
       ownership.geometry.dispose();
@@ -120,7 +128,7 @@ const meta: Meta<Args> = {
     intruderColor: { control: { type: "color" } }
   },
   // Red-pink me, light-green intruder (-> near-black outline), as in the original screenshot.
-  args: { style: "spikes", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
+  args: { style: "ember", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
   render: (args) => renderOne(args, BREACH_STYLE_LABELS[args.style])
 };
 
@@ -129,8 +137,8 @@ type Story = StoryObj<Args>;
 
 export const CompareAll: Story = { render: renderCompare };
 export const Current: Story = { args: { style: "straight" } };
-export const Option1Spikes: Story = { args: { style: "spikes" } };
-export const Option2Jagged: Story = { args: { style: "jagged" } };
-export const Option3Shattered: Story = { args: { style: "shattered" } };
+export const Option1Ember: Story = { args: { style: "ember" } };
+export const Option2Ink: Story = { args: { style: "ink" } };
+export const Option3Veil: Story = { args: { style: "veil" } };
 /** A dark intruder colour flips the outline to white -- check every style still reads. */
 export const CompareAllDarkIntruder: Story = { args: { intruderColor: "#2b3a8c" }, render: renderCompare };

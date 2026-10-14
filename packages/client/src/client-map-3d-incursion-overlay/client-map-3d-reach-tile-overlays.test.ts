@@ -15,11 +15,12 @@ const tiles = new Map<string, Tile>([
 ]);
 
 const addFor = (breachStyle: IncursionBreachStyle) => {
-  const calls: Array<{ edges: unknown; shapes: number }> = [];
+  const calls: Array<{ edges: unknown; band: number; veil: readonly string[] }> = [];
   addReachTileOverlays3D(
     {
       addDormantFrontierTile: () => undefined,
-      addIncursionTile: (_x, _z, _y, _hatch, _edgeColor, edges, breach) => calls.push({ edges, shapes: breach?.length ?? 0 })
+      addIncursionTile: (_x, _z, _y, _hatch, _edgeColor, edges, breach) =>
+        calls.push({ edges, band: breach?.layout.band.length ?? 0, veil: breach?.layout.veilSides ?? [] })
     },
     tiles.get(keyFor(5, 5))!,
     5,
@@ -33,12 +34,13 @@ const addFor = (breachStyle: IncursionBreachStyle) => {
 
 describe("addReachTileOverlays3D breach outline", () => {
   it("keeps the plain strip on every open side in the straight style", () => {
-    expect(addFor("straight")).toEqual([{ edges: { north: true, east: false, south: true, west: true }, shapes: 0 }]);
+    expect(addFor("straight")).toEqual([{ edges: { north: true, east: false, south: true, west: true }, band: 0, veil: [] }]);
   });
 
-  it("swaps the strip for breach shapes only on the sides facing my land", () => {
-    const [call] = addFor("spikes");
-    expect(call!.edges).toEqual({ north: false, east: false, south: true, west: false });
-    expect(call!.shapes).toBeGreaterThan(0);
+  it("swaps the strip for the breach look only on the sides facing my land", () => {
+    const [ember] = addFor("ember");
+    expect(ember!.edges).toEqual({ north: false, east: false, south: true, west: false });
+    expect(ember!.band).toBeGreaterThan(0);
+    expect(addFor("veil")[0]!.veil).toEqual(["north", "west"]);
   });
 });

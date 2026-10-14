@@ -23,28 +23,28 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
-  it("fan-triangulates breach shapes into their own mesh in the outline colour", () => {
+  it("draws the breach band once per world tile, and a veil quad per breached side", () => {
     const group = new Group();
-    const overlay = createIncursionOverlay3D(group, 2);
-    const breach = group.children[2] as Mesh;
-    const shapes = [
-      { points: [{ x: 0, y: -0.5 }, { x: 0.2, y: -0.5 }, { x: 0.1, y: -0.9 }] },
-      { points: [{ x: -0.5, y: -0.5 }, { x: 0.5, y: -0.5 }, { x: 0.5, y: -0.45 }, { x: -0.5, y: -0.45 }] }
-    ];
-    overlay.addTile(3, 4, 1, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", { north: false, east: false, south: false, west: false }, shapes);
+    const overlay = createIncursionOverlay3D(group, 4);
+    const [, , band, veil] = group.children as Mesh[];
+    const noEdges = { north: false, east: false, south: false, west: false };
+    const hatch = { theirs: "#ff0000", mine: "#00ff00" };
+    // Two pocket tiles side by side, both listing the same tile of mine north of the seam.
+    const shared = { dx: 0, dy: -1, side: 1 as const, mask: 0b0100_0000 };
+    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, band: [shared], veilSides: [] } });
+    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, band: [{ ...shared, dx: -1 }], veilSides: [] } });
+    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, band: [], veilSides: ["north", "east"] } });
     overlay.commit();
-    const geometry = breach.geometry as BufferGeometry;
-    expect(geometry.drawRange.count).toBe(9); // 1 triangle + a quad's 2
-    const position = geometry.getAttribute("position");
-    // Tile-local (0.1, -0.9) lands at scene (3.1, y, 3.1): spikes reach into the neighbouring tile.
-    expect(position.getX(2)).toBeCloseTo(3.1);
-    expect(position.getZ(2)).toBeCloseTo(3.1);
-    expect(position.getY(2)).toBeGreaterThan(1);
-    const color = geometry.getAttribute("color");
-    expect([color.getX(0), color.getY(0), color.getZ(0)]).toEqual([1, 1, 1]); // the "#ffffff" outline colour
+    expect(drawnQuads(band!)).toBe(1);
+    expect(drawnQuads(veil!)).toBe(2);
+    // The veil stands up off the ground.
+    const veilY = (veil!.geometry as BufferGeometry).getAttribute("position");
+    expect(Math.max(veilY.getY(0), veilY.getY(2))).toBeGreaterThan(0.3);
     overlay.clear();
     overlay.commit();
-    expect(geometry.drawRange.count).toBe(0);
+    expect(drawnQuads(band!)).toBe(0);
+    expect(drawnQuads(veil!)).toBe(0);
+    overlay.update(1000);
     overlay.dispose();
     expect(group.children).toHaveLength(0);
   });
