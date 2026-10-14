@@ -35,7 +35,7 @@ describe("3D snow mask", () => {
   test("a snow/tundra border corner fades partway rather than snapping", () => {
     const edge = maskOf(mix(heightfieldTileColor("SNOW", 0), heightfieldTileColor("TUNDRA", 1), 0.25));
     expect(edge).toBeGreaterThan(0);
-    expect(edge).toBeLessThanOrEqual(1);
+    expect(edge).toBeLessThan(1);
   });
 
   test("the terrain shader patch applies the snow blend", () => {

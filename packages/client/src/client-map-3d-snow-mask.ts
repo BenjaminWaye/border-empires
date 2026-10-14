@@ -9,14 +9,14 @@
 // The GLSL in client-map-3d-heightfield-shader.ts is generated from these
 // constants, and heightfieldSnowMask mirrors it so tests can pin which
 // palette colours land on which side of the cut.
-export const SNOW_MASK_LUM_LOW = 0.84;
-export const SNOW_MASK_LUM_HIGH = 0.89;
-export const SNOW_MASK_YELLOW_LOW = 0.03;
-export const SNOW_MASK_YELLOW_HIGH = 0.08;
+const SNOW_MASK_LUM_LOW = 0.84;
+const SNOW_MASK_LUM_HIGH = 0.89;
+const SNOW_MASK_YELLOW_LOW = 0.03;
+const SNOW_MASK_YELLOW_HIGH = 0.08;
 // Snow ground colour, mixed lightly with the tundra texture sample so the
 // painted grain still shows through instead of a flat white sheet.
-export const SNOW_GROUND_RGB: readonly [number, number, number] = [0.93, 0.95, 0.97];
-export const SNOW_TEXTURE_DETAIL = 0.2;
+const SNOW_GROUND_RGB: readonly [number, number, number] = [0.93, 0.95, 0.97];
+const SNOW_TEXTURE_DETAIL = 0.2;
 
 const smoothstep = (edge0: number, edge1: number, x: number): number => {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
