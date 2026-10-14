@@ -288,6 +288,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The economy panel's currency card and detail heading now read Coin"]
   },
   {
+    createdAt: 1791925158695, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.3",
+    title: "Your border shows up as soon as you log in",
+    why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
+    changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
+  },
+  {
     createdAt: 1791925495773, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.2",
     title: "Tell your own territory apart",
