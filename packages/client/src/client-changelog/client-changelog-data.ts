@@ -56,7 +56,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.14.2",
     title: "Hidden dock connections stay hidden",
     why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
-    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links"]
+    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
   },
   {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.

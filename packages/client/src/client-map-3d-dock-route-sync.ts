@@ -73,8 +73,8 @@ export const dockRouteScenePaths = (
 // must not stop after the first match) using the same server-authoritative/
 // A*-fallback route data as the 2D renderer -- see resolveDockSeaRoute.
 //
-// This sync only re-runs when the selection/dockPairs/sceneOrigin key
-// changes (see the call site in client-map-3d.ts), not every frame -- so
+// The cached wrapper below also invalidates when discovery or fog changes.
+// Route geometry is not rebuilt every frame, so
 // positions must be anchored to sceneOrigin.camX/camY (the terrain's stable
 // rebuild anchor, which every other overlay in that module uses), not the
 // live state.camX/camY, which moves continuously while the user pans and
@@ -98,3 +98,29 @@ export function syncDockRouteOverlay(
     for (const path of dockRouteScenePaths(route, sceneOrigin)) dockRouteOverlay.addPath(path);
   }
 }
+
+
+export type DockRouteSync = (
+  state: ClientState,
+  sceneOrigin: { readonly camX: number; readonly camY: number },
+  resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>,
+  isDockRouteVisibleForPlayer: (pair: DockPair) => boolean
+) => void;
+
+// Selection alone cannot invalidate routes: garrison vision arrives later,
+// and administrative fog toggles can change visibility without moving the camera.
+export const createDockRouteSync = (overlay: DockRouteOverlay): DockRouteSync => {
+  let previousKey = "";
+  let previousPairs: readonly DockPair[] | undefined;
+  return (state, sceneOrigin, resolveDockSeaRoute, isDockRouteVisibleForPlayer): void => {
+    const selected = state.selected;
+    const key = [selected?.x, selected?.y, state.dockPairs.length, state.discoveredDockTiles.size,
+      state.fogDisabled, sceneOrigin.camX, sceneOrigin.camY].join(":");
+    if (key === previousKey && state.dockPairs === previousPairs) return;
+    previousKey = key;
+    previousPairs = state.dockPairs;
+    overlay.clear();
+    syncDockRouteOverlay(state, sceneOrigin, overlay, resolveDockSeaRoute, isDockRouteVisibleForPlayer);
+    overlay.commit();
+  };
+};
