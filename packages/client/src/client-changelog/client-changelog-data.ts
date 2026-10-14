@@ -425,7 +425,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
       "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
     ]
-  }
+  },
+  {
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Marches go into enemy territory instead of around it",
+    why: "A flag marched at enemy land could keep claiming neutral tiles beside the enemy border instead of attacking toward its target.",
+    changes: [
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
