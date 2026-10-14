@@ -8,7 +8,6 @@ import {
   type RuntimeState,
   type LivePlayerEconomySnapshot,
   type EconomyBucket,
-  type StrategicResourceKey,
   keyFor,
   toDomainTile,
   parseTown,
@@ -17,11 +16,7 @@ import {
   getDomainTilesByKey,
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
-  townKeysWithNearbyWar,
-  domainTilesByKeyCache,
-  settledDomainTilesByPlayerIdCache,
-  strategicProductionByPlayerCache,
-  fedTownKeysByPlayerCache
+  townKeysWithNearbyWar
 } from "./snapshot-tile-cache.js";
 import {
   emptyStrategic,
@@ -31,7 +26,6 @@ import {
   strategicResourceForTile,
   structureUpkeepPerMinute,
   converterOutputPerMinute,
-  townFoodUpkeepPerMinute,
   buildStrategicProductionByPlayer,
   buildFedTownKeysByPlayer,
   buildResourceSlotDormancyByPlayer,

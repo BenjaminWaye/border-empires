@@ -1,4 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileMenuView } from "../client-types.js";
 
@@ -15,7 +16,7 @@ import type { DockPair, Tile, TileMenuView } from "../client-types.js";
 
 export type ConnectedDockStop = { x: number; y: number; distance: number; bySea: boolean };
 
-type DockNavigatorState = Pick<ClientState, "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY">;
+type DockNavigatorState = Pick<ClientState, "fogDisabled" | "discoveredDockTiles" | "dockPairs" | "camX" | "camY" | "camSubX" | "camSubY">;
 
 const toroidManhattan = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);
@@ -41,6 +42,13 @@ export const connectedDockStops = (dockPairs: readonly DockPair[], x: number, y:
   return [...byKey.values()].sort((a, b) => a.distance - b.distance || a.x - b.x || a.y - b.y);
 };
 
+const discoveredDockStops = (state: DockNavigatorState, x: number, y: number): ConnectedDockStop[] =>
+  connectedDockStops(state.dockPairs.filter((pair) => isDockRouteVisibleForPlayer(pair, {
+    fogDisabled: state.fogDisabled,
+    discoveredDockTiles: state.discoveredDockTiles,
+    keyFor: (tileX, tileY) => `${tileX},${tileY}`
+  })), x, y);
+
 /** Index of the stop the camera is currently centred on, or -1. */
 export const stopIndexAtCamera = (stops: readonly ConnectedDockStop[], camX: number, camY: number): number =>
   stops.findIndex((stop) => stop.x === camX && stop.y === camY);
@@ -53,7 +61,7 @@ const navigatorLabel = (stops: readonly ConnectedDockStop[], index: number): str
 export const injectDockNavigatorRow = (view: TileMenuView, tile: Tile, state: DockNavigatorState): void => {
   if (!tile.dockId) return;
   if (view.overviewLines.some((line) => line.html.includes("data-dock-nav-origin"))) return;
-  const stops = connectedDockStops(state.dockPairs, tile.x, tile.y);
+  const stops = discoveredDockStops(state, tile.x, tile.y);
   if (stops.length === 0) return;
   const origin = `${tile.x},${tile.y}`;
   const label = navigatorLabel(stops, stopIndexAtCamera(stops, state.camX, state.camY));
@@ -77,7 +85,7 @@ const centerCamera = (state: DockNavigatorState, x: number, y: number): void => 
 
 /** Moves the camera for one navigator press; returns the new label text. */
 export const stepDockNavigator = (state: DockNavigatorState, originX: number, originY: number, action: string): string | undefined => {
-  const stops = connectedDockStops(state.dockPairs, originX, originY);
+  const stops = discoveredDockStops(state, originX, originY);
   if (stops.length === 0) return undefined;
   if (action === "home") {
     centerCamera(state, originX, originY);

@@ -2,7 +2,6 @@ import type { ClientState } from "./client-state/client-state.js";
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
-  ScoreHistorySeriesView,
   SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView

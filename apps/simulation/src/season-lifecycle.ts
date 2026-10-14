@@ -80,8 +80,6 @@ export const withPlayerJoinedSeason = (seasonState: SimulationSeasonState, playe
   return { ...seasonState, joinedPlayerIds: [...joinedPlayerIds, playerId] };
 };
 
-export const nextWorldSeed = (random = Math.random): number => Math.floor(random() * 1_000_000_000);
-
 /** `status` predates `"pending"`/`"ended"` for some persisted seasons and may
  *  be missing entirely; absent status must be treated as the historical
  *  default, `"active"` (matches the joinedPlayerIds/mapStyle convention

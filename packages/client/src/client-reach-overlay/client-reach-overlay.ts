@@ -78,21 +78,6 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
 };
 
 /**
- * A cheap (single reach-set computation, then O(1) lookups) `isInReach`
- * predicate for `planWaypoint`'s deps (packages/shared/src/waypoint-planner)
- * -- the search calls it once per candidate EXPAND step, so computing the
- * whole reach set fresh on every call would be far too slow.
- */
-export const localReachIsInReach = (
-  tiles: ReachOverlayTileMap,
-  me: string,
-  keyFor: (x: number, y: number) => string
-): ((x: number, y: number) => boolean) => {
-  const reach = computeLocalReachSet(tiles, me);
-  return (x: number, y: number): boolean => reach.has(keyFor(x, y));
-};
-
-/**
  * Excludes water tiles (SEA/COASTAL_SEA) from a reach set. Reach itself is a
  * purely geometric radius (see `computeLocalReachSet` above) with no
  * terrain awareness -- a coastal town/beacon's radius disk legitimately
@@ -167,68 +152,19 @@ export const isReachBoundaryTile = (
   return neighbours.some((key) => !reach.has(key));
 };
 
-/** Which of a boundary tile's 4 cardinal neighbours are themselves out of reach. */
-export type ReachEdges = {
-  readonly top: boolean;
-  readonly right: boolean;
-  readonly bottom: boolean;
-  readonly left: boolean;
-};
-
-/** Computes a tile's `ReachEdges` against the given reach set. */
-export const reachEdgesForTile = (x: number, y: number, reach: ReadonlySet<string>, deps: ReachBoundaryDeps): ReachEdges => ({
-  top: !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1))),
-  right: !reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y))),
-  bottom: !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1))),
-  left: !reach.has(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)))
-});
-
-// Just shy of a full half-tile (0.5) so a marker sits right on the tile
-// boundary line itself without its base geometry clipping through the
-// neighbouring tile's ground plane.
-const PYLON_EDGE_OFFSET_AMOUNT = 0.42;
-
-/**
- * A border marker (pylon, sentry, whatever the current 3D overlay design
- * calls it) should stand on the line between the owned tile and its
- * out-of-reach neighbour, the way a real border post stands on the border,
- * not in the middle of a field. Pure function: sums an outward unit push
- * toward every active edge and returns the (unnormalized) offset to add to
- * the tile-center position, landing the marker almost exactly on that edge
- * (or, for a corner tile with two active edges, on the tile's corner
- * vertex where both edges meet).
- *
- * Reach borders never overlap between players (each tile is clipped to at
- * most one owner), so an enemy's boundary markers can sit on the tile
- * directly across the line from yours -- each side's posts standing right
- * at their own edge is exactly what should make a contested border read as
- * two real, distinct claims facing off, not two rows merged into one.
- */
-export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; readonly dz: number } => {
-  // Applied independently per axis (not a combined vector normalized to a
-  // fixed length) so a corner tile actually lands on the tile's corner
-  // vertex: normalizing a 2-edge diagonal to PYLON_EDGE_OFFSET_AMOUNT would
-  // only reach ~0.3 units per axis (0.42/sqrt(2)) instead of the ~0.42 each
-  // axis gets here, visibly undershooting the real corner.
-  let dx = 0;
-  let dz = 0;
-  if (edges.top) dz -= PYLON_EDGE_OFFSET_AMOUNT; // north neighbour is out of reach -> push north (-z), onto that edge
-  if (edges.bottom) dz += PYLON_EDGE_OFFSET_AMOUNT;
-  if (edges.left) dx -= PYLON_EDGE_OFFSET_AMOUNT; // west neighbour is out of reach -> push west (-x), onto that edge
-  if (edges.right) dx += PYLON_EDGE_OFFSET_AMOUNT;
-  return { dx, dz };
-};
-
-const REACH_BOUNDARY_COLOR = "rgba(255, 245, 190, 0.85)";
-const REACH_BOUNDARY_DASH: [number, number] = [4, 3];
+// White core over an owner-coloured sheath -- the 2D twin of the 3D own-border
+// emphasis (client-reach-border-emphasis.ts). Not gold: gold is the fog edge.
+const REACH_BOUNDARY_CORE_COLOR = "rgba(255, 255, 255, 0.92)";
+const REACH_BOUNDARY_SHEATH_ALPHA = 0.85;
 const DORMANT_FRONTIER_FILL = "rgba(120, 96, 58, 0.22)";
 const DORMANT_FRONTIER_STROKE = "rgba(214, 178, 110, 0.6)";
 
 /**
- * Draws the dashed reach-boundary line around a tile that sits on the edge
- * of the player's reach set. Distinct treatment from the solid ownership
- * border in client-tile-borders.ts (dashed, warm gold) so "owned" and
- * "reach edge" never read as the same line.
+ * Draws the reach-boundary line around a tile that sits on the edge of the
+ * player's own reach set: a wide stroke in the player's colour with a thin
+ * white core on top, so "my border" reads as mine at a glance and never
+ * matches the solid ownership border (client-tile-borders.ts) or the gold
+ * fog edge. Only the viewer's own reach is drawn in 2D.
  */
 export const drawReachBoundaryLine = (
   ctx: CanvasRenderingContext2D,
@@ -238,6 +174,7 @@ export const drawReachBoundaryLine = (
   py: number,
   size: number,
   reach: ReadonlySet<string>,
+  ownerColor: string,
   deps: ReachBoundaryDeps
 ): void => {
   if (!isReachBoundaryTile(x, y, reach, deps)) return;
@@ -246,9 +183,6 @@ export const drawReachBoundaryLine = (
   const x2 = px + size - 1.5;
   const y2 = py + size - 1.5;
   ctx.save();
-  ctx.strokeStyle = REACH_BOUNDARY_COLOR;
-  ctx.lineWidth = Math.max(1, size * 0.06);
-  ctx.setLineDash(REACH_BOUNDARY_DASH);
   const top = !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)));
   const right = !reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)));
   const bottom = !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)));
@@ -270,6 +204,14 @@ export const drawReachBoundaryLine = (
     ctx.moveTo(x1, y2);
     ctx.lineTo(x1, y1);
   }
+  ctx.lineCap = "round";
+  ctx.globalAlpha = REACH_BOUNDARY_SHEATH_ALPHA;
+  ctx.strokeStyle = ownerColor;
+  ctx.lineWidth = Math.max(2, size * 0.14);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = REACH_BOUNDARY_CORE_COLOR;
+  ctx.lineWidth = Math.max(1, size * 0.045);
   ctx.stroke();
   ctx.restore();
 };
@@ -300,11 +242,7 @@ export const drawDormantFrontierTreatment = (
 // working unchanged.
 export {
   type TileCoord,
-  type CornerCoord,
   traceReachBoundaryEdgeLoops,
-  type PylonSegment,
-  DEFAULT_PYLON_SPACING_TILES,
-  isCornerAt,
   samplePerimeterPylons
 } from "../client-reach-overlay-boundary-trace/client-reach-overlay-boundary-trace.js";
 

@@ -90,8 +90,6 @@ export const ACC_CONDUIT = {
   foot: { x: -0.048, y: 0.088 },
   top: { x: -0.039, y: 0.148 }
 } as const;
-// The cage's top hoop is the tallest point of the whole module.
-export const ACC_TOWER_TOP = ACC_CAGE_HOOP_Y[1] + ACC_CAGE.hoopTube;
 
 export type AncillaryControlCoreMaterials = {
   readonly iron: MeshStandardMaterial;

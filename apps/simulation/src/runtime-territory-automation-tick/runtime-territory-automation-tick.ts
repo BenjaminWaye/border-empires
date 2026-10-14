@@ -12,7 +12,7 @@ import {
   isSettledTownAnchor,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
-import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 type TrackSync = <T>(

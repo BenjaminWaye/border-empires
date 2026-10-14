@@ -5,11 +5,6 @@ import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 
-// Touch-capable device detection for performance-sensitive decisions (distinct from the viewport-width isMobile check).
-export const isMobileDevice = (): boolean =>
-  typeof window !== "undefined" &&
-  (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Sharding";

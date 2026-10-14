@@ -11,7 +11,6 @@ import type {
   SnapshotPlayersSection,
   SnapshotTerritorySection,
   DomainStrategicResourceKey,
-  TileYieldBuffer,
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
@@ -40,6 +39,7 @@ import {
   activeEconomicStructuresByTile,
   fedTownKeysByPlayerFromSnapshot
 } from "./legacy-snapshot-town-support.js";
+import { migrateRetiredTechIds } from "../retired-tech-ids/retired-tech-ids.js";
 
 export type LegacySnapshotAuthIdentity = {
   uid: string;
@@ -166,7 +166,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
 
   const ownershipByTile = new Map<string, string>(territory.ownership ?? []);
   const ownershipStateByTile = new Map<string, string>(territory.ownershipState ?? []);
-  const tileYieldByTile = new Map<string, TileYieldBuffer>(economy.tileYield ?? []);
   const townCaptureShockUntilByTile = new Map<string, number>(territory.townCaptureShock ?? []);
   const townGrowthShockUntilByTile = new Map<string, number>(territory.townGrowthShock ?? []);
   const playerEconomies = buildLegacySnapshotPlayerEconomies({
@@ -339,7 +338,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const capitalTile = typeof player.capitalTileKey === "string" ? parseTileKey(player.capitalTileKey) : undefined;
     const spawnOrigin = typeof player.spawnOrigin === "string" ? parseTileKey(player.spawnOrigin) : undefined;
     const isAi = isAiPlayer(player.id, authIdentities, player.name);
-    const techIds = [...player.techIds];
+    const techIds = [...migrateRetiredTechIds(player.techIds)];
     const domainIds = [...(player.domainIds ?? [])];
     const playerEconomy = playerEconomies.get(player.id);
     playerProfiles.set(player.id, {

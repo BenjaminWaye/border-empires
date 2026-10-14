@@ -1,6 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { FrontierCommandType } from "@border-empires/game-domain";
-import type { QueueLane } from "./command-lane/command-lane.js";
 
 export type RuntimeCommandDispatchHandlers = {
   emitUnsupported: (command: CommandEnvelope) => void;
@@ -202,10 +201,3 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "WAYPOINT_CANCEL" ||
   (command.type as string) === "WAYPOINT_CANCEL_ALL" ||
   (command.type as string) === "CLAIM_CONTINUATION_SET";
-
-export type RuntimeCommandEnqueue = (
-  lane: QueueLane,
-  run: () => void,
-  commandType?: CommandEnvelope["type"],
-  scheduling?: "immediate" | "background"
-) => void;

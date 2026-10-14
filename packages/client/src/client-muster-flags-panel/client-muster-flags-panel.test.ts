@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
-import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "./client-muster-flags-panel.js";
+import { manpowerInfoHtml, setManpowerInfoOpen } from "../client-manpower-panel-info/client-manpower-panel-info.js";
+import { buildManpowerPanelMusterFlags, wireManpowerPanel, wireMusterFocusButtons } from "./client-muster-flags-panel.js";
 import type { Tile } from "../client-types.js";
 
 const tile = (overrides: Omit<Partial<Tile>, "muster"> & { muster?: Partial<NonNullable<Tile["muster"]>> } = {}): Tile => {
@@ -93,5 +94,28 @@ describe("wireMusterFocusButtons", () => {
     (document.querySelector("button") as HTMLButtonElement).click();
     expect(state.camX).toBe(1);
     expect(state.camY).toBe(2);
+  });
+});
+
+describe("wireManpowerPanel explainer toggle", () => {
+  const deps = { wrapX: (x: number) => x, wrapY: (y: number) => y, requestViewRefresh: () => undefined, rerender: () => undefined };
+  const state = { camX: 0, camY: 0, camSubX: 0, camSubY: 0, selected: undefined };
+
+  it("keeps the explainer open across HUD re-renders once the player opens it, and closed after they close it", () => {
+    setManpowerInfoOpen(false);
+    document.body.innerHTML = manpowerInfoHtml();
+    wireManpowerPanel(document.body, state, deps);
+    const details = document.querySelector("details[data-manpower-info]") as HTMLDetailsElement;
+    details.open = true;
+    details.dispatchEvent(new Event("toggle"));
+    expect(manpowerInfoHtml()).toContain("data-manpower-info open");
+
+    document.body.innerHTML = manpowerInfoHtml();
+    wireManpowerPanel(document.body, state, deps);
+    const reopened = document.querySelector("details[data-manpower-info]") as HTMLDetailsElement;
+    expect(reopened.open).toBe(true);
+    reopened.open = false;
+    reopened.dispatchEvent(new Event("toggle"));
+    expect(manpowerInfoHtml()).not.toContain("data-manpower-info open");
   });
 });

@@ -1,7 +1,7 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
 import type { initClientDom } from "../client-dom.js";
-import { closeActivePanel, setActivePanel } from "../client-panel-nav/client-panel-nav.js";
+import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 

@@ -2,7 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { collectLinkedDockRevealKeysForOwners } from "./dock-network/dock-network.js";
-import type { LockRecord, RuntimePlayer } from "./runtime-types.js";
+import type { RuntimePlayer } from "./runtime-types.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 

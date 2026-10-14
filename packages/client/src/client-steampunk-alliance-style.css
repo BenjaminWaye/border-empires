@@ -205,3 +205,84 @@
   border-color: var(--sp-brass-300);
   box-shadow: 0 0 0 2px var(--sp-brass-300);
 }
+
+/* "Players you've met" rows (client-alliance-panel.ts): one compact line per
+ * player -- name, status, chevron -- with the action buttons revealed only on
+ * the row the player tapped (client-alliance-row-toggle.ts). Keeps a 50-player
+ * list around 3,000px instead of ~9,600px on mobile. */
+/* minmax(0, 1fr): a long unbroken name must truncate, not widen the list. */
+.alliance-card-stack.alliance-player-stack {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.alliance-reference-card.alliance-player-card {
+  padding: 6px 6px 6px 14px;
+}
+
+.alliance-player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.alliance-player-row .alliance-reference-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The status never shrinks; the name truncates first. */
+.alliance-player-status {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.alliance-player-status .alliance-reference-status {
+  font-size: 12px;
+}
+
+.alliance-player-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-brass-300);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.alliance-player-toggle span {
+  transition: transform 0.15s ease;
+}
+
+.alliance-player-card.is-expanded .alliance-player-toggle span {
+  transform: rotate(180deg);
+}
+
+.alliance-player-card:not(.is-expanded) .alliance-propose-actions {
+  display: none;
+}
+
+.alliance-player-card.is-expanded {
+  border-color: var(--sp-brass-300);
+}
+
+.alliance-player-card.is-expanded .alliance-propose-actions {
+  margin: 4px 8px 8px 0;
+}

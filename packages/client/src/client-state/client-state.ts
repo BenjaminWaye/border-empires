@@ -41,12 +41,10 @@ import type {
   TechInfo,
   Tile,
   TruceRequest,
-  TileActionDef,
   TileMenuTab,
   TileTimedProgress,
   OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
-import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 

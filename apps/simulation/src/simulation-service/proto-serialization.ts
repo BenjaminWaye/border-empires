@@ -1,4 +1,4 @@
-import { type FrontierDecayKind, type ProspectSignature, type Terrain } from "@border-empires/shared";
+import { type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
@@ -105,32 +105,6 @@ export type ProtoSimulationEvent = {
   }>;
   count?: number;
   cancelled_command_ids?: string[];
-};
-
-export type SimulationTileDelta = {
-  x: number;
-  y: number;
-  terrain?: Terrain;
-  resource?: string | undefined;
-  dockId?: string | undefined;
-  ownerId?: string | undefined;
-  ownershipState?: string | undefined;
-  frontierDecayAt?: number | undefined;
-  frontierDecayKind?: FrontierDecayKind | undefined;
-  townJson?: string | undefined;
-  townType?: "MARKET" | "FARMING";
-  townName?: string | undefined;
-  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeBatteryJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  naturalWonderJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  afcJson?: string | undefined;
 };
 
 // Event types that exist purely for in-sim bookkeeping (replay anchors,

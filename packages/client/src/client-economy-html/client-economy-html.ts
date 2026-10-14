@@ -14,7 +14,7 @@ import {
 } from "@border-empires/shared";
 import { ORE_REFINERY_RADIUS, HYDROWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
-import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
+import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
 import type { StructureInfoKey } from "../client-map-display.js";
 

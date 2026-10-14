@@ -2,11 +2,10 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import { MUSTER_BASE_RATE_PER_MIN, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
-import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 import { maybeAdvanceFire } from "./muster-advance-fire.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
-import { scanAdvanceCandidates } from "./muster-advance-scan.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 import { creditManpower } from "../runtime-manpower-ceiling.js";
@@ -325,4 +324,3 @@ export const tickMuster = (input: MusterTickInput): void => {
   }
 };
 // musterSpeedMultiplier / outpostTileKeysForPlayer: see muster-depot-speed.ts.
-

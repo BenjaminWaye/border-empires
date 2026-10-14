@@ -69,6 +69,18 @@ describe("renderManifestDetailHtml", () => {
     expect(html).not.toContain("Unlocks forts");
   });
 
+  it("gives each unlock row its own icon: building art, the ability's glyph, the resource icon", () => {
+    const html = renderManifestDetailHtml(context());
+    expect(html).toContain('<span class="manifest-gain__art"><img src="/overlays/fort-ring-overlay-closed.svg"');
+    expect(html).toContain('<img src="/overlays/titanium-weapons-factory-overlay.svg"');
+    expect(html).toMatch(/<span class="manifest-gain__icon" aria-hidden="true"><img class="resource-icon-img" [^>]*alt="Titanium"/);
+    const augury: TechInfo = { ...bastion, id: "beacon-towers", prereqIds: [], effects: { unlockSurveySweep: true, unlockRevealEmpire: true } };
+    const abilities = renderManifestDetailHtml(context({ tech: augury }));
+    // Each ability shows its own glyph (Reveal Empire ◉, Survey Sweep ⌖), not one shared marker.
+    expect(abilities).toContain('<span class="manifest-gain__glyph">◉\uFE0E</span>');
+    expect(abilities).toContain('<span class="manifest-gain__glyph">⌖\uFE0E</span>');
+  });
+
   it("puts the cost on the unlock button for a ready Manifest", () => {
     const html = renderManifestDetailHtml(context());
     expect(html).toContain('data-tech-unlock="masonry"');
@@ -100,7 +112,7 @@ describe("renderManifestDetailHtml", () => {
     const html = renderManifestDetailHtml(
       context({
         fit: {
-          manpower: 0,
+          manpower: 0, hasBuildSite: () => false, ownsFish: false,
           resourceSlots: { supply: emptySlots, demand: emptySlots },
           clueNearTerritory: (signature) => signature === "FERROUS_DUST",
           surveyReportFor: () => undefined
@@ -115,7 +127,7 @@ describe("renderManifestDetailHtml", () => {
 
   it("calls it 'Not useful yet' when nothing argues for it", () => {
     const html = renderManifestDetailHtml(
-      context({ tech: mining, fit: { manpower: 0, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
+      context({ tech: mining, fit: { manpower: 0, hasBuildSite: () => false, ownsFish: false, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
     );
     expect(html).not.toContain("Good pick");
     expect(html).toContain("Not useful yet: Mine needs Food slots");

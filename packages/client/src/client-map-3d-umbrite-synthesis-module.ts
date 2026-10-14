@@ -74,11 +74,9 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import {
   createUmbriteSynthesisParts,
   UMB_CHAMBER,
-  UMB_CORE,
   UMB_GAUGE,
   UMB_INJECTOR,
   UMB_MANIFOLD,
-  UMB_PIPE,
   UMB_POD,
   UMB_POD_CROWN
 } from "./client-map-3d-umbrite-synthesis-parts.js";
@@ -86,9 +84,6 @@ import {
 // Uniform 33% scale-up applied to every module-local position and instance
 // scale about the dock origin, matching the other AFC module families.
 export const UMBRITE_SYNTHESIS_SCALE = 1.33;
-// Footprint radius of the dockable seat — below the AFC bay inner radius
-// (0.14) so the module slots into the socket ring with clearance.
-export const UMBRITE_SYNTHESIS_BASE_RADIUS = 0.105 * UMBRITE_SYNTHESIS_SCALE;
 // Total height above the pad top. The highest point is the pressure dial's
 // brass bezel rather than the manifold cap, because the dial is mounted facing
 // forward off the manifold and its ring stands taller than the manifold does —

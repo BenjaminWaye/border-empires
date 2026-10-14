@@ -6,6 +6,8 @@ const slots = (values: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE
 
 const input = (overrides: Partial<ManifestFitInput> = {}): ManifestFitInput => ({
   manpower: 0,
+  hasBuildSite: () => true,
+  ownsFish: false,
   resourceSlots: { supply: slots(), demand: slots() },
   clueNearTerritory: () => false,
   surveyReportFor: () => undefined,
@@ -93,5 +95,26 @@ describe("manifestFit", () => {
   it("never calls the revealed resource missing", () => {
     const fit = manifestFit(tech({ revealResource: "crystal", unlockObservatory: true }), input({ manpower: 10_000 }));
     expect(fit.notUsefulYet).toBeUndefined();
+  });
+});
+
+// Regression: unlocks without a usable location, or redundant Food capacity,
+// must not be presented as immediate recommendations.
+describe("Manifest build fit", () => {
+  it("does not recommend a Hydrogarden without an owned usable Farm", () => {
+    expect(manifestFit(tech({ unlockHydrogarden: true }), input({ manpower: 100_000, hasBuildSite: () => false })).goodPickReasons).toEqual([]);
+  });
+  it("does not recommend more Food when there is ample spare capacity", () => {
+    expect(manifestFit({ ...tech({ unlockHydrogarden: true }), id: "agriculture" }, input({ manpower: 100_000, ownsFish: true,
+      resourceSlots: { supply: slots({ FOOD: 20 }), demand: slots({ FOOD: 2 }) } })).goodPickReasons).toEqual([]);
+  });
+  it("recommends a buildable Hydrogarden when Food capacity is tight", () => {
+    expect(manifestFit(tech({ unlockHydrogarden: true }), input({ manpower: 100_000,
+      resourceSlots: { supply: slots({ FOOD: 3 }), demand: slots({ FOOD: 3 }) } })).goodPickReasons).toContain("You can build a Hydrogarden right away");
+  });
+  it("recommends the fish bonus only with owned Fish and tight Food capacity", () => {
+    const agriculture = { ...tech({ unlockHydrogarden: true }), id: "agriculture" };
+    expect(manifestFit(agriculture, input({ ownsFish: true, hasBuildSite: () => false })).goodPickReasons).toContain("Your Fish tiles gain +1 Food slot each, helping your tight Food capacity");
+    expect(manifestFit(agriculture, input({ ownsFish: false, hasBuildSite: () => false })).goodPickReasons).toEqual([]);
   });
 });

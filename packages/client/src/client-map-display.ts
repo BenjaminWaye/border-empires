@@ -1,10 +1,8 @@
 import {
-  OBSERVATORY_UPKEEP_PER_MIN, TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
+  TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS,
   economicStructureBuildDurationMs, type SlotStructureType
 } from "@border-empires/shared";
 import { structureInfoBuildMs, type BuildSpeedState } from "./client-structure-time-labels/client-structure-time-labels.js";
-import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
-import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import {
   mintworksGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
 } from "@border-empires/game-domain";
@@ -887,82 +885,4 @@ export const tileProductionHtml = (tile: Tile): string => {
   if (tile.town || gpd > 0) parts.push(`${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day`);
   parts.push(...prodStrategic);
   return parts.join(" · ");
-};
-
-export const tileUpkeepHtml = (tile: Tile): string => {
-  const upkeepFromEntries = { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 };
-  for (const entry of tile.upkeepEntries ?? []) {
-    upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
-    upkeepFromEntries.titanium += Number(entry.perMinute.TITANIUM ?? 0);
-    upkeepFromEntries.umbrite += Number(entry.perMinute.UMBRITE ?? 0);
-    upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
-    upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
-  }
-  const parts: string[] = [];
-  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconHtml("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.titanium > 0.001) parts.push(`${resourceIconHtml("TITANIUM")} ${(upkeepFromEntries.titanium * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.umbrite > 0.001) parts.push(`${resourceIconHtml("UMBRITE")} ${(upkeepFromEntries.umbrite * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconHtml("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconHtml("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
-  if (parts.length > 0) return parts.join(" · ");
-  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconHtml("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
-  if (tile.observatory?.status === "active") parts.push(`${resourceIconHtml("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
-  return parts.join(" · ");
-};
-
-export const storedYieldSummary = (tile: Tile, options?: { alwaysShowOwnedTownGold?: boolean }): string => {
-  const parts: string[] = [];
-  const gold = tile.yield?.gold ?? 0;
-  const goldCap = tile.yieldCap?.gold ?? 0;
-  const canStoreGold = Boolean(tile.town || tile.dockId || (tile.yieldRate?.goldPerMinute ?? 0) > 0.01 || gold > 0.01);
-  const alwaysShowOwnedTownGold = options?.alwaysShowOwnedTownGold === true;
-  if (canStoreGold && (gold > 0.01 || goldCap > 0 || alwaysShowOwnedTownGold)) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
-  }
-  const strategicCap = tile.yieldCap?.strategicEach ?? 0;
-  const strategicEntries = new Map<string, number>(
-    Object.entries(tile.yield?.strategic ?? {}).map(([resource, value]) => [resource, Number(value)])
-  );
-  const primaryStrategic = strategicResourceKeyForTile(tile);
-  if (primaryStrategic && strategicCap > 0 && !strategicEntries.has(primaryStrategic)) strategicEntries.set(primaryStrategic, 0);
-  for (const [resource, value] of strategicEntries) {
-    if (Number(value) <= 0.01 && strategicCap <= 0) continue;
-    parts.push(`${resourceIconForKey(resource)} ${Number(value).toFixed(2)} / ${strategicCap.toFixed(1)}`);
-  }
-  return parts.join(" · ");
-};
-
-const yieldCapForResource = (tile: Tile, resource: string): number | undefined => {
-  if (!tile.yieldCap) return undefined;
-  if (resource === "GOLD") return tile.yieldCap.gold;
-  if (resource === "FOOD" || resource === "TITANIUM" || resource === "CRYSTAL" || resource === "UMBRITE" || resource === "SHARD") {
-    return tile.yieldCap.strategicEach;
-  }
-  return undefined;
-};
-
-export const formatYieldSummary = (tile: Tile): string => {
-  const parts: string[] = [];
-  const gold = tile.yield?.gold ?? 0;
-  const goldCap = yieldCapForResource(tile, "GOLD");
-  if (gold > 0.01 || (goldCap ?? 0) > 0) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
-  }
-  for (const key of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
-    const amount = Number(tile.yield?.strategic?.[key] ?? 0);
-    const cap = yieldCapForResource(tile, key);
-    if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
-    parts.push(`${resourceIconForKey(key)} ${amount.toFixed(1)} / ${(cap ?? 0).toFixed(1)}`);
-  }
-  return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
-};
-
-export const formatUpkeepSummary = (upkeep: { food: number; titanium: number; umbrite: number; crystal: number; gold: number }): string => {
-  const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
-  if (upkeep.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeep.titanium * 1440).toFixed(1)}/day`);
-  if (upkeep.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeep.umbrite * 1440).toFixed(1)}/day`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
-  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };

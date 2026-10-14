@@ -1,7 +1,6 @@
 import { grassShadeAt, type LandBiome } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
-type TownPopulationTier = NonNullable<NonNullable<Tile["town"]>["populationTier"]>;
 type ResourceType = NonNullable<Tile["resource"]>;
 
 const hash01 = (x: number, y: number, seed: number): number => {
@@ -58,26 +57,6 @@ const inCluster = (
     localY: nearest.localY,
     distance: nearest.distance
   };
-};
-
-export const townTierFor3DPopulation = (
-  wx: number,
-  wy: number,
-  terrain: Tile["terrain"],
-  tile: Tile | undefined,
-  syntheticEnabled: boolean
-): TownPopulationTier | undefined => {
-  if (tile?.town) return tile.town.populationTier;
-  if (!syntheticEnabled || terrain !== "LAND") return undefined;
-  const townCluster = inCluster(wx, wy, 22, 2.0, 41);
-  if (!townCluster.active) return undefined;
-  const tierRoll = hash01(townCluster.localX, townCluster.localY, 53);
-  const metroBoost = hash01(wx, wy, 59);
-  if (tierRoll > 0.994 && metroBoost > 0.94) return "METROPOLIS";
-  if (tierRoll > 0.975) return "GREAT_CITY";
-  if (tierRoll > 0.85) return "CITY";
-  if (tierRoll > 0.5) return "TOWN";
-  return "SETTLEMENT";
 };
 
 const chooseClusterResource = (

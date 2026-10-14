@@ -29,7 +29,7 @@ import { createBastionMasterDieModuleOverlay } from "@client/client-map-3d-basti
 import { createThunderplateInductionModuleOverlay } from "@client/client-map-3d-thunderplate-induction-module.js";
 import { createHiveMindModuleOverlay } from "@client/client-map-3d-hive-mind-module.js";
 import { createHiveMindIiModuleOverlay } from "@client/client-map-3d-hive-mind-ii-module.js";
-import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
+import { createSiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {

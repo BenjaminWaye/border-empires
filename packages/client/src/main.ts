@@ -46,6 +46,7 @@ import "./client-manifest-detail/client-manifest-detail.css";
 import "./client-manifest-tabs/client-manifest-tabs.css";
 import "./client-tech-tree-html/client-tech-tree-toolbar.css";
 import "./client-tile-ownership-help-style.css";
+import "./client-manpower-panel-info-style.css";
 import "./client-activity-dashboard-style.css";
 import "./client-muster-commit-tab-style.css";
 import "./client-auth-busy-progress-style.css";
