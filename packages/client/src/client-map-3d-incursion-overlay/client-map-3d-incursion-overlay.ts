@@ -205,7 +205,7 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     if (tileEdges.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
     if (tileEdges.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
     if (tileEdges.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
-    if (breach) breachFx.add(x, z, surfaceY, breach, theirs);
+    if (breach) breachFx.add(x, z, surfaceY, breach, theirs, edge);
   };
 
   return {

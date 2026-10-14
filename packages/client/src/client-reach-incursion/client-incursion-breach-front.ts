@@ -1,7 +1,8 @@
 // The spikes-style front line around one incursion tile (see
-// client-incursion-breach-layout.ts), after Hearts of Iron IV: one solid
-// shape in the attacker's colour -- a thin line with small, widely spaced
-// teeth standing on it -- drawn ORGANICALLY rather than along the tile grid:
+// client-incursion-breach-layout.ts), after Hearts of Iron IV: one flat shape
+// in the attacker's colour -- a thin line with small, widely spaced teeth
+// standing on it, with a very thin contrasting outline -- drawn ORGANICALLY
+// rather than along the tile grid:
 //   - corners where the boundary turns are rounded (outer corners curve
 //     inside the pocket, inner corners curve out round my tile);
 //   - every point is pushed by a smooth noise field sampled in WORLD space,
@@ -13,8 +14,13 @@
 
 export type BreachPoint = { readonly x: number; readonly y: number };
 
-/** One convex piece (a line segment or half a tooth), drawn in the attacker's colour times `shade` (1 = lit). */
-export type BreachFrontPiece = { readonly points: readonly BreachPoint[]; readonly shade: number };
+/**
+ * One convex piece (a line segment or a tooth). `points` is drawn flat in the
+ * attacker's colour; `outline` is the same polygon grown by a hair, drawn
+ * underneath every fill in the outline colour, so the whole front reads as one
+ * shape with a thin rim.
+ */
+export type BreachFrontPiece = { readonly points: readonly BreachPoint[]; readonly outline: readonly BreachPoint[] };
 
 /** What sits at offset (dx, dy) from the pocket tile. */
 export type FrontNeighbourKind = "pocket" | "mine" | "other";
@@ -26,9 +32,8 @@ const LINE_WIDTH = 0.035;
 const TEETH_PER_SIDE = 3;
 const TOOTH_HEIGHT = 0.16;
 const TOOTH_HALF_BASE = 0.065;
-/** Light comes from the north-west; the tooth half facing away from it is shaded. */
-const TOWARD_LIGHT = { x: -0.6, y: -0.8 };
-const SHADED = 0.72;
+/** Outline thickness, in tiles. */
+const OUTLINE_WIDTH = 0.011;
 /** Rounding radius (tiles) where the front line turns a corner; the 3D hatch rounds its outer corners to match. */
 export const FRONT_CORNER_RADIUS = 0.28;
 const CORNER_RADIUS = FRONT_CORNER_RADIUS;
@@ -89,6 +94,28 @@ const quarterArc = (centre: BreachPoint, from: BreachPoint, to: BreachPoint): Br
   });
 };
 
+/** Grows a convex polygon by `d` on every edge (mitred corners). */
+const outset = (pts: readonly BreachPoint[], d: number): BreachPoint[] => {
+  const area = pts.reduce((sum, p, i) => {
+    const q = pts[(i + 1) % pts.length]!;
+    return sum + p.x * q.y - q.x * p.y;
+  }, 0);
+  const sign = area >= 0 ? 1 : -1;
+  const edgeNormal = (i: number): BreachPoint => {
+    const p = pts[i]!;
+    const q = pts[(i + 1) % pts.length]!;
+    return unit({ x: (q.y - p.y) * sign, y: -(q.x - p.x) * sign });
+  };
+  return pts.map((p, i) => {
+    const n0 = edgeNormal((i + pts.length - 1) % pts.length);
+    const n1 = edgeNormal(i);
+    const k = d / Math.max(0.2, 1 + n0.x * n1.x + n0.y * n1.y);
+    return { x: p.x + (n0.x + n1.x) * k, y: p.y + (n0.y + n1.y) * k };
+  });
+};
+
+const piece = (points: BreachPoint[]): BreachFrontPiece => ({ points, outline: outset(points, OUTLINE_WIDTH) });
+
 /** Thick polyline with mitred joints (per-vertex averaged normals), so bends don't crack. */
 const strip = (pts: readonly BreachPoint[]): BreachFrontPiece[] => {
   const segNormals = pts.slice(1).map((q, i) => unit({ x: -(q.y - pts[i]!.y), y: q.x - pts[i]!.x }));
@@ -97,12 +124,12 @@ const strip = (pts: readonly BreachPoint[]): BreachFrontPiece[] => {
   return segNormals.map((_, i) => {
     const m0 = vertexNormal(i);
     const m1 = vertexNormal(i + 1);
-    return { points: [add(pts[i]!, m0, h), add(pts[i + 1]!, m1, h), add(pts[i + 1]!, m1, -h), add(pts[i]!, m0, -h)], shade: 1 };
+    return piece([add(pts[i]!, m0, h), add(pts[i + 1]!, m1, h), add(pts[i + 1]!, m1, -h), add(pts[i]!, m0, -h)]);
   });
 };
 
 /** One tooth standing on the warped curve at `base`, pointing along the curve normal on the `outward` side. */
-const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece[] => {
+const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece => {
   const eps = 0.01;
   const centre = warp(base);
   const t = unit(add(warp(add(base, tangent, eps)), warp(add(base, tangent, -eps)), -1));
@@ -110,11 +137,7 @@ const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent
   if (n.x * outward.x + n.y * outward.y < 0) n = { x: -n.x, y: -n.y };
   const foot = add(centre, n, LINE_WIDTH / 4);
   const tip = add(centre, n, LINE_WIDTH / 2 + TOOTH_HEIGHT);
-  const startLit = -t.x * TOWARD_LIGHT.x - t.y * TOWARD_LIGHT.y > 0;
-  return [
-    { points: [add(foot, t, -TOOTH_HALF_BASE), foot, tip], shade: startLit ? 1 : SHADED },
-    { points: [foot, add(foot, t, TOOTH_HALF_BASE), tip], shade: startLit ? SHADED : 1 }
-  ];
+  return piece([add(foot, t, -TOOTH_HALF_BASE), add(foot, t, TOOTH_HALF_BASE), tip]);
 };
 
 /**
@@ -139,7 +162,7 @@ export const organicSideFront = (
   const u1 = endTurn === "straight" ? 1 : 1 - CORNER_RADIUS;
 
   const path: BreachPoint[] = [];
-  let arcTooth: BreachFrontPiece[] = [];
+  let arcTooth: BreachFrontPiece | undefined;
   if (startTurn !== "straight") {
     // The previous side runs into this corner along tPrev: turned one way round an outer corner, the other round an inner one.
     const tPrev = startTurn === "outer" ? { x: side.t.y, y: -side.t.x } : { x: -side.t.y, y: side.t.x };
@@ -159,12 +182,12 @@ export const organicSideFront = (
 
   const pieces = strip(path.map(warp));
   if (!withTeeth) return pieces;
-  pieces.push(...arcTooth);
+  if (arcTooth) pieces.push(arcTooth);
   for (let i = 0; i < TEETH_PER_SIDE; i += 1) {
     const u = (i + 0.5) / TEETH_PER_SIDE;
     // Teeth on the straight stretch only; the rounded corners handle their own.
     if (u < u0 || u > u1) continue;
-    pieces.push(...tooth(warp, at(u), side.t, out));
+    pieces.push(tooth(warp, at(u), side.t, out));
   }
   return pieces;
 };

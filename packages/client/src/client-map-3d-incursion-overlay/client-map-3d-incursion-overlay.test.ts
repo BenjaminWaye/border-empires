@@ -49,33 +49,38 @@ describe("createIncursionOverlay3D", () => {
     expect(group.children).toHaveLength(0);
   });
 
-  it("draws the spikes front line in the attacker's colour (shaded halves darker) over an offset shadow", () => {
+  it("draws the spikes front line flat in the attacker's colour over a thin rim in the outline colour", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 1);
-    const [, , , , shadow, front] = group.children as Mesh[];
+    const [, , , , outline, front] = group.children as Mesh[];
     const noEdges = { north: false, east: false, south: false, west: false };
-    const line = { points: [{ x: -0.5, y: -0.52 }, { x: 0.5, y: -0.52 }, { x: 0.5, y: -0.48 }, { x: -0.5, y: -0.48 }], shade: 1 };
-    const half = { points: [{ x: -0.06, y: -0.5 }, { x: 0, y: -0.5 }, { x: 0, y: -0.68 }], shade: 0.5 };
-    overlay.addTile(2, 3, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#141414", noEdges, {
+    const line = {
+      points: [{ x: -0.5, y: -0.52 }, { x: 0.5, y: -0.52 }, { x: 0.5, y: -0.48 }, { x: -0.5, y: -0.48 }],
+      outline: [{ x: -0.51, y: -0.53 }, { x: 0.51, y: -0.53 }, { x: 0.51, y: -0.47 }, { x: -0.51, y: -0.47 }]
+    };
+    const tooth = { points: [{ x: -0.06, y: -0.5 }, { x: 0.06, y: -0.5 }, { x: 0, y: -0.68 }], outline: [{ x: -0.07, y: -0.49 }, { x: 0.07, y: -0.49 }, { x: 0, y: -0.7 }] };
+    overlay.addTile(2, 3, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", noEdges, {
       style: "spikes",
       worldX: 2,
       worldY: 3,
-      layout: { straightEdges: noEdges, front: [line, half], roundedCorners: 0, band: [], veilSides: [] }
+      layout: { straightEdges: noEdges, front: [line, tooth], roundedCorners: 0, band: [], veilSides: [] }
     });
     overlay.commit();
     expect(drawnQuads(front!)).toBe(2);
-    expect(drawnQuads(shadow!)).toBe(2);
-    const geometry = front!.geometry as BufferGeometry;
-    const color = geometry.getAttribute("color");
-    expect([color.getX(0), color.getY(0), color.getZ(0)]).toEqual([1, 0, 0]); // the attacker's red
-    expect(color.getX(4)).toBeCloseTo(0.5); // shaded tooth half
-    const position = geometry.getAttribute("position");
+    expect(drawnQuads(outline!)).toBe(2);
+    // Outlines draw before fills.
+    expect(outline!.renderOrder).toBeLessThan(front!.renderOrder);
+    const fill = front!.geometry as BufferGeometry;
+    const fillColour = fill.getAttribute("color");
+    // Flat: every fill vertex is exactly the attacker's red, tooth included (no shaded halves).
+    for (let v = 0; v < 8; v += 1) expect([fillColour.getX(v), fillColour.getY(v), fillColour.getZ(v)]).toEqual([1, 0, 0]);
+    const rimColour = (outline!.geometry as BufferGeometry).getAttribute("color");
+    expect([rimColour.getX(0), rimColour.getY(0), rimColour.getZ(0)]).toEqual([1, 1, 1]); // the "#ffffff" outline colour
+    const position = fill.getAttribute("position");
     // The polygon's corners map to quad order p0, p1, p3, p2.
     expect([position.getX(2), position.getZ(2)]).toEqual([1.5, expect.closeTo(2.52)]);
     // The tooth tip reaches into the tile of mine to the north (z = 3 - 0.68).
     expect(position.getZ(6)).toBeCloseTo(2.32);
-    const shadowPosition = (shadow!.geometry as BufferGeometry).getAttribute("position");
-    expect(shadowPosition.getX(0)).toBeGreaterThan(position.getX(0)); // offset away from the light
     overlay.dispose();
     expect(group.children).toHaveLength(0);
   });

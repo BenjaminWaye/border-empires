@@ -2,7 +2,7 @@
 // own land (client-incursion-breach-layout.ts decides where; the admin
 // switch in client-incursion-breach-style.ts decides which):
 //   - spikes: a thin Hearts-of-Iron-style front line with teeth, flat in the
-//     attacker's colour (tooth halves shaded), over a soft offset shadow.
+//     attacker's colour, over a hair-thin rim in the pocket's outline colour.
 //   - ember / ink: flat quads over the tiles either side of the boundary,
 //     shaded from a per-pixel distance field to it (8-neighbour box distance),
 //     so the effect is seamless across tiles and round at corners.
@@ -22,9 +22,6 @@ const MAX_VEIL_QUADS = 2048;
 const MAX_FRONT_QUADS = 12288;
 /** The front line sits just above the pocket's edge strips. */
 const FRONT_LIFT = 0.004;
-/** Drop shadow: offset away from the north-west light, at this opacity. */
-const SHADOW_OFFSET = { x: 0.014, z: 0.022 };
-const SHADOW_OPACITY = 0.3;
 const BAND_LIFT = 0.003;
 /** Veil height in tiles. */
 const VEIL_HEIGHT = 0.55;
@@ -252,7 +249,8 @@ export type IncursionBreachTile = {
 export type IncursionBreachFx3D = {
   readonly clear: () => void;
   /** `theirs` = the attacker's colour. */
-  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color) => void;
+  /** `theirs` = the attacker's colour; `mark` = the pocket's outline colour (black on light attackers, white on dark). */
+  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color, mark: Color) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -264,26 +262,29 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
   const veilMaterial = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
   const band = createQuadStream(MAX_BAND_QUADS, bandMaterial, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10);
   const veil = createQuadStream(MAX_VEIL_QUADS, veilMaterial, { position: 3, aVeil: 2, aTheirs: 3 }, 11);
-  // Unlit flat colour, like the edge strips; the shadow is one flat translucent black.
+  // Unlit flat colour, like the edge strips. Every outline draws before every
+  // fill, so where pieces overlap the rim only shows round the whole shape.
   const frontMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
-  const shadowMaterial = new MeshBasicMaterial({ toneMapped: false, color: 0x000000, transparent: true, opacity: SHADOW_OPACITY, depthWrite: false, side: DoubleSide });
-  const frontShadow = createQuadStream(MAX_FRONT_QUADS, shadowMaterial, { position: 3 }, 12);
+  const frontOutline = createQuadStream(MAX_FRONT_QUADS, frontMaterial, { position: 3, color: 3 }, 12);
   const front = createQuadStream(MAX_FRONT_QUADS, frontMaterial, { position: 3, color: 3 }, 13);
-  parent.add(band.mesh, veil.mesh, frontShadow.mesh, front.mesh);
+  parent.add(band.mesh, veil.mesh, frontOutline.mesh, front.mesh);
   // My tiles border several pocket tiles; each world tile gets one band quad per rebuild.
   const bandTilesThisRebuild = new Set<string>();
-  const streams = [band, veil, frontShadow, front];
+  const streams = [band, veil, frontOutline, front];
 
-  const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs) => {
+  /** Quad vertex order is (0, 1, 2), (1, 3, 2): a polygon p0..p3 maps to p0, p1, p3, p2; a triangle repeats its last point. */
+  const quadCorners = (pts: readonly BreachPoint[], x: number, y: number, z: number): number[] => {
+    const [p0, p1, p2, p3 = p2] = pts as readonly [BreachPoint, BreachPoint, BreachPoint, BreachPoint?];
+    return [p0, p1, p3, p2].flatMap((p) => [x + p.x, y, z + p.y]);
+  };
+
+  const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs, mark) => {
     const colour = [theirs.r, theirs.g, theirs.b];
     const frontY = surfaceY + FRONT_LIFT;
     for (const piece of breach.layout.front) {
-      // Quad vertex order is (0, 1, 2), (1, 3, 2): a polygon p0..p3 maps to p0, p1, p3, p2; a triangle repeats its last point.
-      const [p0, p1, p2, p3 = p2] = piece.points as readonly [BreachPoint, BreachPoint, BreachPoint, BreachPoint?];
-      const corners = [p0, p1, p3, p2];
       const written =
-        writeQuad(frontShadow, { position: corners.flatMap((p) => [x + p.x + SHADOW_OFFSET.x, frontY, z + p.y + SHADOW_OFFSET.z]) }) &&
-        writeQuad(front, { position: corners.flatMap((p) => [x + p.x, frontY, z + p.y]), color: colour.map((c) => c * piece.shade) });
+        writeQuad(frontOutline, { position: quadCorners(piece.outline, x, frontY, z), color: [mark.r, mark.g, mark.b] }) &&
+        writeQuad(front, { position: quadCorners(piece.points, x, frontY, z), color: colour });
       if (!written) break;
     }
     const style = STYLE_CODE[breach.style];
@@ -346,7 +347,6 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
       bandMaterial.dispose();
       veilMaterial.dispose();
       frontMaterial.dispose();
-      shadowMaterial.dispose();
     }
   };
 };

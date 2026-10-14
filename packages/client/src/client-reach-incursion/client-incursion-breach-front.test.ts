@@ -48,6 +48,18 @@ describe("organicSideFront", () => {
     expect(diagonalTip).toBeDefined();
   });
 
+  it("gives every piece a thin outline: the same shape grown by about a hundredth of a tile", () => {
+    for (const piece of organicSideFront(NORTH, true, 2, 5, around({}))) {
+      expect(piece.outline).toHaveLength(piece.points.length);
+      piece.points.forEach((p, i) => {
+        const grow = Math.hypot(piece.outline[i]!.x - p.x, piece.outline[i]!.y - p.y);
+        expect(grow).toBeGreaterThan(0.005);
+        // Even at a sharp tooth tip the mitre stays small.
+        expect(grow).toBeLessThan(0.06);
+      });
+    }
+  });
+
   it("puts teeth only where asked, and no corner tooth when the other side of the corner isn't mine", () => {
     expect(teeth(organicSideFront(NORTH, false, 0, 0, around({})))).toHaveLength(0);
     const westUnowned = organicSideFront(NORTH, true, 0, 0, around({ "-1,0": "other" }));
