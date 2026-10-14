@@ -338,7 +338,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const isDockRouteVisibleForPlayer = (pair: DockPair): boolean =>
     isDockRouteVisibleForPlayerFromModule(pair, {
       fogDisabled: effectiveFogDisabled(state),
-      selected: state.selected,
       discoveredDockTiles: state.discoveredDockTiles,
       keyFor
     });

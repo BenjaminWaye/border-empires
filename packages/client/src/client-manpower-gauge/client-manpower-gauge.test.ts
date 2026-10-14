@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { MANPOWER_REFILL_WINDOW_MS, nextManpowerRefillAtMs } from "@border-empires/shared";
 import { manpowerGaugeChipHtml, ownStagedManpower, resetOwnStagedManpowerCache, type ManpowerGaugeInput } from "./client-manpower-gauge.js";
-import { formatRefillCountdown, msUntilManpowerFull, nextManpowerRefillForPlayer } from "./client-manpower-refill.js";
+import { formatHoursMinutes, formatRefillCountdown, msUntilManpowerFull, nextManpowerRefillForPlayer } from "./client-manpower-refill.js";
 
 const NOW = 1_790_000_000_000;
 const input = (overrides: Partial<ManpowerGaugeInput> = {}): ManpowerGaugeInput => ({
@@ -78,6 +78,10 @@ describe("refill helpers", () => {
     expect(formatRefillCountdown(45 * 60_000)).toBe("45m");
     expect(formatRefillCountdown(5_000)).toBe("1m");
     expect(formatRefillCountdown(0)).toBe("<1m");
+    expect(formatHoursMinutes(19 * 60_000)).toBe("0h 19m");
+    expect(formatHoursMinutes(2 * 3_600_000)).toBe("2h 0m");
+    expect(formatHoursMinutes(739 * 60_000)).toBe("12h 19m");
+    expect(formatHoursMinutes(0)).toBe("<1m");
   });
 
   it("counts whole refills to reach the cap", () => {

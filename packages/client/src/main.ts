@@ -44,6 +44,7 @@ import "./client-afc-module-tab/client-afc-module-tab.css";
 import "./client-steampunk-stat-chips-style.css";
 import "./client-manifest-detail/client-manifest-detail.css";
 import "./client-tile-ownership-help-style.css";
+import "./client-manpower-panel-info-style.css";
 import "./client-activity-dashboard-style.css";
 import "./client-muster-commit-tab-style.css";
 import "./client-auth-busy-progress-style.css";
