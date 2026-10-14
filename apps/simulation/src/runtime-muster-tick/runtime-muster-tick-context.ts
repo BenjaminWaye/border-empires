@@ -3,7 +3,7 @@ import type { DomainTileState, FrontierCommandType } from "@border-empires/game-
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import { activeAetherBridgeNeighborKeysForPlayer } from "../runtime-encirclement-application.js";
 import { neuralWorksPositionsForPlayer } from "../runtime/runtime-neural-works-positions.js";
-import type { ActiveAetherBridgeView, LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import type { ActiveAetherBridgeView, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "./runtime-muster-tick.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 

@@ -33,9 +33,6 @@ export const params = (mesh: InstancedMesh): Geo => mesh.geometry as unknown as 
 export const findByParams = (scene: Scene, match: (geo: Geo) => boolean): InstancedMesh | undefined =>
   instancedMeshes(scene).find((mesh) => match(params(mesh)));
 
-export const findAllByParams = (scene: Scene, match: (geo: Geo) => boolean): InstancedMesh[] =>
-  instancedMeshes(scene).filter((mesh) => match(params(mesh)));
-
 // Part radii are written as sums in the catalogue (a hoop is the housing's
 // radius plus its own tube clearance), so a few arrive as long decimal tails
 // rather than clean numbers. Every geometry-parameter match here tolerates that.

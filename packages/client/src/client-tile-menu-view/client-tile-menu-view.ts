@@ -28,7 +28,7 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 import { tileMenuTabs } from "./client-tile-menu-tabs.js";
 import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-tab.js";

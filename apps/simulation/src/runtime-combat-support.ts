@@ -391,7 +391,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged, ...(combat.shield ? { shield: combat.shield } : {}) };
 };
 
-export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
+export { applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 
@@ -434,18 +434,6 @@ export { attackManpowerLoss };
 export const applyLockedManpowerDelta = (player: DomainPlayer, manpowerDelta: number): number => {
   if (manpowerDelta >= -0.01) return 0;
   const loss = Math.abs(manpowerDelta);
-  player.manpower = Math.max(0, player.manpower - loss);
-  return loss;
-};
-
-export const settleAttackManpower = (
-  player: DomainPlayer,
-  committedManpower: number,
-  attackerWon: boolean,
-  atkEff: number,
-  defEff: number
-): number => {
-  const loss = attackManpowerLoss(committedManpower, attackerWon, atkEff, defEff);
   player.manpower = Math.max(0, player.manpower - loss);
   return loss;
 };

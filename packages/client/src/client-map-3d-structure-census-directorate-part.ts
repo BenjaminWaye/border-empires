@@ -45,7 +45,6 @@ export const registerCensusDirectoratePartStructures = (
   // interior strip, and the Levy Charter's muted gold sigil.
   const pbIronMaterial = new MeshStandardMaterial({ color: "#2a241e", roughness: 0.82, metalness: 0.3, flatShading: true });
   const pbIronDarkMaterial = new MeshStandardMaterial({ color: "#1f1b16", roughness: 0.85, metalness: 0.35, flatShading: true });
-  const pbStoneMaterial = new MeshStandardMaterial({ color: "#8a8078", roughness: 0.88, metalness: 0, flatShading: true });
   const pbStoneDarkMaterial = new MeshStandardMaterial({ color: "#6e6459", roughness: 0.9, metalness: 0, flatShading: true });
   const pbBrassMaterial = new MeshStandardMaterial({ color: "#9e7130", roughness: 0.55, metalness: 0.55, flatShading: true });
   const pbBrassDarkMaterial = new MeshStandardMaterial({ color: "#6e521f", roughness: 0.6, metalness: 0.5, flatShading: true });

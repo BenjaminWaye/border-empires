@@ -8,12 +8,7 @@ export {
   readAttackAlert,
   readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
-  readIncomingTruceRequestAlert,
-  type IncomingAetherPurgeAlert,
-  type IncomingAllianceBreakAlert,
-  type IncomingAllianceRequestAlert,
-  type IncomingAttackAlert,
-  type IncomingTruceRequestAlert
+  readIncomingTruceRequestAlert
 } from "./email-alert-readers.js";
 
 export type EmailAlertConfig = {

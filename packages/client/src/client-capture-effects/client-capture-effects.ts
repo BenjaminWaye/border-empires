@@ -3,7 +3,7 @@ import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
+import { victoryHoldAlertDetail, victoryHoldAlertTitle } from "../client-victory-alert/client-victory-alert.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unobstructed/client-popup-gate.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -386,8 +386,6 @@ export const drawStartingExpansionArrow = (
   ctx.fill();
   ctx.restore();
 };
-
-export const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
 // 2D settle dots share the 3D wander path (see client-ancillary-wander.ts); the
 // loader snaps the result to whole pixels.

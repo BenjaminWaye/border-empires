@@ -4,7 +4,6 @@ import type { CaptureCombatSnapshot } from "../client-types.js";
 type SiegeState = Pick<ClientState, "incomingAttacksByTile">;
 type IncomingAttack = NonNullable<ReturnType<ClientState["incomingAttacksByTile"]["get"]>>;
 type OutgoingMusterAttackState = Pick<ClientState, "outgoingMusterAttacksByTile">;
-type OutgoingMusterAttack = NonNullable<ReturnType<ClientState["outgoingMusterAttacksByTile"]["get"]>>;
 
 /** Shape of the fields a tile delta can carry that end a siege. Structural so
  * both the gateway-sync path (GatewayTileUpdate) and client-network's raw

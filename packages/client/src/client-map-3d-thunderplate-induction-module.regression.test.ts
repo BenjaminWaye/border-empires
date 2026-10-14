@@ -19,8 +19,6 @@ import {
   createThunderplateInductionModuleOverlay
 } from "./client-map-3d-thunderplate-induction-module.js";
 import {
-  TPL_ARC,
-  TPL_CAPACITOR,
   TPL_ELECTRODE_COLUMN,
   TPL_PLATE,
   TPL_PLATE_BLANK,

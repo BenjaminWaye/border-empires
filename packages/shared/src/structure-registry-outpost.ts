@@ -1,7 +1,6 @@
 import {
   RELAY_BEACON_BUILD_MS,
   SIEGE_BATTERY_BUILD_MS,
-  SIEGE_BATTERY_BUILD_COST,
 } from "./config.js";
 import {
   SIEGE_TIER_LADDER,

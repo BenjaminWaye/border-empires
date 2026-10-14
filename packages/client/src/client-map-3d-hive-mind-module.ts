@@ -57,7 +57,6 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 import {
   HMM_CONDUIT,
   HMM_CORE,
-  HMM_CRADLE,
   HMM_CRADLE_AZIMUTHS,
   HMM_POD,
   HMM_RELAY,

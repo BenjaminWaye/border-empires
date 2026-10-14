@@ -30,5 +30,3 @@ export const createAiExperimentCounters = () => {
     }
   };
 };
-
-export type AiExperimentCounters = ReturnType<typeof createAiExperimentCounters>;

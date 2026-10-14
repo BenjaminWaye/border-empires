@@ -1,5 +1,4 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { RuntimeTileYieldEconomyContext } from "./runtime-types.js";
 import type { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
 import {
   candidateIndexKeysAroundTileKey,
@@ -160,25 +159,6 @@ export const refreshPlayerCandidateIndexAnchorForTile = (input: {
     input.playerCandidateIndex.unregisterAnchor(input.tileKey);
     input.playerCandidateIndex.registerAnchor(input.tileKey, nextOwnerId!, nextMaxRadius, (key) => input.tiles.get(key));
   }
-};
-
-export const registerRuntimeTileAnchor = (input: {
-  playerCandidateIndex: PlayerCandidateIndex;
-  activeFortAnchorsByOwner: Map<string, Map<string, number>>;
-  activeSiegeBatteriesByOwner: Map<string, Set<string>>;
-  activeRelayBeaconsByOwner: Map<string, Set<string>>;
-  tiles: ReadonlyMap<string, DomainTileState>;
-  tileKey: string;
-  tile: DomainTileState;
-}): void => {
-  const ownerId = input.tile.ownerId;
-  if (!ownerId) return;
-  const candidateRadius = playerCandidateAnchorMaxRadius(input.tile, ownerId);
-  if (candidateRadius > 0) input.playerCandidateIndex.registerAnchor(input.tileKey, ownerId, candidateRadius, (key) => input.tiles.get(key));
-  const fortRadius = fortSupportAnchorMaxRadius(input.tile, ownerId);
-  if (fortRadius > 0) registerFortSupportAnchor(input.activeFortAnchorsByOwner, input.tileKey, ownerId, fortRadius);
-  if (isSiegeBatteryActive(input.tile, ownerId)) addTileToOwnerSet(input.activeSiegeBatteriesByOwner, input.tileKey, ownerId);
-  if (isRelayBeaconActive(input.tile, ownerId)) addTileToOwnerSet(input.activeRelayBeaconsByOwner, input.tileKey, ownerId);
 };
 
 export const refreshRuntimeTileIndexesForChange = (input: {
@@ -466,30 +446,4 @@ export const refreshNeutralBeaconIndexForTile = (input: {
   if (nextIsBeacon) input.neutralBeaconTileKeys.add(input.tileKey);
   else input.neutralBeaconTileKeys.delete(input.tileKey);
   return true;
-};
-
-export const assertYieldIndexCorrect = (input: {
-  playerId: string;
-  tiles: ReadonlyMap<string, DomainTileState>;
-  yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  summary: PlayerRuntimeSummary;
-  now: number;
-  yieldContext: RuntimeTileYieldEconomyContext;
-}): void => {
-  void input.now;
-  void input.yieldContext;
-  const expected = new Set<string>();
-  for (const tileKey of input.summary.territoryTileKeys) {
-    const tile = input.tiles.get(tileKey);
-    if (tile && isYieldBearingTile(tile)) expected.add(tileKey);
-  }
-  const actual = input.yieldBearingTilesByOwner.get(input.playerId) ?? new Set<string>();
-  let ok = true;
-  for (const key of expected) {
-    if (!actual.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${input.playerId} MISSING from index: ${key}`); }
-  }
-  for (const key of actual) {
-    if (!expected.has(key)) { ok = false; console.error(`[YIELD-INDEX] player=${input.playerId} SPURIOUS in index: ${key}`); }
-  }
-  if (ok) console.debug(`[YIELD-INDEX] player=${input.playerId} OK expected=${expected.size} actual=${actual.size}`);
 };

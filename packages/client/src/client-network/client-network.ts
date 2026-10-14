@@ -11,7 +11,7 @@ import { resetClientForNewSeason } from "../client-season-rollover/client-season
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
-import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
+import { setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
@@ -19,7 +19,6 @@ import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../cli
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
 import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
-  applyGatewayRecoveryNextClientSeq,
   bindQueuedFrontierCommandIdentity,
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
@@ -37,14 +36,11 @@ import { applyTechUpdateToState, updateTechAffordabilityPulses } from "../client
 import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "../client-debug/client-debug.js";
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
-import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
+import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
 import {
   applyTruceUpdateMessage,
-  notifyActiveAllianceBreaksOnInit,
   notifyIncomingAllianceRequest,
-  notifyIncomingDiplomacyRequestsOnInit,
-  notifyIncomingTruceRequest,
-  notifyRecentAllianceBreaksOnInit
+  notifyIncomingTruceRequest
 } from "../client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
@@ -99,7 +95,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     authProfileNameEl,
     authProfileColorEl,
     defensibilityPctFromTE,
-    seedProfileSetupFields,
     resetStrategicReplayState,
     setWorldSeed,
     clearRenderCaches,
@@ -114,10 +109,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     processActionQueue,
     clearSettlementProgressForTile,
     terrainAt,
-    requestAttackPreviewForTarget,
     openSingleTileActionMenu,
     isTileOwnedByAlly,
-    hideShardAlert,
     explainActionFailure,
     notifyInsufficientGoldForFrontierAction,
     clearSettlementProgressByKey,

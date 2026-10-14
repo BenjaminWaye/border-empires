@@ -222,5 +222,3 @@ export const buildMiniMapBaseRows = (deps: MiniMapBaseDeps, fromRow: number, toR
     }
   }
 };
-
-export const buildMiniMapBase = (deps: MiniMapBaseDeps): void => buildMiniMapBaseRows(deps, 0, deps.miniMapBase.height);

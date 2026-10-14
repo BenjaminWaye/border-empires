@@ -11,7 +11,7 @@ import {
 } from "@border-empires/game-domain";
 import { buildFedTownKeys, hasSupportedStructure } from "./player-update-economy/player-update-economy.js";
 import { firstThreeTownKeysForPlayer, firstThreeTownsPopulationGrowthMultiplierForPlayer } from "./economy-network/economy-network.js";
-import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 

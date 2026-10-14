@@ -90,13 +90,6 @@ export function incrementalRemove(entry: TileKeyArrayEntry, key: string): void {
 }
 
 /**
- * Return whether `key` is present in `entry`.  O(1).
- */
-export function incrementalHas(entry: TileKeyArrayEntry, key: string): boolean {
-  return entry.positionOf.has(key);
-}
-
-/**
  * Replace the contents of `entry` with all keys in `source`.  O(|source|).
  * Used during full-rebuild paths (constructor, `rebuildPlannerCandidateIndexes`).
  */

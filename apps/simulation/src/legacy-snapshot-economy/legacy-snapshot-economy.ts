@@ -85,15 +85,6 @@ const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   SHARD: 0
 });
 
-const emptyEconomyBreakdown = (): EconomyBreakdown => ({
-  GOLD: { sources: [], sinks: [] },
-  FOOD: { sources: [], sinks: [] },
-  TITANIUM: { sources: [], sinks: [] },
-  CRYSTAL: { sources: [], sinks: [] },
-  UMBRITE: { sources: [], sinks: [] },
-  SHARD: { sources: [], sinks: [] }
-});
-
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => right.amountPerMinute - left.amountPerMinute || left.label.localeCompare(right.label));
 
@@ -465,7 +456,6 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     const activeSettledTileKeys = player.territoryTiles.filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED");
 
     const townFoodNeeds = ownedTowns.map((town) => ({ town, need: townFoodUpkeepPerMinute(town) }));
-    const totalFoodNeed = townFoodNeeds.reduce((total, entry) => total + entry.need, 0);
     let remainingFood = Math.max(0, strategicResources.FOOD + strategicProduction.FOOD);
     const fedTownKeys = new Set<string>();
     for (const entry of townFoodNeeds) {
@@ -476,7 +466,6 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
         remainingFood = Math.max(0, remainingFood - entry.need);
       }
     }
-    const foodCoverage = totalFoodNeed <= 0 ? 1 : Math.max(0, Math.min(1, (strategicResources.FOOD + strategicProduction.FOOD) / totalFoodNeed));
 
     let goldIncome = 0;
     let townIncome = 0;

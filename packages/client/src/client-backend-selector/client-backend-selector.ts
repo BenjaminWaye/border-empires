@@ -128,16 +128,3 @@ export function selectBackend(opts: {
     source: "env-default"
   };
 }
-
-/**
- * Writes the backend cookie so it survives page reloads.
- * Setting to null clears the cookie and reverts to env default.
- */
-export function persistBackendCookie(choice: BackendChoice | null): void {
-  if (typeof document === "undefined") return;
-  if (choice === null) {
-    document.cookie = `${COOKIE_NAME}=; max-age=0; path=/`;
-  } else {
-    document.cookie = `${COOKIE_NAME}=${choice}; max-age=31536000; path=/; SameSite=Lax`;
-  }
-}

@@ -11,10 +11,8 @@ import {
   summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
   type CurrentSeasonSummary,
-  type GetRecentCommandsResponse,
   type PlayerSubscriptionSnapshot,
   type SeasonArchiveRow,
-  type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
 import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
@@ -25,11 +23,8 @@ import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
-import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
-import type { SimulationEventStore } from "../event-store/event-store.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
 import {
   createHybridSnapshotStringifier,
@@ -50,7 +45,7 @@ import { buildPlayerSubscriptionSnapshot } from "../player-snapshot/player-snaps
 import { buildSnapshotBuildOptions } from "./snapshot-build-options.js";
 import { yieldToEventLoop } from "../event-loop-yield.js";
 import { enrichSnapshotTilesForGlobalVisibility } from "../live-snapshot-view/live-snapshot-view.js";
-import { createSeedPlayers, createSeedWorld, seedProfileWorldgen, type SimulationSeedProfile } from "../seed-state/seed-state.js";
+import { createSeedPlayers, createSeedWorld, seedProfileWorldgen } from "../seed-state/seed-state.js";
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
@@ -78,14 +73,14 @@ import { applyAiPlayerDebugSnapshotToMetrics, sampleRuntimeGaugeMetrics } from "
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
-import { GALAXY_ARCHIVE_LIMIT, type SeasonSummaryStore } from "../season-summary-store.js";
+import { GALAXY_ARCHIVE_LIMIT } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
-import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
+import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
@@ -1021,17 +1016,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     snapshotCache.clear();
     postSeasonProtoTilesCache = undefined;
     return refreshSnapshotCacheMetrics();
-  };
-  const stopGameplayTickers = (): void => {
-    if (shardRainTicker) { clearInterval(shardRainTicker); shardRainTicker = undefined; }
-    if (tileSheddingTicker) { clearInterval(tileSheddingTicker); tileSheddingTicker = undefined; }
-    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; } if (waypointDrainTicker) { clearInterval(waypointDrainTicker); waypointDrainTicker = undefined; }
-    if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
-    if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
-    if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
-    if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
-    if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
-    log.info("season ended — gameplay tickers stopped");
   };
   // Proactively build and cache full-vis snapshots for all subscribed players
   // immediately after season end. Tiles are frozen post-season so cached

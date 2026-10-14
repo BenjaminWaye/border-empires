@@ -38,7 +38,6 @@ export const FOREST_SETTLEMENT_MULT = 2;
 // settle time. (EXPAND-side forest/hills treatment is 1.5x, not 2x — the two
 // mechanics are tuned independently.)
 export const HILLS_SETTLEMENT_MULT = 2;
-export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * Math.max(FOREST_SETTLEMENT_MULT, HILLS_SETTLEMENT_MULT);
 
 const isForestSettlementTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" &&

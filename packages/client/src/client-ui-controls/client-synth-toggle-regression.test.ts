@@ -10,7 +10,6 @@ const clientSource = (filename: string): string => {
 
 describe("converter toggle regression guard", () => {
   it("wires enable and disable converter actions through the tile menu and action flow", () => {
-    const logic = clientSource("../client-tile-action-logic/client-tile-action-logic.ts");
     const converterMenu = clientSource("../client-converter-menu.ts");
     const flow = clientSource("../client-action-flow.ts");
     const converterActions = clientSource("../client-converter-actions.ts");

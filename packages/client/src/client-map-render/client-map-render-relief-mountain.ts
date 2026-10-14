@@ -45,7 +45,6 @@ export const drawReliefMountainTile = (
   }
 
   const centerX = px + size * 0.54;
-  const centerY = py + size * 0.52;
   const peakOffset = mountainPeakOffset(wx, wy);
   const variation = mountainVariationForWorldTile(wx, wy);
   const peakX = centerX + size * peakOffset.x * 0.9;

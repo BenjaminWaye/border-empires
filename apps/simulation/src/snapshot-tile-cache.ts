@@ -1,6 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type AutoSettlePrefs, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
-import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
 import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
 
@@ -209,23 +208,6 @@ export const getDomainTilesByKey = (runtimeState: RuntimeState): Map<string, Dom
   return result;
 };
 
-// Async variant — yields every 2,000 tiles on cold build, instant on cache hit.
-export const getDomainTilesByKeyAsync = async (
-  runtimeState: RuntimeState,
-  yieldToEventLoop: () => Promise<void>
-): Promise<Map<string, DomainTileState>> => {
-  const cached = domainTilesByKeyCache.get(runtimeState);
-  if (cached) return cached;
-  const result = new Map<string, DomainTileState>();
-  let tileIndex = 0;
-  for (const tile of runtimeState.tiles) {
-    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
-    result.set(keyFor(tile.x, tile.y), toDomainTile(tile));
-  }
-  domainTilesByKeyCache.set(runtimeState, result);
-  return result;
-};
-
 export const buildSettledDomainTilesByPlayerId = (
   runtimeState: RuntimeState,
   domainTilesByKey: ReadonlyMap<string, DomainTileState>
@@ -234,28 +216,6 @@ export const buildSettledDomainTilesByPlayerId = (
   if (cached) return cached;
   const byPlayerId = new Map<string, DomainTileState[]>();
   for (const tile of runtimeState.tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
-    const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
-    if (!domainTile) continue;
-    const current = byPlayerId.get(tile.ownerId) ?? [];
-    current.push(domainTile);
-    byPlayerId.set(tile.ownerId, current);
-  }
-  settledDomainTilesByPlayerIdCache.set(runtimeState, byPlayerId);
-  return byPlayerId;
-};
-
-export const buildSettledDomainTilesByPlayerIdAsync = async (
-  runtimeState: RuntimeState,
-  domainTilesByKey: ReadonlyMap<string, DomainTileState>,
-  yieldToEventLoop: () => Promise<void>
-): Promise<Map<string, DomainTileState[]>> => {
-  const cached = settledDomainTilesByPlayerIdCache.get(runtimeState);
-  if (cached) return cached;
-  const byPlayerId = new Map<string, DomainTileState[]>();
-  let tileIndex = 0;
-  for (const tile of runtimeState.tiles) {
-    if (shouldYieldAt(tileIndex++, 2_000)) await yieldToEventLoop();
     if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
     const domainTile = domainTilesByKey.get(keyFor(tile.x, tile.y));
     if (!domainTile) continue;
@@ -351,58 +311,3 @@ export const townKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<s
   nearbyWarTownKeysCache.set(runtimeState, fresh);
   return fresh;
 };
-
-// Island map only changes when terrain changes (create_mountain / remove_mountain).
-// Runtime stamps a fresh terrainEpoch every time terrain mutates and at each
-// fresh runtime instance. We keep at most 2 recent epochs in-memory so a long-
-// running process never accumulates stale maps. With WORLD_WIDTH * WORLD_HEIGHT
-// up to ~256k tiles, recomputing per snapshot would be the dominant cost; this
-// turns it into a one-time amortised O(world) + O(1) lookup thereafter.
-const ISLAND_MAP_CACHE_LIMIT = 2;
-const islandMapByEpoch = new Map<number, ReadonlyMap<string, number>>();
-
-export const computeIslandMap = (runtimeState: RuntimeState): ReadonlyMap<string, number> => {
-  // Fallback to a fixed epoch in synthetic test fixtures that omit terrainEpoch;
-  // the cache then degenerates to a single shared entry for the test process.
-  const epoch = runtimeState.terrainEpoch ?? 0;
-  const cached = islandMapByEpoch.get(epoch);
-  if (cached) return cached;
-  const landKeys = new Set<string>();
-  for (const tile of runtimeState.tiles) {
-    if (tile.terrain === "LAND") landKeys.add(keyFor(tile.x, tile.y));
-  }
-  const islandIdByTile = new Map<string, number>();
-  let nextIslandId = 0;
-  const wrap = (v: number, m: number): number => ((v % m) + m) % m;
-  for (const startKey of landKeys) {
-    if (islandIdByTile.has(startKey)) continue;
-    const [sxRaw, syRaw] = startKey.split(",");
-    const sx = Number(sxRaw);
-    const sy = Number(syRaw);
-    const islandId = nextIslandId;
-    nextIslandId += 1;
-    const queue: Array<{ x: number; y: number }> = [{ x: sx, y: sy }];
-    islandIdByTile.set(startKey, islandId);
-    for (let i = 0; i < queue.length; i += 1) {
-      const cur = queue[i]!;
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = wrap(cur.x + dx, WORLD_WIDTH);
-          const ny = wrap(cur.y + dy, WORLD_HEIGHT);
-          const nk = keyFor(nx, ny);
-          if (!landKeys.has(nk) || islandIdByTile.has(nk)) continue;
-          islandIdByTile.set(nk, islandId);
-          queue.push({ x: nx, y: ny });
-        }
-      }
-    }
-  }
-  if (islandMapByEpoch.size >= ISLAND_MAP_CACHE_LIMIT) {
-    const oldest = islandMapByEpoch.keys().next().value;
-    if (oldest !== undefined) islandMapByEpoch.delete(oldest);
-  }
-  islandMapByEpoch.set(epoch, islandIdByTile);
-  return islandIdByTile;
-};
-
