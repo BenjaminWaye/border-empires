@@ -206,6 +206,27 @@ describe("frontier command planner", () => {
     expect(evaluatedTargets).toEqual(new Map([["10,10", 1]]));
   });
 
+  it("never targets a truce partner or ally, so the AI neither attacks nor musters against them", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const, ownerId: "truced-1", ownershipState: "SETTLED" }],
+      ["9,10", { x: 9, y: 10, terrain: "LAND" as const, ownerId: "enemy-1", ownershipState: "SETTLED" }]
+    ]);
+    const owned = [tiles.get("10,10")!];
+
+    const hostile = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1");
+    expect(hostile.frontierEnemyPlayerTargetCount).toBe(2);
+
+    const truced = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nonHostilePlayerIds: new Set(["truced-1"]) });
+    expect(truced.frontierEnemyPlayerTargetCount).toBe(1);
+    expect(truced.enemyAttack?.target).toMatchObject({ x: 9, y: 10 });
+
+    const atPeace = analyzeOwnedFrontierTargetsFromLookup(tiles, owned, "ai-1", { nonHostilePlayerIds: new Set(["truced-1", "enemy-1"]) });
+    expect(atPeace.frontierEnemyPlayerTargetCount).toBe(0);
+    expect(atPeace.enemyAttack).toBeUndefined();
+    expect(atPeace.attack).toBeUndefined();
+  });
+
   it("tracks enemy-player and barbarian attack availability separately on mixed fronts", () => {
     const tiles = new Map([
       ["0,0", { x: 0, y: 0, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
