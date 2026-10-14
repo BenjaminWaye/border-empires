@@ -37,7 +37,7 @@ export const addReachTileOverlays3D = (
   if (!intruder) return;
   const intruderColor = deps.ownerColor(intruder);
   const style = deps.breachStyle ?? incursionBreachStyle();
-  const layout = incursionBreachLayout(style, incursionNeighbourKindAt(wx, wy, intruder, deps.me, deps), wx, wy);
+  const layout = incursionBreachLayout(style, incursionNeighbourKindAt(wx, wy, intruder, deps.me, deps, myReach), wx, wy);
   overlay.addIncursionTile(
     scene.x,
     scene.z,

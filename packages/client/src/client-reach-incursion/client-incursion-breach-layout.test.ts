@@ -50,6 +50,14 @@ describe("incursionBreachLayout", () => {
     expect(incursionBreachLayout("straight", around({})).roundedCorners).toBe(0);
   });
 
+  it("draws no edge at all along the old border with the rival's own land", () => {
+    const atBorder = around({ "1,0": "rival", "1,-1": "rival", "1,1": "rival" });
+    expect(incursionBreachLayout("straight", atBorder).straightEdges.east).toBe(false);
+    // Spikes: the east side gets no line, and no outer-corner rounding on that side.
+    expect(incursionBreachLayout("spikes", atBorder).roundedCorners & 0b0110).toBe(0);
+    expect(incursionBreachLayout("spikes", atBorder).front.some((piece) => piece.points.some((p) => p.x > 0.6))).toBe(false);
+  });
+
   it("raises the veil only on the sides facing my land", () => {
     expect(incursionBreachLayout("veil", kinds).veilSides).toEqual(["north", "west"]);
     expect(incursionBreachLayout("veil", kinds).band).toEqual([]);

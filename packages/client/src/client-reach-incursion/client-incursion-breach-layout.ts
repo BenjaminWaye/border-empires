@@ -15,7 +15,7 @@ export type { BreachFrontPiece, BreachPoint } from "./client-incursion-breach-fr
 // the boundary gets one quad, and an 8-neighbour bitmask tells the shader
 // which neighbouring squares are "the other side". Pure + renderer-agnostic.
 
-/** What sits at offset (dx, dy) from the pocket tile: more of this pocket, my land, or anything else. */
+/** What sits at offset (dx, dy) from the pocket tile: more of this pocket, the rival's own land outside my reach, my land, or anything else. */
 export type BreachNeighbourKind = FrontNeighbourKind;
 
 /** Neighbour offsets in bitmask order: bit i of a mask is NEIGHBOUR_OFFSETS[i]. Mirrored in the 3D band shader. */
@@ -75,7 +75,8 @@ export const incursionBreachLayout = (
   let roundedCorners = 0;
   SIDES.forEach((side, index) => {
     const across = kindAt(side.dx, side.dy);
-    if (across === "pocket") return;
+    // Pocket continues, or the old border with the rival's own land: no edge there.
+    if (across === "pocket" || across === "rival") return;
     // Each side starts at corner `index` (NW, NE, SE, SW).
     if (style === "spikes" && isOuterStartCorner(side, kindAt)) roundedCorners |= 1 << index;
     // Spikes replace the strip all the way round with the thin front line; only sides facing my land get teeth.

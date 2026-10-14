@@ -19,7 +19,10 @@ export const BREACH_STYLE_LABELS: Readonly<Record<IncursionBreachStyle, string>>
 
 export type BreachDemoWorld = {
   readonly mine: ReadonlySet<string>;
+  /** Rival tiles inside my reach (drawn as incursions). */
   readonly pocket: ReadonlySet<string>;
+  /** The same rival's own land outside my reach (plain fill, no incursion overlay). */
+  readonly rival?: ReadonlySet<string>;
 };
 
 export const tileKey = (x: number, y: number): string => `${x},${y}`;
@@ -48,10 +51,41 @@ export const buildBreachDemoWorld = (): BreachDemoWorld => {
   return { mine, pocket };
 };
 
-/** The production breach layout's neighbour classifier, for a pocket tile of the demo world. */
+/** The production breach layout's neighbour classifier (as incursionNeighbourKindAt), for a pocket tile of the demo world. */
 export const demoKindAt =
   (world: BreachDemoWorld, x: number, y: number) =>
   (dx: number, dy: number): BreachNeighbourKind => {
     const key = tileKey(x + dx, y + dy);
-    return world.pocket.has(key) ? "pocket" : world.mine.has(key) ? "mine" : "other";
+    if (world.pocket.has(key)) return "pocket";
+    if (world.rival?.has(key)) return "rival";
+    return world.mine.has(key) ? "mine" : "other";
   };
+
+/**
+ * Two empires sharing a straight border (mine west, the rival's east of
+ * x = 0.5), and the rival has pushed across it: a two-tile-deep bulge plus a
+ * single tile further down, both still attached to their own land. Those
+ * tiles are inside my reach, so they're incursions; the rival's land behind
+ * the old border is not.
+ */
+export const buildBorderDemoWorld = (): BreachDemoWorld => {
+  const pushed: ReadonlyArray<readonly [number, number]> = [
+    [0, -2],
+    [0, -1],
+    [-1, -1],
+    [0, 0],
+    [-1, 0],
+    [0, 2]
+  ];
+  const pocket = new Set(pushed.map(([x, y]) => tileKey(x, y)));
+  const mine = new Set<string>();
+  const rival = new Set<string>();
+  for (let y = -MINE_HALF_HEIGHT; y <= MINE_HALF_HEIGHT; y += 1) {
+    for (let x = -MINE_HALF_WIDTH; x <= MINE_HALF_WIDTH; x += 1) {
+      const key = tileKey(x, y);
+      if (pocket.has(key)) continue;
+      (x <= 0 ? mine : rival).add(key);
+    }
+  }
+  return { mine, pocket, rival };
+};

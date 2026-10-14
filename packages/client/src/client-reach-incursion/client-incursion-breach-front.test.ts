@@ -66,6 +66,18 @@ describe("organicSideFront", () => {
     expect(teeth(westUnowned).some((p) => p.points[2]!.x < -0.5 && p.points[2]!.y < -0.5)).toBe(false);
   });
 
+  it("runs straight up to the old border and stops there, with no curl into the rival's own land", () => {
+    // The rival pushed across a border at x = 0.5: their own land (outside my reach) is east of this pocket tile.
+    // North side faces my land; its east end meets the old border.
+    const kinds = around({ "1,0": "rival", "1,-1": "rival", "0,1": "pocket" });
+    const pts = linePoints(organicSideFront(NORTH, true, 0, 0, kinds));
+    // Reaches the corner instead of stopping a corner-radius short...
+    expect(Math.max(...pts.map((p) => p.x))).toBeGreaterThan(0.45);
+    // ...and never bends down or across into the rival's land.
+    expect(pts.filter((p) => p.x > 0.4).every((p) => p.y < -0.35)).toBe(true);
+    expect(Math.max(...pts.map((p) => p.x))).toBeLessThan(0.62);
+  });
+
   it("curves round an inner corner through my tile instead of dropping into the pocket", () => {
     // The pocket continues north-west and west of the corner: north side's start is an inner corner.
     const kinds = around({ "-1,-1": "pocket", "-1,0": "pocket" });

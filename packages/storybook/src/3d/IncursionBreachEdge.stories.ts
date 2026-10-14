@@ -6,7 +6,7 @@ import { incursionBreachLayout } from "@client/client-reach-incursion/client-inc
 import { INCURSION_BREACH_STYLES, type IncursionBreachStyle } from "@client/client-reach-incursion/client-incursion-breach-style.js";
 import { normalizeColorForThree } from "@client/client-three-color/client-three-color.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
-import { BREACH_STYLE_LABELS, buildBreachDemoWorld, demoKindAt, parseTileKey, type BreachDemoWorld } from "../incursion-breach/incursion-breach-demo-world.js";
+import { BREACH_STYLE_LABELS, buildBorderDemoWorld, buildBreachDemoWorld, demoKindAt, parseTileKey, type BreachDemoWorld } from "../incursion-breach/incursion-breach-demo-world.js";
 
 /**
  * The incursion pocket edge -- the outline around a rival's tiles inside my
@@ -21,6 +21,8 @@ import { BREACH_STYLE_LABELS, buildBreachDemoWorld, demoKindAt, parseTileKey, ty
 
 type Args = {
   style: IncursionBreachStyle;
+  /** "islands": rival pockets inside my land; "border": the rival pushing across a shared border. */
+  scenario: "islands" | "border";
   cameraDistance: number;
   cameraTilt: number;
   myColor: string;
@@ -37,7 +39,8 @@ const ownershipMesh = (world: BreachDemoWorld, myColor: string, intruderColor: s
   const color = new Color();
   for (const [keys, hex] of [
     [world.mine, myColor],
-    [world.pocket, intruderColor]
+    [world.pocket, intruderColor],
+    [world.rival ?? new Set<string>(), intruderColor]
   ] as const) {
     color.set(normalizeColorForThree(hex));
     for (const key of keys) {
@@ -71,7 +74,7 @@ const renderOne = (args: Args, label?: string): HTMLElement => {
   const group = new Group();
   stage.scene.add(group);
 
-  const world = buildBreachDemoWorld();
+  const world = args.scenario === "border" ? buildBorderDemoWorld() : buildBreachDemoWorld();
   const ownership = ownershipMesh(world, args.myColor, args.intruderColor);
   group.add(ownership);
 
@@ -122,13 +125,14 @@ const meta: Meta<Args> = {
   title: "3D Library/IncursionBreachEdge",
   argTypes: {
     style: { control: { type: "select" }, options: [...INCURSION_BREACH_STYLES] },
+    scenario: { control: { type: "inline-radio" }, options: ["islands", "border"] },
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 0.5 } },
     cameraTilt: { control: { type: "range", min: 0.2, max: 1.2, step: 0.05 } },
     myColor: { control: { type: "color" } },
     intruderColor: { control: { type: "color" } }
   },
   // Red-pink me, light-green intruder (-> near-black outline), as in the original screenshot.
-  args: { style: "spikes", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
+  args: { style: "spikes", scenario: "islands", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
   render: (args) => renderOne(args, BREACH_STYLE_LABELS[args.style])
 };
 
@@ -145,3 +149,6 @@ export const Option2Ink: Story = { args: { style: "ink" } };
 export const Option3Veil: Story = { args: { style: "veil" } };
 /** A dark intruder colour flips the outline to white -- check every style still reads. */
 export const CompareAllDarkIntruder: Story = { args: { intruderColor: "#2b3a8c" }, render: renderCompare };
+/** The rival pushing across a shared border: the front line only runs where their push meets my land. */
+export const SpikesAtBorder: Story = { args: { style: "spikes", scenario: "border" } };
+export const CurrentAtBorder: Story = { args: { style: "straight", scenario: "border" } };

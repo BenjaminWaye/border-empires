@@ -50,15 +50,19 @@ export const incursionPocketEdges = (x: number, y: number, ownerId: string, deps
 };
 
 /**
- * Classifier for the breach outline (client-incursion-breach-shapes.ts): what
+ * Classifier for the breach outline (client-incursion-breach-layout.ts): what
  * sits at offset (dx, dy) from the incursion tile at (x, y) -- more of the same
- * intruder's pocket, the viewer's own land, or anything else.
+ * intruder's pocket (inside my reach), the intruder's own land behind the old
+ * border (outside it), the viewer's own land, or anything else.
  */
 export const incursionNeighbourKindAt =
-  (x: number, y: number, ownerId: string, me: string, deps: IncursionDeps) =>
-  (dx: number, dy: number): "pocket" | "mine" | "other" => {
-    const neighbourOwner = deps.tiles.get(deps.keyFor(deps.wrapX(x + dx), deps.wrapY(y + dy)))?.ownerId;
-    return neighbourOwner === ownerId ? "pocket" : neighbourOwner === me ? "mine" : "other";
+  (x: number, y: number, ownerId: string, me: string, deps: IncursionDeps, myReach: ReadonlySet<string>) =>
+  (dx: number, dy: number): "pocket" | "rival" | "mine" | "other" => {
+    const key = deps.keyFor(deps.wrapX(x + dx), deps.wrapY(y + dy));
+    const neighbourOwner = deps.tiles.get(key)?.ownerId;
+    // The intruder's own land outside my reach is behind the old border, not part of the incursion pocket.
+    if (neighbourOwner === ownerId) return myReach.has(key) ? "pocket" : "rival";
+    return neighbourOwner === me ? "mine" : "other";
   };
 
 const LIGHT_MARK = "#ffffff";

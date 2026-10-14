@@ -22,8 +22,12 @@ export type BreachPoint = { readonly x: number; readonly y: number };
  */
 export type BreachFrontPiece = { readonly points: readonly BreachPoint[]; readonly outline: readonly BreachPoint[] };
 
-/** What sits at offset (dx, dy) from the pocket tile. */
-export type FrontNeighbourKind = "pocket" | "mine" | "other";
+/**
+ * What sits at offset (dx, dy) from the pocket tile: more of this incursion
+ * pocket, the same rival's own land OUTSIDE my reach (behind the old border),
+ * my land, or anything else.
+ */
+export type FrontNeighbourKind = "pocket" | "rival" | "mine" | "other";
 
 /** One open side of the pocket tile: outward direction (dx, dy), its start corner, and its unit tangent (clockwise round the pocket). */
 export type FrontSide = { readonly dx: number; readonly dy: number; readonly a: BreachPoint; readonly t: BreachPoint };
@@ -73,12 +77,20 @@ const unit = (p: BreachPoint): BreachPoint => {
   return { x: p.x / len, y: p.y / len };
 };
 
-type CornerTurn = "straight" | "outer" | "inner";
+type CornerTurn = "straight" | "outer" | "inner" | "border";
 
-/** How the boundary continues past one end of a side: on along the next tile, round an outer corner, or round an inner one. */
+/**
+ * How the boundary continues past one end of a side: on along the next tile,
+ * round an outer corner, round an inner one -- or into the rival's own land
+ * behind the old border ("border"), where the front line simply ends, run
+ * right up to the corner, since no incursion tile carries it on.
+ */
 const cornerTurn = (side: FrontSide, along: 1 | -1, kindAt: (dx: number, dy: number) => FrontNeighbourKind): CornerTurn => {
-  if (kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along) === "pocket") return "inner";
-  return kindAt(side.t.x * along, side.t.y * along) === "pocket" ? "straight" : "outer";
+  const diagonal = kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along);
+  const next = kindAt(side.t.x * along, side.t.y * along);
+  if (diagonal === "rival" || next === "rival") return "border";
+  if (diagonal === "pocket") return "inner";
+  return next === "pocket" ? "straight" : "outer";
 };
 
 /** Whether the boundary turns an OUTER corner at this side's start corner (the corner the hatch must round off). */
@@ -158,12 +170,13 @@ export const organicSideFront = (
   const at = (u: number): BreachPoint => add(side.a, side.t, u);
   const startTurn = cornerTurn(side, -1, kindAt);
   const endTurn = cornerTurn(side, 1, kindAt);
-  const u0 = startTurn === "straight" ? 0 : CORNER_RADIUS;
-  const u1 = endTurn === "straight" ? 1 : 1 - CORNER_RADIUS;
+  const runsToCorner = (turn: CornerTurn): boolean => turn === "straight" || turn === "border";
+  const u0 = runsToCorner(startTurn) ? 0 : CORNER_RADIUS;
+  const u1 = runsToCorner(endTurn) ? 1 : 1 - CORNER_RADIUS;
 
   const path: BreachPoint[] = [];
   let arcTooth: BreachFrontPiece | undefined;
-  if (startTurn !== "straight") {
+  if (!runsToCorner(startTurn)) {
     // The previous side runs into this corner along tPrev: turned one way round an outer corner, the other round an inner one.
     const tPrev = startTurn === "outer" ? { x: side.t.y, y: -side.t.x } : { x: -side.t.y, y: side.t.x };
     const from = add(side.a, tPrev, -CORNER_RADIUS);
