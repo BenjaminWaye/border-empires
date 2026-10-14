@@ -1,7 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
 
-export type SqliteDatabase = DatabaseSync;
-
 let sharedDb: DatabaseSync | undefined;
 let sharedDbPath: string | undefined;
 
@@ -53,12 +51,4 @@ export const openSqliteDatabase = (path: string): DatabaseSync => {
   sharedDb = db;
   sharedDbPath = path;
   return db;
-};
-
-export const closeSqliteDatabase = (): void => {
-  if (sharedDb) {
-    sharedDb.close();
-    sharedDb = undefined;
-    sharedDbPath = undefined;
-  }
 };

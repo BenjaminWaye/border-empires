@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CapsuleGeometry, CylinderGeometry, InstancedMesh, Scene, TorusGeometry, Vector3 } from "three";
+import { CylinderGeometry, InstancedMesh, Scene, TorusGeometry, Vector3 } from "three";
 import { AFC_BAY_INNER_RADIUS } from "./client-map-3d-fabrication-complex.js";
 import {
   AETHER_CORE_BASE_RADIUS,

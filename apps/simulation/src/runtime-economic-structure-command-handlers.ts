@@ -11,7 +11,7 @@ import { economicStructureGoldUpkeepPerInterval } from "./runtime-structure-rule
 import { SYNTHESIZER_TYPE_SET } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import type { LockRecord, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { creditManpower } from "./runtime-manpower-ceiling.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 

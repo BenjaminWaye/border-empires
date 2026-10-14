@@ -175,7 +175,5 @@ export const occupationSurveyController = {
 };
 
 export const occupationSurveyReportsForCapture = (techIds: readonly string[] = []): OccupationSurveyReport[] => occupationSurveyController.currentReports(techIds);
-export const techIdForOccupationSurveyResource = (resource: OccupationSurveyResource): string => TECH_BY_RESOURCE[resource];
-export const occupationSurveyResourceLabel = (resource: OccupationSurveyResource): string => RESOURCE_LABEL[resource];
 
 if (typeof window !== "undefined") window.addEventListener("keydown", (event) => { if (event.key === "Escape") dismissLabel(); });

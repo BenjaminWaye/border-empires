@@ -70,7 +70,6 @@ export const CAT_END_RING = { radius: 0.0535, tube: 0.008, z: 0.065 };
 // apex, feeding charge down into the drum from the top. A chamber's own feed,
 // so there are as many canisters as chambers.
 export const CAT_CANISTER = { radiusTop: 0.0115, radiusBottom: 0.0145, length: 0.046, y: 0.2225 };
-export const CAT_CANISTER_Z = CAT_SEGMENT_Z;
 // Nozzle and collar: where each canister spears into its chamber's shell — a
 // short wide stub sunk below the shell top, wrapped by a brass seat ring.
 export const CAT_NOZZLE = { radius: 0.017, length: 0.013, y: 0.196 };

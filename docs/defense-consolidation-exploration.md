@@ -113,8 +113,8 @@ where they're weak and act on it. More situational awareness, not less.
   exposed edges (still useful for the *local* support calc and the
   auto-consolidation "fully enclosed?" test). The **ENCIRCLEMENT** machinery
   (`frontierDecayKind === "ENCIRCLEMENT"`, encircled tiles barred as attack
-  origins / decaying — see `apps/simulation/src/runtime-frontier-decay/runtime-frontier-decay.ts` and
-  `territory-automation.ts`) is conceptually adjacent and should be reconciled
+  origins / decaying — see `apps/simulation/src/encirclement/encirclement.ts`,
+  `runtime-encirclement-application.ts` and `territory-automation.ts`) is conceptually adjacent and should be reconciled
   with the new local-support model rather than duplicated.
 
 ## 5. Open questions for the next explorer
@@ -151,7 +151,7 @@ where they're weak and act on it. More situational awareness, not less.
 - `packages/shared/src/exposure/exposure.ts` — neighbour/wrap helpers, exposure recompute.
 - `apps/simulation/src/player-defensibility-metrics.ts` — per-player T/E/score assembly.
 - `packages/client/src/client-tech-panel-flow.ts` — the only place the % is shown.
-- `apps/simulation/src/runtime-frontier-decay/runtime-frontier-decay.ts`, `territory-automation.ts` — encirclement + auto-claim/settle helpers (`orderedAutoSettlementTileKeys`, `isAutoSettlementEligibleTarget`).
+- `apps/simulation/src/encirclement/encirclement.ts`, `territory-automation.ts` — encirclement + auto-claim/settle helpers (`orderedAutoSettlementTileKeys`, `isAutoSettlementEligibleTarget`).
 - `apps/simulation/src/ai/ai-settlement-priority.ts` — AI's existing compactness/exposure reasoning.
 - `docs/game-mechanics.md` — canonical mechanics reference (see §1 map, §13 perf).
 - `docs/archive/design-history-2026/mustering-feature-story.md` — the muster/garrison model this defense rework must stay consistent with.

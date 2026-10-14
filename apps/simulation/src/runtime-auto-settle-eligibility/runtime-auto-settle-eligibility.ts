@@ -63,10 +63,6 @@ export const removeEligibleFrontierTile = (map: EligibleFrontierByOwner, ownerId
   map.get(ownerId)?.delete(tileKey);
 };
 
-export const forgetEligibleFrontierOwner = (map: EligibleFrontierByOwner, ownerId: string): void => {
-  map.delete(ownerId);
-};
-
 /** Insertion-ordered snapshot of a player's queued eligible frontier tiles, as {x, y} (for autoSettlementQueueForPlayer). */
 export const orderedEligibleFrontierTiles = (map: EligibleFrontierByOwner, ownerId: string): Array<{ x: number; y: number }> => {
   const set = map.get(ownerId);

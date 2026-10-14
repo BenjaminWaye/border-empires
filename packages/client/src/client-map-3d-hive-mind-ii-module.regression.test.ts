@@ -15,7 +15,7 @@
 // bay.
 
 import { describe, expect, it } from "vitest";
-import { Scene, Vector3 } from "three";
+import { Scene } from "three";
 import {
   HIVE_MIND_II_BASE_RADIUS,
   HIVE_MIND_II_MODULE_HEIGHT,

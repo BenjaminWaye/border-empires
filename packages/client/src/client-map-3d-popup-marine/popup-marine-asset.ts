@@ -101,10 +101,3 @@ export const loadPopupMarineTemplate = (): Promise<PopupMarineTemplate> => {
   }
   return cached;
 };
-
-/** Test-only hook: lets popup-marine-overlay-fx tests reset the module-level
- * cache between cases instead of leaking a resolved/rejected promise across
- * them. */
-export const __resetPopupMarineGeometryCacheForTests = (): void => {
-  cached = undefined;
-};

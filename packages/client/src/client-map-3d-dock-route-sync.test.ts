@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
-import { dockRouteScenePaths, syncDockRouteOverlay } from "./client-map-3d-dock-route-sync.js";
+import { createDockRouteSync, dockRouteScenePaths, syncDockRouteOverlay } from "./client-map-3d-dock-route-sync.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair } from "./client-types.js";
 import type { DockRouteOverlay } from "./client-map-3d-dock-route-overlay.js";
@@ -124,5 +124,36 @@ describe("dockRouteScenePaths", () => {
     const paths = dockRouteScenePaths(longRoute, { camX: last.x, camY: 0 });
     const xs = paths[0]!.map((p) => p.x);
     expect(xs[xs.length - 1]).toBeCloseTo(0.5);
+  });
+});
+
+
+describe("cached dock route discovery", () => {
+  it("refreshes a selected dock after garrison vision arrives without moving the camera", () => {
+    const overlay = makeOverlay();
+    const sync = createDockRouteSync(overlay);
+    const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair], fogDisabled: false,
+      discoveredDockTiles: new Set(["1,1"]) });
+    const visible = () => state.discoveredDockTiles.has("3,1");
+    sync(state, sceneOrigin, () => route, visible);
+    expect(overlay.addPath).not.toHaveBeenCalled();
+    state.discoveredDockTiles.add("3,1");
+    sync(state, sceneOrigin, () => route, visible);
+    expect(overlay.addPath).toHaveBeenCalledOnce();
+    sync(state, sceneOrigin, () => route, visible);
+    expect(overlay.commit).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears administrative routes when fog is restored with the same selection", () => {
+    const overlay = makeOverlay();
+    const sync = createDockRouteSync(overlay);
+    const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair], fogDisabled: true,
+      discoveredDockTiles: new Set() });
+    sync(state, sceneOrigin, () => route, () => state.fogDisabled);
+    expect(overlay.addPath).toHaveBeenCalledOnce();
+    state.fogDisabled = false;
+    sync(state, sceneOrigin, () => route, () => state.fogDisabled);
+    expect(overlay.clear).toHaveBeenCalledTimes(2);
+    expect(overlay.addPath).toHaveBeenCalledOnce();
   });
 });

@@ -255,10 +255,6 @@ export const buildPlayerSubscriptionSnapshot = (
         economicStructure: JSON.parse(tile.economicStructureJson!) as { type?: string; status?: string }
       }))
   );
-  const settledTileCount =
-    typeof livePlayer?.settledTileCount === "number"
-      ? livePlayer.settledTileCount
-      : runtimeState.tiles.filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED").length;
   const strategicProductionPerMinute =
     livePlayer?.strategicProductionPerMinute ??
     liveEconomy.strategicProductionPerMinute ??

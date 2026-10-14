@@ -333,7 +333,6 @@ export const renderTileActionMenu = (
             const otherY = pair.ax === tileX && pair.ay === tileY ? pair.by : pair.ay;
             const visible = isDockRouteVisibleForPlayer(pair, {
               fogDisabled: state.fogDisabled,
-              selected: state.selected,
               discoveredDockTiles: state.discoveredDockTiles,
               keyFor
             });

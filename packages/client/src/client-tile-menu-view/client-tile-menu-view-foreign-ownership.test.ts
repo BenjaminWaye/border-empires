@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tileMenuViewForTile } from "./client-tile-menu-view.js";
+import { createInitialState } from "../client-state/client-state.js";
+import { playerDisplayNameForOwnerFromState } from "../client-owner-name/client-owner-name.js";
 import type { Tile } from "../client-types.js";
 
 const deps = {
@@ -21,6 +23,33 @@ const deps = {
 };
 
 describe("foreign ownership headers", () => {
+  it("shows the seasonal AI name and attributes frontier decay to its owner", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.playerNames.set("ai-1", "AI 1");
+    state.leaderboard.overall = [{ id: "ai-1", name: "Freja Sund", rank: 1, score: 42, tiles: 8, incomePerMinute: 4.2, techs: 1, manpowerCap: 300 }];
+    const menu = tileMenuViewForTile({
+      x: 337, y: 307, terrain: "LAND", dockId: "dock-1", ownerId: "ai-1", ownershipState: "FRONTIER",
+      frontierDecayKind: "OUT_OF_REACH", frontierDecayAt: Date.now() + 190_000
+    }, {
+      ...deps, state,
+      playerNameForOwner: (id) => playerDisplayNameForOwnerFromState(state, id),
+      menuActionsForSingleTile: () => [],
+      splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+      settlementProgressForTile: () => undefined,
+      captureProgressForTile: () => undefined,
+      queuedSettlementProgressForTile: () => undefined,
+      queuedBuildProgressForTile: () => undefined,
+      queuedExpandProgressForTile: () => undefined,
+      queuedWaypointProgressForTile: () => undefined,
+      queuedAutoSettleNextForTile: () => undefined,
+      constructionProgressForTile: () => undefined,
+      menuOverviewForTile: () => []
+    });
+    expect(menu.subtitle).toContain("Freja Sund");
+    expect(menu.subtitleHtml).toContain('data-player-name-id="ai-1"');
+    expect(menu.statusText).toBe("Beyond its owner’s reach — decays in 190s");
+  });
   it("shows the owner player name instead of enemy text for hostile land", () => {
     const menu = tileMenuViewForTile(
       {

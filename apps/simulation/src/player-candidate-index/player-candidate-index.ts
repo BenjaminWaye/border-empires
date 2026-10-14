@@ -36,7 +36,7 @@
  * Matches sweepAttackCandidates exactly.
  */
 
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 

@@ -55,13 +55,6 @@ const withTimeout = async (url: string): Promise<JsonFetchResult> => {
 
 const timestampToken = (): string => new Date().toISOString().replace(/[:.]/g, "-");
 
-export const downloadRespawnReasonReport = (notice: PlayerRespawnNotice): void => {
-  saveJsonFile(`border-empires-respawn-reason-${notice.id}-${timestampToken()}.json`, {
-    generatedAt: new Date().toISOString(),
-    notice
-  });
-};
-
 export const downloadRespawnBugReport = async (args: {
   notice: PlayerRespawnNotice;
   state: ClientState;

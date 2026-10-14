@@ -149,8 +149,3 @@ export const computeGalaxyCycleTick = (
   }
   return { influence: next.influence, production: next.production, territories: next.territories };
 };
-
-// JUDGMENT CALL: newly-claimed territory starts at Stability 100 — the doc
-// doesn't state this explicitly (§7), but it's the sensible default for
-// "just won/awarded, nothing has drained it yet".
-export const NEW_TERRITORY_STARTING_STABILITY = 100;

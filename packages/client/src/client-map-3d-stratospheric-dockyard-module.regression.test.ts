@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CapsuleGeometry, CylinderGeometry, InstancedMesh, Matrix4, Scene, TorusGeometry, Vector3 } from "three";
+import { CylinderGeometry, InstancedMesh, Matrix4, Scene, TorusGeometry, Vector3 } from "three";
 import { AFC_BAY_INNER_RADIUS } from "./client-map-3d-fabrication-complex.js";
 import { STRATODOCK_BASE_RADIUS, STRATODOCK_MODULE_HEIGHT, STRATODOCK_SCALE, createStratosphericDockyardModuleOverlay } from "./client-map-3d-stratospheric-dockyard-module.js";
 

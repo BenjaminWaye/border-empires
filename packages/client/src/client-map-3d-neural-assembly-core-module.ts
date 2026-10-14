@@ -65,13 +65,10 @@ import {
   NAC_ARM,
   NAC_ARM_AZIMUTHS,
   NAC_CONDUIT,
-  NAC_GIMBAL,
   NAC_GLASS,
   NAC_HOUSING,
-  NAC_PATHWAY,
   NAC_PATHWAY_LATITUDE_LIFT,
   NAC_POD,
-  NAC_POST,
   NAC_TOWER_TOP,
   createNeuralAssemblyCoreParts
 } from "./client-map-3d-neural-assembly-core-parts.js";

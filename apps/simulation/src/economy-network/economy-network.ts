@@ -1,15 +1,12 @@
 import {
-  DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT,
-  DOCK_INCOME_PER_MIN,
-  HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
   type DomainPlayer,
   type DomainTileState
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
-export { dockBaseGoldPerMinuteForPlayer, dockConnectionBonusPerLinkForPlayer, dockConnectedOwnedSettledCount, dockSupportedByHarborExchange, HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK } from "./economy-network-dock-income.js";
+export { dockBaseGoldPerMinuteForPlayer, dockSupportedByHarborExchange, HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK } from "./economy-network-dock-income.js";
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
-import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import {
   findConnectivityRoot,
   isCorridorTileForPlayer,
@@ -807,10 +804,6 @@ export const enrichTownWithConnectedNetwork = (
     ...(entry.connectedTownNames ? { connectedTownNames: entry.connectedTownNames } : {})
   };
 };
-
-export const dockGoldOutputMultiplierForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
-): number => multiplicativeEffectForPlayer(player, "dockGoldOutputMult");
 
 export {
   firstThreeTownKeysForPlayer,

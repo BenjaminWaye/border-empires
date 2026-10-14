@@ -4,7 +4,7 @@ import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
-import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
+import { parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";

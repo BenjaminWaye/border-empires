@@ -20,7 +20,7 @@ import {
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
-import { currentTileFieldSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import { type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";

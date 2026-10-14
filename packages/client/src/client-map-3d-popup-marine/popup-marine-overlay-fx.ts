@@ -35,7 +35,6 @@
 // regression.
 import {
   AnimationMixer,
-  Color,
   Matrix4,
   MeshStandardMaterial,
   Object3D,
@@ -115,8 +114,6 @@ const FWD_AXIS = new Vector3(0, 0, 1);
 const MAX_BOLTS = MAX_MARINES * 2 * 3;
 // Rig bone the muzzle flash is pinned to (the Mixamo humanoid's pistol hand).
 const HAND_BONE_NAME = "RightHand";
-// Seconds of crossfade when a marine changes stance (running -> firing, etc).
-const STANCE_FADE_S = 0.18;
 
 type MarineSlot = {
   /** Whole cloned model root — the asset carries its scale on its own root
@@ -226,7 +223,6 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       console.error("popup-marine model failed to load; battle marines will not render", err);
     });
 
-  const tmpColor = new Color();
   const tmpQuat = new Quaternion();
   const fallQuat = new Quaternion();
   const flashPos = new Vector3();
