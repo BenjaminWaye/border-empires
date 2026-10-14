@@ -29,19 +29,22 @@ const SUN_OFFSET_Y = 42;
 const SUN_OFFSET_Z = 60;
 export const SUN_DISTANCE = Math.hypot(SUN_OFFSET_X, SUN_OFFSET_Y, SUN_OFFSET_Z);
 
+// Keep diffuse daylight modest now that metals have their own environment
+// reflections. A neutral fill preserves terrain/ownership colours; exposure
+// stays below unity so pale roofs retain highlight detail under ACES.
 export const DEFAULT_LIGHTING: LightingSettings = {
-  hemiIntensity: 0.7,
-  hemiSkyColor: "#b8c8ff",
+  hemiIntensity: 0.55,
+  hemiSkyColor: "#c6d2e5",
   hemiGroundColor: "#2a2030",
-  sunIntensity: 1.55,
-  sunColor: "#fff0c0",
+  sunIntensity: 1.25,
+  sunColor: "#fff4df",
   sunAzimuthDeg: (Math.atan2(SUN_OFFSET_X, SUN_OFFSET_Z) * 180) / Math.PI,
   sunElevationDeg: (Math.asin(SUN_OFFSET_Y / SUN_DISTANCE) * 180) / Math.PI,
   shadowIntensity: 0.6,
-  fillIntensity: 0.55,
-  fillColor: "#ff8a5c",
+  fillIntensity: 0.25,
+  fillColor: "#c6d2e5",
   envIntensity: 0.5,
-  exposure: 1.1
+  exposure: 0.95
 };
 
 export type LightingNumberKey = {

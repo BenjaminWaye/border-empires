@@ -370,6 +370,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
       "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
     ]
+  },
+  {
+    createdAt: 1791969150437, // Date.now() captured for this update.
+    introducedIn: "2026.10.14.1",
+    title: "Softer 3D map daylight",
+    why: "Strong stacked lighting made terrain and pale buildings look washed out.",
+    changes: ["Reduced 3D daylight and exposure to preserve surface detail", "Neutral fill light keeps terrain and building colours clearer"]
   }
 ];
 
