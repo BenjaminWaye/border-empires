@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { Scene, Texture, type WebGLRenderer } from "three";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Scene, Texture, Vector3, type WebGLRenderer } from "three";
+import { resetLightingSettings } from "./client-lighting-tuner/client-lighting-tuner-settings.js";
 import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 
 // Regression coverage for a live bug: trees (client-map-3d-forest.ts) and
@@ -141,7 +142,7 @@ describe("createAtmosphere lighting tuner wiring", () => {
     resetLightingSettings();
     const scene = new Scene();
     const atmosphere = createAtmosphere(scene);
-    expect(atmosphere.sun.intensity).toBeCloseTo(1.55);
+    expect(atmosphere.sun.intensity).toBeCloseTo(1.25);
     expect(atmosphere.sun.position.y).toBeCloseTo(42, 6);
     setLightingSetting("sunIntensity", 0.8);
     setLightingSetting("hemiIntensity", 0.2);
@@ -154,5 +155,43 @@ describe("createAtmosphere lighting tuner wiring", () => {
     expect(atmosphere.sun.intensity).toBe(0.8);
     resetLightingSettings();
     vi.unstubAllGlobals();
+  });
+});
+
+// A flat non-metallic tile receives all three lights. Bound their combined
+// exposure-weighted irradiance so brightening buildings cannot silently wash
+// out the whole ground again. This is a lighting budget, not a pixel test.
+describe("daylight balance", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined } });
+    resetLightingSettings();
+  });
+
+  afterEach(() => {
+    resetLightingSettings();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps upward-facing terrain below the washout budget", () => {
+    const renderer = { toneMappingExposure: 1 } as WebGLRenderer;
+    const atmosphere = createAtmosphere(new Scene(), renderer, () => new Texture());
+    const up = new Vector3(0, 1, 0);
+    const sunDirection = atmosphere.sun.position.clone().sub(atmosphere.sun.target.position).normalize();
+    const fillDirection = atmosphere.fillLight.position.clone().normalize();
+    const irradiance = atmosphere.hemiLight.intensity
+      + atmosphere.sun.intensity * Math.max(0, up.dot(sunDirection))
+      + atmosphere.fillLight.intensity * Math.max(0, up.dot(fillDirection));
+    const exposedDiffuse = irradiance * renderer.toneMappingExposure / Math.PI;
+    expect(exposedDiffuse).toBeLessThanOrEqual(0.45);
+    // Keep daylight readable rather than solving the issue with a dark map.
+    expect(exposedDiffuse).toBeGreaterThan(0.3);
+    atmosphere.dispose();
+  });
+
+  it("uses a neutral fill so shadow faces retain their material colour", () => {
+    const atmosphere = createAtmosphere(new Scene());
+    const { r, g, b } = atmosphere.fillLight.color;
+    expect(Math.max(r, g, b) / Math.min(r, g, b)).toBeLessThan(1.6);
+    atmosphere.dispose();
   });
 });

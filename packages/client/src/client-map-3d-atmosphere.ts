@@ -116,9 +116,8 @@ export type AtmosphereResources = {
 // material (every tree, client-map-3d-forest.ts) is. Without `scene.environment`
 // set, those metallic materials had no specular source to reflect at all and
 // rendered near-black regardless of how bright hemi/sun/fill were pushed --
-// which is what the hemi/fill boost above this type was tuned against and
-// still couldn't fully fix. A cheap generated room environment (no HDR asset,
-// no network fetch) gives them that missing reflection source.
+// which earlier hemi/fill boosts could not fully fix. A cheap generated room
+// environment (no HDR asset, no network fetch) gives them that missing source.
 const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
   const pmremGenerator = new PMREMGenerator(renderer);
   const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -129,7 +128,7 @@ const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
 };
 
 // Exposed so client-map-3d-atmosphere.test.ts can inject a fake and assert
-// createAtmosphere actually wires the result into `scene.environment` and
+// createAtmosphere returns the building reflection texture and
 // disposes it, without needing a real WebGL context to bake a PMREM texture
 // against (which vitest's node/happy-dom environment doesn't provide).
 export type BuildingEnvironmentTextureFactory = (renderer: WebGLRenderer) => Texture;
@@ -188,23 +187,11 @@ export const createAtmosphere = (
   skyMesh.frustumCulled = false;
   skyMesh.renderOrder = -1000;
 
-  // hemiLight and fillLight are what light the side of a structure that
-  // isn't facing the sun — which, for a single fixed-direction key light,
-  // is most of what the camera actually sees on any given building. The 3D
-  // overlays (dozens of them now) are all authored and eyeballed in
-  // Storybook, whose stage lighting runs far brighter than this (its
-  // default is an 0.55 ambient + 0.9 sun with no tone mapping at all, and
-  // several overlays' own "studio" rigs stack a 2+ intensity key light on
-  // top of that). Tuned against that, then dropped into these dimmer,
-  // more contrasty numbers, every overlay's shadow-facing surfaces sank
-  // toward the same near-black regardless of their actual palette — which
-  // is why buildings stopped reading as visually distinct in game even
-  // though they're clearly different in their Storybook previews. Raising
-  // hemi/fill (and leaving the sun alone) keeps the key light's direction
-  // and mood intact while giving those surfaces enough light to actually
-  // show their color again.
-  const hemiLight = new HemisphereLight("#b8c8ff", "#2a2030", 0.7);
-  const sun = new DirectionalLight("#fff0c0", 1.55); // real values are applied from the lighting settings below (defaults live in client-lighting-tuner-settings.ts)
+  // Building reflections supply metal detail independently of diffuse daylight.
+  // Start from the same settings used by the live tuner, without a second rig.
+  const lighting = getLightingSettings();
+  const hemiLight = new HemisphereLight(lighting.hemiSkyColor, lighting.hemiGroundColor, lighting.hemiIntensity);
+  const sun = new DirectionalLight(lighting.sunColor, lighting.sunIntensity);
   // On top of the fixed tilt noted above, the camera also never orbits --
   // camera.position.x/z only drift a few tiles for pan, no rotate control
   // exists. At the reference zoom it sits at roughly (0.5, 21, 15) looking at
@@ -230,7 +217,7 @@ export const createAtmosphere = (
   // just tinting roofs.
   // Recomputed from the sun azimuth/elevation setting; see applyLighting below.
   const sunOffset = new Vector3();
-  const fillLight = new DirectionalLight("#ff8a5c", 0.55);
+  const fillLight = new DirectionalLight(lighting.fillColor, lighting.fillIntensity);
   fillLight.position.set(-30, 20, -40);
 
   // Only the sun casts -- the fill/hemi lights are unlit-shadow fakes (no
@@ -315,7 +302,7 @@ export const createAtmosphere = (
     if (renderer) renderer.toneMappingExposure = settings.exposure;
     setBuildingEnvIntensity(scene, buildingEnvironmentTexture, settings.envIntensity);
   };
-  applyLighting(getLightingSettings());
+  applyLighting(lighting);
   const unsubscribeLighting = subscribeLightingSettings(applyLighting);
 
   scene.add(skyMesh, hemiLight, sun, fillLight);
