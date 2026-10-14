@@ -165,7 +165,6 @@ const twoD = (args: Args): HTMLElement => {
   slider.style.cssText = "width:640px;display:block;margin:8px 0;";
   root.append(canvas, slider, label);
   const ctx = canvas.getContext("2d")!;
-  let raf = 0;
   // Stop once the story has been shown and then detached; tolerate the window
   // before Storybook has attached `root` (a plain "is it connected" check would
   // stop the loop before it ever started).
@@ -184,9 +183,9 @@ const twoD = (args: Args): HTMLElement => {
       x += size + 40;
     }
     label.textContent = `${(progress * args.hours).toFixed(1)}h / ${args.hours}h  (tile sizes 24 / 48 / 96 px)`;
-    raf = requestAnimationFrame(draw);
+    requestAnimationFrame(draw);
   };
-  image.onload = () => { raf = requestAnimationFrame(draw); };
+  image.onload = () => { requestAnimationFrame(draw); };
   image.src = sprite.toDataURL();
   return root;
 };
