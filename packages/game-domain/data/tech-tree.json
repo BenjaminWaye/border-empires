@@ -480,31 +480,13 @@
       "manifestCategory": "DOSSIER"
     },
     {
-      "id": "surveying",
-      "tier": 2,
-      "branch": "aether",
-      "name": "Echo-Reader Crew",
-      "description": "Imported specialists who use the local Crystal lattice as a sounding board. Unlocks Survey Sweep, revealing hidden towns, Titanium, Gems, and Umbrite.",
-      "prereqIds": [
-        "crystal-lattices"
-      ],
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 14400,
-      "effects": {
-        "unlockSurveySweep": true
-      },
-      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
-    },
-    {
       "id": "cryptography",
-      "tier": 2,
+      "tier": 5,
       "branch": "aether",
       "name": "Counterphase Core Module",
-      "description": "AFC module: signal-disruption apparatus for offensive aether use. Unlocks Aether EMP.",
+      "description": "AFC module: signal-disruption apparatus for offensive aether use. Unlocks Aether EMP, which knocks out enemy Ambaric Transformers and every structure they power.",
       "prereqIds": [
-        "crystal-lattices"
+        "radar"
       ],
       "cost": {
         "gold": 10
@@ -540,7 +522,7 @@
       "name": "Aetherward Coil Module",
       "description": "AFC module: coil-and-pylon apparatus that projects a defensive aether field over a port. Unlocks Aether Wall.",
       "prereqIds": [
-        "cryptography"
+        "navigation"
       ],
       "cost": {
         "gold": 10
@@ -571,30 +553,31 @@
     },
     {
       "id": "beacon-towers",
-      "tier": 3,
+      "tier": 2,
       "branch": "aether",
       "name": "Augury Office",
-      "description": "Imported Unblinking Dial, locally cut lenses, and trained Dial Augurs. Unlocks Reveal Empire and Reveal Stats.",
+      "description": "Imported Unblinking Dial, locally cut lenses, and trained Dial Augurs who read the local Crystal lattice. Unlocks Survey Sweep, revealing hidden towns, Titanium, Gems, and Umbrite, plus Reveal Empire and Reveal Stats.",
       "prereqIds": [
-        "surveying"
+        "crystal-lattices"
       ],
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 28800,
       "effects": {
+        "unlockSurveySweep": true,
         "unlockRevealEmpire": true
       },
       "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "navigation",
-      "tier": 4,
+      "tier": 2,
       "branch": "aether",
       "name": "Tideway Lattice Module",
       "description": "AFC module: resonant anchor-piles tuned to local tides. Unlocks Aether Bridge.",
       "prereqIds": [
-        "harborcraft"
+        "crystal-lattices"
       ],
       "cost": {
         "gold": 10
@@ -612,7 +595,7 @@
       "name": "Stratospheric Dockyard Module",
       "prereqIds": [
         "beacon-towers",
-        "cryptography",
+        "navigation",
         "terrain-engineering"
       ],
       "description": "AFC module: storm charts, landing corridors, and power routing for this world's skies. Unlocks Sky Dock.",
@@ -632,8 +615,7 @@
       "branch": "aether",
       "name": "Resonance Grid Module",
       "prereqIds": [
-        "aeronautics",
-        "cryptography"
+        "aeronautics"
       ],
       "description": "AFC module: sensor apparatus tuned to this planet's aether interference. Unlocks Resonance Grid, which denies enemy aerial bombardment in its radius.",
       "cost": {

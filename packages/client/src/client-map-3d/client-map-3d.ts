@@ -15,6 +15,7 @@ import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isHillsTile, isLightGrassScatterTile, isTropicalForestLatitude, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { EMPTY_MAP_3D_REBUILD_TRIGGERS, captureMap3DRebuildTriggers, map3DRebuildTriggersChanged } from "../client-map-3d-rebuild-triggers/client-map-3d-rebuild-triggers.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
@@ -81,9 +82,9 @@ import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { reachCacheKey, resolveMyReachCached } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
+import { filterReachToLand, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
-import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
+import { addReachTileOverlays3D, computeOtherOwnersReachPylons, reachEmphasisFor, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
@@ -335,7 +336,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
-  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false, frontierAttackClaimKeysSnapshot: "" };
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, triggers: EMPTY_MAP_3D_REBUILD_TRIGGERS };
   // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
   // rebuild's window (not the live camera): once maybeRebuild stops requiring an
   // exact camX/camY match (padded hysteresis only), the camera can drift inside
@@ -820,6 +821,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
+    const reachTileDeps3D = { ...reach3DDeps, me: deps.state.me, ownerColor: deps.effectiveOverlayColor }; // per-tile reach overlays below (dormant frontier + rival incursions)
     if (reach3DActive) {
       const reach3DKey = reachCacheKey(deps.state); // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
@@ -1202,7 +1204,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
             };
           }
         }
-        // Aether Survey Line 3D overlay: dormant-frontier fill is still
+        // Aether Survey Line 3D overlay: dormant-frontier fill and the incursion hatch are
         // per-tile (mirrors the 2D path's conditions in
         // client-runtime-loop.ts exactly). The sparse pylons + connecting
         // chords themselves are NOT rendered per-tile here -- they're
@@ -1211,9 +1213,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         // pylon only exists every ~10-15 boundary tiles and iterating the
         // full visible-tile grid is the wrong loop shape for that.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
-          if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
-            reachOverlay3D.addDormantFrontierTile(x, z, flatOverlayY, 1);
-          }
+          addReachTileOverlays3D(reachOverlay3D, tile, wx, wy, { x, z, y: flatOverlayY }, reach3DCache, reachTileDeps3D);
         }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
           const exposedSides = exposedSidesForTile(tile, {
@@ -1369,13 +1369,13 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const sx = toroidDelta(sceneOrigin.camX, pf.x, WORLD_WIDTH);
         const sz = toroidDelta(sceneOrigin.camY, pf.y, WORLD_HEIGHT);
         const v = resolveBorderContactVisual(borderContactState.pylonKeys.has(pointKey(pf)), deps.effectiveOverlayColor(pf.ownerId), pf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
-        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, v.color, pf.riseFraction, v.laser);
+        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, v.color, pf.riseFraction, v.laser, reachEmphasisFor(pf.ownerId, deps.state.me));
       }
       // Split at the seam boundary rather than recoloring the whole wall -- see splitSegmentByContact's doc comment.
       for (const sf of segmentFrames.values()) {
         for (const piece of splitSegmentByContact({ x: sf.fx, y: sf.fy }, { x: sf.tx, y: sf.ty }, borderContactState.seams)) {
           const v = resolveBorderContactVisual(piece.atContact, deps.effectiveOverlayColor(sf.ownerId), sf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
-          reachOverlay3D.addLineSegment(toroidDelta(sceneOrigin.camX, piece.from.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.from.y, WORLD_HEIGHT), surfaceYForCorner(piece.from.x, piece.from.y), toroidDelta(sceneOrigin.camX, piece.to.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.to.y, WORLD_HEIGHT), surfaceYForCorner(piece.to.x, piece.to.y), v.color, v.laser, sf.riseFraction, sf.riseFraction);
+          reachOverlay3D.addLineSegment(toroidDelta(sceneOrigin.camX, piece.from.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.from.y, WORLD_HEIGHT), surfaceYForCorner(piece.from.x, piece.from.y), toroidDelta(sceneOrigin.camX, piece.to.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.to.y, WORLD_HEIGHT), surfaceYForCorner(piece.to.x, piece.to.y), v.color, v.laser, sf.riseFraction, sf.riseFraction, reachEmphasisFor(sf.ownerId, deps.state.me));
         }
       }
       borderDustFx.setSeams(borderContactSeamsToDustSeams(borderContactState.seams, { toroidDelta, camX: sceneOrigin.camX, camY: sceneOrigin.camY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, surfaceYForCorner, effectiveOverlayColor: deps.effectiveOverlayColor }));
@@ -1395,10 +1395,8 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       lastCameraApplied.height = height;
     }
 
-    const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
-    // Forces a rebuild on claim start/end -- see activeFrontierAttackClaimTargetKeys.
-    const frontierAttackClaimKeysNow = Array.from(activeFrontierAttackClaimTargetKeys(deps.state, deps.keyFor, nowMs)).sort().join(",");
+    const triggersNow = captureMap3DRebuildTriggers(deps.state, deps.keyFor, isTrue3DRendererActive()); // claim keys read epoch time themselves (nowMs is performance.now())
     // Padded hysteresis only — no more exact-camX/camY-match requirement. The
     // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
     // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild
@@ -1407,8 +1405,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     const rebuildNeeded =
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
-      ctActiveNow !== lastRebuild.crystalTargetingActive ||
-      frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot ||
+      map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow) ||
       structureOverlay.constructionBoundaryPassed() || relayBeaconOverlay.constructionBoundaryPassed() || fortOverlay.constructionBoundaryPassed();
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
@@ -1416,8 +1413,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
       lastRebuild.builtWindow = builtWindow;
       lastRebuild.at = nowMs;
-      lastRebuild.crystalTargetingActive = ctActiveNow;
-      lastRebuild.frontierAttackClaimKeysSnapshot = frontierAttackClaimKeysNow;
+      lastRebuild.triggers = triggersNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.onTerrainRebuilt(builtWindow, (wx, wy) => deps.tileVisibilityStateAt(wx, wy, deps.state.tiles.get(deps.keyFor(wx, wy)))); // resizes the sun's shadow frustum + rebuilds the unexplored storm's explored mask at the new origin

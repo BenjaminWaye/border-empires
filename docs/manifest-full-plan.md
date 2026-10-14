@@ -634,6 +634,17 @@ War-module logic:
 | New split node | Matterwright Retort Module | AFC Module | Aether Retort; must include Umbrite output |
 | Astral Doctrine | Astral Dock Dossier | Dossier | Astral Dock project |
 
+**Update 2026-10-13 (Aether reshuffle):** Echo-Reader Crew (`surveying`) was
+removed and Survey Sweep folded into Augury Office (`beacon-towers`, now
+Tier 2 off Aether Resonance Core), so Survey Sweep, Reveal Empire and Reveal
+Stats share one Manifest. Counterphase Core Module (`cryptography`, Aether
+EMP) moved to the end of the branch (Tier 5, after Resonance Grid Module),
+since EMP only hits Ambaric Transformers. Tideway Lattice Module
+(`navigation`, Aether Bridge) took its Tier 2 slot, Aetherward Coil Module
+now follows it, and the Hidden Hand domain gates on Augury Office.
+`packages/game-domain/data/tech-tree.json` is the source of truth; the
+layout is pinned in `ability-gating.test.ts`.
+
 Aether copy rules:
 
 - The House knows Aether theory already.

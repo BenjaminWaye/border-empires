@@ -3,6 +3,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTown
 import { backfillProspectClues } from "./prospect-clue-backfill/prospect-clue-backfill.js";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { migrateRetiredTechIds } from "./retired-tech-ids/retired-tech-ids.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { attachDockSeaRoutes, type SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
@@ -46,7 +47,7 @@ export const createPlayersFromRecoveredState = (
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
     initialState.players.map((player) => {
-      const techIds = new Set(player.techIds ?? []);
+      const techIds = migrateRetiredTechIds(player.techIds ?? []);
       const domainIds = new Set(player.domainIds ?? []);
       return [
         player.id,

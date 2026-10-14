@@ -27,6 +27,8 @@ import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sep
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
+import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changelog-alliance-tab-redesign.js";
+import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
@@ -217,6 +219,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
+  ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
+  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
@@ -282,6 +286,32 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Economy panel says Coin",
     why: "The economy panel still called the currency Gold while the rest of the game says Coin.",
     changes: ["The economy panel's currency card and detail heading now read Coin"]
+  },
+  {
+    createdAt: 1791925158695, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.3",
+    title: "Your border shows up as soon as you log in",
+    why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
+    changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
+  },
+  {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
+  },
+  {
+    createdAt: 1791959048426,
+    introducedIn: "2026.10.14.1",
+    title: "3D map shows frontier claims on time",
+    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
+    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
   }
 ];
 

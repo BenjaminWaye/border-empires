@@ -1,3 +1,4 @@
+import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
@@ -400,13 +401,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
-  const hasOutgoingPendingTruce = (): boolean => state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
-  const pendingTruceWithPlayer = (playerId?: string | null): "incoming" | "outgoing" | undefined => {
-    if (!playerId) return undefined;
-    if (state.outgoingTruceRequests.some((request) => request.toPlayerId === playerId && request.expiresAt > Date.now())) return "outgoing";
-    if (state.incomingTruceRequests.some((request) => request.fromPlayerId === playerId && request.expiresAt > Date.now())) return "incoming";
-    return undefined;
-  };
 
   const explainActionFailure = (
     code: string,
@@ -1114,7 +1108,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     supportedOwnedDocksForTile,
     townHasSupportStructure,
     activeTruceWithPlayer,
-    pendingTruceWithPlayer,
     ownerSpawnShieldActive,
     connectedOwnedFrontierKeysFor: (tile: Tile) => connectedOwnedFrontierKeys(state, tile, { keyFor, wrapX, wrapY })
   });
@@ -1406,35 +1399,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
-    if (actionId === "offer_truce_12h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
-      if (pendingTruce || hasOutgoingPendingTruce()) {
-        pushFeed(
-          pendingTruce === "incoming"
-            ? "That empire already sent you a truce offer."
-            : "You already have a pending truce offer.",
-          "alliance",
-          "warn"
-        );
-        return;
-      }
-      const targetName = playerNameForOwner(selected.ownerId);
-      if (targetName) sendTruceRequest(targetName, 12);
-    }
-    if (actionId === "offer_truce_24h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
-      if (pendingTruce || hasOutgoingPendingTruce()) {
-        pushFeed(
-          pendingTruce === "incoming"
-            ? "That empire already sent you a truce offer."
-            : "You already have a pending truce offer.",
-          "alliance",
-          "warn"
-        );
-        return;
-      }
-      const targetName = playerNameForOwner(selected.ownerId);
-      if (targetName) sendTruceRequest(targetName, 24);
+    if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
+      openDiplomacyForPlayer(state, selected.ownerId, isMobile());
+      renderHud();
     }
     if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       breakTruce(selected.ownerId);
