@@ -150,6 +150,7 @@ describe("openDiplomacyForPlayer", () => {
 
     expect(state.activePanel).toBe("alliance");
     expect(state.socialFocus).toEqual({ playerId: "ai-1", until: 1_000 + SOCIAL_FOCUS_HIGHLIGHT_MS, scrollPending: true });
+    expect(state.expandedSocialPlayerId).toBe("ai-1");
   });
 
   it("switches the mobile sheet to Alliances only on a mobile viewport", () => {
