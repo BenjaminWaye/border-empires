@@ -32,8 +32,6 @@ export type MusterRateSample = {
 
 export type MusterRateCache = Map<string, MusterRateSample>;
 
-export const createMusterRateCache = (): MusterRateCache => new Map();
-
 /**
  * Predicts a muster flag's current staged amount by interpolating between
  * server samples using its accrual rate.

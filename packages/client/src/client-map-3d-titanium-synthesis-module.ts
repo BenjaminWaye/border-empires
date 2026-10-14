@@ -67,7 +67,6 @@ import {
   TIT_CAP,
   TIT_CRUCIBLE,
   TIT_INJECTOR,
-  TIT_PIPE,
   TIT_POD,
   TIT_SLIT,
   TIT_VALVE

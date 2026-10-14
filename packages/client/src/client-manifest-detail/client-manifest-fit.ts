@@ -1,10 +1,11 @@
 // "Good pick" signals for a Manifest you haven't taken yet. Every reason is a
-// fact read from your own empire's state -- never a design judgement -- so the
-// badge only appears when something concrete makes the Manifest pay off now:
+// signal read from your own empire's state. The badge appears when a
+// concrete opportunity makes the Manifest pay off now:
 //   1. Resource lead: it reveals a resource and you have a survey report for
 //      it, or prospect clues for it lie within a few tiles of your land.
 //   2. Build right away: one of its structures fits your free resource slots
-//      and current manpower.
+//      and current manpower, with a usable owned build site. Food expansion
+//      also requires tight Food capacity.
 // The opposite case ("Not useful yet") is shown when every structure it
 // unlocks needs a resource you have no slots of at all.
 import {
@@ -68,6 +69,8 @@ export const CLUE_NEARBY_RADIUS = 4;
 
 export type ManifestFitInput = {
   manpower: number;
+  hasBuildSite: (type: BuildableStructureType, tech: TechInfo) => boolean;
+  ownsFish: boolean;
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   // hasProspectClueNearTerritory over the client's tiles; injected so the
   // caller can memoise it per tile revision (it scans every known tile).
@@ -81,8 +84,7 @@ export type ManifestFit = {
 };
 
 // True when a clue tile you can see sits within CLUE_NEARBY_RADIUS of a tile
-// you own (clue tiles inside your own land count). Runs only when a
-// resource-revealing Manifest's detail is open, over tiles the client already
+// you own (clue tiles inside your own land count). Runs over tiles the client already
 // holds -- it never reveals anything the map does not show, and the badge
 // deliberately says only "nearby", not where.
 export const hasProspectClueNearTerritory = (tiles: Iterable<Tile>, me: string, signature: ProspectSignature): boolean => {
@@ -144,10 +146,18 @@ export const manifestFit = (tech: TechInfo, input: ManifestFitInput): ManifestFi
   const lead = resourceLeadReason(tech, input);
   if (lead) reasons.push(lead);
   const buildables = unlockedBuildables(tech);
+  // One spare Food slot or less is an immediate capacity need. Surplus Food
+  // is still described under What you get, but is not a recommendation.
+  const needsFood = freeSlots(input, "FOOD") <= 1;
+  if (tech.id === "agriculture" && input.ownsFish && needsFood) {
+    reasons.push("Your Fish tiles gain +1 Food slot each, helping your tight Food capacity");
+  }
   const buildNow = buildables.find(
     (type) =>
+      (!["HYDROGARDEN", "HYDROWORKS"].includes(type) || needsFood) &&
       input.manpower >= structureBuildManpowerCost(type) &&
-      structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count)
+      structureSlotRequirements(type).every((requirement) => freeSlots(input, requirement.resource) >= requirement.count) &&
+      input.hasBuildSite(type, tech)
   );
   if (buildNow) reasons.push(`You can build ${withArticle(structureName(buildNow))} right away`);
   // The resource this Manifest reveals never counts as missing: the Manifest

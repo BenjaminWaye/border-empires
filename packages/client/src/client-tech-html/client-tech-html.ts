@@ -1,6 +1,6 @@
 import { BASE_COMBAT_POWER, PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS, AGRICULTURE_FISH_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
-import { isTechHighlightEffectKey } from "../client-tech-payoffs.js"; import { economicStructureName } from "../client-map-display.js";
+import { economicStructureName } from "../client-map-display.js";
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 type ActiveBonusContext = {
@@ -429,13 +429,6 @@ const checklistHtml = (items: Array<{ label: string; met: boolean }>, className 
         .join("")}</ul>`
     : `<ul class="${className}"><li>None</li></ul>`;
 
-const compactChecklistHtml = (items: Array<{ label: string; met: boolean }>): string =>
-  items.length > 0
-    ? `<ul>${items
-        .map((item) => `<li style="color:${item.met ? "#84f2b8" : "#ff9f9f"}">${item.met ? "✓" : "✗"} ${item.label}</li>`)
-        .join("")}</ul>`
-    : `<p class="muted">No requirements listed.</p>`;
-
 const fallbackRequirementChecklist = (requirements: {
   gold?: number;
   resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
@@ -546,7 +539,7 @@ export const renderDomainChoiceGridHtml = (args: {
   currentTier: number | undefined;
   requiresTechNames: Record<string, string>;
 }): string => {
-  const { domainCatalog, domainIds, domainUiSelectedId, ownedByTier, currentTier, requiresTechNames } = args;
+  const { domainCatalog, domainIds, domainUiSelectedId, ownedByTier, currentTier } = args;
   if (domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
   const grouped = new Map<number, DomainInfo[]>();
   for (const domain of domainCatalog) {

@@ -1,14 +1,6 @@
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import type { Terrain } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
-
-type EconomyHeuristicTile = {
-  ownershipState?: string | undefined;
-  terrain: Terrain;
-  town?: unknown;
-  dockId?: string | undefined;
-};
 
 export const foodCoverageLow = (
   strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined,
@@ -26,4 +18,3 @@ export const foodCoverageLow = (
 // manpower's regen taper making growth costlier at scale (§4.3).
 export const economyWeak = (manpower: number, settledTileCount: number): boolean =>
   manpower < Math.max(40, settledTileCount * 6);
-

@@ -15,5 +15,3 @@ export const createOwnershipChangeAlertMetrics = () => {
     }
   };
 };
-
-export type OwnershipChangeAlertMetrics = ReturnType<typeof createOwnershipChangeAlertMetrics>;

@@ -1,3 +1,4 @@
+import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
@@ -38,6 +39,7 @@ import { bindProposeButtons } from "../client-alliance/client-alliance-propose-b
 import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
+import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
@@ -166,7 +168,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     openEconomyPanel,
     setActivePanel,
     affordableTechChoicesCount,
-    mobileNavLabelHtml,
     crystalTargetingTone,
     crystalTargetingTitle,
     clearCrystalTargeting,
@@ -179,26 +180,11 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderCaptureProgress,
     renderShardAlert, renderVictoryHoldAlert,
     renderTechChoiceGrid,
-    techDetailsUseOverlay,
-    renderTechDetailPrompt,
-    renderTechDetailCard,
-    renderStructureInfoOverlay,
-    renderTechDetailOverlay,
-    renderDomainDetailOverlay,
-    techOwnedHtml,
-    effectiveOwnedTechIds,
-    isPendingTechUnlock,
-    renderTechChoiceDetails,
-    techCurrentModsHtml,
     bindTechTreeDragScroll,
     chooseTech,
     chooseDomain,
-    renderDomainProgressCard, renderDomainChoiceGrid,
-    domainOwnedHtml,
-    renderDomainDetailCard,
     sendGameMessage,
     renderSocialInspectCardHtml,
-    missionCardsHtml,
     playerNameForOwner,
     wrapX,
     wrapY,
@@ -480,11 +466,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
   dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
-  dom.techDetailCardEl.innerHTML = safeValue(
+  updateManifestDetail(dom.techDetailCardEl, safeValue(
     "renderTechDetailCard",
     fallbackCard("Manifest details"),
     () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
-  );
+  ));
   dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
@@ -495,15 +481,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   renderPlayerProfileOverlay(dom, state, playerNameForOwner, wsUrl, () => renderClientHud(deps));
-  const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
-    ? state.techDetailOpen
-      ? deps.renderTechDetailOverlay()
-      : state.domainDetailOpen
-        ? deps.renderDomainDetailOverlay()
-        : ""
-    : "";
-  dom.techDetailOverlayEl.innerHTML = mobileDetailOverlayHtml;
-  dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
+  renderMobileManifestOverlay(dom.techDetailOverlayEl, deps.techDetailsUseOverlay(), state, deps.renderTechDetailOverlay, deps.renderDomainDetailOverlay);
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
     fallbackCard("Your Manifests"),
@@ -516,24 +494,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  syncManifestPanelTabs(dom, state, deps.effectiveOwnedTechIds().length, () => renderClientHud(deps));
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
-  dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
   dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.mobileTechTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
-  dom.mobileTechTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
   bindTechTreeDragScroll();
   const techTreeZoomButtons = dom.hud.querySelectorAll("[data-tech-tree-zoom]") as NodeListOf<HTMLButtonElement>;
   techTreeZoomButtons.forEach((btn: HTMLButtonElement) => {

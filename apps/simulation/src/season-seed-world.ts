@@ -47,7 +47,6 @@ import {
   createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
-import { townTerrainProfileForBiome } from "@border-empires/shared";
 import { createSettlementTown, townPopulationTier, townStateFromDefinition } from "./season-seed-world-town.js";
 export { createSettlementTown, townStateFromDefinition } from "./season-seed-world-town.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -391,7 +390,7 @@ export const createSeasonSeedWorld = (
 
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
 
-  const barbarianTileKeys = seedBarbarianTiles({
+  seedBarbarianTiles({
     spawnPositions,
     ownership,
     townsByTile,

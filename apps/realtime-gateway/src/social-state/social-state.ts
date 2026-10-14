@@ -7,7 +7,6 @@ import {
   findTruceRequestBetweenPlayers,
   pairKey,
   playerIsTruceLockedOut,
-  type SocialActionResult,
   type SocialActiveTruce,
   type SocialAllianceBreak,
   type SocialAllianceRequest,

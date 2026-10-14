@@ -300,14 +300,6 @@ export const observatoryCastRadiusForPlayer = (
 // scripts/check-file-line-limits.mjs.
 export { chooseAiTechChoiceForPlayer, chooseAiDomainChoiceForPlayer } from "./ai-progression-choice.js";
 
-const settledTileCount = (playerId: string, tiles: Iterable<DomainTileState>): number => {
-  let count = 0;
-  for (const tile of tiles) {
-    if (tile.ownerId === playerId && tile.ownershipState === "SETTLED") count += 1;
-  }
-  return count;
-};
-
 const spendStrategicResources = (
   player: DomainPlayer,
   required: StrategicCounts

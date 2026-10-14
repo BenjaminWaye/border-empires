@@ -26,7 +26,6 @@ import {
   NAC_HOUSING,
   NAC_PATHWAY,
   NAC_PATHWAY_LATITUDE_LIFT,
-  NAC_POD,
   NAC_POD_CROWN,
   NAC_TOWER_TOP
 } from "./client-map-3d-neural-assembly-core-parts.js";

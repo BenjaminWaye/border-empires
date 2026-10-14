@@ -9,7 +9,6 @@ import {
   SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS,
-  VICTORY_RESOURCE_TYPES,
   createVictoryResourceTally,
   diplomaticDominanceProgressLabel,
   diplomaticDominanceThresholdLabel,

@@ -318,7 +318,7 @@ export const createSeasonSeedWorldAsync = async (
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
   await onYield?.();
 
-  const barbarianTileKeys = seedBarbarianTiles({
+  seedBarbarianTiles({
     spawnPositions,
     ownership,
     townsByTile,

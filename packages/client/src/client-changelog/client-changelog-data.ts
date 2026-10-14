@@ -43,6 +43,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.14.3",
+    title: "Enemy frontier warnings refer to their owner's reach",
+    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
+    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
+  },
+  {
     createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
     introducedIn: "2026.10.14.2",
     title: "Waystation rewards show current technology names",
@@ -51,6 +58,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
+  {
+    createdAt: 1791969340091, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Manifest details stay where you scroll",
+    why: "Live game updates kept rebuilding Manifest details and jumping the menu back to the top.",
+    changes: ["Mobile and desktop Manifest details keep their scroll position while coin and unlock status update"]
+  },
   {
     createdAt: 1791970194502,
     introducedIn: "2026.10.14.2",
@@ -283,11 +297,25 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   {
+    createdAt: 1791922964029, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Manifest panel tabs",
+    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
+    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
+  },
+  {
     createdAt: 1791836603366, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.1",
     title: "Combat reports for each muster flag",
     why: "Simultaneous muster attacks interrupted play with repeated battle-result overlays.",
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
+  },
+  {
+    createdAt: 1791969446372, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Smoother fog reveals in the 3D map",
+    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
+    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
   },
   {
     createdAt: 1791921497137,
@@ -356,7 +384,37 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
       "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
     ]
-  }
+  },
+  {
+    createdAt: 1791969150437, // Date.now() captured for this update.
+    introducedIn: "2026.10.14.1",
+    title: "Softer 3D map daylight",
+    why: "Strong stacked lighting made terrain and pale buildings look washed out.",
+    changes: ["Reduced 3D daylight and exposure to preserve surface detail", "Neutral fill light keeps terrain and building colours clearer"]
+  },
+  {
+    createdAt: 1791970552590, // Date.now() captured for this release.
+    introducedIn: "2026.10.14.2",
+    title: "Manifest recommendations visible in the list",
+    why: "Recommendations were hidden in details and suggested Hydrogardens without usable Farms or a need for more Food.",
+    changes: [
+      "Good pick now appears in both the compact Manifest list and expanded tree; click a Manifest for its explanation",
+      "Building recommendations check for an owned, unoccupied tile of the required kind and available development capacity",
+      "Hydroworks recommendations require a nearby active Hydrogarden that does not already have its bonus",
+      "Hydrogarden, Hydroworks and Fish Food bonuses are only recommended with one spare Food slot or less"
+    ]
+  },
+  {
+    createdAt: 1791982864990, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.1",
+    title: "Town resource discoveries get a lasting popup",
+    why: "Important resource clues were easy to miss in brief map labels and the retiring Alerts panel.",
+    changes: [
+      "Town surveys use the game's brass panels, parchment text, and familiar buttons in both map renderers",
+      "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
+      "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

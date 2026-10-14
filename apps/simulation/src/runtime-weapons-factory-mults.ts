@@ -30,7 +30,7 @@ const concentratedFactoryEquivalent = (ctx: WeaponsFactoryMultContext, playerId:
   const otherType = structureType === "TITANIUM_WEAPONS_FACTORY" ? "UMBRITE_WEAPONS_FACTORY" : "TITANIUM_WEAPONS_FACTORY";
   let assigned = 0;
   let equivalent = 0;
-  for (const [townKey, tile] of ctx.tiles) {
+  for (const [, tile] of ctx.tiles) {
     if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED" || !tile.town) continue;
     const count = countSupportedStructures(playerId, tile, structureType, ctx.tiles);
     const otherCount = countSupportedStructures(playerId, tile, otherType, ctx.tiles);

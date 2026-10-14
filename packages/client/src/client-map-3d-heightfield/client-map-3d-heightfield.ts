@@ -206,8 +206,6 @@ export const createHeightfield = (): Heightfield => {
   gridlines.frustumCulled = false;
   gridlines.renderOrder = 5;
   gridlines.visible = false;
-  let gridLastTileSpanX = 0;
-  let gridLastTileSpanY = 0;
 
   const elevationCache = new Map<number, number>();
   const elevationKey = (wx: number, wy: number): number => wx * 100003 + wy;
@@ -222,7 +220,6 @@ export const createHeightfield = (): Heightfield => {
   const renderedCornerVertexCache = new Map<number, number>();
 
   let lastIndexCount = 0;
-  let lastTileSpanX = 0;
 
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
@@ -357,7 +354,6 @@ export const createHeightfield = (): Heightfield => {
         }
       }
       lastIndexCount = idxCount;
-      lastTileSpanX = tileSpanX;
       const indexAttr = geometry.index;
       if (indexAttr) {
         // Only the first idxCount entries were written this rebuild (the rest
@@ -564,8 +560,6 @@ export const createHeightfield = (): Heightfield => {
         gridIndexAttr.addUpdateRange(0, gridIdx);
         gridIndexAttr.needsUpdate = true;
       }
-      gridLastTileSpanX = tileSpanX;
-      gridLastTileSpanY = tileSpanY;
     }
     if (gridlines.visible) {
       // gridPositions mirrors `positions` (written by the same loop above),
@@ -615,13 +609,10 @@ export const createHeightfield = (): Heightfield => {
     return true;
   };
 
+  // The grid index buffer is rebuilt on every rebuild() while visible, so
+  // toggling only needs to flip visibility; the next rebuild fills it in.
   const setGridlinesVisible = (visible: boolean): void => {
     gridlines.visible = visible;
-    if (visible) {
-      // Force the index rebuild on next rebuild() call.
-      gridLastTileSpanX = 0;
-      gridLastTileSpanY = 0;
-    }
   };
 
   const dispose = (): void => {

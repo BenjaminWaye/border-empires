@@ -278,7 +278,6 @@ export type ActiveTruceView = {
   endsAt: number;
   createdByPlayerId: string;
 };
-export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
   id: string;
@@ -393,7 +392,7 @@ export type { TechInfo, DomainInfo, PendingResearch } from "./client-tech-info-t
 // LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState)
 // moved to client-leaderboard-season-types.ts (file-line cap) -- re-exported
 // here so existing importers of this path don't need to change.
-export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, ScoreHistorySeriesView, ScoreHistoryPointView, MissionState } from "./client-leaderboard-season-types.js";
+export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, ScoreHistorySeriesView, MissionState } from "./client-leaderboard-season-types.js";
 
 export type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "tech";
 export type FeedSeverity = "info" | "success" | "warn" | "error";
@@ -416,15 +415,6 @@ export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon"
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
 export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
-
-export type TerrainTextureId =
-  | "SEA_DEEP"
-  | "SEA_COAST"
-  | "SAND"
-  | "GRASS_LIGHT"
-  | "GRASS_DARK"
-  | "MOUNTAIN"
-  | "TUNDRA";
 
 export type { TileActionDef } from "./client-tile-action-def-types.js";
 

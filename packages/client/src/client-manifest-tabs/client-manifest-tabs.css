@@ -1,0 +1,119 @@
+/*
+ * Manifest panel tabs + header view toggle (client-manifest-tabs/).
+ * Imported after the steampunk theme files so the --sp-* tokens exist.
+ *
+ * Available: the choice grid. Owned: the bonus chips + "Your Manifests".
+ * Tree (data-manifest-tab="tree") is the expanded tree; the tabs hide and the
+ * existing .tech-tree-expanded rules in style.css decide what is visible.
+ */
+
+#panel-tech[data-manifest-tab="available"] #tech-current-mods,
+#panel-tech[data-manifest-tab="available"] #tech-owned,
+#panel-tech[data-manifest-tab="owned"] #tech-choices-grid,
+#mobile-panel-tech[data-manifest-tab="available"] #mobile-tech-current-mods,
+#mobile-panel-tech[data-manifest-tab="available"] #mobile-tech-owned,
+#mobile-panel-tech[data-manifest-tab="owned"] #mobile-tech-choices-grid,
+#panel-tech.tech-tree-expanded .manifest-tabs,
+#mobile-panel-tech.tech-tree-expanded .manifest-tabs {
+  display: none;
+}
+
+#panel-tech .tech-section-tabs.manifest-tabs,
+#mobile-panel-tech .tech-section-tabs.manifest-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manifest-tab {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.manifest-tab.active {
+  background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6));
+  border-color: var(--sp-brass-100);
+  color: var(--sp-brass-100);
+}
+
+/* ---- Header view toggle: only on the Manifest panel ---- */
+
+.manifest-view-toggle {
+  display: none;
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#side-panel.tech-panel-open .manifest-view-toggle,
+#mobile-sheet.tech-panel-open .manifest-view-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+#mobile-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#mobile-sheet-head .manifest-view-toggle {
+  margin-right: 0;
+  padding: 4px 10px;
+}
+
+/* Other mobile panels open as a sheet below the resource strip. The Manifest
+   panel takes the full height in both views, as the tree always has, so it
+   doesn't jump when you switch between list and tree. */
+@media (max-width: 900px) {
+  #mobile-sheet.tech-panel-open {
+    top: 6px;
+  }
+
+  /* The tree fills the sheet below its head; style.css's fixed
+     calc(100vh - 92px) ignored the head and clipped the tree's bottom. */
+  #mobile-sheet.tech-panel-active #mobile-panel-tech {
+    box-sizing: border-box;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  #mobile-sheet.tech-panel-active #mobile-tech-research-section {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* ---- Desktop tree: keep the header (toggle + Close) and fill the window ---- */
+
+#side-panel.tech-panel-active #side-panel-head {
+  display: flex;
+}
+
+#side-panel.tech-panel-active #panel-tech {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+#side-panel.tech-panel-active #tech-research-section {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The right column is for a selected Manifest's detail; without one, the
+   tree takes the full width. */
+#side-panel.tech-panel-active #tech-research-section:has(> #tech-detail-card:empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#side-panel.tech-panel-active #tech-detail-card:empty {
+  display: none;
+}

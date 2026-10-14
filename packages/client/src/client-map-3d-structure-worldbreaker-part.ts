@@ -50,7 +50,6 @@ export const registerWorldbreakerPartStructures = (
   const wbStoneMaterial = new MeshStandardMaterial({ color: "#8a8078", roughness: 0.88, metalness: 0, flatShading: true });
   const wbStoneDarkMaterial = new MeshStandardMaterial({ color: "#6e6459", roughness: 0.9, metalness: 0, flatShading: true });
   const wbBrassMaterial = new MeshStandardMaterial({ color: "#9e7130", roughness: 0.55, metalness: 0.55, flatShading: true });
-  const wbBrassDarkMaterial = new MeshStandardMaterial({ color: "#6e521f", roughness: 0.6, metalness: 0.5, flatShading: true });
   const wbCharcoalMaterial = new MeshStandardMaterial({ color: "#34302b", roughness: 0.85, metalness: 0.4, flatShading: true });
   const wbEmberMaterial = new MeshStandardMaterial({ color: "#c85a3a", roughness: 0.45, metalness: 0.2, flatShading: true, emissive: "#8a1a0a", emissiveIntensity: 0.55 });
   const wbCrystalMaterial = new MeshStandardMaterial({ color: "#b8452a", roughness: 0.3, metalness: 0.1, flatShading: true, emissive: "#9c1f0a", emissiveIntensity: 0.7 });

@@ -44,9 +44,6 @@ import {
   SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  grantAnchorToBorder,
-  reassessBorderOnAnchorDeactivation,
-  liveReachForOwner,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -67,8 +64,7 @@ import {
 import {
   buildDockLinksByDockTileKey,
   buildDockNetworkComponentByTileKey,
-  computeLinkedDockRevealTileKeys,
-  type DockRouteDefinition
+  computeLinkedDockRevealTileKeys
 } from "../dock-network/dock-network.js";
 import {
   isDockCrossingTarget as isDockCrossingTargetImpl,
@@ -101,13 +97,13 @@ import {
 import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { neuralWorksNetworkAncillaryFactoryCountForPlayer, reserveLatticeNetworkAncillaryDepotCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { activeMonumentOnTile, refreshMonumentOwnerIndexForTile } from "../monument-uniqueness.js";
 import {
   cachedManpowerStructureBonusForPlayer as cachedManpowerStructureBonusForPlayerImpl,
   type ManpowerStructureBonus
 } from "../runtime-manpower-structure-bonus.js";
-import { maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
+import { type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -120,7 +116,6 @@ import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
-import { buildTileYieldView, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
 import {
   dormantStructureDetailsFromDormancy as dormantStructureDetailsFromDormancyImpl,
   resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
@@ -179,19 +174,14 @@ import {
   type RuntimeUpkeepAccrualContext
 } from "../runtime-upkeep-accrual.js";
 import {
-  drainQueues as drainQueuesImpl,
   enqueueJob as enqueueJobImpl,
-  scheduleDrain as scheduleDrainImpl,
   type RuntimeJobQueueContext,
   type RuntimeJobQueueMutableState
 } from "../runtime-job-queue.js";
 import { RuntimeJobQueueState } from "../runtime-job-queue-state.js";
 import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
-import {
-  parseSettlePayload,
-  parseTilePayload
-} from "../runtime-command-parsers.js";
+import { parseSettlePayload } from "../runtime-command-parsers.js";
 import {
   handleDevQueueCancelCommand as handleDevQueueCancelCommandImpl,
   handleDevQueueEnqueueCommand as handleDevQueueEnqueueCommandImpl,
@@ -225,12 +215,10 @@ import {
   applyBreachToNeighbors as applyBreachToNeighborsImpl,
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
-  attackManpowerLoss as attackManpowerLossImpl,
   activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
-  settleAttackManpower as settleAttackManpowerImpl,
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
@@ -250,7 +238,6 @@ import {
   effectiveManpowerAtForPlayer as effectiveManpowerAtForPlayerImpl,
   ensureGrossIncomeSettlementForPlayer as ensureGrossIncomeSettlementForPlayerImpl,
   estimatedIncomePerMinuteForPlayer as estimatedIncomePerMinuteForPlayerImpl,
-  hasActiveSettlementTownForPlayer as hasActiveSettlementTownForPlayerImpl,
   incomePerMinuteForPlayer as incomePerMinuteForPlayerImpl,
   playerLogisticsThroughputPerMinute as playerLogisticsThroughputPerMinuteImpl,
   playerManpowerBreakdown as playerManpowerBreakdownImpl,
@@ -263,8 +250,6 @@ import {
   type RuntimeManpowerEconomyContext
 } from "./runtime-economy.js";
 import {
-  orderedTownTilesForPlayer as orderedTownTilesForPlayerImpl,
-  fedTownKeysForPlayer as fedTownKeysForPlayerImpl,
   cachedTownNetworkForPlayer as cachedTownNetworkForPlayerImpl,
   rebuildTownNetworkUninstrumented as rebuildTownNetworkUninstrumentedImpl,
   neuralWorksAlreadyInNetworkForPlayer as neuralWorksAlreadyInNetworkForPlayerImpl,
@@ -275,26 +260,14 @@ import {
   enrichTileWithTownContext as enrichTileWithTownContextImpl,
   type RuntimeTownNetworkContext
 } from "./runtime-town-network.js";
+import { resolveMusterSource as resolveMusterSourceImpl } from "../runtime-muster-source.js";
 import {
-  resolveMusterSource as resolveMusterSourceImpl,
-  type RuntimeMusterSourceContext
-} from "../runtime-muster-source.js";
-import {
-  buildRuntimeExportPlayers,
-  buildRuntimeExportState,
-  buildRuntimeExportStateAsync,
-  buildRuntimePlannerPlayerViews,
-  buildRuntimePlannerWorldView,
-  buildRuntimePlayerDebugSnapshot,
-  exportPlannerTilesForKeys,
   type RuntimeAiPlayerMetricsRow,
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
 import { plannerPlayerScopeKeyCount } from "../planner-scope-key-count.js";
 import * as wonderEffects from "../runtime-natural-wonders.js"; import {
-  buildRuntimeSnapshotSections,
-  buildRuntimeSnapshotSectionsAsync,
   mapTile,
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
@@ -371,7 +344,6 @@ import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../r
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
 import { buildMapCommandContext } from "./runtime-map-command-context.js";
-import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
@@ -403,18 +375,15 @@ import {
   tickTileShedding as tickTileSheddingImpl
 } from "../runtime-maintenance-ticks.js";
 import {
-  assertYieldIndexCorrect as assertYieldIndexCorrectImpl,
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
-  refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
   refreshPlayerCandidateIndexAnchorForTile as refreshPlayerCandidateIndexAnchorForTileImpl,
   refreshRuntimeTileIndexesForChange,
   refreshActiveStructureIndexForTile,
   registerFortSupportAnchor as registerFortSupportAnchorImpl,
-  removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl,
   isSiegeBatteryActive,
   isRelayBeaconActive,
   isObservatoryActive
@@ -454,7 +423,7 @@ import {
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
-import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision/runtime-town-vision.js";
+import { reconcileTownVisionBonus, seedTownVisionBonus } from "../runtime-town-vision/runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
 import { StructureVisionDormancyTracker } from "../structure-vision-dormancy-tracker.js";
@@ -474,7 +443,6 @@ import { buildEconomicStructureCommandContext } from "./runtime-economic-structu
 import { handleSetObservatoryEnabledCommand as handleSetObservatoryEnabledCommandImpl } from "../runtime-observatory-toggle/runtime-observatory-toggle.js";
 import { isStructureDormantForTile, type DormancyStructureField } from "../structure-dormancy-check/structure-dormancy-check.js";
 import {
-  cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
   handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
   handleCancelSiegeBatteryBuildCommand as handleCancelSiegeBatteryBuildCommandImpl,
@@ -490,11 +458,9 @@ import {
   type RuntimeEncirclementApplicationContext
 } from "../runtime-encirclement-application.js";
 import {
-  releaseMusterReservation as releaseMusterReservationImpl,
   resolveLock as resolveLockImpl,
   type RuntimeLockResolutionContext
 } from "../runtime-lock-resolution.js";
-import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
 import {
   consumeOriginMuster as consumeOriginMusterImpl,
   requiredMusterForTarget as requiredMusterForTargetImpl,
@@ -513,8 +479,7 @@ import {
 } from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isAlliedOrTruced } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl, ensurePlayerHasAfc as ensurePlayerHasAfcImpl,
-  consumeRespawnNotice as consumeRespawnNoticeImpl, finalizeRespawnNotice as finalizeRespawnNoticeImpl,
-  preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
+  consumeRespawnNotice as consumeRespawnNoticeImpl, preparePlayerRespawnNotice as preparePlayerRespawnNoticeImpl,
   respawnIfEliminated as respawnIfEliminatedImpl,
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RallySpawnOutcome, type RuntimeRespawnContext
@@ -1605,12 +1570,6 @@ export class SimulationRuntime {
     };
   }
 
-  private resourceStealContext(): RuntimeResourceStealContext {
-    return {
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
-    };
-  }
-
   private lockResolutionContext(): RuntimeLockResolutionContext {
     const autoSettleDeps: AutoSettleCapturedAnchorDeps = { getPlayer: (id) => this.state.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }; return {
       players: this.state.players,
@@ -1699,8 +1658,6 @@ export class SimulationRuntime {
   consumeRespawnNoticeForPlayer(playerId: string): PlayerRespawnNotice | undefined {
     return consumeRespawnNoticeImpl(this.lastRespawnNoticeByPlayerId, playerId);
   }
-
-  private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void { finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey); }
 
   hasPlayer(playerId: string): boolean { return this.state.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.state.players); } ensurePlayerHasAfc(playerId: string): boolean { return ensurePlayerHasAfcImpl(this.respawnContext(), playerId); } // join-capacity gate; ensurePlayerHasAfc: migration grant for pre-AFC empires
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }, onRallySpawnPlaced?: (outcome: RallySpawnOutcome) => void): boolean {
@@ -2184,16 +2141,6 @@ export class SimulationRuntime {
     });
   }
 
-  private setPlayerYieldCollectionEpoch(commandId: string, playerId: string, collectedAt: number): void {
-    this.lastIncomeTickAtMsByPlayer.set(playerId, collectedAt);
-    this.emitEvent({
-      eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
-      commandId,
-      playerId,
-      collectedAt
-    });
-  }
-
   private tileYieldCollectedAt(tileKey: string, ownerId?: string): number | undefined {
     const tileAnchor = this.tileYieldCollectedAtByTile.get(tileKey);
     const playerAnchor = ownerId ? this.lastIncomeTickAtMsByPlayer.get(ownerId) : undefined;
@@ -2242,21 +2189,6 @@ export class SimulationRuntime {
     refreshPlayerCandidateIndexAnchorForTileImpl({
       playerCandidateIndex: this.playerCandidateIndex,
       tiles: this.state.tiles,
-      tileKey,
-      previous,
-      next
-    });
-  }
-
-  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void { removeFrontierTileFromOwnerIndexImpl(this.frontierTilesByOwner, tileKey, ownerId); }
-
-  private refreshFortAnchorIndexForTile(
-    tileKey: string,
-    previous: DomainTileState | undefined,
-    next: DomainTileState
-  ): void {
-    refreshFortAnchorIndexForTileImpl({
-      activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
       tileKey,
       previous,
       next
@@ -3027,14 +2959,6 @@ export class SimulationRuntime {
     };
   }
 
-  private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
-    return orderedTownTilesForPlayerImpl(this.townNetworkContext(), playerId);
-  }
-
-  private fedTownKeysForPlayer(player: DomainPlayer): Set<string> {
-    return fedTownKeysForPlayerImpl(this.townNetworkContext(), player);
-  }
-
   // Shared with cachedEconomySnapshot so buildConnectedTownNetworkForPlayer
   // (O(settled_tiles + towns^2)) fires once per cache-miss cycle, not twice.
   private cachedTownNetworkForPlayer(
@@ -3141,10 +3065,6 @@ export class SimulationRuntime {
 
   private incomePerMinuteForPlayer(playerId: string): number {
     return incomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
-  }
-
-  private hasActiveSettlementTownForPlayer(playerId: string): boolean {
-    return hasActiveSettlementTownForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
   private ensureGrossIncomeSettlementForPlayer(playerId: string, commandId: string): boolean {
@@ -3285,10 +3205,6 @@ export class SimulationRuntime {
   ): void {
     enqueueJobImpl(this.jobQueueContext(), this.jobQueueMutableState(), lane, run, commandType, scheduling, commandId);
   }
-
-  private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void { scheduleDrainImpl(this.jobQueueContext(), this.jobQueueMutableState(), scheduling); }
-
-  private drainQueues(): void { drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState()); }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
@@ -3951,10 +3867,6 @@ export class SimulationRuntime {
     tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
   }
 
-  private cancelActiveOutpostAttackLocks(playerId: string, originKey: string): string[] {
-    return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
-  }
-
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
 
   // Player-ids with at least one *player-issued* frontier lock - i.e. locks
@@ -3969,8 +3881,6 @@ export class SimulationRuntime {
   private buildLockedCombatResolution(lock: LockedCombatInput): LockedCombatResolution | undefined {
     return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);
   }
-
-  private releaseMusterReservation(lock: LockRecord): void { releaseMusterReservationImpl(this.lockResolutionContext(), lock); }
 
   private resolveLock(lock: LockRecord): void {
     this.deltaBuffer.begin();
@@ -4035,15 +3945,6 @@ export class SimulationRuntime {
 
   private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void { applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget); }
 
-  private applyResourceTileSteal(
-    attacker: DomainPlayer,
-    defender: DomainPlayer,
-    tileResource: string | undefined,
-    structureType?: string
-  ): void {
-    applyResourceTileStealImpl(this.resourceStealContext(), attacker, defender, tileResource, structureType);
-  }
-
   private applySettledCapturePlunder(input: {
     attacker: DomainPlayer;
     defender: DomainPlayer;
@@ -4053,19 +3954,7 @@ export class SimulationRuntime {
     applySettledCapturePlunderImpl(input);
   }
 
-  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number { return attackManpowerLossImpl(committedManpower, attackerWon, atkEff, defEff); }
-
   private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number { return applyLockedManpowerDeltaImpl(player, manpowerDelta); }
-
-  private settleAttackManpower(
-    player: DomainPlayer,
-    committedManpower: number,
-    attackerWon: boolean,
-    atkEff: number,
-    defEff: number
-  ): number {
-    return settleAttackManpowerImpl(player, committedManpower, attackerWon, atkEff, defEff);
-  }
 
   /**
    * Find the best muster source for an attack launched from originKey.

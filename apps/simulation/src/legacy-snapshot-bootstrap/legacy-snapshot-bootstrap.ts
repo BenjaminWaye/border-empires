@@ -11,7 +11,6 @@ import type {
   SnapshotPlayersSection,
   SnapshotTerritorySection,
   DomainStrategicResourceKey,
-  TileYieldBuffer,
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
@@ -167,7 +166,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
 
   const ownershipByTile = new Map<string, string>(territory.ownership ?? []);
   const ownershipStateByTile = new Map<string, string>(territory.ownershipState ?? []);
-  const tileYieldByTile = new Map<string, TileYieldBuffer>(economy.tileYield ?? []);
   const townCaptureShockUntilByTile = new Map<string, number>(territory.townCaptureShock ?? []);
   const townGrowthShockUntilByTile = new Map<string, number>(territory.townGrowthShock ?? []);
   const playerEconomies = buildLegacySnapshotPlayerEconomies({

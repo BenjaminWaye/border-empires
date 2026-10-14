@@ -5,11 +5,6 @@ import { navTabIconHtml, setTabButtonHtml } from "../client-nav-icons/client-nav
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 
-// Touch-capable device detection for performance-sensitive decisions (distinct from the viewport-width isMobile check).
-export const isMobileDevice = (): boolean =>
-  typeof window !== "undefined" &&
-  (navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-
 export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): string => {
   if (panel === "tech") return MANIFEST_PANEL_TITLE;
   if (panel === "domains") return "Sharding";
@@ -153,7 +148,7 @@ export const renderMobilePanels = (
     mobilePanelLeaderboardEl: HTMLElement;
     mobilePanelFeedEl: HTMLElement;
     mobilePanelSettingsEl: HTMLElement;
-    mobileSheetHeadEl: HTMLElement;
+    mobileSheetTitleEl: HTMLElement;
   }
 ): void => {
   const nav = deps.hud.querySelector<HTMLDivElement>("#mobile-nav");
@@ -174,6 +169,7 @@ export const renderMobilePanels = (
   deps.sidePanelEl.classList.toggle("tech-panel-open", state.activePanel === "tech"); // scopes the Manifest detail no-scroll rule
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
+  deps.mobileSheetEl.classList.toggle("tech-panel-open", state.mobilePanel === "tech"); // shows the Manifest view toggle in the sheet head
 
   if (!isMobile()) {
     nav.style.display = "none";
@@ -206,17 +202,17 @@ export const renderMobilePanels = (
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
   }
 
-  if (state.mobilePanel === "tech") deps.mobileSheetHeadEl.textContent = MANIFEST_PANEL_TITLE;
-  else if (state.mobilePanel === "domains") deps.mobileSheetHeadEl.textContent = "Sharding";
-  else if (state.mobilePanel === "social") deps.mobileSheetHeadEl.textContent = "Alliances";
-  else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Empire Integrity";
-  else if (state.mobilePanel === "economy") deps.mobileSheetHeadEl.textContent = "Economy";
-  else if (state.mobilePanel === "manpower") deps.mobileSheetHeadEl.textContent = "Manpower";
-  else if (state.mobilePanel === "development") deps.mobileSheetHeadEl.textContent = "Development";
-  else if (state.mobilePanel === "leaderboard") deps.mobileSheetHeadEl.textContent = "Leaderboard";
-  else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Alerts";
-  else if (state.mobilePanel === "settings") deps.mobileSheetHeadEl.textContent = "Settings";
-  else deps.mobileSheetHeadEl.textContent = "Core";
+  if (state.mobilePanel === "tech") deps.mobileSheetTitleEl.textContent = MANIFEST_PANEL_TITLE;
+  else if (state.mobilePanel === "domains") deps.mobileSheetTitleEl.textContent = "Sharding";
+  else if (state.mobilePanel === "social") deps.mobileSheetTitleEl.textContent = "Alliances";
+  else if (state.mobilePanel === "defensibility") deps.mobileSheetTitleEl.textContent = "Empire Integrity";
+  else if (state.mobilePanel === "economy") deps.mobileSheetTitleEl.textContent = "Economy";
+  else if (state.mobilePanel === "manpower") deps.mobileSheetTitleEl.textContent = "Manpower";
+  else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";
+  else if (state.mobilePanel === "leaderboard") deps.mobileSheetTitleEl.textContent = "Leaderboard";
+  else if (state.mobilePanel === "feed") deps.mobileSheetTitleEl.textContent = "Alerts";
+  else if (state.mobilePanel === "settings") deps.mobileSheetTitleEl.textContent = "Settings";
+  else deps.mobileSheetTitleEl.textContent = "Core";
 
   const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
   buttons.forEach((button) => {

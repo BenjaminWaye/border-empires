@@ -66,7 +66,6 @@ export const MUSTER_FLAG_REQUEST_TIMEOUT_MS = 5_000;
 export const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
 export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
-export const formatManpowerAmount = (manpower: number): string => manpower.toFixed(0);
 
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;

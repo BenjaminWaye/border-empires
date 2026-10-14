@@ -37,8 +37,6 @@ const FWD_AXIS = new Vector3(0, 0, 1);
 const IDENTITY_QUAT = new Quaternion();
 const WHITE = new Color("#ffffff");
 
-export type ShotRenderer = ReturnType<typeof createShotRenderer>;
-
 /**
  * @param scale  MARINE_MODEL_SCALE — every length here is authored at the
  *   model's native size and scaled once, so bolts and sparks stay

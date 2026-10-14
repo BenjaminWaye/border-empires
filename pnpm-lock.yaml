@@ -75,9 +75,6 @@ importers:
       jose:
         specifier: ^6.2.12
         version: 6.2.12
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.10.1
@@ -112,9 +109,6 @@ importers:
       '@grpc/proto-loader':
         specifier: ^0.8.0
         version: 0.8.0
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.10.1

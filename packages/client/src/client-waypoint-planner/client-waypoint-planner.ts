@@ -4,10 +4,6 @@
 // for the algorithm). Only the ClientState-specific pieces stay here.
 export {
   planWaypoint,
-  isFrontierOriginCutOff,
-  type WaypointAction,
-  type WaypointStep,
-  type WaypointBlockReason,
   type WaypointPlan,
   type WaypointPlannerDeps
 } from "@border-empires/shared";

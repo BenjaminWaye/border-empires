@@ -41,12 +41,10 @@ import type {
   TechInfo,
   Tile,
   TruceRequest,
-  TileActionDef,
   TileMenuTab,
   TileTimedProgress,
   OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
-import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
@@ -343,7 +341,7 @@ export const createInitialState = () => ({
   structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
-  techSection: "research" as "research" | "domains",
+  techSection: "available" as "available" | "owned", // Manifest panel tab, see client-manifest-tabs.ts
   techTreeExpanded: false,
   techUiSelectedId: "" as string,
   techDetailOpen: false,
