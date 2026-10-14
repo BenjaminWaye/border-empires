@@ -77,6 +77,8 @@ const createState = () =>
     chunkFullCount: 0,
     hasOwnedTileInCache: false,
     discoveredTiles: new Set<string>(),
+    metPlayerIds: new Set<string>(),
+    metPlayersScannedRevision: -1,
     discoveredDockTiles: new Set<string>(),
     tileDetailRequestedAt: new Map<string, number>(),
     tileDetailReceivedAt: new Map<string, number>(),

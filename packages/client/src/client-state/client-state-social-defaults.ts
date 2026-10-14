@@ -18,6 +18,13 @@ export const createInitialSocialState = () => ({
   recentAllianceBreaks: [] as RecentAllianceBreakView[],
   activeTruces: [] as ActiveTruceView[],
   truceBreaksThisSeason: [] as TruceBreakView[],
+  // Players whose territory this client has seen this season -- the only
+  // players the Alliances tab lets you propose to. See client-met-players.ts.
+  metPlayerIds: new Set<string>(),
+  metPlayersScannedRevision: -1,
+  // Set by a tile's Diplomacy action: the Alliances panel highlights and
+  // scrolls to this player's card until `until`. See client-alliance-focus.ts.
+  socialFocus: undefined as { playerId: string; until: number; scrollPending: boolean } | undefined,
   activePlayerProfileId: undefined as string | undefined,
   // "loading" while a GET /hq/galaxy/by-player/:playerId fetch is in flight;
   // absent key means not yet fetched for that player this session.

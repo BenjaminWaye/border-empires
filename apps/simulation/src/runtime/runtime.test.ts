@@ -5276,7 +5276,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
+          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
         ],
         [
           "player-2",

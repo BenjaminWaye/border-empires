@@ -1,6 +1,7 @@
 // Per-structure 2D art (public/overlays SVGs). The structure info card shows
-// it as the card art, and the build menu uses it as each building's icon.
-// Moved out of client-map-display.ts so both can share one table.
+// it as the card art, and the build menu and the Manifest detail's "What you
+// get" rows use it as each building's icon. Moved out of client-map-display.ts
+// so they all share one table.
 
 const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
   MINTWORKS: "/overlays/mintworks-overlay.svg",
@@ -57,11 +58,21 @@ const STRUCTURE_INFO_ART: Readonly<Record<string, string>> = {
 
 // Buildings whose info card keeps its glyph but which still have map art the
 // build menu can show. Fort rings and mines use their first/closed variant.
+// Each entry is the art the 2D map draws for that building: Hydrogarden (the
+// renamed Farmstead) is the hydroponic dome and Hydroworks keeps the old
+// hydrogarden overlay (client-map-render-resource-overlays.ts); bastions draw
+// the fort ring and siege/dread towers the siege battery
+// (client-map-overlay-images.ts, client-fortification-overlays.ts).
 const BUILD_MENU_EXTRA_ART: Readonly<Record<string, string>> = {
   FORT: "/overlays/fort-ring-overlay-closed.svg",
+  TITANIUM_BASTION: "/overlays/fort-ring-overlay-closed.svg",
+  THUNDER_BASTION: "/overlays/fort-ring-overlay-closed.svg",
   PALISADE: "/overlays/palisade-ring-overlay-closed.svg",
   SIEGE_BATTERY: "/overlays/siege-battery-overlay.svg",
-  HYDROGARDEN: "/overlays/farm-hydrogarden-overlay-1.svg",
+  SIEGE_TOWER: "/overlays/siege-battery-overlay.svg",
+  DREAD_TOWER: "/overlays/siege-battery-overlay.svg",
+  HYDROGARDEN: "/overlays/farm-hydroponic-overlay-1.svg",
+  HYDROWORKS: "/overlays/farm-hydrogarden-overlay-1.svg",
   MINE: "/overlays/titanium-mine-overlay-1.svg",
   UMBRITE_RIG: "/overlays/umbrite-rig-overlay-1.svg",
   BANK: "/overlays/bank-overlay.svg",
