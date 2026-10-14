@@ -12,7 +12,7 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   DEEPWATER_ENGINE: {
     name: "the Deepwater Engine",
     flavor: "gear-driven pumps and copper piping hum to life, drawing the tide itself into your economy",
-    boon: "dock gold income doubled; dock-launched attacks +15% ATK"
+    boon: "dock coin income doubled; dock-launched attacks +15% ATK"
   },
   CONSCRIPTION_ENGINE: {
     name: "the Conscription Engine",
@@ -32,12 +32,12 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   CALCULATING_ENGINE: {
     name: "the Calculating Engine",
     flavor: "brass rings turn in silence, scrolling data across glass panels lit from within",
-    boon: "tech research gold costs -10%"
+    boon: "tech research coin costs -10%"
   },
   QUICKFORGE: {
     name: "the Quickforge",
     flavor: "pneumatic pistons hiss and slam in rapid rhythm, forge-glow washing over red-hot steel",
-    boon: "once per day (UTC midnight), rush-buy one in-progress build for 40 gold cheaper"
+    boon: "once per day (UTC midnight), rush-buy one in-progress build for 40 coin cheaper"
   },
   WATCHTOWER_ENGINE: {
     name: "the Watchtower Engine",

@@ -77,7 +77,7 @@ describe("tileOverviewModifiersForTile", () => {
         incubationEngineActive: false
       }
     } satisfies Tile);
-    expect(modifiers.some((m) => m.reason === "Gold production" || m.reason.includes("Gold production"))).toBe(false);
+    expect(modifiers.some((m) => m.reason === "Coin production" || m.reason.includes("Coin production"))).toBe(false);
   });
 
   it("hides fort defense while a captured fort is in recovery", () => {
@@ -447,7 +447,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Mintworks gold bonus per copy", effect: "+10% → +35%", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Mintworks coin bonus per copy", effect: "+10% → +35%", tone: "positive" });
   });
 
   it("shows a plain 'Vision' modifier for a real hills tile with no other modifier to disambiguate from", () => {

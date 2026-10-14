@@ -89,7 +89,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         <section id="town-capture-character">
           <div class="town-capture-character-kicker">Civic Character</div>
           <div class="town-capture-character-name">${characterName}</div>
-          <div class="town-capture-character-detail">${terrainPercent(terrain.goldMultiplier)} gold · ${terrainPercent(terrain.manpowerCapacityMultiplier)} manpower capacity · ${terrainPercent(terrain.manpowerRegenerationMultiplier)} manpower regeneration</div>
+          <div class="town-capture-character-detail">${terrainPercent(terrain.goldMultiplier)} coin · ${terrainPercent(terrain.manpowerCapacityMultiplier)} manpower capacity · ${terrainPercent(terrain.manpowerRegenerationMultiplier)} manpower regeneration</div>
         </section>
         <div id="town-capture-stats">
           <div class="town-capture-stat">

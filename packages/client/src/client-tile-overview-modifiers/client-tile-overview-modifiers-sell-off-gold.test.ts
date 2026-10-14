@@ -23,6 +23,6 @@ describe("tileOverviewModifiersForTile — converter Sell Off gold", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "AETHER_CONDENSER", status: "active", converterMode: "EXCHANGE" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Sell Off gold", effect: "+10/day", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Sell Off coin", effect: "+10/day", tone: "positive" });
   });
 });
