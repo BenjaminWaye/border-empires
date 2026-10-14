@@ -479,7 +479,7 @@ export const tileMenuViewForTile = (
   const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
-  const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
+  const reachState = deps.state; const headerStatus: TileMenuHeaderStatus | undefined = (tile.ownerId === reachState.me && reachState.tiles ? ownTileHeaderStatus(reachState as ReachAuthoritativeState, tile, deps.playerNameForOwner) : tileMenuHeaderStatusForTile(tile, Date.now(), undefined, undefined, tile.ownerId === reachState.me)) ?? battleMenuHeaderStatus(incomingAttack ?? capture); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),

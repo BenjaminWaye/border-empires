@@ -91,7 +91,8 @@ export const tileMenuHeaderStatusForTile = (
   isOwnedTileInReach?: (tile: Tile) => boolean,
   // Lazy: only called when the "Inside ... Reach" line is actually shown, so
   // the (cached-tile scan) owner lookup costs nothing on every other status.
-  reachOwnerNames?: () => readonly string[]
+  reachOwnerNames?: () => readonly string[],
+  viewerOwnsTile = true
 ): TileMenuHeaderStatus | undefined => {
   // Fogged takes precedence over everything below: those other statuses
   // (encirclement/out-of-reach decay countdowns, capture recovery) are all
@@ -120,7 +121,7 @@ export const tileMenuHeaderStatusForTile = (
   if (outOfReachRemaining !== undefined) {
     const seconds = Math.max(1, Math.ceil(outOfReachRemaining / 1000));
     return {
-      text: `Beyond your reach — decays in ${seconds}s`,
+      text: `Beyond ${viewerOwnsTile ? "your" : "its owner’s"} reach — decays in ${seconds}s`,
       tone: "warning"
     };
   }
