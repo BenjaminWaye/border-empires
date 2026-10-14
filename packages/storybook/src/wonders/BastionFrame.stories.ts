@@ -11,9 +11,8 @@ import {
   Points,
   ShaderMaterial,
   TorusGeometry,
-  RingGeometry,
 } from "three";
-import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -154,19 +153,6 @@ function makeEnergy(): Points {
 }
 
 /* ── Pipe geometry ─────────────────────────────────────────── */
-
-function makePipe(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, r: number, mat: ShaderMaterial): Mesh {
-  const dx = x2-x1, dy = y2-y1, dz = z2-z1;
-  const len = Math.sqrt(dx*dx+dy*dy+dz*dz);
-  const geo = new CylinderGeometry(r, r, len, 8);
-  const mesh = new Mesh(geo, mat);
-  mesh.position.set((x1+x2)/2, (y1+y2)/2, (z1+z2)/2);
-  // Align cylinder (default Y-axis) to direction
-  const dir = { x: dx/len, y: dy/len, z: dz/len };
-  mesh.rotation.z = Math.asin(-dir.x);
-  mesh.rotation.x = Math.asin(dir.z);
-  return mesh;
-}
 
 /* ── Story render function ─────────────────────────────────── */
 
