@@ -48,16 +48,48 @@ describe("organicSideFront", () => {
     expect(diagonalTip).toBeDefined();
   });
 
-  it("gives every piece a thin outline: the same shape grown by about a hundredth of a tile", () => {
+  it("gives every piece a thin rim: its outer points pushed out by about a hundredth of a tile", () => {
     for (const piece of organicSideFront(NORTH, true, 2, 5, around({}))) {
       expect(piece.outline).toHaveLength(piece.points.length);
-      piece.points.forEach((p, i) => {
-        const grow = Math.hypot(piece.outline[i]!.x - p.x, piece.outline[i]!.y - p.y);
+      // Tooth fan triangles share their root centre (inside the shape), which stays put; every other point grows.
+      const outer = piece.points.length === 3 ? [1, 2] : [0, 1, 2, 3];
+      for (const i of outer) {
+        const grow = Math.hypot(piece.outline[i]!.x - piece.points[i]!.x, piece.outline[i]!.y - piece.points[i]!.y);
         expect(grow).toBeGreaterThan(0.005);
         // Even at a sharp tooth tip the mitre stays small.
-        expect(grow).toBeLessThan(0.06);
-      });
+        expect(grow).toBeLessThan(0.04);
+      }
     }
+  });
+
+  it("draws teeth as shark fins: a root that flares along the line and concave flanks up to a sharp tip", () => {
+    const fan = teeth(organicSideFront(NORTH, true, 0, 0, around({ "1,0": "pocket", "-1,0": "pocket" })));
+    // One tooth = a fan of triangles about its root centre; take the middle tooth (u = 1/2).
+    const middle = fan.filter((p) => Math.abs(p.points[0]!.x) < 0.1);
+    const outline = middle.flatMap((p) => [p.points[1]!, p.points[2]!]);
+    const tip = outline.reduce((a, b) => (b.y < a.y ? b : a));
+    const root = outline.filter((p) => p.y > tip.y + 0.15);
+    // Flared root: much wider than the tooth is near its tip.
+    expect(Math.max(...root.map((p) => p.x)) - Math.min(...root.map((p) => p.x))).toBeGreaterThan(0.15);
+    // Concave flank: halfway up, the flank is well inside the straight line from root corner to tip.
+    const halfway = outline.filter((p) => p.x > tip.x && Math.abs(p.y - (tip.y + 0.09)) < 0.04);
+    for (const p of halfway) expect(p.x - tip.x).toBeLessThan(0.05);
+  });
+
+  it("swells and thins the stroke along the front, like an inked line", () => {
+    const widths = organicSideFront(NORTH, false, 7, 3, around({ "1,0": "pocket", "-1,0": "pocket" })).map((p) =>
+      Math.hypot(p.points[0]!.x - p.points[3]!.x, p.points[0]!.y - p.points[3]!.y)
+    );
+    expect(Math.max(...widths) / Math.min(...widths)).toBeGreaterThan(1.15);
+  });
+
+  it("tapers the stroke to a point where the front meets the old border", () => {
+    const kinds = around({ "1,0": "rival", "1,-1": "rival", "-1,0": "pocket" });
+    const line = organicSideFront(NORTH, false, 0, 0, kinds).filter((p) => p.points.length === 4);
+    const width = (p: (typeof line)[number], end: 0 | 1): number =>
+      end === 0 ? Math.hypot(p.points[0]!.x - p.points[3]!.x, p.points[0]!.y - p.points[3]!.y) : Math.hypot(p.points[1]!.x - p.points[2]!.x, p.points[1]!.y - p.points[2]!.y);
+    expect(width(line[line.length - 1]!, 1)).toBeLessThan(0.003); // at the border
+    expect(width(line[0]!, 0)).toBeGreaterThan(0.02); // the other end runs on into the next tile at full width
   });
 
   it("puts teeth only where asked, and no corner tooth when the other side of the corner isn't mine", () => {

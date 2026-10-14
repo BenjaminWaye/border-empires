@@ -19,7 +19,7 @@ import type { IncursionBreachStyle } from "../client-reach-incursion/client-incu
 const MAX_BAND_QUADS = 4096;
 const MAX_VEIL_QUADS = 2048;
 /** Front-line pieces (line segments + tooth halves; triangles stored as degenerate quads). */
-const MAX_FRONT_QUADS = 12288;
+const MAX_FRONT_QUADS = 24576;
 /** The front line sits just above the pocket's edge strips. */
 const FRONT_LIFT = 0.004;
 const BAND_LIFT = 0.003;
