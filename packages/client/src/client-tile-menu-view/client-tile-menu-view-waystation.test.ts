@@ -38,7 +38,7 @@ describe("menuOverviewForTile: waystation line", () => {
     expect(html).toContain(`Unlocked ${tech.name}`);
   });
 
-  it.each([[], techCatalog])("keeps a readable fallback when the reward is missing from the catalog", (catalog) => {
+  it.each([{ catalog: [] }, { catalog: techCatalog }])("keeps a readable fallback when the reward is missing from the catalog", ({ catalog }) => {
     const tile = { x: 1, y: 1, terrain: "LAND", waystation: { activated: true, grantedEffect: "TECH", grantedTechId: "future-tech" } } as Tile;
     const html = menuOverviewForTile(tile, {
       ...deps,
