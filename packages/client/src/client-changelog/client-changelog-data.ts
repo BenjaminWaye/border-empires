@@ -42,6 +42,13 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.14.2",
+    title: "Waystation rewards show current technology names",
+    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
+    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
+  },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {
