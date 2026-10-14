@@ -293,6 +293,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Your border shows up as soon as you log in",
     why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
     changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
+  },
+  {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
   }
 ];
 

@@ -219,16 +219,19 @@ export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; reado
   return { dx, dz };
 };
 
-const REACH_BOUNDARY_COLOR = "rgba(255, 245, 190, 0.85)";
-const REACH_BOUNDARY_DASH: [number, number] = [4, 3];
+// White core over an owner-coloured sheath -- the 2D twin of the 3D own-border
+// emphasis (client-reach-border-emphasis.ts). Not gold: gold is the fog edge.
+const REACH_BOUNDARY_CORE_COLOR = "rgba(255, 255, 255, 0.92)";
+const REACH_BOUNDARY_SHEATH_ALPHA = 0.85;
 const DORMANT_FRONTIER_FILL = "rgba(120, 96, 58, 0.22)";
 const DORMANT_FRONTIER_STROKE = "rgba(214, 178, 110, 0.6)";
 
 /**
- * Draws the dashed reach-boundary line around a tile that sits on the edge
- * of the player's reach set. Distinct treatment from the solid ownership
- * border in client-tile-borders.ts (dashed, warm gold) so "owned" and
- * "reach edge" never read as the same line.
+ * Draws the reach-boundary line around a tile that sits on the edge of the
+ * player's own reach set: a wide stroke in the player's colour with a thin
+ * white core on top, so "my border" reads as mine at a glance and never
+ * matches the solid ownership border (client-tile-borders.ts) or the gold
+ * fog edge. Only the viewer's own reach is drawn in 2D.
  */
 export const drawReachBoundaryLine = (
   ctx: CanvasRenderingContext2D,
@@ -238,6 +241,7 @@ export const drawReachBoundaryLine = (
   py: number,
   size: number,
   reach: ReadonlySet<string>,
+  ownerColor: string,
   deps: ReachBoundaryDeps
 ): void => {
   if (!isReachBoundaryTile(x, y, reach, deps)) return;
@@ -246,9 +250,6 @@ export const drawReachBoundaryLine = (
   const x2 = px + size - 1.5;
   const y2 = py + size - 1.5;
   ctx.save();
-  ctx.strokeStyle = REACH_BOUNDARY_COLOR;
-  ctx.lineWidth = Math.max(1, size * 0.06);
-  ctx.setLineDash(REACH_BOUNDARY_DASH);
   const top = !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)));
   const right = !reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)));
   const bottom = !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)));
@@ -270,6 +271,14 @@ export const drawReachBoundaryLine = (
     ctx.moveTo(x1, y2);
     ctx.lineTo(x1, y1);
   }
+  ctx.lineCap = "round";
+  ctx.globalAlpha = REACH_BOUNDARY_SHEATH_ALPHA;
+  ctx.strokeStyle = ownerColor;
+  ctx.lineWidth = Math.max(2, size * 0.14);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = REACH_BOUNDARY_CORE_COLOR;
+  ctx.lineWidth = Math.max(1, size * 0.045);
   ctx.stroke();
   ctx.restore();
 };
