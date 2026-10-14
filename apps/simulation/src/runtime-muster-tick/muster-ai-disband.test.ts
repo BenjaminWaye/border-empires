@@ -8,8 +8,8 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 
-// ai-1 owns (10,10) and (11,10); the flag sits on (11,10), facing (12,10).
-const buildRuntime = (clock: { nowMs: number }, enemy: { ownerId: string; ownershipState: "SETTLED" | "BARBARIAN" }) =>
+// ai-1 owns (10,10) and (11,10); the flag sits on (11,10), next to (12,10).
+const buildRuntime = (clock: { nowMs: number }, neighbor: { ownerId: string; ownershipState: "SETTLED" | "BARBARIAN" }) =>
   new SimulationRuntime({
     now: () => clock.nowMs,
     initialPlayers: new Map([
@@ -21,7 +21,7 @@ const buildRuntime = (clock: { nowMs: number }, enemy: { ownerId: string; owners
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
         { x: 11, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
-        { x: 12, y: 10, terrain: "LAND", ...enemy }
+        { x: 12, y: 10, terrain: "LAND", ...neighbor }
       ],
       activeLocks: []
     }
@@ -88,9 +88,18 @@ describe("AI muster flag disband", () => {
     expect(flagOn(runtime, 11, 10)).toBeDefined();
   });
 
-  it("disbands an AI flag left facing only barbarians", async () => {
+  it("keeps an AI flag up while barbarians are still in reach -- ADVANCE still attacks them", async () => {
     const clock = { nowMs: 1_000 };
     const runtime = buildRuntime(clock, { ownerId: "barbarian-1", ownershipState: "BARBARIAN" });
+    await submit(runtime, "ai-1", "SET_MUSTER", { x: 11, y: 10, mode: "HOLD" }, 1);
+    clock.nowMs += 30_000;
+    runtime.tickMuster(clock.nowMs);
+    expect(flagOn(runtime, 11, 10)).toBeDefined();
+  });
+
+  it("disbands an AI flag with nothing at all left to attack", async () => {
+    const clock = { nowMs: 1_000 };
+    const runtime = buildRuntime(clock, { ownerId: "ai-1", ownershipState: "SETTLED" });
     await submit(runtime, "ai-1", "SET_MUSTER", { x: 11, y: 10, mode: "HOLD" }, 1);
     clock.nowMs += 30_000;
     runtime.tickMuster(clock.nowMs);

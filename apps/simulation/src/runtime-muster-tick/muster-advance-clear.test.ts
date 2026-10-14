@@ -229,7 +229,7 @@ describe("ADVANCE clearing enemies in range", () => {
     expect(targets(seen)).toEqual([]);
     const finishRuntime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true })), owned(11, 10)], { playerIsAi: true });
     finishRuntime.tickMuster(1_000);
-    // With no enemy player left in reach an AI flag is disbanded outright
+    // With nothing left to attack in reach an AI flag is disbanded outright
     // (muster-ai-disband.ts) rather than dropping back to HOLD like a human's.
     expect(musterAt(finishRuntime, 10, 10)).toBeUndefined();
   });

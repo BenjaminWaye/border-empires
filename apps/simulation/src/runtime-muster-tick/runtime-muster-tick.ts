@@ -9,7 +9,7 @@ import { maybeMarchFire } from "./runtime-muster-march.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 import { creditManpower } from "../runtime-manpower-ceiling.js";
-import { aiFlagHasEnemyPlayerInReach } from "./muster-ai-disband.js";
+import { aiFlagHasTargetInReach } from "./muster-ai-disband.js";
 import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
@@ -192,7 +192,7 @@ export const tickMusterAutoFire = (input: MusterTickInput): void => {
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked. So are AI
- * flags with no enemy player left in reach (aiFlagHasEnemyPlayerInReach).
+ * flags with nothing left to attack in reach (aiFlagHasTargetInReach).
  *
  */
 export const tickMuster = (input: MusterTickInput): void => {
@@ -227,18 +227,18 @@ export const tickMuster = (input: MusterTickInput): void => {
       const tile = input.tiles.get(tileKey);
       if (!tile?.muster || tile.muster.ownerId !== playerId) continue;
 
-      // Auto-clear stale musters, and AI flags whose war is over (truce,
-      // alliance, enemy gone -- see muster-ai-disband.ts), refunding the
-      // manpower to the pool.
+      // Auto-clear stale musters, and AI flags with nothing left to attack
+      // (war over by truce/alliance/enemy gone, and no barbarians in reach --
+      // see muster-ai-disband.ts), refunding the manpower to the pool.
       const stale = tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS;
-      const warOver = !stale && player.isAi === true && !aiFlagHasEnemyPlayerInReach(input, tile, playerId);
+      const warOver = !stale && player.isAi === true && !aiFlagHasTargetInReach(input, tile, playerId);
       if (stale || warOver) {
         creditManpower(player, tile.muster.amount, input.playerManpowerCap(player));
         const clearedTile: DomainTileState = { ...tile, muster: undefined };
         input.replaceTileState(tileKey, clearedTile);
         batchDeltas.push({ ...input.tileDeltaFromState(clearedTile), musterJson: "" });
         clearedBroadcastDeltas.push({ x: clearedTile.x, y: clearedTile.y, ownerId: clearedTile.ownerId, ownershipState: clearedTile.ownershipState, musterJson: "" });
-        if (warOver) runtimeLogInfo({ playerId, tileKey, refunded: tile.muster.amount }, "[muster] disbanded AI flag with no enemy player in reach");
+        if (warOver) runtimeLogInfo({ playerId, tileKey, refunded: tile.muster.amount }, "[muster] disbanded AI flag with nothing left to attack in reach");
         continue;
       }
 
