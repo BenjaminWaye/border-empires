@@ -92,7 +92,6 @@ describe("drawMiniMap fog rendering", () => {
       tileVisibilityStateAt: (x) => (x < WORLD_WIDTH / 2 ? "unexplored" : "visible"),
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
 
@@ -159,7 +158,6 @@ const drawMiniMapWithTiles = (
     tileVisibilityStateAt: () => "visible",
     effectiveOverlayColor: () => "#3366cc",
     isDockRouteVisibleForPlayer: docks?.visible ?? (() => false),
-    hasCollectableYield: () => false,
     replayCurrentEvent: () => undefined
   });
 };
@@ -210,8 +208,8 @@ describe("drawMiniMap live ownership tint", () => {
 
 describe("miniMapTownMarkerPalette", () => {
   it("does not use a red warning outer marker for unfed towns", () => {
-    const fed = miniMapTownMarkerPalette(townTile(true), false);
-    const unfed = miniMapTownMarkerPalette(townTile(false), false);
+    const fed = miniMapTownMarkerPalette(townTile(true));
+    const unfed = miniMapTownMarkerPalette(townTile(false));
     expect(unfed.outer).toBe(fed.outer);
     expect(unfed.outer).toBe("rgba(6, 10, 18, 0.86)");
   });
@@ -285,7 +283,6 @@ describe("drawMiniMap shard rain ping rendering", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
     return contentCtx;

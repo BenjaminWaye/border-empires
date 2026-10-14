@@ -1,7 +1,7 @@
 // Single-process entry: spawns the simulation in a dedicated worker thread,
 // then boots the gateway on the main thread pointed at it. The previous
 // design ran sim and gateway on the same event loop, so any heavy sync work
-// in the sim (e.g. a slow COLLECT_VISIBLE apply) blocked the gateway's
+// in the sim (e.g. a slow command apply) blocked the gateway's
 // /healthz and WebSocket upgrades — fly's health checks timed out, the
 // proxy de-rotated the machine, and the watchdog SIGKILL'd a process that
 // was just doing CPU work. Isolating the sim into its own worker keeps the

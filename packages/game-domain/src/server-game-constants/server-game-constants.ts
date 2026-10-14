@@ -39,11 +39,8 @@ export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_BREAK_LOCKOUT_MS = 24 * 60 * 60_000;
 export const PASSIVE_INCOME_MULT = 1.0;
 export const GOLD_COST_EPSILON = 1e-6;
-export const TILE_YIELD_CAP_GOLD = 24;
-export const TILE_YIELD_CAP_RESOURCE = 6;
-// 12h -> 24h with the gold cap removal (docs/replenishment-update-plan.md D4) so an abandoned account doesn't accrue gold forever offline. Keep in sync with simulation-service.ts's applyPassiveIncomeAsync cutoff.
-export const OFFLINE_YIELD_ACCUM_MAX_MS = 24 * 60 * 60 * 1000;
-export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+// 12h -> 24h with the gold cap removal (docs/replenishment-update-plan.md D4) so an abandoned account doesn't accrue gold forever offline. A human inactive longer than this stops earning passive income (simulation-service.ts's applyPassiveIncomeAsync), and their converter gold upkeep is netted against income instead of drained from the treasury (runtime-upkeep-accrual.ts).
+export const PASSIVE_INCOME_INACTIVITY_CAP_MS = 24 * 60 * 60 * 1000;
 export const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 export const SHARD_RAIN_SITE_MIN = 3;

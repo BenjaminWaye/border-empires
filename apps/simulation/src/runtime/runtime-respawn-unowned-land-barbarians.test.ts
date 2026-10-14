@@ -26,7 +26,6 @@ const buildContext = (tiles: Map<string, DomainTileState>) => {
     locksByTile: new Map(),
     rememberedAutomationVictoryPathByPlayer: new Map(),
     summaryForPlayer: () => summary,
-    setTileYieldCollectedAt: () => {},
     replaceTileState: (tileKey, tile) => {
       tiles.set(tileKey, tile);
     },

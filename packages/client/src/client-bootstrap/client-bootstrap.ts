@@ -89,7 +89,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawTownOverlay,
     drawTownMarker,
     drawDockMarker,
-    hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
     shouldDrawOwnershipBorder,
@@ -211,7 +210,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     threeRendererHost.current()?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
 
   const computeDragPreview = (): void =>
-    deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
+    deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor });
 
   const actionFlow = createClientActionFlow({
     state,
@@ -242,7 +241,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     mergeServerTileWithOptimisticState,
     playerNameForOwner,
     ownerSpawnShieldActive,
-    hasCollectableYield,
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
@@ -523,7 +521,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       drawTownOverlay(tile, px, py, size);
     },
     drawDockMarker,
-    hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
     constructionRemainingMsForTile: actionFlow.constructionRemainingMsForTile,

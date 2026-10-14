@@ -111,57 +111,46 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town.connectedTownBonus).toBe(0.5);
   });
 
-  it("gives no FOOD yield to a Hydrogarden FARM tile regardless of an active Hydroworks in radius (§5.4: slot-based, not yield-based)", () => {
-    const farmTile = {
-      x: 5,
-      y: 5,
-      terrain: "LAND" as const,
-      resource: "FARM",
-      ownerId: "player-1",
-      ownershipState: "SETTLED" as const,
-      economicStructureJson: JSON.stringify({ type: "HYDROGARDEN", status: "active", ownerId: "player-1" })
-    };
-    const hydroworksTile = {
-      x: 10,
-      y: 5,
-      terrain: "LAND" as const,
-      ownerId: "player-1",
-      ownershipState: "SETTLED" as const,
-      economicStructureJson: JSON.stringify({ type: "HYDROWORKS", status: "active", ownerId: "player-1" })
-    };
-    const player = {
-      id: "player-1",
-      name: "player-1",
-      points: 0,
-      manpower: 0,
-      techIds: [],
-      domainIds: [],
-      strategicResources: {},
-      allies: [],
-      vision: 1,
-      visionRadiusBonus: 0
-    };
-    const withoutHydroworks = enrichSnapshotTilesForGlobalVisibility({
-      tiles: [farmTile],
-      players: [player],
+  // Regression: snapshot tiles used to carry a per-tile stored-yield buffer
+  // (`yield`/`yieldCap`) that the client rendered as a "ready to collect"
+  // marker. Tiles don't hold yield any more.
+  it("never emits a stored-yield buffer or cap on snapshot tiles, even for a yield-bearing town", () => {
+    const tiles = enrichSnapshotTilesForGlobalVisibility({
+      tiles: [
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({ type: "MARKET", populationTier: "SETTLEMENT", name: "Coinwell" })
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          name: "player-1",
+          points: 0,
+          manpower: 0,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0
+        }
+      ],
       pendingSettlements: [],
       activeLocks: []
     });
-    const withHydroworks = enrichSnapshotTilesForGlobalVisibility({
-      tiles: [farmTile, hydroworksTile],
-      players: [player],
-      pendingSettlements: [],
-      activeLocks: []
-    });
-    const baseFood = withoutHydroworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    const boostedFood = withHydroworks.find((t) => t.x === 5 && t.y === 5)?.yield?.strategic?.FOOD ?? 0;
-    // §5.4: FOOD is slot-based, not yield-based — no Hydrogarden/Hydroworks
-    // FOOD yield to boost anymore.
-    expect(baseFood).toBe(0);
-    expect(boostedFood).toBe(0);
+
+    const town = tiles.find((t) => t.x === 5 && t.y === 5);
+    expect(town).toBeDefined();
+    expect(town).not.toHaveProperty("yield");
+    expect(town).not.toHaveProperty("yieldCap");
   });
 
-  it("emits yieldRate/yieldCap only for tiles that need server authority (strategic structure or dock), not for bare settled tiles", () => {
+  it("emits yieldRate only for dock tiles (server-authoritative), not for bare or structure tiles", () => {
     const basePlayer = {
       id: "player-2",
       name: "player-2",
@@ -178,7 +167,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
       tiles: [
         // Bare settled resource tile — no structure, no dock: predicate is false.
         { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "UMBRITE" },
-        // Active HYDROGARDEN — strategic-affecting structure: predicate is true.
+        // Active HYDROGARDEN — gold rate is client-derived: predicate is false.
         {
           x: 2,
           y: 1,
@@ -201,10 +190,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     const dock = tiles.find((t) => t.x === 3 && t.y === 1);
 
     expect(bare).not.toHaveProperty("yieldRate");
-    expect(bare).not.toHaveProperty("yieldCap");
-    expect(hydrogarden).toHaveProperty("yieldRate");
-    // §5.4: FOOD is slot-based, not yield-based — no strategicPerDay.FOOD anymore.
-    expect((hydrogarden as { yieldRate?: { strategicPerDay?: Record<string, number> } })?.yieldRate?.strategicPerDay?.FOOD).toBeUndefined();
+    expect(hydrogarden).not.toHaveProperty("yieldRate");
     expect(dock).toHaveProperty("yieldRate");
+    expect(dock).not.toHaveProperty("yieldCap");
   });
 });

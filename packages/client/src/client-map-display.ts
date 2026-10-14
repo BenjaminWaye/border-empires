@@ -876,13 +876,9 @@ export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "
   return undefined;
 };
 
+// Tiles only produce gold directly; strategic resources are slot-based
+// (structure-slots.ts), not a per-tile daily yield.
 export const tileProductionHtml = (tile: Tile): string => {
-  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
-    .filter(([, value]) => Number(value) > 0)
-    .map(([resource, value]) => `${resourceIconHtml(resource)} ${Number(value).toFixed(1)}/day`);
   const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
-  const parts: string[] = [];
-  if (tile.town || gpd > 0) parts.push(`${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day`);
-  parts.push(...prodStrategic);
-  return parts.join(" · ");
+  return tile.town || gpd > 0 ? `${resourceIconHtml("GOLD")} ${gpd.toFixed(1)}/day` : "";
 };

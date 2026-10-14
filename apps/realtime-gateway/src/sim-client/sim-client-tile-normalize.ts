@@ -1,5 +1,4 @@
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
-import type { StrategicResourceKey } from "@border-empires/sim-protocol";
 import type { SimulationClientEvent } from "./sim-client.js";
 
 // Extracted out of sim-client.ts's own SimulationClientEvent union (already
@@ -35,9 +34,7 @@ export type SimClientTileDelta = {
   musterJson?: string | undefined;
   afcJson?: string | undefined;
   visibilityState?: VisibilityState | undefined;
-  yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-  yieldCap?: { gold: number; strategicEach: number } | undefined;
+  yieldRate?: { goldPerMinute?: number } | undefined;
   ownershipClearOnly?: boolean;
   combatJson?: string | undefined;
 };
@@ -98,12 +95,8 @@ export type ProtoTileDelta = {
   visibilityState?: string;
   ownership_clear_only?: boolean;
   ownershipClearOnly?: boolean;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldCap?: { gold: number; strategicEach: number };
-  yield_json?: string;
+  yieldRate?: { goldPerMinute?: number };
   yield_rate_json?: string;
-  yield_cap_json?: string;
   combat_json?: string;
   combatJson?: string;
 };
@@ -164,20 +157,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;
   if (tile.ownership_clear_only === true || tile.ownershipClearOnly === true) normalized.ownershipClearOnly = true;
   if ("combat_json" in tile || "combatJson" in tile) normalized.combatJson = tile.combat_json || tile.combatJson || undefined;
-  if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
-    normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
-  } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {
-    try { normalized.yield = JSON.parse(tile.yield_json) as NonNullable<typeof normalized.yield>; } catch { /* ignore */ }
-  }
   if ("yieldRate" in tile && tile.yieldRate && typeof tile.yieldRate === "object") {
     normalized.yieldRate = tile.yieldRate as NonNullable<typeof normalized.yieldRate>;
   } else if (typeof tile.yield_rate_json === "string" && tile.yield_rate_json.length > 0) {
     try { normalized.yieldRate = JSON.parse(tile.yield_rate_json) as NonNullable<typeof normalized.yieldRate>; } catch { /* ignore */ }
-  }
-  if ("yieldCap" in tile && tile.yieldCap && typeof tile.yieldCap === "object") {
-    normalized.yieldCap = tile.yieldCap as NonNullable<typeof normalized.yieldCap>;
-  } else if (typeof tile.yield_cap_json === "string" && tile.yield_cap_json.length > 0) {
-    try { normalized.yieldCap = JSON.parse(tile.yield_cap_json) as NonNullable<typeof normalized.yieldCap>; } catch { /* ignore */ }
   }
   return normalized;
 };

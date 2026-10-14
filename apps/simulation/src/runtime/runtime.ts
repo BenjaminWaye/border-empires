@@ -29,6 +29,7 @@ import {
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
+  PASSIVE_INCOME_INACTIVITY_CAP_MS,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -404,7 +405,6 @@ import {
 import {
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
-  applyPassiveIncomeForPlayer as applyPassiveIncomeForPlayerImpl,
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
@@ -630,20 +630,14 @@ export class SimulationRuntime {
   // Index of yield-bearing SETTLED LAND tiles per owner. A tile is yield-bearing
   // iff it has town, dockId, a strategic resource, or an active converter
   // economicStructure. Maintained in replaceTileState; rebuilt from this.state.tiles
-  // in the constructor. Used by consumeUpkeepFromTileYield to skip the 99% of
-  // settled tiles that produce zero yield (plain land).
+  // in the constructor. Used by the AI expansion objective to sample enemy
+  // high-value targets without scanning every settled tile.
   private readonly yieldBearingTilesByOwner = new Map<string, Set<string>>();
-  // Sorted (deterministic drain order) snapshot of yieldBearingTilesByOwner.
-  // Lazily populated; invalidated (deleted) whenever the underlying Set
-  // changes via addYieldBearingTileToOwnerIndex or removeYieldBearingTileFromOwnerIndex.
-  // Avoids O(n log n) spread+sort in consumeUpkeepFromTileYield on every tick
-  // for players whose yield-bearing set is stable.
-  private readonly sortedYieldBearingKeysByOwner = new Map<string, string[]>();
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
   private pendingImperialWard: { playerId: string; charges: number } | undefined; /** v0 Wonder-style starting bonus (§5, §12) for the last season's Planet winner — mirrors pendingImperialWard's lifecycle. */ private pendingGalacticWonderBonus: { playerId: string } | undefined;
-  private readonly tileYieldCollectedAtByTile = new Map<string, number>(); /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
+  /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
   private readonly fortPatrolGraceUntilByTile = new Map<string, number>();
@@ -665,7 +659,6 @@ export class SimulationRuntime {
   private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
-  private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
   // every 200 ms when the map is too full to place.
@@ -696,7 +689,7 @@ export class SimulationRuntime {
   private readonly upkeepAccrualReadCountByPlayer = new Map<string, number>();
   // Cached tile-yield economy context per player. Includes town network, fed-town
   // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
-  // (same replaceTileState triggers). Used by consumeUpkeepFromTileYield and
+  // (same replaceTileState triggers). Used by tileDeltaFromState and
   // applyPassiveIncome to avoid rebuilding the town network from all settled tiles.
   private readonly tileYieldContextCacheByPlayer = new Map<string, RuntimeTileYieldEconomyContext>();
   // Shared town-network cache: buildConnectedTownNetworkForPlayer is O(settled
@@ -949,7 +942,6 @@ export class SimulationRuntime {
     this.townConnectivityStateByPlayer.clear();
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.state.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
-    for (const entry of options.initialState?.tileYieldCollectedAtByTile ?? []) this.tileYieldCollectedAtByTile.set(entry.tileKey, entry.collectedAt);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
     const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
@@ -1133,7 +1125,6 @@ export class SimulationRuntime {
         pendingSettlementsByTile: this.pendingSettlementsByTile,
         addPendingSettlement: (record) => this.addPendingSettlement(record),
         removePendingSettlement: (tileKey) => this.removePendingSettlement(tileKey),
-        setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
         replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
         devQueueCommandContext: () => this.devQueueCommandContext(),
         emitEvent: (event) => this.emitEvent(event),
@@ -1237,15 +1228,9 @@ export class SimulationRuntime {
     applyPassiveIncomeImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs);
   }
 
-  async applyPassiveIncomeAsync(
-    nowMs: number,
-    inactivityCapMs: number,
-    yieldToEventLoop: () => Promise<void>
-  ): Promise<void> {
-    await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs, yieldToEventLoop);
+  async applyPassiveIncomeAsync(nowMs: number, yieldToEventLoop: () => Promise<void>): Promise<void> {
+    await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS, yieldToEventLoop);
   }
-
-  private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs); }
 
   /**
    * `goldPerMinuteOverride` lets callers that already computed the player's
@@ -1474,7 +1459,6 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       rememberedAutomationVictoryPathByPlayer: this.rememberedAutomationVictoryPathByPlayer,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -1634,8 +1618,7 @@ export class SimulationRuntime {
         emitEvent: (event) => this.emitEvent(event),
         tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
         combatSupportContext: this.combatSupportContext(),
-        isAiById: (playerId) => this.state.players.get(playerId)?.isAi,
-        recordTileYieldCollectedAt: (k, t) => this.tileYieldCollectedAtByTile.set(k, t)
+        isAiById: (playerId) => this.state.players.get(playerId)?.isAi
       },
       settledTile,
       ownerId,
@@ -1910,17 +1893,11 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       lastEconomyAccrualAtByPlayer: this.lastEconomyAccrualAtByPlayer,
+      lastActiveAtMsByPlayer: this.lastActiveAtMsByPlayer,
       playerSummaries: this.playerSummaries,
-      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
-      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
       cachedUpkeepAccrual: (player) => this.cachedUpkeepAccrual(player),
+      cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
-      enrichTileWithTownContext: (tile, player, context) => this.enrichTileWithTownContext(tile, player, context),
-      tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
-      emitEvent: (event) => this.emitEvent(event),
-      forgetReplayedCommand: (commandId) => this.replayCache.recordedEventsByCommandId.delete(commandId),
       trackSyncMainThreadTask: this.trackSyncMainThreadTask
     };
   }
@@ -2055,7 +2032,6 @@ export class SimulationRuntime {
       frontierTilesByOwner: this.frontierTilesByOwner,
       activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
       activeSiegeBatteriesByOwner: this.activeSiegeBatteriesByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
       activeObservatoriesByOwner: this.activeObservatoriesByOwner,
@@ -2124,28 +2100,6 @@ export class SimulationRuntime {
       this.applyReachAnchorDeactivation(anchor, commandId);
     }
     this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // last: may write other tiles
-  }
-
-  // Update the per-tile collect anchor and emit the matching event so replay can
-  // reconstruct it. Every site that mutates tileYieldCollectedAtByTile during
-  // gameplay (settle, respawn, collect) must go through this helper — otherwise
-  // a sim restart between snapshots will not see the change.
-  private setTileYieldCollectedAt(commandId: string, playerId: string, tileKey: string, collectedAt: number): void {
-    this.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
-    this.emitEvent({
-      eventType: "TILE_YIELD_ANCHOR_UPDATED",
-      commandId,
-      playerId,
-      tileKey,
-      collectedAt
-    });
-  }
-
-  private tileYieldCollectedAt(tileKey: string, ownerId?: string): number | undefined {
-    const tileAnchor = this.tileYieldCollectedAtByTile.get(tileKey);
-    const playerAnchor = ownerId ? this.lastIncomeTickAtMsByPlayer.get(ownerId) : undefined;
-    if (typeof tileAnchor === "number" && typeof playerAnchor === "number") return Math.max(tileAnchor, playerAnchor);
-    return tileAnchor ?? playerAnchor;
   }
 
   private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
@@ -2464,7 +2418,6 @@ export class SimulationRuntime {
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
-      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       docks: this.state.docks,
       terrainEpoch: this.terrainEpoch,
@@ -2623,7 +2576,6 @@ export class SimulationRuntime {
       players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       docks: this.state.docks,
-      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
       terrainEpoch: this.terrainEpoch,
       classifyVisibilityForPlayer: (visiblePlayerId: string) => this.classifyVisibilityForPlayer(visiblePlayerId),
@@ -3273,7 +3225,6 @@ export class SimulationRuntime {
       drainAutoSettle: (ownerId) => this.autoSettleEligibilityRuntime().drainForOwner(ownerId),
       drainBuildTail: (ownerId, key, x, y) => tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), ownerId, key, x, y),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
-      setTileYieldCollectedAt: (commandId, ownerId, key, nowMs) => this.setTileYieldCollectedAt(commandId, ownerId, key, nowMs),
       now: () => this.now(),
       replaceTileState: (key, tile) => this.replaceTileState(key, tile),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
@@ -3387,45 +3338,6 @@ export class SimulationRuntime {
    */
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
     return this.autoSettleEligibilityRuntime().runTickForOwner(playerId, nowMs);
-  }
-
-  private handleCollectVisibleCommand(command: CommandEnvelope): void {
-    const actor = this.state.players.get(command.playerId);
-    if (!actor) { this.rejectCommand(command, "BAD_COMMAND", "unknown player"); return; }
-    const now = this.now();
-    const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-    const cooldownUntil = this.collectVisibleCooldownByPlayer.get(command.playerId) ?? 0;
-    if (cooldownUntil > now) { this.rejectCommand(command, "COLLECT_COOLDOWN", "collect is on cooldown"); return; }
-    // Mark player active so passive income tick doesn't skip them on next fire
-    this.updatePlayerLastActive(command.playerId, now);
-    // Seed the income anchor if this is before the first passive tick has fired,
-    // otherwise applyPassiveIncomeForPlayer returns nothing and the button silently
-    // credits zero.
-    if (!this.lastIncomeTickAtMsByPlayer.has(actor.id)) {
-      this.lastIncomeTickAtMsByPlayer.set(actor.id, now - COLLECT_VISIBLE_COOLDOWN_MS);
-    }
-    const goldBefore = actor.points;
-    const strategicBefore = { ...(actor.strategicResources ?? {}) };
-    // Reuse the same O(1) passive income calculation — no tile scan needed
-    this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
-    const goldCredited = Math.max(0, actor.points - goldBefore);
-    const strategic: Partial<Record<string, number>> = {};
-    for (const key of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
-      const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
-      if (diff > 0) strategic[key] = diff;
-    }
-    this.collectVisibleCooldownByPlayer.set(command.playerId, now + COLLECT_VISIBLE_COOLDOWN_MS);
-    this.emitEvent({
-      eventType: "COLLECT_RESULT",
-      commandId: command.commandId,
-      playerId: command.playerId,
-      mode: "visible",
-      tiles: this.yieldBearingTilesByOwner.get(command.playerId)?.size ?? 0,
-      gold: goldCredited,
-      strategic
-    });
-    this.emitPlayerStateUpdate(command);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {
@@ -3741,7 +3653,6 @@ export class SimulationRuntime {
         players: this.state.players,
         tileDeltaStringifyCache: this.tileDeltaStringifyCache,
         now: () => this.now(),
-        tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
         tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
         enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
         yieldViewEconomyContext: (player, ctx) => yieldViewEconomyContextImpl(player, ctx, this.state.tiles, this.state.dockLinksByDockTileKey),
@@ -4032,7 +3943,6 @@ export class SimulationRuntime {
       handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
       handleCancelSiegeBatteryBuildCommand: (command) => handleCancelSiegeBatteryBuildCommandImpl(this.structureCommandContext(), command),
       handleCheckStrandedRegionCommand: (command) => handleCheckStrandedRegionCommandImpl(this.strandedFrontier, command),
-      handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),

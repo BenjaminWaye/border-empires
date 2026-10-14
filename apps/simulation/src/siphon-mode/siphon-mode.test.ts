@@ -205,7 +205,6 @@ describe("Siphon siphon mode", () => {
       activeLocks: [],
       players: [],
       pendingSettlements: [],
-      tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     } as unknown as RecoveredSimulationState;
     const recovered = applySimulationEventsToRecoveredState(base, seen);

@@ -270,11 +270,9 @@ export const buildSnapshotTileDetail = (
           firstThreeTownGoldMult,
           terrainGoldMultiplier
         });
-  // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
-  // tiles the live-snapshot formula multiplies through 0, which on the wire
-  // would clobber buildTileYieldView's default TILE_YIELD_CAP_GOLD fallback
-  // (24) with a hard 0 cap — preserving the existing "undefined → default"
-  // behavior for unfed tiles avoids a stored-yield-buffer regression.
+  // Only backfill cap when goldPerMinute is positive — an unfed TOWN-tier
+  // tile's formula multiplies through 0, and a hard 0 cap is less faithful
+  // than leaving the field absent.
   const cap =
     typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
       ? parsedTown.cap
@@ -367,8 +365,6 @@ export const buildSnapshotTileDetail = (
   if (upkeepEntries.length > 0) update.upkeepEntries = upkeepEntries;
 
   // Keep tile-detail production metadata consistent with the derived town state.
-  // Stored yield buffers come from the authoritative snapshot when present; they
-  // cannot be reconstructed accurately here without the last-collected timestamp.
   const domainTile: YieldSourceTile = {
     x: tile.x,
     y: tile.y,
@@ -380,25 +376,8 @@ export const buildSnapshotTileDetail = (
     ...(town ? { town: town as YieldSourceTile["town"] } : {}),
     ...(economicStructure ? { economicStructure: economicStructure as YieldSourceTile["economicStructure"] } : {})
   };
-  // Collect active Hydroworks positions for the owning player so the radius
-  // boost is reflected in the displayed yield rate (not just in accrual).
-  const hydroworksKeys = new Set<string>();
-  for (const snapshotTile of (snapshot?.tiles ?? [])) {
-    if (snapshotTile.ownerId !== playerId || snapshotTile.ownershipState !== "SETTLED") continue;
-    const ws = parseStructure<{ type?: string; status?: string }>(snapshotTile.economicStructureJson);
-    if (ws?.type === "HYDROWORKS" && ws.status === "active") {
-      hydroworksKeys.add(keyFor(snapshotTile.x, snapshotTile.y));
-    }
-  }
-  const now = Date.now();
-  const fallbackYieldView = buildTileYieldView(domainTile, now, now, {
-    hydroworksKeys: hydroworksKeys.size > 0 ? hydroworksKeys : undefined
-  });
+  const fallbackYieldView = buildTileYieldView(domainTile, Date.now());
   if (fallbackYieldView?.yieldRate) update.yieldRate = fallbackYieldView.yieldRate;
-  if (fallbackYieldView?.yieldCap) update.yieldCap = fallbackYieldView.yieldCap;
-  if (!("yield" in update) && fallbackYieldView?.yield) {
-    update.yield = fallbackYieldView.yield;
-  }
 
   return update;
 };

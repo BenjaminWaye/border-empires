@@ -61,7 +61,6 @@ describe("dev-queue reservation survives a snapshot round-trip", () => {
       locksByCommandId: new Map(),
       players: new Map([[PLAYER_ID, makePlayer()]]),
       pendingSettlementsByTile: new Map(),
-      tileYieldCollectedAtByTile: new Map(),
       playerYieldCollectionEpochByPlayer: new Map(),
       docks: [],
       recordedEventsByCommandId: new Map(),

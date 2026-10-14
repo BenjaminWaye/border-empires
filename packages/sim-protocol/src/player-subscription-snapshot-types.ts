@@ -158,9 +158,7 @@ export type PlayerSubscriptionSnapshot = {
     afcJson?: string | undefined;
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;
-    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
-    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
-    yieldCap?: { gold: number; strategicEach: number } | undefined;
+    yieldRate?: { goldPerMinute?: number } | undefined;
     // Broadcast-only ghost-ownership cleanup marker (see
     // tile-delta-visibility-filter.ts). Rides on a delta only; never a
     // persisted tile field. applyTileDeltasToSnapshot uses it to avoid
