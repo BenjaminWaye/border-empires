@@ -305,6 +305,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
       "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
     ]
+  },
+  {
+    createdAt: 1791959048426,
+    introducedIn: "2026.10.14.1",
+    title: "3D map shows frontier claims on time",
+    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
+    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
   }
 ];
 

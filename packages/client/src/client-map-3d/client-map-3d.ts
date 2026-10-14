@@ -1396,7 +1396,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     }
 
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
-    const triggersNow = captureMap3DRebuildTriggers(deps.state, deps.keyFor, nowMs, isTrue3DRendererActive());
+    const triggersNow = captureMap3DRebuildTriggers(deps.state, deps.keyFor, isTrue3DRendererActive()); // claim keys read epoch time themselves (nowMs is performance.now())
     // Padded hysteresis only — no more exact-camX/camY-match requirement. The
     // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
     // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild

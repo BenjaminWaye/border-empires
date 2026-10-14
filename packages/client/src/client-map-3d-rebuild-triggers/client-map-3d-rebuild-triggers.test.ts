@@ -30,21 +30,21 @@ describe("3D map rebuild triggers", () => {
   // for an idle player with a still camera, so the border never appeared.
   it("asks for a rebuild once the true-3D renderer becomes active after an inactive first rebuild", () => {
     const state = createState();
-    const builtWhileInactive = captureMap3DRebuildTriggers(state, keyFor, 0, false);
+    const builtWhileInactive = captureMap3DRebuildTriggers(state, keyFor, false);
     expect(map3DRebuildTriggersChanged(EMPTY_MAP_3D_REBUILD_TRIGGERS, builtWhileInactive)).toBe(false);
-    const nowActive = captureMap3DRebuildTriggers(state, keyFor, 0, true);
+    const nowActive = captureMap3DRebuildTriggers(state, keyFor, true);
     expect(map3DRebuildTriggersChanged(builtWhileInactive, nowActive)).toBe(true);
-    expect(map3DRebuildTriggersChanged(nowActive, captureMap3DRebuildTriggers(state, keyFor, 0, true))).toBe(false);
+    expect(map3DRebuildTriggersChanged(nowActive, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(false);
   });
 
   it("asks for a rebuild when a REACH_UPDATE replaces the server reach, including the first one", () => {
     const state = createState();
-    const built = captureMap3DRebuildTriggers(state, keyFor, 0, true);
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
     applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 1 });
-    const afterFirst = captureMap3DRebuildTriggers(state, keyFor, 0, true);
+    const afterFirst = captureMap3DRebuildTriggers(state, keyFor, true);
     expect(map3DRebuildTriggersChanged(built, afterFirst)).toBe(true);
     applyServerReachUpdate(state, { tileKeys: ["1,1", "1,2"], revision: 2 });
-    expect(map3DRebuildTriggersChanged(afterFirst, captureMap3DRebuildTriggers(state, keyFor, 0, true))).toBe(true);
+    expect(map3DRebuildTriggersChanged(afterFirst, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
   });
 
   it("treats a reconnect's restarted revision 1 as a new reach set", () => {
@@ -71,9 +71,9 @@ describe("3D map rebuild triggers", () => {
 
   it("still asks for a rebuild on crystal-targeting toggles", () => {
     const state = createState();
-    const built = captureMap3DRebuildTriggers(state, keyFor, 0, true);
+    const built = captureMap3DRebuildTriggers(state, keyFor, true);
     state.crystalTargeting.active = true;
-    expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, 0, true))).toBe(true);
+    expect(map3DRebuildTriggersChanged(built, captureMap3DRebuildTriggers(state, keyFor, true))).toBe(true);
   });
 });
 
@@ -86,7 +86,7 @@ describe("client-map-3d maybeRebuild reach trigger wiring", () => {
 
   it("captures triggers with the live renderer-active flag and includes them in rebuildNeeded", () => {
     expect(fnAt).toBeGreaterThan(-1);
-    expect(block).toContain("captureMap3DRebuildTriggers(deps.state, deps.keyFor, nowMs, isTrue3DRendererActive())");
+    expect(block).toContain("captureMap3DRebuildTriggers(deps.state, deps.keyFor, isTrue3DRendererActive())");
     const neededAt = block.indexOf("const rebuildNeeded =");
     const changedAt = block.indexOf("map3DRebuildTriggersChanged(lastRebuild.triggers, triggersNow)");
     expect(changedAt).toBeGreaterThan(neededAt);
