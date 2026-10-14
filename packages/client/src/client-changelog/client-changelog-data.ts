@@ -377,6 +377,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Softer 3D map daylight",
     why: "Strong stacked lighting made terrain and pale buildings look washed out.",
     changes: ["Reduced 3D daylight and exposure to preserve surface detail", "Neutral fill light keeps terrain and building colours clearer"]
+  },
+  {
+    createdAt: 1791970552590, // Date.now() captured for this release.
+    introducedIn: "2026.10.14.2",
+    title: "Manifest recommendations visible in the list",
+    why: "Recommendations were hidden in details and suggested Hydrogardens without usable Farms or a need for more Food.",
+    changes: [
+      "Good pick now appears in both the compact Manifest list and expanded tree; click a Manifest for its explanation",
+      "Building recommendations check for an owned, unoccupied tile of the required kind and available development capacity",
+      "Hydroworks recommendations require a nearby active Hydrogarden that does not already have its bonus",
+      "Hydrogarden, Hydroworks and Fish Food bonuses are only recommended with one spare Food slot or less"
+    ]
   }
 ];
 

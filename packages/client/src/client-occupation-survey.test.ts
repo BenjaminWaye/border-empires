@@ -36,7 +36,7 @@ describe("occupation survey client parity", () => {
 
   it("turns current local intelligence into a Good pick reason on the matching Manifest", () => {
     const fit = manifestFit(tech("masonry"), {
-      manpower: 0,
+      manpower: 0, hasBuildSite: () => false, ownsFish: false,
       resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } },
       clueNearTerritory: () => false,
       surveyReportFor: (resource) => occupationSurveyController.currentForResource(resource)
