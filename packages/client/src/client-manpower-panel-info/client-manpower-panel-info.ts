@@ -1,5 +1,5 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
-import { formatRefillCountdown } from "../client-manpower-gauge/client-manpower-refill.js";
+import { formatHoursMinutes } from "../client-manpower-gauge/client-manpower-refill.js";
 
 /**
  * The manpower panel's headline (when the next batch lands) and its
@@ -13,7 +13,7 @@ export const setManpowerInfoOpen = (open: boolean): void => {
   manpowerInfoOpen = open;
 };
 
-/** Big "Next batch in 2h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
+/** Big "Next batch in 0h 19m" callout; degrades to "Manpower full" / "Regen paused". Empty before the player id is known. */
 export const manpowerNextBatchHtml = (args: {
   manpower: number;
   manpowerCap: number;
@@ -26,12 +26,12 @@ export const manpowerNextBatchHtml = (args: {
   if (args.manpower >= args.manpowerCap) return callout("Manpower", "Full", "full");
   if (!(args.manpowerRegenPerMinute > 0)) return callout("Regeneration", "Paused", "paused");
   if (args.nextRefillAtMs === undefined) return "";
-  return callout("Next batch in", formatRefillCountdown(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
+  return callout("Next batch in", formatHoursMinutes(args.nextRefillAtMs - (args.nowMs ?? Date.now())), "pending");
 };
 
 export const manpowerInfoHtml = (): string => `
   <details class="manpower-info" data-manpower-info${manpowerInfoOpen ? " open" : ""}>
-    <summary class="manpower-info-toggle" aria-label="How manpower works"><span class="manpower-info-icon" aria-hidden="true">?</span>How manpower works</summary>
+    <summary class="manpower-info-toggle"><span class="manpower-info-icon" aria-hidden="true">?</span>How manpower works</summary>
     <div class="economy-footnote manpower-info-body">Manpower gates attacks. Regeneration is paid out as one batch every ${MANPOWER_REFILL_WINDOW_MS / 3_600_000} hours rather than ticking up. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
   </details>
 `;

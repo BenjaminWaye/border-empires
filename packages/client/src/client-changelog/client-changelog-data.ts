@@ -319,8 +319,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Next manpower batch front and centre",
     why: "The manpower panel buried when your next batch arrives inside a long paragraph, and showed the time until full as raw minutes like \"738m 18s\".",
     changes: [
-      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top (or \"Full\" / \"Paused\")",
-      "Time until full reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
+      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top in hours and minutes, e.g. \"0h 19m\" (or \"Full\" / \"Paused\")",
+      "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
       "The explanation of how manpower works is tucked behind a \"?\" toggle"
     ]
   }

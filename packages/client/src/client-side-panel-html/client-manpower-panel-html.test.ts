@@ -25,7 +25,18 @@ describe("renderManpowerPanelHtml next batch headline", () => {
 
   it("shows the next batch countdown as its own callout, not inside the explainer text", () => {
     const html = renderManpowerPanelHtml({ ...baseArgs, manpower: 330, manpowerCap: 1365, manpowerRegenPerMinute: 1.3, nextRefillAtMs: Date.now() + 19 * MIN, musterFlags: [] });
-    expect(html).toMatch(/manpower-next-batch-label">Next batch in<\/span><strong class="manpower-next-batch-value">19m<\/strong>/);
+    expect(html).toMatch(/manpower-next-batch-label">Next batch in<\/span><strong class="manpower-next-batch-value">0h 19m<\/strong>/);
+  });
+
+  it("always shows hours as well as minutes, even on the hour", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, nextRefillAtMs: Date.now() + 2 * 60 * MIN, musterFlags: [] });
+    expect(html).toContain('manpower-next-batch-value">2h 0m<');
+  });
+
+  it("hides the countdown and time-until-full until the refill schedule is known", () => {
+    const html = renderManpowerPanelHtml({ ...baseArgs, musterFlags: [] });
+    expect(html).not.toContain("Next batch in");
+    expect(html).not.toContain("Manpower full in");
   });
 
   it("formats the time until full in hours and minutes instead of raw minutes", () => {

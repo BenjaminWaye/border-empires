@@ -1,5 +1,5 @@
 import { MANPOWER_REFILL_WINDOW_MS } from "@border-empires/shared";
-import { formatRefillCountdown, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
+import { formatHoursMinutes, msUntilManpowerFull } from "../client-manpower-gauge/client-manpower-refill.js";
 import { manpowerInfoHtml, manpowerNextBatchHtml } from "../client-manpower-panel-info/client-manpower-panel-info.js";
 import type { LeaderboardOverallEntry } from "../client-types.js";
 
@@ -139,10 +139,11 @@ export const renderManpowerPanelHtml = (args: {
   const regen = args.manpowerRegenPerMinute;
   // Regen lands once per refill window, so show what a batch pays rather than a per-minute rate that never visibly ticks.
   const regenText = `+${Math.round(Math.max(0, regen) * (MANPOWER_REFILL_WINDOW_MS / 60_000))} per batch`;
-  // The callout already says "Full" / "Paused"; the footnote only adds how long until the cap, in hours rather than raw minutes.
+  // The callout already says "Full" / "Paused"; the footnote only adds how long until the cap, in hours and minutes rather than raw minutes.
+  // Skipped until the refill schedule is known, like the callout, rather than guessing a full window away.
   const fullEtaText =
-    args.manpower < args.manpowerCap && regen > 0
-      ? manpowerFullStatusText(args.manpower, args.manpowerCap, regen, formatRefillCountdown, args.nextRefillAtMs)
+    args.nextRefillAtMs !== undefined && args.manpower < args.manpowerCap && regen > 0
+      ? manpowerFullStatusText(args.manpower, args.manpowerCap, regen, formatHoursMinutes, args.nextRefillAtMs)
       : "";
   const sectionHtml = (
     title: string,
