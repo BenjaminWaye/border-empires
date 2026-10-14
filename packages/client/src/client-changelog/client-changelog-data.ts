@@ -363,6 +363,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
       "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
     ]
+  },
+  {
+    createdAt: 1792001274347, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.5",
+    title: "Drawn icons for every Aether ability",
+    why: "Abilities were marked with text symbols that looked different on every device, and Survey Sweep and Aether Purge showed a tent in the Crystal tab.",
+    changes: [
+      "Each Aether ability has its own icon showing what it does: a radar sweep for Survey Sweep, a watching eye for Reveal Empire, a crystal lance striking a banner for Aether Purge, a glowing span between pylons for Aether Bridge, and so on",
+      "The icons appear in the tile menu's Crystal tab, on each ability's info card, and in Manifest details"
+    ]
   }
 ];
 

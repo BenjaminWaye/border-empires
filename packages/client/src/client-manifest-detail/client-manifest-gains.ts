@@ -5,7 +5,8 @@
 // or three times.
 import { AGRICULTURE_FISH_FOOD_SLOT_BONUS } from "@border-empires/shared";
 import { structureArtIconHtml } from "../client-build-menu-icons/client-build-menu-icons.js";
-import { crystalAbilityGlyphForKey, crystalAbilityInfoButtonHtml, relatedCrystalAbilitiesForTech } from "../client-crystal-ability-info/client-crystal-ability-info.js";
+import { abilityIconHtml } from "../client-ability-icons/client-ability-icons.js";
+import { crystalAbilityInfoButtonHtml, relatedCrystalAbilitiesForTech } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { effectSummaryLabel } from "../client-tech-html/client-tech-html.js";
 import { relatedStructureTypesForTech } from "../client-tech-detail-ui/client-tech-structure-unlocks.js";
 import { relatedStrategicResourcesForTech, resourceDiscoveryInfo } from "../client-resource-discovery-info.js";
@@ -17,7 +18,7 @@ export type ManifestGainKind = "structure" | "ability" | "resource" | "effect";
 
 export type ManifestGainRow = {
   kind: ManifestGainKind;
-  // Trusted HTML: the row's icon (building art, ability glyph, resource icon).
+  // Trusted HTML: the row's icon (building art, ability icon, resource icon).
   icon: string;
   // Trusted HTML built from catalog data and the shared info-button helpers.
   html: string;
@@ -29,13 +30,11 @@ export type ManifestGainDeps = {
   structureDetail?: (type: StructureInfoKey) => string | undefined;
 };
 
-// U+FE0E asks for the text form of glyphs like ⚡ that otherwise render as
-// colour emoji, so ability glyphs take the panel's brass colour.
-const glyphIcon = (glyph: string): string => `<span class="manifest-gain__glyph">${glyph}\uFE0E</span>`;
+const iconImg = (src: string): string => `<img class="manifest-gain__img" src="${src}" alt="" aria-hidden="true" draggable="false" decoding="async">`;
 
-// Buildings show their own map art (the build menu's thumbnails); the few
-// without art fall back to a generic hammer glyph.
-const structureIcon = (type: StructureInfoKey): string => structureArtIconHtml(type, "manifest-gain__art") ?? glyphIcon("⚒");
+// Buildings show their own map art (the build menu's thumbnails); any
+// without art fall back to the build menu's Infrastructure icon.
+const structureIcon = (type: StructureInfoKey): string => structureArtIconHtml(type, "manifest-gain__art") ?? iconImg("/icons/simple/infrastructure.svg");
 
 const firstSentence = (text: string | undefined): string | undefined => {
   if (!text) return undefined;
@@ -62,13 +61,13 @@ export const manifestGainRows = (tech: TechInfo, deps: ManifestGainDeps): Manife
     rows.push({ kind: "structure", icon: structureIcon(type), html: `Build ${deps.structureInfoButtonHtml(type)}`, ...(detail ? { detail } : {}) });
   }
   for (const key of relatedCrystalAbilitiesForTech(tech)) {
-    rows.push({ kind: "ability", icon: glyphIcon(crystalAbilityGlyphForKey(key)), html: `Ability: ${crystalAbilityInfoButtonHtml(key)}` });
+    rows.push({ kind: "ability", icon: abilityIconHtml(key, "manifest-gain__img"), html: `Ability: ${crystalAbilityInfoButtonHtml(key)}` });
   }
   for (const resource of relatedStrategicResourcesForTech(tech)) {
     const label = resource.charAt(0) + resource.slice(1).toLowerCase();
     rows.push({ kind: "resource", icon: resourceIconHtml(resource), html: `Reveals ${label} deposits on the map`, detail: resourceDiscoveryInfo(resource).whereToFind });
   }
-  const effectIcon = glyphIcon("+");
+  const effectIcon = `<span class="manifest-gain__plus">+</span>`;
   for (const [key, value] of Object.entries(tech.effects ?? {})) {
     if (isCoveredUnlockKey(key, value)) continue;
     const label = effectSummaryLabel(key, value);
