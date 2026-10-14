@@ -36,7 +36,7 @@ describe("lighting tuner settings", () => {
 
   it("starts from the shipped defaults", () => {
     expect(lightingIsDefault(getLightingSettings())).toBe(true);
-    expect(getLightingSettings().sunIntensity).toBe(1.55);
+    expect(getLightingSettings().sunIntensity).toBe(1.25);
   });
 
   it("keeps the default sun direction identical to the original fixed (8, 42, 60) offset", () => {
@@ -71,7 +71,7 @@ describe("lighting tuner settings", () => {
 
   it("prints the settings as pasteable source", () => {
     const source = lightingSettingsAsSource(DEFAULT_LIGHTING);
-    expect(source).toContain("sunIntensity: 1.55");
-    expect(source).toContain('sunColor: "#fff0c0"');
+    expect(source).toContain("sunIntensity: 1.25");
+    expect(source).toContain('sunColor: "#fff4df"');
   });
 });

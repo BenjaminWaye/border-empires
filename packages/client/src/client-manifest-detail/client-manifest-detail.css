@@ -107,6 +107,10 @@
   color: var(--sp-ember-400);
 }
 
+.tech-card > .manifest-chip--good-pick {
+  justify-self: start;
+}
+
 .manifest-detail__close {
   appearance: none;
   border: 0;

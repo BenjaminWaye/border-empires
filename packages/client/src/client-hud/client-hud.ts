@@ -1,3 +1,4 @@
+import { updateManifestDetail, renderMobileManifestOverlay } from "../client-manifest-detail/client-manifest-detail-dom.js";
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
@@ -464,11 +465,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
   dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Manifest choices"), () => renderTechChoiceGrid());
   dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
-  dom.techDetailCardEl.innerHTML = safeValue(
+  updateManifestDetail(dom.techDetailCardEl, safeValue(
     "renderTechDetailCard",
     fallbackCard("Manifest details"),
     () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
-  );
+  ));
   dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Manifest details"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
@@ -479,15 +480,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
   renderPlayerProfileOverlay(dom, state, playerNameForOwner, wsUrl, () => renderClientHud(deps));
-  const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
-    ? state.techDetailOpen
-      ? deps.renderTechDetailOverlay()
-      : state.domainDetailOpen
-        ? deps.renderDomainDetailOverlay()
-        : ""
-    : "";
-  dom.techDetailOverlayEl.innerHTML = mobileDetailOverlayHtml;
-  dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
+  renderMobileManifestOverlay(dom.techDetailOverlayEl, deps.techDetailsUseOverlay(), state, deps.renderTechDetailOverlay, deps.renderDomainDetailOverlay);
   dom.techOwnedEl.innerHTML = safeValue(
     "techOwnedHtml",
     fallbackCard("Your Manifests"),
