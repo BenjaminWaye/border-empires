@@ -33,7 +33,9 @@ import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { bindRendererSettingsControls } from "../client-renderer-switch/client-renderer-settings-ui.js";
 import { renderRendererPromptOverlay } from "../client-renderer-prompt/client-renderer-prompt-overlay.js";
-import { applySocialFocus } from "../client-alliance/client-alliance-focus.js"; import { alliancePanelHtml } from "../client-alliance/client-alliance-panel.js"; import { alliancePanelInputFromState } from "../client-alliance/client-alliance-panel-input.js"; import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js"; import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
+import { renderAllianceLists } from "./client-hud-alliance-lists.js";
+import { bindProposeButtons } from "../client-alliance/client-alliance-propose-buttons.js";
+import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
@@ -676,10 +678,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       return;
     }
   };
-  dom.alliesListEl.innerHTML = safeValue("alliancePanelHtml", fallbackCard("Alliances"), () =>
-    alliancePanelHtml(alliancePanelInputFromState(state, playerNameForOwner, Date.now()))
-  );
-  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML; applySocialFocus([dom.alliesListEl, dom.mobileAlliesListEl], state);
+  renderAllianceLists(state, dom, safeValue, fallbackCard("Alliances"));
   // Single Copy button for the merged connection + account debug card (was
   // two separate cards each with their own Copy button/payload).
   bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });

@@ -325,6 +325,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
       "The explanation of how manpower works is tucked behind a \"?\" toggle"
     ]
+  },
+  {
+    createdAt: 1791970096634, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.3",
+    title: "AI names in Alliances",
+    why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
+    changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
   }
 ];
 
