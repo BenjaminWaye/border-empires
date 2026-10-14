@@ -49,6 +49,32 @@ describe("computeWarMusicSignals", () => {
     expect(result.combat).toBe(true);
   });
 
+  it("is not in combat for an ADVANCE flag idling with no target (e.g. only truce partners on the border)", () => {
+    const state = baseState();
+    const tile = musterTile("ADVANCE");
+    tile.muster = { ...tile.muster!, noTargetInRange: true };
+    state.tiles.set("0,0", tile);
+    const result = computeWarMusicSignals(state);
+    expect(result.combat).toBe(false);
+    expect(result.tension).toBe(false);
+  });
+
+  it("is not in combat for a MARCH flag idling with no target", () => {
+    const state = baseState();
+    const tile = musterTile("MARCH");
+    tile.muster = { ...tile.muster!, noTargetInRange: true };
+    state.tiles.set("0,0", tile);
+    expect(computeWarMusicSignals(state).combat).toBe(false);
+  });
+
+  it("stays in combat while a no-target ADVANCE flag still has an attack in flight", () => {
+    const state = baseState();
+    const tile = musterTile("ADVANCE");
+    tile.muster = { ...tile.muster!, noTargetInRange: true, inFlight: true, inFlightCount: 1 };
+    state.tiles.set("0,0", tile);
+    expect(computeWarMusicSignals(state).combat).toBe(true);
+  });
+
   it("is in combat as soon as a March-To target is set, with no attack yet resolved", () => {
     const state = baseState();
     state.tiles.set("0,0", musterTile("MARCH"));

@@ -466,6 +466,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
   },
+  {
+    createdAt: 1792042002455, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "War music stops when your flag has nothing to fight",
+    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
+    changes: [
+      "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
