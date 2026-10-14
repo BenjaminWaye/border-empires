@@ -31,9 +31,9 @@ describe("createIncursionOverlay3D", () => {
     const hatch = { theirs: "#ff0000", mine: "#00ff00" };
     // Two pocket tiles side by side, both listing the same tile of mine north of the seam.
     const shared = { dx: 0, dy: -1, side: 1 as const, mask: 0b0100_0000 };
-    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, band: [shared], veilSides: [] } });
-    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, band: [{ ...shared, dx: -1 }], veilSides: [] } });
-    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, band: [], veilSides: ["north", "east"] } });
+    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, teeth: [], band: [shared], veilSides: [] } });
+    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, teeth: [], band: [{ ...shared, dx: -1 }], veilSides: [] } });
+    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, teeth: [], band: [], veilSides: ["north", "east"] } });
     overlay.commit();
     expect(drawnQuads(band!)).toBe(1);
     expect(drawnQuads(veil!)).toBe(2);
@@ -47,6 +47,33 @@ describe("createIncursionOverlay3D", () => {
     overlay.update(1000);
     overlay.dispose();
     expect(group.children).toHaveLength(0);
+  });
+
+  it("draws each spike as an outline in the mark colour under a fill in the attacker's colour", () => {
+    const group = new Group();
+    const overlay = createIncursionOverlay3D(group, 1);
+    const teeth = group.children[4] as Mesh;
+    const noEdges = { north: false, east: false, south: false, west: false };
+    const tooth = {
+      outline: [{ x: -0.1, y: -0.47 }, { x: 0.1, y: -0.47 }, { x: 0, y: -0.75 }],
+      fill: [{ x: -0.07, y: -0.49 }, { x: 0.07, y: -0.49 }, { x: 0, y: -0.7 }]
+    } as const;
+    overlay.addTile(2, 3, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#141414", noEdges, {
+      style: "spikes",
+      worldX: 2,
+      worldY: 3,
+      layout: { straightEdges: noEdges, teeth: [tooth], band: [], veilSides: [] }
+    });
+    overlay.commit();
+    const geometry = teeth.geometry as BufferGeometry;
+    expect(geometry.drawRange.count).toBe(12); // outline + fill, one (degenerate) quad each
+    const color = geometry.getAttribute("color");
+    expect(color.getX(0)).toBeLessThan(0.05); // outline: near-black mark
+    expect([color.getX(4), color.getY(4), color.getZ(4)]).toEqual([1, 0, 0]); // fill: the attacker's red
+    const position = geometry.getAttribute("position");
+    expect(position.getY(4)).toBeGreaterThan(position.getY(0)); // fill sits on top of its outline
+    expect(position.getZ(2)).toBeCloseTo(2.25); // tip reaches into the tile of mine to the north (z = 3 - 0.75)
+    overlay.dispose();
   });
 
   it("stops adding tiles (and their edges) once the hatch buffer is full", () => {

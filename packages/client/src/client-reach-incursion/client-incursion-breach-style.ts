@@ -4,6 +4,9 @@
 // strip, so for now this is an admin-only switch (Settings > Admin):
 //
 //  - "straight": the original solid strip just inside the pocket (default).
+//  - "spikes":   the strip plus a row of evenly spaced teeth in the
+//                attacker's colour pointing into my land (Hearts of Iron IV
+//                front lines).
 //  - "ember":    a thin glowing fissure along the boundary with a soft
 //                flickering glow either side (Total War: Warhammer
 //                corruption fronts, Diablo lava seams).
@@ -18,9 +21,9 @@
 // precedence (handy for screenshots and regression checks) -- same pattern as
 // client-siege-tower-rotation-mode.ts.
 
-export type IncursionBreachStyle = "straight" | "ember" | "ink" | "veil";
+export type IncursionBreachStyle = "straight" | "spikes" | "ember" | "ink" | "veil";
 
-export const INCURSION_BREACH_STYLES: readonly IncursionBreachStyle[] = ["straight", "ember", "ink", "veil"];
+export const INCURSION_BREACH_STYLES: readonly IncursionBreachStyle[] = ["straight", "spikes", "ember", "ink", "veil"];
 
 const STORAGE_KEY = "border-empires-incursion-breach-style";
 

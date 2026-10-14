@@ -11,6 +11,7 @@ import {
 
 const LABELS: Readonly<Record<IncursionBreachStyle, string>> = {
   straight: "Straight outline (current)",
+  spikes: "Front-line spikes",
   ember: "Ember seam",
   ink: "Ink bleed",
   veil: "Aether veil"

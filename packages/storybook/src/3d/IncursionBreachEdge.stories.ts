@@ -128,7 +128,7 @@ const meta: Meta<Args> = {
     intruderColor: { control: { type: "color" } }
   },
   // Red-pink me, light-green intruder (-> near-black outline), as in the original screenshot.
-  args: { style: "ember", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
+  args: { style: "spikes", cameraDistance: 10, cameraTilt: 0.7, myColor: "#e0535d", intruderColor: "#7be05a" },
   render: (args) => renderOne(args, BREACH_STYLE_LABELS[args.style])
 };
 
@@ -137,6 +137,9 @@ type Story = StoryObj<Args>;
 
 export const CompareAll: Story = { render: renderCompare };
 export const Current: Story = { args: { style: "straight" } };
+export const Spikes: Story = { args: { style: "spikes" } };
+/** Spikes with a dark attacker: blue teeth on a white rim. */
+export const SpikesDarkIntruder: Story = { args: { style: "spikes", intruderColor: "#2b3a8c" } };
 export const Option1Ember: Story = { args: { style: "ember" } };
 export const Option2Ink: Story = { args: { style: "ink" } };
 export const Option3Veil: Story = { args: { style: "veil" } };

@@ -16,6 +16,7 @@ describe("incursionBreachLayout", () => {
   it("keeps every open side as a plain strip in the straight style", () => {
     expect(incursionBreachLayout("straight", kinds)).toEqual({
       straightEdges: { north: true, east: false, south: true, west: true },
+      teeth: [],
       band: [],
       veilSides: []
     });
@@ -25,6 +26,30 @@ describe("incursionBreachLayout", () => {
     for (const style of ["ember", "ink", "veil"] as const) {
       expect(incursionBreachLayout(style, kinds).straightEdges).toEqual({ north: false, east: false, south: true, west: false });
     }
+  });
+
+  it("keeps the strip as the front line for spikes and stands evenly spaced teeth on the sides facing my land", () => {
+    const layout = incursionBreachLayout("spikes", kinds);
+    expect(layout.straightEdges).toEqual({ north: true, east: false, south: true, west: true });
+    // North and west sides face my land, four teeth each.
+    expect(layout.teeth).toHaveLength(8);
+    const northTips = layout.teeth.map((t) => t.fill[2]).filter((p) => p.y < -0.5);
+    expect(northTips).toHaveLength(4);
+    for (const tip of northTips) expect(tip.y).toBeCloseTo(-0.7);
+    expect(northTips.map((p) => p.x)).toEqual([-0.375, -0.125, 0.125, 0.375]);
+    // Each outline is a larger copy of its fill, so it shows as a rim round it.
+    for (const tooth of layout.teeth) {
+      const span = (pts: readonly { x: number; y: number }[]): number => Math.hypot(pts[1]!.x - pts[0]!.x, pts[1]!.y - pts[0]!.y);
+      expect(span(tooth.outline)).toBeGreaterThan(span(tooth.fill));
+    }
+  });
+
+  it("drops the spike at an inside corner, where the neighbouring pocket side's spike points into the same tile", () => {
+    // The pocket also continues north-east, so the tile north of us is bordered by the pocket on two sides.
+    const corner = around({ "1,0": "pocket", "1,-1": "pocket", "0,1": "other", "-1,0": "other" });
+    const tips = incursionBreachLayout("spikes", corner).teeth.map((t) => t.fill[2]);
+    expect(tips).toHaveLength(3);
+    expect(Math.max(...tips.map((p) => p.x))).toBeLessThan(0.3);
   });
 
   it("raises the veil only on the sides facing my land", () => {
