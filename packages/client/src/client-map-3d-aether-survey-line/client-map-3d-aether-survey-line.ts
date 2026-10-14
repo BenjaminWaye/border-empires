@@ -43,12 +43,14 @@ import {
 } from "three";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createPoolDropCounter } from "../client-map-3d-pool-drop-counter/client-map-3d-pool-drop-counter.js";
-import { createQuadMesh, lerpPoint, tileQuadCorners, VERTS_PER_TILE, writeQuad, type Vec3Like } from "../client-map-3d-quad-fill/client-map-3d-quad-fill.js";
+import { createQuadMesh, tileQuadCorners, VERTS_PER_TILE, writeQuad, type Vec3Like } from "../client-map-3d-quad-fill/client-map-3d-quad-fill.js";
+import { createSurveyLineSegmentPool } from "./client-map-3d-aether-survey-line-segments.js";
+import { createIncursionOverlay3D, type IncursionOverlay3D } from "../client-map-3d-incursion-overlay/client-map-3d-incursion-overlay.js";
+import { reachEmphasisStyle, type ReachBorderEmphasis } from "../client-reach-border-emphasis/client-reach-border-emphasis.js";
 
 const BRASS = "#b08d55";
 const IRON = "#26282e";
 const AETHER_CORE = "#bdf3ff";
-const AETHER_LINE = "#9fe6ff";
 const DEAD_METAL = "#3a3d45";
 
 const DORMANT_FRONTIER_TINT_COLOR = "#4a3f30";
@@ -92,12 +94,6 @@ const LINE_LIFT = RING_HEIGHT;
 // keeping the beam's retracting/extending endpoint glued to the physical
 // post instead of drifting apart from it.
 export const PYLON_SINK_DEPTH = RING_HEIGHT;
-// Deliberately much thinner than the pylon post (postGeometry above) so it
-// still reads as "hair-thin" per the brief, but large enough for its
-// per-owner glow color to actually be visible at normal camera distance
-// instead of anti-aliasing away to a pale gray thread.
-const LINE_RADIUS = 0.026;
-const LINE_BASE_OPACITY = 0.8;
 
 // --- Pylons (pooled Object3D groups) -------------------------------------
 
@@ -116,8 +112,7 @@ const makeMaterials = () => ({
   brass: new MeshStandardMaterial({ color: BRASS, metalness: 0.75, roughness: 0.28 }),
   iron: new MeshStandardMaterial({ color: IRON, metalness: 0.6, roughness: 0.45 }),
   core: new MeshBasicMaterial({ toneMapped: false, color: AETHER_CORE, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }),
-  deadMetal: new MeshStandardMaterial({ color: DEAD_METAL, metalness: 0.3, roughness: 0.85, flatShading: true }),
-  line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: LINE_BASE_OPACITY, blending: AdditiveBlending, depthWrite: false })
+  deadMetal: new MeshStandardMaterial({ color: DEAD_METAL, metalness: 0.3, roughness: 0.85, flatShading: true })
 });
 
 export type ReachOverlay3D = {
@@ -135,7 +130,9 @@ export type ReachOverlay3D = {
    * ground (riseFraction 1→0); an arriving one rises first (riseFraction
    * 0→1) then powers its laser on (laserFraction 0→1). See
    * client-reach-overlay-transitions.ts for the timing/easing that
-   * produces these two fractions per frame.
+   * produces these two fractions per frame. `emphasis` (default "rival")
+   * makes the viewer's own pylons bigger/brighter than everyone else's --
+   * see client-reach-border-emphasis.ts.
    */
   readonly addPylon: (
     x: number,
@@ -145,7 +142,8 @@ export type ReachOverlay3D = {
     nowMs: number,
     ownerColor: string,
     riseFraction?: number,
-    laserFraction?: number
+    laserFraction?: number,
+    emphasis?: ReachBorderEmphasis
   ) => void;
   /**
    * Adds the thin glowing chord between two consecutive pylon points.
@@ -154,7 +152,8 @@ export type ReachOverlay3D = {
    * during a transition instead of drifting apart from it. `laserFraction`
    * dims the whole chord (the weaker of its two endpoints' laser state,
    * computed by the caller) rather than per-endpoint, since a half-lit
-   * beam doesn't read as a coherent lighting state.
+   * beam doesn't read as a coherent lighting state. `emphasis` picks the
+   * own (thick, white-hot core, pulsing) vs rival (thin, dim) line style.
    */
   readonly addLineSegment: (
     x0: number,
@@ -166,10 +165,13 @@ export type ReachOverlay3D = {
     ownerColor: string,
     laserFraction?: number,
     riseFraction0?: number,
-    riseFraction1?: number
+    riseFraction1?: number,
+    emphasis?: ReachBorderEmphasis
   ) => void;
   /** Adds a "this used to be surveyed, now abandoned" dim/dark pylon stub -- no glow, no ring, no line. */
   readonly addDormantFrontierTile: (x: number, z: number, surfaceY: number, size: number) => void;
+  /** Hatches a rival-held tile inside the viewer's reach and outlines its pocket edges -- see client-reach-incursion.ts. */
+  readonly addIncursionTile: IncursionOverlay3D["addTile"];
   /** Uploads this frame's live pylon/line pool. Call every frame, paired with clearPylons. */
   readonly commitPylons: () => void;
   /** Uploads the dead-pylon/dormant-frontier tile overlays. Call only from the throttled rebuild, paired with clearTileOverlays. */
@@ -286,30 +288,14 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // from scratch every call) can multiply the pulse by it instead of
   // clobbering whatever addPylon just set for a transitioning pylon.
   const liveLaserFractions: number[] = new Array(maxPylons).fill(1);
+  const liveOpacityMults: number[] = new Array(maxPylons).fill(1); // per-pylon emphasis opacity, re-applied by update() like liveLaserFractions
   let liveCursor = 0;
   // See client-map-3d-pool-drop-counter.ts's doc comment for why this exists.
   const pylonDrops = createPoolDropCounter();
-  const segmentDrops = createPoolDropCounter();
   let deadCursor = 0;
 
-  // Line segments: a thin cylinder per slot (oriented between two points),
-  // each with its own cloned material so it can be tinted per-owner. No
-  // travelling pulse -- removed per review, it read as distracting bubbles
-  // rather than a subtle detail.
-  const lineGeometry = new CylinderGeometry(LINE_RADIUS, LINE_RADIUS, 1, 5);
-  const linePool: {
-    readonly mesh: Mesh;
-    readonly material: MeshBasicMaterial;
-  }[] = Array.from({ length: maxSegments }, () => {
-      const material = materials.line.clone() as MeshBasicMaterial;
-      const mesh = new Mesh(lineGeometry, material);
-      mesh.visible = false;
-      mesh.frustumCulled = false;
-      mesh.renderOrder = 11;
-      group.add(mesh);
-      return { mesh, material };
-    });
-  let segmentCursor = 0;
+  // Connecting lines live in their own pool module (own vs rival styling) -- see client-map-3d-aether-survey-line-segments.ts.
+  const segments = createSurveyLineSegmentPool(group, maxSegments);
 
   scene.add(group);
 
@@ -318,6 +304,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   group.add(dormant.mesh);
   let dormantVertCount = 0;
   let dormantIndexCount = 0;
+  const incursion = createIncursionOverlay3D(group, maxTiles);
 
   // Split in two so the live pylon/line pool -- which needs a full
   // clear+re-add+commit every frame to animate the rise/sink/laser
@@ -330,15 +317,15 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // rebuild, same as before this split existed.
   const clearPylons = (): void => {
     liveCursor = 0;
-    segmentCursor = 0;
     pylonDrops.reset();
-    segmentDrops.reset();
+    segments.clear();
   };
 
   const clearTileOverlays = (): void => {
     deadCursor = 0;
     dormantVertCount = 0;
     dormantIndexCount = 0;
+    incursion.clear();
   };
 
   const addPylon = (
@@ -349,23 +336,26 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     nowMs: number,
     ownerColor: string,
     riseFraction = 1,
-    laserFraction = 1
+    laserFraction = 1,
+    emphasis: ReachBorderEmphasis = "rival"
   ): void => {
     if (liveCursor >= livePool.length) { pylonDrops.recordDrop(); return; }
     const pylon = livePool[liveCursor]!;
-    const sunkOffset = (1 - riseFraction) * PYLON_SINK_DEPTH;
+    const style = reachEmphasisStyle(emphasis);
+    const sunkOffset = (1 - riseFraction) * PYLON_SINK_DEPTH * style.pylonScale;
     pylon.group.position.set(x, surfaceY + PYLON_LIFT - sunkOffset, z);
-    pylon.group.scale.setScalar(size);
+    pylon.group.scale.setScalar(size * style.pylonScale);
     const phase = liveCursor * 0.9;
     if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
     const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
     if (pylon.coreMaterial) {
       pylon.coreMaterial.color.set(normalizeColorForThree(ownerColor));
-      pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * laserFraction;
+      pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * laserFraction * style.opacityMult;
     }
     if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
     pylon.group.visible = true;
     liveLaserFractions[liveCursor] = laserFraction;
+    liveOpacityMults[liveCursor] = style.opacityMult;
     liveCursor += 1;
   };
 
@@ -382,6 +372,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     [dormantVertCount, dormantIndexCount] = writeQuad(dormant, dormantVertCount, dormantIndexCount, x0, x1, z0, z1, surfaceY);
   };
 
+  let lastNowMs = 0; // addLineSegment has no nowMs param; the own-line pulse phase is refreshed by update() every frame anyway
   const addLineSegment = (
     x0: number,
     z0: number,
@@ -392,30 +383,15 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     ownerColor: string,
     laserFraction = 1,
     riseFraction0 = 1,
-    riseFraction1 = 1
+    riseFraction1 = 1,
+    emphasis: ReachBorderEmphasis = "rival"
   ): void => {
-    if (segmentCursor >= linePool.length) { segmentDrops.recordDrop(); return; }
-    const slot = linePool[segmentCursor]!;
-    const sunkOffset0 = (1 - riseFraction0) * PYLON_SINK_DEPTH;
-    const sunkOffset1 = (1 - riseFraction1) * PYLON_SINK_DEPTH;
-    const p0: Vec3Like = { x: x0, y: surfaceY0 + LINE_LIFT - sunkOffset0, z: z0 };
-    const p1: Vec3Like = { x: x1, y: surfaceY1 + LINE_LIFT - sunkOffset1, z: z1 };
-    const dx = p1.x - p0.x;
-    const dy = p1.y - p0.y;
-    const dz = p1.z - p0.z;
-    const length = Math.hypot(dx, dy, dz) || 0.0001;
-    const mid = lerpPoint(p0, p1, 0.5);
-    slot.mesh.position.set(mid.x, mid.y, mid.z);
-    // Orient the cylinder's local +Y axis along the chord direction.
-    slot.mesh.up.set(0, 0, 1);
-    slot.mesh.lookAt(p1.x, p1.y, p1.z);
-    slot.mesh.rotateX(Math.PI / 2);
-    slot.mesh.scale.set(1, length, 1);
-    slot.material.color.set(normalizeColorForThree(ownerColor));
-    slot.material.opacity = LINE_BASE_OPACITY * laserFraction;
-    slot.mesh.visible = laserFraction > 0.001;
-
-    segmentCursor += 1;
+    const { pylonScale } = reachEmphasisStyle(emphasis);
+    const lineLift = LINE_LIFT * pylonScale; // threads the (scaled) pylon ring
+    const sinkDepth = PYLON_SINK_DEPTH * pylonScale;
+    const p0: Vec3Like = { x: x0, y: surfaceY0 + lineLift - (1 - riseFraction0) * sinkDepth, z: z0 };
+    const p1: Vec3Like = { x: x1, y: surfaceY1 + lineLift - (1 - riseFraction1) * sinkDepth, z: z1 };
+    segments.add(p0, p1, ownerColor, laserFraction, emphasis, lastNowMs);
   };
 
   // Animates rotation/core-pulse state on already-placed pylons every
@@ -427,22 +403,25 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // (relayBeaconOverlay.update(nowMs), watchtowerOverlay.update(nowMs), ...).
   // Positions/visibility/ownerColor are untouched here -- those only change
   // when the underlying reach data changes, which addPylon/addLineSegment
-  // already handle. Line segments have no animated state of their own
-  // (no travelling pulse -- removed per review), so nothing to do for them.
+  // already handle. The only animated line state is the viewer's own
+  // border breathing pulse, which the segment pool re-applies itself.
   const update = (nowMs: number): void => {
     for (let i = 0; i < liveCursor; i += 1) {
       const pylon = livePool[i]!;
       const phase = i * 0.9;
       if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
       const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
-      if (pylon.coreMaterial) pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * liveLaserFractions[i]!;
+      if (pylon.coreMaterial) pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * liveLaserFractions[i]! * liveOpacityMults[i]!;
       if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
     }
+    lastNowMs = nowMs;
+    segments.update(nowMs);
+    incursion.update(nowMs);
   };
 
   const commitPylons = (): void => {
     for (let i = liveCursor; i < livePool.length; i += 1) livePool[i]!.group.visible = false;
-    for (let i = segmentCursor; i < linePool.length; i += 1) linePool[i]!.mesh.visible = false;
+    segments.commit();
   };
 
   const commitTileOverlays = (): void => {
@@ -462,6 +441,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     dormantIndex.addUpdateRange(0, dormantIndexCount);
     dormantIndex.needsUpdate = true;
     dormant.geometry.setDrawRange(0, dormantIndexCount);
+    incursion.commit();
   };
 
   const dispose = (): void => {
@@ -474,27 +454,27 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     ringGeometry.dispose();
     coreGeometry.dispose();
     deadPostGeometry.dispose();
-    lineGeometry.dispose();
     dormant.geometry.dispose();
     dormant.material.dispose();
     materials.brass.dispose();
     materials.iron.dispose();
     materials.core.dispose();
     materials.deadMetal.dispose();
-    materials.line.dispose();
     for (const pylon of livePool) pylon.coreMaterial?.dispose();
-    for (const slot of linePool) slot.material.dispose();
+    segments.dispose();
+    incursion.dispose();
   };
 
   return {
     group,
     clearPylons,
     droppedPylonCount: () => pylonDrops.count(),
-    droppedSegmentCount: () => segmentDrops.count(),
+    droppedSegmentCount: () => segments.droppedCount(),
     clearTileOverlays,
     addPylon,
     addLineSegment,
     addDormantFrontierTile,
+    addIncursionTile: incursion.addTile,
     commitPylons,
     commitTileOverlays,
     update,

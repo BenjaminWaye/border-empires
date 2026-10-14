@@ -31,7 +31,7 @@ export const playerNameForOwnerFromState = (
 
 // Used purely for display (e.g. the tile description panel's owner label).
 // Prefers the leaderboard's live seasonal name over the client's playerNames
-// map, which is only ever set once at init and never gains an AI's real name
+// map, which keeps the stable diplomacy name received at init
 // (playerNames intentionally stays "AI N" for social-state resolvability; see
 // playerNameForOwnerFromState above). Not safe to use for truce/alliance
 // target names.

@@ -15,7 +15,7 @@ import { hasProspectClueNearTerritory } from "./client-manifest-detail/client-ma
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { renderStructureInfoOverlay as renderStructureInfoOverlayFromModule } from "./client-structure-info-overlay/client-structure-info-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
-import type { DomainInfo, TechInfo } from "./client-types.js";
+import type { TechInfo } from "./client-types.js";
 import { MONUMENT_COMPONENT_KEYS, type StructureInfoKey } from "./client-map-display.js";
 
 type TechPanelDeps = {

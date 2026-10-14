@@ -10,32 +10,6 @@ import {
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import type { EconomicStructureType } from "@border-empires/shared";
-export { TECH_REQUIREMENTS_BY_STRUCTURE } from "@border-empires/shared";
-
-import type { StrategicResourceKey } from "../runtime-types.js";
-
-export const strategicResourceForTile = (resource: DomainTileState["resource"] | undefined): StrategicResourceKey | undefined => {
-  switch (resource) {
-    case "FARM":
-    case "FISH":
-      return "FOOD";
-    case "TITANIUM":
-      return "TITANIUM";
-    case "GEMS":
-      return "CRYSTAL";
-    case "UMBRITE":
-      return "UMBRITE";
-    default:
-      return undefined;
-  }
-};
-
-export const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType): EconomicStructureType | undefined => {
-  if (type === "HIGH_YIELD_UMBRITE_WORKS") return "UMBRITE_WORKS";
-  if (type === "HIGH_YIELD_TITANIUM_WORKS") return "TITANIUM_WORKS";
-  if (type === "HIGH_YIELD_AETHER_CONDENSER") return "AETHER_CONDENSER";
-  return undefined;
-};
 
 export const isConverterStructureType = (structureType: EconomicStructureType): boolean =>
   structureType === "UMBRITE_WORKS" ||

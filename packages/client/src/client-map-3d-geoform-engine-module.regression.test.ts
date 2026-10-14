@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CapsuleGeometry, CylinderGeometry, InstancedMesh, Matrix4, Scene, TorusGeometry, Vector3 } from "three";
+import { CylinderGeometry, InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { AFC_BAY_INNER_RADIUS, AFC_SOCKET_RING_RADIUS } from "./client-map-3d-fabrication-complex.js";
 import { GEOFORM_BASE_RADIUS, GEOFORM_MODULE_HEIGHT, GEOFORM_SCALE, createGeoformEngineModuleOverlay } from "./client-map-3d-geoform-engine-module.js";
 

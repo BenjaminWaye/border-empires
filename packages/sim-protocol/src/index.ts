@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -12,8 +11,7 @@ import type {
   SeasonLifecycleStatus,
   SeasonStats,
   SeasonVictoryObjectiveSnapshot,
-  SeasonWinnerSnapshot,
-  SimulationSeasonState
+  SeasonWinnerSnapshot
 } from "./season-state-types/season-state-types.js";
 
 // DEV_QUEUE_*/WAYPOINT_* now live on DurableCommandTypeSchema itself (see

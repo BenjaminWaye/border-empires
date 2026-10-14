@@ -234,7 +234,7 @@
       "tier": 4,
       "name": "Hidden Hand",
       "description": "State intelligence cuts every aether tower ability's cooldown in half.",
-      "requiresTechId": "cryptography",
+      "requiresTechId": "beacon-towers",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
         "observatoryCooldownMult": 0.5

@@ -16,9 +16,9 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../packages/shared/dist/config.js";
 export const tileKey = (x, y) => `${x},${y}`;
 
 // Wire tiles never carry nested `town`/`siegeBattery`/`economicStructure`
-// objects (see domainTileToWireDelta in
-// apps/simulation/src/runtime-tile-deltas.ts, the source of both INIT's
-// initialState.tiles and TILE_DELTA_BATCH): town is flattened straight to
+// objects (see visibleTileProjection in
+// apps/simulation/src/runtime-visible-state.ts, the source of INIT's
+// initialState.tiles, and the matching TILE_DELTA_BATCH serializers): town is flattened straight to
 // scalar townType/townName/townPopulationTier fields, while siegeBattery and
 // economicStructure only ever arrive as JSON-stringified blobs
 // (siegeBatteryJson/economicStructureJson) that must be parsed to reach

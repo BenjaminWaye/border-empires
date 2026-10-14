@@ -27,9 +27,12 @@ import { CLIENT_CHANGELOG_ENTRIES_SEPT_24_26 } from "./client-changelog-data-sep
 import { CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS } from "./client-changelog-fast-builds.js";
 import { CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS } from "./client-changelog-build-speed-menus.js";
 import { CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON } from "./client-changelog-hint-center-button.js";
+import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changelog-alliance-tab-redesign.js";
+import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
+import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -39,8 +42,29 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.14.3",
+    title: "Enemy frontier warnings refer to their owner's reach",
+    why: "An enemy tile's decay timer incorrectly said beyond your reach even when it was within yours.",
+    changes: ["Enemy frontier decay warnings now refer to the tile owner's reach in both map renderers"]
+  },
+  {
+    createdAt: 1791969768256, // Frozen Date.now() timestamp for the changelog gate.
+    introducedIn: "2026.10.14.2",
+    title: "Waystation rewards show current technology names",
+    why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
+    changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
+  },
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
+  {
+    createdAt: 1791970194502,
+    introducedIn: "2026.10.14.2",
+    title: "Hidden dock connections stay hidden",
+    why: "Selecting an enemy dock lit up undiscovered linked docks on the minimap and offered navigation into fog.",
+    changes: ["Selecting a dock no longer reveals hidden connections on the minimap or either map renderer", "Dock navigation only visits discovered destinations; garrisoning a dock reveals its links", "3D dock routes update as soon as linked docks are discovered, even while the same dock stays selected"]
+  },
   {
     createdAt: 1791643448668, // Date.now() frozen for this entry, as required by the changelog gate.
     introducedIn: "2026.10.10.1",
@@ -217,6 +241,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_FAST_BUILDS,
   ...CLIENT_CHANGELOG_ENTRIES_BUILD_SPEED_MENUS,
   ...CLIENT_CHANGELOG_ENTRIES_HINT_CENTER_BUTTON,
+  ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
+  ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
@@ -234,6 +260,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
+  ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
   {
     createdAt: 1791803592000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
@@ -270,6 +297,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
   },
   {
+    createdAt: 1791921497137,
+    introducedIn: "2026.10.13.1",
+    title: "Hydrogardens no longer stand on the old farm plot",
+    why: "The hydroponic glass dome was drawn on top of the conventional 3D crop-field plot, so it looked like a greenhouse dropped onto a normal farm.",
+    changes: ["A built Hydrogarden now replaces the old 3D farm plot, so the dome stands on clean ground"]
+  },
+  {
     createdAt: 1791922549550, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.2",
     title: "Economy panel says Coin",
@@ -277,8 +311,62 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The economy panel's currency card and detail heading now read Coin"]
   },
   {
-    createdAt: 1791925431016, // Date.now() captured once for this release.
+    createdAt: 1791925158695, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.3",
+    title: "Your border shows up as soon as you log in",
+    why: "In the 3D map, your Aether Survey Line border and the dormant-frontier and rival-incursion tints could stay hidden after login until something on screen changed. If you were idle and didn't move the camera, they might never appear.",
+    changes: ["The 3D border appears right after login, even with a still camera", "Reach updates from the server redraw the 3D border straight away"]
+  },
+  {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
+  },
+  {
+    createdAt: 1791959048426,
+    introducedIn: "2026.10.14.1",
+    title: "3D map shows frontier claims on time",
+    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
+    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
+  },
+  {
+    createdAt: 1791971113032,
+    introducedIn: "2026.10.14.2",
+    title: "Next manpower batch front and centre",
+    why: "The manpower panel buried when your next batch arrives inside a long paragraph, and showed the time until full as raw minutes like \"738m 18s\".",
+    changes: [
+      "The manpower panel now shows \"Next batch in ...\" as a large callout at the top in hours and minutes, e.g. \"0h 19m\" (or \"Full\" / \"Paused\")",
+      "Time until full also reads in hours and minutes, e.g. \"Manpower full in 12h 19m\"",
+      "The explanation of how manpower works is tucked behind a \"?\" toggle"
+    ]
+  },
+  {
+    createdAt: 1791970096634, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.3",
+    title: "AI names in Alliances",
+    why: "The Alliances tab showed generic AI numbers instead of the empires' names.",
+    changes: ["Met AI empires and allies show their seasonal names", "Alliance and truce offers still reach the correct AI"]
+  },
+  {
+    createdAt: 1791977894863,
+    introducedIn: "2026.10.14.4",
+    title: "Testing new outlines for enemy land inside your border",
+    why: "Enemy tiles taken inside your reach only get a plain outline, which doesn't read as a break-in. Admins are trying new looks on the 3D map before one becomes the default.",
+    changes: [
+      "Nothing changes for players yet: the outline stays as it is until a new look is chosen",
+      "Admins can try a spiked front line in the attacker's colour, an ember seam, an ink bleed or an aether veil under Settings > Admin"
+    ]
+  },
+  {
+    createdAt: 1792001165636, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.5",
     title: "Coin everywhere",
     why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
     changes: [

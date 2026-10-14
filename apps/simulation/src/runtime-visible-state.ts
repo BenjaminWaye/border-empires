@@ -1,9 +1,7 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import type { DomainTileState } from "@border-empires/game-domain";
 import {
-  VISION_RADIUS,
   WORLD_HEIGHT,
-  WORLD_WIDTH,
-  type Terrain
+  WORLD_WIDTH
 } from "@border-empires/shared";
 import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";

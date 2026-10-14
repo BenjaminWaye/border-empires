@@ -5,7 +5,7 @@ import { spendableBuildManpowerForPlanner, spendableManpowerForPlanner } from ".
 
 import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } from "./build/build-need-vector.js";
 
-import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
+import { analyzeOwnedFrontierTargetsFromLookup } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
 import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, createOwnedFrontierTileScans, strideSample } from "./broad-fallback-sample.js";
 import { townSupportNeededOrigins } from "./automation-command-planner-town-support-origins.js";

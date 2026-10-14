@@ -1,6 +1,5 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, isFortDefending, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState, DomainPlayer } from "@border-empires/game-domain";
-import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 /**
@@ -89,16 +88,6 @@ export const coordsInChebyshevRadius = (
   return coords;
 };
 
-export const isActiveFortAnchor = (
-  tile: DomainTileState,
-  playerId: string,
-  nowMs: number
-): boolean =>
-  tile.ownerId === playerId &&
-  tile.fort?.ownerId === playerId &&
-  tile.fort.status === "active" &&
-  (tile.fort.disabledUntil ?? 0) <= nowMs;
-
 
 export const isSettledTownAnchor = (tile: DomainTileState, playerId: string): boolean =>
   tile.ownerId === playerId &&
@@ -119,12 +108,6 @@ export const isAutoSettlementTarget = (
       tile.ownerId === playerId &&
       tile.ownershipState === "FRONTIER"
   );
-
-export const isValuableAutoSettlementTarget = (
-  tile: DomainTileState | undefined,
-  playerId: string
-): tile is DomainTileState =>
-  Boolean(isAutoSettlementTarget(tile, playerId) && (tile.resource || tile.town || tile.dockId));
 
 export const isAutoSettlementEligibleTarget = (
   tile: DomainTileState | undefined,
@@ -203,68 +186,3 @@ export const orderedAutoSettlementTileKeys = (
   }
   return output;
 };
-
-export const siegeAutoAttackCandidates = (
-  outpost: DomainTileState,
-  playerId: string,
-  getTile: (x: number, y: number) => DomainTileState | undefined
-): DomainTileState[] => {
-  const autoAttackCandidates: DomainTileState[] = [];
-  forEachFrontierNeighbor(outpost.x, outpost.y, (nx, ny) => {
-    const tile = getTile(nx, ny);
-    if (
-      tile &&
-      tile.terrain === "LAND" &&
-      tile.ownerId &&
-      tile.ownerId !== playerId &&
-      (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED")
-    ) autoAttackCandidates.push(tile);
-  });
-  return autoAttackCandidates.sort((left, right) => {
-      const stateScore = (tile: DomainTileState): number => tile.ownershipState === "FRONTIER" ? 0 : 1;
-      const townScore = (tile: DomainTileState): number => tile.town ? 1 : 0;
-      const fortScore = (tile: DomainTileState): number => isFortDefending(tile.fort) ? 1 : 0;
-      return (
-        stateScore(left) - stateScore(right) ||
-        fortScore(left) - fortScore(right) ||
-        townScore(left) - townScore(right) ||
-        left.x - right.x ||
-        left.y - right.y
-      );
-    });
-};
-
-/**
- * Fort auto-attack candidates: frontier enemy tiles with no fortification
- * within chebyshev radius. Sorted by resource/town value desc, then x/y asc.
- *
- * Hot-path callers (tickTerritoryAutomation fort patrol) should prefer
- * PlayerCandidateIndex.sortedFortAttackCandidates() to avoid per-tick sort.
- */
-export const fortAutoAttackCandidates = (
-  fortTile: DomainTileState,
-  playerId: string,
-  radius: number,
-  getTile: (x: number, y: number) => DomainTileState | undefined
-): DomainTileState[] =>
-  coordsInChebyshevRadius(fortTile.x, fortTile.y, radius)
-    .map(({ x, y }) => getTile(x, y))
-    .filter(
-      (tile): tile is DomainTileState =>
-        Boolean(
-          tile &&
-            tile.terrain === "LAND" &&
-            tile.ownerId &&
-            tile.ownerId !== playerId &&
-            tile.ownershipState === "FRONTIER" &&
-            !tile.fort
-        )
-    )
-    .sort((left, right) => {
-      const resourceScore = (tile: DomainTileState): number => tile.resource || tile.town || tile.dockId ? 1 : 0;
-      return (
-        resourceScore(right) - resourceScore(left) ||
-        left.x - right.x ||
-        left.y - right.y
-      );
-    });

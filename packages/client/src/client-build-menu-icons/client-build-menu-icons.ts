@@ -42,10 +42,21 @@ const croppedImgStyle = ([x, y, width, height]: ArtCropBox): string => {
   return `width:${pct(scale)};height:${pct(scale)};left:${pct(left)};top:${pct(top)}`;
 };
 
-export const buildActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
-  const url = buildActionArtUrl(actionId);
-  if (!url) return undefined;
+// The art cropped into a square slot; slotClass sizes the slot and clips it.
+const croppedArtHtml = (url: string, slotClass: string): string => {
   const crop = BUILD_MENU_ART_CROP[url];
   const style = crop ? ` style="${croppedImgStyle(crop)}"` : "";
-  return `<span class="tile-action-art"><img src="${url}"${style} alt="" aria-hidden="true" draggable="false" loading="lazy"></span>`;
+  return `<span class="${slotClass}"><img src="${url}"${style} alt="" aria-hidden="true" draggable="false" loading="lazy"></span>`;
+};
+
+export const buildActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
+  const url = buildActionArtUrl(actionId);
+  return url ? croppedArtHtml(url, "tile-action-art") : undefined;
+};
+
+// Same thumbnail keyed by structure type, for views that list buildings
+// rather than build actions (the Manifest detail's "What you get" rows).
+export const structureArtIconHtml = (structureType: string, slotClass: string): string | undefined => {
+  const url = buildMenuArtUrl(structureType);
+  return url ? croppedArtHtml(url, slotClass) : undefined;
 };

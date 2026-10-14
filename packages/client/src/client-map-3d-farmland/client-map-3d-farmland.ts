@@ -17,6 +17,7 @@ import { Euler, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector
 import type { BufferGeometry, Material, Scene, Texture } from "three";
 import { loadMergedGlbGeometry } from "../client-map-3d-merged-glb/client-map-3d-merged-glb.js";
 import { applyBuildingEnvMap } from "../client-map-3d-building-envmap/client-map-3d-building-envmap.js";
+import type { ClientTileEconomicStructure } from "../client-tile-economic-structure-type.js";
 
 export const FARMLAND_MODEL_URL = "/models/farmland.glb";
 
@@ -30,6 +31,15 @@ export const FARMLAND_BASE_LIFT = 0.0457;
 // is raised by this so it walks on the crops instead of being swallowed by
 // the opaque plot, which otherwise hides it entirely.
 export const FARMLAND_STAND_LIFT = 0.079;
+
+// A FARM resource tile normally draws this conventional farm plot. When a
+// HYDROGARDEN (the hydroponic dome) is built on the tile the dome IS the farm,
+// so the old crop-field plot is dropped — otherwise the dome appears to stand
+// on a conventional farm. Other structures that can sit on a FARM tile (a
+// HYDROWORKS water tower) keep the plot. Typed with the structure-id union so
+// a future id rename is a type error here rather than a silent no-op.
+export const structureReplacesFarmlandPlot = (structureType: ClientTileEconomicStructure["type"] | undefined): boolean =>
+  structureType === "HYDROGARDEN";
 
 export type FarmlandOverlay = {
   readonly clear: () => void;

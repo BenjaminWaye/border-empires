@@ -1,6 +1,5 @@
 import {
   FORT_BUILD_MS,
-  FORT_DEFENSE_MULT,
   PALISADE_BUILD_MS,
 } from "./config.js";
 import {

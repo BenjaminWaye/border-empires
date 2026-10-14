@@ -1,23 +1,19 @@
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { locateHomeAfc } from "../client-afc-locate/client-afc-locate.js";
 import type { initClientDom } from "../client-dom.js";
-import { closeActivePanel, setActivePanel } from "../client-panel-nav/client-panel-nav.js";
+import { closeActivePanel } from "../client-panel-nav/client-panel-nav.js";
 import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 type UiActionFlow = Pick<
   ReturnType<typeof createClientActionFlow>,
-  "sendAllianceRequest" | "chooseTech" | "chooseDomain" | "cancelOngoingCapture" | "confirmBuildingPlacement" | "cancelBuildingPlacement" | "openSingleTileActionMenu"
+  "chooseTech" | "chooseDomain" | "cancelOngoingCapture" | "confirmBuildingPlacement" | "cancelBuildingPlacement" | "openSingleTileActionMenu"
 >;
 
 type UiControlsDeps = {
   state: ClientState;
   hud: ClientDom["hud"];
-  allianceSendBtn: ClientDom["allianceSendBtn"];
-  mobileAllianceSendBtn: ClientDom["mobileAllianceSendBtn"];
-  allianceTargetEl: ClientDom["allianceTargetEl"];
-  mobileAllianceTargetEl: ClientDom["mobileAllianceTargetEl"];
   techChooseBtn: ClientDom["techChooseBtn"];
   mobileTechChooseBtn: ClientDom["mobileTechChooseBtn"];
   techPickEl: ClientDom["techPickEl"];
@@ -60,10 +56,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   const {
     state,
     hud,
-    allianceSendBtn,
-    mobileAllianceSendBtn,
-    allianceTargetEl,
-    mobileAllianceTargetEl,
     techChooseBtn,
     mobileTechChooseBtn,
     techPickEl,
@@ -101,14 +93,8 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     setActivePanel,
     syncAuthPanelState
   } = deps;
-  const { sendAllianceRequest, chooseTech, cancelOngoingCapture, confirmBuildingPlacement, cancelBuildingPlacement } = actionFlow;
+  const { chooseTech, cancelOngoingCapture, confirmBuildingPlacement, cancelBuildingPlacement } = actionFlow;
 
-  allianceSendBtn.onclick = () => {
-    sendAllianceRequest(allianceTargetEl.value);
-  };
-  mobileAllianceSendBtn.onclick = () => {
-    sendAllianceRequest(mobileAllianceTargetEl.value);
-  };
   techChooseBtn.onclick = () => {
     chooseTech();
   };

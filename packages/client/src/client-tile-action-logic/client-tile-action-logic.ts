@@ -3,12 +3,9 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   SETTLE_COST, SETTLE_MANPOWER_COST,
-  SIEGE_BATTERY_ATTACK_MULT,
   PALISADE_DEFENSE_MULT,
-  structureBuildGoldCost,
   structureBuildManpowerCost,
   structureBuildDurationMs,
-  structurePlacementMetadata,
   terrainAt,
   structureSlotRequirements,
   observatoryCrystalSlotCostForOwnedCount,
@@ -26,9 +23,9 @@ import {
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
+import { diplomacyActionForOwner } from "../client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { SKY_DOCK_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
-import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureName, MONUMENT_COMPONENT_KEYS } from "../client-map-display.js";
@@ -45,7 +42,6 @@ import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type {
   ActiveTruceView,
-  CrystalTargetingAbility,
   FeedSeverity,
   FeedType,
   Tile,
@@ -165,7 +161,6 @@ export type TileActionLogicDeps = {
   supportedOwnedDocksForTile: (tile: Tile) => Tile[];
   townHasSupportStructure: (townTile: Tile | undefined, structureType: SupportTownStructureKey) => boolean;
   activeTruceWithPlayer: (playerId?: string | null) => ActiveTruceView | undefined;
-  pendingTruceWithPlayer: (playerId?: string | null) => "incoming" | "outgoing" | undefined;
   ownerSpawnShieldActive: (ownerId: string) => boolean;
   connectedOwnedFrontierKeysFor: (tile: Tile) => string[];
 };
@@ -174,13 +169,6 @@ export const hasRetortRecastingCapability = (state: ClientState): boolean => pla
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
-
-export const aetherWallDirectionLabel = (direction: ClientState["aetherWallTargeting"]["direction"]): string => {
-  if (direction === "N") return "North";
-  if (direction === "E") return "East";
-  if (direction === "S") return "South";
-  return "West";
-};
 
 export const canPlaceAetherWallFromOrigin = (
   state: ClientState,
@@ -275,24 +263,6 @@ export const tileActionAvailability = (
 ): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
   if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
   return cost ? { disabled: true, disabledReason: reason, cost } : { disabled: true, disabledReason: reason };
-};
-
-const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
-  structurePlacementMetadata(structureType).requiresBorder === "border";
-
-export const isAdjacentToUnexplored = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
-): boolean => {
-  const neighbors = [
-    deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)),
-    deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)),
-    deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)),
-    deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y))
-  ];
-  return neighbors.some((key) => !state.discoveredTiles.has(key));
 };
 
 export const isOwnedBorderTile = (
@@ -630,10 +600,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       goldCostOverride?: number
     ): [boolean, string, string] => chainedBuildAvailabilityFromModule(deps, state, tile, structureType, eligible, ineligible, cost, goldCostOverride);
     const out: TileActionDef[] = [];
-    const isSettlementTile = tile.town?.populationTier === "SETTLEMENT";
-    const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-    const hasYield =
-      Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.siegeBattery || tile.observatory || tile.economicStructure);
     const buildAfcAction = buildAfcActionForTile(state, tile, tileActionAvailability);
     if (buildAfcAction) out.push(buildAfcAction);
@@ -659,7 +625,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(
           playerHasAbilityTech(state.techIds, "survey_sweep") && cooldown <= 0,
           !playerHasAbilityTech(state.techIds, "survey_sweep")
-            ? "Requires Echo-Reader Crew"
+            ? "Requires Augury Office"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "",
@@ -1801,7 +1767,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (tile.town?.populationTier !== "SETTLEMENT" && tile.afc?.ownerId !== tile.ownerId) out.push({ id: "abandon_territory", label: "Abandon Territory", detail: deps.buildDetailTextForAction("abandon_territory", tile) });
     return out;
   }
-  if (deps.isTileOwnedByAlly(tile)) return [...crystalCoreActions(), createMountainAction()];
+  if (deps.isTileOwnedByAlly(tile)) return [...(tile.ownerId ? [diplomacyActionForOwner(state, tile.ownerId, deps)] : []), ...crystalCoreActions(), createMountainAction()];
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
@@ -1862,42 +1828,17 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
     const isBarbarianOwner = tile.ownerId.startsWith("barbarian");
     const activeTruce = isBarbarianOwner ? undefined : deps.activeTruceWithPlayer(tile.ownerId);
-    const pendingTruce = isBarbarianOwner ? undefined : deps.pendingTruceWithPlayer(tile.ownerId);
     if (isBarbarianOwner) {
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
-    } else if (activeTruce) {
-      out.push({
-        id: "break_truce",
-        label: "Break Truce",
-        ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
-      });
     } else {
-      // A player can hold a truce (or pending offer) with each opponent independently —
-      // truces/pending offers with other players never block offering one here.
-      const pendingTruceReason =
-        pendingTruce === "outgoing"
-          ? "Truce offer already pending"
-          : pendingTruce === "incoming"
-            ? "Incoming truce offer pending"
-            : undefined;
-      const truceOfferAvailable = !pendingTruce;
-      const truceOfferBlocker = pendingTruceReason ?? "";
-      const pendingCost = pendingTruce ? "Pending" : undefined;
-      out.push({
-        id: "offer_truce_12h",
-        label:
-          pendingTruce === "outgoing"
-            ? "Truce Offer Pending"
-            : pendingTruce === "incoming"
-              ? "Respond in Social Panel"
-              : "Offer Truce 12h",
-        ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "12h")
-      });
-      out.push({
-        id: "offer_truce_24h",
-        label: pendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
-        ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "24h")
-      });
+      out.push(diplomacyActionForOwner(state, tile.ownerId, deps));
+      if (activeTruce) {
+        out.push({
+          id: "break_truce",
+          label: "Break Truce",
+          ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
+        });
+      }
     }
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);
     const hasCapability = hasRevealCapability(state);

@@ -1,3 +1,4 @@
+import { openDiplomacyForPlayer } from "./client-tile-action-diplomacy/client-tile-action-diplomacy.js";
 import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
@@ -58,7 +59,6 @@ import {
   queuedDevelopmentActionExists,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
-  queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
   queuedEntryIndexForTile as queuedEntryIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
@@ -74,7 +74,6 @@ import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./cl
 import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
 import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
 import {
-  dispatchGenericBuild as dispatchGenericBuildFromModule,
   triggerBuildForStructureType as triggerBuildForStructureTypeFromModule,
   type BuildDispatchDeps
 } from "./client-structure-build-trigger/client-structure-build-trigger.js";
@@ -120,7 +119,6 @@ import {
   requiredTechForTileAction as requiredTechForTileActionFromModule,
   shouldOptimisticallyBuildOnSelectedTile as shouldOptimisticallyBuildOnSelectedTileFromModule,
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
-  structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
@@ -203,7 +201,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state,
     ws,
     wsUrl,
-    canvas,
     techPickEl,
     mobileTechPickEl,
     tileActionMenuEl,
@@ -228,9 +225,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureCancel,
     mergeServerTileWithOptimisticState,
     hideTileActionMenu: hideTileActionMenuFromDeps,
-    playerNameForOwner,
     ownerSpawnShieldActive,
-    hasCollectableYield,
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
@@ -243,7 +238,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     terrainLabel,
     displayTownGoldPerMinute,
     tileHistoryLines,
-    growthModifierPercentLabel,
     structureGoldCost,
     structureCostText
   } = deps;
@@ -400,13 +394,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     createPlayerActionShortcuts({ state, techPickEl, mobileTechPickEl, ws, wsUrl, setAuthStatus, syncAuthOverlay, pushFeed, renderHud, sendGameMessage });
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
-  const hasOutgoingPendingTruce = (): boolean => state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
-  const pendingTruceWithPlayer = (playerId?: string | null): "incoming" | "outgoing" | undefined => {
-    if (!playerId) return undefined;
-    if (state.outgoingTruceRequests.some((request) => request.toPlayerId === playerId && request.expiresAt > Date.now())) return "outgoing";
-    if (state.incomingTruceRequests.some((request) => request.fromPlayerId === playerId && request.expiresAt > Date.now())) return "incoming";
-    return undefined;
-  };
 
   const explainActionFailure = (
     code: string,
@@ -514,9 +501,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     structureDisplayLabelFromModule(structureType, state);
 
   const buildDispatchDeps = (): BuildDispatchDeps => ({ sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel });
-
-  const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile): void =>
-    dispatchGenericBuildFromModule(structureType, tile, buildDispatchDeps());
 
   const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
     triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
@@ -875,8 +859,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const devQueueStateForTile = (tileKey: string): "planned" | "queued" =>
     devQueueTierForIndex(queuedEntryIndexForTileFromModule(state, tileKey));
 
-  const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
-
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
 
   const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
@@ -1114,7 +1096,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     supportedOwnedDocksForTile,
     townHasSupportStructure,
     activeTruceWithPlayer,
-    pendingTruceWithPlayer,
     ownerSpawnShieldActive,
     connectedOwnedFrontierKeysFor: (tile: Tile) => connectedOwnedFrontierKeys(state, tile, { keyFor, wrapX, wrapY })
   });
@@ -1406,35 +1387,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
-    if (actionId === "offer_truce_12h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
-      if (pendingTruce || hasOutgoingPendingTruce()) {
-        pushFeed(
-          pendingTruce === "incoming"
-            ? "That empire already sent you a truce offer."
-            : "You already have a pending truce offer.",
-          "alliance",
-          "warn"
-        );
-        return;
-      }
-      const targetName = playerNameForOwner(selected.ownerId);
-      if (targetName) sendTruceRequest(targetName, 12);
-    }
-    if (actionId === "offer_truce_24h" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
-      const pendingTruce = pendingTruceWithPlayer(selected.ownerId);
-      if (pendingTruce || hasOutgoingPendingTruce()) {
-        pushFeed(
-          pendingTruce === "incoming"
-            ? "That empire already sent you a truce offer."
-            : "You already have a pending truce offer.",
-          "alliance",
-          "warn"
-        );
-        return;
-      }
-      const targetName = playerNameForOwner(selected.ownerId);
-      if (targetName) sendTruceRequest(targetName, 24);
+    if (actionId === "diplomacy" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
+      openDiplomacyForPlayer(state, selected.ownerId, isMobile());
+      renderHud();
     }
     if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && !selected.ownerId.startsWith("barbarian")) {
       breakTruce(selected.ownerId);

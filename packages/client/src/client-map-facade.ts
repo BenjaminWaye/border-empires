@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_WIDTH, clearForestAroundAfcTiles, clearForestOnTownAndDockTiles, grassShadeAt, grassToneAt, isForestClearedAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import { createMiniMapBaseBuilder } from "./client-minimap/client-minimap-base-builder.js";
 import {
   buildMiniMapBaseRows,
@@ -8,6 +8,7 @@ import {
 } from "./client-dock-routes.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
+import { createSeparatedOwnerColor } from "./client-owner-colors/client-owner-color-separation.js";
 import { playerNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
@@ -70,7 +71,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapBaseCtx,
     keyFor,
     parseKey,
-    terrainAt,
     wrapX,
     wrapY,
     resourceColor,
@@ -134,7 +134,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return hash >>> 0;
   };
 
-  const effectiveColor = (ownerId: string): string => resolveOwnerColor(ownerId, state.playerColors, fallbackOwnerColor);
+  // Rivals are hue-spaced away from the viewer's own colour on this client only -- see client-owner-color-separation.ts.
+  const effectiveColor = createSeparatedOwnerColor((ownerId) => resolveOwnerColor(ownerId, state.playerColors, fallbackOwnerColor), () => state.me);
   const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
   const shieldUntilForOwner = (ownerId: string): number => state.playerShieldUntil.get(ownerId) ?? 0;
   const ownerSpawnShieldActive = (ownerId: string): boolean => shieldUntilForOwner(ownerId) > Date.now();
@@ -336,7 +337,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const isDockRouteVisibleForPlayer = (pair: DockPair): boolean =>
     isDockRouteVisibleForPlayerFromModule(pair, {
       fogDisabled: effectiveFogDisabled(state),
-      selected: state.selected,
       discoveredDockTiles: state.discoveredDockTiles,
       keyFor
     });

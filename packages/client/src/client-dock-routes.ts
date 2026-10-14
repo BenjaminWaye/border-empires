@@ -193,18 +193,11 @@ export const isDockRouteVisibleForPlayer = (
   pair: DockPair,
   deps: {
     fogDisabled: boolean;
-    selected: { x: number; y: number } | undefined;
     discoveredDockTiles: Set<string>;
     keyFor: (x: number, y: number) => string;
   }
 ): boolean => {
   if (deps.fogDisabled) return true;
-  if (
-    deps.selected &&
-    ((deps.selected.x === pair.ax && deps.selected.y === pair.ay) || (deps.selected.x === pair.bx && deps.selected.y === pair.by))
-  ) {
-    return true;
-  }
   return deps.discoveredDockTiles.has(deps.keyFor(pair.ax, pair.ay)) && deps.discoveredDockTiles.has(deps.keyFor(pair.bx, pair.by));
 };
 
@@ -229,5 +222,3 @@ export const buildMiniMapBaseRows = (deps: MiniMapBaseDeps, fromRow: number, toR
     }
   }
 };
-
-export const buildMiniMapBase = (deps: MiniMapBaseDeps): void => buildMiniMapBaseRows(deps, 0, deps.miniMapBase.height);

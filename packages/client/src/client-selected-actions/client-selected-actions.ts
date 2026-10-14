@@ -4,7 +4,6 @@ import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { showShardCollectOverlay } from "../client-shard-collect/client-shard-collect.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile } from "../client-types.js";
 
 const notifySelectedActionBlocked = (deps: SelectedActionDepsBase, title: string, detail: string): void => {
   showVisibleActionWarning(deps, title, detail, "error");

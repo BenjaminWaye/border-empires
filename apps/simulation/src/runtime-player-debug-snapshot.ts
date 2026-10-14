@@ -1,7 +1,7 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
 import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction } from "./player-runtime-summary.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
+import type { StrategicResourceKey } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import type { CombatLockTileReader } from "./combat-lock-index/combat-lock-index.js";
 

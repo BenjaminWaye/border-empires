@@ -9,12 +9,8 @@
  * positive) for accept/active states and brass for neutral chrome, per the
  * established semantic mapping; break/reject stays ember (negative).
  *
- * Pass 5 note: the "ally player name" field (#alliance-target /
- * #mobile-alliance-target) uses a native <datalist> for its suggestion
- * dropdown (list="alliance-target-options"). Browsers do not expose CSS
- * hooks for a <datalist>'s popup list -- it renders with the OS/browser's
- * native menu chrome and cannot be reskinned from here. Only the input
- * itself is stylable, and that's already covered above.
+ * The tab no longer has a typed "ally player name" field: players are
+ * proposed to from per-player rows (.alliance-player-card), and only once met.
  */
 
 #panel-alliance,
@@ -22,7 +18,6 @@
   background: var(--sp-iron-900);
 }
 
-.alliance-form-section,
 .alliance-section-block,
 .alliance-player-inspect-slot:not(:empty) {
   border-bottom-color: var(--sp-brass-700);
@@ -177,4 +172,117 @@
 
 .alliance-empty-card p {
   color: var(--sp-parchment-muted);
+}
+
+.alliance-empty-state {
+  display: grid;
+  gap: 6px;
+}
+
+.alliance-empty-state .alliance-empty-title {
+  margin: 0;
+  color: var(--sp-parchment-100);
+  font-weight: 600;
+}
+
+.alliance-empty-state .alliance-empty-hint {
+  margin: 0;
+}
+
+.alliance-reference-status-truce {
+  color: var(--sp-brass-300);
+}
+
+/* .alliance-reference-actions is a two-column grid: the alliance / break
+ * buttons take a full row, the two truce lengths share the next one. */
+.alliance-propose-actions .propose-alliance,
+.alliance-propose-actions .break-truce {
+  grid-column: 1 / -1;
+}
+
+/* The player a tile's Diplomacy action jumped to (client-alliance-focus.ts). */
+.alliance-reference-card.alliance-focus-highlight {
+  border-color: var(--sp-brass-300);
+  box-shadow: 0 0 0 2px var(--sp-brass-300);
+}
+
+/* "Players you've met" rows (client-alliance-panel.ts): one compact line per
+ * player -- name, status, chevron -- with the action buttons revealed only on
+ * the row the player tapped (client-alliance-row-toggle.ts). Keeps a 50-player
+ * list around 3,000px instead of ~9,600px on mobile. */
+/* minmax(0, 1fr): a long unbroken name must truncate, not widen the list. */
+.alliance-card-stack.alliance-player-stack {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.alliance-reference-card.alliance-player-card {
+  padding: 6px 6px 6px 14px;
+}
+
+.alliance-player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.alliance-player-row .alliance-reference-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The status never shrinks; the name truncates first. */
+.alliance-player-status {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.alliance-player-status .alliance-reference-status {
+  font-size: 12px;
+}
+
+.alliance-player-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-brass-300);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.alliance-player-toggle span {
+  transition: transform 0.15s ease;
+}
+
+.alliance-player-card.is-expanded .alliance-player-toggle span {
+  transform: rotate(180deg);
+}
+
+.alliance-player-card:not(.is-expanded) .alliance-propose-actions {
+  display: none;
+}
+
+.alliance-player-card.is-expanded {
+  border-color: var(--sp-brass-300);
+}
+
+.alliance-player-card.is-expanded .alliance-propose-actions {
+  margin: 4px 8px 8px 0;
 }

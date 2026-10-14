@@ -117,8 +117,6 @@ export const isDebugAccountEmail = (email: string | undefined | null): boolean =
   return configured !== "" && debugAuthIdentityKeyForEmail(email) === configured;
 };
 
-export const debugAuthIdentityKey = (): string => debugAuthIdentityKeyForEmail(debugAuthEmail());
-
 export const setDebugAuthEmail = (email: string | undefined): void => {
   try {
     const normalized = (email ?? "").trim().toLowerCase();

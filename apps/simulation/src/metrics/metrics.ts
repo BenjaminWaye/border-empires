@@ -36,7 +36,7 @@ import {
 
 export { AI_PLANNER_PHASES, MAIN_THREAD_TASK_PHASES };
 export type { AiPlannerPhase, AiTickThrottleReason, MainThreadTaskPhase };
-export type { SimulationMetricsSnapshot, SimulationSnapshotMetricSample } from "./metrics-types.js";
+export type { SimulationSnapshotMetricSample } from "./metrics-types.js";
 
 export const createSimulationMetrics = (sampleLimit = 512) => {
   const limit = Math.max(8, sampleLimit);

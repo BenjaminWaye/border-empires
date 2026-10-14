@@ -11,7 +11,6 @@ import {
   coastlineDiscoveryValue,
   createFrontierCommand,
   DIRECTION_BIAS_WEIGHT,
-  type FrontierClass,
   type FrontierSelection,
   isBetterSelection,
   NARROW_ANALYZE_MAX_CANDIDATES,
@@ -24,8 +23,6 @@ import {
   strategicFrontierTargetScore,
   tileKeyOf
 } from "./frontier-scoring.js";
-
-export type { FrontierClass } from "./frontier-scoring.js";
 
 /**
  * Minimal reach-lookup surface the frontier planner needs — deliberately not

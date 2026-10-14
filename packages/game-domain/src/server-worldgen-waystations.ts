@@ -1,4 +1,3 @@
-import type { TileKey } from "@border-empires/shared";
 import {
   DEFAULT_WORLD_HEIGHT,
   DEFAULT_WORLD_WIDTH,

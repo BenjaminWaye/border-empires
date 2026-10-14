@@ -1,4 +1,3 @@
-import type { TileKey } from "@border-empires/shared";
 import { WATCHTOWERS_ENABLED, WATCHTOWER_TARGET_COEFFICIENT, WATCHTOWER_TARGET_MIN_COUNT } from "@border-empires/shared";
 
 import type { ServerWorldgenWatchtowersDeps, ServerWorldgenWatchtowersRuntime } from "./server-world-runtime-types.js";
