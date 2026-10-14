@@ -288,6 +288,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The economy panel's currency card and detail heading now read Coin"]
   },
   {
+    createdAt: 1791925495773, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Tell your own territory apart",
+    why: "Every empire's reach border looked the same apart from colour, neighbours could pick near-identical colours, and enemy tiles taken inside your reach looked like your own.",
+    changes: [
+      "Your reach border now glows brighter and thicker with a white core and a slow pulse; other empires' borders are thinner and dimmer",
+      "On your screen, rival colours that are too close to yours are shifted away from it",
+      "Enemy tiles inside your reach are striped in their colour and yours, with an outline around the pocket",
+      "The 2D map draws your reach border in your colour with a white core, and shows the same striping"
+    ]
+  },
+  {
     createdAt: 1791959048426,
     introducedIn: "2026.10.14.1",
     title: "3D map shows frontier claims on time",

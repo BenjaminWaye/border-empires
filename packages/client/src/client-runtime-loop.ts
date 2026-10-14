@@ -26,11 +26,8 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network/cli
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
-import {
-  drawDormantFrontierTreatment,
-  drawReachBoundaryLine,
-  isDormantFrontierTile
-} from "./client-reach-overlay/client-reach-overlay.js";
+import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
+import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
@@ -258,6 +255,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     // Reach overlay: resolveMyReachCached recomputes only when tiles or the
     // server reach actually changed (same cache the 3D renderer uses).
     const myReach = isTrue3DRendererActive() ? state.myReach : resolveMyReachCached(state);
+    const reachTileDeps2D = { me: state.me, tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY, ownerColor: deps.effectiveOverlayColor }; // hoisted: drawReachTileTreatments2D runs per visible tile per frame
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -598,11 +596,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
       // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
       if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
-        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
-          drawDormantFrontierTreatment(deps.ctx, px, py, size);
-        }
+        if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
-          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
             tiles: state.tiles,
             keyFor: deps.keyFor,
             wrapX: deps.wrapX,
@@ -1049,11 +1045,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         // Fixed-borders-via-reach overlay -- see the main pass above.
         if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
-          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
-            drawDormantFrontierTreatment(deps.ctx, px, py, size);
-          }
+          if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
-            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
               tiles: state.tiles,
               keyFor: deps.keyFor,
               wrapX: deps.wrapX,

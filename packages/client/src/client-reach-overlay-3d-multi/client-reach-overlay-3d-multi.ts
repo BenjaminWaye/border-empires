@@ -8,6 +8,11 @@ import {
   type TileCoord
 } from "../client-reach-overlay/client-reach-overlay.js";
 
+// Own-vs-rival styling for these per-owner pylons (client-reach-border-emphasis.ts) and the per-tile
+// reach overlays (dormant frontier + rival incursions) are re-exported here for the 3D caller.
+export { reachEmphasisFor } from "../client-reach-border-emphasis/client-reach-border-emphasis.js";
+export { addReachTileOverlays3D } from "../client-map-3d-incursion-overlay/client-map-3d-reach-tile-overlays.js";
+
 // Fans traceReachBoundaryEdgeLoops/samplePerimeterPylons (built for a single
 // "my reach" set) out over every OTHER visible owner's reach too, so the 3D
 // map can draw AI/enemy border pylons alongside your own — previously the
