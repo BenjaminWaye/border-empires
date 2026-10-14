@@ -16,7 +16,7 @@ describe("incursionBreachLayout", () => {
   it("keeps every open side as a plain strip in the straight style", () => {
     expect(incursionBreachLayout("straight", kinds)).toEqual({
       straightEdges: { north: true, east: false, south: true, west: true },
-      teeth: [],
+      front: [],
       band: [],
       veilSides: []
     });
@@ -28,28 +28,38 @@ describe("incursionBreachLayout", () => {
     }
   });
 
-  it("keeps the strip as the front line for spikes and stands evenly spaced teeth on the sides facing my land", () => {
+  it("replaces the strip with a thin front line all round for spikes, with teeth only on the sides facing my land", () => {
     const layout = incursionBreachLayout("spikes", kinds);
-    expect(layout.straightEdges).toEqual({ north: true, east: false, south: true, west: true });
-    // North and west sides face my land, four teeth each.
-    expect(layout.teeth).toHaveLength(8);
-    const northTips = layout.teeth.map((t) => t.fill[2]).filter((p) => p.y < -0.5);
-    expect(northTips).toHaveLength(4);
-    for (const tip of northTips) expect(tip.y).toBeCloseTo(-0.7);
-    expect(northTips.map((p) => p.x)).toEqual([-0.375, -0.125, 0.125, 0.375]);
-    // Each outline is a larger copy of its fill, so it shows as a rim round it.
-    for (const tooth of layout.teeth) {
-      const span = (pts: readonly { x: number; y: number }[]): number => Math.hypot(pts[1]!.x - pts[0]!.x, pts[1]!.y - pts[0]!.y);
-      expect(span(tooth.outline)).toBeGreaterThan(span(tooth.fill));
-    }
+    expect(layout.straightEdges).toEqual({ north: false, east: false, south: false, west: false });
+    const lines = layout.front.filter((piece) => piece.points.length === 4);
+    const toothHalves = layout.front.filter((piece) => piece.points.length === 3);
+    // North, south and west are open (east continues the pocket): a line on each.
+    expect(lines).toHaveLength(3);
+    // Thin: much thinner than the 0.07-tile strip it replaces.
+    const north = lines.find((piece) => piece.points.every((p) => Math.abs(p.y + 0.5) < 0.05))!;
+    const thickness = Math.max(...north.points.map((p) => p.y)) - Math.min(...north.points.map((p) => p.y));
+    expect(thickness).toBeLessThan(0.05);
+    // North and west face my land: 3 teeth each, as two halves; the unowned south side gets none.
+    expect(toothHalves).toHaveLength(12);
+    const northTips = toothHalves.filter((piece) => piece.points[2]!.y < -0.6).map((piece) => piece.points[2]!);
+    expect(new Set(northTips.map((p) => p.x.toFixed(4)))).toEqual(new Set(["-0.3333", "0.0000", "0.3333"]));
+    expect(toothHalves.some((piece) => piece.points[2]!.y > 0.5)).toBe(false);
+  });
+
+  it("shades one half of each tooth, consistently against a north-west light", () => {
+    const halves = incursionBreachLayout("spikes", kinds).front.filter((piece) => piece.points.length === 3);
+    for (let i = 0; i < halves.length; i += 2) expect([halves[i]!.shade, halves[i + 1]!.shade].sort()).toEqual([0.72, 1]);
+    // North side: the west (light-facing) half is lit.
+    const northWestHalf = halves.find((piece) => piece.points[2]!.y < -0.6 && piece.points[0]!.x < piece.points[2]!.x)!;
+    expect(northWestHalf.shade).toBe(1);
   });
 
   it("drops the spike at an inside corner, where the neighbouring pocket side's spike points into the same tile", () => {
     // The pocket also continues north-east, so the tile north of us is bordered by the pocket on two sides.
     const corner = around({ "1,0": "pocket", "1,-1": "pocket", "0,1": "other", "-1,0": "other" });
-    const tips = incursionBreachLayout("spikes", corner).teeth.map((t) => t.fill[2]);
-    expect(tips).toHaveLength(3);
-    expect(Math.max(...tips.map((p) => p.x))).toBeLessThan(0.3);
+    const tips = incursionBreachLayout("spikes", corner).front.filter((piece) => piece.points.length === 3).map((piece) => piece.points[2]!);
+    expect(tips).toHaveLength(4); // 2 teeth x 2 halves
+    expect(Math.max(...tips.map((p) => p.x))).toBeLessThan(0.1);
   });
 
   it("raises the veil only on the sides facing my land", () => {

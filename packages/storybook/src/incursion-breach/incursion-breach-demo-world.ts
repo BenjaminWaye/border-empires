@@ -11,7 +11,7 @@ export const MINE_HALF_HEIGHT = 3;
 
 export const BREACH_STYLE_LABELS: Readonly<Record<IncursionBreachStyle, string>> = {
   straight: "Current — straight outline",
-  spikes: "Front-line spikes (attacker's colour)",
+  spikes: "Front-line spikes",
   ember: "Option 1 — ember seam",
   ink: "Option 2 — ink bleed",
   veil: "Option 3 — aether veil"

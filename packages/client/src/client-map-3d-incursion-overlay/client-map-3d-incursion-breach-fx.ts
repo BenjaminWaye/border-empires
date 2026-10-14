@@ -1,8 +1,8 @@
 // 3D "breach" looks for the incursion pocket boundary that faces the viewer's
 // own land (client-incursion-breach-layout.ts decides where; the admin
 // switch in client-incursion-breach-style.ts decides which):
-//   - spikes: front-line teeth in the attacker's colour, each on a slightly
-//     larger copy in the pocket's outline colour.
+//   - spikes: a thin Hearts-of-Iron-style front line with teeth, flat in the
+//     attacker's colour (tooth halves shaded), over a soft offset shadow.
 //   - ember / ink: flat quads over the tiles either side of the boundary,
 //     shaded from a per-pixel distance field to it (8-neighbour box distance),
 //     so the effect is seamless across tiles and round at corners.
@@ -12,17 +12,19 @@
 
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Mesh, MeshBasicMaterial, NormalBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Blending } from "three";
 import type { IncursionEdges } from "../client-reach-incursion/client-reach-incursion.js";
-import type { IncursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout.js";
+import type { BreachPoint, IncursionBreachLayout } from "../client-reach-incursion/client-incursion-breach-layout.js";
 import type { IncursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
 
 /** Band quads (one per tile near a breached boundary) and veil quads (one per breached side). */
 const MAX_BAND_QUADS = 4096;
 const MAX_VEIL_QUADS = 2048;
-/** Two triangles (outline + fill) per tooth, each stored as a degenerate quad. */
-const MAX_TOOTH_QUADS = 8192;
-/** Teeth sit just above the pocket's edge strips; fills a hair above their outlines. */
-const TOOTH_LIFT = 0.004;
-const TOOTH_FILL_LIFT = 0.0005;
+/** Front-line pieces (line segments + tooth halves; triangles stored as degenerate quads). */
+const MAX_FRONT_QUADS = 12288;
+/** The front line sits just above the pocket's edge strips. */
+const FRONT_LIFT = 0.004;
+/** Drop shadow: offset away from the north-west light, at this opacity. */
+const SHADOW_OFFSET = { x: 0.014, z: 0.022 };
+const SHADOW_OPACITY = 0.3;
 const BAND_LIFT = 0.003;
 /** Veil height in tiles. */
 const VEIL_HEIGHT = 0.55;
@@ -249,8 +251,8 @@ export type IncursionBreachTile = {
 
 export type IncursionBreachFx3D = {
   readonly clear: () => void;
-  /** `theirs` = the attacker's colour, `mark` = the pocket's outline colour. */
-  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color, mark: Color) => void;
+  /** `theirs` = the attacker's colour. */
+  readonly add: (x: number, z: number, surfaceY: number, breach: IncursionBreachTile, theirs: Color) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -262,25 +264,26 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
   const veilMaterial = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
   const band = createQuadStream(MAX_BAND_QUADS, bandMaterial, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10);
   const veil = createQuadStream(MAX_VEIL_QUADS, veilMaterial, { position: 3, aVeil: 2, aTheirs: 3 }, 11);
-  // Unlit flat colour, like the edge strips.
-  const toothMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
-  const teeth = createQuadStream(MAX_TOOTH_QUADS, toothMaterial, { position: 3, color: 3 }, 12);
-  parent.add(band.mesh, veil.mesh, teeth.mesh);
+  // Unlit flat colour, like the edge strips; the shadow is one flat translucent black.
+  const frontMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
+  const shadowMaterial = new MeshBasicMaterial({ toneMapped: false, color: 0x000000, transparent: true, opacity: SHADOW_OPACITY, depthWrite: false, side: DoubleSide });
+  const frontShadow = createQuadStream(MAX_FRONT_QUADS, shadowMaterial, { position: 3 }, 12);
+  const front = createQuadStream(MAX_FRONT_QUADS, frontMaterial, { position: 3, color: 3 }, 13);
+  parent.add(band.mesh, veil.mesh, frontShadow.mesh, front.mesh);
   // My tiles border several pocket tiles; each world tile gets one band quad per rebuild.
   const bandTilesThisRebuild = new Set<string>();
-  const streams = [band, veil, teeth];
+  const streams = [band, veil, frontShadow, front];
 
-  const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs, mark) => {
+  const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs) => {
     const colour = [theirs.r, theirs.g, theirs.b];
-    const markColour = [mark.r, mark.g, mark.b];
-    const toothY = surfaceY + TOOTH_LIFT;
-    for (const tooth of breach.layout.teeth) {
-      const [a, b, c] = tooth.outline;
-      const [d, e, f] = tooth.fill;
-      const fy = toothY + TOOTH_FILL_LIFT;
+    const frontY = surfaceY + FRONT_LIFT;
+    for (const piece of breach.layout.front) {
+      // Quad vertex order is (0, 1, 2), (1, 3, 2): a polygon p0..p3 maps to p0, p1, p3, p2; a triangle repeats its last point.
+      const [p0, p1, p2, p3 = p2] = piece.points as readonly [BreachPoint, BreachPoint, BreachPoint, BreachPoint?];
+      const corners = [p0, p1, p3, p2];
       const written =
-        writeQuad(teeth, { position: [x + a.x, toothY, z + a.y, x + b.x, toothY, z + b.y, x + c.x, toothY, z + c.y, x + c.x, toothY, z + c.y], color: markColour }) &&
-        writeQuad(teeth, { position: [x + d.x, fy, z + d.y, x + e.x, fy, z + e.y, x + f.x, fy, z + f.y, x + f.x, fy, z + f.y], color: colour });
+        writeQuad(frontShadow, { position: corners.flatMap((p) => [x + p.x + SHADOW_OFFSET.x, frontY, z + p.y + SHADOW_OFFSET.z]) }) &&
+        writeQuad(front, { position: corners.flatMap((p) => [x + p.x, frontY, z + p.y]), color: colour.map((c) => c * piece.shade) });
       if (!written) break;
     }
     const style = STYLE_CODE[breach.style];
@@ -342,7 +345,8 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
       }
       bandMaterial.dispose();
       veilMaterial.dispose();
-      toothMaterial.dispose();
+      frontMaterial.dispose();
+      shadowMaterial.dispose();
     }
   };
 };
