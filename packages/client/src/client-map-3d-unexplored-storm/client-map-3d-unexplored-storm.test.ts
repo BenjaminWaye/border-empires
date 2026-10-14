@@ -63,15 +63,26 @@ describe("unexplored storm layer (3D)", () => {
   });
 
   it("only ever draws on unexplored tiles, and leaves the ring's ground clear up to the storm", () => {
-    // Alpha is the hard per-tile mask (explored tiles are never drawn on)
-    // times inward edge AA times cover: the storm and brass edge are drawn,
+    // Alpha comes from the continuous contour: the storm and brass edge are drawn,
     // the ring's ground before them is left untouched -- no wash.
-    expect(STORM_FRAGMENT_SHADER).toMatch(/float alpha = hard \* edgeAa \* coverAlpha;/);
+    expect(STORM_FRAGMENT_SHADER).toContain("float alpha = coverAlpha;");
     expect(STORM_FRAGMENT_SHADER).toContain("float coverAlpha = stormCover;");
     const discardAt = STORM_FRAGMENT_SHADER.indexOf("discard");
     const afterDiscard = STORM_FRAGMENT_SHADER.slice(discardAt);
     expect(afterDiscard).not.toMatch(/fwidth|lines\(|texture2D|maskR\(/);
     expect(STORM_FRAGMENT_SHADER.indexOf("discard", discardAt + 1)).toBe(-1);
+  });
+
+  it("keeps reveal opacity continuous across tile seams", () => {
+    // A fractional neighbour used to multiply opacity at this tile's edge
+    // (edgeAa), but not just inside the neighbour. A moving brass contour
+    // crossing that seam was cut by a transparent tile-shaped notch.
+    // Clearance already makes the contour vanish on fully explored land.
+    expect(STORM_FRAGMENT_SHADER).not.toMatch(/maskR|edgeAa|float hard|uvTile/);
+    expect(STORM_FRAGMENT_SHADER).toContain("float alpha = coverAlpha;");
+    // Deep fog must also come from the continuous field: a texel-centre
+    // override can switch cloud coverage and brass off at a tile boundary.
+    expect(STORM_FRAGMENT_SHADER).toContain("smoothstep(0.97, 0.995, soft)");
   });
 
   it("has no parchment wash or hatching over the ring", () => {
@@ -136,7 +147,7 @@ describe("unexplored storm layer (3D)", () => {
 
   it("has no two-mask cross-fade left: a partly explored tile keeps its cloud while the contour pulls back", () => {
     expect(STORM_FRAGMENT_SHADER).not.toMatch(/uPrevMask|uRevealT|prevMaskAt/);
-    expect(STORM_FRAGMENT_SHADER).toContain("float hard = step(0.002, maskR(tile));");
+    expect(STORM_FRAGMENT_SHADER).toContain("float alpha = coverAlpha;");
     expect(STORM_FIELD_GLSL).toContain("best = min(best, length(q) + unexplored);");
     expect(STORM_FRAGMENT_SHADER).toContain("col += uLantern * revealFront * 0.5;");
   });

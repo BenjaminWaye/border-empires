@@ -304,6 +304,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Automatic muster battles appear in each flag’s Recent combat tab with unread counts", "Manpower losses show in red and coin plunder in green", "Keep up to 40 reports per flag in this browser for this season", "New results keep your reading position and leave unrelated manual orders running"]
   },
   {
+    createdAt: 1791969446372, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.4",
+    title: "Smoother fog reveals in the 3D map",
+    why: "Fog rolling back could leave tile-shaped cuts in the glowing edge between newly explored tiles.",
+    changes: ["The 3D fog and its glowing edge now stay continuous across tile boundaries during reveals"]
+  },
+  {
     createdAt: 1791921497137,
     introducedIn: "2026.10.13.1",
     title: "Hydrogardens no longer stand on the old farm plot",
