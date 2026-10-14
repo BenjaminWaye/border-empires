@@ -288,11 +288,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The economy panel's currency card and detail heading now read Coin"]
   },
   {
-    createdAt: 1791925963317,
-    introducedIn: "2026.10.13.3",
-    title: "3D map catches frontier attack claims starting and ending",
-    why: "The 3D map checked frontier-attack claims against the wrong clock, so it missed muster attacks starting their claim and claims finishing.",
-    changes: ["An enemy's frontier colour now clears when your muster attack's claim sweep begins", "A frontier tile's colour returns as soon as a failed or finished claim ends, not on the next unrelated map refresh"]
+    createdAt: 1791959048426,
+    introducedIn: "2026.10.14.1",
+    title: "3D map shows frontier claims on time",
+    why: "The 3D map timed frontier-attack claims with the wrong clock, so it often missed muster and enemy claims starting or ending until something else refreshed the map.",
+    changes: ["An enemy's frontier colour clears as soon as your muster attack's claim sweep begins", "Your frontier tile's colour clears as soon as an enemy's claim sweep begins on it", "A frontier tile's colour comes back as soon as a claim ends"]
   }
 ];
 
