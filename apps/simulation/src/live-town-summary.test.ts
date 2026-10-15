@@ -99,7 +99,7 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     const expectedPercent = MINTWORKS_GOLD_PRODUCTION_BONUS * 100 * 3;
     expect(summary?.townModifierTotals).toContainEqual({
       heading: "3 Mintworks",
-      modifiers: expect.arrayContaining([{ statLabel: "Gold production", valueText: percentLabel(expectedPercent), tone: "positive" }])
+      modifiers: expect.arrayContaining([{ statLabel: "Coin production", valueText: percentLabel(expectedPercent), tone: "positive" }])
     });
   });
 });
@@ -137,7 +137,7 @@ describe("buildTownSummary — converter town-support attribution", () => {
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals).toContainEqual({
       heading: "1 Aether Condenser",
-      modifiers: [{ statLabel: "Sell Off gold", valueText: "+10", tone: "positive" }]
+      modifiers: [{ statLabel: "Sell Off coin", valueText: "+10", tone: "positive" }]
     });
   });
 

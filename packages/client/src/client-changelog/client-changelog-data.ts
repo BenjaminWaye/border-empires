@@ -227,6 +227,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792009197862, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires weigh your truce and alliance offers",
+    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    changes: [
+      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
+      "AI empires now answer alliance offers too",
+      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
+    ]
+  },
+  {
     createdAt: 1791805200000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
     title: "No more floating blue slabs after a long camera jump",
@@ -386,6 +397,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792001165636, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.5",
+    title: "Coin everywhere",
+    why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
+    changes: [
+      "Structure details, Mintworks and Sell Off modifiers, upkeep lines, the Harbor Exchange, Imperial Exchange and Siege Engine entries now say coin",
+      "Activity feed, raid and plunder summaries, town capture character, season-end income, the respawn prompt, natural wonder boons and two Manifest descriptions now say coin",
+      "Fixed the not-enough-coin alert for attacks and frontier claims, which could miss its dedicated message because the server still said gold"
+    ]
+  },
+  {
     createdAt: 1791969150437, // Date.now() captured for this update.
     introducedIn: "2026.10.14.1",
     title: "Softer 3D map daylight",
@@ -416,14 +438,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792009197862, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires weigh your truce and alliance offers",
-    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Flags head into enemy territory instead of around it",
+    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
     changes: [
-      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
-      "AI empires now answer alliance offers too",
-      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
+      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
     ]
   },
 ];

@@ -29,11 +29,11 @@ export const utilityStructureModifiers = (type: ModifierStructureType): Structur
   if (type === "AMBARIC_TRANSFORMER") return [{ statLabel: "Power radius", valueText: `${AMBARIC_TRANSFORMER_RADIUS} tiles`, tone: "positive", isTownWide: false }];
   if (type === "RESONANCE_GRID") return [{ statLabel: "Bombardment block radius", valueText: `${RESONANCE_GRID_BOMBARD_BLOCK_RADIUS} tiles`, tone: "positive", isTownWide: false }];
   if (type === "ASTRAL_DOCK") return [{ statLabel: "Full-map vision (24h)", valueText: "Free", tone: "positive", isTownWide: false }];
-  if (type === "IMPERIAL_EXCHANGE") return [{ statLabel: `Rival gold levy (every ${hoursFromMs(IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS)}h)`, valueText: "100%", tone: "positive", isTownWide: false }];
+  if (type === "IMPERIAL_EXCHANGE") return [{ statLabel: `Rival coin levy (every ${hoursFromMs(IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS)}h)`, valueText: "100%", tone: "positive", isTownWide: false }];
   if (type === "SOVEREIGN_SIEGE_ENGINE") {
     return [{
       statLabel: "Worldbreaker strike population loss",
-      valueText: `${percentLabel(SOVEREIGN_SIEGE_ENGINE_STRIKE_POPULATION_LOSS_RATIO * 100)} for ${SOVEREIGN_SIEGE_ENGINE_STRIKE_GOLD_COST.toLocaleString()} gold`,
+      valueText: `${percentLabel(SOVEREIGN_SIEGE_ENGINE_STRIKE_POPULATION_LOSS_RATIO * 100)} for ${SOVEREIGN_SIEGE_ENGINE_STRIKE_GOLD_COST.toLocaleString()} coin`,
       tone: "positive",
       isTownWide: false
     }];
