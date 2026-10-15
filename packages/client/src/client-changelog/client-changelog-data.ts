@@ -457,6 +457,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
     ]
   },
+  {
+    createdAt: 1792006675564, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Snow shows up on the 3D map",
+    why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
+    changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
