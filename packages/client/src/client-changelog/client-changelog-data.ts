@@ -9,6 +9,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
+import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
@@ -33,6 +34,7 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
+import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -215,6 +217,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -307,6 +310,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
+  ...TILE_YIELD_REMOVAL_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
@@ -458,16 +462,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792042011068, // Date.now() captured when this entry was written.
+    createdAt: 1792006675564, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.15.1",
-    title: "Tiles no longer hold collectable yield",
-    why: "Income goes straight to your treasury, but tiles still showed leftover stockpiles that could never be collected — and that phantom stockpile quietly covered part of your converter buildings' gold upkeep.",
+    title: "Snow shows up on the 3D map",
+    why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
+    changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
+  },
+  {
+    createdAt: 1792042002455, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "War music stops when your flag has nothing to fight",
+    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
     changes: [
-      "Town markers on the minimap no longer turn gold as if they had something to collect",
-      "A settled resource tile's Production line shows the slots it supplies (e.g. Food +2) instead of a per-day amount that no longer exists",
-      "Drag-selecting no longer highlights your own tiles",
-      "Titanium Works, Umbrite Works and Aether Condenser gold upkeep (including High Yield versions) is now charged in full while you play",
-      "After more than 24 hours away, your income still pays that upkeep first, so your treasury only covers any shortfall"
+      "Advance and March flags with no target in range no longer keep battle music playing"
     ]
   },
 ];

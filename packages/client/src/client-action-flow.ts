@@ -133,7 +133,7 @@ import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
-  ownTownEconomyFieldsPartial,
+  ownTownDetailRecoveryNeeded, ownTownEconomyFieldsPartial,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
@@ -190,7 +190,7 @@ type TileDetailRequestOptions = {
 export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, options: TileDetailRequestOptions = {}): tile is Tile => {
   if (!tile || tile.fogged) return false;
   if (options.force) return true;
-  return tile.detailLevel !== "full" || ownTownEconomyFieldsPartial(tile, me);
+  return tile.detailLevel !== "full" || ownTownDetailRecoveryNeeded(tile, me);
 };
 
 export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
@@ -373,7 +373,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // full-detail response is by definition stale — bypass the 60s freshness
     // gate so the recovery REQUEST_TILE_DETAIL actually reaches the gateway.
     // The in-flight dedupe + 1.5s throttle still suppress runaway re-sends.
-    const isOwnedTownRecovery = ownTownEconomyFieldsPartial(tile, state.me);
+    const isOwnedTownRecovery = ownTownDetailRecoveryNeeded(tile, state.me);
     if (!options.force) {
       // Skip if a fresh full-detail response landed within the last 60s — town
       // economy fields don't change fast enough to justify another round-trip,

@@ -25,7 +25,7 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import 
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
-import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
+import { ownTownEconomyFieldsPartial, ownTownGrowthRatePending, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuView, TileOverviewLine } from "../client-types.js";
@@ -37,7 +37,7 @@ import { afcModuleTabForTile } from "../client-afc-module-tab/client-afc-module-
 // exported from here too so existing importers of "./client-tile-menu-view.js"
 // don't need to change their import path.
 export { buildDetailTextForAction } from "../client-tile-action-detail-text/client-tile-action-detail-text.js";
-export { ownTownEconomyFieldsPartial, tileProductionRequirementLabel } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
+export { ownTownDetailRecoveryNeeded, ownTownEconomyFieldsPartial, tileProductionRequirementLabel } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 
 // constructionProgressForTile moved to
 // ../client-tile-menu-construction-progress/client-tile-menu-construction-progress.ts
@@ -191,6 +191,7 @@ export const menuOverviewForTile = (
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
+      const growthRatePending = ownTownGrowthRatePending(tile.town);
       const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
       // Matches tileProductionHtml's own gold math exactly (same
@@ -205,10 +206,12 @@ export const menuOverviewForTile = (
           maxPopulation: Math.round(tile.town.maxPopulation),
           ...(nextTierPopulation !== undefined ? { nextTierPopulation } : {}),
           populationTierLabel: displayTownPopulationTierLabel(tile.town.populationTier),
-          growthText: effectiveFed
-            ? `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`
-            : "Growth paused — town is unfed",
-          growthTone: effectiveFed ? "positive" : "warn",
+          growthText: !effectiveFed
+            ? "Growth paused — town is unfed"
+            : growthRatePending
+              ? "Growth rate loading…"
+              : `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`,
+          growthTone: !effectiveFed ? "warn" : growthRatePending ? "neutral" : "positive",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
