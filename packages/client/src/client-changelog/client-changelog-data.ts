@@ -34,6 +34,7 @@ import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./cli
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
+import { CLIENT_CHANGELOG_ENTRIES_HOSTILE_MUSTER_ALERTS } from "./client-changelog-hostile-muster-alerts.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -57,6 +58,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
+  ...CLIENT_CHANGELOG_ENTRIES_HOSTILE_MUSTER_ALERTS,
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {

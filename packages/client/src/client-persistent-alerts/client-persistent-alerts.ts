@@ -5,10 +5,11 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
+import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertState, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
+export type PersistentAlertKind = "town_unfed" | "muster_active" | "hostile_muster" | "waypoint_manpower_paused" | "shard_rain";
 
 export type PersistentAlert = {
   id: string;
@@ -18,6 +19,8 @@ export type PersistentAlert = {
   x: number;
   y: number;
   severity: "warn" | "error";
+  // Set on hostile_muster alerts, for the one-time "new flag" toast.
+  hostileMuster?: HostileMusterNearBorder;
 };
 
 export type PersistentAlertLocator = {
@@ -113,7 +116,7 @@ const shardSiteCollected = (tiles: Pick<ClientState, "tiles">["tiles"], x: numbe
 };
 
 export const persistentAlertsForState = (
-  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardRainStatus?: ClientShardRainAlert | undefined },
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & HostileMusterAlertState & { shardRainStatus?: ClientShardRainAlert | undefined },
   nowMs: number = Date.now()
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
@@ -138,6 +141,19 @@ export const persistentAlertsForState = (
         x: tile.x,
         y: tile.y,
         severity: "warn"
+      });
+    }
+    const hostileMuster = hostileMusterNearBorder(state, tile);
+    if (hostileMuster) {
+      alerts.push({
+        id: `hostile_muster:${tile.x},${tile.y}`,
+        kind: "hostile_muster",
+        title: "Enemy muster flag",
+        detail: hostileMusterDetail(hostileMuster),
+        x: tile.x,
+        y: tile.y,
+        severity: hostileMuster.mode === "HOLD" ? "warn" : "error",
+        hostileMuster
       });
     }
   }
@@ -366,12 +382,13 @@ export const drawPersistentAlertLocators = (
   occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
   occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: state.authSessionReady !== false && !state.profileSetupRequired }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
   const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
+  // Enemy muster flags near the border take the limited locator slots first.
   const alerts = nearestPersistentAlerts(
     allAlerts,
     state,
     { toroidDelta: deps.toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT },
     allAlerts.length
-  );
+  ).sort((a, b) => Number(b.kind === "hostile_muster") - Number(a.kind === "hostile_muster"));
   state.persistentAlertLocators = [];
   if (alerts.length === 0) return;
   const ctx = deps.ctx;
@@ -408,12 +425,13 @@ export const drawPersistentAlertLocators = (
     // draw it, then rotate back before drawing the glyph.
     ctx.rotate(edge.angle);
     ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
-    ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
+    // Red rim for an enemy flag staging next to you, gold for your own alerts.
+    ctx.strokeStyle = alert.kind === "hostile_muster" ? "rgba(255, 92, 92, 0.95)" : "rgba(255, 209, 102, 0.92)";
     ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     drawLocatorPinBody(ctx, radius);
     ctx.rotate(-edge.angle);
-    if (alert.kind === "muster_active") {
+    if (alert.kind === "muster_active" || alert.kind === "hostile_muster") {
       drawCrossedSwordsGlyph(ctx, radius * 0.5);
     } else if (alert.kind === "shard_rain") {
       drawShardGlyph(ctx, radius * 0.5);
