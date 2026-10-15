@@ -16,7 +16,6 @@ The LLM should not choose live actions inside the simulation loop. It should ins
 The production AI should continue to run from deterministic planner code in:
 
 - `apps/simulation/src/*`
-- `packages/server/src/*`
 
 ## Existing repo hooks
 
@@ -314,15 +313,9 @@ Add a decision recorder around the current planner boundary.
 
 Recommended insertion points:
 
-- rewrite:
-  - `apps/simulation/src/ai/automation-command-planner.ts`
-  - `apps/simulation/src/ai/frontier-command-planner.ts`
-  - `apps/simulation/src/ai/ai-settlement-priority.ts`
-- legacy:
-  - `packages/server/src/server-ai-frontier-planning-runtime.ts`
-  - `packages/server/src/server-ai-frontier-selection-runtime.ts`
-  - `packages/server/src/server-ai-frontier-settlement.ts`
-  - `packages/server/src/server-ai-frontier-scout.ts`
+- `apps/simulation/src/ai/automation-command-planner.ts`
+- `apps/simulation/src/ai/frontier-command-planner.ts`
+- `apps/simulation/src/ai/ai-settlement-priority.ts`
 
 For each decision, record:
 
@@ -434,7 +427,6 @@ Use those to update:
 
 - `apps/simulation/src/ai/frontier-command-planner.ts`
 - `apps/simulation/src/ai/ai-settlement-priority.ts`
-- `packages/server/src/server-ai-frontier-*`
 
 ### Phase D: Small-model optional path
 

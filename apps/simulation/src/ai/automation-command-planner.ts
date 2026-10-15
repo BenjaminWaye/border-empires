@@ -391,10 +391,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     sessionPrefix: input.sessionPrefix,
     diagnostic: diagnosticBase,
     frontierAnalysis,
-    tilesByKey: input.tilesByKey,
     needsFood,
-    needsEconomy,
-    ...(input.preplanProgressState ? { preplanProgressState: input.preplanProgressState } : {})
+    needsEconomy
   };
   const summarizeStartedAt = Date.now();
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);

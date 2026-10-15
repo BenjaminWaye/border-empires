@@ -1,16 +1,12 @@
 import type {
   ClusterType,
   Dock,
-  EconomicStructure,
-  Fort,
   LandBiome,
-  Observatory,
   Player,
   RegionType,
   ResourceType,
   RiverPath,
   Season,
-  SiegeBattery,
   Tile,
   TileKey
 } from "@border-empires/shared";
@@ -62,7 +58,6 @@ export interface ServerWorldgenDocksDeps {
   wrapY: (y: number, height: number) => number;
   worldIndex: (x: number, y: number) => number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
-  adjacentOceanSea: (x: number, y: number, oceanMask: Uint8Array) => { x: number; y: number } | undefined;
   largestSeaComponentMask: () => Uint8Array;
   clusterByTile: Map<TileKey, string>;
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD: number;
@@ -104,7 +99,6 @@ export interface ServerWorldgenTownsDeps {
   docksByTile: Map<TileKey, Dock>;
   clusterByTile: Map<TileKey, string>;
   POPULATION_MAX: number;
-  POPULATION_TOWN_MIN: number;
   now: () => number;
   wrapX: (x: number, width: number) => number;
   wrapY: (y: number, height: number) => number;
@@ -248,25 +242,8 @@ export interface ServerWorldgenTerrainDeps {
   chebyshevDistance: (ax: number, ay: number, bx: number, by: number) => number;
   regionTypeAt: (x: number, y: number) => RegionType | undefined;
   clusterByTile: Map<TileKey, string>;
-  townsByTile: Map<TileKey, TownDefinition>;
-  docksByTile: Map<TileKey, Dock>;
-  fortsByTile: Map<TileKey, Fort>;
-  siegeBatteriesByTile: Map<TileKey, SiegeBattery>;
-  observatoriesByTile: Map<TileKey, Observatory>;
-  economicStructuresByTile: Map<TileKey, EconomicStructure>;
-  playerTile: (x: number, y: number) => Tile;
-  SKY_DOCK_BOMBARD_MIN_FIELD_TILES: number;
-  SKY_DOCK_BOMBARD_MAX_FIELD_TILES: number;
-  activeSeason: Pick<Season, "worldSeed">;
-  clustersById: Map<string, ClusterDefinition>;
-  ownership: Map<TileKey, string>;
-  getOrInitResourceCounts: (playerId: string) => Record<ResourceType, number>;
-  rebuildEconomyIndexForPlayer: (playerId: string) => void;
-  sendPlayerUpdate: (player: Player, incomeDelta: number) => void;
-  sendVisibleTileDeltaAt: (x: number, y: number) => void;
   landBiomeAt: (x: number, y: number) => LandBiome | undefined;
   grassShadeAt: (x: number, y: number) => "LIGHT" | "DARK" | undefined;
-  FRONTIER_CLAIM_MS: number;
 }
 
 export interface ServerWorldgenTerrainRuntime {

@@ -4,7 +4,7 @@ import { computeOtherOwnersReachPylons } from "./client-reach-overlay-3d-multi.j
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => v;
-const deps = { tiles: new Map<string, Tile>(), keyFor, wrapX: wrap, wrapY: wrap };
+const deps = { keyFor, wrapX: wrap, wrapY: wrap };
 
 // Land tiles at the given keys, each stamped with reachOwnerId so
 // filterReachToLand doesn't drop them and computeReachSetsByOwnerFromWire
@@ -25,7 +25,7 @@ describe("computeOtherOwnersReachPylons — reads reachOwnerId directly", () => 
     // contest-resolved border.
     const tiles = landTilesAt(["5,5", "5,6", "6,5", "6,6"], "rival");
 
-    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", { ...deps, tiles }, keyFor);
+    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", deps, keyFor);
 
     expect(pylons.some((p) => p.ownerId === "rival")).toBe(true);
   });
@@ -39,7 +39,7 @@ describe("computeOtherOwnersReachPylons — reads reachOwnerId directly", () => 
     // a contact line like this one, because the guess had no such exclusivity.
     const tiles = new Map<string, Tile>([...landTilesAt(["1,1", "1,2"], "rivalA"), ...landTilesAt(["2,1", "2,2"], "rivalB")]);
 
-    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", { ...deps, tiles }, keyFor);
+    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", deps, keyFor);
 
     expect(pylons.some((p) => p.ownerId === "rivalA")).toBe(true);
     expect(pylons.some((p) => p.ownerId === "rivalB")).toBe(true);
@@ -48,7 +48,7 @@ describe("computeOtherOwnersReachPylons — reads reachOwnerId directly", () => 
   it("never includes the caller's own id, even if reachOwnerId matches it", () => {
     const tiles = landTilesAt(["1,1"], "me");
 
-    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", { ...deps, tiles }, keyFor);
+    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", deps, keyFor);
 
     expect(pylons.every((p) => p.ownerId !== "me")).toBe(true);
   });
@@ -56,7 +56,7 @@ describe("computeOtherOwnersReachPylons — reads reachOwnerId directly", () => 
   it("excludes barbarian territory — barbarians are environment, not a bordered empire", () => {
     const tiles = landTilesAt(["1,1"], "barbarian-north");
 
-    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", { ...deps, tiles }, keyFor);
+    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", deps, keyFor);
 
     expect(pylons.every((p) => p.ownerId !== "barbarian-north")).toBe(true);
   });
@@ -64,7 +64,7 @@ describe("computeOtherOwnersReachPylons — reads reachOwnerId directly", () => 
   it("produces nothing for a tile the client hasn't loaded, same limitation the old guess had", () => {
     const tiles = new Map<string, Tile>();
 
-    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", { ...deps, tiles }, keyFor);
+    const { pylons } = computeOtherOwnersReachPylons(tiles, "me", deps, keyFor);
 
     expect(pylons).toHaveLength(0);
   });

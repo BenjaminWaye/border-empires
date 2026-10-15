@@ -4,7 +4,6 @@
 // button. Split out of the overlay module to keep that file under the repo's
 // line cap.
 import type { ClientState } from "./client-state/client-state.js";
-import type { FeedType, FeedSeverity } from "./client-types.js";
 import { foundingEngineerNameHtml } from "./client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "./client-duke-title/client-duke-title.js";
 
@@ -63,7 +62,6 @@ export const renderSeasonLobbyPanelHtml = (
 
 export type SeasonLobbyPanelDeps = {
   overlayEl: HTMLElement;
-  pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
 };
 
 // Copies GAME_SHARE_URL to the clipboard for the invite button (a plain

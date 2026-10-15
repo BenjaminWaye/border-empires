@@ -27,7 +27,6 @@ export const placeDocks = (seed: number, clusterByTile: Map<TileKey, string>): {
     wrapY,
     worldIndex: (x, y) => y * WORLD_WIDTH + x,
     terrainAt,
-    adjacentOceanSea: terrainRuntime.adjacentOceanSea,
     largestSeaComponentMask: terrainRuntime.largestSeaComponentMask,
     clusterByTile,
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,

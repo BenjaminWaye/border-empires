@@ -82,10 +82,6 @@ type HudDeps = {
   openEconomyPanel: (focus?: EconomyFocusKey) => void;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   affordableTechChoicesCount: () => number;
-  mobileNavLabelHtml: (
-    panel: ClientState["mobilePanel"],
-    opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number }
-  ) => string;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
   clearCrystalTargeting: () => void;
@@ -128,7 +124,6 @@ type HudDeps = {
   renderDomainDetailCard: () => string;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   renderSocialInspectCardHtml: typeof import("../client-side-panel-html/client-side-panel-html.js").renderSocialInspectCardHtml;
-  missionCardsHtml: typeof import("../client-panel-html/client-panel-html.js").missionCardsHtml;
   playerNameForOwner: (ownerId?: string | null) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
