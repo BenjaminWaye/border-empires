@@ -1,3 +1,7 @@
+import { activeAfcModuleTechIds } from "../ai/ai-build-unlocks.js";
+import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
+import { hasPlannerGatingLock } from "../ai/planner-gating-lock.js";
+import { buildAiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
@@ -35,13 +39,12 @@ import {
   type FrontierCommandType
 } from "@border-empires/game-domain";
 import {
-  ATTACK_MANPOWER_MIN,
   BREAKTHROUGH_ENABLED,
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
+  GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -74,7 +77,6 @@ import {
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
   type DockCrossingOrigin
 } from "./runtime-crossing.js";
-import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
@@ -2205,16 +2207,12 @@ export class SimulationRuntime {
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime"
   ): CommandEnvelope | undefined {
-    for (const lock of this.state.locksByTile.values()) {
-      if (lock.playerId === playerId) return undefined;
-    }
-    const ownedTiles = this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys);
     const player = this.state.players.get(playerId);
-    return chooseNextOwnedFrontierCommandFromLookup(this.state.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
-      canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
-      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= EXPAND_MANPOWER_COST,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey
-    });
+    return planDirectFrontierCommand({ tiles: this.state.tiles,
+      ownedTiles: this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys),
+      locks: this.state.locksByTile.values(), dockLinks: this.state.dockLinksByDockTileKey,
+      playerId, points: player?.points ?? 0, manpower: player?.manpower ?? 0,
+      clientSeq, issuedAt, sessionPrefix });
   }
 
   explainNextAutomationCommand(
@@ -2246,16 +2244,7 @@ export class SimulationRuntime {
     }
     const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
     const spatialFocus = refreshSpatialFocusForSummary(playerId, this.now(), summary, this.aiSpatialFocusByPlayer, this.aiSpatialFocusProductiveByPlayer);
-    // No-alloc per-tick check: short-circuit on first player-issued lock.
-    // Allocating a Set for one .has() lookup would be wasteful in the AI
-    // planner hot path (per AI per planner tick).
-    let hasActiveLock = false;
-    for (const lock of this.state.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.source === "automation") continue;
-      hasActiveLock = true;
-      break;
-    }
+    const hasActiveLock = hasPlannerGatingLock(this.state.locksByTile.values(), playerId);
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
       const townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
@@ -2263,6 +2252,8 @@ export class SimulationRuntime {
         playerId,
         points: player.points,
         manpower: player.manpower,
+        slotSupplyByResource: this.resourceSlotSupplyForPlayer(playerId),
+        slotDemandByResource: this.resourceSlotDemandForPlayer(playerId),
         techIds: [...player.techIds],
         domainIds: player.domainIds ? [...player.domainIds] : [],
         strategicResources: { ...(player.strategicResources ?? {}) },
@@ -2292,6 +2283,11 @@ export class SimulationRuntime {
       hasActiveLock,
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
+      installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, this.state.tiles),
+      tacticalView: (player.techIds.has("crystal-lattices") || (this.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0) ? buildAiTacticalView({
+        focusKeys: [...(spatialFocus?.primaryFront ?? [])], isVisible: (key) => this.state.visibilityCoverage.isVisible(playerId, key),
+        crystalDormancy: this.resourceSlotDormancyForPlayer(playerId).CRYSTAL, castRange: this.observatoryCastRadiusFor(playerId),
+        bridges: this.activeAetherBridgesForPlayer(playerId), walls: this.activeAetherWallsForPlayer(playerId) }) : undefined,
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
       hotFrontierTiles: this.tileKeySetToTiles(summary.hotFrontierTileKeys),
@@ -2421,13 +2417,17 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       prebuiltTiles: this.snapshotTileCache,
-      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
+      plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
       reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       spatialFocusFrontForPlayer: (playerId) => this.spatialFocusFrontTileKeysForPlayer(playerId),
+      tacticalViewForPlayer: (id, focusKeys) => buildAiTacticalView({ focusKeys,
+        isVisible: (key) => this.state.visibilityCoverage.isVisible(id, key),
+        crystalDormancy: this.resourceSlotDormancyForPlayer(id).CRYSTAL, castRange: this.observatoryCastRadiusFor(id),
+        bridges: this.activeAetherBridgesForPlayer(id), walls: this.activeAetherWallsForPlayer(id) }),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
@@ -3761,13 +3761,6 @@ export class SimulationRuntime {
   }
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
-
-  // Player-ids with at least one *player-issued* frontier lock - i.e. locks
-  // that should gate the AI strategic planner. Automation combat locks are
-  // filtered so defensive sweeps do not starve the planner.
-  private plannerGatingLockPlayerIds(): Set<string> {
-    return plannerGatingLockPlayerIdsImpl(this.state.locksByTile);
-  }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
 

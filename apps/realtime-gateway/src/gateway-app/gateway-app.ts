@@ -1,3 +1,4 @@
+import { seedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -25,7 +26,7 @@ import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
-import { pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
+import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
@@ -759,16 +760,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...seasonalAiPlayerIds
   ]);
 
-  // -- Phase 6: AI empire color seeding -----------------------------------
-  // Assign each AI a unique colour from BASE_PALETTE and register it in
-  // profileOverrides so the taken-set sees it immediately.
-  const aiTaken = new Set<string>(RESERVED_COLORS);
-  for (const aiId of [...seededAiPlayerIds].sort()) {
-    const color = assignUniqueColor(aiId, aiTaken);
-    aiTaken.add(color);
-    await profileStore.setTileColor(aiId, color);
-    profileOverrides.upsert(aiId, { tileColor: color });
-  }
+  await seedAiColors(seededAiPlayerIds, async (id, color) => {
+    await profileStore.setTileColor(id, color);
+    profileOverrides.upsert(id, { tileColor: color });
+  });
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
@@ -1630,6 +1625,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
+  const aiDiplomacyTimer = startRecurringTask(() => void diplomacySocket.tickProactive(), 15_000);
   const allianceBreakFinalize = startRecurringTask(() => { void finalizeExpiredAllianceBreaks(); void diplomacySocket.reviewAiAlliances(); }, 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   // Season rollover never auto-starts on a timer -- a new season only begins
   // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
@@ -1714,6 +1710,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
+    aiDiplomacyTimer.stop(); diplomacySocket.stopProactive();
     allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler(); stopGalaxyDukeScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);

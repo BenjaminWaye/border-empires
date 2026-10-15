@@ -1,6 +1,6 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey } from "@border-empires/game-domain";
-import { nextTownGrowthUpgrade, type ChosenTrickleResource, type PopulationTier, type Terrain } from "@border-empires/shared";
+import { nextTownGrowthUpgrade, type SlotResource, type ChosenTrickleResource, type PopulationTier, type Terrain } from "@border-empires/shared";
 
 import { createAutomationCommand } from "./automation-command-factory.js";
 import type {
@@ -30,22 +30,11 @@ type AutomationPreplanTile = {
 // population forever but never actually reach the CITY/GREAT_CITY/METROPOLIS
 // tier, missing out on the population income multiplier (townPopulationMultiplier
 // in player-update-economy.ts) that tier unlocks.
-// Gold-affordability only — the AI planner doesn't have cheap access to real
-// per-player FOOD slot supply/demand (same known gap as the BUILD_STRUCTURE
-// planner check: real
-// fix needs an incrementally-maintained slot index threaded through the
-// worker-sync boundary, its own scoped slice). A server-side INSUFFICIENT_SLOT
-// rejection here is the same class of self-correcting staleness already
-// accepted for BUILD_STRUCTURE — "self-correcting" because the caller backs
-// the attempt off on rejection (decisionCooldowns.UPGRADE_TOWN_TIER below),
-// same as BUILD_STRUCTURE's BUILD_ECONOMY decision class. Without that
-// backoff this used to livelock: the same tile is chosen every tick (nothing
-// about eligibility changes on its own), so a stuck rejection wasn't
-// "occasional" at all — it starved tech/domain choices and the entire main
-// planner for that player, forever.
+// Use synced slot totals so rejected upgrades cannot starve research.
 const chooseAiTownTierUpgrade = (
   ownedTiles: readonly AutomationPreplanTile[],
-  points: number
+  points: number,
+  freeFoodSlots?: number
 ): { x: number; y: number } | undefined => {
   for (const tile of ownedTiles) {
     if (tile.ownershipState !== "SETTLED") continue;
@@ -54,6 +43,7 @@ const chooseAiTownTierUpgrade = (
     const upgrade = nextTownGrowthUpgrade(town.populationTier, town.population);
     if (!upgrade?.available) continue;
     if (points < upgrade.goldCost) continue;
+    if (freeFoodSlots !== undefined && freeFoodSlots < 1) continue;
     return { x: tile.x, y: tile.y };
   }
   return undefined;
@@ -63,6 +53,8 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   playerId: string;
   points: number;
   manpower?: number;
+  slotSupplyByResource?: Partial<Record<SlotResource, number>>;
+  slotDemandByResource?: Partial<Record<SlotResource, number>>;
   techIds?: readonly string[];
   domainIds?: readonly string[];
   strategicResources?: Partial<Record<StrategicResourceKey, number>>;
@@ -139,11 +131,12 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
 
   const settledTileCount = input.settledTileCount ?? 0;
   const townCount = input.townCount ?? 0;
-  const needsFood = foodCoverageLow(input.strategicResources, townCount);
+  const foodSlots = input.slotSupplyByResource && input.slotDemandByResource ? { supply: input.slotSupplyByResource.FOOD ?? 0, demand: input.slotDemandByResource.FOOD ?? 0 } : undefined;
+  const needsFood = foodCoverageLow(input.strategicResources, townCount, foodSlots);
   const needsEconomy = economyWeak(input.manpower ?? 0, settledTileCount);
 
   if (!needsFood && townCount > 0 && !input.decisionCooldowns?.UPGRADE_TOWN_TIER) {
-    const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.points);
+    const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.points, foodSlots ? foodSlots.supply - foodSlots.demand : undefined);
     if (townTierUpgrade) {
       return {
         command: createAutomationCommand(

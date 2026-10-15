@@ -35,13 +35,17 @@ export const REJECTION_COOLDOWN_MS = 10_000;
 export const ATTACK_TARGET_INVALID_COOLDOWN_MS = 1_000;
 
 /** Decision classes plus non-utility-policy commands that share the cooldown map. */
-export type CooldownTag = DecisionClass | "UPGRADE_TOWN_TIER";
+export type CooldownTag = DecisionClass | "UPGRADE_TOWN_TIER" | "USE_AETHER" | "BUILD_AETHER_TOWER";
 
 /** Shared shape for cooldown maps crossing worker/runtime boundaries. */
 export type DecisionCooldownMap = Partial<Record<CooldownTag, boolean>>;
 
 const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], CooldownTag>> = {
   BUILD_FORT: "BUILD_DEFENSE",
+  BUILD_OBSERVATORY: "BUILD_AETHER_TOWER",
+  AETHER_LANCE: "USE_AETHER", AETHER_EMP: "USE_AETHER", SIPHON_TILE: "USE_AETHER",
+  CANCEL_SIPHON: "USE_AETHER", CAST_AETHER_BRIDGE: "USE_AETHER", CAST_AETHER_WALL: "USE_AETHER",
+  CREATE_MOUNTAIN: "USE_AETHER", REMOVE_MOUNTAIN: "USE_AETHER", SURVEY_SWEEP: "USE_AETHER",
   BUILD_SIEGE_BATTERY: "BUILD_DEFENSE",
   BUILD_ECONOMIC_STRUCTURE: "BUILD_ECONOMY",
   // ATTACK was missing from this map, so a rejected ATTACK (e.g. ATTACK_COOLDOWN/
@@ -56,6 +60,8 @@ const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], Cooldow
   // ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES below for the ATTACK_TARGET_INVALID
   // exception.
   ATTACK: "ATTACK",
+  UNCAPTURE_TILE: "FREE_FOOD_SLOT",
+  SET_CONVERTER_STRUCTURE_ENABLED: "FREE_FOOD_SLOT",
   // Self-mapped tag (not a real DecisionClass) — see file header comment.
   UPGRADE_TOWN_TIER: "UPGRADE_TOWN_TIER"
 };
@@ -133,14 +139,18 @@ const ATTACK_SHORT_COOLDOWN_REJECTION_CODES = new Set(["ATTACK_TARGET_INVALID"])
 
 export type RejectionCooldownState = Map<string, Map<CooldownTag, number>>;
 
-export type ActionAdmission = { actionKey: string; worldRevision: number; rejectionCode: string };
+export type ActionAdmission = { actionKey: string; worldRevision: number; rejectionCode: string; expiresAt: number };
 export type ActionAdmissionState = Map<string, Map<string, ActionAdmission>>;
 const MAX_ADMISSIONS_PER_PLAYER = 32;
 
 export const actionAdmissionKey = (command: Pick<CommandEnvelope, "type" | "payloadJson">): string => {
   try {
-    const payload = JSON.parse(command.payloadJson) as { x?: unknown; y?: unknown };
-    if (typeof payload.x === "number" && typeof payload.y === "number") return `${command.type}:${payload.x},${payload.y}`;
+    const payload = JSON.parse(command.payloadJson) as { x?: unknown; y?: unknown; structureType?: unknown; fromX?: unknown; fromY?: unknown; toX?: unknown; toY?: unknown };
+    if (typeof payload.toX === "number" && typeof payload.toY === "number") return `${command.type}:${payload.fromX},${payload.fromY}>${payload.toX},${payload.toY}`;
+    if (typeof payload.x === "number" && typeof payload.y === "number") {
+      const variant = command.type === "BUILD_ECONOMIC_STRUCTURE" && typeof payload.structureType === "string" ? `:${payload.structureType}` : "";
+      return `${command.type}:${payload.x},${payload.y}${variant}`;
+    }
   } catch {
     // The runtime will report BAD_COMMAND; retain a bounded command-level key.
   }
@@ -154,15 +164,17 @@ export const recordActionAdmission = (
   playerId: string,
   command: Pick<CommandEnvelope, "type" | "payloadJson">,
   worldRevision: number,
-  rejectionCode: string
+  rejectionCode: string,
+  nowMs = Date.now()
 ): void => {
+  if (["INSUFFICIENT_MANPOWER", "INSUFFICIENT_GOLD", "INSUFFICIENT_MUSTER", "ATTACK_COOLDOWN", "LOCKED"].includes(rejectionCode)) return;
   let admissions = state.get(playerId);
   if (!admissions) {
     admissions = new Map();
     state.set(playerId, admissions);
   }
   const actionKey = actionAdmissionKey(command);
-  admissions.set(actionKey, { actionKey, worldRevision, rejectionCode });
+  admissions.set(actionKey, { actionKey, worldRevision, rejectionCode, expiresAt: nowMs + REJECTION_COOLDOWN_MS });
   while (admissions.size > MAX_ADMISSIONS_PER_PLAYER) {
     const oldest = admissions.keys().next().value;
     if (oldest === undefined) break;
@@ -173,12 +185,13 @@ export const recordActionAdmission = (
 export const activeActionAdmissionsForPlayer = (
   state: ActionAdmissionState,
   playerId: string,
-  worldRevision: number
+  worldRevision: number,
+  nowMs = Date.now()
 ): ReadonlyMap<string, ActionAdmission> | undefined => {
   const admissions = state.get(playerId);
   if (!admissions) return undefined;
   for (const [key, admission] of admissions) {
-    if (admission.worldRevision !== worldRevision) admissions.delete(key);
+    if (admission.worldRevision !== worldRevision || admission.expiresAt <= nowMs) admissions.delete(key);
   }
   if (admissions.size === 0) {
     state.delete(playerId);
@@ -196,6 +209,7 @@ export const recordRejectionCooldown = (
   nowMs: number,
   rejectionCode?: string
 ): void => {
+  if (rejectionCode === "INSUFFICIENT_SLOT" && command.type === "BUILD_ECONOMIC_STRUCTURE") return;
   const cls = decisionClassForCommand(command);
   if (!cls) return;
   const useShortCooldown =

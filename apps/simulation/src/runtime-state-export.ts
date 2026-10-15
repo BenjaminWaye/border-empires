@@ -1,3 +1,5 @@
+import { activeAfcModuleTechIds } from "./ai/ai-build-unlocks.js";
+import type { AiTacticalView } from "./ai/ai-tactical-view.js";
 import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState, FrontierCommandType, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -9,9 +11,9 @@ import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, wayp
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { AutoSettlePrefs, FrontierDecayKind, ProspectSignature, SlotResource, Terrain } from "@border-empires/shared";
-import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
+import type { PlannerPlayerView, PlannerTileView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
-import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
+import { toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
@@ -315,6 +317,7 @@ type PlannerExportInput = {
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
   // See PlannerPlayerView.focusFrontTileKeys' doc comment.
+  tacticalViewForPlayer?: (playerId: string, focusKeys: readonly string[]) => AiTacticalView;
   spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
   // planner's diagnostic-only needVector. Optional so callers that don't care
@@ -344,18 +347,7 @@ type PlannerExportInput = {
   trackSync?: <T>(phase: string, details: Record<string, string | number> | undefined, task: () => T) => T;
 };
 
-export function buildRuntimePlannerWorldView(input: PlannerExportInput): PlannerWorldView {
-  return {
-    tiles: buildPlannerTileSlice({
-      playerIds: input.playerIds,
-      tiles: input.tiles,
-      docks: input.docks,
-      summaryForPlayer: input.summaryForPlayer
-    }),
-    players: buildRuntimePlannerPlayerViews(input),
-    docks: input.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) }))
-  };
-}
+export { buildRuntimePlannerWorldView } from "./ai/runtime-planner-world-view.js";
 
 export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): PlannerPlayerView[] {
   const track = <T>(phase: string, playerId: string, task: () => T): T =>
@@ -406,12 +398,15 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
     const ownedTileCount = tileKeys.territoryTileKeys.length;
     const frontierTileCount = tileKeys.frontierTileKeys.length;
 
+    const structureCounts = track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId));
+    const focusKeys = track("planner_view_focus_front_tile_keys", playerId, () => input.spatialFocusFrontForPlayer(playerId));
     track("planner_view_push", playerId, () => {
       players.push({
         id: player.id,
         points: player.points,
         manpower: player.manpower,
         techIds: [...player.techIds].sort(),
+        installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, input.tiles),
         domainIds: [...(player.domainIds ?? [])].sort(),
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
@@ -423,7 +418,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
         reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
-        focusFrontTileKeys: track("planner_view_focus_front_tile_keys", playerId, () => input.spatialFocusFrontForPlayer(playerId)),
+        focusFrontTileKeys: focusKeys,
+        ...((player.techIds.has("crystal-lattices") || (structureCounts.OBSERVATORY ?? 0) > 0) && input.tacticalViewForPlayer ? { tacticalView: input.tacticalViewForPlayer(playerId, focusKeys) } : {}),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
@@ -434,7 +430,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
         activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
-        ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
+        ownedStructureCounts: structureCounts,
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],

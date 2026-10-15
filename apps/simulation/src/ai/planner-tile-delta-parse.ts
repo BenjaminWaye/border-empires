@@ -21,6 +21,8 @@ export type SimulationTileDelta = {
   townJson?: string | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
+  musterJson?: string | undefined;
+  sabotageJson?: string | undefined;
   siegeBatteryJson?: string | undefined;
   economicStructureJson?: string | undefined;
 };
@@ -59,15 +61,16 @@ export const parseTownSupport = (
 
 export const parseOwnedStructure = (
   raw: string | undefined
-): { ownerId?: string; status?: string; type?: string; inactiveReason?: string } | undefined => {
+): { ownerId?: string; status?: string; type?: string; inactiveReason?: string; disabledUntil?: number } | undefined => {
   if (typeof raw !== "string") return undefined;
   try {
-    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown; inactiveReason?: unknown };
+    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown; inactiveReason?: unknown; disabledUntil?: unknown };
     return {
       ...(typeof parsed.ownerId === "string" ? { ownerId: parsed.ownerId } : {}),
       ...(typeof parsed.status === "string" ? { status: parsed.status } : {}),
       ...(typeof parsed.type === "string" ? { type: parsed.type } : {}),
-      ...(typeof parsed.inactiveReason === "string" ? { inactiveReason: parsed.inactiveReason } : {})
+      ...(typeof parsed.inactiveReason === "string" ? { inactiveReason: parsed.inactiveReason } : {}),
+      ...(typeof parsed.disabledUntil === "number" ? { disabledUntil: parsed.disabledUntil } : {})
     };
   } catch {
     return undefined;
@@ -83,6 +86,7 @@ export const parseEconomicStructure = (
     ...(parsed.ownerId ? { ownerId: parsed.ownerId } : {}),
     ...(parsed.status ? { status: parsed.status } : {}),
     ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {}),
-    ...(parsed.inactiveReason ? { inactiveReason: parsed.inactiveReason } : {})
+    ...(parsed.inactiveReason ? { inactiveReason: parsed.inactiveReason } : {}),
+    ...(parsed.disabledUntil !== undefined ? { disabledUntil: parsed.disabledUntil } : {})
   };
 };

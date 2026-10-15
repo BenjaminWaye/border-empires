@@ -1,3 +1,6 @@
+import type { AiSurveyObjective } from "./ai-survey-objective.js";
+import type { AiTacticalTileFields } from "./ai-tactical-tile.js";
+import type { AiTacticalView } from "./ai-tactical-view.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
@@ -9,7 +12,7 @@ import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-coun
 
 // ─── Tile view ────────────────────────────────────────────────────────────────
 
-export type PlannerTileView = {
+export type PlannerTileView = AiTacticalTileFields & {
   x: number;
   y: number;
   terrain: Terrain;
@@ -48,6 +51,9 @@ export type PlannerDockView = {
 // ─── Per-player view ──────────────────────────────────────────────────────────
 
 export type PlannerPlayerView = {
+  tacticalView?: AiTacticalView;
+  installedModuleTechIds?: readonly string[] | undefined;
+  surveyObjective?: AiSurveyObjective;
   id: string;
   points: number;
   manpower: number;

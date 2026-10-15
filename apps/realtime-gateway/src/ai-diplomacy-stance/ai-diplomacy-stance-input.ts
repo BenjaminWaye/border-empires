@@ -1,10 +1,19 @@
+import { MANPOWER_BASE_CAP, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 // Reads AiDiplomacyStanceInput off subscription snapshots. Kept apart from
 // the pure decision in ai-diplomacy-stance.ts so the rules can be tested
 // without building snapshots.
-import { MANPOWER_BASE_CAP } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { AiDiplomacyStanceInput } from "./ai-diplomacy-stance.js";
+
+type SnapshotPlayer = NonNullable<PlayerSubscriptionSnapshot["player"]>;
+export type AiDiplomacySnapshot = {
+  playerId: string;
+  tiles: readonly Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">[];
+  player?: Pick<SnapshotPlayer, "manpower" | "manpowerCap"> & Partial<Pick<SnapshotPlayer,
+    "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
+  worldStatus?: PlayerSubscriptionSnapshot["worldStatus"] | undefined;
+};
 
 type SnapshotTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">;
 
@@ -37,10 +46,10 @@ export const bordersTouchInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: 
   for (const tile of tiles) {
     if (tile.ownerId !== requesterId) continue;
     if (
-      aiTileKeys.has(tileKey(tile.x + 1, tile.y)) ||
-      aiTileKeys.has(tileKey(tile.x - 1, tile.y)) ||
-      aiTileKeys.has(tileKey(tile.x, tile.y + 1)) ||
-      aiTileKeys.has(tileKey(tile.x, tile.y - 1))
+      aiTileKeys.has(tileKey(wrapX(tile.x + 1, WORLD_WIDTH), tile.y)) ||
+      aiTileKeys.has(tileKey(wrapX(tile.x - 1, WORLD_WIDTH), tile.y)) ||
+      aiTileKeys.has(tileKey(tile.x, wrapY(tile.y + 1, WORLD_HEIGHT))) ||
+      aiTileKeys.has(tileKey(tile.x, wrapY(tile.y - 1, WORLD_HEIGHT)))
     ) {
       return true;
     }
@@ -56,9 +65,9 @@ export const bordersTouchInTiles = (tiles: readonly SnapshotTile[], aiPlayerId: 
 export const buildAiDiplomacyStanceInput = (input: {
   aiPlayerId: string;
   aiName: string;
-  aiSnapshot: PlayerSubscriptionSnapshot | undefined;
+  aiSnapshot: AiDiplomacySnapshot | undefined;
   requesterId: string;
-  requesterSnapshot: PlayerSubscriptionSnapshot | undefined;
+  requesterSnapshot: AiDiplomacySnapshot | undefined;
   requesterBrokeTruceWithAi: boolean;
 }): AiDiplomacyStanceInput | undefined => {
   const aiPlayer = input.aiSnapshot?.player;
@@ -73,6 +82,7 @@ export const buildAiDiplomacyStanceInput = (input: {
       manpowerCap: aiPlayer.manpowerCap > 0 ? aiPlayer.manpowerCap : MANPOWER_BASE_CAP,
       musterManpower: musterManpowerFromTiles(tiles, input.aiPlayerId),
       score: input.aiSnapshot.worldStatus?.leaderboard.selfOverall?.score,
+      ...(aiPlayer.resourceSlots ? { foodSlotDeficit: aiPlayer.resourceSlots.demand.FOOD - aiPlayer.resourceSlots.supply.FOOD } : {}),
       foodStock: aiPlayer.strategicResources?.FOOD ?? 0,
       foodNetPerMinute: foodProduction - foodUpkeep
     },

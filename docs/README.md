@@ -19,7 +19,7 @@ remain authoritative for runtime behavior.
 | Landing a PR end to end (review → fix → merge to `develop`) | [`../.claude/skills/review-fix-merge/SKILL.md`](../.claude/skills/review-fix-merge/SKILL.md) |
 | Documentation review and upkeep | [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md) |
 | AI planning | [`agents/topics/ai-planner.md`](agents/topics/ai-planner.md) |
-| AI progression recovery, aether and proactive diplomacy proposal | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
+| AI progression recovery, aether and proactive diplomacy review | [`ai-progression-improvements-plan.md`](ai-progression-improvements-plan.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
 | Reach-vision implementation record | [`reach-border-vision-plan.md`](reach-border-vision-plan.md) |

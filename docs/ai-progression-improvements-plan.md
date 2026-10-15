@@ -1,7 +1,8 @@
 # AI progression, aether, and diplomacy
 
-Status: active proposal. Owner: agent/ai-progression-review. First implementation
-slice covers worker-state fidelity and FOOD recovery; later phases remain pending.
+Status: implemented for review in one feature PR. Owner: agent/ai-progression-review.
+The review findings below describe the pre-fix behavior. Implementation scope and
+remaining validation are recorded at the end.
 This extends the existing utility planner and gateway social state. It does not
 replace the AI CPU guardrails or change human gameplay rules.
 
@@ -42,7 +43,7 @@ are current observations, not a claim that every AI has the same root cause.
    can force FOOD relief even when CRYSTAL/TITANIUM/UMBRITE was missing.
    Replace this with action/resource-specific eligibility and selection of the
    next legal candidate. Do not silence failures by relabelling them as a
-   missing beacon site. This is a separate follow-up after the initial slice.
+   missing beacon site. This is included in the combined implementation.
 5. **Progression priorities lag the mechanics.** `ai-progression-choice.ts`
    still awards bonuses to retired tech IDs such as toolmaking/cartography.
    Score current unlocks against FOOD supply, manpower generation, coin income,
@@ -140,3 +141,44 @@ production, WAIT reasons and recovery time after resource loss. A lower WAIT
 percentage alone is insufficient: pointless casts and rejected offers are not
 progress. Ship each gameplay change with a client changelog entry; do not
 describe aether/diplomacy as available until their execution paths are tested.
+
+## Combined PR implementation and limits
+
+Implemented: state fidelity and live cached-tile updates; protected AFC/free-beacon
+recovery; runtime-equivalent economic/siege slot and installed-module prechecks; current
+tech priorities; FOOD-capacity-aware town upgrades; precise rejection keys and a
+10-second retry bound even without ownership changes. Soft resource/lock failures
+no longer become permanent admission bans.
+
+Aether: up to three useful towers, gated by incremental CRYSTAL cost, installed
+AFC module, manpower and development slots. Casts include Purge, EMP, Siphon,
+friendly-target cancellation, known valuable bridge landings, useful mountain
+removal, walls and emergency mountain creation against exposed hostile muster
+beside a capital/town. Candidates use each AI's own visibility; known shields,
+allies, truces, active effects, tower cooldowns, siphon locks and dormancy are
+respected. The tactical projection samples at most 16 focus origins and reports
+omitted origins and visible tile counts in decision diagnostics. Backfill is
+incremental when visibility/focus changes without ownership changes. No new
+persistent tactical cache or whole-world selector is added.
+
+Survey results become one expiring objective on the existing worker player
+record. The direct planner has no survey-result consumer and therefore never
+casts Survey Sweep. Reveal Empire and Reveal Stats remain disabled until their
+results feed strategy. No claim of complete ability-catalog coverage is made.
+
+Diplomacy: one AI every 15 seconds, at most one 12h truce or shared-threat alliance
+offer. Existing durable requests, cooldowns and responder own the lifecycle.
+AI-to-AI acceptance synchronizes the simulation before accepted fanout. Human
+claim and gateway shutdown races are covered. No voluntary truce breaking or 24h
+proactive offers are enabled. Decline cooldowns now also work without a persistence
+sink (previous optional chaining skipped the in-memory update).
+
+Regression coverage includes actual runtime ownership loss, FOOD-slot transfer,
+EMP outage, emergency mountain creation and valid tower construction, plus worker
+state/backfill, rejection isolation/expiry, current tech IDs, module readiness,
+FOOD-gated upgrades, bounded visibility work and real SocialState negotiation.
+
+Multi-hour growth/balance comparisons and an isolated production-shape load gate
+remain release validation before production promotion; local deterministic tests
+cannot establish that an AI will keep pace with an experienced human. The PR is
+for code review and does not deploy or promote the changes.

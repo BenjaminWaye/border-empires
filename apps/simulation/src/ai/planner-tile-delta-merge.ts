@@ -1,3 +1,4 @@
+import { parsePlannerObservatory, parsePlannerMuster, parsePlannerSabotage } from "./ai-tactical-tile.js";
 /**
  * Shared tile-delta merge helpers used by the AI planner worker and the AI
  * and system command producer workers. Single canonical implementation to
@@ -62,9 +63,19 @@ export const mergePlannerTileDelta = (
     else delete next.fort;
   }
   if ("observatoryJson" in tileDelta) {
-    const observatory = parseOwnedStructure(tileDelta.observatoryJson);
+    const observatory = parsePlannerObservatory(tileDelta.observatoryJson);
     if (observatory) next.observatory = observatory;
     else delete next.observatory;
+  }
+  if ("sabotageJson" in tileDelta) {
+    const sabotage = parsePlannerSabotage(tileDelta.sabotageJson);
+    if (sabotage) next.sabotage = sabotage;
+    else delete next.sabotage;
+  }
+  if ("musterJson" in tileDelta) {
+    const muster = parsePlannerMuster(tileDelta.musterJson);
+    if (muster) next.muster = muster;
+    else delete next.muster;
   }
   if ("siegeBatteryJson" in tileDelta) {
     const siegeBattery = parseOwnedStructure(tileDelta.siegeBatteryJson);
@@ -120,6 +131,8 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
   ...(tile.afc !== undefined ? { afcJson: JSON.stringify(tile.afc) } : {}),
   ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
+  ...(tile.sabotage !== undefined ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
+  ...(tile.muster !== undefined ? { musterJson: JSON.stringify(tile.muster) } : {}),
   ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
   ...(tile.siegeBattery !== undefined ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
   ...(tile.economicStructure !== undefined ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {})

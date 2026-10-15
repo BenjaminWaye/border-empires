@@ -77,7 +77,8 @@ export const createSocialState = (options: {
   const settlingError: SocialActionResult = { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
   const termsField = (terms: DiplomacyTerms | undefined): { terms?: DiplomacyTerms } => (terms && !diplomacyTermsAreEmpty(terms) ? { terms } : {});
   const startOfferCooldown = (kind: SocialOfferKind, fromPlayerId: string, toPlayerId: string, durationMs: number): void => {
-    sink?.saveOfferCooldown(offerCooldowns.start(kind, fromPlayerId, toPlayerId, durationMs));
+    const cooldown = offerCooldowns.start(kind, fromPlayerId, toPlayerId, durationMs);
+    sink?.saveOfferCooldown(cooldown);
   };
   const offerCooldownError = (kind: SocialOfferKind, fromPlayerId: string, target: SocialPlayerRecord): SocialActionResult | undefined => {
     const remainingMs = offerCooldowns.remainingMs(kind, fromPlayerId, target.id);

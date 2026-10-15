@@ -51,7 +51,11 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
       }
     : {}),
   ...(tile.fort ? { fort: { ownerId: tile.fort.ownerId, status: tile.fort.status } } : {}),
-  ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status } } : {}),
+  ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status,
+    ...(tile.observatory.cooldownUntil !== undefined ? { cooldownUntil: tile.observatory.cooldownUntil } : {}),
+    ...(tile.observatory.siphon ? { siphon: { targetX: tile.observatory.siphon.targetX, targetY: tile.observatory.siphon.targetY } } : {}) } } : {}),
+  ...(tile.muster ? { muster: { ownerId: tile.muster.ownerId, amount: tile.muster.amount } } : {}),
+  ...(tile.sabotage ? { sabotage: { ownerId: tile.sabotage.ownerId, endsAt: tile.sabotage.endsAt } } : {}),
   ...(tile.siegeBattery ? { siegeBattery: { ownerId: tile.siegeBattery.ownerId, status: tile.siegeBattery.status } } : {}),
   ...(tile.economicStructure
     ? {
@@ -59,6 +63,7 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
           ownerId: tile.economicStructure.ownerId,
           type: tile.economicStructure.type,
           status: tile.economicStructure.status,
+          ...(tile.economicStructure.disabledUntil !== undefined ? { disabledUntil: tile.economicStructure.disabledUntil } : {}),
           ...(tile.economicStructure.inactiveReason ? { inactiveReason: tile.economicStructure.inactiveReason } : {})
         }
       }

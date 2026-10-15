@@ -1,3 +1,4 @@
+import { createProactiveAiDiplomacy } from "../proactive-ai-diplomacy/proactive-ai-diplomacy.js";
 // Wires the ALLIANCE_* / TRUCE_* socket handlers, the trade screen's stance
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
@@ -42,6 +43,8 @@ export type DiplomacySocketHandlerDeps = {
 };
 
 export type DiplomacySocketHandler = {
+  tickProactive: () => Promise<void>;
+  stopProactive: () => void;
   handleMessage: (
     message: ClientMessage,
     session: { playerId?: string | undefined; isGuest?: boolean | undefined },
@@ -144,6 +147,11 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const requestTruce = withCooldownEvent("truce", socialState.requestTruce);
   const requestAlliance = withCooldownEvent("alliance", socialState.requestAlliance);
 
+  const proactive = createProactiveAiDiplomacy({ socialState, aiPlayerIds: deps.seededAiPlayerIds,
+    fetchSnapshot: requesterSnapshot, hasLiveSocket: deps.hasLiveSocket, responder,
+    fanout: deps.fanoutPlayerPayloads, recordEvent: deps.recordGatewayEvent,
+    nameForPlayerId: async id => socialState.playerNameOf(id), diplomacyContext });
+
   const handleMessage: DiplomacySocketHandler["handleMessage"] = async (message, session, socket) => {
     const playerId = session.playerId;
     if (!playerId) return false;
@@ -208,6 +216,8 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     );
   };
   return {
+    tickProactive: proactive.tick,
+    stopProactive: proactive.stop,
     handleMessage,
     reviewAiAlliances,
     observeSimulationEvent: (event) => {
