@@ -25,7 +25,7 @@ import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
 import { createSimulationSnapshotStore } from "../snapshot-store-factory/snapshot-store-factory.js";
-import { createSnapshotCheckpointManager } from "../snapshot-checkpoint-manager/snapshot-checkpoint-manager.js";
+import { createSimulationCheckpointManager, saveShutdownCheckpoint } from "./simulation-service-checkpointing.js";
 import {
   createHybridSnapshotStringifier,
   createWorkerSnapshotStringifier,
@@ -808,56 +808,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   } catch {
     gcObserver = undefined;
   }
-  let checkpointSaveStartMs = 0;
-  const snapshotCheckpointManager = createSnapshotCheckpointManager({
+  const snapshotCheckpointManager = createSimulationCheckpointManager({
     eventStore,
     snapshotStore,
-    exportSnapshotSections: async () => {
-      const snapshotSections = await runtime.exportSnapshotSectionsAsync(yieldToEventLoop);
-      return {
-        ...snapshotSections,
-        initialState: {
-          ...snapshotSections.initialState,
-          season: currentSeasonState
-        }
-      };
-    },
-    checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
-    ...(typeof options.checkpointForceAfterEvents === "number"
-      ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
-      : {}),
-    ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
-    ...(typeof options.checkpointMaxHeapUsedBytes === "number"
-      ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
-      : {}),
-    onCheckpointPhase: ({ phase, pendingEvents, memoryUsage, lastAppliedEventId }) => {
-      simulationMetrics.setSimCheckpointRssMb(memoryUsage.rssBytes / (1024 * 1024));
-      if (phase === "before_save") checkpointSaveStartMs = Date.now();
-      if (phase === "after_save" && checkpointSaveStartMs > 0) {
-        simulationMetrics.observeSimCheckpointExportMs(Date.now() - checkpointSaveStartMs);
-        checkpointSaveStartMs = 0;
-      }
-      // Replay-cache observability: recordedCommandHistorySize is the count of
-      // commands whose events embed in this snapshot (previously leaked to 122k);
-      // recordedHistoryEvicted>0 means an unforeseen server prefix is leaking past
-      // the classification gate and hitting the hard cap.
-      const replayCacheStats = phase === "before_save" ? runtime.replayCacheStats() : undefined;
-      if (replayCacheStats) simulationMetrics.setReplayCacheStats(replayCacheStats);
-      log.info(
-        {
-          phase,
-          pendingEvents,
-          rssBytes: memoryUsage.rssBytes,
-          heapUsedBytes: memoryUsage.heapUsedBytes,
-          heapTotalBytes: memoryUsage.heapTotalBytes,
-          ...(typeof lastAppliedEventId === "number" ? { lastAppliedEventId } : {}),
-          ...(replayCacheStats ? { replayCache: replayCacheStats } : {})
-        },
-        phase === "skipped_high_memory"
-          ? "simulation checkpoint deferred due to memory watermark"
-          : "simulation checkpoint phase"
-      );
-    }
+    runtime: () => runtime,
+    season: () => currentSeasonState,
+    metrics: simulationMetrics,
+    log,
+    options
   });
   // Wire the deferred callback so CACHE shard collections trigger an immediate checkpoint.
   onShardCollectedCallback = () => {
@@ -2782,6 +2740,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       unsubscribeRuntimeEvents?.();
       globalStatusBroadcaster.dispose();
       await persistenceQueue.whenIdle();
+      await saveShutdownCheckpoint(snapshotCheckpointManager, log);
       // All persistence tasks have resolved — their acks mean the writer worker
       // has committed every write. Safe to terminate the worker now.
       await writerChannel?.terminate();

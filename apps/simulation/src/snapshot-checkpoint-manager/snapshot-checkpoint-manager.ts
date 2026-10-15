@@ -36,6 +36,14 @@ type SnapshotCheckpointManagerOptions = {
 export type SnapshotCheckpointManager = {
   onEventPersisted: () => Promise<void>;
   checkpointNow: (options?: { ignoreMemoryGuard?: boolean }) => Promise<SnapshotCheckpointResult>;
+  /**
+   * Final checkpoint for a graceful shutdown: waits out any checkpoint already
+   * in flight (it may have captured state from before the last commands), then
+   * saves one more, ignoring the memory guard. Player scalars such as manpower
+   * live only in snapshots, so skipping this rolls them back to the previous
+   * checkpoint on the next boot.
+   */
+  checkpointOnShutdown: () => Promise<SnapshotCheckpointResult>;
   /** True while a checkpoint's export+save is in flight (i.e. from "before_save" through "after_save"/error). */
   isCheckpointInFlight: () => boolean;
 };
@@ -95,28 +103,10 @@ export const createSnapshotCheckpointManager = (
   };
   let pendingEvents = 0;
   let snapshotInFlight = false;
+  let inFlightCheckpoint: Promise<unknown> | undefined;
   let nextCheckpointPendingEvents = checkpointEveryEvents;
 
-  const flushSnapshot = async ({
-    force = false,
-    ignoreMemoryGuard = false
-  }: {
-    force?: boolean;
-    ignoreMemoryGuard?: boolean;
-  } = {}): Promise<SnapshotCheckpointResult> => {
-    if (snapshotInFlight) return "skipped_in_flight";
-    const forcedByPendingTail = pendingEvents >= forceCheckpointAfterEvents;
-    if (!force && !forcedByPendingTail && pendingEvents < nextCheckpointPendingEvents) {
-      return "skipped_threshold";
-    }
-    if (!ignoreMemoryGuard && !forcedByPendingTail && isCheckpointMemoryHot()) {
-      emitPhase("skipped_high_memory");
-      if (!force) nextCheckpointPendingEvents = pendingEvents + checkpointEveryEvents;
-      return "skipped_high_memory";
-    }
-
-    emitPhase("before_load");
-    snapshotInFlight = true;
+  const saveCheckpoint = async (): Promise<SnapshotCheckpointResult> => {
     try {
       const lastAppliedEventId = await options.eventStore.loadLatestEventId();
       emitPhase("after_load", lastAppliedEventId);
@@ -142,7 +132,33 @@ export const createSnapshotCheckpointManager = (
       throw error;
     } finally {
       snapshotInFlight = false;
+      inFlightCheckpoint = undefined;
     }
+  };
+
+  const flushSnapshot = async ({
+    force = false,
+    ignoreMemoryGuard = false
+  }: {
+    force?: boolean;
+    ignoreMemoryGuard?: boolean;
+  } = {}): Promise<SnapshotCheckpointResult> => {
+    if (snapshotInFlight) return "skipped_in_flight";
+    const forcedByPendingTail = pendingEvents >= forceCheckpointAfterEvents;
+    if (!force && !forcedByPendingTail && pendingEvents < nextCheckpointPendingEvents) {
+      return "skipped_threshold";
+    }
+    if (!ignoreMemoryGuard && !forcedByPendingTail && isCheckpointMemoryHot()) {
+      emitPhase("skipped_high_memory");
+      if (!force) nextCheckpointPendingEvents = pendingEvents + checkpointEveryEvents;
+      return "skipped_high_memory";
+    }
+
+    emitPhase("before_load");
+    snapshotInFlight = true;
+    const checkpoint = saveCheckpoint();
+    inFlightCheckpoint = checkpoint;
+    return checkpoint;
   };
 
   return {
@@ -152,6 +168,11 @@ export const createSnapshotCheckpointManager = (
     },
     checkpointNow(options = {}): Promise<SnapshotCheckpointResult> {
       return flushSnapshot({ force: true, ignoreMemoryGuard: options.ignoreMemoryGuard ?? false });
+    },
+    async checkpointOnShutdown(): Promise<SnapshotCheckpointResult> {
+      // The in-flight checkpoint's own failure is already reported by its caller.
+      while (snapshotInFlight && inFlightCheckpoint) await inFlightCheckpoint.catch(() => undefined);
+      return flushSnapshot({ force: true, ignoreMemoryGuard: true });
     },
     isCheckpointInFlight: () => snapshotInFlight
   };

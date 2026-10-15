@@ -195,6 +195,7 @@ import {
   requeueRecoveredCommands,
   uniqueLocksByCommandId
 } from "../runtime-hydration.js";
+import { restoreRecoveredTownOrder, restoreTownSettledAt } from "../recovered-town-state/recovered-town-state.js";
 import { TileDeltaStringifyCache } from "../tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import { tileDeltaFromState as tileDeltaFromStateImpl } from "../runtime-tile-delta-from-state.js";
 import { PlayerCandidateIndex } from "../player-candidate-index/player-candidate-index.js";
@@ -825,6 +826,8 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
+      // Before the boot manpower settle below: dormancy (and so the cap) dates towns by these stamps.
+      restoreTownSettledAt(this.tileSettledAtByKey, this.state.tiles, playerId, recoveredPlayersById.get(playerId)?.townSettledAt);
     }
     // First pass: apply tile summaries and shard-site tracking.
     // All tiles are already in this.state.tiles (createTilesFromInitialState produced a
@@ -928,18 +931,7 @@ export class SimulationRuntime {
       }
     }
     for (const player of options.initialState?.players ?? []) {
-      if (!player.ownedTownTileKeys?.length) continue;
-      const summary = this.summaryForPlayer(player.id);
-      const currentTowns = new Map(summary.ownedTownTierByTile);
-      summary.ownedTownTierByTile.clear();
-      for (const tileKey of player.ownedTownTileKeys) {
-        const tier = currentTowns.get(tileKey);
-        if (tier) {
-          summary.ownedTownTierByTile.set(tileKey, tier);
-          currentTowns.delete(tileKey);
-        }
-      }
-      for (const [tileKey, tier] of currentTowns) summary.ownedTownTierByTile.set(tileKey, tier);
+      if (player.ownedTownTileKeys?.length) restoreRecoveredTownOrder(this.summaryForPlayer(player.id), player.ownedTownTileKeys);
     }
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
@@ -1998,6 +1990,7 @@ export class SimulationRuntime {
       players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
+      tileSettledAtByKey: this.tileSettledAtByKey,
       docks: this.state.docks,
       terrainEpoch: this.terrainEpoch,
       tileDeltaStringifyCache: this.tileDeltaStringifyCache,

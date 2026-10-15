@@ -22,7 +22,9 @@ import type { ActiveMainThreadTask } from "./main-thread-task-tracker/main-threa
 
 type ListenerWatchdog = ReturnType<typeof createListenerWatchdog>;
 
-const SHUTDOWN_HARD_EXIT_MS = 10_000;
+// Long enough for close()'s final snapshot checkpoint (simulation-service-checkpointing.ts);
+// main-merged.ts and deploy/compose.yml's stop_grace_period leave room above it.
+const SHUTDOWN_HARD_EXIT_MS = 20_000;
 
 const stripIpv6Brackets = (value: string): string =>
   value.startsWith("[") && value.endsWith("]") ? value.slice(1, -1) : value;
