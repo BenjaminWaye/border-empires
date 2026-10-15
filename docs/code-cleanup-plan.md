@@ -140,10 +140,18 @@ have caught every orphaned file and unused dependency removed in #2356.
   `rewrite-restart-fidelity-check.mjs`) import it for
   `SIMULATION_PROTO_PATH`. Point them at the `.proto` file directly and
   delete the shim.
-- `apps/simulation/src/simulation-service/season-participation-rollover.integration.test.ts`
-  takes 53–82 s for one case against a 120 s limit. It timed out once in a
-  full local `pnpm test` run (CPU contention), and it has the same timing on
-  `develop`. Speed it up or raise its timeout before it starts flaking in CI.
+- Several simulation integration tests run close to their timeouts on
+  `develop` itself and time out when a full local `pnpm test` competes for
+  CPU. They pass in CI's sharded runs and when run alone, with the same
+  timings on `develop`:
+  - `simulation-service/season-participation-rollover.integration.test.ts`:
+    53–82 s for one case, 120 s limit
+  - `simulation-service/season-rollover-client-seq.integration.test.ts`:
+    92–106 s, 120 s limit
+  - `simulation-service/simulation-service.startup-ai-repair.test.ts`:
+    57–60 s for one case, 60 s limit
+
+  Speed them up, or raise their timeouts, before they start flaking in CI.
 - About 90 `client-changelog-data-earlier-N.ts` files are intentionally
   unreferenced (an archive, by convention in `client-changelog-data.ts`).
   They show up as unused files in knip; exclude them in the config rather
