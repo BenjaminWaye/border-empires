@@ -308,6 +308,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   {
+    createdAt: 1792006774817, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires stand down after a truce",
+    why: "An AI empire kept its muster flag, and the manpower in it, up for days after signing a truce with the player it was fighting.",
+    changes: [
+      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
+      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
+    ]
+  },
+  {
     createdAt: 1791922964029, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.2",
     title: "Manifest panel tabs",

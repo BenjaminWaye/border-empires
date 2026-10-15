@@ -9,6 +9,8 @@ import { maybeMarchFire } from "./runtime-muster-march.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 import { creditManpower } from "../runtime-manpower-ceiling.js";
+import { aiFlagHasTargetInReach } from "./muster-ai-disband.js";
+import { runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import type { CombatLockTileReader } from "../combat-lock-index/combat-lock-index.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
@@ -189,7 +191,8 @@ export const tickMusterAutoFire = (input: MusterTickInput): void => {
  * accumulating on their own.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
- * full manpower refund so the pool doesn't stay permanently locked.
+ * full manpower refund so the pool doesn't stay permanently locked. So are AI
+ * flags with nothing left to attack in reach (aiFlagHasTargetInReach).
  *
  */
 export const tickMuster = (input: MusterTickInput): void => {
@@ -216,17 +219,26 @@ export const tickMuster = (input: MusterTickInput): void => {
     const musterPoolFloor = musterPoolFloorFor(player);
     const batchCommandId = `muster-tick:${playerId}:${input.nowMs}`;
     const batchDeltas: ReturnType<MusterTickInput["tileDeltaFromState"]>[] = [];
+    // Other players see flags too (SET_MUSTER broadcasts them), so a cleared
+    // flag has to be broadcast as well or it lingers on everyone else's map.
+    const clearedBroadcastDeltas: SimulationTileWireDelta[] = [];
 
     for (const tileKey of musterKeys) {
       const tile = input.tiles.get(tileKey);
       if (!tile?.muster || tile.muster.ownerId !== playerId) continue;
 
-      // Auto-clear stale musters and refund the manpower to the pool.
-      if (tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS) {
+      // Auto-clear stale musters, and AI flags with nothing left to attack
+      // (war over by truce/alliance/enemy gone, and no barbarians in reach --
+      // see muster-ai-disband.ts), refunding the manpower to the pool.
+      const stale = tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS;
+      const warOver = !stale && player.isAi === true && !aiFlagHasTargetInReach(input, tile, playerId);
+      if (stale || warOver) {
         creditManpower(player, tile.muster.amount, input.playerManpowerCap(player));
         const clearedTile: DomainTileState = { ...tile, muster: undefined };
         input.replaceTileState(tileKey, clearedTile);
         batchDeltas.push({ ...input.tileDeltaFromState(clearedTile), musterJson: "" });
+        clearedBroadcastDeltas.push({ x: clearedTile.x, y: clearedTile.y, ownerId: clearedTile.ownerId, ownershipState: clearedTile.ownershipState, musterJson: "" });
+        if (warOver) runtimeLogInfo({ playerId, tileKey, refunded: tile.muster.amount }, "[muster] disbanded AI flag with nothing left to attack in reach");
         continue;
       }
 
@@ -320,6 +332,9 @@ export const tickMuster = (input: MusterTickInput): void => {
         playerManpower: player.manpower,
         tileDeltas: batchDeltas
       });
+    }
+    if (clearedBroadcastDeltas.length > 0) {
+      input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${batchCommandId}:bc`, playerId: "__broadcast__", tileDeltas: clearedBroadcastDeltas });
     }
   }
 };

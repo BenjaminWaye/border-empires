@@ -190,6 +190,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
+          ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -226,6 +227,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
+          ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }

@@ -55,6 +55,12 @@ type FrontierAffordability = {
    * behavior until the real runtime-backed lookup is wired in.
    */
   reachLookup?: ReachLookup;
+  /**
+   * Allies and truce partners. Their tiles are skipped outright -- not attack
+   * targets (the server rejects the attack) and not expand targets (owned) --
+   * so the AI neither attacks nor plants a muster flag against a truce.
+   */
+  nonHostilePlayerIds?: ReadonlySet<string>;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** PR 1 measurement callback — emits per-phase durations from inside
@@ -201,6 +207,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
       neighborCandidateTotal += 1;
       if (!target) missingNeighborTileCount += 1;
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
+      if (target.ownerId && affordability.nonHostilePlayerIds?.has(target.ownerId)) continue;
       if (target.ownerId) {
         enemyTargets.add(targetKey);
         if (target.ownerId === "barbarian-1" || target.ownershipState === "BARBARIAN") {
