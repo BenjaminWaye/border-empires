@@ -315,6 +315,7 @@ export type SimulationTileWireDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
   siegeBatteryJson?: string | undefined;

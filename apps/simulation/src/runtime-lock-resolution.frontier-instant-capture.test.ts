@@ -1,5 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { CAPTURE_HOLD_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { resolveLock, type RuntimeLockResolutionContext } from "./runtime-lock-resolution.js";
 import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
@@ -234,6 +235,56 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     expect(payload.attackerWon).toBe(false);
     // Blocked by Aegis Lock: ownership never actually transfers.
     expect(tiles.get(TARGET_KEY)?.ownerId).toBe(DEFENDER_ID);
+  });
+});
+
+describe("resolveLock capture hold", () => {
+  const capturedTarget = (tiles: Map<string, DomainTileState>, lock: LockRecord, context: RuntimeLockResolutionContext) => {
+    context.locksByTile.addLock(lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+    resolveLock(context, lock);
+    return tiles.get(TARGET_KEY);
+  };
+
+  it("stamps a capture-hold window on a tile won by ATTACK from another player", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", dockId: "dock-1" }]
+    ]);
+    const { context } = createContext(tiles);
+    const target = capturedTarget(tiles, makeWonAttackLock(), context);
+    expect(target?.ownerId).toBe(ATTACKER_ID);
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(target?.captureHoldUntil).toBe(CAPTURE_HOLD_MS);
+  });
+
+  it("does not stamp one on an EXPAND onto neutral land", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND" }]
+    ]);
+    const { context } = createContext(tiles);
+    expect(capturedTarget(tiles, makeWonExpandLock(), context)?.captureHoldUntil).toBeUndefined();
+  });
+
+  it("does not stamp one on land taken from barbarians", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }]
+    ]);
+    const { context } = createContext(tiles);
+    expect(capturedTarget(tiles, makeWonAttackLock(), context)?.captureHoldUntil).toBeUndefined();
+  });
+
+  it("emits combatJson for an ATTACK on a FRONTIER tile still holding captured ground", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", captureHoldUntil: 60_000 }]
+    ]);
+    const { context, events } = createContext(tiles);
+    capturedTarget(tiles, makeWonAttackLock(), context);
+    const targetDelta = tileDeltaBatches(events).flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
+    expect(targetDelta?.combatJson).toBeDefined();
   });
 });
 

@@ -236,6 +236,8 @@ export interface Tile {
   ownershipState?: OwnershipState;
   capital?: boolean | undefined;
   breachShockUntil?: number;
+  // Post-capture hold window end (capture-hold.ts) -- FRONTIER only.
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;

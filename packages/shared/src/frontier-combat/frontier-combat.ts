@@ -2,6 +2,7 @@ import type { FortVariant } from "../types.js";
 import { combatWinChance } from "../math/math.js";
 import { BREAKTHROUGH_DEBUFF_MULT } from "../config.js";
 import { attackManpowerLossRangeForFort } from "../structure-costs/structure-costs.js";
+import { CAPTURE_HOLD_DEFENSE_MULT, isCaptureHoldActive } from "../capture-hold/capture-hold.js";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
@@ -12,6 +13,9 @@ export type FrontierCombatPreviewTile = {
   fortVariant?: FortVariant | undefined;
   // Breakthrough momentum: set when tile is freshly breached; debuffs defence.
   breachShockUntil?: number | undefined;
+  // Post-capture hold window end (capture-hold.ts): a FRONTIER tile defends
+  // until then instead of having zero defense.
+  captureHoldUntil?: number | undefined;
 };
 
 export type FrontierCombatBreakdownEntry = {
@@ -184,10 +188,22 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
 
 const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCombatModifiers): SideMultBreakdown => {
   const entries: FrontierCombatBreakdownEntry[] = [];
-  // Legacy parity: frontier tiles provide no defensive effective power.
-  if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
+  // Legacy parity: frontier tiles provide no defensive effective power --
+  // except a freshly captured one still inside its hold window
+  // (capture-hold.ts), which defends like bare ground with no garrison,
+  // town or fort bonus (forts only defend once SETTLED).
+  const holdingGround = modifiers.nowMs != null && isCaptureHoldActive(target, modifiers.nowMs);
+  if (target.ownershipState === "FRONTIER" && !holdingGround) return { entries, mult: 0 };
   let mult = 1;
   mult *= foldMult(entries, modifiers.noWarIndustryDefenseVulnerabilityLabel ?? "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
+  if (holdingGround) {
+    entries.push({ label: "Holding captured ground", mult: CAPTURE_HOLD_DEFENSE_MULT });
+    mult *= CAPTURE_HOLD_DEFENSE_MULT;
+    if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
+      mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);
+    }
+    return { entries, mult };
+  }
   mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
   mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
   if (target.fortVariant) {

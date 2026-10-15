@@ -58,6 +58,7 @@ export type ProtoSimulationEvent = {
     muster_json?: string | undefined;
     afc_json?: string | undefined;
     breach_shock_until?: number | undefined;
+    capture_hold_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -90,6 +91,7 @@ export type ProtoSimulationEvent = {
     musterJson?: string | undefined;
     afcJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
+    captureHoldUntil?: number | null | undefined;
     yield?: {
       gold?: number;
       strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
@@ -183,6 +185,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
           ...overlaySnakeClearFields(tile as unknown as Record<string, unknown>),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
+          ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yield" in tile && tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
@@ -212,6 +215,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
           ...overlayCamelClearFields(tile as unknown as Record<string, unknown>),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
+          ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yield" in tile ? { yield: tile.yield } : {}),
@@ -244,6 +248,7 @@ export const toFullSnapshotProtoTile = (tile: {
   musterJson?: string | undefined;
   afcJson?: string | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;
 }) => ({
   x: tile.x,
@@ -263,6 +268,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
   ...overlaySnakeTruthyFields(tile as unknown as Record<string, unknown>),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
   ...(tile.yield ? { yield_json: JSON.stringify(tile.yield) } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
   ...(tile.yieldCap ? { yield_cap_json: JSON.stringify(tile.yieldCap) } : {})

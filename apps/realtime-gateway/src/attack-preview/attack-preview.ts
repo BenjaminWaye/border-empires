@@ -1,5 +1,4 @@
 import {
-  BREAKTHROUGH_ENABLED,
   buildFrontierCombatPreview,
   defendingFortVariant,
   isFortDefending,
@@ -33,6 +32,7 @@ type PreviewTile = {
   siegeBatteryJson?: string | undefined;
   fortJson?: string | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
 };
 
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
@@ -171,7 +171,10 @@ export const attackPreviewResult = async (
       attackerOutpostMult,
       defenderOwnerId: target.ownerId,
       ...factoryModifiers,
-      ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
+      // Always pass nowMs, same as the sim's resolveAttackCombat: the
+      // capture-hold window is time-based, and breach shock is already gated
+      // at its source (the sim only stamps breachShockUntil when enabled).
+      ...(techModifiers ?? {}), nowMs: Date.now(),
     }
   );
   return {

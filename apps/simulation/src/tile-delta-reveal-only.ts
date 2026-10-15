@@ -36,6 +36,7 @@ export const tileDeltaRevealOnly = (
     frontierDecayAt: tile.frontierDecayAt ?? undefined,
     frontierDecayKind: tile.frontierDecayKind ?? undefined,
     breachShockUntil: tile.breachShockUntil ?? undefined,
+    captureHoldUntil: tile.captureHoldUntil ?? undefined,
     ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
     ...(tile.town?.type ? { townType: tile.town.type } : {}),
     ...(tile.town?.name ? { townName: tile.town.name } : {}),

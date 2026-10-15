@@ -19,6 +19,7 @@ export type SimClientTileDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;
@@ -66,6 +67,8 @@ export type ProtoTileDelta = {
   frontierDecayKind?: FrontierDecayKind;
   breach_shock_until?: number;
   breachShockUntil?: number;
+  capture_hold_until?: number;
+  captureHoldUntil?: number;
   town_json?: string;
   townJson?: string;
   town_type?: string;
@@ -135,6 +138,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("breach_shock_until" in tile || "breachShockUntil" in tile) {
     const breachShockUntil = tile.breach_shock_until ?? tile.breachShockUntil;
     normalized.breachShockUntil = typeof breachShockUntil === "number" && breachShockUntil > 0 ? breachShockUntil : undefined;
+  }
+  if ("capture_hold_until" in tile || "captureHoldUntil" in tile) {
+    const captureHoldUntil = tile.capture_hold_until ?? tile.captureHoldUntil;
+    normalized.captureHoldUntil = typeof captureHoldUntil === "number" && captureHoldUntil > 0 ? captureHoldUntil : undefined;
   }
   if ("town_json" in tile || "townJson" in tile) normalized.townJson = tile.town_json || tile.townJson || undefined;
   if (typeof tile.town_type === "string" && (tile.town_type === "MARKET" || tile.town_type === "FARMING")) {

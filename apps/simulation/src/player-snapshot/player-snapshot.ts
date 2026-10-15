@@ -69,7 +69,8 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
             ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
             ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
-            ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {})
+            ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
+            ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {})
           }))
         : [];
 

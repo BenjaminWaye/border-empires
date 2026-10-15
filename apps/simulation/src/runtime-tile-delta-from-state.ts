@@ -88,6 +88,7 @@ export const tileDeltaFromState = (
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
+    ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
     ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
     ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
     ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),

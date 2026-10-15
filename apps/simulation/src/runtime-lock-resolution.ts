@@ -1,7 +1,9 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST
+  CAPTURE_HOLD_MS,
+  FRONTIER_CLAIM_COST,
+  isCaptureHoldActive
 } from "@border-empires/shared";
 import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
@@ -188,7 +190,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     lock.actionType === "ATTACK" &&
     Boolean(previousOwnerId) &&
     previousOwnerId !== lock.playerId &&
-    (previousTarget?.ownershipState !== "FRONTIER" || blockedByAegisLock);
+    (previousTarget?.ownershipState !== "FRONTIER" || isCaptureHoldActive(previousTarget, context.now()) || blockedByAegisLock);
   const combatBroadcastJson = hasDefendingForce && previousOwnerId
     ? JSON.stringify({
         attackerOwnerId: lock.playerId,
@@ -292,6 +294,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
       ...(outOfReachDecayAt !== undefined && !willAutoSettle
         ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
+        : {}),
+      // Capture hold (shared capture-hold.ts): a tile won from another player
+      // defends for a while instead of being a free 100% retake.
+      ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
+        ? { captureHoldUntil: context.now() + CAPTURE_HOLD_MS }
         : {})
     };
     // Capturing a tile destroys any muster flag staged on it — the accumulated
