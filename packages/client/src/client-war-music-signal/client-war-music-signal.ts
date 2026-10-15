@@ -9,6 +9,11 @@ import type { MusterState } from "@border-empires/shared";
 // attack lets it settle instead.
 const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
 
+// An ADVANCE/MARCH flag the sim reports as idle with nothing to fight: its
+// last target search came up empty and none of its attacks are in flight.
+const isIdleWithNoTarget = (muster: MusterState): boolean =>
+  muster.noTargetInRange === true && !muster.inFlight && (muster.inFlightCount ?? 0) === 0;
+
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
 // NOTE: despite the "compute*" name, this function is NOT pure -- it writes
@@ -39,9 +44,6 @@ const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
 //     the whole truce.
 //   - tension: a flag is raised but still HOLD (staged, not yet advancing) —
 //     the "war is coming" stance.
-const isIdleWithNoTarget = (muster: MusterState): boolean =>
-  muster.noTargetInRange === true && !muster.inFlight && !(muster.inFlightCount && muster.inFlightCount > 0);
-
 export const computeWarMusicSignals = (
   state: Pick<ClientState, "tiles" | "activeBattles" | "warMusicHoldUntil">,
   now: number = Date.now()
