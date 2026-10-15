@@ -425,7 +425,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Unresolved resource surveys remain available in Activity → Yours with a View survey button, even beyond the 24-hour history window",
       "New surveys open a centered popup that stays until you choose View survey or Got it, even when the clue is off-screen"
     ]
-  }
+  },
+  {
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Flags head into enemy territory instead of around it",
+    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
+    changes: [
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
+      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
