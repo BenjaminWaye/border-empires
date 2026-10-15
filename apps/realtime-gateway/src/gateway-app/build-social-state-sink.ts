@@ -20,5 +20,6 @@ export const buildSocialStateSink = (socialStore: GatewaySocialStore): SocialSta
   removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
   saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
   saveTruceBreak: (playerId, record) => socialStore.saveTruceBreak(playerId, record),
+  saveOfferCooldown: (cooldown) => socialStore.saveOfferCooldown(cooldown),
   pruneExpired: (now) => socialStore.pruneExpired(now)
 });

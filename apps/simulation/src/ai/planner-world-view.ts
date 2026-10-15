@@ -114,6 +114,8 @@ export type PlannerPlayerView = {
   activeMusterCount?: number;
   /** Tile keys (see tileKeyOf) of this player's currently active muster flags. */
   musterTileKeys?: string[];
+  /** Allies and truce partners: their tiles are not attack or muster targets. */
+  nonHostilePlayerIds?: string[];
   /**
    * Manpower currently staged inside this player's muster flags (out of the
    * pool). The AI war reserve counts it as already reserved — see

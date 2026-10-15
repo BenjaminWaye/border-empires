@@ -23,6 +23,30 @@ describe("tile detail refresh on press", () => {
     expect(shouldSendTileDetailRequest(tile, "me", { force: true })).toBe(true);
   });
 
+  it("re-requests detail for an owned town whose growth rate hasn't arrived even when the cached tile is full", () => {
+    const town: NonNullable<Tile["town"]> = {
+      type: "MARKET",
+      populationTier: "TOWN",
+      baseGoldPerMinute: 2,
+      supportCurrent: 8,
+      supportMax: 8,
+      goldPerMinute: 3.8,
+      cap: 40,
+      isFed: true,
+      population: 23_052,
+      maxPopulation: 100_000,
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      hasMintworks: false,
+      mintworksActive: false,
+      hasIncubationEngine: false,
+      incubationEngineActive: false
+    };
+
+    expect(shouldSendTileDetailRequest(fullOwnedTile({ town }), "me")).toBe(true);
+    expect(shouldSendTileDetailRequest(fullOwnedTile({ town: { ...town, populationGrowthPerMinute: 4.2 } }), "me")).toBe(false);
+  });
+
   it("does not refresh fogged or unexplored pressed tiles", () => {
     expect(shouldRefreshTileDetailOnPress(fullOwnedTile({ fogged: true }), "fogged")).toBe(false);
     expect(shouldRefreshTileDetailOnPress(undefined, "unexplored")).toBe(false);

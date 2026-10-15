@@ -1,3 +1,4 @@
+import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
@@ -33,6 +34,7 @@ import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
+import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -215,6 +217,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
+  ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -224,6 +227,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "From next season, each dock links to its nearest dock on another island, measured by actual sea distance",
       "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
       "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
+    ]
+  },
+  {
+    createdAt: 1792009197862, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires weigh your truce and alliance offers",
+    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    changes: [
+      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
+      "AI empires now answer alliance offers too",
+      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
     ]
   },
   {
@@ -251,6 +265,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
   ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
     introducedIn: "2026.10.13.1",
@@ -296,6 +311,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
+  {
+    createdAt: 1792006774817, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires stand down after a truce",
+    why: "An AI empire kept its muster flag, and the manpower in it, up for days after signing a truce with the player it was fighting.",
+    changes: [
+      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
+      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
+    ]
+  },
   {
     createdAt: 1791922964029, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.2",
@@ -427,15 +452,31 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792038621394, // Date.now() captured once for this release.
-    introducedIn: "2026.10.15.1",
-    title: "Drawn icons for every Aether ability",
-    why: "Abilities were marked with text symbols that looked different on every device, and Survey Sweep and Aether Purge showed a tent in the Crystal tab.",
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Flags head into enemy territory instead of around it",
+    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
     changes: [
-      "Each Aether ability has its own icon showing what it does: a radar sweep for Survey Sweep, a watching eye for Reveal Empire, a crystal lance striking a banner for Aether Purge, a glowing span between pylons for Aether Bridge, and so on",
-      "The icons appear in the tile menu's Crystal tab, on each ability's info card, and in Manifest details"
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
+      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
     ]
-  }
+  },
+  {
+    createdAt: 1792006675564, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Snow shows up on the 3D map",
+    why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
+    changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
+  },
+  {
+    createdAt: 1792042002455, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "War music stops when your flag has nothing to fight",
+    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
+    changes: [
+      "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

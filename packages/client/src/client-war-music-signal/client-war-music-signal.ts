@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import type { MusterState } from "@border-empires/shared";
 
 // How long war (combat) music keeps playing after the last live combat
 // signal (an ADVANCE/MARCH flag or an active battle) drops out. Without
@@ -7,6 +8,18 @@ import type { ClientState } from "../client-state/client-state.js";
 // track jumping around; holding combat music for a while after the last
 // attack lets it settle instead.
 const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
+
+// Whether an ADVANCE/MARCH flag is actually engaged: an attack it funded is
+// in flight, or the sim has searched and found a target (cooling down or
+// saving up for it). Not engaged: the last search found nothing to fight
+// (`noTargetInRange`), or the sim hasn't evaluated the flag yet -- every
+// ADVANCE/MARCH tick path sets inFlight or nextActionAt, so a flag with
+// neither was only just raised. Counting that first beat as combat latched
+// WAR_MUSIC_HOLD_MS of war music even on a border with nothing to attack.
+const isEngagedFlag = (muster: MusterState): boolean => {
+  if (muster.inFlight || (muster.inFlightCount ?? 0) > 0) return true;
+  return muster.nextActionAt !== undefined && muster.noTargetInRange !== true;
+};
 
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
@@ -30,6 +43,12 @@ const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
 //     `state.warMusicHoldUntil` for WAR_MUSIC_HOLD_MS after the last time it
 //     was live, so the track doesn't jump straight back out of war music the
 //     instant a single attack resolves.
+//     An ADVANCE/MARCH flag the server reports as idle with nothing to
+//     fight (`noTargetInRange` and no attack in flight) does NOT count:
+//     the sim's target scan skips allied/truced players' tiles, so a flag
+//     parked on a border with a truce partner sits in exactly this state
+//     forever, and treating it as combat kept war music playing through
+//     the whole truce.
 //   - tension: a flag is raised but still HOLD (staged, not yet advancing) —
 //     the "war is coming" stance.
 export const computeWarMusicSignals = (
@@ -42,8 +61,11 @@ export const computeWarMusicSignals = (
   let advancing = false;
   let staged = false;
   for (const tile of state.tiles.values()) {
-    if (tile.muster?.mode === "ADVANCE" || tile.muster?.mode === "MARCH") advancing = true;
-    else if (tile.muster?.mode === "HOLD") staged = true;
+    const muster = tile.muster;
+    if (!muster) continue;
+    if (muster.mode === "ADVANCE" || muster.mode === "MARCH") {
+      if (isEngagedFlag(muster)) advancing = true;
+    } else if (muster.mode === "HOLD") staged = true;
     if (advancing && staged) break;
   }
   const liveCombat = advancing || state.activeBattles.size > 0;

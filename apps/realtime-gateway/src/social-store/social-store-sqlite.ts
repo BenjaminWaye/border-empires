@@ -14,6 +14,7 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "../social-state/social-state.js";
+import type { SocialOfferCooldown, SocialOfferKind } from "../social-state/social-offer-cooldowns.js";
 import type { GatewaySocialStore, SocialStoreSnapshot } from "./social-store.js";
 import { orderedPair, pairKey } from "./social-store.js";
 import {
@@ -111,6 +112,14 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         broken_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS social_truce_breaks_player_idx ON social_truce_breaks (player_id);
+      CREATE TABLE IF NOT EXISTS social_offer_cooldowns (
+        kind TEXT NOT NULL,
+        from_player_id TEXT NOT NULL,
+        to_player_id TEXT NOT NULL,
+        until INTEGER NOT NULL,
+        PRIMARY KEY (kind, from_player_id, to_player_id)
+      );
+      CREATE INDEX IF NOT EXISTS social_offer_cooldowns_until_idx ON social_offer_cooldowns (until);
     `);
   }
 
@@ -150,6 +159,9 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     const truceBreakRows = this.db
       .prepare(`SELECT player_id, target_player_id, target_player_name, broken_at FROM social_truce_breaks`)
       .all() as TruceBreakRow[];
+    const offerCooldownRows = this.db
+      .prepare(`SELECT kind, from_player_id, to_player_id, until FROM social_offer_cooldowns`)
+      .all() as Array<{ kind: string; from_player_id: string; to_player_id: string; until: number }>;
 
     const alliesByPlayer = new Map<string, Set<string>>();
     for (const row of allianceRows) {
@@ -177,7 +189,11 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         targetPlayerId: row.target_player_id,
         targetPlayerName: row.target_player_name,
         brokenAt: row.broken_at
-      }))
+      })),
+      offerCooldowns: offerCooldownRows.flatMap((row): SocialOfferCooldown[] => {
+        const kind: SocialOfferKind | undefined = row.kind === "truce" || row.kind === "alliance" ? row.kind : undefined;
+        return kind ? [{ kind, fromPlayerId: row.from_player_id, toPlayerId: row.to_player_id, until: row.until }] : [];
+      })
     };
   }
 
@@ -378,7 +394,18 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
       .run(playerId, playerId, MAX_TRUCE_BREAKS_PER_PLAYER);
   }
 
+  saveOfferCooldown(cooldown: SocialOfferCooldown): void {
+    this.db
+      .prepare(
+        `INSERT INTO social_offer_cooldowns (kind, from_player_id, to_player_id, until)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(kind, from_player_id, to_player_id) DO UPDATE SET until = excluded.until`
+      )
+      .run(cooldown.kind, cooldown.fromPlayerId, cooldown.toPlayerId, cooldown.until);
+  }
+
   pruneExpired(now: number): void {
+    this.db.prepare(`DELETE FROM social_offer_cooldowns WHERE until <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_requests WHERE expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
@@ -394,5 +421,6 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.exec(`DELETE FROM social_active_truces`);
     this.db.exec(`DELETE FROM social_truce_lockouts`);
     this.db.exec(`DELETE FROM social_truce_breaks`);
+    this.db.exec(`DELETE FROM social_offer_cooldowns`);
   }
 }

@@ -264,6 +264,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
       ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
       ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
+      ...(player.nonHostilePlayerIds?.length ? { nonHostilePlayerIds: new Set(player.nonHostilePlayerIds) } : {}),
       ...(typeof player.musterStagedManpower === "number" ? { musterStagedManpower: player.musterStagedManpower } : {}),
       // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass
       // through only if the sync_players payload actually carried them (see

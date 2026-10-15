@@ -158,7 +158,9 @@ export function tickPopulationGrowth(input: {
       // tile or the player reconnects.
       const freshIsFed = fedTownKeys.has(tileKey);
       if (town.isFed !== freshIsFed) {
-        town = { ...town, isFed: freshIsFed };
+        // An unfed town's rate is 0; a newly fed one gets its real rate
+        // stamped by the growth branch below in this same iteration.
+        town = { ...town, isFed: freshIsFed, ...(freshIsFed ? {} : { populationGrowthPerMinute: 0 }) };
         const healedTile = { ...tile, town };
         input.tiles.set(tileKey, healedTile);
         input.invalidateTileStringifyCache(tileKey);
@@ -190,7 +192,7 @@ export function tickPopulationGrowth(input: {
       if (isNearActiveWar) {
         const pausedUntil = input.nowMs + NEARBY_WAR_PAUSE_MS;
         if ((town.nearbyWarPausedUntil ?? 0) < pausedUntil) {
-          const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs };
+          const updatedTown = { ...town, nearbyWarPausedUntil: pausedUntil, nearbyWarLastAt: input.nowMs, populationGrowthPerMinute: 0 };
           const updatedTile = { ...tile, town: updatedTown };
           input.tiles.set(tileKey, updatedTile);
           input.invalidateTileStringifyCache(tileKey);
@@ -241,7 +243,12 @@ export function tickPopulationGrowth(input: {
 
       const newPopulation = Math.min(town.maxPopulation, town.population + growth);
       const { nearbyWarPausedUntil: _clearPause, ...townWithoutPause } = town;
-      const updatedTown = { ...townWithoutPause, population: newPopulation };
+      // Stamp the rate this tick actually applied. This delta (sent every
+      // tick for every growing town) replaces the client's whole town
+      // summary, so a stored record without the rate made the client's
+      // town overview read "0.00/m — growth paused" until its next
+      // tile-detail fetch.
+      const updatedTown = { ...townWithoutPause, population: newPopulation, populationGrowthPerMinute: Number(growthPerMinute.toFixed(4)) };
       const updatedTile = { ...tile, town: updatedTown };
       input.tiles.set(tileKey, updatedTile);
       input.invalidateTileStringifyCache(tileKey);

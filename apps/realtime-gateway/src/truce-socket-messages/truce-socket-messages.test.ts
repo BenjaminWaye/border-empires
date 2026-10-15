@@ -19,6 +19,7 @@ const truceDeps = (overrides: Partial<TruceSocketMessageDeps>): TruceSocketMessa
 const allianceDeps = (overrides: Partial<AllianceSocketMessageDeps>): AllianceSocketMessageDeps => ({
   requestAlliance: () => okResult, acceptAlliance: () => okResult, rejectAlliance: () => okResult, cancelAlliance: () => okResult, breakAlliance: () => okResult,
   sendJson: vi.fn(), fanoutPlayerPayloads: vi.fn(), syncAllianceToSimulation: vi.fn(async () => true), sendGameplayEmailAlert: vi.fn(),
+  maybeAutoRespondToSeededAiAlliance: vi.fn(async () => {}),
   sendAllianceRequestAlert: vi.fn(async () => ({ sent: false }) as unknown as Awaited<ReturnType<AllianceSocketMessageDeps["sendAllianceRequestAlert"]>>),
   sendAllianceBreakAlert: vi.fn(async () => ({ sent: false }) as unknown as Awaited<ReturnType<AllianceSocketMessageDeps["sendAllianceBreakAlert"]>>),
   ...overrides

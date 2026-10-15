@@ -221,7 +221,7 @@ describe("ADVANCE clearing enemies in range", () => {
     expect(musterAt(runtime, 10, 10)).toMatchObject({ mode: "ADVANCE" });
   });
 
-  it("leaves AI flags alone: no expanding toward barbarians, no finishing", () => {
+  it("leaves AI flags out of clearing: no expanding toward barbarians, no finishing to HOLD", () => {
     const expandRuntime = buildRuntime([owned(10, 10, advanceFlag()), ...column(10, 11, 13), barb(10, 14)], { playerIsAi: true });
     const seen: SimulationEvent[] = [];
     expandRuntime.onEvent((event) => seen.push(event));
@@ -229,7 +229,9 @@ describe("ADVANCE clearing enemies in range", () => {
     expect(targets(seen)).toEqual([]);
     const finishRuntime = buildRuntime([owned(10, 10, advanceFlag({ clearing: true })), owned(11, 10)], { playerIsAi: true });
     finishRuntime.tickMuster(1_000);
-    expect(musterAt(finishRuntime, 10, 10)).toMatchObject({ mode: "ADVANCE" });
+    // With nothing left to attack in reach an AI flag is disbanded outright
+    // (muster-ai-disband.ts) rather than dropping back to HOLD like a human's.
+    expect(musterAt(finishRuntime, 10, 10)).toBeUndefined();
   });
 });
 
