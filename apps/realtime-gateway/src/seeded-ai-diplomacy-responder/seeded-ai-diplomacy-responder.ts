@@ -1,8 +1,15 @@
+import {
+  aiCounterOffer,
+  emptyDiplomacyTerms,
+  evaluateAiOffer,
+  swapDiplomacyTerms,
+  describeDiplomacyTermsForRecipient,
+  type DiplomacyTerms
+} from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { computeAiDiplomacyStance, type AiDiplomacyStance } from "../ai-diplomacy-stance/ai-diplomacy-stance.js";
-import { buildAiDiplomacyStanceInput } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
-import type { SocialAllianceRequest, SocialTruceRequest } from "../social-state/social-state.js";
+import { evaluateAiDiplomacy } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import type { SocialAllianceRequest, SocialOfferOptions, SocialTruceRequest } from "../social-state/social-state-types.js";
 
 const extractRequestFromPayloads = <T>(payloadsByPlayerId: Map<string, unknown[]>, playerId: string, payloadType: string): T | undefined => {
   for (const payload of payloadsByPlayerId.get(playerId) ?? []) {
@@ -69,10 +76,14 @@ export type SeededAiDiplomacyResponderDeps = {
   // decides their own offers. Without this, the auto-responder can race a
   // human's own ACCEPT/REJECT and resolve the request first.
   hasLiveSocket: (playerId: string) => boolean;
-  acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => SocialActionResult;
+  /** Pays out any terms in the simulation before recording (diplomacy-offer-acceptance.ts). */
+  acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
   rejectTruce: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean }) => SocialActionResult;
-  acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => SocialActionResult;
+  acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Announcements) => Promise<SocialActionResult>;
   rejectAlliance: (playerId: string, requestId: string, options?: { announcementByPlayerId?: Announcements; startCooldown?: boolean }) => SocialActionResult;
+  /** The AI's counter-offer goes back to the requester as a fresh offer from the AI. */
+  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
+  requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: SocialOfferOptions) => SocialActionResult;
   syncPlayers: (playerIds: string[]) => { payloadsByPlayerId: Map<string, unknown[]> };
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
@@ -115,9 +126,38 @@ export const aiDiplomacyAnnouncements = (
 
 const UNAVAILABLE_REASON = (aiName: string): string => `${aiName} couldn't weigh your offer right now. Try again shortly.`;
 
-type PendingOffer = { kind: OfferKind; id: string; fromPlayerId: string; toPlayerId: string; fromName?: string; toName?: string; durationHours?: number };
+type PendingOffer = {
+  kind: OfferKind;
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  fromName?: string;
+  toName?: string;
+  durationHours?: 12 | 24;
+  terms?: DiplomacyTerms;
+};
+
+type Decision =
+  | { kind: "accept"; reason: string }
+  | { kind: "decline"; reason: string; startCooldown: boolean }
+  | { kind: "counter"; reason: string; terms: DiplomacyTerms };
 
 export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponderDeps): SeededAiDiplomacyResponder => {
+  const decide = (offer: PendingOffer, aiName: string, evaluation: ReturnType<typeof evaluateAiDiplomacy>): Decision => {
+    if (!evaluation) return { kind: "decline", reason: UNAVAILABLE_REASON(aiName), startCooldown: false };
+    const { stance, pricing, requesterHoldings } = evaluation;
+    const duration = offer.durationHours ?? 12;
+    const terms = offer.terms ?? emptyDiplomacyTerms();
+    const verdict = evaluateAiOffer(pricing, offer.kind, duration, terms);
+    if (verdict.accepts) return { kind: "accept", reason: stance.reason };
+    const counter = aiCounterOffer(pricing, offer.kind, duration, terms, requesterHoldings);
+    if (counter.kind === "counter") return { kind: "counter", reason: stance.reason, terms: counter.terms };
+    if (counter.kind === "cannotAfford") {
+      return { kind: "decline", reason: `${stance.reason} ${aiName} wants about ${counter.shortfall} coin more than you can offer.`, startCooldown: true };
+    }
+    return { kind: "decline", reason: stance.reason, startCooldown: true };
+  };
+
   const respond = async (offer: PendingOffer): Promise<void> => {
     if (!deps.seededAiPlayerIds.has(offer.toPlayerId)) return;
     if (deps.hasLiveSocket(offer.toPlayerId)) return;
@@ -130,7 +170,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
     if (deps.hasLiveSocket(offer.toPlayerId)) return;
     const aiName = offer.toName ?? offer.toPlayerId;
     const requesterName = offer.fromName ?? offer.fromPlayerId;
-    const stanceInput = buildAiDiplomacyStanceInput({
+    const evaluation = evaluateAiDiplomacy({
       aiPlayerId: offer.toPlayerId,
       aiName,
       aiSnapshot,
@@ -138,8 +178,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       requesterSnapshot,
       requesterBrokeTruceWithAi: deps.requesterBrokeTruceWith(offer.fromPlayerId, offer.toPlayerId)
     });
-    const stance: AiDiplomacyStance | undefined = stanceInput ? computeAiDiplomacyStance(stanceInput) : undefined;
-    if (!stance) {
+    if (!evaluation) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_snapshot_failed", {
         aiPlayerId: offer.toPlayerId,
         fromPlayerId: offer.fromPlayerId,
@@ -147,47 +186,82 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
         error: "target snapshot unavailable"
       });
     }
-    const accepted = stance ? (offer.kind === "truce" ? stance.acceptsTruce : stance.acceptsAlliance) : false;
-    const text = aiDiplomacyAnnouncements(offer.kind, accepted, { aiName, requesterName }, stance?.reason ?? UNAVAILABLE_REASON(aiName), offer.durationHours);
-    const announcementByPlayerId: Announcements = { [offer.fromPlayerId]: text.toRequester, [offer.toPlayerId]: text.toAi };
-    // A decline caused by our own missing snapshot is not the player's
-    // fault, so it doesn't lock them out of re-offering.
-    const rejectOptions = { announcementByPlayerId, startCooldown: stance !== undefined };
-    const response =
-      offer.kind === "truce"
-        ? accepted
-          ? deps.acceptTruce(offer.toPlayerId, offer.id, announcementByPlayerId)
-          : deps.rejectTruce(offer.toPlayerId, offer.id, rejectOptions)
-        : accepted
-          ? deps.acceptAlliance(offer.toPlayerId, offer.id, announcementByPlayerId)
-          : deps.rejectAlliance(offer.toPlayerId, offer.id, rejectOptions);
+    const decision = decide(offer, aiName, evaluation);
+    const names = { aiName, requesterName };
+    const announce = (accepted: boolean, reason: string): Announcements => {
+      const text = aiDiplomacyAnnouncements(offer.kind, accepted, names, reason, offer.durationHours);
+      return { [offer.fromPlayerId]: text.toRequester, [offer.toPlayerId]: text.toAi };
+    };
+    const decline = (reason: string, startCooldown: boolean): SocialActionResult => {
+      const options = { announcementByPlayerId: announce(false, reason), startCooldown };
+      return offer.kind === "truce" ? deps.rejectTruce(offer.toPlayerId, offer.id, options) : deps.rejectAlliance(offer.toPlayerId, offer.id, options);
+    };
+
+    let response: SocialActionResult;
+    let outcome: string = decision.kind;
+    if (decision.kind === "accept") {
+      const announcementByPlayerId = announce(true, decision.reason);
+      response =
+        offer.kind === "truce"
+          ? await deps.acceptTruce(offer.toPlayerId, offer.id, announcementByPlayerId)
+          : await deps.acceptAlliance(offer.toPlayerId, offer.id, announcementByPlayerId);
+      // The AI said yes but the payment failed (e.g. the requester spent the
+      // coin meanwhile): turn it into a decline that names why, no cooldown.
+      if (!response.ok && response.code === "DIPLOMACY_SETTLEMENT_FAILED") {
+        outcome = "settlement_failed";
+        response = decline(response.message, false);
+      }
+    } else {
+      response = decline(decision.reason, decision.kind === "decline" ? decision.startCooldown : true);
+    }
     if (!response.ok) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_response_failed", {
         aiPlayerId: offer.toPlayerId,
         fromPlayerId: offer.fromPlayerId,
         kind: offer.kind,
-        accepted,
+        outcome,
         code: response.code,
         message: response.message
       });
       deps.fanoutPlayerPayloads(deps.syncPlayers([offer.fromPlayerId, offer.toPlayerId]).payloadsByPlayerId);
       return;
     }
-    if (accepted && offer.kind === "truce") {
+    if (outcome === "accept" && offer.kind === "truce") {
       await deps.syncTruceToSimulation({ playerId: offer.toPlayerId, targetPlayerId: offer.fromPlayerId, truced: true });
     }
-    if (accepted && offer.kind === "alliance") {
+    if (outcome === "accept" && offer.kind === "alliance") {
       await deps.syncAllianceToSimulation({ playerId: offer.toPlayerId, targetPlayerId: offer.fromPlayerId, allied: true });
     }
     deps.recordGatewayEvent("info", "gateway_ai_diplomacy_response", {
       aiPlayerId: offer.toPlayerId,
       fromPlayerId: offer.fromPlayerId,
       kind: offer.kind,
-      decision: accepted ? "accept" : "reject",
-      stance: stance?.kind ?? "UNAVAILABLE",
+      decision: outcome,
+      stance: evaluation?.stance.kind ?? "UNAVAILABLE",
+      hasTerms: Boolean(offer.terms),
       ...(offer.durationHours ? { durationHours: offer.durationHours } : {})
     });
     deps.fanoutPlayerPayloads(response.payloadsByPlayerId);
+    if (decision.kind === "counter") sendCounterOffer(offer, decision.terms);
+  };
+
+  // The counter goes back as the AI's own offer, so the requester accepts or
+  // rejects it like any incoming offer. Its terms are from the AI's side.
+  const sendCounterOffer = (offer: PendingOffer, requesterTerms: DiplomacyTerms): void => {
+    const options: SocialOfferOptions = { targetPlayerId: offer.fromPlayerId, terms: swapDiplomacyTerms(requesterTerms) };
+    const counter =
+      offer.kind === "truce"
+        ? deps.requestTruce(offer.toPlayerId, offer.fromName ?? offer.fromPlayerId, offer.durationHours ?? 12, options)
+        : deps.requestAlliance(offer.toPlayerId, offer.fromName ?? offer.fromPlayerId, options);
+    deps.recordGatewayEvent(counter.ok ? "info" : "warn", "gateway_ai_diplomacy_counter_offer", {
+      aiPlayerId: offer.toPlayerId,
+      fromPlayerId: offer.fromPlayerId,
+      kind: offer.kind,
+      ok: counter.ok,
+      terms: describeDiplomacyTermsForRecipient(options.terms, offer.toName ?? offer.toPlayerId),
+      ...(counter.ok ? {} : { code: counter.code })
+    });
+    if (counter.ok) deps.fanoutPlayerPayloads(counter.payloadsByPlayerId);
   };
 
   return {

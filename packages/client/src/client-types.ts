@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { DiplomacyTerms, FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, ProspectSignature, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTileEconomicStructure } from "./client-tile-economic-structure-type.js";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 import type { ClientTileFort } from "./client-tile-fort-type.js";
@@ -246,6 +246,8 @@ export type AllianceRequest = {
   expiresAt?: number;
   fromName?: string;
   toName?: string;
+  /** Coin/Shards the deal moves, from the proposer's side. */
+  terms?: DiplomacyTerms;
 };
 
 export type ActiveAllianceBreakView = {
@@ -269,6 +271,7 @@ export type TruceRequest = {
   durationHours: 12 | 24;
   fromName?: string;
   toName?: string;
+  terms?: DiplomacyTerms;
 };
 
 export type ActiveTruceView = {

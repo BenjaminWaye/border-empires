@@ -466,6 +466,19 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
   },
+  {
+    createdAt: 1792044983124, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Trade screen for truces and alliances",
+    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
+    changes: [
+      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
+      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
+      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
+      "Pending offers show their terms in the Alliances panel"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

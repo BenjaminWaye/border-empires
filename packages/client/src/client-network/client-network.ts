@@ -37,12 +37,7 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordCli
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
-import {
-  applyAllianceUpdateMessage,
-  applyTruceUpdateMessage,
-  notifyIncomingAllianceRequest,
-  notifyIncomingTruceRequest
-} from "../client-diplomacy-notifications/client-diplomacy-notifications.js";
+import { handleDiplomacySocketMessage } from "../client-diplomacy-notifications/client-diplomacy-messages.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -2086,55 +2081,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request && !state.incomingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingAllianceRequests.push(request);
-      }
-      notifyIncomingAllianceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_REQUESTED") {
-      const request = msg.request as any;
-      if (request && !state.outgoingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        state.outgoingAllianceRequests.push(request);
-      }
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_UPDATE") {
-      applyAllianceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
-      }
-      notifyIncomingTruceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUESTED") {
-      const request = msg.request as any;
-      const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
-      pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_UPDATE") {
-      applyTruceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
+    if (handleDiplomacySocketMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely, playerNameForOwner })) {
       renderHud();
       return;
     }

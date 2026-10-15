@@ -21,13 +21,25 @@ const baseRequest: SocialTruceRequest = {
 
 const allianceRequest: SocialAllianceRequest = { id: "alliance-1", fromPlayerId: HUMAN_ID, toPlayerId: AI_ID, createdAt: 0, fromName: "Human", toName: "Alden Vale" };
 
-type SnapshotOptions = { manpower: number; manpowerCap?: number; score?: number; tiles?: PlayerSubscriptionSnapshot["tiles"] };
+type SnapshotOptions = {
+  manpower: number;
+  manpowerCap?: number;
+  score?: number;
+  gold?: number;
+  incomePerMinute?: number;
+  tiles?: PlayerSubscriptionSnapshot["tiles"];
+};
 
 const snapshotFor = (playerId: string, options: SnapshotOptions): PlayerSubscriptionSnapshot =>
   ({
     playerId,
     tiles: options.tiles ?? [],
-    player: { manpower: options.manpower, ...(options.manpowerCap !== undefined ? { manpowerCap: options.manpowerCap } : {}) },
+    player: {
+      manpower: options.manpower,
+      gold: options.gold ?? 0,
+      incomePerMinute: options.incomePerMinute ?? 1,
+      ...(options.manpowerCap !== undefined ? { manpowerCap: options.manpowerCap } : {})
+    },
     ...(options.score !== undefined ? { worldStatus: { leaderboard: { selfOverall: { score: options.score } } } } : {})
   }) as unknown as PlayerSubscriptionSnapshot;
 
@@ -40,9 +52,11 @@ const touchingTiles = [
 const okResult = () => ({ ok: true as const, notifyPlayerIds: [HUMAN_ID, AI_ID], payloadsByPlayerId: new Map<string, unknown[]>() });
 
 const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterSnapshot?: PlayerSubscriptionSnapshot) => {
-  const acceptTruce = vi.fn().mockReturnValue(okResult());
+  const acceptTruce = vi.fn().mockResolvedValue(okResult());
   const rejectTruce = vi.fn().mockReturnValue(okResult());
-  const acceptAlliance = vi.fn().mockReturnValue(okResult());
+  const acceptAlliance = vi.fn().mockResolvedValue(okResult());
+  const requestTruce = vi.fn().mockReturnValue(okResult());
+  const requestAlliance = vi.fn().mockReturnValue(okResult());
   const rejectAlliance = vi.fn().mockReturnValue(okResult());
   const syncAllianceToSimulation = vi.fn().mockResolvedValue(true);
   const syncTruceToSimulation = vi.fn().mockResolvedValue(true);
@@ -57,6 +71,8 @@ const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterS
       rejectTruce,
       acceptAlliance,
       rejectAlliance,
+      requestTruce,
+      requestAlliance,
       syncPlayers: () => ({ payloadsByPlayerId: new Map() }),
       fanoutPlayerPayloads: () => {},
       recordGatewayEvent: () => {},
@@ -67,27 +83,85 @@ const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterS
     rejectTruce,
     acceptAlliance,
     rejectAlliance,
+    requestTruce,
+    requestAlliance,
     syncTruceToSimulation,
     syncAllianceToSimulation
   };
 };
 
 describe("createSeededAiDiplomacyResponder truce offers", () => {
-  it("declines with a reason when an evenly matched neighbour offers a truce", async () => {
-    const { deps, acceptTruce, rejectTruce } = makeDeps(
-      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100 })
+  // The AI only asks for what the requester actually holds: with nothing to
+  // pay, it declines and says how far short they are instead of naming a price.
+  it("declines naming the shortfall when an evenly matched neighbour can't pay its price", async () => {
+    const { deps, acceptTruce, rejectTruce, requestTruce } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 10 })
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(acceptTruce).not.toHaveBeenCalled();
+    expect(requestTruce).not.toHaveBeenCalled();
+    // WARY 24h truce = 30 minutes of 2 coin/min = 60; the requester holds 10.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
-        [HUMAN_ID]: "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border.",
+        [HUMAN_ID]:
+          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 50 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
       startCooldown: true
+    });
+  });
+
+  it("counter-offers with a price the requester can pay", async () => {
+    const { deps, rejectTruce, requestTruce } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+    );
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true }));
+    // From the AI's side: it gives nothing and asks the requester for 60 coin.
+    expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
+      targetPlayerId: HUMAN_ID,
+      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 60, shard: 0 } }
+    });
+  });
+
+  it("accepts a truce whose offered coin covers the AI's price", async () => {
+    const { deps, acceptTruce, requestTruce } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+    );
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
+      ...baseRequest,
+      terms: { give: { gold: 60, shard: 0 }, ask: { gold: 0, shard: 0 } }
+    });
+
+    expect(acceptTruce).toHaveBeenCalled();
+    expect(requestTruce).not.toHaveBeenCalled();
+  });
+
+  it("turns a failed payment into a decline without a cooldown", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+    );
+    acceptTruce.mockResolvedValue({ ok: false, code: "DIPLOMACY_SETTLEMENT_FAILED", message: "The deal fell through: Human no longer has 60 coin." });
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
+      ...baseRequest,
+      terms: { give: { gold: 60, shard: 0 }, ask: { gold: 0, shard: 0 } }
+    });
+
+    expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
+      announcementByPlayerId: expect.objectContaining({
+        [HUMAN_ID]: "Alden Vale declined your 24h truce offer. The deal fell through: Human no longer has 60 coin."
+      }),
+      startCooldown: false
     });
   });
 

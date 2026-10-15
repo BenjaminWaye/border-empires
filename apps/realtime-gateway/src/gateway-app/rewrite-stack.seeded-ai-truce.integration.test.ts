@@ -255,7 +255,10 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
         targetName: "AI 2"
       })
     );
-    const declined = "AI 2 declined your 12h truce offer. AI 2 is wary of you and won't lower their guard on a contested border.";
+    // The player holds no coin, so the AI declines naming its price (20 coin:
+    // 20 minutes of its 1 coin/min income floor) instead of counter-offering.
+    const declined =
+      "AI 2 declined your 12h truce offer. AI 2 is wary of you and won't lower their guard on a contested border. AI 2 wants about 20 coin more than you can offer.";
     expect(
       await nextMatchingMessage(playerOne, "ai truce declined", (message) => message.type === "TRUCE_UPDATE" && message.announcement === declined)
     ).toEqual(expect.objectContaining({ type: "TRUCE_UPDATE", outgoingTruceRequests: [], announcement: declined }));

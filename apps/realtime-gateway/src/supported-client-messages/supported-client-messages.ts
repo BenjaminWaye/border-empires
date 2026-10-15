@@ -73,6 +73,7 @@ export const supportedClientMessageTypes = [
   "TRUCE_REJECT",
   "TRUCE_CANCEL",
   "TRUCE_BREAK",
+  "DIPLOMACY_STANCE_REQUEST",
   "DEV_QUEUE_ENQUEUE",
   "DEV_QUEUE_CANCEL",
   "DEV_QUEUE_MOVE_TO_FRONT",

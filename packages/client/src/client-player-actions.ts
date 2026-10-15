@@ -17,18 +17,6 @@ export type PlayerActionDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
 };
 
-export const sendAllianceRequestFromUi = (target: string, deps: PlayerActionDeps): void => {
-  const trimmed = target.trim();
-  if (!trimmed) return;
-  deps.sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName: trimmed }, "Finish sign-in before sending alliance requests.");
-};
-
-export const sendTruceRequestFromUi = (targetPlayerName: string, durationHours: 12 | 24, deps: PlayerActionDeps): void => {
-  const trimmed = targetPlayerName.trim();
-  if (!trimmed) return;
-  deps.sendGameMessage({ type: "TRUCE_REQUEST", targetPlayerName: trimmed, durationHours }, "Finish sign-in before sending truce offers.");
-};
-
 export const breakAllianceFromUi = (target: string, deps: PlayerActionDeps): void => {
   const trimmed = target.trim();
   if (!trimmed) return;
