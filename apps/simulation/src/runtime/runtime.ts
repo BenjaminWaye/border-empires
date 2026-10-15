@@ -1956,7 +1956,7 @@ export class SimulationRuntime {
       defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
       resourceSlotSupplyDirtyPlayerIds: this.resourceSlotSupplyDirtyPlayerIds, resourceSlotDemandDirtyPlayerIds: this.resourceSlotDemandDirtyPlayerIds, resourceSlotDormancyDirtyPlayerIds: this.resourceSlotDormancyDirtyPlayerIds
     });
-    updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
+    const wasSettledForSameOwner = updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]

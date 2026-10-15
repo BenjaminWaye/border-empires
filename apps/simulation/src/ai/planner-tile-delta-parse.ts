@@ -16,7 +16,7 @@ export type SimulationTileDelta = {
   naturalWonderJson?: string | undefined;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
-  captureHoldUntil?: number | null | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;

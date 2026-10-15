@@ -28,6 +28,7 @@ export const withoutStaleCaptureHold = (
  *   - newly SETTLED (previously not, or new owner) → stamp `now`
  *   - leaves SETTLED → clear
  *   - stays SETTLED for the same owner → preserve existing stamp
+ * Returns whether the tile was already SETTLED for the same owner.
  */
 export const updateTileSettledAt = (
   settledAtByKey: Map<string, number>,
@@ -35,7 +36,7 @@ export const updateTileSettledAt = (
   previous: DomainTileState | undefined,
   next: DomainTileState,
   nowMs: number
-): void => {
+): boolean => {
   const sameOwner = Boolean(previous?.ownerId && previous.ownerId === next.ownerId);
   const wasSettledForSameOwner = sameOwner && previous?.ownershipState === "SETTLED" && next.ownershipState === "SETTLED";
   if (next.ownershipState === "SETTLED" && next.ownerId) {
@@ -43,4 +44,5 @@ export const updateTileSettledAt = (
   } else {
     settledAtByKey.delete(tileKey);
   }
+  return wasSettledForSameOwner;
 };

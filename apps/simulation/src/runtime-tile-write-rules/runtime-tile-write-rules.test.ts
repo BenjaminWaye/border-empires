@@ -27,7 +27,7 @@ describe("updateTileSettledAt", () => {
     const map = new Map<string, number>();
     updateTileSettledAt(map, "k", tile(), tile({ ownershipState: "SETTLED" }), 10);
     expect(map.get("k")).toBe(10);
-    updateTileSettledAt(map, "k", tile({ ownershipState: "SETTLED" }), tile({ ownershipState: "SETTLED" }), 20);
+    expect(updateTileSettledAt(map, "k", tile({ ownershipState: "SETTLED" }), tile({ ownershipState: "SETTLED" }), 20)).toBe(true);
     expect(map.get("k")).toBe(10);
     updateTileSettledAt(map, "k", tile({ ownershipState: "SETTLED" }), tile({ ownerId: "p2", ownershipState: "SETTLED" }), 30);
     expect(map.get("k")).toBe(30);
