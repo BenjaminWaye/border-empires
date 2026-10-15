@@ -51,6 +51,11 @@ export const mergePlannerTileDelta = (
     if (town) next.town = town;
     else delete next.town;
   }
+  if ("afcJson" in tileDelta) {
+    const afc = parseOwnedStructure(tileDelta.afcJson);
+    if (afc?.ownerId) next.afc = { ownerId: afc.ownerId };
+    else delete next.afc;
+  }
   if ("fortJson" in tileDelta) {
     const fort = parseOwnedStructure(tileDelta.fortJson);
     if (fort) next.fort = fort;
@@ -81,8 +86,20 @@ export const mergePlannerTileDelta = (
  */
 export const applyTileDelta = (tilesByKey: Map<string, PlannerTileView>, delta: SimulationTileDelta): void => {
   const key = `${delta.x},${delta.y}`;
-  const nextTile = mergePlannerTileDelta(tilesByKey.get(key), delta);
-  if (nextTile) tilesByKey.set(key, nextTile);
+  const existing = tilesByKey.get(key);
+  const nextTile = mergePlannerTileDelta(existing, delta);
+  if (!nextTile) return;
+  if (!existing) {
+    tilesByKey.set(key, nextTile);
+    return;
+  }
+  // The worker's resolved-player arrays hold these objects until the next
+  // collection-version sync. Keep their references current between syncs,
+  // without invalidating/rebuilding every player's territory arrays.
+  for (const field of Object.keys(existing) as (keyof PlannerTileView)[]) {
+    if (!(field in nextTile)) delete existing[field];
+  }
+  Object.assign(existing, nextTile);
 };
 
 /**
@@ -101,6 +118,7 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
   ...(tile.captureHoldUntil !== undefined ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
+  ...(tile.afc !== undefined ? { afcJson: JSON.stringify(tile.afc) } : {}),
   ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
   ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
   ...(tile.siegeBattery !== undefined ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),

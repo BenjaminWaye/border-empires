@@ -73,9 +73,11 @@ export type AutomationPlannerTile = {
   terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
+  afc?: { ownerId?: string } | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
   town?: {
+    population?: number | undefined;
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
     type?: "MARKET" | "FARMING";

@@ -2,6 +2,8 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import {
   bestFortTierForTech,
   bestSiegeTierForTech,
+  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
+  SYNTHESIZER_STRUCTURE_TYPES,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
@@ -9,6 +11,7 @@ import {
   structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
   type EconomicStructureType,
+  type SlotResource,
   type Terrain
 } from "@border-empires/shared";
 
@@ -35,6 +38,8 @@ export type StructurePlannerPlayer = {
   townCount?: number;
   incomePerMinute?: number;
   ownedStructureCounts?: PlannerOwnedStructureCounts;
+  slotSupplyByResource?: Partial<Record<SlotResource, number>>;
+  slotDemandByResource?: Partial<Record<SlotResource, number>>;
 };
 
 export type StructurePlannerTile = {
@@ -191,8 +196,22 @@ export const canAffordStructure = (
   // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so
   // Relay Beacon's first-N-free rule stays in lockstep here.
   if (!canAffordManpower(player, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
+  // Match hasFreeResourceSlots: synthesizers and the first five relay
+  // beacons remain buildable during a deficit. No per-candidate tile scan.
+  if (player.slotSupplyByResource && player.slotDemandByResource &&
+      !SYNTHESIZER_STRUCTURE_TYPES.includes(structureType) &&
+      !(structureType === "RELAY_BEACON" && existingOwnedCount < RELAY_BEACON_FREE_FOOD_SLOT_COUNT)) {
+    for (const requirement of structureSlotRequirements(structureType)) {
+      const free = (player.slotSupplyByResource[requirement.resource] ?? 0) -
+        (player.slotDemandByResource[requirement.resource] ?? 0);
+      if (free < requirement.count) return false;
+    }
+  }
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE stockpile spending was retired at build
+  // time (stripRetiredStockpileCost). Checking it here prevented legal
+  // FOOD-source builds even though they require no resource slots at all.
   const resourceCost = structureCostDefinition(structureType).resourceCost;
-  if (!resourceCost) return true;
+  if (!resourceCost || resourceCost.resource !== "SHARD") return true;
   return resourceStock(player, resourceCost.resource) >= resourceCost.amount;
 };
 
@@ -422,4 +441,3 @@ export const chooseBestSiegeBatteryBuild = (
   }
   return best && best.score >= 180 ? best.tile : undefined;
 };
-

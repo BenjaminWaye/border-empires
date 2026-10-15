@@ -36,10 +36,12 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
   ...(tile.naturalWonder ? { naturalWonder: true } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.afc ? { afc: { ownerId: tile.afc.ownerId } } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town
     ? {
         town: {
+          ...(typeof tile.town.population === "number" ? { population: tile.town.population } : {}),
           ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
           ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {}),
           ...(tile.town.type ? { type: tile.town.type } : {}),
@@ -56,7 +58,8 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
         economicStructure: {
           ownerId: tile.economicStructure.ownerId,
           type: tile.economicStructure.type,
-          status: tile.economicStructure.status
+          status: tile.economicStructure.status,
+          ...(tile.economicStructure.inactiveReason ? { inactiveReason: tile.economicStructure.inactiveReason } : {})
         }
       }
     : {})

@@ -477,6 +477,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
     ]
   },
+  {
+    createdAt: 1792083271471,
+    introducedIn: "2026.10.15.1",
+    title: "AI empires recover more reliably",
+    why: "Some AI empires stalled because their plans used outdated resource costs or tried to abandon protected territory.",
+    changes: [
+      "AI builds now check resource-slot capacity and allow FOOD improvements without retired stockpile costs",
+      "AI FOOD recovery preserves free relay beacons and never abandons its own AFC",
+      "AI planning now retains town population and manually disabled structure state"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
