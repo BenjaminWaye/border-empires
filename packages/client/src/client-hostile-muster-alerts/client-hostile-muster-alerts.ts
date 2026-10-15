@@ -1,4 +1,5 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { keyForTile } from "../client-app-runtime-utils.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -31,13 +32,14 @@ export type HostileMusterNearBorder = {
 export type HostileMusterAlertState = Pick<ClientState, "me" | "tiles"> &
   Partial<Pick<ClientState, "allies" | "activeTruces" | "playerNames">>;
 
-const wrap = (value: number, dim: number): number => ((value % dim) + dim) % dim;
-
 const ownsTile = (state: HostileMusterAlertState, x: number, y: number): boolean =>
-  state.tiles.get(`${wrap(x, WORLD_WIDTH)},${wrap(y, WORLD_HEIGHT)}`)?.ownerId === state.me;
+  state.tiles.get(keyForTile(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)))?.ownerId === state.me;
 
 // Nearest own tile to (x, y), scanning outward ring by ring, or undefined
-// when none is within the radius. At most (2r+1)^2 map lookups per flag.
+// when none is within the radius. At most (2r+1)^2 map lookups per flag,
+// i.e. a few thousand lookups per recompute even with dozens of visible enemy
+// flags: cheap next to the full tile walk persistentAlertsForState already
+// does, so there is no prefilter.
 const distanceToOwnTerritory = (state: HostileMusterAlertState, x: number, y: number, radius: number): number | undefined => {
   for (let ring = 1; ring <= radius; ring += 1) {
     for (let d = -ring; d <= ring; d += 1) {
@@ -54,10 +56,13 @@ const distanceToOwnTerritory = (state: HostileMusterAlertState, x: number, y: nu
   return undefined;
 };
 
-const isFriendlyOwner = (state: HostileMusterAlertState, ownerId: string): boolean =>
+// activeTruces is not pruned when a truce runs out (see
+// activeTruceWithPlayerFromState in client-player-actions.ts), so an entry
+// only counts while its endsAt is still ahead.
+const isFriendlyOwner = (state: HostileMusterAlertState, ownerId: string, nowEpochMs: number): boolean =>
   ownerId === state.me ||
   Boolean(state.allies?.includes(ownerId)) ||
-  Boolean(state.activeTruces?.some((truce) => truce.otherPlayerId === ownerId));
+  Boolean(state.activeTruces?.some((truce) => truce.otherPlayerId === ownerId && truce.endsAt > nowEpochMs));
 
 /**
  * The hostile muster flag on this tile, when it is close enough to the
@@ -65,10 +70,14 @@ const isFriendlyOwner = (state: HostileMusterAlertState, ownerId: string): boole
  * not hostile. A fogged tile's flag is stale, and so is one on a tile we own
  * (the sim clears a flag when its tile is captured), so both are ignored.
  */
-export const hostileMusterNearBorder = (state: HostileMusterAlertState, tile: Tile): HostileMusterNearBorder | undefined => {
+export const hostileMusterNearBorder = (
+  state: HostileMusterAlertState,
+  tile: Tile,
+  nowEpochMs: number = Date.now()
+): HostileMusterNearBorder | undefined => {
   const muster = tile.muster;
   if (!muster || !state.me || tile.fogged || tile.ownerId === state.me) return undefined;
-  if (isFriendlyOwner(state, muster.ownerId)) return undefined;
+  if (isFriendlyOwner(state, muster.ownerId, nowEpochMs)) return undefined;
   const distanceTiles = distanceToOwnTerritory(state, tile.x, tile.y, HOSTILE_MUSTER_BORDER_RADIUS_TILES);
   if (distanceTiles === undefined) return undefined;
   const marchingOnUs =
@@ -93,12 +102,15 @@ export const hostileMusterDetail = (flag: HostileMusterNearBorder): string => {
   return `${flag.ownerName} is mustering troops ${tilesLabel(flag.distanceTiles)}.`;
 };
 
+// Flags are tracked by owner and tile; the threat rank (lower = worse) is
+// remembered per flag so a flag that escalates (HOLD -> ADVANCE, or a MARCH
+// aimed at our land) is announced again.
 const announceKey = (flag: HostileMusterNearBorder): string => `${flag.ownerId}@${flag.x},${flag.y}`;
 
 const threatRank = (flag: HostileMusterNearBorder): number => (flag.marchingOnUs ? 0 : flag.mode === "HOLD" ? 2 : 1);
 
 // One-time toast (state.captureAlert via showCaptureAlert) for flags that
-// newly appeared near the border.
+// newly appeared near the border, or escalated.
 export type HostileMusterAnnouncement = {
   title: string;
   detail: string;
@@ -106,42 +118,67 @@ export type HostileMusterAnnouncement = {
   focus: { x: number; y: number };
 };
 
+export type HostileMusterAnnounceOptions = {
+  // false while another toast is still showing: pending flags stay pending
+  // (still tracked) and are announced once the toast slot frees up.
+  canShow: boolean;
+  // true during the warm-up after the map first loads: flags are recorded as
+  // already known without a toast, so logging in next to long-standing enemy
+  // flags doesn't announce them as new (their locator pins still show).
+  silent: boolean;
+};
+
 export type HostileMusterAnnouncer = {
   /**
-   * An announcement for flags not seen near the border before, or undefined
-   * when nothing is new. nowMs is any monotonic clock (the frame's
+   * An announcement for flags that are new near the border (or escalated)
+   * since last announced, or undefined when there is nothing to say or it
+   * can't be shown yet. nowMs is any monotonic clock (the frame's
    * performance.now()).
    */
-  announce: (flags: readonly HostileMusterNearBorder[], nowMs: number) => HostileMusterAnnouncement | undefined;
+  announce: (
+    flags: readonly HostileMusterNearBorder[],
+    nowMs: number,
+    options: HostileMusterAnnounceOptions
+  ) => HostileMusterAnnouncement | undefined;
   trackedCount: () => number;
 };
 
+type TrackedFlag = { lastSeenAt: number; announcedRank: number | undefined };
+
 export const createHostileMusterAnnouncer = (): HostileMusterAnnouncer => {
-  const lastSeenAtByKey = new Map<string, number>();
+  const trackedByKey = new Map<string, TrackedFlag>();
   return {
-    announce: (flags, nowMs) => {
-      const fresh: HostileMusterNearBorder[] = [];
+    announce: (flags, nowMs, options) => {
+      const pending: HostileMusterNearBorder[] = [];
       for (const flag of flags) {
         const key = announceKey(flag);
-        if (!lastSeenAtByKey.has(key)) fresh.push(flag);
+        const tracked = trackedByKey.get(key) ?? { lastSeenAt: nowMs, announcedRank: undefined };
+        tracked.lastSeenAt = nowMs;
+        if (tracked.announcedRank === undefined || threatRank(flag) < tracked.announcedRank) pending.push(flag);
+        else tracked.announcedRank = threatRank(flag); // de-escalation: a later escalation is news again
         // Delete-then-set keeps Map insertion order = least recently seen first.
-        lastSeenAtByKey.delete(key);
-        lastSeenAtByKey.set(key, nowMs);
+        trackedByKey.delete(key);
+        trackedByKey.set(key, tracked);
       }
-      for (const [key, seenAt] of lastSeenAtByKey) {
-        if (nowMs - seenAt <= HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS && lastSeenAtByKey.size <= HOSTILE_MUSTER_ANNOUNCE_MAX_TRACKED) break;
-        lastSeenAtByKey.delete(key);
+      for (const [key, tracked] of trackedByKey) {
+        if (nowMs - tracked.lastSeenAt <= HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS && trackedByKey.size <= HOSTILE_MUSTER_ANNOUNCE_MAX_TRACKED) break;
+        trackedByKey.delete(key);
       }
-      if (fresh.length === 0) return undefined;
-      const lead = [...fresh].sort((a, b) => threatRank(a) - threatRank(b) || a.distanceTiles - b.distanceTiles)[0]!;
-      const anyAdvancing = fresh.some((flag) => flag.mode !== "HOLD");
+      if (pending.length === 0 || (!options.canShow && !options.silent)) return undefined;
+      for (const flag of pending) {
+        const tracked = trackedByKey.get(announceKey(flag));
+        if (tracked) tracked.announcedRank = threatRank(flag);
+      }
+      if (options.silent) return undefined;
+      const lead = [...pending].sort((a, b) => threatRank(a) - threatRank(b) || a.distanceTiles - b.distanceTiles)[0]!;
+      const anyAdvancing = pending.some((flag) => flag.mode !== "HOLD");
       return {
-        title: fresh.length === 1 ? "Enemy muster flag near your border" : `${fresh.length} enemy muster flags near your border`,
-        detail: fresh.length === 1 ? hostileMusterDetail(lead) : `Closest threat: ${hostileMusterDetail(lead)}`,
+        title: pending.length === 1 ? "Enemy muster flag near your border" : `${pending.length} enemy muster flags near your border`,
+        detail: pending.length === 1 ? hostileMusterDetail(lead) : `Closest threat: ${hostileMusterDetail(lead)}`,
         tone: anyAdvancing ? "error" : "warn",
         focus: { x: lead.x, y: lead.y }
       };
     },
-    trackedCount: () => lastSeenAtByKey.size
+    trackedCount: () => trackedByKey.size
   };
 };

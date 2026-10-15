@@ -77,4 +77,34 @@ describe("persistent alerts: enemy muster flags near the border", () => {
     ]);
   });
 
+
+  it("keeps a locator slot for own alerts when several enemy flags are off-screen", () => {
+    const alert = (id: string, kind: PersistentAlert["kind"], x: number): PersistentAlert => ({ id, kind, title: "", detail: "", x, y: 10, severity: "warn" });
+    const state = {
+      me: "me",
+      waypoint: [] as ClientWaypoint[],
+      camX: 10,
+      camY: 10,
+      persistentAlertLocators: [] as PersistentAlertLocator[],
+      tiles: new Map<string, Tile>()
+    };
+    const noop = () => undefined;
+    drawPersistentAlertLocators(state, {
+      ctx: new Proxy({}, { get: () => noop, set: () => true }) as unknown as CanvasRenderingContext2D,
+      canvas: { width: 100, height: 100 } as HTMLCanvasElement,
+      worldToScreen: (wx, wy) => ({ sx: 50 + (wx - 10) * 10, sy: 50 + (wy - 10) * 10 }),
+      toroidDelta: (from, to) => to - from,
+      size: 1,
+      halfW: 0,
+      halfH: 0,
+      nowMs: 0,
+      precomputedAlerts: [
+        alert("hostile_muster:30,10", "hostile_muster", 30),
+        alert("hostile_muster:31,10", "hostile_muster", 31),
+        alert("hostile_muster:32,10", "hostile_muster", 32),
+        alert("town_unfed:90,10", "town_unfed", 90)
+      ]
+    });
+    expect(state.persistentAlertLocators.map((locator) => locator.id)).toEqual(["hostile_muster:30,10", "hostile_muster:31,10", "town_unfed:90,10"]);
+  });
 });

@@ -10,6 +10,11 @@ import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentA
 // visually lossless while cutting scan frequency by ~80-90%.
 export const PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS = 220;
 
+// After the map first has tiles, enemy flags already near the border are
+// recorded without a toast for this long: tiles stream in over the first
+// seconds, and a flag that has stood there for hours isn't news on login.
+export const HOSTILE_MUSTER_ANNOUNCE_WARMUP_MS = 15_000;
+
 export type PersistentAlertsFrameDrawDeps = Omit<Parameters<typeof drawPersistentAlertLocators>[1], "nowMs" | "precomputedAlerts">;
 
 /**
@@ -24,17 +29,20 @@ export const createPersistentAlertsFrame = (
   let cache: PersistentAlert[] = [];
   let computedAt = 0;
   const hostileMusterAnnouncer = createHostileMusterAnnouncer();
+  let warmUpUntil: number | undefined;
   return (nowMs, drawDeps) => {
     if (computedAt === 0 || nowMs - computedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
       cache = persistentAlertsForState(state);
       computedAt = nowMs;
-      // Never stomp a toast that is still showing (a combat result, say):
-      // leave new flags unannounced until the toast slot frees up.
-      if (!state.captureAlert || state.captureAlert.until <= Date.now()) {
-        const hostileMusters = cache.flatMap((alert): HostileMusterNearBorder[] => (alert.hostileMuster ? [alert.hostileMuster] : []));
-        const announcement = hostileMusterAnnouncer.announce(hostileMusters, nowMs);
-        if (announcement) showCaptureAlert(state, announcement.title, announcement.detail, announcement.tone, undefined, announcement.focus);
-      }
+      if (warmUpUntil === undefined && state.me && state.tiles.size > 0) warmUpUntil = nowMs + HOSTILE_MUSTER_ANNOUNCE_WARMUP_MS;
+      const hostileMusters = cache.flatMap((alert): HostileMusterNearBorder[] => (alert.hostileMuster ? [alert.hostileMuster] : []));
+      const announcement = hostileMusterAnnouncer.announce(hostileMusters, nowMs, {
+        // Never stomp a toast that is still showing (a combat result, say);
+        // pending flags wait until the toast slot frees up.
+        canShow: !state.captureAlert || state.captureAlert.until <= Date.now(),
+        silent: warmUpUntil === undefined || nowMs < warmUpUntil
+      });
+      if (announcement) showCaptureAlert(state, announcement.title, announcement.detail, announcement.tone, undefined, announcement.focus);
     }
     drawPersistentAlertLocators(state, { ...drawDeps, nowMs, precomputedAlerts: cache });
   };

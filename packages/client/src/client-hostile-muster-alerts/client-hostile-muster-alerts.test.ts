@@ -62,9 +62,18 @@ describe("hostileMusterNearBorder", () => {
     const fogged = flagTile(9, 10, "enemy", {}, { fogged: true });
     const state = stateWith([landTile(10, 10, "me"), own, ally, truce, fogged], {
       allies: ["ally"],
-      activeTruces: [{ otherPlayerId: "truce", otherPlayerName: "T", startedAt: 0, endsAt: 60_000, createdByPlayerId: "truce" }]
+      activeTruces: [{ otherPlayerId: "truce", otherPlayerName: "T", startedAt: 0, endsAt: Date.now() + 60_000, createdByPlayerId: "truce" }]
     });
     for (const tile of [own, ally, truce, fogged]) expect(hostileMusterNearBorder(state, tile)).toBeUndefined();
+  });
+
+  it("treats a truce partner as hostile once the truce has run out", () => {
+    const flag = flagTile(11, 10, "truce");
+    const state = stateWith([landTile(10, 10, "me"), flag], {
+      activeTruces: [{ otherPlayerId: "truce", otherPlayerName: "T", startedAt: 0, endsAt: 1_000, createdByPlayerId: "truce" }]
+    });
+    expect(hostileMusterNearBorder(state, flag, 999)).toBeUndefined();
+    expect(hostileMusterNearBorder(state, flag, 1_001)?.ownerId).toBe("truce");
   });
 
   it("marks a MARCH flag targeting one of our tiles as marching on us", () => {
@@ -85,33 +94,59 @@ const near = (overrides: Partial<HostileMusterNearBorder> = {}): HostileMusterNe
   ...overrides
 });
 
+const SHOW = { canShow: true, silent: false };
+
 describe("createHostileMusterAnnouncer", () => {
   it("announces a new flag once, focused on the flag", () => {
     const announcer = createHostileMusterAnnouncer();
-    expect(announcer.announce([near()], 0)).toMatchObject({
+    expect(announcer.announce([near()], 0, SHOW)).toMatchObject({
       title: "Enemy muster flag near your border",
       detail: "Vorland is mustering troops 2 tiles from your border.",
       tone: "warn",
       focus: { x: 5, y: 5 }
     });
-    expect(announcer.announce([near()], 220)).toBeUndefined();
+    expect(announcer.announce([near()], 220, SHOW)).toBeUndefined();
   });
 
   it("groups several new flags into one entry led by the most threatening", () => {
     const announcer = createHostileMusterAnnouncer();
-    const entry = announcer.announce([near({ x: 1 }), near({ x: 2, mode: "ADVANCE", distanceTiles: 4 })], 0);
+    const entry = announcer.announce([near({ x: 1 }), near({ x: 2, mode: "ADVANCE", distanceTiles: 4 })], 0, SHOW);
     expect(entry).toMatchObject({ title: "2 enemy muster flags near your border", tone: "error", focus: { x: 2, y: 5 } });
   });
 
   it("does not re-announce a flag that briefly drops out of view, but does after the memory window", () => {
     const announcer = createHostileMusterAnnouncer();
-    announcer.announce([near()], 0);
-    announcer.announce([], 1_000);
-    expect(announcer.announce([near()], 2_000)).toBeUndefined();
-    announcer.announce([], 3_000);
+    announcer.announce([near()], 0, SHOW);
+    announcer.announce([], 1_000, SHOW);
+    expect(announcer.announce([near()], 2_000, SHOW)).toBeUndefined();
+    announcer.announce([], 3_000, SHOW);
     expect(announcer.trackedCount()).toBe(1);
-    announcer.announce([], 3_000 + HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS + 1);
+    announcer.announce([], 3_000 + HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS + 1, SHOW);
     expect(announcer.trackedCount()).toBe(0);
-    expect(announcer.announce([near()], 3_000 + HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS + 2)).toBeDefined();
+    expect(announcer.announce([near()], 3_000 + HOSTILE_MUSTER_ANNOUNCE_MEMORY_MS + 2, SHOW)).toBeDefined();
+  });
+
+  it("announces a seen flag again when it escalates, but not when it calms down", () => {
+    const announcer = createHostileMusterAnnouncer();
+    announcer.announce([near()], 0, SHOW);
+    expect(announcer.announce([near({ mode: "ADVANCE" })], 220, SHOW)).toMatchObject({ tone: "error" });
+    expect(announcer.announce([near({ mode: "MARCH", marchingOnUs: true })], 440, SHOW)?.detail).toBe("Vorland's muster flag is marching on your land.");
+    expect(announcer.announce([near()], 660, SHOW)).toBeUndefined();
+    expect(announcer.announce([near({ mode: "ADVANCE" })], 880, SHOW)).toBeDefined();
+  });
+
+  it("holds a new flag while another toast is showing and announces it once the slot frees", () => {
+    const announcer = createHostileMusterAnnouncer();
+    expect(announcer.announce([near()], 0, { canShow: false, silent: false })).toBeUndefined();
+    expect(announcer.announce([near()], 220, { canShow: false, silent: false })).toBeUndefined();
+    expect(announcer.announce([near()], 440, SHOW)).toBeDefined();
+    expect(announcer.announce([near()], 660, SHOW)).toBeUndefined();
+  });
+
+  it("records flags silently during warm-up so long-standing flags are not announced as new", () => {
+    const announcer = createHostileMusterAnnouncer();
+    expect(announcer.announce([near()], 0, { canShow: true, silent: true })).toBeUndefined();
+    expect(announcer.announce([near()], 220, SHOW)).toBeUndefined();
+    expect(announcer.announce([near(), near({ x: 9 })], 440, SHOW)).toMatchObject({ focus: { x: 9, y: 5 } });
   });
 });

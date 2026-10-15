@@ -5,6 +5,7 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
+import { pickLocatorSlots } from "./client-persistent-alert-locator-slots.js";
 import { hostileMusterDetail, hostileMusterNearBorder, type HostileMusterAlertState, type HostileMusterNearBorder } from "../client-hostile-muster-alerts/client-hostile-muster-alerts.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
@@ -143,7 +144,7 @@ export const persistentAlertsForState = (
         severity: "warn"
       });
     }
-    const hostileMuster = hostileMusterNearBorder(state, tile);
+    const hostileMuster = hostileMusterNearBorder(state, tile, nowMs);
     if (hostileMuster) {
       alerts.push({
         id: `hostile_muster:${tile.x},${tile.y}`,
@@ -382,13 +383,12 @@ export const drawPersistentAlertLocators = (
   occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
   occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined, techIds: state.techIds ?? [], presentationReady: state.authSessionReady !== false && !state.profileSetupRequired }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
   const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
-  // Enemy muster flags near the border take the limited locator slots first.
   const alerts = nearestPersistentAlerts(
     allAlerts,
     state,
     { toroidDelta: deps.toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT },
     allAlerts.length
-  ).sort((a, b) => Number(b.kind === "hostile_muster") - Number(a.kind === "hostile_muster"));
+  );
   state.persistentAlertLocators = [];
   if (alerts.length === 0) return;
   const ctx = deps.ctx;
@@ -396,14 +396,15 @@ export const drawPersistentAlertLocators = (
   const margin = 34;
   const inset = 30;
   ctx.save();
-  let drawnCount = 0;
-  for (const alert of alerts) {
+  // On-screen alerts get their own in-world indicator (e.g. the 3D
+  // bobbing badge over a shard rain site in client-map-3d.ts, or the
+  // muster flag model itself) rather than a HUD locator here.
+  const offScreen = alerts.flatMap((alert) => {
     const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
-    // On-screen alerts get their own in-world indicator (e.g. the 3D
-    // bobbing badge over a shard rain site in client-map-3d.ts, or the
-    // muster flag model itself) rather than a HUD locator here.
-    if (isOnScreen(projected, canvas, margin)) continue;
-    if (drawnCount >= 3) continue;
+    return isOnScreen(projected, canvas, margin) ? [] : [{ alert, projected }];
+  });
+  // Enemy muster flags near the border claim locator slots ahead of nearer alerts.
+  for (const { alert, projected } of pickLocatorSlots(offScreen, (candidate) => candidate.alert.kind === "hostile_muster")) {
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
     const radius = 22;
@@ -445,7 +446,6 @@ export const drawPersistentAlertLocators = (
       ctx.fillText("!", 0, radius * 0.02);
     }
     ctx.restore();
-    drawnCount += 1;
   }
   ctx.restore();
 };
