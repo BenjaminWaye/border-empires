@@ -116,6 +116,28 @@ describe("AI truce pricing", () => {
     expect(price({ stanceKind: "OUTMATCHED", aiGold: 100_000 }).pricing.required.truce12).toBeGreaterThanOrEqual(0);
   });
 
+  // The loser pays only while actually losing: an outmatched AI that is
+  // taking tiles (often in a war it started) is winning, and charges for peace.
+  it("doesn't pay for peace when outmatched or desperate but gaining ground", () => {
+    const aiGaining = memory({ lastCombatAt: NOW - HOUR, tilesTakenByAi: 10 });
+    for (const stanceKind of ["OUTMATCHED", "SEEKING_PEACE"] as const) {
+      const result = price({ stanceKind, memory: aiGaining, aiGold: 100_000 });
+      expect(result.opinion.war).toEqual(expect.objectContaining({ aiLosing: false, aiWinning: true }));
+      expect(result.pricing.required.truce12).toBeGreaterThanOrEqual(0);
+    }
+    // Outmatched and not gaining: still losing, still pays.
+    expect(price({ stanceKind: "OUTMATCHED", memory: memory({ lastCombatAt: NOW - HOUR }), aiGold: 100_000 }).pricing.required.truce12).toBeLessThan(0);
+  });
+
+  // Fight memory isn't persisted. After a restart the memory is empty, so
+  // there is no war to be losing: the AI can't pay again until a new fight,
+  // which would end "already paid this war" even without a restart.
+  it("doesn't pay for peace from an empty (post-restart) memory", () => {
+    for (const stanceKind of ["OUTMATCHED", "SEEKING_PEACE"] as const) {
+      expect(price({ stanceKind, memory: memory(), aiGold: 100_000 }).pricing.required.truce12).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("takes peace for free when desperate, but still wants reparations", () => {
     expect(price({ stanceKind: "SEEKING_PEACE" }).pricing.required.truce12).toBe(0);
     expect(price({ stanceKind: "SEEKING_PEACE", memory: memory({ tilesTakenFromAi: 3 }) }).pricing.required.truce12).toBe(3 * 60);
