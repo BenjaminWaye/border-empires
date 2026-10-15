@@ -227,6 +227,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792009197862, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires weigh your truce and alliance offers",
+    why: "AI empires accepted truces almost instantly, and repeat offers could be spammed at any player.",
+    changes: [
+      "AI empires now judge relative strength, shared borders, food, and past broken truces, and tell you why they accepted or declined",
+      "AI empires now answer alliance offers too",
+      "After an offer is declined or cancelled, you can't send that player the same kind of offer for 30 minutes (10 minutes after an unanswered truce offer expires)"
+    ]
+  },
+  {
     createdAt: 1791805200000, // frozen Date.now() value for this release
     introducedIn: "2026.10.12.1",
     title: "No more floating blue slabs after a long camera jump",

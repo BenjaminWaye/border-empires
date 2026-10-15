@@ -38,10 +38,11 @@ import { recordSocketDisconnect } from "../client-connection-diagnostics/client-
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
 import {
+  applyAllianceUpdateMessage,
   applyTruceUpdateMessage,
   notifyIncomingAllianceRequest,
   notifyIncomingTruceRequest
-} from "../client-diplomacy-notifications.js";
+} from "../client-diplomacy-notifications/client-diplomacy-notifications.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -2107,18 +2108,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ALLIANCE_UPDATE") {
-      state.allies = (msg.allies as string[]) ?? [];
-      state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
-      state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
-      state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
-      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      const announcement = msg.announcement as string | undefined;
-      if (announcement) {
-        const normalizedAnnouncement = announcement.toLocaleLowerCase();
-        const fullyBroken = normalizedAnnouncement.includes("now broken");
-        pushFeed(announcement, "alliance", fullyBroken ? "warn" : "info");
-        showCaptureAlertSafely(fullyBroken ? "Alliance broken" : "Alliance break notice", announcement, fullyBroken ? "warn" : "info");
-      }
+      applyAllianceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }

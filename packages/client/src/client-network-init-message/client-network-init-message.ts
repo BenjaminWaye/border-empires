@@ -22,7 +22,7 @@ import {
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingDiplomacyRequestsOnInit,
   notifyRecentAllianceBreaksOnInit
-} from "../client-diplomacy-notifications.js";
+} from "../client-diplomacy-notifications/client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSocialState } from "./apply-init-social-state.js";
