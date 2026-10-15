@@ -2,7 +2,6 @@ import type { ClientState } from "./client-state/client-state.js";
 
 type DragSelectionDeps = {
   state: ClientState;
-  canvas: HTMLCanvasElement;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   keyFor: (x: number, y: number) => string;
