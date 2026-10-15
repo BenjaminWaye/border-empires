@@ -1,4 +1,4 @@
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent, TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -306,22 +306,10 @@ export type SimulationTileWireDelta = {
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   captureHoldUntil?: number | undefined;
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeBatteryJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  musterJson?: string | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  naturalWonderJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afcJson?: string | undefined;
   yieldRate?: { goldPerMinute?: number };
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;
@@ -340,4 +328,4 @@ export type SimulationTileWireDelta = {
   // capture: both the attacker and the previous owner may lack live coverage
   // of the tile) -- one delta object, not one per forced viewer.
   forceVisibleForPlayerId?: string | readonly string[] | undefined;
-};
+} & TileOverlayJsonFields;

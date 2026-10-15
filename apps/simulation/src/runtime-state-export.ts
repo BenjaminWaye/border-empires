@@ -1,4 +1,4 @@
-import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
+import { TILE_OVERLAY_WIRE_FIELDS, type ManpowerBreakdown, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState, FrontierCommandType, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -25,8 +25,6 @@ export type RuntimeExportState = {
     resource?: string;
     prospectSignature?: ProspectSignature;
     dockId?: string;
-    shardSiteJson?: string;
-    naturalWonderJson?: string;
     ownerId?: string;
     ownershipState?: string;
     /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Populated only by the per-player visible-state export (runtime-visible-state.ts); the full-world export below does not currently source it. */
@@ -38,14 +36,7 @@ export type RuntimeExportState = {
     townType?: "MARKET" | "FARMING";
     townName?: string;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    fortJson?: string;
-    observatoryJson?: string;
-    siegeBatteryJson?: string;
-    economicStructureJson?: string;
-    sabotageJson?: string;
-    musterJson?: string;
-    afcJson?: string;
-  }>;
+  } & TileOverlayJsonFields>;
   players: Array<{
     id: string;
     name?: string;
@@ -154,8 +145,6 @@ const toRuntimeExportTile = (
   };
   if (tile.resource) entry.resource = tile.resource;
   if (tile.dockId) entry.dockId = tile.dockId;
-  if (cached.shardSiteJson) entry.shardSiteJson = cached.shardSiteJson;
-  if (cached.naturalWonderJson) entry.naturalWonderJson = cached.naturalWonderJson;
   if (tile.ownerId) entry.ownerId = tile.ownerId;
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
@@ -165,13 +154,12 @@ const toRuntimeExportTile = (
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;
   if (tile.town?.populationTier) entry.townPopulationTier = tile.town.populationTier;
-  if (cached.fortJson) entry.fortJson = cached.fortJson;
-  if (cached.observatoryJson) entry.observatoryJson = cached.observatoryJson;
-  if (cached.siegeBatteryJson) entry.siegeBatteryJson = cached.siegeBatteryJson;
-  if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
-  if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
-  if (cached.musterJson) entry.musterJson = cached.musterJson;
-  if (cached.afcJson) entry.afcJson = cached.afcJson;
+  // Every overlay from the shared table (TILE_OVERLAY_WIRE_FIELDS): this list
+  // was once hand-written and left out watchtowers and waystations.
+  for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {
+    const json = cached[camel];
+    if (json) entry[camel] = json;
+  }
   return entry;
 };
 

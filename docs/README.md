@@ -16,6 +16,7 @@ remain authoritative for runtime behavior.
 | Fly → Hetzner migration plan | [`hetzner-migration-plan.md`](hetzner-migration-plan.md) |
 | Tests, debugging, and regression expectations | [`agents/testing-and-debugging.md`](agents/testing-and-debugging.md) |
 | Concurrent worktree and branch safety | [`agents/concurrent-agents.md`](agents/concurrent-agents.md) |
+| Landing a PR end to end (review → fix → merge to `develop`) | [`../.claude/skills/review-fix-merge/SKILL.md`](../.claude/skills/review-fix-merge/SKILL.md) |
 | Documentation review and upkeep | [`agents/documentation-maintenance.md`](agents/documentation-maintenance.md) |
 | AI planning | [`agents/topics/ai-planner.md`](agents/topics/ai-planner.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
@@ -62,6 +63,8 @@ instructions.
 
 [`agent-work-readiness-plan.md`](agent-work-readiness-plan.md) tracks the
 repository's documentation and agent-workflow cleanup in phases.
+[`code-cleanup-plan.md`](code-cleanup-plan.md) records the October 2026
+dead-code and duplication cleanup and the remaining items in priority order.
 
 ## Templates
 
