@@ -4,7 +4,7 @@ import type { initClientDom } from "../client-dom.js";
 import { bindMinimapDrag } from "../client-map-input-minimap-drag.js";
 import { persistentAlertLocatorAt } from "../client-persistent-alerts/client-persistent-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { FeedSeverity, FeedType, Tile } from "../client-types.js";
+import type { Tile } from "../client-types.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -25,11 +25,7 @@ type BindClientMapInputDeps = {
   clearCrystalTargeting: () => void;
   cancelBuildingPlacement: () => void;
   renderMobilePanels: () => void;
-  queueSpecificTargets: (targetKeys: string[]) => { queued: number; skipped: number };
-  processActionQueue: () => boolean;
-  pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   openBulkTileActionMenu: (targetKeys: string[], clientX: number, clientY: number) => void;
-  isTileOwnedByAlly: (tile: Tile) => boolean;
   requestAttackPreviewForHover: () => void;
   requestAttackPreviewForTarget: (tile: Tile) => void;
   interactionFlags: { suppressNextClick: boolean };

@@ -39,20 +39,6 @@ export interface PlacementContext {
  */
 export type PlacementCheck = (ctx: PlacementContext) => string | null;
 
-// ── Completion context (for future phases) ────────────────────────
-
-export interface CompletionContext {
-  tileKey: string;
-  structureType: string;
-  ownerId: string;
-}
-
-export interface RemovalContext {
-  tileKey: string;
-  structureType: string;
-  ownerId: string;
-}
-
 // ── Structure spec ────────────────────────────────────────────────
 
 export interface StructureSpec {

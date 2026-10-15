@@ -109,7 +109,6 @@ const {
   miniMapBaseCtx,
   keyFor: key,
   parseKey,
-  terrainAt,
   wrapX,
   wrapY,
   resourceColor,

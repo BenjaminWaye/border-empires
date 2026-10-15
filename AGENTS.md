@@ -5,7 +5,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 ## Stack targeting
 
 - **Staging and production both run the rewrite stack** (`apps/realtime-gateway` + `apps/simulation`, combined). Both run on Hetzner Cloud (staging `api-staging.borderempires.com`, production `api.borderempires.com`); the Fly apps `border-empires-combined-staging` / `border-empires-combined` are stopped legacy rollbacks.
-- **Default target for new work is the rewrite stack.** Do not modify or instrument `packages/server` unless the user explicitly says "legacy" or names `packages/server`. If a search turns up logic only in `packages/server`, surface that as stale legacy code — do not extend it as the active runtime.
+- **The rewrite stack is the only runtime.** The legacy `packages/server` stack was deleted in PR #264; docs that still cite `packages/server/...` paths (mostly under `docs/archive/`) are historical — map them to `apps/simulation` / `apps/realtime-gateway` instead of recreating legacy code.
 - Full deploy/Hetzner/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
 
 ## Renderer parity (2D canvas + true-3D map)
@@ -57,7 +57,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Repo reference
 
-- Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/server` (legacy only), `packages/client` (browser client).
+- Workspace packages: `packages/shared` (constants/formulas/schemas/types), `packages/game-domain` (rewrite domain logic), `packages/sim-protocol` (gateway↔sim wire), `packages/client-protocol` (gateway↔client wire), `packages/client` (browser client), `packages/storybook` (3D/UI component stories).
 - Rewrite-stack apps (staging today): `apps/realtime-gateway`, `apps/simulation`.
 - Tests live beside the source module they cover; do not add new flat test files directly under package or app `src/` roots. Simulation AI/planner/automation code lives under `apps/simulation/src/ai/`.
 - Root scripts: `pnpm dev` (shared + simulation + realtime gateway + client), `pnpm build`, `pnpm test`, `pnpm lint`.

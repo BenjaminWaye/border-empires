@@ -3,7 +3,6 @@ import type { Tile } from "./client-types.js";
 
 type DragSelectionDeps = {
   state: ClientState;
-  canvas: HTMLCanvasElement;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   keyFor: (x: number, y: number) => string;

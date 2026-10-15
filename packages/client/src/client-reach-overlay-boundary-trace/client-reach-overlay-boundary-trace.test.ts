@@ -36,7 +36,7 @@ const makeTile = (x: number, y: number): Tile => ({ x, y, terrain: "LAND" }) as 
 const buildDeps = (coords: Iterable<TileCoord>): ReachBoundaryDeps => {
   const tiles = new Map<string, Tile>();
   for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTile(x, y));
-  return { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+  return { keyFor, wrapX: wrap, wrapY: wrap };
 };
 
 /** Every (x,y) in an inclusive rectangle. */

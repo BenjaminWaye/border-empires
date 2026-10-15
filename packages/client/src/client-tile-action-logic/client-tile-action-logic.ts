@@ -137,7 +137,6 @@ export type TileActionLogicDeps = {
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   terrainAt: typeof terrainAt;
-  chebyshevDistanceClient: (ax: number, ay: number, bx: number, by: number) => number;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   hostileObservatoryProtectingTile: (tile: Tile) => Tile | undefined;
   abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
