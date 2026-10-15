@@ -1,4 +1,5 @@
 import type { Texture, WebGLProgramParametersWithUniforms } from "three";
+import { SNOW_MASK_GLSL } from "./client-map-3d-snow-mask.js";
 
 // The main heightfield material's onBeforeCompile patch, split out from
 // client-map-3d-heightfield.ts (which was already over the 500-line cap) so
@@ -95,6 +96,10 @@ varying float vRockZone;`
       vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
       float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
       biomeColor = mix(biomeColor, tundraSample.rgb, tundraMask);
+      // SNOW: same tundraZone as TUNDRA, told apart only by its near-white
+      // vertex colour -- see client-map-3d-snow-mask.ts.
+      float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
+${SNOW_MASK_GLSL}
 
       // Bare-rock peaks (client-map-3d-hills.ts's dome mesh only): an
       // explicit mask rather than inferring from vertex colour, same
@@ -115,7 +120,6 @@ varying float vRockZone;`
 
       // Very mild vertex-color tint at 12% — beach-corner blends and
       // per-tile shade variants still register; painted base dominates.
-      float vertLum = max(0.001, dot(vColor.rgb, vec3(0.299, 0.587, 0.114)));
       vec3 tint = mix(vec3(1.0), vColor.rgb / vertLum, 0.12);
       diffuseColor.rgb = forestTinted * tint;
     #endif

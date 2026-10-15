@@ -2,6 +2,7 @@
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
+import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
 
 export type SocialAllianceRequest = {
   id: string;
@@ -82,6 +83,8 @@ export type SocialSnapshot = {
     createdByPlayerId: string;
   }>;
   truceBreaksThisSeason: SocialTruceBreakRecord[];
+  /** This player's own outgoing re-offer cooldowns (see social-offer-cooldowns.ts). */
+  offerCooldowns: Array<{ kind: SocialOfferKind; targetPlayerId: string; until: number }>;
 };
 
 export type SocialPlayerRecord = {
@@ -149,21 +152,29 @@ export const playerIsTruceLockedOut = (
   return lockoutUntil !== undefined && lockoutUntil > now;
 };
 
+export type SocialRejectOptions = {
+  announcementByPlayerId?: Partial<Record<string, string>>;
+  /** Defaults to true; false when the decline wasn't the target's real answer (e.g. an AI that couldn't be evaluated). */
+  startCooldown?: boolean;
+};
+
 export type SocialState = {
   registerPlayer: (playerId: string, name: string) => void;
   renamePlayer: (playerId: string, name: string) => void;
   snapshotForPlayer: (playerId: string) => SocialSnapshot;
   syncPlayers: (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>) => SocialSyncResult;
   requestAlliance: (fromPlayerId: string, targetPlayerName: string) => SocialActionResult;
-  acceptAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  rejectAlliance: (playerId: string, requestId: string) => SocialActionResult;
+  /** announcementByPlayerId replaces the default (none) for an accept. */
+  acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
+  rejectAlliance: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
   breakAlliance: (playerId: string, targetPlayerId: string) => SocialActionResult;
   expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
   finalizeExpiredAllianceBreaks: (pairs?: Array<[string, string]>) => { expiredBreaks: SocialExpiredAllianceBreak[]; payloadsByPlayerId: Map<string, unknown[]> };
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24) => SocialActionResult;
-  acceptTruce: (playerId: string, requestId: string) => SocialActionResult;
-  rejectTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
+  /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
+  acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
+  rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
   activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
@@ -185,6 +196,7 @@ export type SocialStateSink = {
   removeActiveTruce: (playerAId: string, playerBId: string) => void;
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
   saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
+  saveOfferCooldown: (cooldown: SocialOfferCooldown) => void;
   pruneExpired: (now: number) => void;
 };
 
@@ -197,4 +209,5 @@ export type SocialStateInitial = {
   activeTruces?: SocialActiveTruce[];
   truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
   truceBreaks?: Array<{ playerId: string } & SocialTruceBreakRecord>;
+  offerCooldowns?: SocialOfferCooldown[];
 };

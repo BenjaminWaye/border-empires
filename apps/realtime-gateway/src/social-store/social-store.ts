@@ -7,6 +7,7 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "../social-state/social-state.js";
+import type { SocialOfferCooldown } from "../social-state/social-offer-cooldowns.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
@@ -19,6 +20,7 @@ export type SocialStoreSnapshot = {
   activeTruces: SocialActiveTruce[];
   truceLockouts: Array<{ playerId: string; lockoutUntil: number }>;
   truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord>;
+  offerCooldowns: SocialOfferCooldown[];
 };
 
 export type GatewaySocialStore = {
@@ -38,6 +40,7 @@ export type GatewaySocialStore = {
   removeActiveTruce(playerAId: string, playerBId: string): void;
   saveTruceLockout(playerId: string, lockoutUntil: number): void;
   saveTruceBreak(playerId: string, record: SocialTruceBreakRecord): void;
+  saveOfferCooldown(cooldown: SocialOfferCooldown): void;
   pruneExpired(now: number): void;
   clearSeasonData(): void;
 };
@@ -59,6 +62,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
   private readonly activeTruces = new Map<string, SocialActiveTruce>();
   private readonly truceLockouts = new Map<string, number>();
   private readonly truceBreaks: Array<{ playerId: string } & SocialTruceBreakRecord> = [];
+  private readonly offerCooldowns = new Map<string, SocialOfferCooldown>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
@@ -83,7 +87,8 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
       truceRequests: [...this.truceRequests.values()].map((r) => ({ ...r })),
       activeTruces: [...this.activeTruces.values()].map((t) => ({ ...t })),
       truceLockouts: [...this.truceLockouts.entries()].map(([playerId, lockoutUntil]) => ({ playerId, lockoutUntil })),
-      truceBreaks: this.truceBreaks.map((record) => ({ ...record }))
+      truceBreaks: this.truceBreaks.map((record) => ({ ...record })),
+      offerCooldowns: [...this.offerCooldowns.values()].map((entry) => ({ ...entry }))
     };
   }
 
@@ -161,7 +166,14 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     }
   }
 
+  saveOfferCooldown(cooldown: SocialOfferCooldown): void {
+    this.offerCooldowns.set(`${cooldown.kind}:${cooldown.fromPlayerId}:${cooldown.toPlayerId}`, { ...cooldown });
+  }
+
   pruneExpired(now: number): void {
+    for (const [key, entry] of this.offerCooldowns) {
+      if (entry.until <= now) this.offerCooldowns.delete(key);
+    }
     for (const [id, request] of this.truceRequests) {
       if (request.expiresAt <= now) this.truceRequests.delete(id);
     }
@@ -185,6 +197,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.activeTruces.clear();
     this.truceLockouts.clear();
     this.truceBreaks.length = 0;
+    this.offerCooldowns.clear();
   }
 }
 

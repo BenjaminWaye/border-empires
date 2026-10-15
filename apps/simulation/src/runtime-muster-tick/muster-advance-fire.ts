@@ -103,7 +103,7 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
     return;
   }
 
-  const { nearest, nearestAffordable } = scanAdvanceCandidates(input, musterTile, playerId, availableMuster);
+  const { nearest, nearestAffordable, engagedResolvesAt } = scanAdvanceCandidates(input, musterTile, playerId, availableMuster);
 
   // The flag commits to its nearest target and saves up for it rather than
   // spending on a cheaper, farther one; only a target the flag can't hold
@@ -118,6 +118,18 @@ export const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileS
   // striking whatever unlocked tile happens to be reachable, however far.
   // `waiting`: a reachable target exists but the flag is still saving up for it.
   const waiting = nearest !== undefined;
+  if (!best && engagedResolvesAt !== undefined && !waiting) {
+    // Every enemy tile at our border is mid-fight (typically this flag's own
+    // attack on a dock across the water). Hold the manpower for that front
+    // until the fight resolves -- expanding "toward" a hostile we're already
+    // touching just walks the flag around its own island (the closing-distance
+    // march can't route across a dock link). Both the cooldown and
+    // nextActionAt use the lock's resolvesAt verbatim, never clamped to nowMs
+    // -- see the in-flight branch above for why.
+    input.advanceCooldowns.set(originKey, engagedResolvesAt);
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt: engagedResolvesAt });
+    return;
+  }
   if (!best) {
     if (isHumanFlagOwner(input, playerId)) {
       // Hostile land (a barbarian, or a rival who isn't an ally) that doesn't

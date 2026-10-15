@@ -7,6 +7,7 @@ import {
   findTruceRequestBetweenPlayers,
   pairKey,
   playerIsTruceLockedOut,
+  type SocialActionResult,
   type SocialActiveTruce,
   type SocialAllianceBreak,
   type SocialAllianceRequest,
@@ -22,6 +23,14 @@ import {
   type SocialTruceRequest
 } from "./social-state-types.js";
 import { buildUpdatePayloads } from "./social-state-payloads.js";
+import { buildSocialSnapshot } from "./social-state-snapshot.js";
+import {
+  createSocialOfferCooldowns,
+  formatCooldownRemaining,
+  OFFER_EXPIRED_COOLDOWN_MS,
+  OFFER_REJECTED_COOLDOWN_MS,
+  type SocialOfferKind
+} from "./social-offer-cooldowns.js";
 
 export type {
   SocialActiveTruce,
@@ -60,6 +69,16 @@ export const createSocialState = (options: {
   const trucesByPair = new Map<string, SocialActiveTruce>();
   const truceLockoutUntilByPlayerId = new Map<string, number>();
   const truceBreaksByPlayerId = new Map<string, SocialTruceBreakRecord[]>();
+  const offerCooldowns = createSocialOfferCooldowns(now, options.initial?.offerCooldowns);
+  const startOfferCooldown = (kind: SocialOfferKind, fromPlayerId: string, toPlayerId: string, durationMs: number): void => {
+    sink?.saveOfferCooldown(offerCooldowns.start(kind, fromPlayerId, toPlayerId, durationMs));
+  };
+  const offerCooldownError = (kind: SocialOfferKind, fromPlayerId: string, target: SocialPlayerRecord): SocialActionResult | undefined => {
+    const remainingMs = offerCooldowns.remainingMs(kind, fromPlayerId, target.id);
+    if (remainingMs <= 0) return undefined;
+    const code = kind === "truce" ? "TRUCE_OFFER_COOLDOWN" : "ALLIANCE_OFFER_COOLDOWN";
+    return { ok: false, code, message: `You can offer ${target.name} ${kind === "truce" ? "a truce" : "an alliance"} again in ${formatCooldownRemaining(remainingMs)}.` };
+  };
 
   const ensurePlayer = (playerId: string, fallbackName?: string): SocialPlayerRecord => {
     const existing = playersById.get(playerId);
@@ -88,6 +107,7 @@ export const createSocialState = (options: {
     for (const [requestId, request] of truceRequests) {
       if (request.expiresAt <= current) {
         truceRequests.delete(requestId);
+        startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_EXPIRED_COOLDOWN_MS);
         pruned = true;
       }
     }
@@ -109,57 +129,16 @@ export const createSocialState = (options: {
         pruned = true;
       }
     }
+    if (offerCooldowns.sweep()) pruned = true;
     if (pruned) sink?.pruneExpired(current);
   };
 
   const snapshotForPlayer = (playerId: string): SocialSnapshot => {
     sweepExpired();
-    const player = ensurePlayer(playerId);
-    return {
-      allies: [...player.allies],
-      activeAllianceBreaks: [...allianceBreaksByPair.values()]
-        .filter((notice) => notice.playerAId === playerId || notice.playerBId === playerId)
-        .map((notice) => {
-          const otherPlayerId = notice.playerAId === playerId ? notice.playerBId : notice.playerAId;
-          return {
-            otherPlayerId,
-            otherPlayerName: playersById.get(otherPlayerId)?.name ?? otherPlayerId,
-            startedAt: notice.startedAt,
-            endsAt: notice.endsAt,
-            createdByPlayerId: notice.createdByPlayerId
-          };
-        }),
-      recentAllianceBreaks: [...completedAllianceBreaks.values()]
-        .filter((notice) => notice.notificationExpiresAt > now() && (notice.playerAId === playerId || notice.playerBId === playerId))
-        .map((notice) => {
-          const otherPlayerId = notice.playerAId === playerId ? notice.playerBId : notice.playerAId;
-          return {
-            otherPlayerId,
-            otherPlayerName: playersById.get(otherPlayerId)?.name ?? otherPlayerId,
-            startedAt: notice.startedAt,
-            endsAt: notice.endsAt,
-            finalizedAt: notice.finalizedAt,
-            createdByPlayerId: notice.createdByPlayerId
-          };
-        }),
-      incomingAllianceRequests: [...allianceRequests.values()].filter((request) => request.toPlayerId === playerId),
-      outgoingAllianceRequests: [...allianceRequests.values()].filter((request) => request.fromPlayerId === playerId),
-      incomingTruceRequests: [...truceRequests.values()].filter((request) => request.toPlayerId === playerId),
-      outgoingTruceRequests: [...truceRequests.values()].filter((request) => request.fromPlayerId === playerId),
-      activeTruces: [...trucesByPair.values()]
-        .filter((truce) => truce.endsAt > now() && (truce.playerAId === playerId || truce.playerBId === playerId))
-        .map((truce) => {
-          const otherPlayerId = truce.playerAId === playerId ? truce.playerBId : truce.playerAId;
-          return {
-            otherPlayerId,
-            otherPlayerName: playersById.get(otherPlayerId)?.name ?? otherPlayerId,
-            startedAt: truce.startedAt,
-            endsAt: truce.endsAt,
-            createdByPlayerId: truce.createdByPlayerId
-          };
-        }),
-      truceBreaksThisSeason: [...(truceBreaksByPlayerId.get(playerId) ?? [])]
-    };
+    return buildSocialSnapshot(
+      { now, playersById, allianceRequests, allianceBreaksByPair, completedAllianceBreaks, truceRequests, trucesByPair, truceBreaksByPlayerId, offerCooldowns },
+      ensurePlayer(playerId)
+    );
   };
 
   const updatePayloadsFor = (
@@ -259,6 +238,8 @@ export const createSocialState = (options: {
           existingRequest.fromPlayerId === actor.id ? "alliance request already pending" : "that player already sent you an alliance request";
         return { ok: false, code: "ALLIANCE_REQUEST_PENDING", message };
       }
+      const allianceCooldownError = offerCooldownError("alliance", actor.id, target);
+      if (allianceCooldownError) return allianceCooldownError;
       const request: SocialAllianceRequest = {
         id: crypto.randomUUID(),
         fromPlayerId: actor.id,
@@ -274,7 +255,7 @@ export const createSocialState = (options: {
       payloads.get(target.id)?.push({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name });
       return { ok: true, notifyPlayerIds: [actor.id, target.id], payloadsByPlayerId: payloads };
     },
-    acceptAlliance(playerId, requestId) {
+    acceptAlliance(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
@@ -292,15 +273,18 @@ export const createSocialState = (options: {
       sink?.deleteAllianceRequest(requestId);
       sink?.addAlliance(actor.id, from.id, now());
       sink?.removeCompletedAllianceBreak(actor.id, from.id);
-      return ok([actor.id, from.id]);
+      const notifyPlayerIds = [actor.id, from.id];
+      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, announcementByPlayerId) };
     },
-    rejectAlliance(playerId, requestId) {
+    rejectAlliance(playerId, requestId, options) {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
-      return ok([playerId, request.fromPlayerId]);
+      if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
+      const notifyPlayerIds = [playerId, request.fromPlayerId];
+      return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, options?.announcementByPlayerId) };
     },
     cancelAlliance(playerId, requestId) {
       sweepExpired();
@@ -308,6 +292,7 @@ export const createSocialState = (options: {
       if (!request || request.fromPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
+      startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       return ok([playerId, request.toPlayerId]);
     },
     breakAlliance(playerId, targetPlayerId) {
@@ -390,6 +375,8 @@ export const createSocialState = (options: {
       if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
         return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
       }
+      const truceCooldownError = offerCooldownError("truce", actor.id, target);
+      if (truceCooldownError) return truceCooldownError;
       const request: SocialTruceRequest = {
         id: crypto.randomUUID(),
         fromPlayerId: actor.id,
@@ -407,7 +394,7 @@ export const createSocialState = (options: {
       payloads.get(target.id)?.push({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name });
       return { ok: true, notifyPlayerIds: [actor.id, target.id], payloadsByPlayerId: payloads };
     },
-    acceptTruce(playerId, requestId) {
+    acceptTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
@@ -444,9 +431,9 @@ export const createSocialState = (options: {
       trucesByPair.set(pairKey(actor.id, from.id), truce);
       sink?.deleteTruceRequest(requestId); sink?.saveActiveTruce(truce);
       const announcement = `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`;
-      return ok([actor.id, from.id], { [actor.id]: announcement, [from.id]: announcement });
+      return ok([actor.id, from.id], announcementByPlayerId ?? { [actor.id]: announcement, [from.id]: announcement });
     },
-    rejectTruce(playerId, requestId, announcementByPlayerId) {
+    rejectTruce(playerId, requestId, options) {
       sweepExpired();
       const request = truceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
@@ -454,7 +441,8 @@ export const createSocialState = (options: {
       }
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
-      return ok([playerId, request.fromPlayerId], announcementByPlayerId);
+      if (options?.startCooldown !== false) startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
+      return ok([playerId, request.fromPlayerId], options?.announcementByPlayerId);
     },
     cancelTruce(playerId, requestId) {
       sweepExpired();
@@ -464,6 +452,7 @@ export const createSocialState = (options: {
       }
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
+      startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       return ok([playerId, request.toPlayerId]);
     },
     breakTruce(playerId, targetPlayerId) {
