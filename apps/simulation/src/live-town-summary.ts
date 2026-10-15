@@ -384,7 +384,15 @@ export const buildTownSummary = (
         firstThreeTownPopGrowthMult *
         (hasLongPeace ? LONG_PEACE_GROWTH_MULT : 1) *
         logisticFactor;
-  const baseGrowth = isInCaptureShock ? 0 : naturalGrowth;
+  // The population-growth tick stamps the rate it actually applied
+  // (runtime-population-growth.ts), which also folds in the owner's
+  // empire-integrity multiplier this snapshot path can't see. Prefer it
+  // whenever the town is growing so every surface shows the real rate;
+  // the recompute stays as the fallback for a not-yet-ticked town.
+  const tickAppliedGrowth = townPartial.populationGrowthPerMinute;
+  const growingGrowth = typeof tickAppliedGrowth === "number" && Number.isFinite(tickAppliedGrowth) && tickAppliedGrowth > 0 ? tickAppliedGrowth : naturalGrowth;
+  // A nearby-war pause stops growth in the tick, so it reads 0 here too.
+  const baseGrowth = isInCaptureShock || hasNearbyWar || naturalGrowth <= 0 ? 0 : growingGrowth;
   // Modifier precedence:
   //   1. Recently captured (capture-shock smoke is active even when growth is
   //      already zero, so surface the blocker explicitly instead of falling
@@ -393,8 +401,8 @@ export const buildTownSummary = (
   //   3. Long time peace (positive — 24 h of no nearby combat near this town).
   const growthModifiers = isInCaptureShock
     ? [{ label: "Recently captured" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
-    : hasNearbyWar && baseGrowth > 0
-      ? [{ label: "Nearby war" as const, deltaPerMinute: -Number(baseGrowth.toFixed(4)) }]
+    : hasNearbyWar && naturalGrowth > 0
+      ? [{ label: "Nearby war" as const, deltaPerMinute: -Number(naturalGrowth.toFixed(4)) }]
       : hasLongPeace && baseGrowth > 0
         ? [{
             label: "Long time peace" as const,
