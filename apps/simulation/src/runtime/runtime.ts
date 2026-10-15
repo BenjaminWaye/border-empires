@@ -491,6 +491,7 @@ import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js
 import { holdDevelopmentForAttack, releaseDevelopmentHold, type AttackDevelopmentHoldContext } from "../attack-development-hold/attack-development-hold.js";
 import { installAttackReleaseHandler } from "./runtime-attack-release-handler.js";
 import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/structure-timer-recovery.js";
+import { updateTileSettledAt, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -1929,9 +1930,10 @@ export class SimulationRuntime {
     this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
-  private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
+  private replaceTileState(tileKey: string, nextTile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
+    const tile = withoutStaleCaptureHold(previous, nextTile, this.now());
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -1954,19 +1956,7 @@ export class SimulationRuntime {
       defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
       resourceSlotSupplyDirtyPlayerIds: this.resourceSlotSupplyDirtyPlayerIds, resourceSlotDemandDirtyPlayerIds: this.resourceSlotDemandDirtyPlayerIds, resourceSlotDormancyDirtyPlayerIds: this.resourceSlotDormancyDirtyPlayerIds
     });
-    // Maintain settledAt timestamp for the tile-shedding ticker:
-    //   - newly SETTLED (previously not, or new owner) → stamp `now`
-    //   - leaves SETTLED → clear
-    //   - stays SETTLED for the same owner → preserve existing stamp
-    const wasSettledForSameOwner =
-      sameOwner && previous?.ownershipState === "SETTLED" && tile.ownershipState === "SETTLED";
-    if (tile.ownershipState === "SETTLED" && tile.ownerId) {
-      if (!wasSettledForSameOwner) {
-        this.tileSettledAtByKey.set(tileKey, this.now());
-      }
-    } else {
-      this.tileSettledAtByKey.delete(tileKey);
-    }
+    updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
         ? [...this.summaryForPlayer(previous.ownerId).territoryTileKeys]

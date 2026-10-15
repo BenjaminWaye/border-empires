@@ -33,6 +33,7 @@ export type RuntimeExportState = {
     reachOwnerId?: string;
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;
+    captureHoldUntil?: number;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -159,6 +160,7 @@ const toRuntimeExportTile = (
   if (tile.ownershipState) entry.ownershipState = tile.ownershipState;
   if (typeof tile.frontierDecayAt === "number") entry.frontierDecayAt = tile.frontierDecayAt;
   if (tile.frontierDecayKind) entry.frontierDecayKind = tile.frontierDecayKind;
+  if (typeof tile.captureHoldUntil === "number") entry.captureHoldUntil = tile.captureHoldUntil;
   if (cached.townJson) entry.townJson = cached.townJson;
   if (tile.town?.type) entry.townType = tile.town.type;
   if (tile.town?.name) entry.townName = tile.town.name;

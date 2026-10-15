@@ -7,6 +7,7 @@ import {
   clamp01,
   deathKitFor,
   dyingIndicesFor,
+  hiddenMarinePose,
   marineKitFor,
   type MarinePose,
   type MarineStance
@@ -56,13 +57,11 @@ export const garrisonStartFor = (facing: GarrisonFacing | undefined, seed: numbe
   };
 };
 
-const HIDDEN = (yaw: number): MarinePose => ({ stance: "stand", localX: 0, localZ: 0, yaw, scale: 0, crouchT: 0, fallT: 0, flash: 0 });
-
 /** One garrison marine's pose while the tile is held and not under attack. */
 export const computeGarrisonPose = (g: GarrisonRenderEntry, i: number, nowMs: number): MarinePose => {
   const yaw = Math.atan2(g.fwdX, g.fwdZ);
   const start = garrisonStartFor(g, g.hashSeed, i);
-  if (!start || start.absent) return HIDDEN(yaw);
+  if (!start || start.absent) return hiddenMarinePose(yaw);
   return {
     stance: start.stance,
     localX: start.localX,
@@ -74,6 +73,3 @@ export const computeGarrisonPose = (g: GarrisonRenderEntry, i: number, nowMs: nu
     flash: 0
   };
 };
-
-/** Pose for a garrison marine that is absent from a fight (fell taking the tile). */
-export const absentMarinePose = HIDDEN;

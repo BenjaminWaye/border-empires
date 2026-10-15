@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildCaptureHoldGarrisons, defenderGarrisonField, resetCaptureHoldGarrisonCache } from "./client-map-3d-capture-hold-garrison.js";
+import { noteCaptureHoldDeadline, resetCaptureHoldIndex } from "./client-capture-hold/client-capture-hold.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -7,11 +8,11 @@ const keyFor = (x: number, y: number): string => `${x},${y}`;
 const NOW_EPOCH = 1_000_000;
 const NOW = 5_000;
 
-const makeState = (tiles: Tile[], activeBattles: ClientState["activeBattles"] = new Map()) => ({
-  tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])),
-  tilesRevision: 1,
-  activeBattles
-});
+// The tile merge feeds the held-tile index in the real client; do it here.
+const makeState = (tiles: Tile[], activeBattles: ClientState["activeBattles"] = new Map()) => {
+  for (const t of tiles) noteCaptureHoldDeadline(keyFor(t.x, t.y), t.captureHoldUntil, NOW_EPOCH);
+  return { tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])), activeBattles };
+};
 
 const held = (overrides: Partial<Tile> = {}): Tile => ({
   x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER", captureHoldUntil: NOW_EPOCH + 30_000, ...overrides
@@ -20,7 +21,10 @@ const held = (overrides: Partial<Tile> = {}): Tile => ({
 const build = (state: ReturnType<typeof makeState>, busy: ReadonlySet<string> = new Set()) =>
   buildCaptureHoldGarrisons(state, keyFor, busy, () => "#123456", () => 0, 0, 0, NOW, NOW_EPOCH);
 
-afterEach(() => resetCaptureHoldGarrisonCache());
+afterEach(() => {
+  resetCaptureHoldGarrisonCache();
+  resetCaptureHoldIndex();
+});
 
 describe("buildCaptureHoldGarrisons", () => {
   it("stands a squad on a visible held tile, facing in from its owner's neighbouring land", () => {
@@ -47,6 +51,17 @@ describe("buildCaptureHoldGarrisons", () => {
     expect(build(makeState([held({ captureHoldUntil: NOW_EPOCH - 1 })]))).toHaveLength(0);
     resetCaptureHoldGarrisonCache();
     expect(build(makeState([held({ ownershipState: "SETTLED" })]))).toHaveLength(0);
+  });
+});
+
+describe("buildCaptureHoldGarrisons culling", () => {
+  it("keeps the squads nearest the view when more tiles are held than there are slots", () => {
+    const many = Array.from({ length: 20 }, (_, i) => held({ x: 100 + i * 10, y: 100 }));
+    const state = makeState(many);
+    const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set(), () => "#123456", () => 0, 100, 100, NOW, NOW_EPOCH);
+    expect(garrisons).toHaveLength(16);
+    expect(garrisons[0]!.hashSeed).toBe(100 * 92821 + 100);
+    expect(garrisons.map((g) => g.hashSeed)).not.toContain(290 * 92821 + 100);
   });
 });
 

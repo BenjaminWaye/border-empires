@@ -61,6 +61,9 @@ const MUTABLE_TILE_FIELDS = [
   "muster",
   "frontierDecayAt",
   "frontierDecayKind",
+  // Capture hold (shared capture-hold.ts): without it a restart inside the
+  // 60s window handed the previous owner a free retake again.
+  "captureHoldUntil",
   // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
   // legacy structure fields above. Including it here ensures the compaction
   // overlay preserves it on round-trip even before Phase 4 activates the reader.

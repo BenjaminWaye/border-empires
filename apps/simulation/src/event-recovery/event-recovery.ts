@@ -26,6 +26,7 @@ type RecoveredTileState = {
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
   frontierDecayKind?: DomainTileState["frontierDecayKind"];
+  captureHoldUntil?: DomainTileState["captureHoldUntil"];
   town?: DomainTileState["town"];
   fort?: DomainTileState["fort"];
   observatory?: DomainTileState["observatory"];
@@ -98,6 +99,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -202,6 +204,13 @@ const applyTileDeltaToRecoveredAccumulator = (
         : {}
       : existing?.frontierDecayKind
         ? { frontierDecayKind: existing.frontierDecayKind }
+        : {}),
+    ...("captureHoldUntil" in tileDelta
+      ? typeof tileDelta.captureHoldUntil === "number"
+        ? { captureHoldUntil: tileDelta.captureHoldUntil }
+        : {}
+      : typeof existing?.captureHoldUntil === "number"
+        ? { captureHoldUntil: existing.captureHoldUntil }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...("fortJson" in tileDelta

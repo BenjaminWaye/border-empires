@@ -15,6 +15,7 @@ export type PlannerTile = {
   terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  captureHoldUntil?: number | undefined;
   resource?: string | undefined;
   dockId?: string | undefined;
   town?: unknown;

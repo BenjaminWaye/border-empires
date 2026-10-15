@@ -1,5 +1,6 @@
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
+import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
 import type { Tile } from "../client-types.js";
 
 /**
@@ -99,6 +100,7 @@ export const applyCommonTileFields = (
   if ("captureHoldUntil" in normalizedUpdate) {
     if (typeof normalizedUpdate.captureHoldUntil === "number") merged.captureHoldUntil = normalizedUpdate.captureHoldUntil;
     else delete merged.captureHoldUntil;
+    noteCaptureHoldDeadline(keyForTile(merged.x, merged.y), merged.captureHoldUntil);
   }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
 

@@ -190,28 +190,25 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   const entries: FrontierCombatBreakdownEntry[] = [];
   // Legacy parity: frontier tiles provide no defensive effective power --
   // except a freshly captured one still inside its hold window
-  // (capture-hold.ts), which defends like bare ground with no garrison,
-  // town or fort bonus (forts only defend once SETTLED).
+  // (capture-hold.ts), which defends like bare ground: CAPTURE_HOLD_DEFENSE_MULT
+  // (folded like any other term, so no "x1.0" row while it is 1) and no
+  // garrison, town or fort bonus (forts only defend once SETTLED).
   const holdingGround = modifiers.nowMs != null && isCaptureHoldActive(target, modifiers.nowMs);
   if (target.ownershipState === "FRONTIER" && !holdingGround) return { entries, mult: 0 };
   let mult = 1;
   mult *= foldMult(entries, modifiers.noWarIndustryDefenseVulnerabilityLabel ?? "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
   if (holdingGround) {
-    entries.push({ label: "Holding captured ground", mult: CAPTURE_HOLD_DEFENSE_MULT });
-    mult *= CAPTURE_HOLD_DEFENSE_MULT;
-    if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
-      mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);
+    mult *= foldMult(entries, "Holding captured ground", CAPTURE_HOLD_DEFENSE_MULT);
+  } else {
+    mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
+    mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
+    if (target.fortVariant) {
+      const baseFortMult = baseFortDefenseMult(target.fortVariant);
+      const techMult = modifiers.fortDefenseMult ?? 1;
+      const combinedMult = baseFortMult * techMult;
+      entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
+      mult *= combinedMult;
     }
-    return { entries, mult };
-  }
-  mult *= foldMult(entries, "Garrisoned tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
-  mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
-  if (target.fortVariant) {
-    const baseFortMult = baseFortDefenseMult(target.fortVariant);
-    const techMult = modifiers.fortDefenseMult ?? 1;
-    const combinedMult = baseFortMult * techMult;
-    entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
-    mult *= combinedMult;
   }
   if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
     mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);

@@ -223,7 +223,10 @@ message TileDelta {
   // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
   optional string afc_json = 33;
   // Post-capture hold window end (shared capture-hold.ts); 0 = none.
-  uint64 capture_hold_until = 34;
+  // optional: a sparse delta that omits it must decode as "unchanged", not
+  // as 0 -- under the gateway's defaults:true decode a plain uint64 reads 0
+  // when omitted, which would clear a live hold on every unrelated delta.
+  optional uint64 capture_hold_until = 34;
 }
 
 message DockRouteWaypoint {

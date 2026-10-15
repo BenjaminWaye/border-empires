@@ -29,7 +29,8 @@ describe("capture hold", () => {
     );
     expect(held.defMult).toBe(CAPTURE_HOLD_DEFENSE_MULT);
     expect(held.winChance).toBeCloseTo(0.5, 5);
-    expect(held.defender.battle).toContainEqual({ label: "Holding captured ground", mult: CAPTURE_HOLD_DEFENSE_MULT });
+    // foldMult convention: a x1.0 term never gets a breakdown row.
+    expect(held.defender.battle).toEqual([]);
   });
 
   it("does not give a held FRONTIER tile garrison, town or fort bonuses", () => {

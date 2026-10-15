@@ -257,6 +257,9 @@ export type MarinePose = {
 
 const facingYaw = (fwdX: number, fwdZ: number): number => Math.atan2(fwdX, fwdZ);
 
+/** A marine that isn't on the field at all (e.g. a garrison member who fell taking the tile). */
+export const hiddenMarinePose = (yaw: number): MarinePose => ({ stance: "stand", localX: 0, localZ: 0, yaw, scale: 0, crouchT: 0, fallT: 0, flash: 0 });
+
 /** Computes one marine's local-space pose for a resolved battle at `nowMs`.
  * `entryLocalX/Z` is the tile-edge cover position this side spawns from,
  * `perpX/Z`/`fwdX/Z` are the firing-line's perpendicular/forward axes (see
@@ -302,7 +305,7 @@ export const computeBattlePose = (
   // axis. The advance below starts from this exact point — marching from the
   // bare entry point instead collapsed the whole squad onto one spot the
   // instant lineup ended (a "pile") before it fanned back out.
-  if (garrisonStart?.absent) return { stance: "stand", localX: 0, localZ: 0, yaw, scale: 0, crouchT: 0, fallT: 0, flash: 0 };
+  if (garrisonStart?.absent) return hiddenMarinePose(yaw);
   const lineupX = garrisonStart ? garrisonStart.localX : entryLocalX + perpX * kit.perpPos;
   const lineupZ = garrisonStart ? garrisonStart.localZ : entryLocalZ + perpZ * kit.perpPos;
 
@@ -429,7 +432,7 @@ export const computeSkirmishPose = (
 
   // See computeBattlePose: the advance starts from this waiting slot, not
   // from the bare entry point.
-  if (garrisonStart?.absent) return { stance: "stand", localX: 0, localZ: 0, yaw, scale: 0, crouchT: 0, fallT: 0, flash: 0 };
+  if (garrisonStart?.absent) return hiddenMarinePose(yaw);
   const lineupX = garrisonStart ? garrisonStart.localX : entryLocalX + perpX * kit.perpPos;
   const lineupZ = garrisonStart ? garrisonStart.localZ : entryLocalZ + perpZ * kit.perpPos;
 

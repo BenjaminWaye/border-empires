@@ -206,6 +206,25 @@ describe("TileDelta wire parity", () => {
   // resolve a countdown for it (outOfReachDecayRemainingMsForTile requires
   // frontierDecayKind === "OUT_OF_REACH") -- the tile just silently expired
   // with no warning shown anywhere.
+  // Regression: capture_hold_until was a plain uint64, so under the
+  // gateway's own decode options (defaults: true) a sparse delta that merely
+  // omitted it decoded as 0 and normalized to an explicit clear -- wiping a
+  // live capture hold on every unrelated delta for that tile.
+  it("keeps an omitted capture_hold_until absent (unchanged) and an explicit 0 as a clear, under the gateway's decode options", () => {
+    const gatewayDefinition = loadSync(
+      fileURLToPath(new URL("../../../../packages/sim-protocol/src/simulation.proto", import.meta.url)),
+      { keepCase: true, longs: Number, defaults: true, enums: String, oneofs: false }
+    );
+    const codec = gatewayDefinition["border_empires.simulation.TileDelta"] as unknown as MessageCodec;
+    const decode = (tile: Record<string, unknown>) => normalizeProtoTile(codec.deserialize(codec.serialize(tile)) as never) as Record<string, unknown>;
+
+    expect("captureHoldUntil" in decode({ x: 1, y: 2 })).toBe(false);
+    const cleared = decode({ x: 1, y: 2, capture_hold_until: 0 });
+    expect("captureHoldUntil" in cleared).toBe(true);
+    expect(cleared.captureHoldUntil).toBeUndefined();
+    expect(decode({ x: 1, y: 2, capture_hold_until: 1_893_456_120_000 }).captureHoldUntil).toBe(1_893_456_120_000);
+  });
+
   it("normalizes an OUT_OF_REACH frontier_decay_kind, not just ENCIRCLEMENT", () => {
     const decoded = roundTripTileDelta({ x: 1, y: 1, frontier_decay_kind: "OUT_OF_REACH" });
     expect(decoded.frontier_decay_kind, "proto dropped OUT_OF_REACH on the wire").toBe("OUT_OF_REACH");
