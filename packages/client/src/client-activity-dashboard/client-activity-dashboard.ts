@@ -29,8 +29,7 @@ export const activityDashboardUnreadCount = (state: Pick<ClientState, "activityD
 };
 
 /**
- * Wired to the "Open Activity Log" button in Settings > Admin (the player-facing
- * top-bar / mobile-nav Activity buttons were removed -- admin-only for now).
+ * Wired to the HUD's persistent Activity button (both desktop and mobile).
  * Refetches on every open (plan §4.3: "fetches... when the player opens or
  * refreshes the dashboard"; §2.1: reopening shows the full trailing 24h
  * window) rather than only the first time -- requestPersonalActivity's own

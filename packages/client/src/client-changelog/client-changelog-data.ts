@@ -460,10 +460,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     introducedIn: "2026.10.13.1",
     title: "Top bar icons are labelled",
     why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
-    changes: [
-      "Manifest, Allies, Ranks, Alerts, Sharding and Settings now show their name under the icon on desktop",
-      "The Activity log button has been removed from the top bar and the mobile menu while the activity log is reworked"
-    ]
+    changes: ["Manifest, Allies, Ranks, Alerts, Activity, Sharding and Settings now show their name under the icon on desktop"]
   },
   {
     createdAt: 1791905157542, // frozen Date.now() value for this release

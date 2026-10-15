@@ -1150,7 +1150,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       // reconnect's INIT (this project's own sim-worker-bottleneck/login-queue-fairness
       // history). Later reconnects rely on the already-cached timeline; toggleActivityDashboard
       // still fetches fresh data on open/refresh regardless.
-      if (isFirstInitThisSession && state.mapRevealEligible) requestPersonalActivity(state, { sendGameMessage, renderHud }); // admin-only now (Settings > Admin)
+      if (isFirstInitThisSession) requestPersonalActivity(state, { sendGameMessage, renderHud });
       return;
     }
     if (msg.type === "CHUNK_FULL") {

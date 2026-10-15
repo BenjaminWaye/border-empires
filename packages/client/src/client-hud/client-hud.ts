@@ -304,6 +304,17 @@ export const renderClientHud = (deps: HudDeps): void => {
   applyHudTabBadges(dom.hud, dom.panelActionButtons, { techReady, attackAlertUnread, feedUnreadCount, feedAttentionActive });
   applyVictoryHoldAlertNavBadges(state, dom.hud, dom.panelActionButtons);
   applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
+  const activityUnread = activityDashboardUnreadCount(state);
+  const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
+  activityButtons.forEach((btn: HTMLButtonElement) => {
+    setTabButtonHtml(btn, activityUnread > 0
+      ? `${navTabIconHtml("activity")}<span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
+      : navTabIconHtml("activity"));
+    btn.onclick = () => toggleActivityDashboard({
+      state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
+      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
+    });
+  });
 
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
@@ -880,17 +891,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   // into between renders and no focus-preserving guard is needed.
   dom.panelSettingsEl.innerHTML = settingsPanelHtml(state, wsUrl, firebaseAuth);
   dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
-  const activityUnread = activityDashboardUnreadCount(state);
-  const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>; // after the Settings render: the button lives in Settings > Admin
-  activityButtons.forEach((btn: HTMLButtonElement) => {
-    if (btn.dataset.openActivityDashboard !== "admin") setTabButtonHtml(btn, activityUnread > 0
-      ? `${navTabIconHtml("activity")}<span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
-      : navTabIconHtml("activity"));
-    btn.onclick = () => toggleActivityDashboard({
-      state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
-      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
-    });
-  });
 
   // Shared binder for the near-identical accept/reject/cancel request-action
   // buttons below (alliance + truce), which previously duplicated the same
