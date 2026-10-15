@@ -159,7 +159,6 @@ import {
   type LockedCombatResolution,
   type RuntimePlayer,
   type RuntimeTileYieldEconomyContext,
-  type SimulationJob,
   type PersistenceLogStats,
   type SimulationPersistence,
   type SimulationRuntimeOptions,
@@ -170,13 +169,7 @@ import {
   applyEconomyAccrual as applyEconomyAccrualImpl,
   type RuntimeUpkeepAccrualContext
 } from "../runtime-upkeep-accrual.js";
-import {
-  enqueueJob as enqueueJobImpl,
-  type RuntimeJobQueueContext,
-  type RuntimeJobQueueMutableState
-} from "../runtime-job-queue.js";
-import { RuntimeJobQueueState } from "../runtime-job-queue-state.js";
-import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
+import { RuntimeJobQueue } from "../runtime-job-queue-state.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import { parseSettlePayload } from "../runtime-command-parsers.js";
 import {
@@ -487,7 +480,6 @@ import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/
 import { updateTileSettledAt, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 
 export type { VisibilityAuditSample };
-const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
 // line with how far everything else in the new economy scale shrank.
 const RESPAWN_MINIMUM_GOLD = 10;
@@ -777,12 +769,7 @@ export class SimulationRuntime {
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
   private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>(); private readonly pendingAetherBridgeReachExpiry = new Map<string, { anchor: ReachAnchor; endsAt: number }>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
-  private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
-    human_interactive: [],
-    human_noninteractive: [],
-    system: [],
-    ai: []
-  };
+  private readonly jobQueue: RuntimeJobQueue;
   private readonly replayCache: RuntimeReplayCache;
   private readonly shardRain: RuntimeShardRain = (() => {
     const runtime = this;
@@ -796,11 +783,9 @@ export class SimulationRuntime {
   })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
   private dormantClaimSweepDone = false;
-  private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
-  private readonly scheduleSoon: (task: () => void) => void;
+  private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() });
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly playerUpdateEmitter: PlayerUpdateEmitter;
-  private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"]; private readonly alertedManpowerFullPlayerIds = new Set<string>();
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
@@ -809,22 +794,6 @@ export class SimulationRuntime {
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
     | undefined;
   private readonly onShardCollected: (() => void) | undefined;
-  private readonly onQueueDrain:
-    | ((sample: {
-        durationMs: number;
-        processedJobs: number;
-        backgroundJobsProcessed: number;
-        yieldedForBackground: boolean;
-        processedByLane: Record<QueueLane, number>;
-        queueDepthsBefore: Record<QueueLane, number>;
-        queueDepthsAfter: Record<QueueLane, number>;
-      }) => void)
-    | undefined;
-  private readonly onJobApplied:
-    | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"]; commandId?: string }) => void)
-    | undefined;
-  private readonly wrapJobRun: ((run: () => void, meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }) => () => void) | undefined;
-  private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
 
@@ -832,12 +801,10 @@ export class SimulationRuntime {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
-    this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 1);
     this.replayCache = new RuntimeReplayCache(
       Math.max(0, options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY),
       Math.max(0, options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES)
     );
-    this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     // scheduleAfter(0, ...) previously used setTimeout(0) (Timers phase, before
     // Check-phase setImmediate snapshot-build yields), so every yield ate a
     // ~200ms AI drain callback first — 22+s login stalls. Fix: setImmediate for
@@ -847,7 +814,16 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
-    this.shouldPauseBackground = options.shouldPauseBackground;
+    this.jobQueue = new RuntimeJobQueue({
+      backgroundBatchSize: Math.max(1, options.backgroundBatchSize ?? 1),
+      now: () => this.now(),
+      scheduleSoon: options.scheduleSoon ?? ((task) => queueMicrotask(task)),
+      scheduleAfter: this.scheduleAfter,
+      shouldPauseBackground: options.shouldPauseBackground,
+      wrapJobRun: options.wrapJobRun,
+      onQueueDrain: options.onQueueDrain,
+      onJobApplied: options.onJobApplied
+    });
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
@@ -866,9 +842,6 @@ export class SimulationRuntime {
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
     this.onOwnershipChange = options.onOwnershipChange; this.isPlayerSubscribed = options.isPlayerSubscribed;
-    this.onQueueDrain = options.onQueueDrain;
-    this.onJobApplied = options.onJobApplied;
-    this.wrapJobRun = options.wrapJobRun;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
@@ -1631,11 +1604,11 @@ export class SimulationRuntime {
   }
 
   queueDepths(): Record<QueueLane, number> {
-    return computeQueueDepths(this.jobsByLane);
+    return this.jobQueue.depths();
   }
 
   queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
-    return computeQueueBacklogMs(this.jobsByLane, nowMs);
+    return this.jobQueue.backlogMs(nowMs);
   }
 
   private summaryForPlayer(playerId: string): PlayerRuntimeSummary {
@@ -2959,26 +2932,6 @@ export class SimulationRuntime {
     return true;
   }
 
-  private jobQueueContext(): RuntimeJobQueueContext {
-    return {
-      jobsByLane: this.jobsByLane,
-      priorityOrder,
-      backgroundBatchSize: this.backgroundBatchSize,
-      now: () => this.now(),
-      scheduleSoon: this.scheduleSoon,
-      scheduleAfter: this.scheduleAfter,
-      queueDepths: () => this.queueDepths(),
-      shouldPauseBackground: this.shouldPauseBackground,
-      wrapJobRun: this.wrapJobRun,
-      onQueueDrain: this.onQueueDrain,
-      onJobApplied: this.onJobApplied
-    };
-  }
-
-  private jobQueueMutableState(): RuntimeJobQueueMutableState {
-    return this.jobQueueState;
-  }
-
   private enqueueJob(
     lane: QueueLane,
     run: () => void,
@@ -2986,7 +2939,7 @@ export class SimulationRuntime {
     scheduling: "immediate" | "background" = "immediate",
     commandId?: string
   ): void {
-    enqueueJobImpl(this.jobQueueContext(), this.jobQueueMutableState(), lane, run, commandType, scheduling, commandId);
+    this.jobQueue.enqueue(lane, run, commandType, scheduling, commandId);
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
