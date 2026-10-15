@@ -49,7 +49,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       // that started meanwhile can still refuse the agreement: give the
       // payment back so nobody pays for a deal that didn't happen.
       deps.socialState.endSettlement(requestId);
-      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms) });
+      const refund = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms: swapDiplomacyTerms(terms), refundIfLate: false });
       deps.recordGatewayEvent(refund.ok ? "warn" : "error", "gateway_diplomacy_settlement_refunded", {
         requestId,
         kind,

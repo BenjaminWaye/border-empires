@@ -82,6 +82,54 @@ describe("createDiplomacySettlement", () => {
     expect(DIPLOMACY_SETTLEMENT_COMMAND_PREFIX).toBe("diplomacy-settle:");
   });
 
+  // The caller was told the deal failed, so no agreement is recorded: a
+  // payment the simulation applies after we gave up must be paid back.
+  it("refunds a payment that lands after the settlement timed out", async () => {
+    const { settlement, submitted, timers } = setupSettlement();
+    const result = settlement.settle({ proposerId: "p1", targetId: "p2", terms });
+    await Promise.resolve();
+    timers[0]!();
+    await expect(result).resolves.toEqual(expect.objectContaining({ ok: false }));
+    expect(settlement.abandonedCount()).toBe(1);
+
+    settlement.observe({ eventType: "COMMAND_RESOLVED", commandId: submitted[0]!.commandId });
+    await Promise.resolve();
+    expect(submitted).toHaveLength(2);
+    expect(JSON.parse(submitted[1]!.payloadJson)).toEqual({ proposerId: "p1", targetId: "p2", proposerPays: terms.ask, targetPays: terms.give });
+    expect(settlement.abandonedCount()).toBe(0);
+  });
+
+  it("refunds a late payment after a failed submit, but nothing when the late verdict is a rejection", async () => {
+    const failing = setupSettlement(async (command) => {
+      if (command.payloadJson.includes('"proposerPays":{"gold":50')) throw new Error("submit timed out");
+    });
+    await failing.settlement.settle({ proposerId: "p1", targetId: "p2", terms });
+    failing.settlement.observe({ eventType: "COMMAND_RESOLVED", commandId: failing.submitted[0]!.commandId });
+    await Promise.resolve();
+    expect(failing.submitted).toHaveLength(2);
+
+    const { settlement, submitted, timers } = setupSettlement();
+    const result = settlement.settle({ proposerId: "p1", targetId: "p2", terms });
+    await Promise.resolve();
+    timers[0]!();
+    await result;
+    settlement.observe({ eventType: "COMMAND_REJECTED", commandId: submitted[0]!.commandId, message: "no coin" });
+    expect(submitted).toHaveLength(1);
+    expect(settlement.abandonedCount()).toBe(0);
+  });
+
+  it("never reverses a refund that itself lands late", async () => {
+    const { settlement, submitted, timers } = setupSettlement();
+    const refund = settlement.settle({ proposerId: "p1", targetId: "p2", terms, refundIfLate: false });
+    await Promise.resolve();
+    timers[0]!();
+    await refund;
+    settlement.observe({ eventType: "COMMAND_RESOLVED", commandId: submitted[0]!.commandId });
+    await Promise.resolve();
+    expect(submitted).toHaveLength(1);
+    expect(settlement.abandonedCount()).toBe(0);
+  });
+
   it("caps in-flight settlements", async () => {
     const { settlement } = setupSettlement();
     for (let index = 0; index < MAX_PENDING_DIPLOMACY_SETTLEMENTS; index += 1) void settlement.settle({ proposerId: "p1", targetId: "p2", terms });
@@ -156,7 +204,7 @@ describe("createDiplomacyOfferAcceptance", () => {
     });
 
     expect(await acceptance.acceptTruce("p2", requestId)).toEqual(expect.objectContaining({ ok: false, code: "TRUCE_LOCKED_OUT" }));
-    expect(settle).toHaveBeenLastCalledWith({ proposerId: "p1", targetId: "p2", terms: { give: terms.ask, ask: terms.give } });
+    expect(settle).toHaveBeenLastCalledWith({ proposerId: "p1", targetId: "p2", terms: { give: terms.ask, ask: terms.give }, refundIfLate: false });
     expect(recordGatewayEvent).toHaveBeenCalledWith("warn", "gateway_diplomacy_settlement_refunded", expect.objectContaining({ refunded: true }));
   });
 
