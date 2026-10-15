@@ -2,12 +2,10 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { anonymizedEmpireNameForId, isOpaquePlayerId, PLANETARY_DEFENSE_DISPLAY_NAME, type SeasonVictoryPathId } from "@border-empires/shared";
-import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP, type DomainTileState } from "@border-empires/game-domain";
+import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP } from "@border-empires/game-domain";
 import type { LeaderboardMetricEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
-
-type WorldTile = RuntimeState["tiles"][number];
 
 const BARBARIAN_PLAYER_ID = "barbarian-1";
 
@@ -40,31 +38,9 @@ const rankMetric = (entries: Array<{ id: string; name: string; value: number }>)
     .sort((left, right) => right.value - left.value || left.name.localeCompare(right.name))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-const toFallbackWorldTile = (tile: DomainTileState): WorldTile => ({
-  x: tile.x,
-  y: tile.y,
-  terrain: tile.terrain,
-  ...(tile.resource ? { resource: tile.resource } : {}),
-  ...(tile.dockId ? { dockId: tile.dockId } : {}),
-  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-  ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-  ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-  ...(tile.town?.type ? { townType: tile.town.type } : {}),
-  ...(tile.town?.name ? { townName: tile.town.name } : {}),
-  ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-  ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-  ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-  ...(tile.siegeBattery ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
-  ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-  ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
-  ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-  ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {})
-});
-
 export const buildWorldStatusSnapshot = (
   playerId: string,
   runtimeState: RuntimeState,
-  fallbackTiles?: Iterable<DomainTileState>,
   options?: { acceptLatencyP95Ms?: number; nonCompetitivePlayerIds?: ReadonlySet<string> }
 ): WorldStatusSnapshot & {
   allPlayerSelfProgressLabels: Map<string, Map<SeasonVictoryPathId, string>>;
@@ -73,7 +49,7 @@ export const buildWorldStatusSnapshot = (
    *  tiering at season end (season-galaxy-tiers.ts). */
   allPlayerSelfProgress: Map<string, Map<SeasonVictoryPathId, number>>;
 } => {
-  const worldTiles = runtimeState.tiles.length > 0 ? runtimeState.tiles : fallbackTiles ? [...fallbackTiles].map((tile) => toFallbackWorldTile(tile)) : [];
+  const worldTiles = runtimeState.tiles;
   const overall = runtimeState.players
     .filter((player) => isCompetitivePlayer(player.id, options?.nonCompetitivePlayerIds))
     .map((player) => {

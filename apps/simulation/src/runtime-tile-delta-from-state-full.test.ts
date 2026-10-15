@@ -7,7 +7,6 @@ const makeDeps = (): TileDeltaFromStateDeps => ({
   players: new Map(),
   tileDeltaStringifyCache: new TileDeltaStringifyCache(),
   now: () => 0,
-  tileYieldCollectedAt: () => undefined,
   tileYieldEconomyContextForPlayer: () => {
     throw new Error("not needed for these unowned-tile fixtures");
   },

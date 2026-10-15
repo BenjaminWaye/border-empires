@@ -108,7 +108,6 @@ type StartClientRuntimeLoopDeps = {
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
   drawTownOverlay: (tile: Tile, px: number, py: number, size: number) => void;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
   structureAccentColor: (ownerId: string, fallback: string) => string;
   structureOverlayImages: Record<string, HTMLImageElement>;
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;
@@ -591,7 +590,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
           drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
-            tiles: state.tiles,
             keyFor: deps.keyFor,
             wrapX: deps.wrapX,
             wrapY: deps.wrapY
@@ -1040,7 +1038,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
             drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
-              tiles: state.tiles,
               keyFor: deps.keyFor,
               wrapX: deps.wrapX,
               wrapY: deps.wrapY

@@ -1231,8 +1231,7 @@ describe("rewrite stack integration", () => {
       expect(update).toEqual(
         expect.objectContaining({
           detailLevel: "full",
-          yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-          yieldCap: expect.objectContaining({ gold: 2112 })
+          yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
         })
       );
       const town = JSON.parse(String(update?.townJson)) as Record<string, unknown>;

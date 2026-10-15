@@ -81,16 +81,10 @@ describe("§14.2 dormant structures wire field", () => {
       }
     });
     const seen = collectEvents(runtime);
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    await Promise.resolve();
+    // A passive-income tick that credits gold emits a full PLAYER_UPDATE; the
+    // first call only seeds the income anchor.
+    runtime.applyPassiveIncome(1_000, Number.MAX_SAFE_INTEGER);
+    runtime.applyPassiveIncome(61_000, Number.MAX_SAFE_INTEGER);
     const playerUpdateEvent = seen.find(
       (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
         event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"

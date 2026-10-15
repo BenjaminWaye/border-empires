@@ -129,7 +129,6 @@ export const isDormantFrontierTile = (tile: Tile | undefined): boolean => {
 // --- Rendering ---------------------------------------------------------
 
 export type ReachBoundaryDeps = {
-  tiles: ReachOverlayTileMap;
   keyFor: (x: number, y: number) => string;
   wrapX: (value: number) => number;
   wrapY: (value: number) => number;

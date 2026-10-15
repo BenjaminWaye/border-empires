@@ -57,9 +57,7 @@ export type CommonTileFieldsUpdate = {
   sabotage?: Tile["sabotage"];
   muster?: Tile["muster"];
   afc?: Tile["afc"];
-  yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
-  yieldCap?: Tile["yieldCap"];
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
 };
@@ -163,17 +161,9 @@ export const applyCommonTileFields = (
   if (merged.afc) clearForestAroundAfcTile(merged.x, merged.y);
   // Towns and docks never stand in a forest -- same derive-don't-send rule.
   clearForestOnTownOrDockTile(merged);
-  if ("yield" in normalizedUpdate) {
-    if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
-    else delete merged.yield;
-  }
   if ("yieldRate" in normalizedUpdate) {
     if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
     else delete merged.yieldRate;
-  }
-  if ("yieldCap" in normalizedUpdate) {
-    if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
-    else delete merged.yieldCap;
   }
   if ("upkeepEntries" in normalizedUpdate) {
     if (normalizedUpdate.upkeepEntries) merged.upkeepEntries = normalizedUpdate.upkeepEntries;
@@ -198,7 +188,7 @@ export const applyCommonTileFields = (
 // activity -- forcing the true-3D renderer's full terrain/water/structure
 // rebuild continuously, not just on an actual visual change. That's what
 // made the 3D map's sea wave/lighting animation keep visibly restarting.
-const VOLATILE_NON_VISUAL_FIELDS = ["yield", "yieldRate", "yieldCap", "upkeepEntries", "history"] as const satisfies ReadonlyArray<keyof Tile>;
+const VOLATILE_NON_VISUAL_FIELDS = ["yieldRate", "upkeepEntries", "history"] as const satisfies ReadonlyArray<keyof Tile>;
 
 // True when `resolved` differs from `existing` in a way either map renderer
 // (2D or 3D) could actually show -- i.e. excluding the volatile economy-only

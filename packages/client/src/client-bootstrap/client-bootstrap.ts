@@ -39,7 +39,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     hasRevealedResourceCategory,
     openEconomyPanel,
     setActivePanel,
-    mobileNavLabelHtml,
     keyFor,
     parseKey,
     selectedTile,
@@ -49,7 +48,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     techCurrentModsHtml,
     bindTechTreeDragScroll,
     renderSocialInspectCardHtml,
-    missionCardsHtml,
     playerNameForOwner,
     wrapX,
     wrapY,
@@ -89,7 +87,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawTownOverlay,
     drawTownMarker,
     drawDockMarker,
-    hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
     shouldDrawOwnershipBorder,
@@ -211,7 +208,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     threeRendererHost.current()?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
 
   const computeDragPreview = (): void =>
-    deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
+    deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor });
 
   const actionFlow = createClientActionFlow({
     state,
@@ -242,7 +239,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     mergeServerTileWithOptimisticState,
     playerNameForOwner,
     ownerSpawnShieldActive,
-    hasCollectableYield,
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
@@ -310,7 +306,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       openEconomyPanel,
       setActivePanel,
       affordableTechChoicesCount: techFlow.affordableTechChoicesCount,
-      mobileNavLabelHtml,
       crystalTargetingTone: actionFlow.crystalTargetingTone,
       crystalTargetingTitle: actionFlow.crystalTargetingTitle,
       clearCrystalTargeting: actionFlow.clearCrystalTargeting,
@@ -343,7 +338,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       renderDomainDetailCard: techFlow.renderDomainDetailCard,
       sendGameMessage: actionFlow.sendGameMessage,
       renderSocialInspectCardHtml,
-      missionCardsHtml,
       playerNameForOwner,
       wrapX,
       wrapY,
@@ -523,7 +517,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       drawTownOverlay(tile, px, py, size);
     },
     drawDockMarker,
-    hasCollectableYield,
     structureAccentColor,
     structureOverlayImages,
     constructionRemainingMsForTile: actionFlow.constructionRemainingMsForTile,
@@ -588,11 +581,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearCrystalTargeting: actionFlow.clearCrystalTargeting,
     cancelBuildingPlacement: actionFlow.cancelBuildingPlacement,
     renderMobilePanels,
-    queueSpecificTargets: actionFlow.queueSpecificTargets,
-    processActionQueue: actionFlow.processActionQueue,
-    pushFeed,
     openBulkTileActionMenu: actionFlow.openBulkTileActionMenu,
-    isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
     requestAttackPreviewForHover: actionFlow.requestAttackPreviewForHover,
     requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
     interactionFlags: actionFlow.mapInteractionFlags

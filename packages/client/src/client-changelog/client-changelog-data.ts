@@ -1,3 +1,4 @@
+import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
@@ -9,6 +10,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
+import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
@@ -34,7 +36,7 @@ import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./cli
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
-import { CLIENT_CHANGELOG_ENTRIES_HOSTILE_MUSTER_ALERTS } from "./client-changelog-hostile-muster-alerts.js";
+import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY } from "./client-changelog-town-growth-war-integrity.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -44,6 +46,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.15.1",
+    title: "Warnings for enemy muster flags near your border",
+    why: "An enemy could stage troops on a muster flag right next to your land, and you only found out once the attack landed.",
+    changes: [
+      "A warning pops up when an enemy muster flag appears within 4 tiles of your territory, or an existing one switches to Advance or March, with a button to center on it",
+      "Enemy flags near your border get a red off-screen pointer in both map renderers, ahead of your own alerts while still leaving room for them",
+      "Flags of allies and truce partners don't trigger warnings"
+    ]
+  },
   {
     createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.14.3",
@@ -58,7 +71,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The tile overview showed old technology names such as Leatherworking instead of their current Manifest names.",
     changes: ["All Waystation technology rewards now use the current tech catalog name in the tile overview, including previously activated sites"]
   },
-  ...CLIENT_CHANGELOG_ENTRIES_HOSTILE_MUSTER_ALERTS,
   ...AUTO_GARRISON_REQUEUE_CHANGELOG,
   ...RIVERS_MOUNTAINS_CHANGELOG,
   {
@@ -110,31 +122,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791462529729,
-    introducedIn: "2026.10.08.4",
-    title: "Map effects stay put when you pan",
-    why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
-    changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
-  },
-  {
-    createdAt: 1791469121213,
-    introducedIn: "2026.10.08.5",
-    title: "New empires no longer land inside a neighbour's reach",
-    why: "A new empire could land right next to another player whose reach already covered its starting land. The AFC then claimed almost nothing and could barely see past its own tile.",
-    changes: [
-      "New and respawning empires now land where their starting reach is clear of every other empire's reach, whenever the map has room",
-      "Your AFC always sees 4 tiles around itself",
-      "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
-    ]
-  },
-  {
-    createdAt: 1791488967000,
-    introducedIn: "2026.10.08.7",
-    title: "Waystations no longer promise population without a town",
-    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
-    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
-  },
-  {
     createdAt: 1791832192120,
     introducedIn: "2026.10.12.2",
     title: "Storm clouds over unexplored land",
@@ -162,26 +149,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
       "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
-    ]
-  },
-  {
-    createdAt: 1791489815345,
-    introducedIn: "2026.10.08.7",
-    title: "Relay Beacon build time and rush price fixed",
-    why: "The build menu said a Relay Beacon takes 1 minute when it really takes an hour, and its rush-buy button showed 0 coin.",
-    changes: [
-      "The build menu shows the real Relay Beacon build time: instant for your first five, 60m after that",
-      "Rush-buy prices for buildings now match how much of the build is actually left, so a half-built structure costs about half"
-    ]
-  },
-  {
-    createdAt: 1791489790895, // Date.now() frozen for this entry
-    introducedIn: "2026.10.08.1",
-    title: "Resource Monopoly counts only settled, revealed resources",
-    why: "Resource Monopoly progress was counting frontier tiles and resources you hadn't revealed yet, so it could show you holding Umbrite you didn't actually control.",
-    changes: [
-      "Only settled resource tiles now count toward Resource Monopoly",
-      "A resource only counts once you've researched the tech that reveals it"
     ]
   },
   {
@@ -219,6 +186,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...MANPOWER_BATCH_LABEL_CHANGELOG,
   ...RESTART_TILE_STATE_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING,
+  ...CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_WAR_INTEGRITY,
   {
     createdAt: 1791750801000, // frozen Date.now() value for this release
     introducedIn: "2026.10.11.2",
@@ -266,6 +234,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
   ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
     introducedIn: "2026.10.13.1",
@@ -311,6 +280,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
+  ...TILE_YIELD_REMOVAL_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
@@ -467,6 +437,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Snow shows up on the 3D map",
     why: "Snowfields near the poles were drawing exactly like the surrounding tundra in 3D, so the snow never appeared.",
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
+  },
+  {
+    createdAt: 1792042002455, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "War music stops when your flag has nothing to fight",
+    why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
+    changes: [
+      "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
   },
 ];
 

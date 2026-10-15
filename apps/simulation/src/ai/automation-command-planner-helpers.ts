@@ -5,7 +5,6 @@ import type {
   AutomationPlannerDiagnostic,
   AutomationPlannerResult,
   AutomationPlannerTile,
-  AutomationPreplanProgressState,
   AutomationSessionPrefix
 } from "./automation-command-planner.js";
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
@@ -19,9 +18,7 @@ export type AutomationPlannerDecisionContext<TTile extends AutomationPlannerTile
   sessionPrefix: AutomationSessionPrefix;
   diagnostic: AutomationPlannerDiagnostic;
   frontierAnalysis: FrontierAnalysis;
-  tilesByKey: ReadonlyMap<string, TTile>;
   needsFood: boolean;
-  preplanProgressState?: AutomationPreplanProgressState;
   needsEconomy: boolean;
 };
 

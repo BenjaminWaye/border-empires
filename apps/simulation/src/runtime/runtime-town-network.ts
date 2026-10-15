@@ -29,7 +29,6 @@ import {
   refreshTownEconomyFields
 } from "../player-update-economy/player-update-economy.js";
 import { createTownConnectivityState, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
-import { radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "../runtime-types.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
@@ -165,7 +164,6 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
   if (cached) return cached;
   const rebuild = (): RuntimeTileYieldEconomyContext => {
     const settledTiles = ctx.settledTilesForPlayer(player.id);
-    const { hydroworksKeys, oreRefineryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
     const context: RuntimeTileYieldEconomyContext = {
       player,
       townNetwork: cachedTownNetworkForPlayer(ctx, player, settledTiles, 16),
@@ -176,8 +174,6 @@ export function tileYieldEconomyContextForPlayer(ctx: RuntimeTownNetworkContext,
       firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
         ? firstThreeTownKeysForPlayer(player.id, orderedTownTilesForPlayer(ctx, player.id).map(t => [`${t.x},${t.y}`, t.town?.populationTier] as const))
         : new Set<string>(),
-      hydroworksKeys,
-      oreRefineryKeys,
       dormantEconomicStructureKeys: ctx.dormantEconomicStructureKeysForPlayer(player.id)
     };
     ctx.tileYieldContextCacheByPlayer.set(player.id, context);

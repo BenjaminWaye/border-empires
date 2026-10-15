@@ -89,9 +89,10 @@ describe("periodic manpower refill (runtime)", () => {
       initialState: { tiles: [town(10, "Alpha"), town(11, "Beta")], activeLocks: [] }
     });
     const seen = collectEvents(runtime);
-    const collect = (commandId: string, clientSeq: number): void => {
-      runtime.submitCommand({ commandId, sessionId: "session-1", playerId: "player-1", clientSeq, issuedAt: currentNow, type: "COLLECT_VISIBLE", payloadJson: "{}" });
-    };
+    // A passive-income tick that credits gold emits a full PLAYER_UPDATE; the
+    // first call only seeds the income anchor.
+    runtime.applyPassiveIncome(currentNow - 15_000, Number.MAX_SAFE_INTEGER);
+    const tickIncome = (): void => runtime.applyPassiveIncome(currentNow, Number.MAX_SAFE_INTEGER);
     const latestUpdate = (): { manpower: number; manpowerCap: number; manpowerRegenPerMinute: number } => {
       const event = seen
         .slice()
@@ -100,8 +101,7 @@ describe("periodic manpower refill (runtime)", () => {
       return JSON.parse(event!.payloadJson) as { manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
     };
 
-    collect("collect-1", 1);
-    await Promise.resolve();
+    tickIncome();
     const before = latestUpdate();
     const settlementRegen = TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
     const regen = STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + settlementRegen * 2; // starting capital (§4.3) is additive on top of town regen
@@ -111,8 +111,7 @@ describe("periodic manpower refill (runtime)", () => {
     expect(before.manpower).toBe(TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap * 2);
 
     currentNow = boundary + 30_000;
-    collect("collect-2", 2);
-    await Promise.resolve();
+    tickIncome();
     expect(latestUpdate().manpower - before.manpower).toBeCloseTo(regen, 10); // the one minute before the boundary
   });
 

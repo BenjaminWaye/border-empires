@@ -94,7 +94,7 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   // player asked for, not a failure worth a toast.
   if (code === "NO_ACTIVE_CAPTURE") return "debug";
   if (code.startsWith("TECH_") || code.startsWith("DOMAIN_")) return "action_feedback";
-  if (code === "COLLECT_EMPTY" || code === "COLLECT_COOLDOWN") return "action_feedback";
+  if (code === "COLLECT_EMPTY") return "action_feedback";
   return "action_feedback";
 };
 

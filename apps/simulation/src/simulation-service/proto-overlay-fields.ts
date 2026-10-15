@@ -1,6 +1,8 @@
+import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
+
 /**
- * Single source of truth for the tile "overlay" JSON fields (fort, natural
- * wonder, shard site, ...) that proto-serialization.ts has to carry across
+ * The tile "overlay" JSON fields (fort, natural wonder, shard site, ...)
+ * that proto-serialization.ts has to carry across
  * the sim -> gateway gRPC boundary, in every shape that boundary needs:
  * the snake_case proto array (tile_deltas, clear-signaling via `?? ""`),
  * the camelCase convenience array (tileDeltas, clear-signaling, no
@@ -15,22 +17,11 @@
  * SimulationTileWireDelta correctly, but proto-serialization.ts's hand-listed
  * mappings never carried it across the gRPC boundary to the gateway.
  *
- * To add a new overlay field: add one entry to OVERLAY_FIELDS below. No
- * caller in proto-serialization.ts needs to change.
+ * The rows come straight from TILE_OVERLAY_WIRE_FIELDS in
+ * @border-empires/sim-protocol, the table the gateway also decodes with, so
+ * no caller in proto-serialization.ts changes when an overlay is added.
  */
-export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = [
-  { camel: "fortJson", snake: "fort_json" },
-  { camel: "observatoryJson", snake: "observatory_json" },
-  { camel: "siegeBatteryJson", snake: "siege_battery_json" },
-  { camel: "economicStructureJson", snake: "economic_structure_json" },
-  { camel: "sabotageJson", snake: "sabotage_json" },
-  { camel: "shardSiteJson", snake: "shard_site_json" },
-  { camel: "naturalWonderJson", snake: "natural_wonder_json" },
-  { camel: "watchtowerJson", snake: "watchtower_json" },
-  { camel: "waystationJson", snake: "waystation_json" },
-  { camel: "musterJson", snake: "muster_json" },
-  { camel: "afcJson", snake: "afc_json" }
-];
+export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = TILE_OVERLAY_WIRE_FIELDS;
 
 type TileLike = Record<string, unknown>;
 

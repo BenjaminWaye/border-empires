@@ -20,7 +20,6 @@ import {
 import {
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   POPULATION_MAX,
-  POPULATION_TOWN_MIN,
   WORLD_TOWN_POPULATION_MIN,
   WORLD_TOWN_POPULATION_START_SPREAD,
   key,
@@ -165,7 +164,6 @@ export const createSeasonSeedWorldAsync = async (
     wrapY,
     worldIndex: (x, y) => y * WORLD_WIDTH + x,
     terrainAt,
-    adjacentOceanSea: terrainRuntime.adjacentOceanSea,
     largestSeaComponentMask: terrainRuntime.largestSeaComponentMask,
     clusterByTile,
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
@@ -189,7 +187,6 @@ export const createSeasonSeedWorldAsync = async (
     docksByTile: docksByTile as Map<TileKey, never>,
     clusterByTile,
     POPULATION_MAX,
-    POPULATION_TOWN_MIN,
     now: () => 0,
     wrapX,
     wrapY,

@@ -57,7 +57,6 @@ describe("SqliteSimulationSnapshotStore event prune", () => {
         pendingSettlements: [],
         activeLocks: [],
         docks: [],
-        tileYieldCollectedAtByTile: []
       }
     }) as unknown as SimulationSnapshotSections;
 
@@ -172,7 +171,6 @@ describe("SqliteSimulationSnapshotStore overlay memo — baseline scoping", () =
         pendingSettlements: [],
         activeLocks: [],
         docks: [],
-        tileYieldCollectedAtByTile: [],
         season: { rulesetId: "seasonal-default", worldSeed, mapStyle: "continents" }
       }
     }) as unknown as SimulationSnapshotSections;

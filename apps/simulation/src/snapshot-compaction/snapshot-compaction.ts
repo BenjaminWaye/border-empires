@@ -91,7 +91,6 @@ export type V1SnapshotPayload = {
   season?: RecoveredSimulationState["season"];
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
-  tileYieldCollectedAtByTile?: RecoveredSimulationState["tileYieldCollectedAtByTile"];
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
@@ -284,9 +283,6 @@ export const compactSnapshotForStorage = async (
     ...(initialState.season ? { season: initialState.season } : {}),
     ...(initialState.players ? { players: initialState.players } : {}),
     ...(initialState.pendingSettlements ? { pendingSettlements: initialState.pendingSettlements } : {}),
-    ...(initialState.tileYieldCollectedAtByTile
-      ? { tileYieldCollectedAtByTile: initialState.tileYieldCollectedAtByTile }
-      : {}),
     ...(initialState.playerYieldCollectionEpochByPlayer
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
@@ -339,7 +335,6 @@ export const expandSnapshotFromStorage = (
       ...(v1.season ? { season: v1.season } : {}),
       ...(v1.players ? { players: v1.players } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
-      ...(v1.tileYieldCollectedAtByTile ? { tileYieldCollectedAtByTile: v1.tileYieldCollectedAtByTile } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {})
     },
     commandEvents: v1.commandEvents

@@ -155,7 +155,7 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
 // passes showRoster=false since the season is already running -- there's no
 // "waiting" concept left to show, and no scheduledStartAt to count down to.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
-  const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
+  const { state, overlayEl, renderHud, joinSeason } = deps;
   // Profile setup (name/color) must complete before the join-season overlay
   // ever takes over the screen -- a brand-new player needs both a name and a
   // tile color before joining a season and appearing in its roster. Without
@@ -209,7 +209,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       </div>
     `;
 
-    bindSeasonLobbyPanel({ overlayEl, pushFeed });
+    bindSeasonLobbyPanel({ overlayEl });
     clearCountdownTimer();
     const tick = (): void => {
       const countdownEl = overlayEl.querySelector("#join-season-countdown") as HTMLElement | null;
@@ -255,7 +255,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     </div>
   `;
 
-  bindSeasonLobbyPanel({ overlayEl, pushFeed });
+  bindSeasonLobbyPanel({ overlayEl });
 
   const close = (): void => {
     state.joinSeasonOverlayOpen = false;

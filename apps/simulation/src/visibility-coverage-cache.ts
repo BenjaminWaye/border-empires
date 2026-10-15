@@ -251,7 +251,6 @@ export interface VisibilityTransitionCallbacks {
 export interface VisibilityCoverageTrackerDeps {
   readonly visionRadiusForPlayer: (playerId: string) => number;
   readonly getPlayer: (playerId: string) => VisibilitySourcePlayer | undefined;
-  readonly territoryTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   // Same as territoryTileKeysForPlayer but excluding FRONTIER tiles — a
   // FRONTIER claim's standing vision is a flat FRONTIER_STANDING_VISION_RADIUS,
   // fixed regardless of the owner's effective vision radius (see
