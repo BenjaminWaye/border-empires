@@ -165,7 +165,7 @@ const renderReachAndDormant = (): HTMLElement => {
         drawDormantFrontierTreatment(ctx, px, py, TILE);
       }
       if (t.ownerId === ME) {
-        drawReachBoundaryLine(ctx, x, y, px, py, TILE, reach, ME_COLOR, { tiles, keyFor, wrapX: wrap, wrapY: wrap });
+        drawReachBoundaryLine(ctx, x, y, px, py, TILE, reach, ME_COLOR, { keyFor, wrapX: wrap, wrapY: wrap });
       }
     }
   }
@@ -230,9 +230,9 @@ const renderBeaconPreview = (): HTMLElement => {
       ctx.fillStyle = t.ownerId === ME ? (t.ownershipState === "SETTLED" ? "#2a3f2a" : "#1c2a1c") : "#161b22";
       ctx.fillRect(px, py, TILE - 1, TILE - 1);
       if (t.ownerId === ME) {
-        drawReachBoundaryLine(ctx, x, y, px, py, TILE, reach, ME_COLOR, { tiles, keyFor, wrapX: wrap, wrapY: wrap });
+        drawReachBoundaryLine(ctx, x, y, px, py, TILE, reach, ME_COLOR, { keyFor, wrapX: wrap, wrapY: wrap });
       }
-      drawOutpostReachPreviewTile(ctx, x, y, px, py, TILE, preview, { tiles, keyFor, wrapX: wrap, wrapY: wrap });
+      drawOutpostReachPreviewTile(ctx, x, y, px, py, TILE, preview, { keyFor, wrapX: wrap, wrapY: wrap });
     }
   }
 

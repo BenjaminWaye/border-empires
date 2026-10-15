@@ -900,7 +900,6 @@ export class SimulationRuntime {
       visibilityCoverage: new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
         visionRadiusForPlayer: (id) => { const p = this.state.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
         getPlayer: (id) => this.state.players.get(id),
-        territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys,
         settledTileKeysForPlayer: (id) => {
           const summary = this.summaryForPlayer(id);
           if (summary.frontierTileKeys.size === 0) return summary.territoryTileKeys;
@@ -3443,7 +3442,6 @@ export class SimulationRuntime {
       ownedTileCountForPlayer: (playerId) => this.ownedTileCountForPlayer(playerId),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
-      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
     });
   }
 
@@ -3458,7 +3456,6 @@ export class SimulationRuntime {
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       revealTargetsForPlayer: (playerId) => this.revealTargetsForPlayer(playerId),
       revealCapacityForPlayer: (player) => this.revealCapacityForPlayer(player),
-      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       pickReadyOwnedObservatoryAny: (playerId, now) => this.pickReadyOwnedObservatoryAny(playerId, now),
       pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
@@ -3493,15 +3490,12 @@ export class SimulationRuntime {
       pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
-      spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
       isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
-      isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
-        this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
         isTileBombardBlockedByRadarImpl(
           this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
@@ -3511,8 +3505,6 @@ export class SimulationRuntime {
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
       getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
       setAbilityCooldownUntil: (playerId, abilityKey, untilMs) => this.setAbilityCooldownUntil(playerId, abilityKey, untilMs),
-      strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
-      addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input),
       drainAutoSettleForOwner: (playerId) => { this.autoSettleEligibilityRuntime().drainForOwner(playerId); }
     });

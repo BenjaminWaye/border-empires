@@ -599,7 +599,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
         if (t.ownerId === state.me) {
           drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
-            tiles: state.tiles,
             keyFor: deps.keyFor,
             wrapX: deps.wrapX,
             wrapY: deps.wrapY
@@ -1048,7 +1047,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (vis === "visible") drawReachTileTreatments2D(deps.ctx, t, wx, wy, px, py, size, myReach, reachTileDeps2D); // dormant frontier + rival incursions -- client-reach-incursion-2d.ts
           if (t.ownerId === state.me) {
             drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, deps.effectiveOverlayColor(state.me), {
-              tiles: state.tiles,
               keyFor: deps.keyFor,
               wrapX: deps.wrapX,
               wrapY: deps.wrapY

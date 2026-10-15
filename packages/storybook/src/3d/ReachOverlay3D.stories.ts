@@ -324,7 +324,7 @@ const renderTransitionDemo = (args: Args): HTMLElement => {
     }
 
     const reach = filterReachToLand(computeLocalReachSet(tiles, ME), tiles, keyFor);
-    const loops = traceReachBoundaryEdgeLoops(reach, { tiles, ...reachDeps });
+    const loops = traceReachBoundaryEdgeLoops(reach, reachDeps);
     const { pylons, segments } = samplePerimeterPylons(loops);
 
     const currentPylons = new Map<string, PylonPoint>();
