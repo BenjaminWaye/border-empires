@@ -1,4 +1,4 @@
-import { TILE_OVERLAY_KEYS, overlayJsonField } from "../tile-overlay-fields/tile-overlay-fields.js";
+import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
 
 /**
  * The tile "overlay" JSON fields (fort, natural wonder, shard site, ...)
@@ -17,17 +17,11 @@ import { TILE_OVERLAY_KEYS, overlayJsonField } from "../tile-overlay-fields/tile
  * SimulationTileWireDelta correctly, but proto-serialization.ts's hand-listed
  * mappings never carried it across the gRPC boundary to the gateway.
  *
- * Derived from TILE_OVERLAY_KEYS (tile-overlay-fields.ts): the camelCase wire
- * name is `<key>Json`, the proto field is its snake_case form
- * (`siegeBattery` -> `siege_battery_json`). No caller in
- * proto-serialization.ts needs to change when an overlay is added.
+ * The rows come straight from TILE_OVERLAY_WIRE_FIELDS in
+ * @border-empires/sim-protocol, the table the gateway also decodes with, so
+ * no caller in proto-serialization.ts changes when an overlay is added.
  */
-const snakeCase = (camel: string): string => camel.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-
-export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = TILE_OVERLAY_KEYS.map((key) => ({
-  camel: overlayJsonField(key),
-  snake: `${snakeCase(key)}_json`
-}));
+export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = TILE_OVERLAY_WIRE_FIELDS;
 
 type TileLike = Record<string, unknown>;
 

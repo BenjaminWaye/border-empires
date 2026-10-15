@@ -3,6 +3,7 @@
 
 import type { AutoSettlePrefs, ChosenTrickleResource, FrontierDecayKind, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep } from "@border-empires/shared";
 import type { ManpowerBreakdown, SimulationSeasonState, WorldStatusSnapshot } from "./index.js";
+import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
@@ -144,18 +145,7 @@ export type PlayerSubscriptionSnapshot = {
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    fortJson?: string | undefined;
-    observatoryJson?: string | undefined;
-    siegeBatteryJson?: string | undefined;
-    economicStructureJson?: string | undefined;
-    sabotageJson?: string | undefined;
-    shardSiteJson?: string | undefined;
-    naturalWonderJson?: string | undefined;
-    watchtowerJson?: string | undefined;
-    waystationJson?: string | undefined;
-    musterJson?: string | undefined;
-    /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-    afcJson?: string | undefined;
+    // fortJson, musterJson, afcJson, ...: see TileOverlayJsonFields below.
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
@@ -164,5 +154,5 @@ export type PlayerSubscriptionSnapshot = {
     // persisted tile field. applyTileDeltasToSnapshot uses it to avoid
     // inserting phantom non-visible tiles into the cached snapshot.
     ownershipClearOnly?: boolean | undefined;
-  }>;
+  } & TileOverlayJsonFields>;
 };
