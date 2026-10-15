@@ -489,7 +489,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Play independently of Vercel",
     why: "A shared hosting limit could prevent players from opening the game even while the game servers were healthy.",
     changes: ["Production and staging can serve the game directly from their existing game servers"]
-  }
+  },
+  {
+    createdAt: 1792528615493, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Advancing flags only chase enemies you can see",
+    why: "Advancing flags expanded out into the fog toward enemies the player couldn't see, so they explored instead of holding the front.",
+    changes: [
+      "An advancing flag now only expands toward barbarians and rivals inside your vision; anything hidden in the fog is ignored",
+      "An advance order counts as finished once no visible enemy is left in range"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
