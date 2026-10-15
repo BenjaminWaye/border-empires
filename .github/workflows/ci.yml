@@ -89,13 +89,42 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Simulation and client tests run in dedicated shards below. The other
-      # packages retain pnpm's existing concurrent execution behavior.
+      # Simulation, client and shared tests run in dedicated shards below. The
+      # other packages retain pnpm's existing concurrent execution behavior.
       - name: Build workspace packages
         run: pnpm build
 
       - name: Test other packages
-        run: pnpm -r --filter '!@border-empires/simulation' --filter '!@border-empires/client' test
+        run: pnpm -r --filter '!@border-empires/simulation' --filter '!@border-empires/client' --filter '!@border-empires/shared' test
+
+  # packages/shared's worldgen suites generate full 640x320 worlds across
+  # several worldgen versions: ~1,400s of test time, ~490s wall on a 4-core
+  # runner. Unsharded inside test-other-packages they pushed that job past its
+  # 10-minute timeout on slower runners.
+  test-shared:
+    name: Test shared (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @border-empires/shared build
+      - run: pnpm --filter @border-empires/shared test -- --shard ${{ matrix.shard }}/4
 
   test-client:
     name: Test client (${{ matrix.shard }}/6)
@@ -183,6 +212,7 @@ jobs:
     needs:
       - static
       - test-other-packages
+      - test-shared
       - test-client
       - test-simulation
       - test-slow-worldgen
