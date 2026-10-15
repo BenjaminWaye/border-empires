@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
 
 import { jsonSafeTileDeltaBatch } from "./gateway-bootstrap-helpers.js";
 
@@ -65,5 +66,18 @@ describe("jsonSafeTileDeltaBatch", () => {
     ]);
 
     expect(result).not.toHaveProperty("reachOwnerId");
+  });
+});
+
+describe("jsonSafeTileDeltaBatch overlay clears", () => {
+  it.each(TILE_OVERLAY_WIRE_FIELDS)("sends a cleared $camel to clients as an empty string", ({ camel }) => {
+    const [json] = jsonSafeTileDeltaBatch([{ x: 1, y: 2, [camel]: undefined }]);
+    expect(json?.[camel]).toBe("");
+  });
+
+  it("passes set overlays through and leaves untouched ones absent", () => {
+    const [json] = jsonSafeTileDeltaBatch([{ x: 1, y: 2, fortJson: "{}" }]);
+    expect(json?.fortJson).toBe("{}");
+    for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) if (camel !== "fortJson") expect(json && camel in json).toBe(false);
   });
 });

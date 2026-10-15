@@ -9,6 +9,7 @@ import { battleOddsDetail, battleOddsView, defenderBattleOddsDetail, defenderBat
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileMenuProgressView } from "../client-types.js";
 import { incomingAttackCombatStartAt } from "../client-incoming-frontier-claim/client-incoming-frontier-claim.js";
+import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 
 export const captureAttackProgressView = (
   state: ClientState,
@@ -76,7 +77,10 @@ export const incomingAttackProgressView = (
   const progress = Math.max(0, Math.min(1, (nowMs - startAt) / totalMs));
   const name = incoming.attackerName;
   const marching = incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowMs;
-  const undefended = tile.ownershipState === "FRONTIER";
+  const undefended = frontierAttackIsUndefended(tile, incoming.winChance, nowMs);
+  // A freshly captured FRONTIER tile whose troops are still holding it
+  // (capture-hold) fights back like ordinary ground instead.
+  const holdingGround = tile.ownershipState === "FRONTIER" && !undefended;
   const odds = typeof incoming.winChance === "number" ? defenderBattleOddsView(state, incoming.attackerId, incoming.attackerName, incoming.winChance) : undefined;
   const marchingDetail = marching
     ? `${name}'s company is marching here and arrives in ${formatCountdownClock(incoming.transitEndsAt! - nowMs)}. `
@@ -94,7 +98,9 @@ export const incomingAttackProgressView = (
         detail: odds ? `${marchingDetail}${defenderBattleOddsDetail(odds)}` : `${marchingDetail}${name} is attacking this tile.`,
         remainingLabel: formatCountdownClock(remainingMs),
         progress,
-        note: "The fight was already rolled when the attack launched; the result shows when the timer ends.",
+        note: holdingGround
+          ? "Your troops are still holding this captured tile, so it fights back. The result shows when the timer ends."
+          : "The fight was already rolled when the attack launched; the result shows when the timer ends.",
         ...(odds ? { battle: odds } : {})
       };
 };

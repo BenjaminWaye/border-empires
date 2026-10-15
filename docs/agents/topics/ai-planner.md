@@ -52,7 +52,7 @@ wall-clock inflation** on the oversubscribed vCPU, not planner code cost.
 
 Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `CHOOSE_DOMAIN`, `BUILD_FORT`, `BUILD_ECONOMIC_STRUCTURE`,
-`BUILD_SIEGE_BATTERY`, `SETTLE`, `COLLECT_VISIBLE`; barbarian planner:
+`BUILD_SIEGE_BATTERY`, `SETTLE`; barbarian planner:
 `EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
 The AI does **NOT** emit `BUILD_OBSERVATORY`. Any AI code computing

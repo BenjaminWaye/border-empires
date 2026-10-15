@@ -82,6 +82,8 @@ export type Tile = {
   reachOwnerId?: string;
   capital?: boolean;
   breachShockUntil?: number;
+  /** Post-capture hold window end (shared capture-hold.ts): FRONTIER defends, troops stand on it. */
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
@@ -199,9 +201,7 @@ export type Tile = {
     wasMountainCreatedByPlayer?: boolean;
     wasMountainRemovedByPlayer?: boolean;
   };
-  yield?: { gold?: number; strategic?: Record<string, number> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
-  yieldCap?: { gold: number; strategicEach: number };
+  yieldRate?: { goldPerMinute?: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */

@@ -51,6 +51,16 @@ describe("triggerWinChancePaintOnMarchArm", () => {
     expect(state.winChancePaint).toBeUndefined();
   });
 
+  it("labels a freshly captured FRONTIER tile still holding ground as a real fight, not a sure win", () => {
+    const held = { ownerId: "enemy-1", terrain: "LAND", ownershipState: "FRONTIER", captureHoldUntil: Date.now() + 60_000 } as Tile;
+    const plain = { ownerId: "enemy-1", terrain: "LAND", ownershipState: "FRONTIER" } as Tile;
+    const state = stateWith(new Map([[keyFor(1, 0), held], [keyFor(2, 0), plain]]));
+    triggerWinChancePaintOnMarchArm(state, 0, 0, 2, 0, "visible", keyFor, 1000);
+    const byX = new Map(state.winChancePaint?.entries.map((e) => [e.x, e.winChance]));
+    expect(byX.get(1)).toBeLessThan(1);
+    expect(byX.get(2)).toBe(1);
+  });
+
   it("no-ops when origin equals target", () => {
     const state = stateWith(new Map());
     triggerWinChancePaintOnMarchArm(state, 2, 2, 2, 2, "visible", keyFor, 1000);

@@ -94,12 +94,11 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "waystation_json", wireValue: "{\"activated\":true}", camelField: "waystationJson", normalized: "{\"activated\":true}", presenceSensitive: true },
   { protoField: "muster_json", wireValue: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}", camelField: "musterJson", normalized: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}", presenceSensitive: true },
   { protoField: "afc_json", wireValue: "{\"ownerId\":\"p1\",\"status\":\"active\"}", camelField: "afcJson", normalized: "{\"ownerId\":\"p1\",\"status\":\"active\"}", presenceSensitive: true },
-  { protoField: "yield_json", wireValue: "{\"gold\":5}", camelField: "yield", normalized: { gold: 5 } },
   { protoField: "yield_rate_json", wireValue: "{\"goldPerMinute\":2}", camelField: "yieldRate", normalized: { goldPerMinute: 2 } },
-  { protoField: "yield_cap_json", wireValue: "{\"gold\":100,\"strategicEach\":50}", camelField: "yieldCap", normalized: { gold: 100, strategicEach: 50 } },
   { protoField: "frontier_decay_at", wireValue: 1_893_456_000_000, camelField: "frontierDecayAt", normalized: 1_893_456_000_000 },
   { protoField: "frontier_decay_kind", wireValue: "ENCIRCLEMENT", camelField: "frontierDecayKind", normalized: "ENCIRCLEMENT" },
   { protoField: "breach_shock_until", wireValue: 1_893_456_060_000, camelField: "breachShockUntil", normalized: 1_893_456_060_000 },
+  { protoField: "capture_hold_until", wireValue: 1_893_456_120_000, camelField: "captureHoldUntil", normalized: 1_893_456_120_000 },
   { protoField: "visibility_state", wireValue: "FOG", camelField: "visibilityState", normalized: "FOG" },
   { protoField: "ownership_clear_only", wireValue: true, camelField: "ownershipClearOnly", normalized: true },
   { protoField: "combat_json", wireValue: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", camelField: "combatJson", normalized: "{\"attackerOwnerId\":\"p1\",\"defenderOwnerId\":\"p2\",\"attackerWon\":true,\"originX\":1,\"originY\":2,\"at\":1000}", presenceSensitive: true }
@@ -207,6 +206,25 @@ describe("TileDelta wire parity", () => {
   // resolve a countdown for it (outOfReachDecayRemainingMsForTile requires
   // frontierDecayKind === "OUT_OF_REACH") -- the tile just silently expired
   // with no warning shown anywhere.
+  // Regression: capture_hold_until was a plain uint64, so under the
+  // gateway's own decode options (defaults: true) a sparse delta that merely
+  // omitted it decoded as 0 and normalized to an explicit clear -- wiping a
+  // live capture hold on every unrelated delta for that tile.
+  it("keeps an omitted capture_hold_until absent (unchanged) and an explicit 0 as a clear, under the gateway's decode options", () => {
+    const gatewayDefinition = loadSync(
+      fileURLToPath(new URL("../../../../packages/sim-protocol/src/simulation.proto", import.meta.url)),
+      { keepCase: true, longs: Number, defaults: true, enums: String, oneofs: false }
+    );
+    const codec = gatewayDefinition["border_empires.simulation.TileDelta"] as unknown as MessageCodec;
+    const decode = (tile: Record<string, unknown>) => normalizeProtoTile(codec.deserialize(codec.serialize(tile)) as never) as Record<string, unknown>;
+
+    expect("captureHoldUntil" in decode({ x: 1, y: 2 })).toBe(false);
+    const cleared = decode({ x: 1, y: 2, capture_hold_until: 0 });
+    expect("captureHoldUntil" in cleared).toBe(true);
+    expect(cleared.captureHoldUntil).toBeUndefined();
+    expect(decode({ x: 1, y: 2, capture_hold_until: 1_893_456_120_000 }).captureHoldUntil).toBe(1_893_456_120_000);
+  });
+
   it("normalizes an OUT_OF_REACH frontier_decay_kind, not just ENCIRCLEMENT", () => {
     const decoded = roundTripTileDelta({ x: 1, y: 1, frontier_decay_kind: "OUT_OF_REACH" });
     expect(decoded.frontier_decay_kind, "proto dropped OUT_OF_REACH on the wire").toBe("OUT_OF_REACH");

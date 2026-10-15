@@ -53,12 +53,17 @@ describe("2D overlay parity with the 3D renderer", () => {
   });
 
   it("routes natural wonders through the 2D runtime loop in both passes", () => {
+    // Both tile passes hand each tile to the shared 2D feature-overlay
+    // helper, which is where the natural-wonder draw lives.
     const loop = clientSource("../client-runtime-loop.ts");
-    const draws = loop.match(/t\.naturalWonder && !isTrue3DRendererActive\(\)/g);
+    const draws = loop.match(/drawTileFeatureOverlays2D\(tileFeatureDeps2D, t, wk, vis, px, py, size, nowMs\)/g);
     expect(draws).not.toBeNull();
     expect(draws?.length).toBeGreaterThanOrEqual(2);
-    expect(loop).toContain("drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t)");
-    expect(loop).toContain('from "./client-map-2d-natural-wonder-overlay.js"');
+    expect(loop).toContain('from "./client-map-2d-tile-feature-overlays.js"');
+    const features = clientSource("../client-map-2d-tile-feature-overlays.ts");
+    expect(features).toContain("if (!t || vis !== \"visible\" || isTrue3DRendererActive()) return;");
+    expect(features).toContain("if (t.naturalWonder) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t)");
+    expect(features).toContain('from "./client-map-2d-natural-wonder-overlay.js"');
   });
 
   it("resolves natural wonder tiles to an overlay via the 2D helper module", () => {

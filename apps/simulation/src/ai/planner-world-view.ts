@@ -20,6 +20,8 @@ export type PlannerTileView = {
   naturalWonder?: boolean;
   ownerId?: string;
   ownershipState?: DomainTileState["ownershipState"];
+  /** Capture-hold deadline (shared capture-hold.ts): a held FRONTIER tile is a real fight, not a free capture. */
+  captureHoldUntil?: number;
   /** Minimal town info needed to score settlement priority. */
   town?: {
     supportMax?: number;

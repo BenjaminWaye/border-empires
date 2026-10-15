@@ -195,7 +195,7 @@ describe("filterReachToLand", () => {
     for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTerrainTile(x, y, y >= 4 ? "SEA" : "LAND"));
     const reach = toReach(coords);
     const filtered = filterReachToLand(reach, tiles, keyFor);
-    const deps: ReachBoundaryDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+    const deps: ReachBoundaryDeps = { keyFor, wrapX: wrap, wrapY: wrap };
     const loops = traceReachBoundaryEdgeLoops(filtered, deps);
     const allY = loops.flat().map((c) => c.y);
     expect(Math.max(...allY)).toBeLessThanOrEqual(4);

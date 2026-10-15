@@ -7,7 +7,7 @@ import { SimulationRuntime } from "./runtime.js";
 // event_loop_blocked severity: buildConnectedTownNetworkForPlayer is
 // O(settled_tiles + towns^2) and was being rebuilt TWICE per cache-miss
 // cycle — once inside tileYieldEconomyContextForPlayer (consumed by
-// consumeUpkeepFromTileYield), once inside buildPlayerUpdateEconomySnapshot
+// tileDeltaFromState for town/structure tiles), once inside buildPlayerUpdateEconomySnapshot
 // (consumed by cachedEconomySnapshot via welcomeBackSummary/passive income).
 // Pins that town_network_rebuild fires exactly once when both consumers are
 // exercised back-to-back with no intervening tile mutation, and that both
@@ -42,13 +42,11 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          // UMBRITE_WORKS generates gold upkeep (drives hasOutstandingUpkeepNeed)
+          // UMBRITE_WORKS generates gold upkeep
           // — post-§12.1, Fort's TITANIUM slot occupation is its upkeep and no
           // longer drives this; synthesizers are the one family still gated
           // on ongoing gold (§6.4).
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_WORKS" as const } },
-          // Resource tile is yield-bearing so consumeUpkeepFromTileYield's
-          // loop actually iterates and lazily builds the tile-yield context.
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
         ],
         activeLocks: []
@@ -71,11 +69,11 @@ describe("simulation runtime — shared town network cache", () => {
     runtime.applyPassiveIncome(1_000, 999_999_999);
     expect(rebuildCount["cached_economy_snapshot_rebuild"]).toBeUndefined();
 
-    // Past the 15s applyEconomyAccrual rate limit — drives consumeUpkeepFromTileYield,
-    // which lazily builds tileYieldEconomyContextForPlayer (and, via the shared
-    // cache, the town network) for the first time.
+    // Exporting the structure tile's delta lazily builds
+    // tileYieldEconomyContextForPlayer (and, via the shared cache, the town
+    // network) for the first time.
     setNow(60_000);
-    await runtime.tickTileShedding(60_000);
+    runtime.exportTilesInAreaForPlayer("player-1", 0, 0, 0, { fullVisibility: true });
     expect(rebuildCount["tile_yield_economy_context_rebuild"]).toBe(1);
     expect(rebuildCount["town_network_rebuild"]).toBe(1);
 
@@ -193,12 +191,11 @@ describe("simulation runtime — shared town network cache", () => {
     // Warm tileYieldContextCacheByPlayer / townNetworkCacheByPlayer while
     // Beta is still a SETTLEMENT — with only Alpha counting, this hits the
     // ownedTownKeys.size<=1 short-circuit and caches a network with no Beta
-    // entry at all. Mirrors the seed-on-first-call / rate-limit pattern from
-    // the test above: applyPassiveIncome seeds, then a later tick past the
-    // rate limit actually drives consumeUpkeepFromTileYield's cache-miss build.
+    // entry at all. Exporting Alpha's town-tile delta drives the
+    // tileYieldEconomyContextForPlayer cache-miss build.
     runtime.applyPassiveIncome(1_000, 999_999_999);
     now = 60_000;
-    await runtime.tickTileShedding(60_000);
+    runtime.exportTilesInAreaForPlayer("player-1", 0, 0, 0, { fullVisibility: true });
 
     runtime.submitCommand({
       commandId: "upgrade-beta-1",

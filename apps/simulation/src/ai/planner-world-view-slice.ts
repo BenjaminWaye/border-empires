@@ -36,6 +36,7 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
   ...(tile.naturalWonder ? { naturalWonder: true } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town
     ? {
         town: {

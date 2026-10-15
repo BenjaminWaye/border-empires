@@ -53,11 +53,9 @@ type MapFacadeDeps = {
   miniMapBaseCtx: CanvasRenderingContext2D;
   keyFor: (x: number, y: number) => string;
   parseKey: (key: string) => { x: number; y: number };
-  terrainAt: (x: number, y: number) => Tile["terrain"];
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
 };
 
 export const createClientMapFacade = (deps: MapFacadeDeps) => {
@@ -73,8 +71,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     parseKey,
     wrapX,
     wrapY,
-    resourceColor,
-    hasCollectableYield
+    resourceColor
   } = deps;
 
   let miniMapBaseReady = false;
@@ -431,7 +428,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       tileVisibilityStateAt,
       effectiveOverlayColor,
       isDockRouteVisibleForPlayer,
-      hasCollectableYield,
       replayCurrentEvent
     });
     if (!changed) return;

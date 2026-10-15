@@ -61,6 +61,9 @@ const MUTABLE_TILE_FIELDS = [
   "muster",
   "frontierDecayAt",
   "frontierDecayKind",
+  // Capture hold (shared capture-hold.ts): without it a restart inside the
+  // 60s window handed the previous owner a free retake again.
+  "captureHoldUntil",
   // Phase 3 (dormant): Phase 4 writes this unified field in place of the four
   // legacy structure fields above. Including it here ensures the compaction
   // overlay preserves it on round-trip even before Phase 4 activates the reader.
@@ -91,7 +94,6 @@ export type V1SnapshotPayload = {
   season?: RecoveredSimulationState["season"];
   players?: RecoveredSimulationState["players"];
   pendingSettlements?: RecoveredSimulationState["pendingSettlements"];
-  tileYieldCollectedAtByTile?: RecoveredSimulationState["tileYieldCollectedAtByTile"];
   playerYieldCollectionEpochByPlayer?: RecoveredSimulationState["playerYieldCollectionEpochByPlayer"];
   commandEvents: StoredSnapshotCommandEvents[];
 };
@@ -284,9 +286,6 @@ export const compactSnapshotForStorage = async (
     ...(initialState.season ? { season: initialState.season } : {}),
     ...(initialState.players ? { players: initialState.players } : {}),
     ...(initialState.pendingSettlements ? { pendingSettlements: initialState.pendingSettlements } : {}),
-    ...(initialState.tileYieldCollectedAtByTile
-      ? { tileYieldCollectedAtByTile: initialState.tileYieldCollectedAtByTile }
-      : {}),
     ...(initialState.playerYieldCollectionEpochByPlayer
       ? { playerYieldCollectionEpochByPlayer: initialState.playerYieldCollectionEpochByPlayer }
       : {}),
@@ -339,7 +338,6 @@ export const expandSnapshotFromStorage = (
       ...(v1.season ? { season: v1.season } : {}),
       ...(v1.players ? { players: v1.players } : {}),
       ...(v1.pendingSettlements ? { pendingSettlements: v1.pendingSettlements } : {}),
-      ...(v1.tileYieldCollectedAtByTile ? { tileYieldCollectedAtByTile: v1.tileYieldCollectedAtByTile } : {}),
       ...(v1.playerYieldCollectionEpochByPlayer ? { playerYieldCollectionEpochByPlayer: v1.playerYieldCollectionEpochByPlayer } : {})
     },
     commandEvents: v1.commandEvents

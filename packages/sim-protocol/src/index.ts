@@ -208,3 +208,4 @@ export * from "./snapshot-diagnostics/snapshot-diagnostics.js";
 export * from "./subscription-snapshot-merge/subscription-snapshot-merge.js";
 export * from "./admin-diagnostics-types.js";
 export * from "./reconnect-passthrough-fields/reconnect-passthrough-fields.js";
+export * from "./tile-overlay-fields/tile-overlay-fields.js";

@@ -17,6 +17,8 @@ import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-cl
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import type { ClientState } from "./client-state/client-state.js";
 import { squadColorForOwner } from "./client-planetary-defense-style.js";
+import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
+import { buildCaptureHoldGarrisons, defenderGarrisonField } from "./client-map-3d-capture-hold-garrison.js";
 
 // Short walk from the firing tile onto the claimed tile before the company
 // settles into its at-ease stance for the rest of the claim timer.
@@ -178,7 +180,8 @@ export function syncBattleOverlayFx(
       // Same formula as the skirmish hashSeed below — keeps dot identity
       // (offset/perp/freq/phase) continuous when a battle picks up from a
       // preceding skirmish on the same tile.
-      hashSeed: battle.targetX * 92821 + battle.targetY
+      hashSeed: battle.targetX * 92821 + battle.targetY,
+      ...defenderGarrisonField(state, keyFor, keyFor(battle.targetX, battle.targetY), battle.defenderOwnerId, nowEpochMs)
     });
   }
 
@@ -219,6 +222,7 @@ export function syncBattleOverlayFx(
       defenderColor: squadColorForOwner(defenderOwnerId, playerColorFor),
       startAt,
       hashSeed: target.x * 92821 + target.y,
+      ...defenderGarrisonField(state, keyFor, key, defenderOwnerId, nowEpochMs),
       ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };
@@ -236,7 +240,7 @@ export function syncBattleOverlayFx(
       // emits a combatJson/battle broadcast for these attacks at all. The
       // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
       // becoming mine" visual instead.
-      if (target.ownershipState === "FRONTIER") continue;
+      if (frontierAttackIsUndefended(target, incoming.winChance, nowEpochMs)) continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -277,7 +281,7 @@ export function syncBattleOverlayFx(
       // through to the skirmish approach below, same as before, since the
       // server alone knows whether it's actually undefended.
       const knownTarget = state.tiles.get(key);
-      if (!state.activeBattles.has(key) && knownTarget?.ownershipState !== "FRONTIER") {
+      if (!state.activeBattles.has(key) && !frontierAttackIsUndefended(knownTarget, capture.combatSnapshot?.winChance, nowEpochMs)) {
         const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
         pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
@@ -304,7 +308,7 @@ export function syncBattleOverlayFx(
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
       // Same FRONTIER exclusion as the manual-attack branch above.
       const knownTarget = state.tiles.get(key);
-      if (knownTarget?.ownershipState === "FRONTIER") continue;
+      if (frontierAttackIsUndefended(knownTarget, outgoing.winChance, nowEpochMs)) continue;
       const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
       pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
@@ -333,8 +337,9 @@ export function syncBattleOverlayFx(
     if (!stillRelevant.has(key)) state.skirmishSeenAt.delete(key);
   }
 
-  if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTarget);
+  const garrisons = buildCaptureHoldGarrisons(state, keyFor, new Set([...state.activeBattles.keys(), ...skirmishKeys]), playerColorFor, standY, originX, originY, nowMs, nowEpochMs);
+  if (entries.length === 0 && skirmishes.length === 0 && garrisons.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTarget, garrisons);
 }
 
 // Drives the marching-company overlay from state.musterTransitByTile/

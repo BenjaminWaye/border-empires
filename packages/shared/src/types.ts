@@ -238,6 +238,8 @@ export interface Tile {
   ownershipState?: OwnershipState;
   capital?: boolean | undefined;
   breachShockUntil?: number;
+  // Post-capture hold window end (capture-hold.ts) -- FRONTIER only.
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;
@@ -261,17 +263,8 @@ export interface Tile {
   // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen PERMANENT effect on activation -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null;
   town?: TownWireSummary;
-  yield?: {
-    gold?: number;
-    strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-  };
   yieldRate?: {
     goldPerMinute?: number;
-    strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-  };
-  yieldCap?: {
-    gold: number;
-    strategicEach: number;
   };
   fort?: TileFortState;
   siegeBattery?: TileSiegeBatteryState;

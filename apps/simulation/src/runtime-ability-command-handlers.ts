@@ -47,7 +47,6 @@ export type RuntimeAbilityCommandContext = {
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   revealTargetsForPlayer: (playerId: string) => Set<string>;
   revealCapacityForPlayer: (player: DomainPlayer) => number;
-  spendStrategicResource: (player: DomainPlayer, resource: "CRYSTAL", amount: number) => boolean;
   pickReadyOwnedObservatoryAny: (playerId: string, now: number) => string | undefined;
   pickReadyOwnedObservatoryForTarget: (
     playerId: string,

@@ -8,7 +8,7 @@ import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import type { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { SimulationClientEvent } from "../sim-client/sim-client.js";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { TILE_OVERLAY_WIRE_FIELDS, type PlayerSubscriptionSnapshot, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
 
 export const jsonSafeTileDeltaBatch = (
   tileDeltas: Array<
@@ -16,30 +16,27 @@ export const jsonSafeTileDeltaBatch = (
     | NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>
   >
 ): Array<Record<string, unknown>> =>
-  tileDeltas.map((tileDelta) => ({
-    ...tileDelta,
-    ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
-    ...("reachOwnerId" in tileDelta && tileDelta.reachOwnerId === undefined ? { reachOwnerId: null } : {}),
-    ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
-    ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
-    ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
-    ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
-    ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
-    ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
-    ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
-    ...("siegeBatteryJson" in tileDelta && tileDelta.siegeBatteryJson === undefined ? { siegeBatteryJson: "" } : {}),
-    ...("economicStructureJson" in tileDelta && tileDelta.economicStructureJson === undefined
-      ? { economicStructureJson: "" }
-      : {}),
-    ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
-    ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
-    ...("naturalWonderJson" in tileDelta && tileDelta.naturalWonderJson === undefined ? { naturalWonderJson: "" } : {}),
-    ...("watchtowerJson" in tileDelta && tileDelta.watchtowerJson === undefined ? { watchtowerJson: "" } : {}),
-    ...("waystationJson" in tileDelta && tileDelta.waystationJson === undefined ? { waystationJson: "" } : {}),
-    ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
-    ...("afcJson" in tileDelta && tileDelta.afcJson === undefined ? { afcJson: "" } : {}),
-    ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
-  }));
+  tileDeltas.map((tileDelta) => {
+    const safe: Record<string, unknown> & TileOverlayJsonFields = {
+      ...tileDelta,
+      ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
+      ...("reachOwnerId" in tileDelta && tileDelta.reachOwnerId === undefined ? { reachOwnerId: null } : {}),
+      ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
+      ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
+      ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
+      ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
+      ...("captureHoldUntil" in tileDelta && tileDelta.captureHoldUntil === undefined ? { captureHoldUntil: null } : {}),
+      ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
+      ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
+    };
+    // An overlay field present but undefined is an explicit clear; JSON drops
+    // undefined, so it is sent as "" like townJson above. Written in place:
+    // this runs per tile on full-visibility and reveal-chunk snapshots.
+    for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {
+      if (camel in tileDelta && tileDelta[camel] === undefined) safe[camel] = "";
+    }
+    return safe;
+  });
 
 export const optionalCommandMetadata = (message: unknown): { commandId?: string; clientSeq?: number } => {
   if (!message || typeof message !== "object") return {};

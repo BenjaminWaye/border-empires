@@ -28,7 +28,6 @@ export type RuntimeRespawnContext = SpawnSearchLookups & {
   locksByTile: CombatLockTileReader;
   rememberedAutomationVictoryPathByPlayer: Map<string, unknown>;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   /** Invalidates terrain-derived caches after the AFC landing flattens mountains (same as REMOVE_MOUNTAIN). */
   bumpTerrainEpoch: () => void;
@@ -219,7 +218,6 @@ export const ensurePlayerHasSpawnTerritory = (
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, commandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, commandId);
-  ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, spawnedTile);
   finalizeRespawnNotice(ctx, playerId, tileKey);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [spawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
@@ -320,7 +318,6 @@ const grantReplacementAfcIfMissing = (ctx: RuntimeRespawnContext, playerId: stri
     afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const flattenedTiles = prepareAfcLandingFootprint(ctx, siteTile.x, siteTile.y, commandId);
-  if (site.placement === "adjacent_neutral") ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
   ctx.replaceTileState(tileKey, afcTile, commandId);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [afcTile, ...flattenedTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
   ctx.emitPlayerStateUpdate({ commandId, playerId });
@@ -351,7 +348,6 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
-  ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
   ctx.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: respawnCommandId, playerId, tileDeltas: [respawnedTile, ...flattenedTiles, ...clearedBarbarianTiles].map((deltaTile) => ctx.tileDeltaFromState(deltaTile)) });
@@ -409,7 +405,6 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const respawnCommandId = `${commandId}:respawn:${playerId}`;
   const flattenedTiles = prepareAfcLandingFootprint(ctx, spawn.x, spawn.y, respawnCommandId);
   const clearedBarbarianTiles = clearBarbariansAroundAfcLanding(ctx, spawn.x, spawn.y, respawnCommandId);
-  ctx.setTileYieldCollectedAt(respawnCommandId, playerId, respawnedTileKey, ctx.now());
   ctx.replaceTileState(respawnedTileKey, respawnedTile, respawnCommandId);
   finalizeRespawnNotice(ctx, playerId, respawnedTileKey);
   ctx.emitEvent({

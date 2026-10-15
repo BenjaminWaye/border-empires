@@ -71,9 +71,7 @@ const normalizeTile = (tile) => ({
   economicStructure: parseJson(tile.economic_structure_json) ?? null,
   sabotage: parseJson(tile.sabotage_json) ?? null,
   shardSite: parseJson(tile.shard_site_json) ?? null,
-  yield: tile.yield ?? null,
-  yieldRate: tile.yieldRate ?? null,
-  yieldCap: tile.yieldCap ?? null
+  yieldRate: tile.yieldRate ?? null
 });
 
 const normalizePlayer = (response) => parseJson(response.player_json) ?? null;

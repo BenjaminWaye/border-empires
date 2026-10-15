@@ -2556,8 +2556,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("REMOVE_STRUCTURE", { x: message.x, y: message.y });
           } else if (message.type === "CANCEL_SIEGE_BATTERY_BUILD") {
             await dispatchDurableCommand("CANCEL_SIEGE_BATTERY_BUILD", { x: message.x, y: message.y });
-          } else if (message.type === "COLLECT_VISIBLE") {
-            await dispatchDurableCommand("COLLECT_VISIBLE", {});
           } else if (message.type === "UNCAPTURE_TILE") {
             await dispatchDurableCommand("UNCAPTURE_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CHOOSE_TECH") {

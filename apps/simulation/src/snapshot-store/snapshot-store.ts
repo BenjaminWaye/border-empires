@@ -10,9 +10,10 @@ import type { RecoveredSimulationState } from "../event-recovery/event-recovery.
  *
  * - PLAYER_MESSAGE / PLAYER_UPDATE: player gold/manpower/etc. are already
  *   embedded in the snapshot's `players[]` array.
- * - TILE_YIELD_ANCHOR_UPDATED / PLAYER_YIELD_COLLECTION_EPOCH_UPDATED:
- *   collection timestamps are already in the snapshot's dedicated yield
- *   anchor fields.
+ * - TILE_YIELD_ANCHOR_UPDATED / TILE_YIELD_ANCHOR_BATCH /
+ *   PLAYER_YIELD_COLLECTION_EPOCH_UPDATED: retired with the per-tile yield
+ *   buffer and no longer emitted, but event logs written before that change
+ *   may still hold them; recovery ignores them, so they're stripped here too.
  * - TILE_DELTA_BATCH: the resulting tile state is already in
  *   `initialState.tiles` (the snapshot is post-event). The event itself is
  *   only useful to re-broadcast a delta to a reconnecting client; recovery
@@ -22,7 +23,7 @@ import type { RecoveredSimulationState } from "../event-recovery/event-recovery.
  * snapshot. Dropping them at snapshot-write time has no functional impact
  * because recovery rebuilds the same state from the dedicated fields.
  */
-const REDUNDANT_SNAPSHOT_EVENT_TYPES: ReadonlySet<SimulationEvent["eventType"]> = new Set([
+const REDUNDANT_SNAPSHOT_EVENT_TYPES: ReadonlySet<string> = new Set<SimulationEvent["eventType"] | "TILE_YIELD_ANCHOR_UPDATED" | "TILE_YIELD_ANCHOR_BATCH" | "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED">([
   "PLAYER_MESSAGE",
   "TILE_YIELD_ANCHOR_UPDATED",
   "TILE_YIELD_ANCHOR_BATCH",

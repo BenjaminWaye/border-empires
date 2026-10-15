@@ -34,8 +34,7 @@ parentPort.on("message", (msg: unknown) => {
       job.playerId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       job.runtimeState as any,
-      undefined,
-      job.options as Parameters<typeof buildPlayerSubscriptionSnapshot>[3]
+      job.options as Parameters<typeof buildPlayerSubscriptionSnapshot>[2]
     ) as PlayerSubscriptionSnapshot;
     parentPort!.postMessage({ id: job.id, snapshot });
   } catch (err) {

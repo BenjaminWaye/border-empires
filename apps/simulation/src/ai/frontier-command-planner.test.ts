@@ -177,6 +177,24 @@ describe("frontier command planner", () => {
     expect(analysis.scaffoldExpand?.target).toMatchObject({ x: 11, y: 11 });
   });
 
+  // Regression: every FRONTIER target got a flat "free capture" bonus, so the
+  // AI rushed straight back at a tile a human had just taken from it -- now a
+  // real ~50% fight while the capture hold lasts.
+  it("does not score a capture-held FRONTIER tile as a free capture", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["9,10", { x: 9, y: 10, terrain: "LAND" as const, ownerId: "enemy-1", ownershipState: "FRONTIER", captureHoldUntil: 2_000 }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const, ownerId: "enemy-1", ownershipState: "FRONTIER" }]
+    ]);
+    const heldNow = analyzeOwnedFrontierTargetsFromLookup(tiles, [tiles.get("10,10")!], "ai-1", { nowMs: 1_000 });
+    expect(heldNow.enemyAttack?.target).toMatchObject({ x: 11, y: 10 });
+    const scoreOf = (analysis: typeof heldNow) => analysis.enemyAttack?.score ?? 0;
+    const onlyHeld = new Map([...tiles].filter(([key]) => key !== "11,10"));
+    const expired = analyzeOwnedFrontierTargetsFromLookup(onlyHeld, [onlyHeld.get("10,10")!], "ai-1", { nowMs: 3_000 });
+    const held = analyzeOwnedFrontierTargetsFromLookup(onlyHeld, [onlyHeld.get("10,10")!], "ai-1", { nowMs: 1_000 });
+    expect(scoreOf(expired) - scoreOf(held)).toBe(120);
+  });
+
   it("evaluates each neutral frontier target once even when many owned tiles border it", () => {
     const tiles = new Map([
       ["9,9", { x: 9, y: 9, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],

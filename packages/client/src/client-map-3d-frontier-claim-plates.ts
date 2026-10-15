@@ -7,6 +7,7 @@ import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import { activeIncomingFrontierClaims } from "./client-incoming-frontier-claim/client-incoming-frontier-claim.js";
 import { fallbackOwnerColor, resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import type { ClientState } from "./client-state/client-state.js";
+import { frontierAttackIsUndefended } from "./client-capture-hold/client-capture-hold.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
@@ -40,8 +41,10 @@ export function activeFrontierAttackClaimTargetKeys(
   keyFor: (x: number, y: number) => string,
   nowEpochMs: number
 ): Set<string> {
-  const isKnownFrontierAttack = (targetX: number, targetY: number): boolean =>
-    state.tiles.get(keyFor(targetX, targetY))?.ownershipState === "FRONTIER";
+  // Undefended FRONTIER only: a freshly captured tile still holding ground
+  // (capture-hold) is a real fight and gets the skirmish/battle FX instead.
+  const isKnownFrontierAttack = (targetX: number, targetY: number, lockedWinChance: number | undefined): boolean =>
+    frontierAttackIsUndefended(state.tiles.get(keyFor(targetX, targetY)), lockedWinChance, nowEpochMs);
   const keys = new Set<string>();
 
   const capture = state.capture;
@@ -50,7 +53,7 @@ export function activeFrontierAttackClaimTargetKeys(
     !capture.fromMusterAdvance &&
     capture.resolvesAt > nowEpochMs &&
     capture.actionType === "ATTACK" &&
-    isKnownFrontierAttack(capture.target.x, capture.target.y)
+    isKnownFrontierAttack(capture.target.x, capture.target.y, capture.combatSnapshot?.winChance)
   ) {
     keys.add(keyFor(capture.target.x, capture.target.y));
   }
@@ -59,7 +62,7 @@ export function activeFrontierAttackClaimTargetKeys(
     if (outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs) continue;
     // Still marching: the transit overlay owns the tint during this leg.
     if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-    if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
+    if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY, outgoing.winChance)) continue;
     keys.add(key);
   }
 
