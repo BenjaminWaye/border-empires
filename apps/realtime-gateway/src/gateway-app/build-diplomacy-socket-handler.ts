@@ -8,6 +8,7 @@ import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
+import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -81,6 +82,26 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
         const toTarget = netValueToAi(request.terms, SHARD_COIN_VALUE);
         memory.recordPayment(aiId, otherId, aiId === request.toPlayerId ? toTarget : -toTarget);
       }
+    },
+    // An AI's counter-offer stands until accepted: it re-weighs it first.
+    recheckProposer: async (kind, request) => {
+      const aiId = request.fromPlayerId;
+      if (!isAi(aiId) || deps.hasLiveSocket(aiId)) return undefined;
+      return recheckAiOffer(
+        { fetchAiSnapshot, requesterSnapshot, diplomacyContext },
+        {
+          aiPlayerId: aiId,
+          aiName: request.fromName ?? socialState.playerNameOf(aiId),
+          playerId: request.toPlayerId,
+          kind,
+          durationHours: "durationHours" in request ? request.durationHours : 12,
+          termsFromAi: request.terms
+        }
+      );
+    },
+    withdrawOffer: (kind, request) => {
+      const withdrawn = kind === "truce" ? socialState.cancelTruce(request.fromPlayerId, request.id) : socialState.cancelAlliance(request.fromPlayerId, request.id);
+      if (withdrawn.ok) deps.fanoutPlayerPayloads(withdrawn.payloadsByPlayerId);
     }
   });
   const fetchAiSnapshot = memoizeWithTtl((playerId) => deps.ensureSubscribed(playerId).catch(() => undefined), 3_000);

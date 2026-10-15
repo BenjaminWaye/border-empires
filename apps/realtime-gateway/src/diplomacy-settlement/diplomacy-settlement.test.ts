@@ -208,6 +208,27 @@ describe("createDiplomacyOfferAcceptance", () => {
     expect(recordGatewayEvent).toHaveBeenCalledWith("warn", "gateway_diplomacy_settlement_refunded", expect.objectContaining({ refunded: true }));
   });
 
+  it("refuses and withdraws an AI offer that its proposer no longer stands by, before paying anything", async () => {
+    const { social, requestId } = offerWithTerms();
+    const settle = vi.fn();
+    const withdrawOffer = vi.fn();
+    const acceptance = createDiplomacyOfferAcceptance({
+      socialState: social,
+      settlement: { settle },
+      recordGatewayEvent: () => undefined,
+      recheckProposer: async () => ({ reason: "Beejac withdrew its offer.", withdraw: true }),
+      withdrawOffer
+    });
+
+    expect(await acceptance.acceptTruce("p2", requestId)).toEqual({ ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: "Beejac withdrew its offer." });
+    expect(settle).not.toHaveBeenCalled();
+    expect(withdrawOffer).toHaveBeenCalledWith("truce", expect.objectContaining({ id: requestId }));
+    expect(social.snapshotForPlayer("p1").activeTruces).toEqual([]);
+    // The lock is released so the withdrawal (a cancel) can go through.
+    const outgoingId = social.snapshotForPlayer("p1").outgoingTruceRequests[0]!.id;
+    expect(social.cancelTruce("p1", outgoingId).ok).toBe(true);
+  });
+
   it("accepts offers without terms without touching the simulation", async () => {
     const social = createSocialState({ now: () => 1_000, players });
     social.requestAlliance("p1", "Milo");

@@ -1,6 +1,6 @@
-// Accepting an offer that carries terms: lock the offer, have the simulation
-// move the coin/Shards, then record the agreement. Offers without terms
-// accept exactly as before.
+// Accepting an offer: lock it, let the proposer re-check it if it is an AI
+// (its standing counter-offer may be stale), have the simulation move any
+// coin/Shards, then record the agreement.
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms } from "@border-empires/shared";
 
 import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
@@ -14,6 +14,13 @@ export type DiplomacyOfferAcceptanceDeps = {
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
   /** After an agreement is recorded (and any terms paid). */
   onAccepted?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
+  /**
+   * Runs while the offer is locked, before anything is paid: an AI proposer
+   * weighs its offer again (ai-offer-recheck.ts). A reason refuses the accept;
+   * withdraw also takes the stale offer back once the lock is released.
+   */
+  recheckProposer?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => Promise<{ reason: string; withdraw: boolean } | undefined>;
+  withdrawOffer?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
 };
 
 export type DiplomacyOfferAcceptance = {
@@ -31,6 +38,13 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
     const begun = deps.socialState.beginSettlement(kind, playerId, requestId);
     if (!begun.ok) return begun;
     const { request } = begun.offer;
+    const recheck = await deps.recheckProposer?.(kind, request);
+    if (recheck) {
+      deps.socialState.endSettlement(requestId);
+      if (recheck.withdraw) deps.withdrawOffer?.(kind, request);
+      deps.recordGatewayEvent("info", "gateway_diplomacy_offer_rechecked_refused", { requestId, kind, withdrawn: recheck.withdraw });
+      return { ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: recheck.reason };
+    }
     const terms = request.terms;
     if (!terms || diplomacyTermsAreEmpty(terms)) {
       deps.socialState.endSettlement(requestId);
