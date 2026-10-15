@@ -123,7 +123,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @border-empires/shared build
+      # shared has no workspace dependencies and its tests import src/ directly,
+      # so no build step is needed here (the static job type-checks it).
       - run: pnpm --filter @border-empires/shared test -- --shard ${{ matrix.shard }}/4
 
   test-client:
