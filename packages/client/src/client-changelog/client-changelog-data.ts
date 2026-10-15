@@ -1,3 +1,4 @@
+import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
@@ -265,6 +266,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
   ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
     introducedIn: "2026.10.13.1",
