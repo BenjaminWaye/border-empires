@@ -6,6 +6,7 @@ import type { PendingSettlementRecord, PlayerRuntimeSummary } from "./player-run
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { overlaySubstructuresFrom } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -34,24 +35,14 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
-  ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
-  ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
-  ...(tile.waystation ? { waystation: tile.waystation } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(tile.town ? { town: tile.town } : {}),
-  ...(tile.fort ? { fort: tile.fort } : {}),
-  ...(tile.observatory ? { observatory: tile.observatory } : {}),
-  ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
-  ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-  ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
-  // AFCs were missing here, so they were never saved: every restart dropped
-  // them all and the startup repairs re-placed them elsewhere.
-  ...(tile.afc ? { afc: tile.afc } : {}),
-  ...(tile.muster ? { muster: tile.muster } : {})
+  // Overlays come from the one shared key list: AFCs were once missing here,
+  // so they were never saved and every restart re-placed them elsewhere.
+  ...overlaySubstructuresFrom(tile)
 });
 
 function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): SimulationSnapshotSections {
