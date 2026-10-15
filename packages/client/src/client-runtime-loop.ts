@@ -28,7 +28,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { resolveMyReachCached } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { drawReachBoundaryLine } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawReachTileTreatments2D } from "./client-reach-incursion/client-reach-incursion-2d.js";
-import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
+import { createPersistentAlertsFrame } from "./client-persistent-alerts/client-persistent-alerts-frame.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js"; import { drawAfcTile2D } from "./client-afc-join-drop/client-map-2d-afc-join-drop.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
@@ -48,13 +48,6 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent,
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { drawTileGround2D } from "./client-map-render-2d-tile-ground/client-map-render-2d-tile-ground.js";
 import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js"; import { drawArrowGesture2D, drawShieldAreaTile2D, drawWinChanceLabel2D, winChancePaintColorForTile2D } from "./client-map-render-2d-combat-overlays.js"; import { collectKnownShieldFlags, tileShieldCoverage } from "./client-known-shield-flags.js";
-
-// Persistent-alert tile scan is O(all tiles ever discovered this session,
-// up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
-// on mobile when run every frame. Town-unfed / muster-active status only
-// changes on human timescales, so recomputing on a ~220ms cadence is
-// visually lossless while cutting scan frequency by ~80-90%.
-const PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS = 220;
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -179,8 +172,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
-  let persistentAlertsCache: PersistentAlert[] = [];
-  let persistentAlertsComputedAt = 0;
+  const drawPersistentAlertsFrame = createPersistentAlertsFrame(state);
   const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
     requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
   });
@@ -1408,20 +1400,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const fxMs = phaseMs();
 
     deps.drawMiniMap();
-    if (persistentAlertsComputedAt === 0 || nowMs - persistentAlertsComputedAt >= PERSISTENT_ALERTS_RECOMPUTE_INTERVAL_MS) {
-      persistentAlertsCache = persistentAlertsForState(state);
-      persistentAlertsComputedAt = nowMs;
-    }
-    drawPersistentAlertLocators(state, {
+    drawPersistentAlertsFrame(nowMs, {
       ctx: deps.ctx,
       canvas: deps.canvas,
       worldToScreen: deps.worldToScreen,
       toroidDelta: deps.toroidDelta,
       size,
       halfW,
-      halfH,
-      nowMs,
-      precomputedAlerts: persistentAlertsCache
+      halfH
     }); if (!isTrue3DRendererActive()) drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
