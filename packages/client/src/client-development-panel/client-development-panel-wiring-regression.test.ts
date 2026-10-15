@@ -30,7 +30,7 @@ describe("development panel wiring regression guard", () => {
   it("registers the development panel title and mobile sheet header", () => {
     const source = sourceOf("../client-panel-nav/client-panel-nav.js".replace(".js", ".ts"));
     expect(source).toContain('if (panel === "development") return "Development";');
-    expect(source).toContain('else if (state.mobilePanel === "development") deps.mobileSheetHeadEl.textContent = "Development";');
+    expect(source).toContain('else if (state.mobilePanel === "development") deps.mobileSheetTitleEl.textContent = "Development";');
     expect(source).toContain('[deps.mobilePanelDevelopmentEl, "development"]');
   });
 

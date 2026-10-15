@@ -112,7 +112,7 @@ describe("renderManifestDetailHtml", () => {
     const html = renderManifestDetailHtml(
       context({
         fit: {
-          manpower: 0,
+          manpower: 0, hasBuildSite: () => false, ownsFish: false,
           resourceSlots: { supply: emptySlots, demand: emptySlots },
           clueNearTerritory: (signature) => signature === "FERROUS_DUST",
           surveyReportFor: () => undefined
@@ -127,7 +127,7 @@ describe("renderManifestDetailHtml", () => {
 
   it("calls it 'Not useful yet' when nothing argues for it", () => {
     const html = renderManifestDetailHtml(
-      context({ tech: mining, fit: { manpower: 0, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
+      context({ tech: mining, fit: { manpower: 0, hasBuildSite: () => false, ownsFish: false, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })
     );
     expect(html).not.toContain("Good pick");
     expect(html).toContain("Not useful yet: Mine needs Food slots");

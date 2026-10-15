@@ -95,8 +95,8 @@ describe("menuOverviewForTile", () => {
             {
               heading: "6 Mintworks",
               modifiers: [
-                { statLabel: "Gold", valueText: "+6", tone: "positive" },
-                { statLabel: "Gold production", valueText: "+210%", tone: "positive" }
+                { statLabel: "Coin", valueText: "+6", tone: "positive" },
+                { statLabel: "Coin production", valueText: "+210%", tone: "positive" }
               ]
             }
           ]
@@ -111,11 +111,11 @@ describe("menuOverviewForTile", () => {
     const goldProductionLine = lines[groupIndex + 2];
     expect(goldLine?.kind).toBe("effect");
     expect(goldLine?.nested).toBe(true);
-    expect(goldLine?.html).toContain("Gold:");
+    expect(goldLine?.html).toContain("Coin:");
     expect(goldLine?.html).toContain("+6");
     expect(goldProductionLine?.kind).toBe("effect");
     expect(goldProductionLine?.nested).toBe(true);
-    expect(goldProductionLine?.html).toContain("Gold production:");
+    expect(goldProductionLine?.html).toContain("Coin production:");
     expect(goldProductionLine?.html).toContain("+210%");
   });
 
@@ -168,13 +168,13 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Coin production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
   });
-  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Garrison this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
+  it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Garrison this tile to activate: dock coin income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock coin income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
   // prose) was removed — it duplicated the unified Modifiers section
   // word-for-word. A clicked Clearing House's own Mintworks gold-bonus
   // now shows only once, as a Modifier line sourced from the shared catalog,
   // spelling out both ends of the boost instead of an ambiguous bare "+25%".
-  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasIncubationEngine: true, incubationEngineActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks gold bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
+  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasIncubationEngine: true, incubationEngineActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks coin bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
   it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
     const lines = menuOverviewForTile(
       {

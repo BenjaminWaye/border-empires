@@ -9,11 +9,11 @@ describe("upkeepDescriptorFor", () => {
   });
 
   it("Titanium Works shows both its TITANIUM slot and its real gold/day drain", () => {
-    expect(upkeepDescriptorFor("TITANIUM_WORKS")).toEqual(["1 TITANIUM slot", "30 gold/day"]);
+    expect(upkeepDescriptorFor("TITANIUM_WORKS")).toEqual(["1 TITANIUM slot", "30 coin/day"]);
   });
 
   it("High Yield Aether Condenser shows its CRYSTAL slot and its 60 gold/day drain", () => {
-    expect(upkeepDescriptorFor("HIGH_YIELD_AETHER_CONDENSER")).toEqual(["1 CRYSTAL slot", "60 gold/day"]);
+    expect(upkeepDescriptorFor("HIGH_YIELD_AETHER_CONDENSER")).toEqual(["1 CRYSTAL slot", "60 coin/day"]);
   });
 
   it("Sky Dock has no gold/day upkeep -- only its real 3 CRYSTAL slots", () => {
@@ -55,6 +55,6 @@ describe("upkeepSuffixFor", () => {
   });
 
   it("joins multiple bits with a middle dot", () => {
-    expect(upkeepSuffixFor("TITANIUM_WORKS")).toBe(" • Upkeep: 1 TITANIUM slot · 30 gold/day");
+    expect(upkeepSuffixFor("TITANIUM_WORKS")).toBe(" • Upkeep: 1 TITANIUM slot · 30 coin/day");
   });
 });

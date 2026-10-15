@@ -14,6 +14,7 @@
 //     spinning against a dead context.
 
 import { ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from "three";
+import { getLightingSettings } from "../client-lighting-tuner/client-lighting-tuner-settings.js";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
@@ -146,10 +147,8 @@ export const createThreeRenderTarget = (
   // Harder-edged shadows are the trade-off for not paying that twice.
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFShadowMap;
-  // Paired with the hemi/fill boost in client-map-3d-atmosphere.ts: a small
-  // overall lift so structure overlays' shadow-facing surfaces stop reading
-  // as near-black and different buildings are distinguishable again.
-  renderer.toneMappingExposure = 1.1;
+  // Use the atmosphere's exposure from the first frame, including local tuning.
+  renderer.toneMappingExposure = getLightingSettings().exposure;
 
   return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };

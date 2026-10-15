@@ -408,7 +408,7 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "ECONOMIC_HEGEMONY",
     name: "Economic Ascendancy",
-    description: "Lead the world economy by 33% while producing at least 1000 gold per day.",
+    description: "Lead the world economy by 33% while producing at least 1000 coin per day.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   },
   {

@@ -1,5 +1,6 @@
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
+import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
@@ -204,6 +205,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   });
   state.techRootId = player.techRootId as string | undefined;
   state.techIds = (player.techIds as string[]) ?? [];
+  occupationSurveyController.reconcile(state.eventLog, state.techIds, `${state.me}:${state.bridgeDebugSeasonId}`);
   state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
   state.pendingTechUnlockId = "";
   state.domainIds = (player.domainIds as string[]) ?? [];

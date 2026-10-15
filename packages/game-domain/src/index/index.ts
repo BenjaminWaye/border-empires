@@ -389,7 +389,7 @@ export const validateFrontierCommand = (
     return {
       ok: false,
       code: "INSUFFICIENT_GOLD",
-      message: input.actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
+      message: input.actionType === "ATTACK" ? "insufficient coin for attack" : "insufficient coin for frontier claim"
     };
   }
   if (musterAttack && !isBarbarianAttack) {

@@ -12,7 +12,7 @@ import {
   ShaderMaterial,
   BoxGeometry,
 } from "three";
-import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;

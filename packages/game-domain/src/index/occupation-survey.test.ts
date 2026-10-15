@@ -27,6 +27,26 @@ describe("appendOccupationSurveyReports", () => {
     expect(p.eventLog ?? []).toEqual([]);
   });
 
+  it("keeps the identity of unchanged clues when another occupation survey runs", () => {
+    const p = player();
+    const tiles = new Map<string, DomainTileState>([["4,1", { x: 4, y: 1, terrain: "LAND", prospectSignature: "FERROUS_DUST" }]]);
+    appendOccupationSurveyReports(p, tiles, 1, 1, 1000);
+    const reportId = p.eventLog?.[0]?.id;
+    appendOccupationSurveyReports(p, tiles, 1, 1, 2000);
+    expect(p.eventLog).toHaveLength(1);
+    expect(p.eventLog?.[0]?.id).toBe(reportId);
+    expect(p.eventLog?.[0]?.occurredAt).toBe(1000);
+  });
+
+  it("gives an improved discovery a new identity even when surveys finish in the same millisecond", () => {
+    const p = player();
+    appendOccupationSurveyReports(p, new Map([["10,1", { x: 10, y: 1, terrain: "LAND", prospectSignature: "FERROUS_DUST" }]]), 1, 1, 1000);
+    const reportId = p.eventLog?.[0]?.id;
+    appendOccupationSurveyReports(p, new Map([["4,1", { x: 4, y: 1, terrain: "LAND", prospectSignature: "FERROUS_DUST" }]]), 1, 1, 1000);
+    expect(p.eventLog?.[0]?.id).not.toBe(reportId);
+    expect(p.eventLog?.[0]?.confidence).toBe("HIGH");
+  });
+
   // Regression: survey reports lived in the rolling 50-entry event log, so
   // ordinary combat/structure events pushed them out within minutes and the
   // client then dropped them too ("No local signal" forever after).
