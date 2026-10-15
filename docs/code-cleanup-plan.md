@@ -3,7 +3,7 @@
 Status: active proposal
 Owner: next maintainer picking up the dead-code / duplication cleanup (handover from the October 2026 cleanup pass)
 Last verified: 2026-10-15
-Replaces: none. Updates the progress of [`tile-overlay-generic-codec-plan.md`](tile-overlay-generic-codec-plan.md).
+Replaces: none. Supersedes the remaining scope of [`tile-overlay-generic-codec-plan.md`](tile-overlay-generic-codec-plan.md).
 
 This document records what the October 2026 cleanup pass changed and why. It
 also lists what is left, in priority order, so the next person can continue
@@ -11,9 +11,9 @@ without rediscovering the codebase.
 
 ## Summary of what shipped
 
-Seven merged PRs, all behaviour-preserving, each green on the full CI matrix
-(lint, `check:file-lines`, build, sharded client/simulation/worldgen tests)
-before merge:
+Six PRs, each green on the full CI matrix (lint, `check:file-lines`, build,
+sharded client/simulation/worldgen tests) before merge. The first five are
+behaviour-preserving; #2375 also fixes the two bugs listed under the table.
 
 | PR | What | Why |
 |---|---|---|
@@ -22,10 +22,20 @@ before merge:
 | #2370 | Removed fields from `*Deps` / `*Context` types (and their call sites) that no consumer reads. Biggest case: 17 stub fields in `ServerWorldgenTerrainDeps`. Removed stale `packages/server` references from `AGENTS.md` and docs (240 lines). | Every caller was building and passing values nothing used. The world-generation call sites built stubs "only to satisfy the shared deps type". |
 | #2372 | One list of tile-overlay keys for the simulation. The persisted snapshot (`mapTile`), the login projection, the delta builders and the proto table derive from it. Also removed the never-used `fallbackTiles` paths of the player and world-status snapshot builders. | Hand-written copies of the overlay list had drifted into production bugs: natural wonders invisible (#1157, #1160/#1162), muster flags missing on reconnect, AFCs dropped from saves on every restart. |
 | #2374 | Moved that table into `packages/sim-protocol` as `TILE_OVERLAY_WIRE_FIELDS` (`{ key, camel, snake }`). The simulation, the gateway's proto decoder and its clear-signalling, and sim-protocol's own event/snapshot types all derive from it. Tests check it against `simulation.proto`. | Closed the same drift risk on the gateway side of gRPC. |
+| #2375 (this plan) | Finished the overlay migration (former items 1 and 2) and fixed two live bugs it turned up. Every remaining hand-written overlay list now derives from `TILE_OVERLAY_WIRE_FIELDS`: event recovery, the full-world export, `SimulationTileWireDelta`, `RuntimeExportState`, snapshot-cache types, the proto serializer types and helpers, and the client parser and routing gate. The client is tied to the table by a test, because it can't import `sim-protocol` at build time. Also fixed the #2374 review nits: typed helpers with no casts, renamed the clashing type names, removed a duplicate test, moved tests beside their source, removed a per-tile allocation. | Removes the last drift risk and fixes the bugs below. |
 
-This handover PR also corrects two comments from #2374. The table's doc
-comment claimed the compiler would point at every place a new overlay needs.
-It won't yet; see item 1.
+**Bugs found and fixed in #2375** (both have regression tests and a changelog entry):
+
+- **Muster flags were lost on every server restart.** Startup recovery runs
+  every snapshot tile through `cloneRecoveredTile` (`event-recovery.ts`).
+  That function's hand-written overlay list had no `muster` line, so active
+  muster flags disappeared on every deploy unless a later event touched the
+  tile. Muster set by a replayed event was dropped too, at finalize.
+- **Watchtowers and waystations were missing from the full-world export.**
+  `toRuntimeExportTile` (`runtime-state-export.ts`) left them out of
+  `exportState()` / `exportStateAsync()`. That export becomes the player
+  snapshot for full-visibility logins (season ended, admin spectator), so
+  those sites vanished from the map in that view.
 
 ## How the dead code was found (reproducible)
 
@@ -69,60 +79,16 @@ Lessons that will save the next person time:
 
 ## Remaining work, in priority order
 
-### 1. Finish the tile-overlay migration (bug risk: high; effort: small to medium)
+Former items 1 (finish the tile-overlay migration) and 2 (#2374 review
+follow-ups) shipped in #2375; see the summary above. To add an overlay now,
+follow the checklist on `TILE_OVERLAY_WIRE_FIELDS`
+(`packages/sim-protocol/src/tile-overlay-fields/tile-overlay-fields.ts`). The
+compiler or a test fails at every step you skip. The simulation's
+`tile-delta-stringify-cache.ts` is still hand-unrolled per field for
+performance; its slot list is compile-checked against the table through
+`OVERLAY_JSON_FIELDS`.
 
-These places still hand-list overlay fields and are not tied to
-`TILE_OVERLAY_WIRE_FIELDS`, so adding a row does not flag them:
-
-- **`apps/simulation/src/runtime-state-export.ts` (`toRuntimeExportTile`)
-  leaves out `watchtowerJson` and `waystationJson`.** This gap already
-  exists. `exportState()` feeds season rollover, world-status building and
-  replay `finalState`. Check whether any consumer reads those two fields; if
-  so this is a live bug and needs a regression test plus a changelog entry
-  per `AGENTS.md`. Then loop over the table using the cached values
-  (`cached[camel]`).
-- `apps/simulation/src/event-recovery/event-recovery.ts`: one hand-written
-  block per overlay in event replay. A missing row means the overlay
-  vanishes on restart.
-- Hand-written types: `SimulationTileWireDelta` (`runtime-types.ts`),
-  `RuntimeState` (`snapshot-tile-cache.ts`, already missing watchtower,
-  waystation and muster), and the proto tile types in
-  `simulation-service/proto-serialization.ts`. Use `TileOverlayJsonFields` /
-  `TileOverlayProtoField` from `@border-empires/sim-protocol`.
-- **Client:** `client-gateway-sync/client-gateway-sync.ts` (parse) and the
-  overlay-field gate in `client-network/client-network.ts`. A new overlay
-  that is not added here never renders, even though the server sends it.
-  This needs both the 2D and 3D renderers checked (see the renderer-parity
-  rule in `AGENTS.md`).
-
-When this is done, update the comment on `TILE_OVERLAY_WIRE_FIELDS` to say
-the compiler covers everything, and mark
-[`tile-overlay-generic-codec-plan.md`](tile-overlay-generic-codec-plan.md)
-delivered (or archive it). The shared-table approach covers that proposal's
-goal without its riskier proto map-field migration.
-
-### 2. Small follow-ups from the #2374 review (effort: small)
-
-- `simulation-service/proto-overlay-fields.ts`: `OVERLAY_FIELDS` is now an
-  alias typed as `{ camel: string; snake: string }`, which throws away the
-  literal types. Iterate `TILE_OVERLAY_WIRE_FIELDS` directly with
-  `TileOverlayJsonFields`-typed parameters, and drop the
-  `Record<string, unknown>` / `as string` casts in its helpers.
-- Name clash: sim-protocol and `apps/simulation/src/tile-overlay-fields/`
-  both export `TileOverlayKey` / `TileOverlayJsonField` with different
-  meanings. An auto-import could silently pick the wider one. Rename the
-  simulation's versions, for example `DomainOverlayKey`.
-- `apps/simulation/src/tile-overlay-fields/tile-overlay-fields.test.ts`
-  repeats the `simulation.proto` check that sim-protocol's own test now
-  owns, via a `../../../../packages/...` path. Remove the duplicate.
-- `jsonSafeTileDeltaBatch`'s clear-signal tests sit in
-  `sim-client/sim-client-tile-normalize.test.ts`. Move them next to
-  `gateway-bootstrap-helpers.test.ts` (the tests-beside-source rule).
-- `overlayClearSignals` allocates one object per tile on a path that
-  serialises tens of thousands of tiles (full-visibility and reveal-chunk
-  snapshots). Write the `""` clears into the already-spread result instead.
-
-### 3. Split oversized files (effort: large; do it incrementally)
+### 1. Split oversized files (effort: large; do it incrementally)
 
 25 source files exceed the 500-line limit. `check:file-lines` only stops
 them growing. The largest:
@@ -151,22 +117,22 @@ this file changes in most PRs. Re-run the deps-field scan
 (method step 3) as you go, because several contexts still carry fields only
 some consumers need.
 
-### 4. Optional: reduce module surface (effort: mechanical; value: moderate)
+### 2. Optional: reduce module surface (effort: mechanical; value: moderate)
 
 knip reports about 375 exported values and 755 exported types that are only
 used inside their own file. Dropping their `export` keyword makes each
 module's real public surface clearer. It is a large, noisy diff with no
-runtime effect, so it is only worth doing together with item 5. Otherwise it
+runtime effect, so it is only worth doing together with item 3. Otherwise it
 grows back.
 
-### 5. Optional: add knip to CI (effort: small)
+### 3. Optional: add knip to CI (effort: small)
 
 Commit a `knip.json` with the entry points from method step 1, and run
 `knip --include files,dependencies` as a CI step. Start with files and
-dependencies only; exports are too noisy until item 4 is done. That would
+dependencies only; exports are too noisy until item 2 is done. That would
 have caught every orphaned file and unused dependency removed in #2356.
 
-### 6. Loose ends noticed and left alone
+### 4. Loose ends noticed and left alone
 
 - `packages/sim-protocol/src/index.js` is a hand-kept JS copy of part of
   `index.ts`, and it is committed. Three ops scripts
@@ -189,20 +155,12 @@ have caught every orphaned file and unused dependency removed in #2356.
 
 ## Acceptance criteria
 
-- Item 1: adding a row to `TILE_OVERLAY_WIRE_FIELDS` (plus the proto field
-  and the stringify-cache slot) is the only hand edit needed for a new
-  overlay to be saved, recovered, exported, sent and rendered. A test shows
-  a 12th dummy row would fail to compile or fail a test anywhere it is not
-  handled.
-- Item 3: `runtime.ts` is under 1,000 lines, with no behaviour change, and
+- Item 1: `runtime.ts` is under 1,000 lines, with no behaviour change, and
   the full simulation suite is green after each step.
-- Items 4 and 5: knip runs in CI and is green.
+- Items 2 and 3: knip runs in CI and is green.
 
 ## Verification
 
 Each item needs `pnpm build`, `pnpm lint`, `pnpm check:file-lines` and the
-affected package tests locally, then green CI. Item 1's
-`runtime-state-export.ts` change needs a regression test that fails before
-the fix. When item 1 ships, update or archive
-[`tile-overlay-generic-codec-plan.md`](tile-overlay-generic-codec-plan.md)
-and update this document's status.
+affected package tests locally, then green CI. Update this document's status
+when the remaining items ship or are dropped.

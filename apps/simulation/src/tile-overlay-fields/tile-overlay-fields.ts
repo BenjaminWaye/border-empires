@@ -14,18 +14,18 @@ import type { SimulationTileWireDelta } from "../runtime-types.js";
  *   - wire deltas (OVERLAY_JSON_FIELDS, tile-delta-overlay-fields.ts)
  *   - the gRPC boundary (OVERLAY_FIELDS, proto-overlay-fields.ts)
  *
- * TileOverlayKey intersects the wire keys with DomainTileState's own keys,
+ * DomainOverlayKey intersects the wire keys with DomainTileState's own keys,
  * so a wire row without a matching tile field fails to compile here.
  */
-export type TileOverlayKey = WireTileOverlayKey & keyof DomainTileState;
-export const TILE_OVERLAY_KEYS: readonly TileOverlayKey[] = TILE_OVERLAY_WIRE_FIELDS.map((field) => field.key);
-export type TileOverlayJsonField = `${TileOverlayKey}Json` & keyof SimulationTileWireDelta;
+export type DomainOverlayKey = WireTileOverlayKey & keyof DomainTileState;
+export const TILE_OVERLAY_KEYS: readonly DomainOverlayKey[] = TILE_OVERLAY_WIRE_FIELDS.map((field) => field.key);
+export type DomainOverlayJsonField = `${DomainOverlayKey}Json` & keyof SimulationTileWireDelta;
 
-export const overlayJsonField = (key: TileOverlayKey): TileOverlayJsonField => `${key}Json`;
+export const overlayJsonField = (key: DomainOverlayKey): DomainOverlayJsonField => `${key}Json`;
 
-type TileOverlays = Partial<Pick<DomainTileState, TileOverlayKey>>;
+export type TileOverlays = Partial<Pick<DomainTileState, DomainOverlayKey>>;
 
-const copyOverlay = <K extends TileOverlayKey>(out: TileOverlays, tile: TileOverlays, key: K): void => {
+const copyOverlay = <K extends DomainOverlayKey>(out: TileOverlays, tile: TileOverlays, key: K): void => {
   const value = tile[key];
   if (value) out[key] = value;
 };
@@ -44,8 +44,8 @@ export const overlaySubstructuresFrom = (tile: TileOverlays): TileOverlays => {
  * overlayJsonFieldsFrom (tile-delta-overlay-fields.ts), which keeps every
  * field present so subscribers can detect clears.
  */
-export const overlayJsonFieldsFromTile = (tile: TileOverlays): Partial<Record<TileOverlayJsonField, string>> => {
-  const out: Partial<Record<TileOverlayJsonField, string>> = {};
+export const overlayJsonFieldsFromTile = (tile: TileOverlays): Partial<Record<DomainOverlayJsonField, string>> => {
+  const out: Partial<Record<DomainOverlayJsonField, string>> = {};
   for (const key of TILE_OVERLAY_KEYS) {
     const value = tile[key];
     if (value) out[overlayJsonField(key)] = JSON.stringify(value);

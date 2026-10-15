@@ -4,7 +4,9 @@ import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
-import { parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
+import { recoverTownState } from "./event-recovery-town-helpers.js";
+import { recoverOverlaySubstructures } from "./event-recovery-overlays.js";
+import { overlaySubstructuresFrom, type TileOverlays } from "../tile-overlay-fields/tile-overlay-fields.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
 import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
@@ -18,27 +20,16 @@ type RecoveredTileState = {
   resource?: DomainTileState["resource"];
   prospectSignature?: DomainTileState["prospectSignature"];
   dockId?: DomainTileState["dockId"];
-  shardSite?: DomainTileState["shardSite"];
-  naturalWonder?: DomainTileState["naturalWonder"];
-  watchtower?: DomainTileState["watchtower"];
-  waystation?: DomainTileState["waystation"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
   frontierDecayKind?: DomainTileState["frontierDecayKind"];
   town?: DomainTileState["town"];
-  fort?: DomainTileState["fort"];
-  observatory?: DomainTileState["observatory"];
-  siegeBattery?: DomainTileState["siegeBattery"];
-  economicStructure?: DomainTileState["economicStructure"];
-  sabotage?: DomainTileState["sabotage"];
-  muster?: DomainTileState["muster"];
-  afc?: DomainTileState["afc"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
   // crashing. The hydration layer ignores it until Phase 4 activates the reader.
   structure?: unknown;
-};
+} & TileOverlays;
 
 export type RecoveredLock = {
   commandId: string;
@@ -90,21 +81,14 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
-  ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-  ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
-  ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
-  ...(tile.waystation ? { waystation: tile.waystation } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(tile.town ? { town: tile.town } : {}),
-  ...(tile.fort ? { fort: tile.fort } : {}),
-  ...(tile.observatory ? { observatory: tile.observatory } : {}),
-  ...(tile.siegeBattery ? { siegeBattery: tile.siegeBattery } : {}),
-  ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-  ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
-  ...(tile.afc ? { afc: tile.afc } : {})
+  // Overlays from the shared table: this list was once hand-written with no
+  // muster line, so every restart dropped every active muster flag.
+  ...overlaySubstructuresFrom(tile)
 });
 
 export const createRecoveredSimulationAccumulator = (
@@ -146,39 +130,12 @@ const applyTileDeltaToRecoveredAccumulator = (
     ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
     ...(tileDelta.prospectSignature ? { prospectSignature: tileDelta.prospectSignature } : existing?.prospectSignature ? { prospectSignature: existing.prospectSignature } : {}),
     ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
-    ...("shardSiteJson" in tileDelta
-      ? (tileDelta.shardSiteJson
-          ? { shardSite: parseOptionalJson<DomainTileState["shardSite"]>(tileDelta.shardSiteJson) }
-          : {})
-      : existing?.shardSite
-        ? { shardSite: existing.shardSite }
-        : {}),
-    ...("watchtowerJson" in tileDelta
-      ? (tileDelta.watchtowerJson
-          ? { watchtower: parseOptionalJson<DomainTileState["watchtower"]>(tileDelta.watchtowerJson) }
-          : {})
-      : existing?.watchtower
-        ? { watchtower: existing.watchtower }
-        : {}),
-    ...("waystationJson" in tileDelta
-      ? (tileDelta.waystationJson
-          ? { waystation: parseOptionalJson<DomainTileState["waystation"]>(tileDelta.waystationJson) }
-          : {})
-      : existing?.waystation
-        ? { waystation: existing.waystation }
-        : {}),
-    ...("naturalWonderJson" in tileDelta
-      ? (tileDelta.naturalWonderJson
-          ? { naturalWonder: parseOptionalJson<DomainTileState["naturalWonder"]>(tileDelta.naturalWonderJson) }
-          : {})
-      : existing?.naturalWonder
-        ? { naturalWonder: existing.naturalWonder }
-        : {}),
     // For ownership + per-tile-structure fields, an empty-string delta value
-    // means "explicit clear" (mirrors the existing shardSiteJson pattern just
-    // above). Without the `in` check, a clearing event emitted by the
-    // tile-shedding ticker (or by UNCAPTURE_TILE) wouldn't replay correctly
-    // and the recovered state would preserve the prior owner/structures.
+    // means "explicit clear" (same rule as the overlays, see
+    // recoverOverlaySubstructures below). Without the `in` check, a clearing
+    // event emitted by the tile-shedding ticker (or by UNCAPTURE_TILE)
+    // wouldn't replay correctly and the recovered state would preserve the
+    // prior owner/structures.
     ...("ownerId" in tileDelta
       ? (tileDelta.ownerId ? { ownerId: tileDelta.ownerId } : {})
       : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
@@ -204,55 +161,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         ? { frontierDecayKind: existing.frontierDecayKind }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
-    ...("fortJson" in tileDelta
-      ? (tileDelta.fortJson
-          ? { fort: parseOptionalJson<DomainTileState["fort"]>(tileDelta.fortJson) }
-          : {})
-      : existing?.fort
-        ? { fort: existing.fort }
-        : {}),
-    ...("observatoryJson" in tileDelta
-      ? (tileDelta.observatoryJson
-          ? { observatory: parseOptionalJson<DomainTileState["observatory"]>(tileDelta.observatoryJson) }
-          : {})
-      : existing?.observatory
-        ? { observatory: existing.observatory }
-        : {}),
-    ...("siegeBatteryJson" in tileDelta
-      ? (tileDelta.siegeBatteryJson
-          ? { siegeBattery: parseOptionalJson<DomainTileState["siegeBattery"]>(tileDelta.siegeBatteryJson) }
-          : {})
-      : existing?.siegeBattery
-        ? { siegeBattery: existing.siegeBattery }
-        : {}),
-    ...("economicStructureJson" in tileDelta
-      ? (tileDelta.economicStructureJson
-          ? { economicStructure: parseOptionalJson<DomainTileState["economicStructure"]>(tileDelta.economicStructureJson) }
-          : {})
-      : existing?.economicStructure
-        ? { economicStructure: existing.economicStructure }
-        : {}),
-    // "in", not truthiness, like the fields above: a present-but-empty
-    // sabotageJson is an explicit clear (a Siphon ending), not "untouched".
-    ...("sabotageJson" in tileDelta
-      ? (tileDelta.sabotageJson ? { sabotage: parseOptionalJson<DomainTileState["sabotage"]>(tileDelta.sabotageJson) } : {})
-      : existing?.sabotage
-        ? { sabotage: existing.sabotage }
-        : {}),
-    ...("musterJson" in tileDelta
-      ? (tileDelta.musterJson
-          ? { muster: parseOptionalJson<DomainTileState["muster"]>(tileDelta.musterJson) }
-          : {})
-      : existing?.muster
-        ? { muster: existing.muster }
-        : {}),
-    ...("afcJson" in tileDelta
-      ? (tileDelta.afcJson
-          ? { afc: parseOptionalJson<DomainTileState["afc"]>(tileDelta.afcJson) }
-          : {})
-      : existing?.afc
-        ? { afc: existing.afc }
-        : {})
+    ...recoverOverlaySubstructures(tileDelta, existing)
   });
 };
 

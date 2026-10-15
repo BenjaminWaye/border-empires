@@ -58,6 +58,32 @@ type NormalizedGatewayTileUpdate = {
   regionType?: Tile["regionType"] | undefined;
 };
 
+// One parser per tile-overlay JSON field the gateway sends. Each returns the
+// NormalizedGatewayTileUpdate field it fills (an empty or missing value parses
+// to undefined, which is an explicit clear). The keys must match
+// TILE_OVERLAY_WIRE_FIELDS in @border-empires/sim-protocol; the client does not
+// import sim-protocol at build time, so client-gateway-overlay-fields.test.ts
+// enforces that instead -- a new overlay fails that test until it is added here.
+const GATEWAY_OVERLAY_PARSERS = {
+  shardSiteJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ shardSite: parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(json) }),
+  naturalWonderJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ naturalWonder: parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(json) }),
+  fortJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ fort: parseGatewayStructureJson<Tile["fort"]>(json) }),
+  observatoryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ observatory: parseGatewayStructureJson<Tile["observatory"]>(json) }),
+  siegeBatteryJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ siegeBattery: parseGatewayStructureJson<Tile["siegeBattery"]>(json) }),
+  economicStructureJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ economicStructure: parseGatewayStructureJson<Tile["economicStructure"]>(json) }),
+  sabotageJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ sabotage: parseGatewayStructureJson<Tile["sabotage"]>(json) }),
+  watchtowerJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ watchtower: parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(json) }),
+  waystationJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ waystation: parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(json) }),
+  musterJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ muster: parseGatewayStructureJson<Tile["muster"]>(json) }),
+  afcJson: (json: string | undefined): NormalizedGatewayTileUpdate => ({ afc: parseGatewayStructureJson<Tile["afc"]>(json) })
+};
+
+export type GatewayOverlayJsonField = keyof typeof GATEWAY_OVERLAY_PARSERS;
+export const GATEWAY_OVERLAY_JSON_FIELDS = Object.keys(GATEWAY_OVERLAY_PARSERS) as GatewayOverlayJsonField[];
+
+/** True when a gateway tile update carries any overlay field (and so needs normalizeGatewayTileUpdate). */
+export const hasGatewayOverlayField = (update: object): boolean => GATEWAY_OVERLAY_JSON_FIELDS.some((field) => field in update);
+
 export type GatewayTileUpdate = {
   x: number;
   y: number;
@@ -75,16 +101,6 @@ export type GatewayTileUpdate = {
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  fortJson?: string;
-  observatoryJson?: string;
-  siegeBatteryJson?: string;
-  economicStructureJson?: string;
-  sabotageJson?: string;
-  shardSiteJson?: string; naturalWonderJson?: string;
-  watchtowerJson?: string;
-  waystationJson?: string;
-  musterJson?: string;
-  afcJson?: string;
   yieldRate?: Tile["yieldRate"];
   upkeepEntries?: Tile["upkeepEntries"];
   history?: Tile["history"];
@@ -92,7 +108,7 @@ export type GatewayTileUpdate = {
   regionType?: Tile["regionType"];
   visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean; combatJson?: string;
-};
+} & { [F in GatewayOverlayJsonField]?: string };
 
 type GatewayTileSyncDeps = {
   state: Pick<ClientState, "tiles" | "tilesRevision" | "tilesRevisionChangedKeys" | "tilesRevisionOverflowed" | "incomingAttacksByTile" | "discoveredTiles"> & {
@@ -132,18 +148,9 @@ export const normalizeGatewayTileUpdate = (
     const townIdentity = gatewayTownIdentity(update, args.existing, normalized.town);
     if (townIdentity) Object.assign(normalized, townIdentity);
   }
-  if ("fortJson" in update) normalized.fort = parseGatewayStructureJson<Tile["fort"]>(update.fortJson);
-  if ("observatoryJson" in update) normalized.observatory = parseGatewayStructureJson<Tile["observatory"]>(update.observatoryJson);
-  if ("siegeBatteryJson" in update) normalized.siegeBattery = parseGatewayStructureJson<Tile["siegeBattery"]>(update.siegeBatteryJson);
-  if ("economicStructureJson" in update) {
-    normalized.economicStructure = parseGatewayStructureJson<Tile["economicStructure"]>(update.economicStructureJson);
+  for (const field of GATEWAY_OVERLAY_JSON_FIELDS) {
+    if (field in update) Object.assign(normalized, GATEWAY_OVERLAY_PARSERS[field](update[field]));
   }
-  if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
-  if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
-  if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
-  if ("waystationJson" in update) normalized.waystation = parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(update.waystationJson);
-  if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
-  if ("afcJson" in update) normalized.afc = parseGatewayStructureJson<Tile["afc"]>(update.afcJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("reachOwnerId" in update) normalized.reachOwnerId = typeof update.reachOwnerId === "string" ? update.reachOwnerId : undefined;
   if ("ownershipState" in update) {

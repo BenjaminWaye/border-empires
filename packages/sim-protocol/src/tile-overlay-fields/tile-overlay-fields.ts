@@ -13,18 +13,19 @@
  * muster flags missing on reconnect, AFCs dropped from the persisted
  * snapshot).
  *
- * To add an overlay: add a row here, add the `snake` field to
- * simulation.proto, and give it a slot in the simulation's
- * tile-delta-stringify-cache.ts (AllSubstructureJson). Some places still
- * hand-list overlay fields and are NOT tied to this table yet, so the
- * compiler will not flag them -- update them by hand until they are migrated
- * (tracked in docs/code-cleanup-plan.md):
- *   - simulation: runtime-state-export.ts (toRuntimeExportTile),
- *     event-recovery/event-recovery.ts, runtime-types.ts
- *     (SimulationTileWireDelta), snapshot-tile-cache.ts (RuntimeState),
- *     simulation-service/proto-serialization.ts (proto tile types)
- *   - client: client-gateway-sync/client-gateway-sync.ts and the overlay
- *     field gate in client-network/client-network.ts
+ * To add an overlay:
+ *   1. add a row here and the `snake` field to simulation.proto
+ *      (tile-overlay-fields.test.ts checks they match);
+ *   2. give it a slot in the simulation's tile-delta-stringify-cache.ts
+ *      (AllSubstructureJson) -- OVERLAY_JSON_FIELDS fails to compile until
+ *      you do;
+ *   3. add a parser to GATEWAY_OVERLAY_PARSERS in the client's
+ *      client-gateway-sync.ts -- the client cannot import this package at
+ *      build time, so its client-gateway-overlay-fields.test.ts fails until
+ *      you do.
+ * Everything else (persistence, event recovery, the full-world and login
+ * exports, wire types, the proto serializer and the gateway decoder) is
+ * derived from this table.
  */
 export const TILE_OVERLAY_WIRE_FIELDS = [
   { key: "shardSite", camel: "shardSiteJson", snake: "shard_site_json" },
@@ -47,3 +48,6 @@ export type TileOverlayProtoField = TileOverlayWireField["snake"];
 
 /** The overlay JSON fields as optional tile properties (absent, a JSON string, or an explicit `undefined` clear). */
 export type TileOverlayJsonFields = { [F in TileOverlayJsonField]?: string | undefined };
+
+/** The overlay proto fields as optional snake_case tile properties (simulation.proto shape). */
+export type TileOverlayProtoFields = { [F in TileOverlayProtoField]?: string | undefined };

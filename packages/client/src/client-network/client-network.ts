@@ -27,7 +27,7 @@ import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/clien
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
-import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
@@ -1815,14 +1815,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "townType" in update ||
             "townName" in update ||
             "townPopulationTier" in update ||
-            "fortJson" in update ||
-            "observatoryJson" in update ||
-            "siegeBatteryJson" in update ||
-            "economicStructureJson" in update ||
-            "sabotageJson" in update ||
-            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
-            "musterJson" in update ||
-            "afcJson" in update ||
+            hasGatewayOverlayField(update) ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),
