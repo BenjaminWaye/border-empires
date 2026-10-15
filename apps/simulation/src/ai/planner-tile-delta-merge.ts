@@ -42,6 +42,10 @@ export const mergePlannerTileDelta = (
     if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
+  if ("captureHoldUntil" in tileDelta) {
+    if (typeof tileDelta.captureHoldUntil === "number") next.captureHoldUntil = tileDelta.captureHoldUntil;
+    else delete next.captureHoldUntil;
+  }
   if ("townJson" in tileDelta) {
     const town = parseTownSupport(tileDelta.townJson);
     if (town) next.town = town;
@@ -95,6 +99,7 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   ...(tile.naturalWonder !== undefined ? { naturalWonderJson: tile.naturalWonder ? "1" : undefined } : {}),
   ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.captureHoldUntil !== undefined ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),
   ...(tile.fort !== undefined ? { fortJson: JSON.stringify(tile.fort) } : {}),
   ...(tile.observatory !== undefined ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),

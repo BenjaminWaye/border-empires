@@ -47,6 +47,7 @@ export type ProtoSimulationEvent = {
     town_name?: string | undefined;
     town_population_tier?: string | undefined;
     breach_shock_until?: number | undefined;
+    capture_hold_until?: number | undefined;
     visibility_state?: string | undefined;
     ownership_clear_only?: boolean;
     combat_json?: string | undefined;
@@ -68,6 +69,7 @@ export type ProtoSimulationEvent = {
     townName?: string | undefined;
     townPopulationTier?: string | undefined;
     breachShockUntil?: number | null | undefined;
+    captureHoldUntil?: number | null | undefined;
     yieldRate?: { goldPerMinute?: number } | undefined;
     visibilityState?: string | undefined;
     ownershipClearOnly?: boolean | undefined;
@@ -150,6 +152,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
           ...overlaySnakeClearFields(tile),
           ...("breachShockUntil" in tile ? { breach_shock_until: tile.breachShockUntil ?? 0 } : {}),
+          ...("captureHoldUntil" in tile ? { capture_hold_until: tile.captureHoldUntil ?? 0 } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibility_state: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownership_clear_only: true } : {}),
           ...("yieldRate" in tile && tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {}),
@@ -177,6 +180,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
           ...overlayCamelClearFields(tile),
           ...("breachShockUntil" in tile ? { breachShockUntil: tile.breachShockUntil ?? null } : {}),
+          ...("captureHoldUntil" in tile ? { captureHoldUntil: tile.captureHoldUntil ?? null } : {}),
           ...("visibilityState" in tile && tile.visibilityState ? { visibilityState: tile.visibilityState } : {}),
           ...(tile.ownershipClearOnly ? { ownershipClearOnly: true } : {}),
           ...("yieldRate" in tile ? { yieldRate: tile.yieldRate } : {}),
@@ -200,6 +204,7 @@ export const toFullSnapshotProtoTile = (tile: {
   frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   yieldRate?: unknown;
 } & TileOverlayJsonFields) => ({
   x: tile.x,
@@ -219,5 +224,6 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.townPopulationTier ? { town_population_tier: tile.townPopulationTier } : {}),
   ...overlaySnakeTruthyFields(tile),
   ...(typeof tile.breachShockUntil === "number" ? { breach_shock_until: tile.breachShockUntil } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { capture_hold_until: tile.captureHoldUntil } : {}),
   ...(tile.yieldRate ? { yield_rate_json: JSON.stringify(tile.yieldRate) } : {})
 });

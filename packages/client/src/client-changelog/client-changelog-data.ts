@@ -449,6 +449,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Advance and March flags with no target in range no longer keep battle music playing"
     ]
   },
+  {
+    createdAt: 1792062991009, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Captured tiles can't be taken straight back",
+    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
+    changes: [
+      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
+      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
+      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
+    ]
+  },
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

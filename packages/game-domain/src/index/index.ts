@@ -165,6 +165,9 @@ export type DomainTileState = {
   // FRONTIER_AUTO_HEAL_MS.
   healAt?: number | undefined;
   breachShockUntil?: number | undefined;
+  // Post-capture hold window end (shared capture-hold.ts): a freshly captured
+  // FRONTIER tile defends until then instead of being a free retake.
+  captureHoldUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
         Partial<

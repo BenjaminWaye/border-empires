@@ -141,6 +141,7 @@ export type PlayerSubscriptionSnapshot = {
     frontierDecayAt?: number | undefined;
     frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;
+    captureHoldUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
     townName?: string | undefined;

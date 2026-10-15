@@ -92,6 +92,10 @@ export type LockedCombatResolution = {
   // the attacker's side) since the shield tile's live amount may have moved
   // between the two.
   shield?: { tileKey: string; x: number; y: number; matched: number };
+  // A FRONTIER target still inside its capture-hold window when the attack
+  // was rolled (shared capture-hold.ts): a real fight, so resolution emits a
+  // battle broadcast even if the hold has expired by the time it resolves.
+  defendedFrontier?: boolean;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";
@@ -301,6 +305,7 @@ export type SimulationTileWireDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;

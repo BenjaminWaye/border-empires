@@ -11,6 +11,8 @@
 // anything — attackerWon is already known before the first frame renders;
 // this module only stages the reveal. The whole fight happens on the target
 // tile (the tile under attack), clamped to TILE_LOCAL_MAX same as before.
+import type { GarrisonFacing, GarrisonStart } from "./popup-marine-garrison.js";
+
 export const LINEUP_MS = 2500; // "cover" — squad rushes to position, staggered pop-in
 export const MARCH_MS = 900; // "advance" — squad closes from tile edge to the firing line
 export const APPROACH_MS = LINEUP_MS + MARCH_MS;
@@ -68,6 +70,8 @@ export type BattleOverlayRenderEntry = {
   // resolved battle picking up from a skirmish keeps every marine's
   // offset/perp/fire-schedule identical across the transition.
   hashSeed: number;
+  // Target tile is capture-held: its garrison defends (popup-marine-garrison.ts).
+  defenderGarrison?: GarrisonFacing;
 };
 
 // A siege still counting down — outcome unknown. Plays the same cover-
@@ -92,6 +96,8 @@ export type BattleOverlaySkirmishEntry = {
   // troops have even arrived — see client-map-3d-capture-overlays.ts's
   // syncBattleOverlayFx for where this is computed.
   holdApproachUntilElapsed?: number;
+  // See BattleOverlayRenderEntry.defenderGarrison.
+  defenderGarrison?: GarrisonFacing;
 };
 
 export type MarineKit = {
@@ -251,6 +257,9 @@ export type MarinePose = {
 
 const facingYaw = (fwdX: number, fwdZ: number): number => Math.atan2(fwdX, fwdZ);
 
+/** A marine that isn't on the field at all (e.g. a garrison member who fell taking the tile). */
+export const hiddenMarinePose = (yaw: number): MarinePose => ({ stance: "stand", localX: 0, localZ: 0, yaw, scale: 0, crouchT: 0, fallT: 0, flash: 0 });
+
 /** Computes one marine's local-space pose for a resolved battle at `nowMs`.
  * `entryLocalX/Z` is the tile-edge cover position this side spawns from,
  * `perpX/Z`/`fwdX/Z` are the firing-line's perpendicular/forward axes (see
@@ -273,7 +282,10 @@ export const computeBattlePose = (
   // its own random death-roll timing, so the beam's impact and this
   // marine's collapse always land together. Undefined (the normal case)
   // leaves every marine's own roll untouched.
-  siegeVictimIndex?: number
+  siegeVictimIndex?: number,
+  // Defender side of a fight on a capture-held tile (popup-marine-garrison.ts):
+  // the garrison already standing there, so it starts from its own spot.
+  garrisonStart?: GarrisonStart
 ): MarinePose => {
   const kit = marineKitFor(b.hashSeed, side, i);
   const rolledDKit = deathKitFor(b.hashSeed, side, i);
@@ -293,16 +305,18 @@ export const computeBattlePose = (
   // axis. The advance below starts from this exact point — marching from the
   // bare entry point instead collapsed the whole squad onto one spot the
   // instant lineup ended (a "pile") before it fanned back out.
-  const lineupX = entryLocalX + perpX * kit.perpPos;
-  const lineupZ = entryLocalZ + perpZ * kit.perpPos;
+  if (garrisonStart?.absent) return hiddenMarinePose(yaw);
+  const lineupX = garrisonStart ? garrisonStart.localX : entryLocalX + perpX * kit.perpPos;
+  const lineupZ = garrisonStart ? garrisonStart.localZ : entryLocalZ + perpZ * kit.perpPos;
 
   if (nowMs < b.startAt + LINEUP_MS) {
     const t = clamp01((nowMs - b.startAt) / LINEUP_MS);
-    const scale = clamp01((t - kit.offset * 0.6) / 0.25);
+    // A garrison is already standing there -- no pop-in.
+    const scale = garrisonStart ? 1 : clamp01((t - kit.offset * 0.6) / 0.25);
     return {
       // Holding at the entry point, not advancing: a run clip here reads as
       // running on the spot, so wait in the firing stance instead.
-      stance: kit.kneels ? "kneel" : "stand",
+      stance: garrisonStart ? garrisonStart.stance : kit.kneels ? "kneel" : "stand",
       // Dead still. This used to add a per-marine sine "sway" to the
       // formation slot; because the battle camera looks at the tile
       // obliquely, sideways drift read on screen as the whole squad
@@ -398,8 +412,9 @@ export const computeSkirmishPose = (
   perpZ: number,
   fwdX: number,
   fwdZ: number,
-  // See computeBattlePose's own siegeVictimIndex for what this pins.
-  siegeVictimIndex?: number
+  // See computeBattlePose's own siegeVictimIndex/garrisonStart.
+  siegeVictimIndex?: number,
+  garrisonStart?: GarrisonStart
 ): MarinePose => {
   const kit = marineKitFor(b.hashSeed, side, i);
   const rolledDKit = deathKitFor(b.hashSeed, side, i);
@@ -417,16 +432,18 @@ export const computeSkirmishPose = (
 
   // See computeBattlePose: the advance starts from this waiting slot, not
   // from the bare entry point.
-  const lineupX = entryLocalX + perpX * kit.perpPos;
-  const lineupZ = entryLocalZ + perpZ * kit.perpPos;
+  if (garrisonStart?.absent) return hiddenMarinePose(yaw);
+  const lineupX = garrisonStart ? garrisonStart.localX : entryLocalX + perpX * kit.perpPos;
+  const lineupZ = garrisonStart ? garrisonStart.localZ : entryLocalZ + perpZ * kit.perpPos;
 
   if (elapsed < LINEUP_MS) {
     const t = clamp01(elapsed / LINEUP_MS);
-    const scale = clamp01((t - kit.offset * 0.6) / 0.25);
+    // A garrison is already standing there -- no pop-in.
+    const scale = garrisonStart ? 1 : clamp01((t - kit.offset * 0.6) / 0.25);
     return {
       // Holding at the entry point, not advancing: a run clip here reads as
       // running on the spot, so wait in the firing stance instead.
-      stance: kit.kneels ? "kneel" : "stand",
+      stance: garrisonStart ? garrisonStart.stance : kit.kneels ? "kneel" : "stand",
       // Dead still. This used to add a per-marine sine "sway" to the
       // formation slot; because the battle camera looks at the tile
       // obliquely, sideways drift read on screen as the whole squad
