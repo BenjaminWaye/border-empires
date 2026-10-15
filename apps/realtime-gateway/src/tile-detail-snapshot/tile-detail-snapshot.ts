@@ -4,6 +4,7 @@ import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-th
 import { converterModeOf, resolvedTownCoastal, townTerrainModifiers, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
 import { nextPopulationTierUpgradeForSnapshotTown } from "./tile-detail-next-population-tier-upgrade.js";
 import { derivedTownIsFed, derivedTownSupportStructures, supportSummaryForTown } from "./tile-detail-support-ring.js";
+import { snapshotTownGrowth } from "./tile-detail-town-growth.js";
 
 import {
   HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY,
@@ -15,10 +16,7 @@ import {
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
-  POPULATION_GROWTH_BASE_RATE,
-  incubationEngineGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
-  SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
   townModifierTotalsFromCounts,
@@ -109,30 +107,6 @@ const snapshotFoodCoverage = (snapshot: PlayerSubscriptionSnapshot | undefined):
   if (!upkeepLastTick || typeof upkeepLastTick !== "object") return undefined;
   const foodCoverage = (upkeepLastTick as { foodCoverage?: unknown }).foodCoverage;
   return typeof foodCoverage === "number" && Number.isFinite(foodCoverage) ? foodCoverage : undefined;
-};
-
-const townPopulationGrowthPerMinute = (input: {
-  isFed: boolean;
-  population: number | undefined;
-  maxPopulation: number | undefined;
-  populationTier: string;
-  hasIncubationEngine: boolean;
-  // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
-  // 1 when inactive/not one of the player's first three towns.
-  firstThreeTownPopGrowthMult: number;
-}): number | undefined => {
-  if (!input.isFed) return 0;
-  if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
-  const logisticFactor = 1 - input.population / Math.max(1, input.maxPopulation);
-  if (logisticFactor <= 0) return 0;
-  const growth =
-    input.population *
-    POPULATION_GROWTH_BASE_RATE *
-    (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
-    incubationEngineGrowthMultiplier(input.hasIncubationEngine) *
-    input.firstThreeTownPopGrowthMult *
-    logisticFactor;
-  return Number(growth.toFixed(4));
 };
 
 const structureUpkeepPerMinute = (structureType: string, converterMode: ConverterMode): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>> => {
@@ -279,20 +253,14 @@ export const buildSnapshotTileDetail = (
       : goldPerMinute > 0
         ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.mintworksCount, supportStructures.clearingHouseActive)
         : undefined;
-  const populationGrowthPerMinute =
-    townPopulationGrowthPerMinute({
-      isFed,
-      population: parsedTown?.population,
-      maxPopulation: parsedTown?.maxPopulation,
-      populationTier,
-      hasIncubationEngine: supportStructures.hasIncubationEngine,
-      firstThreeTownPopGrowthMult
-    }) ?? parsedTown?.populationGrowthPerMinute;
-  const growthModifiers =
-    parsedTown?.growthModifiers ??
-    (typeof populationGrowthPerMinute === "number" && populationGrowthPerMinute > 0
-      ? [{ label: "Long time peace" as const, deltaPerMinute: populationGrowthPerMinute }]
-      : undefined);
+  const { populationGrowthPerMinute, growthModifiers } = snapshotTownGrowth({
+    parsedTown,
+    isFed,
+    populationTier,
+    hasIncubationEngine: supportStructures.hasIncubationEngine,
+    firstThreeTownPopGrowthMult,
+    nowMs: Date.now()
+  });
   const hasTown = Boolean(tile.townType || parsedTown);
   const townFoodUpkeep = hasTown ? townFoodUpkeepPerMinute(populationTier) : 0;
   // Unified building modifier display (stage 2): compute townModifierTotals
@@ -326,7 +294,7 @@ export const buildSnapshotTileDetail = (
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
         ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
-        ...(growthModifiers ? { growthModifiers } : {}),
+        growthModifiers,
         ...(townModifierTotals.length > 0 ? { townModifierTotals } : {}),
         ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
         // Mercantile Charter: only sent when active, matching

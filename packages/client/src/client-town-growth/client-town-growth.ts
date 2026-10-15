@@ -32,23 +32,39 @@ export const formatRoughMinutes = (minutes: number): string => {
   return `${Math.ceil(weeks)}w`;
 };
 
-const townGrowthPauseReason = (
+type TownGrowthOptions = { explainUnfed?: boolean; nowMs?: number };
+
+const activeUntil = (until: number | undefined, nowMs: number): until is number => typeof until === "number" && until > nowMs;
+
+// Which pause is blocking growth. The capture-shock and nearby-war timers ride
+// every town payload, while growthModifiers only ride the full town summary —
+// so check the timers first, or the reason vanishes after a growth-tick delta.
+export const townGrowthBlocker = (
   town: NonNullable<Tile["town"]>,
-  options?: { explainUnfed?: boolean }
-): string | undefined => {
-  const blockingModifier = town.growthModifiers?.find((modifier) => modifier.deltaPerMinute < 0)?.label;
-  if (blockingModifier === "Recently captured") return "recently captured";
-  if (blockingModifier === "Nearby war") return "nearby war";
+  nowMs = Date.now()
+): "Recently captured" | "Nearby war" | undefined => {
+  if (activeUntil(town.captureShockUntil, nowMs)) return "Recently captured";
+  if (activeUntil(town.nearbyWarPausedUntil, nowMs)) return "Nearby war";
+  const label = town.growthModifiers?.find((modifier) => modifier.deltaPerMinute < 0)?.label;
+  return label === "Long time peace" ? undefined : label;
+};
+
+const townGrowthPauseReason = (town: NonNullable<Tile["town"]>, options?: TownGrowthOptions): string | undefined => {
+  const nowMs = options?.nowMs ?? Date.now();
+  const blocker = townGrowthBlocker(town, nowMs);
+  if (blocker === "Recently captured") return "recently captured";
+  if (blocker === "Nearby war") {
+    return activeUntil(town.nearbyWarPausedUntil, nowMs)
+      ? `nearby war, resumes in ~${formatRoughMinutes((town.nearbyWarPausedUntil - nowMs) / 60_000)}`
+      : "nearby war";
+  }
   if (options?.explainUnfed && town.isFed === false) return "town is unfed";
   if (town.population >= town.maxPopulation) return "population cap reached";
   return undefined;
 };
 
-export const isTownGrowthPaused = (
-  town: NonNullable<Tile["town"]>,
-  options?: { explainUnfed?: boolean }
-): boolean => {
-  if (town.growthModifiers?.some((modifier) => modifier.deltaPerMinute < 0)) return true;
+export const isTownGrowthPaused = (town: NonNullable<Tile["town"]>, options?: TownGrowthOptions): boolean => {
+  if (townGrowthBlocker(town, options?.nowMs)) return true;
   if (options?.explainUnfed && town.isFed === false) return true;
   return (town.populationGrowthPerMinute ?? 0) <= 0;
 };
@@ -101,10 +117,7 @@ export const shouldShowTownUpgradeReadyBadge = (tile: Tile, localPlayerId: strin
   return town.nextPopulationTierUpgrade?.available === true;
 };
 
-export const townNextGrowthEtaLabel = (
-  town: NonNullable<Tile["town"]>,
-  options?: { explainUnfed?: boolean }
-): string => {
+export const townNextGrowthEtaLabel = (town: NonNullable<Tile["town"]>, options?: TownGrowthOptions): string => {
   const milestone = townNextPopulationMilestone(town);
   if (!milestone) return "Max tier reached";
   const growth = town.populationGrowthPerMinute ?? 0;
