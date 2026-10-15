@@ -2362,7 +2362,7 @@ export class SimulationRuntime {
       return;
     }
 
-    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE" && command.type !== "CHECK_STRANDED_REGION") {
+    if (command.type !== "SYNC_ALLIANCE" && command.type !== "SYNC_TRUCE" && command.type !== "SETTLE_DIPLOMACY_TERMS" && command.type !== "CHECK_STRANDED_REGION") {
       const playerSeqKey = `${command.playerId}:${command.clientSeq}`;
       const existingCommandId = this.replayCache.commandIdsByPlayerSeq.get(playerSeqKey);
       if (existingCommandId) {

@@ -21,6 +21,8 @@ const SimulationCommandTypeSchema = z.union([
   DurableCommandTypeSchema,
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
+  // Gateway-issued: moves the coin/Shards a truce or alliance deal promised (runtime-diplomacy-settlement-command.ts).
+  z.literal("SETTLE_DIPLOMACY_TERMS"),
   z.literal("WATCH_MUSTER"),
   z.literal("UNWATCH_MUSTER"),
   // Gateway-forwarded, never persisted: releases stranded frontier tiles in the chunk a player is viewing.

@@ -276,7 +276,7 @@ export const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE") continue;
+    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE" || command.type === "SETTLE_DIPLOMACY_TERMS") continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {

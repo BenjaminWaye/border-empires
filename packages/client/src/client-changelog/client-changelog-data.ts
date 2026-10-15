@@ -441,6 +441,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
   },
   {
+    createdAt: 1792044983124, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Trade screen for truces and alliances",
+    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
+    changes: [
+      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
+      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
+      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
+      "Alliances need an AI that likes you and would be the largest empire in the alliance (Diplomatic Dominance goes to the largest member); AIs never pay to join one",
+      "An AI gives 24h notice to leave an alliance once a partner grows larger than it",
+      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
+      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
+      "Pending offers show their terms in the Alliances panel"
+    ]
+  },
+  {
     createdAt: 1792042002455, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.15.1",
     title: "War music stops when your flag has nothing to fight",
