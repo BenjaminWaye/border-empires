@@ -9,10 +9,17 @@ import type { MusterState } from "@border-empires/shared";
 // attack lets it settle instead.
 const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
 
-// An ADVANCE/MARCH flag the sim reports as idle with nothing to fight: its
-// last target search came up empty and none of its attacks are in flight.
-const isIdleWithNoTarget = (muster: MusterState): boolean =>
-  muster.noTargetInRange === true && !muster.inFlight && (muster.inFlightCount ?? 0) === 0;
+// Whether an ADVANCE/MARCH flag is actually engaged: an attack it funded is
+// in flight, or the sim has searched and found a target (cooling down or
+// saving up for it). Not engaged: the last search found nothing to fight
+// (`noTargetInRange`), or the sim hasn't evaluated the flag yet -- every
+// ADVANCE/MARCH tick path sets inFlight or nextActionAt, so a flag with
+// neither was only just raised. Counting that first beat as combat latched
+// WAR_MUSIC_HOLD_MS of war music even on a border with nothing to attack.
+const isEngagedFlag = (muster: MusterState): boolean => {
+  if (muster.inFlight || (muster.inFlightCount ?? 0) > 0) return true;
+  return muster.nextActionAt !== undefined && muster.noTargetInRange !== true;
+};
 
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
@@ -57,7 +64,7 @@ export const computeWarMusicSignals = (
     const muster = tile.muster;
     if (!muster) continue;
     if (muster.mode === "ADVANCE" || muster.mode === "MARCH") {
-      if (!isIdleWithNoTarget(muster)) advancing = true;
+      if (isEngagedFlag(muster)) advancing = true;
     } else if (muster.mode === "HOLD") staged = true;
     if (advancing && staged) break;
   }
