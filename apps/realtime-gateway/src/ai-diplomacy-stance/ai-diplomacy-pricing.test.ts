@@ -195,7 +195,8 @@ describe("answerDiplomacyStanceQuery", () => {
   const aiSnapshot = {
     playerId: "ai-1",
     tiles: [],
-    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: { SHARD: 1 } }
+    player: { manpower: 800, manpowerCap: 1000, gold: 40, incomePerMinute: 2, strategicResources: { SHARD: 1 } },
+    worldStatus: { leaderboard: { overall: [{ id: "ai-1", tiles: 100 }] } }
   } as unknown as PlayerSubscriptionSnapshot;
   const deps = {
     resolvePlayerByName: (name: string) => (name === "Milo" ? { id: "ai-1", name: "Milo" } : name === "Valka" ? { id: "p2", name: "Valka" } : undefined),

@@ -7,10 +7,12 @@ import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empire
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import type { LeaderboardTiles } from "../ai-diplomacy-stance/ai-alliance-bloc.js";
 import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import { recheckAiOffer } from "../ai-diplomacy-stance/ai-offer-recheck.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
+import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { createDiplomacyOfferAcceptance } from "../diplomacy-settlement/diplomacy-offer-acceptance.js";
 import { createDiplomacySettlement, type DiplomacySettlement } from "../diplomacy-settlement/diplomacy-settlement.js";
@@ -40,6 +42,8 @@ export type DiplomacySocketHandlerDeps = {
   /** Already wrapped in the gateway's submit timeout. */
   submitSimulationCommand: (command: CommandEnvelope) => Promise<unknown>;
   isSimulationConnected: () => boolean;
+  /** Every competitive player's tile count, from the simulation's cached season summary. */
+  fetchSeasonLeaderboard: () => Promise<LeaderboardTiles>;
 };
 
 export type DiplomacySocketHandler = {
@@ -48,8 +52,12 @@ export type DiplomacySocketHandler = {
     session: { playerId?: string | undefined; isGuest?: boolean | undefined },
     socket: WebSocket
   ) => Promise<boolean>;
-  /** Has AIs leave alliances they no longer lead (self-throttled; call it from a recurring task). */
-  reviewAiAlliances: () => Promise<void>;
+  /**
+   * Recurring alliance upkeep (call every minute): finalizes break notices
+   * whose 24h ran out, and has AIs leave alliances they no longer lead
+   * (self-throttled to every 5 minutes).
+   */
+  runAllianceMaintenance: () => void;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
   observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & Parameters<typeof combatFromSimulationEvent>[0]) => void;
 };
@@ -123,7 +131,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     hasLiveSocket: deps.hasLiveSocket,
     alliesOf,
     pendingBreaksOf: (playerId) => socialState.snapshotForPlayer(playerId).activeAllianceBreaks.map((notice) => notice.otherPlayerId),
-    fetchAiSnapshot,
+    fetchLeaderboard: deps.fetchSeasonLeaderboard,
     playerName: socialState.playerNameOf,
     breakAlliance: socialState.breakAlliance,
     fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
@@ -228,9 +236,17 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       socket
     );
   };
+  const finalizeExpiredAllianceBreaks = createAllianceBreakFinalizer({
+    socialState,
+    syncAllianceToSimulation: deps.syncAllianceToSimulation,
+    fanoutPlayerPayloads: deps.fanoutPlayerPayloads
+  });
   return {
     handleMessage,
-    reviewAiAlliances,
+    runAllianceMaintenance: () => {
+      void finalizeExpiredAllianceBreaks();
+      void reviewAiAlliances();
+    },
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const combat = combatFromSimulationEvent(event);

@@ -53,8 +53,8 @@ export const aiDiplomacyPricing = (input: {
   requesterIncomePerMinute: number;
   aiHoldings: DiplomacyGoods;
   requesterBrokeTruceWithAi: boolean;
-  /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. */
-  aiWouldLeadAlliance: boolean;
+  /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. undefined: sizes unknown right now. */
+  aiWouldLeadAlliance: boolean | undefined;
   now: number;
 }): AiDiplomacyPricingResult => {
   const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
@@ -100,6 +100,7 @@ export const aiDiplomacyPricing = (input: {
   let allianceRefusal: string | undefined;
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
+  else if (input.aiWouldLeadAlliance === undefined) allianceRefusal = `${aiName} can't weigh up an alliance right now. Try again shortly.`;
   else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   else if (ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
