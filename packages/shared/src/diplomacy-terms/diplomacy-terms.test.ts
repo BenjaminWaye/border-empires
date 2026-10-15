@@ -48,6 +48,15 @@ describe("evaluateAiOffer", () => {
   });
 });
 
+describe("alliances", () => {
+  // The AI never pays to join an alliance.
+  it("refuses any alliance offer that asks the AI for something, and never prices one below free", () => {
+    expect(evaluateAiOffer(pricing(0, -500), "alliance", 12, terms(0, 0, 10))).toEqual({ accepts: false, reason: "aiWontPay" });
+    expect(evaluateAiOffer(pricing(0, -500), "alliance", 12, emptyDiplomacyTerms())).toEqual({ accepts: true });
+    expect(aiCounterOffer(pricing(0, 40), "alliance", 12, terms(0, 0, 30), { gold: 100, shard: 0 })).toEqual({ kind: "counter", terms: terms(40) });
+  });
+});
+
 describe("aiCounterOffer", () => {
   it("asks for exactly the missing coin when the requester has it", () => {
     expect(aiCounterOffer(pricing(60), "truce", 12, terms(20), { gold: 500, shard: 0 })).toEqual({ kind: "counter", terms: terms(60) });

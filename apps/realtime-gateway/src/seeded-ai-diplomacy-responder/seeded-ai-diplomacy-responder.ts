@@ -8,7 +8,7 @@ import {
 } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { evaluateAiDiplomacy } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialAllianceRequest, SocialOfferOptions, SocialTruceRequest } from "../social-state/social-state-types.js";
 
 const extractRequestFromPayloads = <T>(payloadsByPlayerId: Map<string, unknown[]>, playerId: string, payloadType: string): T | undefined => {
@@ -70,7 +70,8 @@ export type SeededAiDiplomacyResponderDeps = {
   fetchPlayerSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
   /** The requester is online (they just sent the offer); prefer their cached snapshot. */
   requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
-  requesterBrokeTruceWith: (requesterId: string, aiPlayerId: string) => boolean;
+  /** Grudges and memory for the pair (truce breaks, fights, past deals). */
+  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
   // A seeded-AI identity that a human has actually claimed with a live
   // socket is no longer AI-controlled for social decisions -- the human
   // decides their own offers. Without this, the auto-responder can race a
@@ -145,17 +146,22 @@ type Decision =
 export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponderDeps): SeededAiDiplomacyResponder => {
   const decide = (offer: PendingOffer, aiName: string, evaluation: ReturnType<typeof evaluateAiDiplomacy>): Decision => {
     if (!evaluation) return { kind: "decline", reason: UNAVAILABLE_REASON(aiName), startCooldown: false };
-    const { stance, pricing, requesterHoldings } = evaluation;
+    const { pricing, requesterHoldings, reason } = evaluation;
+    const refusal = offer.kind === "truce" ? evaluation.truceRefusal : evaluation.allianceRefusal;
+    if (refusal) return { kind: "decline", reason: refusal, startCooldown: true };
     const duration = offer.durationHours ?? 12;
     const terms = offer.terms ?? emptyDiplomacyTerms();
     const verdict = evaluateAiOffer(pricing, offer.kind, duration, terms);
-    if (verdict.accepts) return { kind: "accept", reason: stance.reason };
-    const counter = aiCounterOffer(pricing, offer.kind, duration, terms, requesterHoldings);
-    if (counter.kind === "counter") return { kind: "counter", reason: stance.reason, terms: counter.terms };
-    if (counter.kind === "cannotAfford") {
-      return { kind: "decline", reason: `${stance.reason} ${aiName} wants about ${counter.shortfall} coin more than you can offer.`, startCooldown: true };
+    if (verdict.accepts) return { kind: "accept", reason };
+    if (!verdict.accepts && verdict.reason === "aiWontPay") {
+      return { kind: "decline", reason: `${aiName} won't pay anything to join an alliance.`, startCooldown: true };
     }
-    return { kind: "decline", reason: stance.reason, startCooldown: true };
+    const counter = aiCounterOffer(pricing, offer.kind, duration, terms, requesterHoldings);
+    if (counter.kind === "counter") return { kind: "counter", reason, terms: counter.terms };
+    if (counter.kind === "cannotAfford") {
+      return { kind: "decline", reason: `${reason} ${aiName} wants about ${counter.shortfall} coin more than you can offer.`, startCooldown: true };
+    }
+    return { kind: "decline", reason, startCooldown: true };
   };
 
   const respond = async (offer: PendingOffer): Promise<void> => {
@@ -176,7 +182,7 @@ export const createSeededAiDiplomacyResponder = (deps: SeededAiDiplomacyResponde
       aiSnapshot,
       requesterId: offer.fromPlayerId,
       requesterSnapshot,
-      requesterBrokeTruceWithAi: deps.requesterBrokeTruceWith(offer.fromPlayerId, offer.toPlayerId)
+      ...deps.diplomacyContext(offer.fromPlayerId, offer.toPlayerId)
     });
     if (!evaluation) {
       deps.recordGatewayEvent("warn", "gateway_ai_diplomacy_snapshot_failed", {

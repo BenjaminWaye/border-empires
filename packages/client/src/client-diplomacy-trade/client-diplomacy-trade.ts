@@ -6,7 +6,7 @@
 import { emptyDiplomacyTerms, type DiplomacyGoods, type DiplomacyOfferKind, type DiplomacyTerms } from "@border-empires/shared";
 
 import { diplomacyTradeStyles } from "./client-diplomacy-trade-style.js";
-import { STANCE_LABEL, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
+import { attitudeSummary, tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
 
 export type DiplomacyOfferCooldownView = { kind: DiplomacyOfferKind; targetPlayerId: string; until: number };
 
@@ -71,7 +71,18 @@ const render = (screen: OpenScreen): void => {
   const stanceEl = overlay.querySelector<HTMLElement>("[data-trade-stance]");
   if (stanceEl) {
     stanceEl.textContent =
-      reply?.found && reply.ai && reply.stance ? `${STANCE_LABEL[reply.stance.kind]}. ${reply.stance.reason}` : reply?.found && !reply.ai ? "Another player." : "";
+      reply?.found && reply.ai && reply.stance
+        ? [attitudeSummary(reply), reply.stance.reason].filter(Boolean).join(". ")
+        : reply?.found && !reply.ai ? "Another player." : "";
+  }
+  // Civ-style breakdown of the attitude: what pleases or angers this empire.
+  const modifiersEl = overlay.querySelector<HTMLElement>("[data-trade-modifiers]");
+  if (modifiersEl) {
+    const modifiers = reply?.found && reply.ai ? (reply.attitude?.modifiers ?? []) : [];
+    modifiersEl.hidden = modifiers.length === 0;
+    modifiersEl.innerHTML = modifiers
+      .map((modifier) => `<li data-tone="${modifier.value >= 0 ? "good" : "bad"}"><span>${modifier.value > 0 ? "+" : ""}${modifier.value}</span> ${escapeHtml(modifier.label)}</li>`)
+      .join("");
   }
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
@@ -141,6 +152,7 @@ export const openDiplomacyTradeScreen = (
     <span class="diplomacy-trade-kicker">Diplomacy</span>
     <h2 id="diplomacy-trade-title">Deal with ${name}</h2>
     <p class="diplomacy-trade-stance" data-trade-stance></p>
+    <ul class="diplomacy-trade-modifiers" data-trade-modifiers hidden></ul>
     <div class="diplomacy-trade-kinds" role="group" aria-label="Offer type">
       <button type="button" data-trade-kind="truce:12">Truce 12h</button>
       <button type="button" data-trade-kind="truce:24">Truce 24h</button>

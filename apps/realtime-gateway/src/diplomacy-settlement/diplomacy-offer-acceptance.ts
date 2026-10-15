@@ -3,7 +3,7 @@
 // accept exactly as before.
 import { diplomacyTermsAreEmpty, swapDiplomacyTerms } from "@border-empires/shared";
 
-import type { SocialActionResult, SocialState } from "../social-state/social-state-types.js";
+import type { SocialActionResult, SocialPendingOffer, SocialState } from "../social-state/social-state-types.js";
 import type { DiplomacySettlement } from "./diplomacy-settlement.js";
 
 type Announcements = Partial<Record<string, string>>;
@@ -12,6 +12,8 @@ export type DiplomacyOfferAcceptanceDeps = {
   socialState: Pick<SocialState, "beginSettlement" | "endSettlement" | "acceptTruce" | "acceptAlliance">;
   settlement: Pick<DiplomacySettlement, "settle">;
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload?: Record<string, unknown>) => void;
+  /** After an agreement is recorded (and any terms paid). */
+  onAccepted?: (kind: "truce" | "alliance", request: SocialPendingOffer["request"]) => void;
 };
 
 export type DiplomacyOfferAcceptance = {
@@ -32,7 +34,9 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
     const terms = request.terms;
     if (!terms || diplomacyTermsAreEmpty(terms)) {
       deps.socialState.endSettlement(requestId);
-      return record();
+      const recordedFree = record();
+      if (recordedFree.ok) deps.onAccepted?.(kind, request);
+      return recordedFree;
     }
     const paid = await deps.settlement.settle({ proposerId: request.fromPlayerId, targetId: request.toPlayerId, terms });
     if (!paid.ok) {
@@ -52,6 +56,8 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
         code: recorded.code,
         refunded: refund.ok
       });
+    } else {
+      deps.onAccepted?.(kind, request);
     }
     return recorded;
   };

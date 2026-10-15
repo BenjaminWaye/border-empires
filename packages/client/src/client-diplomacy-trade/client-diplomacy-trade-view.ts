@@ -23,16 +23,28 @@ export type DiplomacyStanceReply =
       targetPlayerId: string;
       ai: true;
       stance?: { kind: DiplomacyStanceKind; reason: string };
+      attitude?: { level: DiplomacyAttitude; score: number; modifiers: Array<{ label: string; value: number }> };
+      war?: { atWar: boolean; aiWinning: boolean; aiLosing: boolean };
+      truceRefusal?: string;
+      allianceRefusal?: string;
       pricing?: AiDiplomacyPricing;
     };
 
-export const STANCE_LABEL: Record<DiplomacyStanceKind, string> = {
-  DISTRUSTFUL: "Distrustful",
-  SEEKING_PEACE: "Looking for peace",
-  OUTMATCHED: "Fears your strength",
-  WINNING: "Feels they're winning",
-  INDIFFERENT: "Indifferent",
-  WARY: "Wary"
+export type DiplomacyAttitude = "FURIOUS" | "ANNOYED" | "CAUTIOUS" | "PLEASED" | "FRIENDLY";
+
+export const ATTITUDE_LABEL: Record<DiplomacyAttitude, string> = {
+  FURIOUS: "Furious",
+  ANNOYED: "Annoyed",
+  CAUTIOUS: "Cautious",
+  PLEASED: "Pleased",
+  FRIENDLY: "Friendly"
+};
+
+/** "Annoyed · At war (winning)" for the trade screen's header line. */
+export const attitudeSummary = (reply: DiplomacyStanceReply | undefined): string => {
+  if (!reply?.found || !reply.ai || !reply.attitude) return "";
+  const war = reply.war?.atWar ? ` · At war${reply.war.aiWinning ? " (they're winning)" : reply.war.aiLosing ? " (they're losing)" : ""}` : "";
+  return `${ATTITUDE_LABEL[reply.attitude.level]}${war}`;
 };
 
 export type TradeSelection = { kind: DiplomacyOfferKind; durationHours: 12 | 24; terms: DiplomacyTerms };
@@ -74,8 +86,10 @@ export const tradeVerdict = (input: {
   const verdict = evaluateAiOffer(reply.pricing, selection.kind, selection.durationHours, selection.terms);
   if (verdict.accepts) return { tone: "good", text: `${targetName} would accept ${offerLabel(selection)} on these terms.`, canSend: true, sendLabel };
   if (verdict.reason === "refuses") {
-    return { tone: "bad", text: `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
+    const refusal = selection.kind === "alliance" ? reply.allianceRefusal : reply.truceRefusal;
+    return { tone: "bad", text: refusal ?? `${targetName} won't agree to ${offerLabel(selection)} at any price right now.`, canSend: true, sendLabel };
   }
+  if (verdict.reason === "aiWontPay") return { tone: "bad", text: `${targetName} won't give anything to join an alliance.`, canSend: true, sendLabel };
   if (verdict.reason === "aiCannotPay") return { tone: "bad", text: `${targetName} doesn't have that much to give.`, canSend: true, sendLabel };
   const required = requiredForOffer(reply.pricing, selection.kind, selection.durationHours) ?? 0;
   const spareCoin = Math.max(0, own.gold - selection.terms.give.gold);

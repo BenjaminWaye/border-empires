@@ -474,6 +474,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
       "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
+      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
+      "Alliances need an AI that likes you; AIs never pay to join one",
       "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
       "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
       "Pending offers show their terms in the Alliances panel"

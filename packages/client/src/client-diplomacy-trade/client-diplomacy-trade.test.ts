@@ -19,6 +19,9 @@ const aiReply: DiplomacyStanceReply = {
   targetPlayerId: "ai-1",
   ai: true,
   stance: { kind: "WARY", reason: "Milo is wary of you." },
+  attitude: { level: "ANNOYED", score: -20, modifiers: [{ label: "You took 2 of our tiles", value: -8 }, { label: "Our borders are contested", value: -10 }] },
+  war: { atWar: true, aiWinning: true, aiLosing: false },
+  allianceRefusal: "Milo doesn't think well enough of you for an alliance.",
   pricing
 };
 const selection = (giveGold = 0, kind: TradeSelection["kind"] = "truce", durationHours: 12 | 24 = 12): TradeSelection => ({
@@ -33,7 +36,10 @@ describe("tradeVerdict", () => {
   it("previews an AI's answer with the shared pricing rules", () => {
     expect(verdict({ selection: selection(40) })).toEqual(expect.objectContaining({ tone: "good", text: "Milo would accept a 12h truce on these terms." }));
     expect(verdict({})).toEqual(expect.objectContaining({ tone: "bad", text: "Milo would refuse: wants about 40 more coin.", topUpCoin: 40 }));
-    expect(verdict({ selection: selection(0, "alliance") }).text).toBe("Milo won't agree to an alliance at any price right now.");
+    expect(verdict({ selection: selection(0, "alliance") }).text).toBe("Milo doesn't think well enough of you for an alliance.");
+    const askingForCoin = { kind: "alliance" as const, durationHours: 12 as const, terms: { give: { gold: 0, shard: 0 }, ask: { gold: 5, shard: 0 } } };
+    const friendly = { ...aiReply, pricing: { ...pricing, required: { ...pricing.required, alliance: 0 } } };
+    expect(verdict({ reply: friendly, selection: askingForCoin }).text).toBe("Milo won't give anything to join an alliance.");
   });
 
   // A player with 10 coin is told the price is out of reach, not offered a top-up they can't pay.
@@ -74,7 +80,11 @@ describe("diplomacy trade screen", () => {
     const { send, overlay } = openScreen();
     expect(send).toHaveBeenCalledWith({ type: "DIPLOMACY_STANCE_REQUEST", targetPlayerName: "Milo" }, expect.any(String));
     receiveDiplomacyStance(aiReply);
-    expect(overlay.querySelector("[data-trade-stance]")?.textContent).toBe("Wary. Milo is wary of you.");
+    expect(overlay.querySelector("[data-trade-stance]")?.textContent).toBe("Annoyed · At war (they're winning). Milo is wary of you.");
+    expect(Array.from(overlay.querySelectorAll("[data-trade-modifiers] li")).map((item) => item.textContent)).toEqual([
+      "-8 You took 2 of our tiles",
+      "-10 Our borders are contested"
+    ]);
     expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Milo would refuse: wants about 40 more coin.");
 
     overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.click();

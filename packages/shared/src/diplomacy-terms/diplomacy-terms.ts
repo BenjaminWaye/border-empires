@@ -76,8 +76,13 @@ export type AiDiplomacyPricing = {
 /** Coin-equivalent of one Shard when an AI weighs a deal. A first guess, tunable. */
 export const SHARD_COIN_VALUE = 25;
 
-export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24): number | null =>
-  kind === "alliance" ? pricing.required.alliance : durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12;
+// An AI never pays to join an alliance: its alliance price is never negative.
+export const requiredForOffer = (pricing: AiDiplomacyPricing, kind: DiplomacyOfferKind, durationHours: 12 | 24): number | null => {
+  if (kind === "alliance") return pricing.required.alliance === null ? null : Math.max(0, pricing.required.alliance);
+  return durationHours === 24 ? pricing.required.truce24 : pricing.required.truce12;
+};
+
+const asksAnything = (terms: DiplomacyTerms): boolean => terms.ask.gold > 0 || terms.ask.shard > 0;
 
 /** Net coin-equivalent flowing to the AI target under these terms. */
 export const netValueToAi = (terms: DiplomacyTerms, shardCoinValue: number): number =>
@@ -86,6 +91,8 @@ export const netValueToAi = (terms: DiplomacyTerms, shardCoinValue: number): num
 export type AiOfferVerdict =
   | { accepts: true }
   | { accepts: false; reason: "refuses" }
+  /** Alliances: the AI gives nothing, so any ask is refused outright. */
+  | { accepts: false; reason: "aiWontPay" }
   | { accepts: false; reason: "aiCannotPay"; missing: DiplomacyGoods }
   | { accepts: false; reason: "shortfall"; shortfall: number };
 
@@ -97,6 +104,7 @@ export const evaluateAiOffer = (
 ): AiOfferVerdict => {
   const required = requiredForOffer(pricing, kind, durationHours);
   if (required === null) return { accepts: false, reason: "refuses" };
+  if (kind === "alliance" && asksAnything(terms)) return { accepts: false, reason: "aiWontPay" };
   const missing = {
     gold: Math.max(0, terms.ask.gold - pricing.aiHoldings.gold),
     shard: Math.max(0, terms.ask.shard - pricing.aiHoldings.shard)
@@ -129,8 +137,11 @@ export const aiCounterOffer = (
   if (required === null) return { kind: "refuses" };
   const next: DiplomacyTerms = {
     give: { ...terms.give },
-    // Never counter by asking the AI to pay more than it holds.
-    ask: { gold: Math.min(terms.ask.gold, pricing.aiHoldings.gold), shard: Math.min(terms.ask.shard, pricing.aiHoldings.shard) }
+    // Never counter by asking the AI to pay more than it holds, nor anything at all for an alliance.
+    ask:
+      kind === "alliance"
+        ? { gold: 0, shard: 0 }
+        : { gold: Math.min(terms.ask.gold, pricing.aiHoldings.gold), shard: Math.min(terms.ask.shard, pricing.aiHoldings.shard) }
   };
   let deficit = required - netValueToAi(next, pricing.shardCoinValue);
   if (deficit <= 0) return { kind: "counter", terms: next };

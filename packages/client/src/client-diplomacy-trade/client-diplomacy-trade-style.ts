@@ -25,6 +25,15 @@ export const diplomacyTradeStyles = `
     font: 600 22px/1.35 var(--sp-font-display, "Cinzel", Georgia, serif);
   }
   .diplomacy-trade-stance { margin: 0 0 16px; color: var(--sp-parchment-muted, #bda880); font-size: 14px; }
+  .diplomacy-trade-modifiers {
+    margin: -8px 0 16px; padding: 0; list-style: none; font-size: 13px;
+    color: var(--sp-parchment-muted, #bda880);
+  }
+  .diplomacy-trade-modifiers li span {
+    display: inline-block; min-width: 32px; font: 600 12px/1.6 var(--sp-font-mono, "Space Mono", monospace);
+  }
+  .diplomacy-trade-modifiers li[data-tone="good"] span { color: #9cc983; }
+  .diplomacy-trade-modifiers li[data-tone="bad"] span { color: #e08a64; }
   .diplomacy-trade-kinds { display: flex; gap: 8px; margin-bottom: 16px; }
   .diplomacy-trade-kinds button, .diplomacy-trade-actions button, .diplomacy-trade-topup {
     flex: 1; min-height: 40px; padding: 8px 12px;

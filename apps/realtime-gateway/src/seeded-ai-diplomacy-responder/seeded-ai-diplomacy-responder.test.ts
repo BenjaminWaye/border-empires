@@ -4,6 +4,26 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import { aiDiplomacyAnnouncements, createSeededAiDiplomacyResponder, memoizeWithTtl } from "./seeded-ai-diplomacy-responder.js";
 import type { SocialAllianceRequest, SocialTruceRequest } from "../social-state/social-state.js";
+import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
+
+const NOW = 10_000_000;
+const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, context: Partial<AiDiplomacyContext> = {}): AiDiplomacyContext => ({
+  requesterBrokeTruceWithAi: false,
+  requesterTruceBreaksWithOthers: 0,
+  memory: {
+    tilesTakenFromAi: 0,
+    tilesTakenByAi: 0,
+    battles: 0,
+    truceDeals: 0,
+    goodwillCoin: 0,
+    lastPlayerAttackAt: undefined,
+    lastCombatAt: undefined,
+    aiAlreadyPaidThisWar: false,
+    ...overrides
+  },
+  now: NOW,
+  ...context
+});
 
 const AI_ID = "ai-1";
 const HUMAN_ID = "human-1";
@@ -51,7 +71,7 @@ const touchingTiles = [
 
 const okResult = () => ({ ok: true as const, notifyPlayerIds: [HUMAN_ID, AI_ID], payloadsByPlayerId: new Map<string, unknown[]>() });
 
-const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterSnapshot?: PlayerSubscriptionSnapshot) => {
+const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterSnapshot?: PlayerSubscriptionSnapshot, context = quietContext()) => {
   const acceptTruce = vi.fn().mockResolvedValue(okResult());
   const rejectTruce = vi.fn().mockReturnValue(okResult());
   const acceptAlliance = vi.fn().mockResolvedValue(okResult());
@@ -65,7 +85,7 @@ const makeDeps = (aiSnapshot: PlayerSubscriptionSnapshot | undefined, requesterS
       seededAiPlayerIds: new Set([AI_ID]),
       fetchPlayerSnapshot: async (playerId: string) => (playerId === AI_ID ? aiSnapshot : undefined),
       requesterSnapshot: async () => requesterSnapshot,
-      requesterBrokeTruceWith: () => false,
+      diplomacyContext: () => context,
       hasLiveSocket: () => false,
       acceptTruce,
       rejectTruce,
@@ -103,11 +123,11 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(requestTruce).not.toHaveBeenCalled();
-    // WARY 24h truce = 36 hours of 2 coin/min = 4320; the requester holds 10.
+    // Neighbours at peace, Cautious: 12h x 1.5 for a 24h truce = 18h of 2 coin/min = 2160; the requester holds 10.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
         [HUMAN_ID]:
-          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 4310 coin more than you can offer.",
+          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 2150 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
       startCooldown: true
@@ -123,10 +143,10 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true }));
-    // From the AI's side: it gives nothing and asks the requester for 4320 coin.
+    // From the AI's side: it gives nothing and asks the requester for 2160 coin.
     expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 4320, shard: 0 } }
+      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 2160, shard: 0 } }
     });
   });
 
@@ -138,7 +158,7 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 4320, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 2160, shard: 0 }, ask: { gold: 0, shard: 0 } }
     });
 
     expect(acceptTruce).toHaveBeenCalled();
@@ -150,16 +170,16 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
       snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
     );
-    acceptTruce.mockResolvedValue({ ok: false, code: "DIPLOMACY_SETTLEMENT_FAILED", message: "The deal fell through: Human no longer has 60 coin." });
+    acceptTruce.mockResolvedValue({ ok: false, code: "DIPLOMACY_SETTLEMENT_FAILED", message: "The deal fell through: Human no longer has 2160 coin." });
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 4320, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 2160, shard: 0 }, ask: { gold: 0, shard: 0 } }
     });
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: expect.objectContaining({
-        [HUMAN_ID]: "Alden Vale declined your 24h truce offer. The deal fell through: Human no longer has 60 coin."
+        [HUMAN_ID]: "Alden Vale declined your 24h truce offer. The deal fell through: Human no longer has 2160 coin."
       }),
       startCooldown: false
     });
@@ -260,10 +280,13 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 });
 
 describe("createSeededAiDiplomacyResponder alliance offers", () => {
-  it("accepts an alliance from a clearly stronger player and syncs it to the simulation", async () => {
+  // Friendly takes more than strength: no border friction, respect for a
+  // stronger empire, and past payments (capped goodwill) together.
+  it("allies for free once Friendly, and syncs the alliance to the simulation", async () => {
     const { deps, acceptAlliance, rejectAlliance, syncAllianceToSimulation } = makeDeps(
-      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 200 })
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 200 }),
+      quietContext({ goodwillCoin: 120 })
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiAlliance(allianceRequest);
@@ -276,7 +299,7 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
     expect(syncAllianceToSimulation).toHaveBeenCalledWith({ playerId: AI_ID, targetPlayerId: HUMAN_ID, allied: true });
   });
 
-  it("declines an alliance from a distant player it has no reason to bind itself to", async () => {
+  it("won't ally with a merely Cautious AI's neighbour", async () => {
     const { deps, acceptAlliance, rejectAlliance } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),
       snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100 })

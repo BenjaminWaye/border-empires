@@ -2,10 +2,12 @@
 // query, deal settlement, and the seeded-AI diplomacy responder, extracted out of gateway-app.ts (well over the repo's
 // 500-line file-size gate and may not grow further -- see AGENTS.md's
 // file-and-type-discipline rule).
-import type { ClientMessage } from "@border-empires/shared";
+import { netValueToAi, SHARD_COIN_VALUE, type ClientMessage } from "@border-empires/shared";
 import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { WebSocket } from "ws";
 
+import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { createDiplomacyOfferAcceptance } from "../diplomacy-settlement/diplomacy-offer-acceptance.js";
@@ -44,8 +46,8 @@ export type DiplomacySocketHandler = {
     session: { playerId?: string | undefined; isGuest?: boolean | undefined },
     socket: WebSocket
   ) => Promise<boolean>;
-  /** Routes deal-settlement verdicts from the simulation event stream. */
-  observeSimulationEvent: DiplomacySettlement["observe"];
+  /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
+  observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & Parameters<typeof combatFromSimulationEvent>[0]) => void;
 };
 
 export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): DiplomacySocketHandler => {
@@ -60,17 +62,41 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
     },
     recordGatewayEvent: deps.recordGatewayEvent
   });
-  const acceptance = createDiplomacyOfferAcceptance({ socialState, settlement, recordGatewayEvent: deps.recordGatewayEvent });
+  const isAi = (playerId: string): boolean => deps.seededAiPlayerIds.has(playerId);
+  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi });
+  const acceptance = createDiplomacyOfferAcceptance({
+    socialState,
+    settlement,
+    recordGatewayEvent: deps.recordGatewayEvent,
+    // AIs remember deals: repeat truce buying costs more, payments build goodwill.
+    onAccepted: (kind, request) => {
+      const aiId = isAi(request.toPlayerId) ? request.toPlayerId : isAi(request.fromPlayerId) ? request.fromPlayerId : undefined;
+      if (!aiId) return;
+      const otherId = aiId === request.toPlayerId ? request.fromPlayerId : request.toPlayerId;
+      if (kind === "truce") memory.recordTruceDeal(aiId, otherId);
+      if (request.terms) {
+        const toTarget = netValueToAi(request.terms, SHARD_COIN_VALUE);
+        memory.recordPayment(aiId, otherId, aiId === request.toPlayerId ? toTarget : -toTarget);
+      }
+    }
+  });
   const fetchAiSnapshot = memoizeWithTtl((playerId) => deps.ensureSubscribed(playerId).catch(() => undefined), 3_000);
   const requesterSnapshot = async (playerId: string): Promise<PlayerSubscriptionSnapshot | undefined> =>
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
-  const requesterBrokeTruceWith = (requesterId: string, aiPlayerId: string): boolean =>
-    socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason.some((record) => record.targetPlayerId === aiPlayerId);
+  const diplomacyContext = (requesterId: string, aiPlayerId: string): AiDiplomacyContext => {
+    const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
+    return {
+      requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
+      requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
+      memory: memory.view(aiPlayerId, requesterId),
+      now: Date.now()
+    };
+  };
   const responder = createSeededAiDiplomacyResponder({
     seededAiPlayerIds: deps.seededAiPlayerIds,
     fetchPlayerSnapshot: fetchAiSnapshot,
     requesterSnapshot,
-    requesterBrokeTruceWith,
+    diplomacyContext,
     hasLiveSocket: deps.hasLiveSocket,
     acceptTruce: acceptance.acceptTruce,
     rejectTruce: socialState.rejectTruce,
@@ -111,7 +137,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
           isAutoRespondingAi: (targetId) => deps.seededAiPlayerIds.has(targetId) && !deps.hasLiveSocket(targetId),
           fetchAiSnapshot,
           requesterSnapshot,
-          requesterBrokeTruceWith
+          diplomacyContext
         },
         playerId,
         message.targetPlayerName
@@ -164,5 +190,12 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
       socket
     );
   };
-  return { handleMessage, observeSimulationEvent: settlement.observe };
+  return {
+    handleMessage,
+    observeSimulationEvent: (event) => {
+      settlement.observe(event);
+      const combat = combatFromSimulationEvent(event);
+      if (combat) memory.observeCombat(combat);
+    }
+  };
 };
