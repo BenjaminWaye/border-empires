@@ -143,17 +143,13 @@ import {
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
 } from "../planner-tile-keys-cache.js";
+import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import {
-  createAutomationNoopDiagnostic,
-  planAutomationCommand,
-  type AutomationPlannerDiagnostic
-} from "../ai/automation-command-planner.js";
-import { recordHotFrontierStreak, shouldForceBroadFrontierScan } from "../ai/ai-hot-frontier-streak.js";
-import { chooseAutomationPreplanCommand } from "../ai/ai-preplan-command.js";
-import { mergePreplanDiagnostic } from "./merge-preplan-diagnostic.js";
-import type { DecisionCooldownMap } from "../ai/ai-rejection-cooldown.js";
-import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js"; import type { WarPostureLatchEntry } from "../ai/ai-war-posture-latch.js";
-import { refreshSpatialFocusForSummary, recordSpatialFocusOutcome, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
+  RuntimeAutomationAdvisor,
+  type AutomationCommandExplanation,
+  type AutomationSessionPrefix,
+  type ExplainAutomationCommandOptions
+} from "../ai/runtime-automation-advisor.js";
 import {
   InMemorySimulationPersistence,
   type ActiveAetherBridgeView,
@@ -228,7 +224,6 @@ import {
   handleWatchMusterCommand as handleWatchMusterCommandImpl,
   handleUnwatchMusterCommand as handleUnwatchMusterCommandImpl
 } from "../runtime-muster-watch.js";
-import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
 import {
@@ -267,7 +262,6 @@ import {
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
-import { plannerPlayerScopeKeyCount } from "../planner-scope-key-count.js";
 import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
@@ -529,12 +523,25 @@ export class SimulationRuntime {
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
-  private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
-  private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>(); // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; refreshed via refreshSpatialFocusForPlayer, cleared once the player owns no territory.
-  private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>(); // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
-  private readonly aiHotFrontierStreakByPlayer = new Map<string, number>(); // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
-  // Backs the WAR front posture's hysteresis — see ai-war-posture-latch.ts.
-  private readonly aiWarPostureLatchByPlayer = new Map<string, WarPostureLatchEntry>();
+  // The AI planner's per-player memory and planning entry point; see ai/runtime-automation-advisor.ts.
+  private readonly automationAdvisor: RuntimeAutomationAdvisor = (() => {
+    const runtime = this;
+    return new RuntimeAutomationAdvisor({
+      get state() { return runtime.state; },
+      now: () => runtime.now(),
+      summaryForPlayer: (playerId) => runtime.summaryForPlayer(playerId),
+      respawnIfEliminated: (playerId, commandId) => runtime.respawnIfEliminated(playerId, commandId),
+      tileKeySetToTiles: (keys) => runtime.tileKeySetToTiles(keys),
+      estimatedIncomePerMinuteForPlayer: (playerId) => runtime.estimatedIncomePerMinuteForPlayer(playerId),
+      ownedStructureCountsForPlayer: (playerId) => runtime.ownedStructureCountsForPlayer(playerId),
+      isPlayerTileInReach: (playerId, x, y) => runtime.isPlayerTileInReach(playerId, x, y),
+      resourceSlotSupplyForPlayer: (playerId) => runtime.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
+      resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
+      playerManpowerCap: (player) => runtime.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player)
+    });
+  })();
   // Incrementally-maintained planner player-view tile key cache: six TileKeyArrayEntry objects per entry, updated O(1) per tile mutation instead of rebuilt O(territory) per miss.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   // Bundles the four maps above by reference for plannerPlayerTileKeys; built once since the Maps themselves are never reassigned, only mutated.
@@ -660,11 +667,6 @@ export class SimulationRuntime {
   private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
-  // Throttle per-tick respawn attempts for eliminated AI players. Spawn
-  // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
-  // every 200 ms when the map is too full to place.
-  private readonly lastAiRespawnAttemptMsByPlayer = new Map<string, number>();
-  private static readonly AI_RESPAWN_RETRY_INTERVAL_MS = 30_000;
   private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
   // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
   // this.state.tiles via replaceTileState and the two direct tiles.set paths.
@@ -824,13 +826,6 @@ export class SimulationRuntime {
   private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
-
-  private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    return rememberedAutomationVictoryPathCountsImpl(
-      this.rememberedAutomationVictoryPathByPlayer,
-      (playerId) => this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0
-    );
-  }
 
   constructor(options: SimulationRuntimeOptions = {}) {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
@@ -1457,7 +1452,7 @@ export class SimulationRuntime {
       lastRespawnNoticeByPlayerId: this.lastRespawnNoticeByPlayerId,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       locksByTile: this.state.locksByTile,
-      rememberedAutomationVictoryPathByPlayer: this.rememberedAutomationVictoryPathByPlayer,
+      rememberedAutomationVictoryPathByPlayer: this.automationAdvisor.victoryPathByPlayer,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
@@ -2221,127 +2216,10 @@ export class SimulationRuntime {
     playerId: string,
     clientSeq: number,
     issuedAt: number,
-    sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap; blockedActionKeys?: ReadonlyMap<string, string>; beaconBoostActive?: boolean }
-  ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
-    const player = this.state.players.get(playerId);
-    if (!player) {
-      return {
-        diagnostic: createAutomationNoopDiagnostic(playerId, sessionPrefix, "player_missing")
-      };
-    }
-    const summary = this.summaryForPlayer(playerId);
-    if (summary.territoryTileKeys.size <= 0) {
-      this.rememberedAutomationVictoryPathByPlayer.delete(playerId); this.aiSpatialFocusByPlayer.delete(playerId);
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId); this.aiHotFrontierStreakByPlayer.delete(playerId);
-      this.aiWarPostureLatchByPlayer.delete(playerId);
-      if (player.isAi) {
-        const nowMs = this.now();
-        const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
-        if (nowMs - lastAttempt >= SimulationRuntime.AI_RESPAWN_RETRY_INTERVAL_MS) {
-          this.lastAiRespawnAttemptMsByPlayer.set(playerId, nowMs);
-          this.respawnIfEliminated(playerId, `ai-zero-tile-check:${playerId}:${nowMs}`);
-        }
-      }
-    }
-    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
-    const spatialFocus = refreshSpatialFocusForSummary(playerId, this.now(), summary, this.aiSpatialFocusByPlayer, this.aiSpatialFocusProductiveByPlayer);
-    // No-alloc per-tick check: short-circuit on first player-issued lock.
-    // Allocating a Set for one .has() lookup would be wasteful in the AI
-    // planner hot path (per AI per planner tick).
-    let hasActiveLock = false;
-    for (const lock of this.state.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.source === "automation") continue;
-      hasActiveLock = true;
-      break;
-    }
-    let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
-    if (!options?.skipPreplan) {
-      const townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
-      const preplan = chooseAutomationPreplanCommand({
-        playerId,
-        points: player.points,
-        manpower: player.manpower,
-        techIds: [...player.techIds],
-        domainIds: player.domainIds ? [...player.domainIds] : [],
-        strategicResources: { ...(player.strategicResources ?? {}) },
-        settledTileCount: summary.settledTileCount,
-        townCount: summary.townCount,
-        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
-        hasActiveLock,
-        ownedTiles, townTiles,
-        clientSeq, issuedAt, sessionPrefix,
-        ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {})
-      });
-      preplanDiagnostic = preplan.diagnostic;
-      if (preplan.command) return preplan;
-    }
-    const forceBroadFrontierScan = shouldForceBroadFrontierScan(this.aiHotFrontierStreakByPlayer, playerId);
-    const playerScopeKeyCount = plannerPlayerScopeKeyCount(summary);
-    const plan = planAutomationCommand({
-      playerId,
-      points: player.points,
-      manpower: player.manpower,
-      ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
-      ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
-      ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
-      settledTileCount: summary.settledTileCount,
-      townCount: summary.townCount,
-      incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
-      hasActiveLock,
-      activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
-      ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
-      ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
-      frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
-      hotFrontierTiles: this.tileKeySetToTiles(summary.hotFrontierTileKeys),
-      strategicFrontierTiles: this.tileKeySetToTiles(summary.strategicFrontierTileKeys),
-      buildCandidateTiles: this.tileKeySetToTiles(summary.buildCandidateTileKeys),
-      ownedTiles,
-      tilesByKey: this.state.tiles,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      // Fixed-border reach: lets the AI's frontier-candidate enumeration
-      // prune EXPAND targets outside the player's reach (see ReachLookup in
-      // frontier-command-planner.ts — this was the one deliberately-deferred
-      // integration point from that change, now that isPlayerTileInReach
-      // exists). ATTACK candidates are unaffected.
-      reachLookup: { isInReach: (pid, x, y) => this.isPlayerTileInReach(pid, x, y) },
-      slotSupplyByResource: this.resourceSlotSupplyForPlayer(playerId),
-      slotDemandByResource: this.resourceSlotDemandForPlayer(playerId),
-      foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
-      manpowerCapacity: this.playerManpowerCap(player),
-      manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
-      playerScopeKeyCount,
-      playerScopeTileCount: playerScopeKeyCount,
-      previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
-      pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
-      previousWarPostureLatch: this.aiWarPostureLatchByPlayer.get(playerId),
-      onStrategicSnapshot: (snapshot) => {
-        if (summary.territoryTileKeys.size <= 0) return;
-        this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
-        this.aiWarPostureLatchByPlayer.set(playerId, snapshot.warPostureLatch);
-      },
-      ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
-      ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
-      ...(forceBroadFrontierScan ? { forceBroadFrontierScan } : {}),
-      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}), ...(options?.beaconBoostActive ? { beaconBoostActive: true } : {}), ...(options?.blockedActionKeys ? { blockedActionKeys: options.blockedActionKeys } : {}),
-      clientSeq,
-      issuedAt,
-      sessionPrefix
-    });
-    if (preplanDiagnostic?.preplanReason) {
-      plan.diagnostic = mergePreplanDiagnostic(plan.diagnostic, preplanDiagnostic);
-    }
-    if (typeof plan.diagnostic.scanFoundActionableCandidate === "boolean") {
-      this.aiSpatialFocusProductiveByPlayer.set(playerId, plan.diagnostic.scanFoundActionableCandidate);
-    } else {
-      // No scan ran this tick (e.g. active_lock noop) - clear any cached
-      // value instead of leaving a stale one, so the next refresh sees "no
-      // signal" (treated as productive) rather than a lock-outlasting false.
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
-    }
-    recordHotFrontierStreak(this.aiHotFrontierStreakByPlayer, playerId, plan.diagnostic.broadFallbackSkipped);
-    return plan;
+    sessionPrefix: AutomationSessionPrefix,
+    options?: ExplainAutomationCommandOptions
+  ): AutomationCommandExplanation {
+    return this.automationAdvisor.explainNextCommand(playerId, clientSeq, issuedAt, sessionPrefix, options);
   }
 
   chooseNextAutomationCommand(
@@ -2774,13 +2652,11 @@ export class SimulationRuntime {
 
   // Worker-thread sync counterpart to reachTileKeysForPlayer above.
   spatialFocusFrontTileKeysForPlayer(playerId: string): string[] {
-    const summary = this.summaryForPlayer(playerId);
-    const focus = refreshSpatialFocusForSummary(playerId, this.now(), summary, this.aiSpatialFocusByPlayer, this.aiSpatialFocusProductiveByPlayer);
-    return focus ? [...focus.primaryFront] : [];
+    return this.automationAdvisor.spatialFocusFrontTileKeys(playerId);
   }
 
   recordAiAutomationDiagnosticFeedback(playerId: string, diagnostic: Pick<AutomationPlannerDiagnostic, "scanFoundActionableCandidate" | "broadFallbackSkipped">): void {
-    recordSpatialFocusOutcome(playerId, diagnostic, this.aiSpatialFocusProductiveByPlayer, this.aiHotFrontierStreakByPlayer);
+    this.automationAdvisor.recordDiagnosticFeedback(playerId, diagnostic);
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER

@@ -230,17 +230,17 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+        automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
       }
-    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "TOWN_CONTROL");
+    ).automationAdvisor.victoryPathByPlayer.set("player-1", "TOWN_CONTROL");
 
     expect(runtime.ensurePlayerHasSpawnTerritory("player-1")).toBe(true);
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+          automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
         }
-      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+      ).automationAdvisor.victoryPathByPlayer.get("player-1")
     ).toBeUndefined();
   });
 
@@ -259,18 +259,18 @@ describe("simulation runtime", () => {
 
     (
       runtime as unknown as {
-        rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+        automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
       }
-    ).rememberedAutomationVictoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
+    ).automationAdvisor.victoryPathByPlayer.set("player-1", "ECONOMIC_HEGEMONY");
 
     runtime.explainNextAutomationCommand("player-1", 1, 1_000, "ai-runtime");
 
     expect(
       (
         runtime as unknown as {
-          rememberedAutomationVictoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY">;
+          automationAdvisor: { victoryPathByPlayer: Map<string, "TOWN_CONTROL" | "DIPLOMATIC_DOMINANCE" | "ECONOMIC_HEGEMONY"> };
         }
-      ).rememberedAutomationVictoryPathByPlayer.get("player-1")
+      ).automationAdvisor.victoryPathByPlayer.get("player-1")
     ).toBeUndefined();
   });
 
