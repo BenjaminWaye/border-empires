@@ -17,7 +17,6 @@ export interface SettlementResolutionContext {
   drainAutoSettle(ownerId: string): number;
   drainBuildTail(ownerId: string, tileKey: string, x: number, y: number): void;
   emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">): void;
-  setTileYieldCollectedAt(commandId: string, ownerId: string, tileKey: string, nowMs: number): void;
   now(): number;
   replaceTileState(tileKey: string, tile: DomainTileState): void;
   tileDeltaFromState(tile: DomainTileState): SimulationTileWireDelta;
@@ -57,7 +56,6 @@ export const resolvePendingSettlement = (context: SettlementResolutionContext, i
     ownershipState: "SETTLED",
     ...(latest.town ? { town: latest.town } : {})
   };
-  context.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, context.now());
   context.replaceTileState(input.tileKey, settledTile);
   context.retireQueuedSettlement(input.ownerId, input.tileKey);
   // Commit ownership before a freed slot can dispatch another queued action.

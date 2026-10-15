@@ -18,7 +18,7 @@ describe("gateway http routes", () => {
         }
       }),
       snapshotDir: "/tmp/snapshot",
-      supportedMessageTypes: ["ATTACK", "COLLECT_VISIBLE"],
+      supportedMessageTypes: ["ATTACK", "COLLECT_SHARD"],
       adminApiToken: "secret",
       recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }],
       attackDebug: () => ({

@@ -227,7 +227,16 @@ describe("recoverSimulationStateFromEvents", () => {
     ]);
   });
 
-  it("advances tileYieldCollectedAtByTile from TILE_YIELD_ANCHOR_UPDATED so collects survive restarts between snapshots", () => {
+  // The per-tile yield buffer was retired, but event logs written before that
+  // change still hold its anchor/epoch events — replay must skip them rather
+  // than throw or resurrect the removed per-tile anchor state.
+  it("ignores retired yield-anchor events replayed from an old event log", () => {
+    const retiredEvents = [
+      { eventType: "TILE_YIELD_ANCHOR_UPDATED", commandId: "collect-1", playerId: "player-1", tileKey: "5,5", collectedAt: 9_000 },
+      { eventType: "TILE_YIELD_ANCHOR_BATCH", commandId: "accrual-1", playerId: "player-1", anchors: [{ tileKey: "5,5", collectedAt: 9_500 }] },
+      { eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED", commandId: "collect-visible-1", playerId: "player-1", collectedAt: 9_900 }
+    ] as unknown as Parameters<typeof applySimulationEventsToRecoveredState>[1];
+
     const recovered = applySimulationEventsToRecoveredState(
       {
         tiles: [
@@ -241,53 +250,15 @@ describe("recoverSimulationStateFromEvents", () => {
           }
         ],
         activeLocks: [],
-        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: 1_000 }]
-      },
-      [
-        {
-          eventType: "TILE_YIELD_ANCHOR_UPDATED",
-          commandId: "collect-1",
-          playerId: "player-1",
-          tileKey: "5,5",
-          collectedAt: 9_000
-        }
-      ]
-    );
-
-    expect(recovered.tileYieldCollectedAtByTile).toEqual([
-      { tileKey: "5,5", collectedAt: 9_000 }
-    ]);
-  });
-
-  it("advances playerYieldCollectionEpochByPlayer from visible collect epoch events", () => {
-    const recovered = applySimulationEventsToRecoveredState(
-      {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Settlement 5,5" }
-          }
-        ],
-        activeLocks: [],
-        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: 1_000 }],
         playerYieldCollectionEpochByPlayer: [{ playerId: "player-1", collectedAt: 2_000 }]
       },
-      [
-        {
-          eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED",
-          commandId: "collect-visible-1",
-          playerId: "player-1",
-          collectedAt: 9_000
-        }
-      ]
+      retiredEvents
     );
 
-    expect(recovered.tileYieldCollectedAtByTile).toEqual([{ tileKey: "5,5", collectedAt: 1_000 }]);
-    expect(recovered.playerYieldCollectionEpochByPlayer).toEqual([{ playerId: "player-1", collectedAt: 9_000 }]);
+    expect(recovered).not.toHaveProperty("tileYieldCollectedAtByTile");
+    // The passive-income epoch is only ever persisted via snapshots now.
+    expect(recovered.playerYieldCollectionEpochByPlayer).toEqual([{ playerId: "player-1", collectedAt: 2_000 }]);
+    expect(recovered.tiles).toHaveLength(1);
   });
 
   it("clears cancelled accepted frontier locks from recovered state", () => {
@@ -329,7 +300,6 @@ describe("recoverSimulationStateFromEvents", () => {
           }
         ],
         pendingSettlements: [],
-        tileYieldCollectedAtByTile: [],
         playerYieldCollectionEpochByPlayer: []
       },
       [
@@ -365,7 +335,6 @@ describe("recoverSimulationStateFromEvents", () => {
         activeLocks: [],
         players: [],
         pendingSettlements: [],
-        tileYieldCollectedAtByTile: [],
         playerYieldCollectionEpochByPlayer: []
       },
       [
@@ -396,7 +365,6 @@ describe("recoverSimulationStateFromEvents", () => {
         activeLocks: [],
         players: [],
         pendingSettlements: [],
-        tileYieldCollectedAtByTile: [],
         playerYieldCollectionEpochByPlayer: []
       },
       []
@@ -417,7 +385,6 @@ describe("recoverSimulationStateFromEvents", () => {
         activeLocks: [],
         players: [],
         pendingSettlements: [],
-        tileYieldCollectedAtByTile: [],
         playerYieldCollectionEpochByPlayer: []
       },
       [{ eventType: "TILE_DELTA_BATCH", commandId: "claim-2", playerId: "player-1", tileDeltas: [{ x: 30, y: 30, ownerId: "player-1", ownershipState: "FRONTIER" }] }]

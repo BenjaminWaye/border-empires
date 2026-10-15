@@ -61,7 +61,6 @@ export type RuntimeState = {
     combatResolutionJson?: string;
   }>;
   docks?: Array<{ dockId: string; tileKey: string; pairedDockId: string; connectedDockIds?: readonly string[] }>;
-  tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
   terrainEpoch?: number;
 };
@@ -193,8 +192,6 @@ export const fedTownKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<str
 // support-structure/dock bonus check (economicStructure) — see
 // buildResourceSlotDormancyByPlayer in snapshot-economy-helpers.ts.
 export const resourceSlotDormancyByPlayerCache: WeakMap<RuntimeState, Map<string, ResourceSlotDormancy>> = new WeakMap();
-export const hydroworksKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
-export const oreRefineryKeysByPlayerCache: WeakMap<RuntimeState, Map<string, Set<string>>> = new WeakMap();
 
 // Cached helper — toDomainTile calls JSON.parse(townJson) per town tile;
 // rebuilding for all 202,500 tiles on every player bootstrap is the single
@@ -250,45 +247,6 @@ export const buildFirstThreeTownKeysByPlayer = (
   }
   firstThreeTownKeysByPlayerCache.set(runtimeState, result);
   return result;
-};
-
-// Active Hydroworks tile keys per owning player — mirrors
-// SimulationRuntime.tileYieldEconomyContextForPlayer's hydroworksKeys so the
-// snapshot/bootstrap path applies the same +50% radius boost as live ticks.
-// Reads economicStructureJson directly off the raw wire tiles (domainTilesByKey
-// strips economicStructure), cached per runtimeState like the sibling builders above.
-export const buildHydroworksKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
-  const cached = hydroworksKeysByPlayerCache.get(runtimeState);
-  if (cached) return cached;
-  const byPlayerId = new Map<string, Set<string>>();
-  for (const tile of runtimeState.tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-    if (structure?.type !== "HYDROWORKS" || structure.status !== "active") continue;
-    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
-    keys.add(keyFor(tile.x, tile.y));
-    byPlayerId.set(tile.ownerId, keys);
-  }
-  hydroworksKeysByPlayerCache.set(runtimeState, byPlayerId);
-  return byPlayerId;
-};
-
-// Mirrors buildHydroworksKeysByPlayer for ORE_REFINERY — the radius source for the
-// Mine iron/crystal boost. See docs/plans/2026-07-06-radius-yield-delivery.md.
-export const buildOreRefineryKeysByPlayer = (runtimeState: RuntimeState): Map<string, Set<string>> => {
-  const cached = oreRefineryKeysByPlayerCache.get(runtimeState);
-  if (cached) return cached;
-  const byPlayerId = new Map<string, Set<string>>();
-  for (const tile of runtimeState.tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
-    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-    if (structure?.type !== "ORE_REFINERY" || structure.status !== "active") continue;
-    const keys = byPlayerId.get(tile.ownerId) ?? new Set<string>();
-    keys.add(keyFor(tile.x, tile.y));
-    byPlayerId.set(tile.ownerId, keys);
-  }
-  oreRefineryKeysByPlayerCache.set(runtimeState, byPlayerId);
-  return byPlayerId;
 };
 
 const computeTownKeysWithNearbyWar = (runtimeState: RuntimeState): ReadonlySet<string> => {

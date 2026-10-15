@@ -29,7 +29,6 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CANCEL_SIEGE_BATTERY_BUILD",
   "CANCEL_CAPTURE",
   "UNCAPTURE_TILE",
-  "COLLECT_VISIBLE",
   "CHOOSE_TECH",
   "CHOOSE_DOMAIN",
   "SET_CONVERTER_STRUCTURE_ENABLED",

@@ -26,7 +26,7 @@ const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 // longer than this cooldown, over which it is re-scanned anyway.
 //
 // The caller-owned cooldown map is keyed by tile key, so it is naturally bounded
-// by world tile count like tileYieldCollectedAtByTile in runtime.ts, and is a
+// by world tile count, and is a
 // pure perf cache (not game state — never snapshotted).
 export const AUTO_FILL_SCAN_COOLDOWN_MS = 3000;
 
@@ -129,7 +129,7 @@ export const findEnclosedRegion = (
 // (a new outpost, a captured dock) independently of any settle near this origin, and
 // caching the failure could delay sealing a pocket well past when reach actually
 // caught up to it. The cooldown map is keyed by tile key, so it's naturally bounded
-// by world size like `tileYieldCollectedAtByTile`, and callers must not persist it —
+// by world size, and callers must not persist it —
 // it's a pure perf cache, not game state.
 export const findEnclosedRegionsAdjacentTo = (
   tile: DomainTileState,
@@ -183,13 +183,6 @@ export const findEnclosedRegionsAdjacentTo = (
  * ring), any individual claimed tile is also re-checked against `isInReach`
  * before being settled — the same OUT_OF_REACH gate manual SETTLE and EXPAND
  * apply. Returns the newly-settled tiles.
- *
- * `recordYieldAnchors` is invoked once with every newly-settled tile key so the
- * caller can stamp their yield-collection baseline in a single batch, matching
- * the manual settle path (otherwise an auto-filled tile would accrue yield from
- * the player's income anchor rather than from the moment it was settled). It is
- * batched deliberately — per-tile anchor events are a known event-loop hazard
- * (see the TILE_YIELD_ANCHOR_BATCH rationale in runtime.ts).
  */
 export const applyAutoFill = (input: {
   capturedTile: DomainTileState;
@@ -203,17 +196,15 @@ export const applyAutoFill = (input: {
   // leak); this only decides whether the discovered tile gets claimed.
   isInReach: (x: number, y: number) => boolean;
   onAutoFillTiles?: ((count: number) => void) | undefined;
-  recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
   scanCooldown?: {
     now: number;
     cooldownMs: number;
     originCooldownUntil: Map<string, number>;
   };
 }): DomainTileState[] => {
-  const { capturedTile, ownerId, tiles, replaceTileState, isInReach, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
+  const { capturedTile, ownerId, tiles, replaceTileState, isInReach, onAutoFillTiles, scanCooldown } = input;
   const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, isInReach, scanCooldown);
   const settled: DomainTileState[] = [];
-  const settledKeys: string[] = [];
   for (const region of regions) {
     for (const key of region) {
       const existing = tiles.get(key);
@@ -236,14 +227,10 @@ export const applyAutoFill = (input: {
         frontierDecayKind: undefined,
       };
       replaceTileState(key, filledTile);
-      settledKeys.push(key);
       settled.push(filledTile);
     }
   }
-  if (settled.length > 0) {
-    onAutoFillTiles?.(settled.length);
-    recordYieldAnchors?.(settledKeys);
-  }
+  if (settled.length > 0) onAutoFillTiles?.(settled.length);
   return settled;
 };
 
@@ -266,7 +253,6 @@ export const emitAutoFillForSettlement = (
     tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
     combatSupportContext: RuntimeCombatSupportContext;
     isAiById: (playerId: string) => boolean | undefined;
-    recordTileYieldCollectedAt: (tileKey: string, collectedAt: number) => void;
   },
   settledTile: DomainTileState,
   ownerId: string,
@@ -279,17 +265,7 @@ export const emitAutoFillForSettlement = (
     replaceTileState: input.replaceTileState,
     isInReach: input.isInReach,
     onAutoFillTiles: input.onAutoFillTiles,
-    scanCooldown: { now: input.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: input.autoFillOriginCooldownUntil },
-    recordYieldAnchors: (keys) => {
-      const t = input.now();
-      for (const k of keys) input.recordTileYieldCollectedAt(k, t);
-      input.emitEvent({
-        eventType: "TILE_YIELD_ANCHOR_BATCH",
-        commandId: `auto-fill:${ownerId}:${t}`,
-        playerId: ownerId,
-        anchors: keys.map((k) => ({ tileKey: k, collectedAt: t }))
-      });
-    }
+    scanCooldown: { now: input.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: input.autoFillOriginCooldownUntil }
   });
   if (filled.length === 0) return;
   input.emitEvent({

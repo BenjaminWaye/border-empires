@@ -157,9 +157,9 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/ai/automa
 
 For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are the points where state mutates:
 
-- **Single tile-state chokepoint**: `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime/runtime.ts:1539`). ~25 call sites across the runtime funnel through this method. Every authoritative change to ownership, ownershipState, structure, fort, observatory, siegeBattery, shardSite, and yield-anchor goes through here.
+- **Single tile-state chokepoint**: `SimulationRuntime.replaceTileState()` (`apps/simulation/src/runtime/runtime.ts:1539`). ~25 call sites across the runtime funnel through this method. Every authoritative change to ownership, ownershipState, structure, fort, observatory, siegeBattery, and shardSite goes through here.
 - **Validation gate** for player-initiated mutations: `validateFrontierCommand()` (`packages/game-domain/src/index.ts:180-257`).
-- **Existing event hooks at the chokepoint**: emits `TILE_YIELD_ANCHOR_UPDATED` via `setTileYieldCollectedAt` (`runtime.ts:1585`); updates player ownership summaries (`runtime.ts:1550-1574`). No general "tile state mutated" event yet — adding one at this point would catch every relevant change in a single emit.
+- **Existing event hooks at the chokepoint**: updates player ownership summaries (`runtime.ts`). No general "tile state mutated" event yet — adding one at this point would catch every relevant change in a single emit.
 - **Worker tile caches** (`system-job-worker.ts`, `ai-planner-worker.ts`, `ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) maintain their own replicas of tile state. These are downstream of canonical mutations and should not be hooked for aggregation; subscribe to the runtime emit instead.
 - **Shard rain mutations** (`runtime.tickShardRain`) also pass through `replaceTileState`, so the same hook covers them. Shard rain *also* emits per-player `PLAYER_MESSAGE` events with `messageType: "SHARD_RAIN_EVENT"` for the client banner.
 - **Barbarian state changes** (walk/multiply) are tile-state mutations + a side-channel `barbarianTileProgress` Map in `SimulationRuntime`. The tile-state part is covered by the chokepoint; progress is internal to the runtime.

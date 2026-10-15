@@ -50,7 +50,6 @@ const makeTileDeltaFromStateDeps = (): TileDeltaFromStateDeps => ({
   players: new Map(),
   tileDeltaStringifyCache: new TileDeltaStringifyCache(),
   now: () => 0,
-  tileYieldCollectedAt: () => undefined,
   tileYieldEconomyContextForPlayer: () => {
     throw new Error("not expected: fullyLoadedTile has no player registered");
   },

@@ -38,8 +38,6 @@ const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[numbe
     case "REMOVE_MOUNTAIN":
     case "COLLECT_SHARD":
       return { x: 10, y: 10 };
-    case "COLLECT_VISIBLE":
-      return {};
     case "CHOOSE_TECH":
       return { techId: "agriculture" };
     case "CHOOSE_DOMAIN":

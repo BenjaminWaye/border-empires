@@ -6,8 +6,7 @@ import { SimulationRuntime } from "./runtime.js";
 // during real multi-second stalls even after PR #786 wrapped
 // classifyVisibilityForPlayer — the tick functions (tileShedding,
 // territoryAutomation) and command handlers ALSO drive applyEconomyAccrual
-// (→ consumeUpkeepFromTileYield → tileYieldEconomyContextForPlayer's
-// O(settled_tiles + towns²) BFS rebuild), and none of that chain was wrapped
+// (then an O(tiles) upkeep drain), and none of that chain was wrapped
 // in trackSyncMainThreadTask. Pins that both phases fire when the tracker is
 // supplied, via the same tickTileShedding path exercised by the existing
 // "simulation runtime — tile shedding" suite in runtime.test.ts.

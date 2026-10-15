@@ -20,6 +20,18 @@ export type RuntimePassiveIncomeContext = {
 const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
 
 /**
+ * True while a player's passive income is suspended for inactivity: a human
+ * who hasn't acted for longer than `inactivityCapMs`. AI players are exempt
+ * (see applyPassiveIncomeForPlayer's doc comment for why).
+ */
+export const isPassiveIncomePaused = (
+  player: Pick<RuntimePlayer, "isAi">,
+  lastActiveAtMs: number | undefined,
+  nowMs: number,
+  inactivityCapMs: number
+): boolean => !player.isAi && nowMs - (lastActiveAtMs ?? 0) > inactivityCapMs;
+
+/**
  * Credits passive gold + strategic resource income for a single player since
  * their last income tick.
  *
@@ -38,10 +50,7 @@ export const applyPassiveIncomeForPlayer = (
   nowMs: number,
   inactivityCapMs: number
 ): void => {
-  if (!player.isAi) {
-    const lastActiveAt = ctx.lastActiveAtMsByPlayer.get(player.id) ?? 0;
-    if (nowMs - lastActiveAt > inactivityCapMs) return;
-  }
+  if (isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, inactivityCapMs)) return;
 
   const lastTickAt = ctx.lastIncomeTickAtMsByPlayer.get(player.id);
   if (lastTickAt === undefined) {

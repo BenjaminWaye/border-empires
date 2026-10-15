@@ -90,9 +90,7 @@ const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext)
 export const economicStructureModifiers = (type: ModifierStructureType, ctx: ModifierContext): StructureModifier[] | undefined => {
   // "+50% farm food" was retired by the resource-slot rewrite (§5) —
   // strategicProductionPerMinuteForResource (player-update-economy.ts) always
-  // returns 0, and hydrogardenFoodBonusPerMinute (tile-yield-view.ts), the one
-  // function that would compute this, has no callers anywhere. Hydrogarden's
-  // only live effect is the FOOD slot below.
+  // returns 0. Hydrogarden's only live effect is the FOOD slot below.
   if (type === "HYDROGARDEN") {
     return [
       { statLabel: "FOOD slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.HYDROGARDEN}`, tone: "positive", isTownWide: false }
