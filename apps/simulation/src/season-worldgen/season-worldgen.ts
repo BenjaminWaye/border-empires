@@ -167,7 +167,6 @@ export const generateSeasonWorld = async (
       activeLocks: [],
       players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
       pendingSettlements: [],
-      tileYieldCollectedAtByTile: [],
       playerYieldCollectionEpochByPlayer: []
     },
     worldSeed: generated.worldSeed ?? requestedWorldSeed,

@@ -68,7 +68,6 @@ export const removeFrontierTileFromOwnerIndex = (
 
 export const addYieldBearingTileToOwnerIndex = (
   yieldBearingTilesByOwner: Map<string, Set<string>>,
-  sortedYieldBearingKeysByOwner: Map<string, string[]>,
   tileKey: string,
   ownerId: string
 ): void => {
@@ -78,19 +77,14 @@ export const addYieldBearingTileToOwnerIndex = (
     yieldBearingTilesByOwner.set(ownerId, set);
   }
   set.add(tileKey);
-  sortedYieldBearingKeysByOwner.delete(ownerId);
 };
 
 export const removeYieldBearingTileFromOwnerIndex = (
   yieldBearingTilesByOwner: Map<string, Set<string>>,
-  sortedYieldBearingKeysByOwner: Map<string, string[]>,
   tileKey: string,
   ownerId: string
 ): void => {
-  const set = yieldBearingTilesByOwner.get(ownerId);
-  if (!set) return;
-  set.delete(tileKey);
-  sortedYieldBearingKeysByOwner.delete(ownerId);
+  yieldBearingTilesByOwner.get(ownerId)?.delete(tileKey);
 };
 
 export const fortSupportAnchorMaxRadius = (tile: DomainTileState, ownerId: string): number => {
@@ -168,7 +162,6 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   frontierTilesByOwner: Map<string, Set<string>>;
   activeFortAnchorsByOwner: Map<string, Map<string, number>>;
   yieldBearingTilesByOwner: Map<string, Set<string>>;
-  sortedYieldBearingKeysByOwner: Map<string, string[]>;
   activeSiegeBatteriesByOwner: Map<string, Set<string>>;
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
   activeObservatoriesByOwner: Map<string, Set<string>>;
@@ -272,15 +265,14 @@ const refreshYieldBearingIndexForTile = (input: {
   previous: DomainTileState | undefined;
   next: DomainTileState;
   yieldBearingTilesByOwner: Map<string, Set<string>>;
-  sortedYieldBearingKeysByOwner: Map<string, string[]>;
 }): void => {
   const prevIsYieldBearing = input.previous ? isYieldBearingTile(input.previous) : false;
   const nextIsYieldBearing = isYieldBearingTile(input.next);
   if (prevIsYieldBearing && input.previous?.ownerId) {
-    removeYieldBearingTileFromOwnerIndex(input.yieldBearingTilesByOwner, input.sortedYieldBearingKeysByOwner, input.tileKey, input.previous.ownerId);
+    removeYieldBearingTileFromOwnerIndex(input.yieldBearingTilesByOwner, input.tileKey, input.previous.ownerId);
   }
   if (nextIsYieldBearing && input.next.ownerId) {
-    addYieldBearingTileToOwnerIndex(input.yieldBearingTilesByOwner, input.sortedYieldBearingKeysByOwner, input.tileKey, input.next.ownerId);
+    addYieldBearingTileToOwnerIndex(input.yieldBearingTilesByOwner, input.tileKey, input.next.ownerId);
   }
 };
 

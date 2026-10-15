@@ -394,9 +394,6 @@ const tryStep = async (description, fn) => {
 
 // Individual command generators
 
-const stepCollectVisible = async () =>
-  sendAndWait("COLLECT_VISIBLE", {}, "collect-visible");
-
 const stepCollectTile = async () => {
   const tile = tileWithResource();
   if (!tile) return null;
@@ -603,9 +600,7 @@ const stepBreakthroughAttack = async () => {
 
 const buildPlaybook = () => [
   // Phase 0: Initial resource collection
-  ["COLLECT_VISIBLE (initial)", stepCollectVisible],
   ["COLLECT_TILE (initial)", stepCollectTile],
-  ["COLLECT_VISIBLE (2)", stepCollectVisible],
 
   // Phase 1: Expansion — drive frontier growth
   ["EXPAND (1)", stepExpand],
@@ -635,7 +630,6 @@ const buildPlaybook = () => [
   ["CANCEL_SIEGE_BATTERY_BUILD", stepCancelSiegeBatteryBuild],
 
   // Phase 5: Mid-game collection and combat
-  ["COLLECT_VISIBLE (3)", stepCollectVisible],
   ["COLLECT_TILE (2)", stepCollectTile],
   ["COLLECT_SHARD (1)", stepCollectShard],
   ["ATTACK (1)", stepAttack],
@@ -676,7 +670,6 @@ const buildPlaybook = () => [
   ["REMOVE_MOUNTAIN", stepRemoveMountain],
 
   // Phase 11: Top-up to hit minCommands
-  ["COLLECT_VISIBLE (4)", stepCollectVisible],
   ["EXPAND (11)", stepExpand],
   ["EXPAND (12)", stepExpand],
   ["EXPAND (13)", stepExpand],
@@ -688,7 +681,6 @@ const buildPlaybook = () => [
   ["ATTACK (5)", stepAttack],
   ["CHOOSE_TECH (5)", stepChooseTech],
   ["COLLECT_SHARD (2)", stepCollectShard],
-  ["COLLECT_VISIBLE (5)", stepCollectVisible],
   ["EXPAND (16)", stepExpand],
   ["EXPAND (17)", stepExpand],
 ];

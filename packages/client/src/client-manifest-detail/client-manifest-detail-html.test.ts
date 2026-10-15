@@ -69,16 +69,16 @@ describe("renderManifestDetailHtml", () => {
     expect(html).not.toContain("Unlocks forts");
   });
 
-  it("gives each unlock row its own icon: building art, the ability's glyph, the resource icon", () => {
+  it("gives each unlock row its own icon: building art, the ability's icon, the resource icon", () => {
     const html = renderManifestDetailHtml(context());
     expect(html).toContain('<span class="manifest-gain__art"><img src="/overlays/fort-ring-overlay-closed.svg"');
     expect(html).toContain('<img src="/overlays/titanium-weapons-factory-overlay.svg"');
     expect(html).toMatch(/<span class="manifest-gain__icon" aria-hidden="true"><img class="resource-icon-img" [^>]*alt="Titanium"/);
     const augury: TechInfo = { ...bastion, id: "beacon-towers", prereqIds: [], effects: { unlockSurveySweep: true, unlockRevealEmpire: true } };
     const abilities = renderManifestDetailHtml(context({ tech: augury }));
-    // Each ability shows its own glyph (Reveal Empire ◉, Survey Sweep ⌖), not one shared marker.
-    expect(abilities).toContain('<span class="manifest-gain__glyph">◉\uFE0E</span>');
-    expect(abilities).toContain('<span class="manifest-gain__glyph">⌖\uFE0E</span>');
+    // Each ability shows its own drawn icon, not one shared marker or a text symbol.
+    expect(abilities).toContain('src="/icons/abilities/reveal-empire.svg"');
+    expect(abilities).toContain('src="/icons/abilities/survey-sweep.svg"');
   });
 
   it("puts the cost on the unlock button for a ready Manifest", () => {

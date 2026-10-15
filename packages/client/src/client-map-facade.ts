@@ -56,7 +56,6 @@ type MapFacadeDeps = {
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
-  hasCollectableYield: (tile: Tile | undefined) => boolean;
 };
 
 export const createClientMapFacade = (deps: MapFacadeDeps) => {
@@ -72,8 +71,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     parseKey,
     wrapX,
     wrapY,
-    resourceColor,
-    hasCollectableYield
+    resourceColor
   } = deps;
 
   let miniMapBaseReady = false;
@@ -430,7 +428,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       tileVisibilityStateAt,
       effectiveOverlayColor,
       isDockRouteVisibleForPlayer,
-      hasCollectableYield,
       replayCurrentEvent
     });
     if (!changed) return;

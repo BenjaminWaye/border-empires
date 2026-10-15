@@ -1,7 +1,8 @@
-import { buildPlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
+import { PASSIVE_INCOME_INACTIVITY_CAP_MS } from "@border-empires/game-domain";
+import { buildPlayerUpdateEconomySnapshot, type PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 
-import { buildTileYieldView } from "./tile-yield-view/tile-yield-view.js";
-import { UPKEEP_STRATEGIC_KEYS, hasOutstandingUpkeepNeed, type RuntimePlayer, type RuntimeTileYieldEconomyContext, type UpkeepNeed } from "./runtime-types.js";
+import { isPassiveIncomePaused } from "./runtime-passive-income.js";
+import type { RuntimePlayer, UpkeepNeed } from "./runtime-types.js";
 import type { UpkeepAccrualSnapshot } from "./player-upkeep-incremental/player-upkeep-incremental.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { MainThreadTaskTracker } from "./main-thread-task-tracker/main-thread-task-tracker.js";
@@ -13,147 +14,41 @@ export type RuntimeUpkeepAccrualContext = {
   tiles: ReadonlyMap<string, DomainTileState>;
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   lastEconomyAccrualAtByPlayer: Map<string, number>;
+  lastActiveAtMsByPlayer: ReadonlyMap<string, number>;
   playerSummaries: ReadonlyMap<string, PlayerRuntimeSummary>;
-  yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
-  sortedYieldBearingKeysByOwner: Map<string, string[]>;
-  tileYieldCollectedAtByTile: Map<string, number>;
   cachedUpkeepAccrual: (player: RuntimePlayer) => UpkeepAccrualSnapshot;
+  cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
-  tileYieldEconomyContextForPlayer: (player: RuntimePlayer) => RuntimeTileYieldEconomyContext;
-  enrichTileWithTownContext: (
-    tile: DomainTileState,
-    player: RuntimePlayer | undefined,
-    context: RuntimeTileYieldEconomyContext
-  ) => DomainTileState;
-  tileYieldCollectedAt: (tileKey: string, ownerId?: string) => number | undefined;
-  emitEvent: (event: {
-    eventType: "TILE_YIELD_ANCHOR_BATCH";
-    commandId: string;
-    playerId: string;
-    anchors: Array<{ tileKey: string; collectedAt: number }>;
-  }) => void;
-  forgetReplayedCommand: (commandId: string) => void;
   trackSyncMainThreadTask?: TrackSync | undefined;
 };
 
 /**
- * Drains outstanding upkeep `need` from a player's yield-bearing settled
- * tiles before the treasury/stockpile is touched — mirrors the legacy
- * server's `consumeYieldForPlayer` order so an offline player whose tile
- * income covers upkeep keeps the stockpile they logged out with.
+ * Gold upkeep (converter structures — tileUpkeepContribution in
+ * player-upkeep-incremental.ts) is normally paid in full from the treasury,
+ * alongside the passive-income tick that credits gold straight to it. While
+ * a human's passive income is paused for inactivity, their income instead
+ * offsets the upkeep: the treasury only pays the shortfall, so an empire
+ * whose income covers its upkeep keeps the gold it logged out with rather
+ * than draining to zero and shedding tiles. Mutates `need.gold` in place.
  */
-export const consumeUpkeepFromTileYield = (
-  ctx: RuntimeUpkeepAccrualContext,
+export const offsetGoldUpkeepWhileIncomePaused = (
+  ctx: Pick<RuntimeUpkeepAccrualContext, "lastActiveAtMsByPlayer" | "cachedEconomySnapshot">,
   player: RuntimePlayer,
-  summary: PlayerRuntimeSummary,
   need: UpkeepNeed,
+  elapsedMinutes: number,
   nowMs: number
 ): void => {
-  if (!hasOutstandingUpkeepNeed(need)) return;
-  if (summary.territoryTileKeys.size <= 0) return;
-  let economyContext: RuntimeTileYieldEconomyContext | undefined;
-  // Use yield-bearing index to skip plain settled tiles that produce nothing.
-  // Sort for deterministic drain order — same as the old full-territory sort.
-  // The sorted array is cached (sortedYieldBearingKeysByOwner) and invalidated
-  // only when the underlying set changes, avoiding O(n log n) spread+sort
-  // on every tick for players whose yield-bearing set is stable.
-  const yieldBearingSet = ctx.yieldBearingTilesByOwner.get(player.id);
-  let tileKeys: readonly string[];
-  if (!yieldBearingSet || yieldBearingSet.size === 0) {
-    tileKeys = [];
-  } else {
-    let cached = ctx.sortedYieldBearingKeysByOwner.get(player.id);
-    if (!cached) {
-      cached = [...yieldBearingSet].sort();
-      ctx.sortedYieldBearingKeysByOwner.set(player.id, cached);
-    }
-    tileKeys = cached;
-  }
-  const syntheticCommandId = `accrual:upkeep:${player.id}:${nowMs}`;
-  // Collect anchor updates locally and emit ONE batch event at the end of
-  // the loop. Pre-batch, each updated tile fired a TILE_YIELD_ANCHOR_UPDATED
-  // event → separate SQLite appendEvent each. At ~2,000 owned tiles staging
-  // observed 84 pending appendEvents from a single upkeep tick, blocking
-  // the main event loop for 25s+. One batch event = one appendEvent.
-  const batchedAnchors: Array<{ tileKey: string; collectedAt: number }> = [];
-  for (const tileKey of tileKeys) {
-    // break (not return): tiles already processed this call may have
-    // advanced tileYieldCollectedAtByTile in memory and queued a batched
-    // anchor, which must still reach emitEvent below — an early return here
-    // would drop that anchor advance from the event log, so on a sim
-    // restart between snapshots the tile would revert to its old anchor.
-    if (!hasOutstandingUpkeepNeed(need)) break;
-    const tile = ctx.tiles.get(tileKey);
-    if (!tile || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
-    if (!economyContext) economyContext = ctx.tileYieldEconomyContextForPlayer(player);
-    const enrichedTile = tile.town ? ctx.enrichTileWithTownContext(tile, player, economyContext) : tile;
-    const lastCollectedAt = ctx.tileYieldCollectedAt(tileKey, player.id);
-    const yieldView = buildTileYieldView(enrichedTile, lastCollectedAt, nowMs, {
-      player,
-      fedTownKeys: economyContext.fedTownKeys,
-      firstThreeTownKeys: economyContext.firstThreeTownKeys,
-      hydroworksKeys: economyContext.hydroworksKeys,
-      oreRefineryKeys: economyContext.oreRefineryKeys,
-      tiles: ctx.tiles,
-      dockLinksByDockTileKey: ctx.dockLinksByDockTileKey
-    });
-    if (!yieldView?.yield) continue;
-    const anchorWas = lastCollectedAt ?? 0;
-    // The single per-tile anchor is shared across every resource the tile
-    // produces: compute a per-resource candidate anchor from the remaining
-    // buffer (newAnchor = now - remaining/rate) and pick the latest, so no
-    // resource is over-credited. Trade-off: consuming one resource on a
-    // mixed-yield tile drains the unconsumed resource's remaining yield too
-    // (lost, not banked) — rare, and fixing it needs a snapshot-schema change.
-    let candidateAnchorMs = anchorWas;
-    const updateCandidate = (remaining: number, ratePerMs: number): void => {
-      if (ratePerMs <= 0) return;
-      const resourceAnchor = nowMs - remaining / ratePerMs;
-      if (resourceAnchor > candidateAnchorMs) candidateAnchorMs = resourceAnchor;
-    };
-    const availableGold = yieldView.yield.gold ?? 0;
-    if (availableGold > 0 && need.gold > 0) {
-      const consumed = Math.min(availableGold, need.gold);
-      need.gold -= consumed;
-      updateCandidate(availableGold - consumed, yieldView.yieldRate.goldPerMinute / 60_000);
-    }
-    for (const resource of UPKEEP_STRATEGIC_KEYS) {
-      const available = yieldView.yield.strategic[resource] ?? 0;
-      if (available > 0 && need[resource] > 0) {
-        const consumed = Math.min(available, need[resource]);
-        need[resource] -= consumed;
-        const ratePerMs = (yieldView.yieldRate.strategicPerDay[resource] ?? 0) / (1440 * 60_000);
-        updateCandidate(available - consumed, ratePerMs);
-      }
-    }
-    if (candidateAnchorMs > anchorWas) {
-      const collectedAt = Math.min(nowMs, candidateAnchorMs);
-      // Update the in-memory map immediately so subsequent tiles in this
-      // loop see fresh anchor state. Defer the event emission until after
-      // the loop so we can emit one batch event instead of N singletons.
-      ctx.tileYieldCollectedAtByTile.set(tileKey, collectedAt);
-      batchedAnchors.push({ tileKey, collectedAt });
-    }
-  }
-  if (batchedAnchors.length > 0) {
-    ctx.emitEvent({
-      eventType: "TILE_YIELD_ANCHOR_BATCH",
-      commandId: syntheticCommandId,
-      playerId: player.id,
-      anchors: batchedAnchors
-    });
-  }
-  // Drop the synthetic commandId from replay cache — already durably
-  // persisted via emitEvent; accrual never emits terminal events so this
-  // would otherwise accumulate forever.
-  ctx.forgetReplayedCommand(syntheticCommandId);
+  if (need.gold <= 0) return;
+  if (!isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS)) return;
+  const income = Math.max(0, ctx.cachedEconomySnapshot(player).incomePerMinute) * elapsedMinutes;
+  need.gold = Math.max(0, need.gold - income);
 };
 
 /**
- * Rate-limited (15s) per-player economy tick: drains upkeep from tile yield,
- * then falls back to the treasury and strategic stockpiles for any remainder.
- * Sharing the 15s cadence with the passive-income tick keeps drain/credit in
- * sync.
+ * Rate-limited (15s) per-player economy tick: drains upkeep from the
+ * treasury and strategic stockpiles (gold upkeep netted against income while
+ * passive income is paused — see offsetGoldUpkeepWhileIncomePaused). Sharing
+ * the 15s cadence with the passive-income tick keeps drain/credit in sync.
  */
 export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: RuntimePlayer, nowMs: number): void => {
   const last = ctx.lastEconomyAccrualAtByPlayer.get(player.id);
@@ -163,10 +58,9 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
   }
   const elapsedMs = nowMs - last;
   if (elapsedMs <= 0) return;
-  // Rate-limit to once per 15s. consumeUpkeepFromTileYield is O(yield_bearing_tiles)
-  // and was being triggered on every AI command (~1/s), causing untracked
-  // 8-17s main-thread stalls. The passive income tick (also 15s) handles
-  // income; upkeep drain on the same cadence keeps the two in sync.
+  // Rate-limit to once per 15s — this is triggered on every AI command
+  // (~1/s). The passive income tick (also 15s) handles income; upkeep drain
+  // on the same cadence keeps the two in sync.
   if (elapsedMs < 15_000) return;
   if (!ctx.playerSummaries.has(player.id)) {
     ctx.lastEconomyAccrualAtByPlayer.set(player.id, nowMs);
@@ -197,7 +91,6 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
         console.error(`[DEV_ASSERT_ECONOMY_INCREMENTAL] player=${player.id} mismatch: ${mismatches.join(", ")}`);
       }
     }
-    const summary = ctx.summaryForPlayer(player.id);
     const elapsedMinutes = elapsedMs / 60_000;
     const need: UpkeepNeed = {
       gold: Math.max(0, upkeep.gold) * elapsedMinutes,
@@ -206,11 +99,7 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
       UMBRITE: Math.max(0, upkeep.umbrite) * elapsedMinutes
     };
-    // Towns pay their own upkeep from accumulated yield before raiding the
-    // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
-    // so an offline player whose tile income covers upkeep keeps the
-    // stockpile they logged out with.
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
+    offsetGoldUpkeepWhileIncomePaused(ctx, player, need, elapsedMinutes, nowMs);
     if (need.gold > 0) {
       player.points = Math.max(0, (player.points ?? 0) - need.gold);
     }

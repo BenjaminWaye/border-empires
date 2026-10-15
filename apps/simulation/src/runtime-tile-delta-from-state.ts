@@ -10,7 +10,6 @@ export type TileDeltaFromStateDeps = {
   players: Map<string, RuntimePlayer>;
   tileDeltaStringifyCache: TileDeltaStringifyCache;
   now: () => number;
-  tileYieldCollectedAt: (tileKey: string, ownerId?: string) => number | undefined;
   tileYieldEconomyContextForPlayer: (player: RuntimePlayer) => RuntimeTileYieldEconomyContext;
   enrichTileWithTownContext: (
     tile: DomainTileState,
@@ -20,7 +19,7 @@ export type TileDeltaFromStateDeps = {
   yieldViewEconomyContext: (
     player: RuntimePlayer | undefined,
     ctx: RuntimeTileYieldEconomyContext | undefined
-  ) => Parameters<typeof buildTileYieldView>[3];
+  ) => Parameters<typeof buildTileYieldView>[2];
   /** Current persistent-border reach owner at (x, y), if any — see runtime-aether-bridge-reach.ts's reachBorderOwnerAt. */
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
 };
@@ -70,7 +69,11 @@ export const tileDeltaFromState = (
         ? deps.tileYieldEconomyContextForPlayer(player)
         : undefined;
   const enrichedTile = tile.town && resolvedContext ? deps.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-  const yieldView = buildTileYieldView(enrichedTile, deps.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), deps.now(), deps.yieldViewEconomyContext(player, resolvedContext));
+  // yieldRate scoped emission: see tileYieldNeedsServerAuthority. Only built
+  // when it will actually be emitted (town gold is re-derived client-side).
+  const yieldView = tileYieldNeedsServerAuthority(tile)
+    ? buildTileYieldView(enrichedTile, deps.now(), deps.yieldViewEconomyContext(player, resolvedContext))
+    : undefined;
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = deps.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
   const reachOwnerId = deps.reachBorderOwnerAt(tile.x, tile.y);
@@ -90,9 +93,7 @@ export const tileDeltaFromState = (
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
     ...townWireFields(enrichedTile.town),
-    ...(yieldView?.yield ? { yield: yieldView.yield } : {}),
-    // yieldRate/yieldCap scoped emission: see tileYieldNeedsServerAuthority.
-    ...(yieldView && tileYieldNeedsServerAuthority(tile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
+    ...(yieldView ? { yieldRate: yieldView.yieldRate } : {})
   };
   return options?.full ? fullDelta : deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta, reachOwnerId);
 };

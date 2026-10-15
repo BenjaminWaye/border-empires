@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DomainTileState } from "@border-empires/game-domain";
-import { applyEconomyAccrual, consumeUpkeepFromTileYield, type RuntimeUpkeepAccrualContext } from "./runtime-upkeep-accrual.js";
-import type { RuntimePlayer, RuntimeTileYieldEconomyContext, UpkeepNeed } from "./runtime-types.js";
+import { PASSIVE_INCOME_INACTIVITY_CAP_MS } from "@border-empires/game-domain";
+import { applyEconomyAccrual, offsetGoldUpkeepWhileIncomePaused, type RuntimeUpkeepAccrualContext } from "./runtime-upkeep-accrual.js";
+import type { RuntimePlayer, UpkeepNeed } from "./runtime-types.js";
+import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
-
-const tileKey = (x: number, y: number): string => `${x},${y}`;
 
 const testPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): RuntimePlayer => ({
   id,
@@ -20,68 +19,25 @@ const testPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): Runtime
   ...overrides
 });
 
-const goldTownTile = (x: number, y: number, ownerId: string): DomainTileState => ({
-  x,
-  y,
-  terrain: "LAND",
-  ownerId,
-  ownershipState: "SETTLED",
-  town: { type: "MARKET", populationTier: "SETTLEMENT" }
-});
-
-const farmResourceTile = (x: number, y: number, ownerId: string): DomainTileState => ({
-  x,
-  y,
-  terrain: "LAND",
-  ownerId,
-  ownershipState: "SETTLED",
-  resource: "FARM"
-});
-
-const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
-
-const emptyEconomyContext = (player: RuntimePlayer): RuntimeTileYieldEconomyContext => ({
-  player,
-  townNetwork: new Map(),
-  fedTownKeys: new Set(),
-  firstThreeTownKeys: new Set(),
-  hydroworksKeys: new Set(),
-  oreRefineryKeys: new Set()
-});
-
 type HarnessOptions = {
-  tiles?: DomainTileState[];
   upkeep?: { gold?: number; food?: number; titanium?: number; crystal?: number; umbrite?: number };
-  hasSummary?: boolean;
+  incomePerMinute?: number;
 };
 
 const createHarness = (options: HarnessOptions = {}) => {
-  const tiles = new Map<string, DomainTileState>();
-  for (const tile of options.tiles ?? []) tiles.set(tileKey(tile.x, tile.y), tile);
-
-  const yieldBearingTilesByOwner = new Map<string, Set<string>>();
-  for (const tile of options.tiles ?? []) {
-    if (!tile.ownerId) continue;
-    const set = yieldBearingTilesByOwner.get(tile.ownerId) ?? new Set<string>();
-    set.add(tileKey(tile.x, tile.y));
-    yieldBearingTilesByOwner.set(tile.ownerId, set);
-  }
-
-  const events: Array<{ eventType: "TILE_YIELD_ANCHOR_BATCH"; commandId: string; playerId: string; anchors: Array<{ tileKey: string; collectedAt: number }> }> = [];
-  const forgotten: string[] = [];
-  const tileYieldCollectedAtByTile = new Map<string, number>();
-  const sortedYieldBearingKeysByOwner = new Map<string, string[]>();
   const lastEconomyAccrualAtByPlayer = new Map<string, number>();
+  const lastActiveAtMsByPlayer = new Map<string, number>();
   const playerSummaries = new Map<string, PlayerRuntimeSummary>();
+  const cachedEconomySnapshot = vi.fn(
+    () => ({ incomePerMinute: options.incomePerMinute ?? 0 }) as unknown as PlayerUpdateEconomySnapshot
+  );
 
   const ctx: RuntimeUpkeepAccrualContext = {
-    tiles,
+    tiles: new Map(),
     dockLinksByDockTileKey: new Map(),
     lastEconomyAccrualAtByPlayer,
+    lastActiveAtMsByPlayer,
     playerSummaries,
-    yieldBearingTilesByOwner,
-    sortedYieldBearingKeysByOwner,
-    tileYieldCollectedAtByTile,
     cachedUpkeepAccrual: () => ({
       gold: options.upkeep?.gold ?? 0,
       food: options.upkeep?.food ?? 0,
@@ -89,219 +45,59 @@ const createHarness = (options: HarnessOptions = {}) => {
       crystal: options.upkeep?.crystal ?? 0,
       umbrite: options.upkeep?.umbrite ?? 0
     }),
-    summaryForPlayer: (playerId) => playerSummaries.get(playerId) ?? createEmptyPlayerRuntimeSummary(),
-    tileYieldEconomyContextForPlayer: (player) => emptyEconomyContext(player),
-    enrichTileWithTownContext: (tile) => tile,
-    tileYieldCollectedAt: (key) => tileYieldCollectedAtByTile.get(key),
-    emitEvent: (event) => events.push(event),
-    forgetReplayedCommand: (commandId) => forgotten.push(commandId)
+    cachedEconomySnapshot,
+    summaryForPlayer: (playerId) => playerSummaries.get(playerId) ?? createEmptyPlayerRuntimeSummary()
   };
 
-  return { ctx, tiles, events, forgotten, tileYieldCollectedAtByTile, sortedYieldBearingKeysByOwner, lastEconomyAccrualAtByPlayer, playerSummaries };
+  return { ctx, lastEconomyAccrualAtByPlayer, lastActiveAtMsByPlayer, playerSummaries, cachedEconomySnapshot };
 };
 
-describe("consumeUpkeepFromTileYield", () => {
-  it("does nothing when there is no outstanding upkeep need", () => {
-    const player = testPlayer("player-1");
-    const { ctx, events } = createHarness({ tiles: [goldTownTile(0, 0, "player-1")] });
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
+const goldNeed = (gold: number): UpkeepNeed => ({ gold, FOOD: 1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
 
-    consumeUpkeepFromTileYield(ctx, player, summary, emptyNeed(), 1_000_000);
+describe("offsetGoldUpkeepWhileIncomePaused", () => {
+  const nowMs = 10 * PASSIVE_INCOME_INACTIVITY_CAP_MS;
+  const longInactive = nowMs - PASSIVE_INCOME_INACTIVITY_CAP_MS - 1;
 
-    expect(events).toHaveLength(0);
+  it("leaves gold need untouched for an active human (income is credited to the treasury separately)", () => {
+    const { ctx, lastActiveAtMsByPlayer, cachedEconomySnapshot } = createHarness({ incomePerMinute: 10 });
+    lastActiveAtMsByPlayer.set("player-1", nowMs - 60_000);
+    const need = goldNeed(2);
+
+    offsetGoldUpkeepWhileIncomePaused(ctx, testPlayer("player-1"), need, 1, nowMs);
+
+    expect(need.gold).toBe(2);
+    expect(cachedEconomySnapshot).not.toHaveBeenCalled();
   });
 
-  it("does nothing when the player has no territory", () => {
-    const player = testPlayer("player-1");
-    const { ctx, events } = createHarness({ tiles: [goldTownTile(0, 0, "player-1")] });
-    const summary = createEmptyPlayerRuntimeSummary();
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 5 };
+  it("nets gold need against income while a human's passive income is paused for inactivity", () => {
+    const { ctx, lastActiveAtMsByPlayer } = createHarness({ incomePerMinute: 1.5 });
+    lastActiveAtMsByPlayer.set("player-1", longInactive);
+    const need = goldNeed(2);
 
-    consumeUpkeepFromTileYield(ctx, player, summary, need, 1_000_000);
+    offsetGoldUpkeepWhileIncomePaused(ctx, testPlayer("player-1"), need, 1, nowMs);
 
-    expect(events).toHaveLength(0);
-    expect(need.gold).toBe(5);
+    expect(need.gold).toBeCloseTo(0.5, 6);
+    expect(need.FOOD).toBe(1);
   });
 
-  it("skips a yield-bearing tile key that no longer matches ownership/settlement/terrain", () => {
-    const player = testPlayer("player-1");
-    const otherOwnerTile = goldTownTile(0, 0, "player-2");
-    const { ctx, events } = createHarness({ tiles: [otherOwnerTile] });
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 5 };
+  it("clamps at zero when income covers the whole upkeep", () => {
+    const { ctx, lastActiveAtMsByPlayer } = createHarness({ incomePerMinute: 10 });
+    lastActiveAtMsByPlayer.set("player-1", longInactive);
+    const need = goldNeed(2);
 
-    consumeUpkeepFromTileYield(ctx, player, summary, need, 1_000_000);
-
-    expect(need.gold).toBe(5);
-    expect(events).toHaveLength(0);
-  });
-
-  it("drains gold need from buffered tile yield and advances the anchor", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 3_600_000; // 60 minutes of buffered yield
-    const tile = goldTownTile(0, 0, "player-1");
-    const { ctx, events, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    // 0.1, not the old 3: SETTLEMENT_BASE_GOLD_PER_MIN is now cut 288x,
-    // so 60 buffered minutes
-    // yields ~0.208 gold, not ~60 — need must fit under that to still prove
-    // "fully drains, need becomes 0".
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
+    offsetGoldUpkeepWhileIncomePaused(ctx, testPlayer("player-1"), need, 1, nowMs);
 
     expect(need.gold).toBe(0);
-    expect(events).toHaveLength(1);
-    expect(events[0]?.eventType).toBe("TILE_YIELD_ANCHOR_BATCH");
-    expect(events[0]?.playerId).toBe("player-1");
-    expect(events[0]?.commandId).toBe(`accrual:upkeep:player-1:${nowMs}`);
-    expect(events[0]?.anchors).toHaveLength(1);
-    const newAnchor = events[0]?.anchors[0]?.collectedAt ?? 0;
-    expect(newAnchor).toBeGreaterThan(lastCollectedAt);
-    expect(newAnchor).toBeLessThan(nowMs);
-    expect(tileYieldCollectedAtByTile.get(tileKey(0, 0))).toBe(newAnchor);
   });
 
-  it("leaves FOOD need untouched — a resource tile no longer yields FOOD to drain (slot-based, not yield-based, §5.4)", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 4 * 60 * 60_000;
-    const tile = farmResourceTile(0, 0, "player-1");
-    const { ctx, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), FOOD: 4 };
+  it("never nets for an AI player — AI is exempt from the inactivity pause", () => {
+    const { ctx, cachedEconomySnapshot } = createHarness({ incomePerMinute: 10 });
+    const need = goldNeed(2);
 
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
+    offsetGoldUpkeepWhileIncomePaused(ctx, testPlayer("ai-1", { isAi: true }), need, 1, nowMs);
 
-    expect(need.FOOD).toBe(4);
-  });
-
-  it("leaves remaining need untouched once tile yield is exhausted", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 60_000; // 1 minute -> only 1 gold buffered
-    const tile = goldTownTile(0, 0, "player-1");
-    const { ctx, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 10 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    // 1 minute of buffered SETTLEMENT yield is now ~0.00694 gold
-    // (SETTLEMENT_BASE_GOLD_PER_MIN = 2/288, §24.6) rather than ~1, so the
-    // residual is ~9.9931, not ~9.
-    expect(need.gold).toBeCloseTo(10 - 2 / 288, 3);
-  });
-
-  it("stops iterating once the need is fully satisfied, leaving later tiles' anchors untouched", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 3_600_000;
-    const tileA = goldTownTile(0, 0, "player-1");
-    const tileB = goldTownTile(0, 1, "player-1");
-    const { ctx, events, tileYieldCollectedAtByTile } = createHarness({ tiles: [tileA, tileB] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    tileYieldCollectedAtByTile.set(tileKey(0, 1), lastCollectedAt);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0), tileKey(0, 1)]);
-    // 0.1, not the old 3 — see the "drains gold need..." test above for why.
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    expect(need.gold).toBe(0);
-    // Sorted order visits "0,0" before "0,1"; the second tile's need was
-    // already satisfied so its anchor should be untouched.
-    expect(tileYieldCollectedAtByTile.get(tileKey(0, 1))).toBe(lastCollectedAt);
-    expect(events[0]?.anchors).toHaveLength(1);
-    expect(events[0]?.anchors[0]?.tileKey).toBe(tileKey(0, 0));
-  });
-
-  it("batches anchor updates from multiple tiles into a single emitEvent call", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 3_600_000;
-    const tileA = goldTownTile(0, 0, "player-1");
-    const tileB = goldTownTile(0, 1, "player-1");
-    const { ctx, events, tileYieldCollectedAtByTile } = createHarness({ tiles: [tileA, tileB] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    tileYieldCollectedAtByTile.set(tileKey(0, 1), lastCollectedAt);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0), tileKey(0, 1)]);
-    // Needs more gold than a single tile can supply, so both tiles drain.
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 100 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    expect(events).toHaveLength(1);
-    expect(events[0]?.anchors).toHaveLength(2);
-  });
-
-  it("does not emit an event when a settled tile has no buffered yield to drain", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const tile = goldTownTile(0, 0, "player-1");
-    const { ctx, events, forgotten, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), nowMs); // already collected as of now
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 5 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    expect(events).toHaveLength(0);
-    expect(need.gold).toBe(5);
-    // The synthetic replay-cache id is still forgotten even with no event.
-    expect(forgotten).toEqual([`accrual:upkeep:player-1:${nowMs}`]);
-  });
-
-  it("computes and caches the sorted yield-bearing tile-key order on first use", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const tiles = [goldTownTile(2, 0, "player-1"), goldTownTile(0, 0, "player-1"), goldTownTile(1, 0, "player-1")];
-    const { ctx, sortedYieldBearingKeysByOwner } = createHarness({ tiles });
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set(tiles.map((t) => tileKey(t.x, t.y)));
-    // A zero need would return before the tile loop ever runs, so the sort
-    // cache would never get populated — use a nonzero need to reach it.
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.01 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    expect(sortedYieldBearingKeysByOwner.get("player-1")).toEqual(["0,0", "1,0", "2,0"]);
-  });
-
-  it("reuses a pre-populated sorted cache instead of recomputing it", () => {
-    const player = testPlayer("player-1");
-    const nowMs = 10_000_000;
-    const lastCollectedAt = nowMs - 3_600_000;
-    const tileA = goldTownTile(0, 0, "player-1");
-    const tileB = goldTownTile(0, 1, "player-1");
-    const { ctx, events, sortedYieldBearingKeysByOwner, tileYieldCollectedAtByTile } = createHarness({ tiles: [tileA, tileB] });
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), lastCollectedAt);
-    tileYieldCollectedAtByTile.set(tileKey(0, 1), lastCollectedAt);
-    // Deliberately reversed vs. natural sort order.
-    sortedYieldBearingKeysByOwner.set("player-1", [tileKey(0, 1), tileKey(0, 0)]);
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0), tileKey(0, 1)]);
-    // 0.1, not the old 3 — see the "drains gold need..." test above for why.
-    const need: UpkeepNeed = { ...emptyNeed(), gold: 0.1 };
-
-    consumeUpkeepFromTileYield(ctx, player, summary, need, nowMs);
-
-    // The cached (reversed) order was honored: "0,1" drained first and alone
-    // satisfies the need, so "0,0" is never touched.
-    expect(events[0]?.anchors).toHaveLength(1);
-    expect(events[0]?.anchors[0]?.tileKey).toBe(tileKey(0, 1));
+    expect(need.gold).toBe(2);
+    expect(cachedEconomySnapshot).not.toHaveBeenCalled();
   });
 });
 
@@ -341,10 +137,11 @@ describe("applyEconomyAccrual", () => {
     expect(lastEconomyAccrualAtByPlayer.get("player-1")).toBe(16_000);
   });
 
-  it("drains gold and strategic upkeep from points/stockpile once 15s have elapsed with no covering tile yield", () => {
+  it("drains gold and strategic upkeep from points/stockpile once 15s have elapsed", () => {
     const player = testPlayer("player-1", { points: 100, strategicResources: { FOOD: 10, TITANIUM: 10, CRYSTAL: 10, UMBRITE: 10, SHARD: 0 } });
-    const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 2, food: 1, titanium: 1, crystal: 1, umbrite: 1 } });
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 2, food: 1, titanium: 1, crystal: 1, umbrite: 1 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 1_000);
     applyEconomyAccrual(ctx, player, 1_000);
 
     applyEconomyAccrual(ctx, player, 1_000 + 15_000);
@@ -359,8 +156,9 @@ describe("applyEconomyAccrual", () => {
 
   it("never drops points/stockpiles below zero", () => {
     const player = testPlayer("player-1", { points: 0.1, strategicResources: { FOOD: 0.1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } });
-    const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 100, food: 100 } });
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 100, food: 100 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 1_000);
     applyEconomyAccrual(ctx, player, 1_000);
 
     applyEconomyAccrual(ctx, player, 1_000 + 15_000);
@@ -369,32 +167,53 @@ describe("applyEconomyAccrual", () => {
     expect(player.strategicResources?.FOOD).toBe(0);
   });
 
-  it("drains upkeep from settled tile yield before touching points", () => {
-    const nowStart = 1_000;
+  // Regression: upkeep used to be drained first from a phantom per-tile yield
+  // buffer — gold the passive-income tick ALSO credited to the treasury — so
+  // an active player's converter upkeep was partly or wholly never charged.
+  it("charges an active player's full gold upkeep even when their income would cover it", () => {
     const player = testPlayer("player-1", { points: 100 });
-    const tile = goldTownTile(0, 0, "player-1");
-    // upkeep.gold lowered from 2 to 0.1: SETTLEMENT_BASE_GOLD_PER_MIN is now
-    // cut 288x, so an hour of
-    // buffered yield is ~0.208 gold, not ~60 — need must fit under that to
-    // still prove "fully covered by buffered yield, points untouched".
-    const { ctx, playerSummaries, tileYieldCollectedAtByTile } = createHarness({ tiles: [tile], upkeep: { gold: 0.1 } });
-    const summary = createEmptyPlayerRuntimeSummary();
-    summary.territoryTileKeys = new Set([tileKey(0, 0)]);
-    playerSummaries.set("player-1", summary);
-    // Buffer an hour of gold yield on the tile before the accrual tick fires.
-    tileYieldCollectedAtByTile.set(tileKey(0, 0), nowStart + 15_000 - 3_600_000);
-    applyEconomyAccrual(ctx, player, nowStart);
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 2 }, incomePerMinute: 50 });
+    playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 1_000);
+    applyEconomyAccrual(ctx, player, 1_000);
 
-    applyEconomyAccrual(ctx, player, nowStart + 15_000);
+    applyEconomyAccrual(ctx, player, 1_000 + 15_000);
 
-    // need.gold = 0.1 * 0.25min = 0.025, fully covered by the ~0.208 buffered gold on the tile.
+    expect(player.points).toBeCloseTo(100 - 0.5, 6);
+  });
+
+  it("keeps a long-offline player's treasury intact when their income covers gold upkeep", () => {
+    const start = PASSIVE_INCOME_INACTIVITY_CAP_MS + 10_000;
+    const player = testPlayer("player-1", { points: 100 });
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 2 }, incomePerMinute: 3 });
+    playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 0);
+    applyEconomyAccrual(ctx, player, start);
+
+    applyEconomyAccrual(ctx, player, start + 15_000);
+
     expect(player.points).toBe(100);
+  });
+
+  it("charges a long-offline player only the shortfall when gold upkeep exceeds income", () => {
+    const start = PASSIVE_INCOME_INACTIVITY_CAP_MS + 10_000;
+    const player = testPlayer("player-1", { points: 100 });
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 4 }, incomePerMinute: 1 });
+    playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 0);
+    applyEconomyAccrual(ctx, player, start);
+
+    applyEconomyAccrual(ctx, player, start + 15_000);
+
+    // (4 - 1) gold/min * 0.25 min.
+    expect(player.points).toBeCloseTo(100 - 0.75, 6);
   });
 
   it("runs the accrual work through trackSyncMainThreadTask when provided", () => {
     const player = testPlayer("player-1");
-    const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 4 } });
+    const { ctx, playerSummaries, lastActiveAtMsByPlayer } = createHarness({ upkeep: { gold: 4 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
+    lastActiveAtMsByPlayer.set("player-1", 1_000);
     const trackSyncMainThreadTask = vi.fn((_label: string, _meta: unknown, run: () => void) => run());
     ctx.trackSyncMainThreadTask = trackSyncMainThreadTask;
     applyEconomyAccrual(ctx, player, 1_000);

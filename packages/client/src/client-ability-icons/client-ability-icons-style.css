@@ -1,0 +1,20 @@
+/* Ability icons (client-ability-icons.ts). */
+
+/* Crystal tab rows: the same wider icon column the build menu's art uses. */
+.tile-action-btn:has(.tile-action-ability-icon) {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.tile-action-ability-icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Ability info card: the 24px-grid icon reads best a little under the
+   building art's 180px. */
+.ability-info-image {
+  max-width: 120px;
+}

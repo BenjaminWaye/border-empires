@@ -35,7 +35,6 @@ type VisibleStateSharedDeps = VisibilityPlayerProjectionDeps & {
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
   docks: readonly DockRouteDefinition[];
-  tileYieldCollectedAtByTile: ReadonlyMap<string, number>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   terrainEpoch: number;
   classifyVisibilityForPlayer: (playerId: string) => RuntimeVisibilityClassification;
@@ -305,7 +304,6 @@ function visibleSharedState(input: Pick<
   | "pendingSettlementsByTile"
   | "locksByCommandId"
   | "docks"
-  | "tileYieldCollectedAtByTile"
   | "playerYieldCollectionEpochByPlayer"
   | "terrainEpoch"
 >): Omit<RuntimeExportState, "tiles" | "players"> {
@@ -325,9 +323,6 @@ function visibleSharedState(input: Pick<
       }))
       .sort((left, right) => left.commandId.localeCompare(right.commandId)),
     docks: input.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-    tileYieldCollectedAtByTile: [...input.tileYieldCollectedAtByTile.entries()]
-      .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
-      .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
     playerYieldCollectionEpochByPlayer: [...input.playerYieldCollectionEpochByPlayer.entries()]
       .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))
       .sort((left, right) => left.playerId.localeCompare(right.playerId)),

@@ -15,7 +15,6 @@ export type SnapshotExportInput = {
   locksByCommandId: ReadonlyMap<string, LockRecord>;
   players: ReadonlyMap<string, DomainPlayer>;
   pendingSettlementsByTile: ReadonlyMap<string, PendingSettlementRecord>;
-  tileYieldCollectedAtByTile: ReadonlyMap<string, number>;
   playerYieldCollectionEpochByPlayer: ReadonlyMap<string, number>;
   docks: readonly DockRouteDefinition[];
   recordedEventsByCommandId: ReadonlyMap<string, SimulationEvent[]>;
@@ -114,9 +113,6 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         .sort((a, b) => a.id.localeCompare(b.id)),
       pendingSettlements: [...input.pendingSettlementsByTile.values()]
         .map((s) => ({ ...s }))
-        .sort((a, b) => a.tileKey.localeCompare(b.tileKey)),
-      tileYieldCollectedAtByTile: [...input.tileYieldCollectedAtByTile.entries()]
-        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
         .sort((a, b) => a.tileKey.localeCompare(b.tileKey)),
       playerYieldCollectionEpochByPlayer: [...input.playerYieldCollectionEpochByPlayer.entries()]
         .map(([playerId, collectedAt]) => ({ playerId, collectedAt }))

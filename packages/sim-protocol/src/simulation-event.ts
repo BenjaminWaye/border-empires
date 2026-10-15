@@ -138,38 +138,11 @@ export type SimulationEvent =
         afcJson?: string | undefined;
         /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
         visibilityState?: VisibilityState | undefined;
-        yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldCap?: { gold: number; strategicEach: number } | undefined;
+        yieldRate?: { goldPerMinute?: number } | undefined;
         ownershipClearOnly?: boolean | undefined;
         /** One-shot combat-broadcast payload — see simulation.proto's combat_json doc comment. */
         combatJson?: string | undefined;
       }>;
-    }
-  | {
-      eventType: "TILE_YIELD_ANCHOR_UPDATED";
-      commandId: string;
-      playerId: string;
-      tileKey: string;
-      collectedAt: number;
-    }
-  | {
-      // Batched form for upkeep accrual: at non-trivial empire sizes the
-      // per-tile UPDATED variant emits dozens-to-hundreds of events per
-      // upkeep tick, each becoming a separate SQLite appendEvent. That
-      // queue backlog has been observed to block the main event loop for
-      // 25s+ at only ~2,000 owned tiles (well under 1% of the 450x450
-      // map). Single batch event = single appendEvent.
-      eventType: "TILE_YIELD_ANCHOR_BATCH";
-      commandId: string;
-      playerId: string;
-      anchors: Array<{ tileKey: string; collectedAt: number }>;
-    }
-  | {
-      eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED";
-      commandId: string;
-      playerId: string;
-      collectedAt: number;
     }
   | {
       eventType: "SETTLEMENT_STARTED";

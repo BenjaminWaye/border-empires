@@ -2324,9 +2324,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sabotage_json?: string;
             shard_site_json?: string;
             muster_json?: string; breach_shock_until?: number;
-            yield_json?: string;
             yield_rate_json?: string;
-            yield_cap_json?: string;
           }>;
           player_upkeep_json?: string;
         }
@@ -2567,7 +2565,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // Async with per-player yields — cachedEconomySnapshot can rebuild
         // O(settledTiles) per player on cache miss (after territory mutations).
         // Running all 6 players back-to-back synchronously was a 15s stall risk.
-        void runtime.applyPassiveIncomeAsync(Date.now(), 24 * 60 * 60 * 1000, yieldToEventLoop) // kept in sync with OFFLINE_YIELD_ACCUM_MAX_MS (game-domain) — docs/replenishment-update-plan.md D4
+        void runtime.applyPassiveIncomeAsync(Date.now(), yieldToEventLoop) // 24h inactivity cap: PASSIVE_INCOME_INACTIVITY_CAP_MS, docs/replenishment-update-plan.md D4
           .catch((error) => { log.error({ err: error }, "passive income tick failed"); })
           .finally(() => { passiveIncomeRunning = false; });
       }, 15_000);

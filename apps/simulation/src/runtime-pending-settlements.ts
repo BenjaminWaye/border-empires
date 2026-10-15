@@ -55,7 +55,6 @@ export type RecoveredSettlementContext = {
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   addPendingSettlement: (record: PendingSettlementRecord) => void;
   removePendingSettlement: (tileKey: string) => PendingSettlementRecord | undefined;
-  setTileYieldCollectedAt: (commandId: string, playerId: string, tileKey: string, collectedAt: number) => void;
   replaceTileState: (tileKey: string, tile: DomainTileState) => void;
   devQueueCommandContext: () => RuntimeDevQueueCommandContext;
   emitEvent: (event: SimulationEvent) => void;
@@ -106,7 +105,6 @@ export const scheduleRecoveredPendingSettlements = (
         ...(latest.town ? { town: latest.town } : {})
       };
       const recoveredSettleCommandId = `recovered-settle:${pendingSettlement.tileKey}`;
-      context.setTileYieldCollectedAt(recoveredSettleCommandId, pendingSettlement.ownerId, pendingSettlement.tileKey, context.now());
       context.replaceTileState(pendingSettlement.tileKey, settledTile);
       tryDrainClaimContinuationBuildTail(context.devQueueCommandContext(), pendingSettlement.ownerId, pendingSettlement.tileKey, settledTile.x, settledTile.y);
       const tileAfterBuildTail = resolveTileAfterBuildTail(context.tiles, pendingSettlement.tileKey, settledTile);

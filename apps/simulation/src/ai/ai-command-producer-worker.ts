@@ -206,11 +206,6 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const rejectionCooldowns = createRejectionCooldownState();
   const actionAdmissions = createAiActionAdmissionTracker(aiPlayerIdSet);
-  // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
-  // collects). The preplan uses this to gate the 60s heartbeat — if we
-  // shared this with organic collects (collect_for_unaffordable_progression,
-  // collect_for_active_lock, collect_for_economic_recovery), then any AI
-  // already firing organic collects every 20–40s would keep resetting the
   const urgentByPlayerId = new Set<string>();
   // Per-player last-considered timestamp — feeds the ai-tick-fairness starvation guard.
   const lastConsideredAtByPlayer = new Map<string, number>();

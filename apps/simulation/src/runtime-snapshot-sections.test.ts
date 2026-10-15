@@ -10,7 +10,6 @@ const baseInput = (overrides: Partial<SnapshotExportInput> = {}): SnapshotExport
   locksByCommandId: new Map(),
   players: new Map(),
   pendingSettlementsByTile: new Map(),
-  tileYieldCollectedAtByTile: new Map(),
   playerYieldCollectionEpochByPlayer: new Map(),
   docks: [],
   recordedEventsByCommandId: new Map(),

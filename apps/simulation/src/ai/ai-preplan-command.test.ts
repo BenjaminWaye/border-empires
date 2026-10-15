@@ -59,7 +59,7 @@ describe("automation preplan command", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    // With passive income, there's no more COLLECT_VISIBLE preempt.
+    // With passive income there is no collect preempt.
     // Low-points AIs without affordable progression defer to main planner.
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.preplanReason).toBeDefined();

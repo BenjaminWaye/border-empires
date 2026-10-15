@@ -192,7 +192,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("backfills yield rate and cap for owned settled tiles when the snapshot tile is thin", () => {
+  it("backfills yield rate for owned settled tiles when the snapshot tile is thin", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       tiles: [
@@ -228,8 +228,7 @@ describe("buildSnapshotTileDetail", () => {
       expect.objectContaining({
         detailLevel: "full",
         // §6.1/§24.6: SETTLEMENT_BASE_GOLD_PER_MIN 2/288 -> 0.0069, not the old flat 1.
-        yieldRate: expect.objectContaining({ goldPerMinute: 0.0069 }),
-        yieldCap: expect.objectContaining({ gold: expect.any(Number) })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0069 })
       })
     );
   });
@@ -525,8 +524,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(town?.cap).toBeCloseTo(2112, 0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-        yieldCap: expect.objectContaining({ gold: 2112 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
       })
     );
   });
@@ -594,18 +592,14 @@ describe("buildSnapshotTileDetail", () => {
     );
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-        yieldCap: expect.objectContaining({ gold: 2112 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
       })
     );
   });
 
   it("does not backfill cap=0 for an unfed TOWN when the snapshot also lacks cap", () => {
     // Unfed TOWN-tier with no goldPerMinute / cap on the snapshot: gpm correctly
-    // falls back to 0, but cap must stay omitted so buildTileYieldView's default
-    // TILE_YIELD_CAP_GOLD (=24) takes over for the stored-yield buffer ceiling.
-    // Hard-coding cap=0 here would clobber that fallback and break offline yield
-    // accumulation once the town becomes fed again.
+    // falls back to 0, and cap stays omitted rather than being hard-coded to 0.
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       tiles: [
@@ -637,14 +631,9 @@ describe("buildSnapshotTileDetail", () => {
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 50, 50);
     const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
     expect(town?.goldPerMinute).toBe(0);
-    // cap must NOT be present on town — otherwise the buffer cap is clobbered to 0.
     expect(town && "cap" in town).toBe(false);
-    // yieldCap should reflect the default TILE_YIELD_CAP_GOLD (24), not 0.
-    expect(detail).toEqual(
-      expect.objectContaining({
-        yieldCap: expect.objectContaining({ gold: 24 })
-      })
-    );
+    // Tiles don't hold yield any more — no stored-yield cap is sent.
+    expect(detail && "yieldCap" in detail).toBe(false);
   });
 
   it("backfills goldPerMinute when the snapshot's townJson lacks the field (prod-zero regression)", () => {
@@ -698,8 +687,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(town?.cap).toBeCloseTo(2112 / 288, 0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 }),
-        yieldCap: expect.objectContaining({ gold: 7.333 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 })
       })
     );
   });

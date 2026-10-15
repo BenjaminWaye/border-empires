@@ -1,3 +1,4 @@
+import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
 // Changelog entry data only, split out from client-changelog.ts (rendering/
@@ -9,6 +10,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // client-changelog-data-earlier-N.ts (historical record, left unreferenced)
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
+import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
@@ -264,6 +266,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN,
   ...CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION,
   ...MOBILE_LOADING_FIT_CHANGELOG,
+  ...AETHER_ABILITY_ICONS_CHANGELOG,
   {
     createdAt: 1791920134069, // Date.now() frozen for this entry.
     introducedIn: "2026.10.13.1",
@@ -309,6 +312,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
+  ...TILE_YIELD_REMOVAL_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
