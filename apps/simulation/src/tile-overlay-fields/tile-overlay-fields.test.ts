@@ -1,11 +1,8 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { mapTile } from "../runtime-snapshot-sections.js";
-import { OVERLAY_FIELDS } from "../simulation-service/proto-overlay-fields.js";
+import { overlaySnakeClearFields, overlaySnakeTruthyFields } from "../simulation-service/proto-overlay-fields.js";
 import { OVERLAY_JSON_FIELDS } from "../tile-delta-overlay-fields.js";
 import { TILE_OVERLAY_KEYS, overlayJsonFieldsFromTile, overlaySubstructuresFrom, townWireFields } from "./tile-overlay-fields.js";
 
@@ -68,15 +65,13 @@ describe("tile overlay key list", () => {
     expect([...OVERLAY_JSON_FIELDS].sort()).toEqual(EXPECTED_KEYS.map((key) => `${key}Json`).sort());
   });
 
-  it("derives proto field names that exist in simulation.proto", () => {
-    expect(OVERLAY_FIELDS.map((field) => field.snake).sort()).toEqual([...EXPECTED_PROTO_FIELDS].sort());
-    const proto = readFileSync(
-      fileURLToPath(new URL("../../../../packages/sim-protocol/src/simulation.proto", import.meta.url)),
-      "utf8"
-    );
-    for (const field of EXPECTED_PROTO_FIELDS) {
-      expect(proto, `simulation.proto is missing ${field}`).toMatch(new RegExp(`\\bstring ${field} = \\d+;`));
-    }
+  // That these names exist in simulation.proto is sim-protocol's own test
+  // (tile-overlay-fields.test.ts there); this checks the serializer uses them.
+  it("serializes every overlay under its proto field name", () => {
+    const tile = Object.fromEntries(EXPECTED_KEYS.map((key) => [`${key}Json`, "{}"]));
+    expect(Object.keys(overlaySnakeTruthyFields(tile)).sort()).toEqual([...EXPECTED_PROTO_FIELDS].sort());
+    const cleared = overlaySnakeClearFields(Object.fromEntries(EXPECTED_KEYS.map((key) => [`${key}Json`, undefined])));
+    expect(cleared).toEqual(Object.fromEntries(EXPECTED_PROTO_FIELDS.map((field) => [field, ""])));
   });
 });
 

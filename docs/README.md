@@ -63,6 +63,8 @@ instructions.
 
 [`agent-work-readiness-plan.md`](agent-work-readiness-plan.md) tracks the
 repository's documentation and agent-workflow cleanup in phases.
+[`code-cleanup-plan.md`](code-cleanup-plan.md) records the October 2026
+dead-code and duplication cleanup and the remaining items in priority order.
 
 ## Templates
 

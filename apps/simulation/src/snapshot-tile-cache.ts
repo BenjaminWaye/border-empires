@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type AutoSettlePrefs, type Slo
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
 import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
+import type { TileOverlayJsonFields } from "@border-empires/sim-protocol";
 
 export type RuntimeState = {
   tiles: Array<{
@@ -17,15 +18,7 @@ export type RuntimeState = {
     townType?: "MARKET" | "FARMING";
     townName?: string;
     townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    fortJson?: string;
-    observatoryJson?: string;
-    siegeBatteryJson?: string;
-    economicStructureJson?: string;
-    sabotageJson?: string;
-    shardSiteJson?: string;
-    naturalWonderJson?: string;
-    afcJson?: string;
-  }>;
+  } & TileOverlayJsonFields>;
   players: Array<{
     id: string;
     name?: string;
