@@ -63,7 +63,8 @@ describe("frontierAttackClaimRebuildSnapshot", () => {
   it("captureMap3DRebuildTriggers drops a resolved claim from its trigger snapshot", () => {
     const state = createState({
       capture: { startAt: EPOCH_NOW - 1_000, resolvesAt: EPOCH_NOW + 2_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
-      crystalTargeting: { active: false }
+      crystalTargeting: { active: false },
+      tileActionMenu: { visible: false }
     } as Partial<ClientState>);
     expect(captureMap3DRebuildTriggers(state, keyFor, false).frontierAttackClaimKeys).toBe("5,5");
     vi.setSystemTime(EPOCH_NOW + 2_001);

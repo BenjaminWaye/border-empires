@@ -36,7 +36,8 @@ import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
-import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
+import { createConstructionCountdownOverlay2D } from "./client-construction-countdown/client-construction-countdown-overlay-2d.js";
+import { aetherProtectionField, drawAetherProtectionTile2D, isAetherProtectionFieldShown } from "./client-aether-tower-protection/client-aether-tower-protection.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -181,22 +182,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetworkBuiltAt = 0;
   let persistentAlertsCache: PersistentAlert[] = [];
   let persistentAlertsComputedAt = 0;
-  const maybeRefreshStalledConstruction = createStalledConstructionRefresher({
-    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded
-  });
-  const drawConstructionCountdownOverlay = (t: Tile, wk: string, px: number, py: number, size: number): void => {
-    const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
-    if (remainingConstructionMs === undefined) return;
-    maybeRefreshStalledConstruction(t, wk, remainingConstructionMs);
-    if (size < 18) return;
-    const timerLabel = deps.formatCountdownClock(remainingConstructionMs);
-    deps.ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-    deps.ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-    deps.ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-    deps.ctx.font = "9px monospace";
-    deps.ctx.textBaseline = "top";
-    deps.ctx.fillText(timerLabel, px + 4, py + size - 11);
-  };
+  const drawConstructionCountdownOverlay = createConstructionCountdownOverlay2D(deps);
   const requestVisibleTileDetails = createVisibleTileDetailRequester({
     state,
     keyFor: deps.keyFor,
@@ -287,6 +273,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = []; if (!isTrue3DRendererActive() && state.winChancePaint && performance.now() > state.winChancePaint.expiresAt && !state.pendingArrowGestureConfirm) state.winChancePaint = undefined; const knownShieldFlags2D = !isTrue3DRendererActive() ? collectKnownShieldFlags(state.tiles.values()) : []; // F4: 2D counterparts of F0's expiry sweep + F3's per-frame known-flag scan (client-map-3d.ts)
+    const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined; // Aether Tower protection field, 2D parity of client-map-3d-aether-protection-overlay.ts
     const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
       if (tile) return undefined;
       if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
@@ -415,6 +402,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.afc && !isTrue3DRendererActive()) drawAfcTile2D(deps.ctx, t, px, py, size, nowMs, state.afcModuleDeliveryLandedAt.get(wk), state.afcJoinDrop);
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!); if (!isTrue3DRendererActive() && vis === "visible") { const shieldCoverage2D = tileShieldCoverage(wx, wy, knownShieldFlags2D); if (shieldCoverage2D) drawShieldAreaTile2D(deps.ctx, deps.effectiveOverlayColor(shieldCoverage2D.ownerId), px, py, size); const winChanceLabel2D = winChancePaintColorForTile2D(state.winChancePaint, wx, wy); if (winChanceLabel2D) drawWinChanceLabel2D(deps.ctx, winChanceLabel2D, px, py, size); } // F4: 2D win-chance paint (F0) + shield-area (F3) parity
+      if (!isTrue3DRendererActive() && vis === "visible") drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, px, py, size);
 
       if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND") {
         drawTileFortificationOverlays2D(deps.ctx, t, px, py, size,
