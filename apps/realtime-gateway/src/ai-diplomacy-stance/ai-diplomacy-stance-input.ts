@@ -11,8 +11,11 @@ export type AiDiplomacySnapshot = {
   playerId: string;
   tiles: readonly Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">[];
   player?: Pick<SnapshotPlayer, "manpower" | "manpowerCap"> & Partial<Pick<SnapshotPlayer,
-    "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
-  worldStatus?: PlayerSubscriptionSnapshot["worldStatus"] | undefined;
+    "gold" | "incomePerMinute" | "name" | "strategicResources" | "strategicProductionPerMinute" | "upkeepPerMinute" | "resourceSlots">>;
+  worldStatus?: { leaderboard: {
+    overall?: readonly { id: string; tiles: number }[];
+    selfOverall?: { id: string; tiles: number; score?: number } | undefined;
+  } } | undefined;
 };
 
 type SnapshotTile = Pick<PlayerSubscriptionSnapshot["tiles"][number], "x" | "y" | "ownerId" | "musterJson">;

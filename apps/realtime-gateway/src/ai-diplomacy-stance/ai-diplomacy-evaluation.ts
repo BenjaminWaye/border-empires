@@ -3,14 +3,13 @@
 // what the requester can actually pay. Shared by the offer auto-responder
 // and the trade screen's stance query so both see the same numbers.
 import type { AiDiplomacyPricing, DiplomacyGoods } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { aiWouldLeadAlliance, type AllyLookup, type TileLookup } from "./ai-alliance-bloc.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
-import { buildAiDiplomacyStanceInput } from "./ai-diplomacy-stance-input.js";
+import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "./ai-diplomacy-stance-input.js";
 
 export type AiDiplomacyEvaluation = {
   stance: AiDiplomacyStance;
@@ -34,7 +33,7 @@ export type AiDiplomacyContext = {
 };
 
 /** Tile counts from the AI's own leaderboard view (every active player). */
-export const tileLookupFromSnapshot = (snapshot: PlayerSubscriptionSnapshot | undefined): TileLookup => {
+export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined): TileLookup => {
   const tiles = new Map<string, number>();
   for (const entry of snapshot?.worldStatus?.leaderboard.overall ?? []) tiles.set(entry.id, entry.tiles);
   const self = snapshot?.worldStatus?.leaderboard.selfOverall;
@@ -42,7 +41,7 @@ export const tileLookupFromSnapshot = (snapshot: PlayerSubscriptionSnapshot | un
   return (playerId) => tiles.get(playerId) ?? 0;
 };
 
-const holdingsOf = (snapshot: PlayerSubscriptionSnapshot | undefined): DiplomacyGoods => ({
+const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
   gold: Math.max(0, Math.floor(snapshot?.player?.gold ?? 0)),
   shard: Math.max(0, Math.floor(snapshot?.player?.strategicResources?.SHARD ?? 0))
 });
@@ -58,15 +57,15 @@ const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string
 export const evaluateAiDiplomacy = (input: {
   aiPlayerId: string;
   aiName: string;
-  aiSnapshot: PlayerSubscriptionSnapshot | undefined;
+  aiSnapshot: AiDiplomacySnapshot | undefined;
   requesterId: string;
-  requesterSnapshot: PlayerSubscriptionSnapshot | undefined;
+  requesterSnapshot: AiDiplomacySnapshot | undefined;
 } & AiDiplomacyContext): AiDiplomacyEvaluation | undefined => {
   const stanceInput = buildAiDiplomacyStanceInput(input);
   const aiPlayer = input.aiSnapshot?.player;
   if (!stanceInput || !aiPlayer) return undefined;
   const stance = computeAiDiplomacyStance(stanceInput);
-  const aiIncome = aiPlayer.incomePerMinute;
+  const aiIncome = aiPlayer.incomePerMinute ?? 0;
   const requesterIncome = input.requesterSnapshot?.player?.incomePerMinute ?? 0;
   const opinion = computeAiOpinion({
     stanceKind: stance.kind,

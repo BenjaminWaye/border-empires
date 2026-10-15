@@ -1,7 +1,7 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import { buildAiDiplomacyStanceInput, type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
-import { computeAiDiplomacyStance } from "../ai-diplomacy-stance/ai-diplomacy-stance.js";
+import { type AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
+import { evaluateAiDiplomacy, type AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { extractAllianceRequestFromPayloads, extractTruceRequestFromPayloads, type SeededAiDiplomacyResponder } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 
@@ -45,6 +45,7 @@ export type ProactiveAiDiplomacyDeps = {
   hasLiveSocket: (id: string) => boolean;
   nameForPlayerId?: (id: string) => Promise<string | undefined>;
   responder: SeededAiDiplomacyResponder;
+  diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
   fanout: (payloads: Map<string, unknown[]>) => void;
   recordEvent: (level: "info" | "warn" | "error", name: string, payload?: Record<string, unknown>) => void;
 };
@@ -87,19 +88,19 @@ export function createProactiveAiDiplomacy(deps: ProactiveAiDiplomacyDeps): { ti
       const targetName = await deps.nameForPlayerId?.(targetId) ?? target?.player?.name;
       if (stopped || !target?.player || !targetName || deps.hasLiveSocket(aiId)) return;
       const targetSocial = deps.socialState.snapshotForPlayer(targetId);
-      const stanceInput = buildAiDiplomacyStanceInput({ aiPlayerId: aiId, aiName: ai.player.name ?? aiId,
+      const evaluation = evaluateAiDiplomacy({ aiPlayerId: aiId, aiName: ai.player.name ?? aiId,
         aiSnapshot: ai, requesterId: targetId, requesterSnapshot: target,
-        requesterBrokeTruceWithAi: targetSocial.truceBreaksThisSeason.some(record => record.targetPlayerId === aiId) });
-      if (!stanceInput) return;
-      const stance = computeAiDiplomacyStance(stanceInput);
+        ...deps.diplomacyContext(targetId, aiId) });
+      if (!evaluation) return;
+      const { stance } = evaluation;
       const aiLand = ai.tiles.filter(tile => tile.ownerId === aiId).length;
       const targetLand = target.tiles.filter(tile => tile.ownerId === targetId).length;
       // Alliances need a common enemy and cannot knowingly concede bloc
       // leadership to a larger partner. A threatened AI asks for peace instead.
-      const alliance = social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
+      const alliance = !evaluation.allianceRefusal && social.allies.length < 2 && aiLand >= targetLand && targetLand > 0 &&
         stance.kind !== "SEEKING_PEACE" && stance.kind !== "DISTRUSTFUL" &&
         haveSharedVisibleEnemy(ai.tiles, aiId, targetId, new Set([...friendly, ...targetSocial.allies, ...targetSocial.activeTruces.map(t => t.otherPlayerId)]));
-      const peace = stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED";
+      const peace = !evaluation.truceRefusal && (stance.kind === "SEEKING_PEACE" || stance.kind === "OUTMATCHED");
       if (!alliance && !peace) return;
       const result = alliance ? deps.socialState.requestAlliance(aiId, targetName) : deps.socialState.requestTruce(aiId, targetName, 12);
       if (!result.ok) {

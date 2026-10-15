@@ -1,3 +1,4 @@
+import { createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
 import { describe, expect, it, vi } from "vitest";
 import { createSocialState } from "../social-state/social-state.js";
 import { createProactiveAiDiplomacy, aiDiplomacyNeighbors } from "./proactive-ai-diplomacy.js";
@@ -15,11 +16,20 @@ function setup(manpower = 900) {
     "ai-1": { playerId: "ai-1", player: { name: "Alden", manpower, manpowerCap: 1000 }, tiles },
     human: { playerId: "human", player: { name: "Human", manpower: 800, manpowerCap: 1000 }, tiles }
   };
+  const memory = createAiDiplomacyMemory({ now: () => Date.now(), isAi: () => true });
+  memory.recordPayment("ai-1", "human", 6000);
+  const diplomacyContext = (requesterId: string, aiId: string) => ({ requesterBrokeTruceWithAi: false,
+    requesterTruceBreaksWithOthers: 0, memory: memory.view(aiId, requesterId), now: Date.now(),
+    alliesOf: (id: string) => social.snapshotForPlayer(id).allies });
+  for (const snapshot of Object.values(snapshots)) {
+    snapshot.worldStatus = { leaderboard: { overall: [{ id: "ai-1", tiles: 2 }, { id: "human", tiles: 1 }] } };
+    snapshot.player!.incomePerMinute = 1;
+  }
   const fetchSnapshot = vi.fn(async (id: string) => snapshots[id]);
   const hasLiveSocket = vi.fn(() => false);
   const responder = { maybeAutoRespondToSeededAiTruce: vi.fn(async () => {}), maybeAutoRespondToSeededAiAlliance: vi.fn(async () => {}) };
   const recordEvent = vi.fn();
-  const deps = { socialState: social, aiPlayerIds: new Set(["ai-1"]), fetchSnapshot, hasLiveSocket, responder, fanout: vi.fn(), recordEvent };
+  const deps = { diplomacyContext, socialState: social, aiPlayerIds: new Set(["ai-1"]), fetchSnapshot, hasLiveSocket, responder, fanout: vi.fn(), recordEvent };
   return { social, snapshots, deps, coordinator: createProactiveAiDiplomacy(deps) };
 }
 
@@ -87,27 +97,30 @@ describe("proactive AI diplomacy", () => {
     expect(deps.responder.maybeAutoRespondToSeededAiTruce).toHaveBeenCalledOnce();
   });
   it("runs AI-to-AI acceptance through the responder and syncs before accepted fanout", async () => {
-    const { deps, social, snapshots } = setup();
+    const { deps, social, snapshots } = setup(10);
     // Both players are seeded AIs here. The recipient is exhausted, so the
-    // common-threat alliance is useful to both and accepted by normal stance.
+    // at war and exhausted, and the recipient already paid this war.
     snapshots.human!.player!.manpower = 10;
     const seeded = new Set(["ai-1", "human"]);
     const order: string[] = [];
-    const syncAlliance = vi.fn(async () => { order.push("simulation"); return true; });
+    const syncTruce = vi.fn(async () => { order.push("simulation"); return true; });
     const responder = createSeededAiDiplomacyResponder({
       seededAiPlayerIds: seeded, fetchPlayerSnapshot: deps.fetchSnapshot, requesterSnapshot: deps.fetchSnapshot,
-      requesterBrokeTruceWith: () => false, hasLiveSocket: deps.hasLiveSocket,
-      acceptTruce: social.acceptTruce, rejectTruce: social.rejectTruce,
-      acceptAlliance: social.acceptAlliance, rejectAlliance: social.rejectAlliance,
+      diplomacyContext: (requester, ai) => { const context = deps.diplomacyContext(requester, ai);
+        return { ...context, memory: { ...context.memory, lastCombatAt: Date.now(), aiAlreadyPaidThisWar: true } }; },
+      hasLiveSocket: deps.hasLiveSocket,
+      acceptTruce: async (...args) => social.acceptTruce(...args), rejectTruce: social.rejectTruce,
+      acceptAlliance: async (...args) => social.acceptAlliance(...args), rejectAlliance: social.rejectAlliance,
       syncPlayers: social.syncPlayers, recordGatewayEvent: deps.recordEvent,
-      syncAllianceToSimulation: syncAlliance, syncTruceToSimulation: async () => true,
+      requestTruce: social.requestTruce, requestAlliance: social.requestAlliance,
+      syncAllianceToSimulation: async () => true, syncTruceToSimulation: syncTruce,
       fanoutPlayerPayloads: () => { order.push("accepted fanout"); }
     });
     const coordinator = createProactiveAiDiplomacy({ ...deps, aiPlayerIds: seeded, responder,
       fanout: () => { order.push("offer fanout"); } });
     await coordinator.tick();
-    expect(social.snapshotForPlayer("ai-1").allies).toEqual(["human"]);
-    expect(syncAlliance).toHaveBeenCalledWith({ playerId: "human", targetPlayerId: "ai-1", allied: true });
+    expect(social.snapshotForPlayer("ai-1").activeTruces).toHaveLength(1);
+    expect(syncTruce).toHaveBeenCalledWith({ playerId: "human", targetPlayerId: "ai-1", truced: true });
     expect(order).toEqual(["offer fanout", "simulation", "accepted fanout"]);
   });
   it("rechecks human control after an awaited snapshot and prevents overlapping evaluation", async () => {
@@ -122,6 +135,28 @@ describe("proactive AI diplomacy", () => {
     deps.hasLiveSocket.mockReturnValue(true); finish(source);
     await first;
     expect(social.snapshotForPlayer("human").incomingTruceRequests).toHaveLength(0);
+  });
+  it("honors the whole merged bloc rather than just the neighboring empire", async () => {
+    const { social, snapshots, coordinator } = setup();
+    social.registerPlayer("giant", "Giant");
+    social.requestAlliance("human", "Giant");
+    const request = social.snapshotForPlayer("giant").incomingAllianceRequests[0]!;
+    expect(social.acceptAlliance("giant", request.id).ok).toBe(true);
+    snapshots["ai-1"]!.worldStatus!.leaderboard.overall = [{ id: "ai-1", tiles: 2 }, { id: "human", tiles: 1 }, { id: "giant", tiles: 100 }];
+    await coordinator.tick();
+    expect(social.snapshotForPlayer("human").incomingAllianceRequests).toHaveLength(0);
+  });
+  it("honors attitude and recent-attack refusals from the shared evaluator", async () => {
+    for (const manpower of [900, 10]) {
+      const { deps, social } = setup(manpower);
+      const coordinator = createProactiveAiDiplomacy({ ...deps, diplomacyContext: (requester, ai) => {
+        const context = deps.diplomacyContext(requester, ai);
+        return { ...context, memory: { ...context.memory, goodwillCoin: 0, ...(manpower === 10 ? { lastPlayerAttackAt: Date.now() } : {}) } };
+      } });
+      await coordinator.tick();
+      expect(social.snapshotForPlayer("human").incomingAllianceRequests).toHaveLength(0);
+      expect(social.snapshotForPlayer("human").incomingTruceRequests).toHaveLength(0);
+    }
   });
   it("finds border neighbors across the world seam", () => {
     expect(aiDiplomacyNeighbors([{ x: 0, y: 0, ownerId: "ai-1" }, { x: WORLD_WIDTH - 1, y: 0, ownerId: "human" }], "ai-1")).toEqual(["human"]);

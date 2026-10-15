@@ -167,7 +167,9 @@ casts Survey Sweep. Reveal Empire and Reveal Stats remain disabled until their
 results feed strategy. No claim of complete ability-catalog coverage is made.
 
 Diplomacy: one AI every 15 seconds, at most one 12h truce or shared-threat alliance
-offer. Existing durable requests, cooldowns and responder own the lifecycle.
+offer. Existing durable requests, cooldowns and responder own the lifecycle. Proactive
+offers reuse the trade evaluator for memory, recent-war refusals and merged-bloc
+leadership, including the 10% leadership margin.
 AI-to-AI acceptance synchronizes the simulation before accepted fanout. The
 first evaluation waits for its 15-second interval so it cannot open subscriptions
 during gateway/login startup. Human claim and gateway shutdown races are covered. No voluntary truce breaking or 24h
