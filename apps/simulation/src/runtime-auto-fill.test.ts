@@ -396,36 +396,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
   });
 });
 
-describe("applyAutoFill yield-anchor stamping", () => {
-  it("invokes recordYieldAnchors once with every newly settled tile key (matching the settled keys)", () => {
-    // (1,1) is unowned land walled by player-1 on three sides plus the
-    // captured tile (1,2), so it is a 1-tile enclosed pocket.
-    const capturedTile = ownedTile(1, 2, "player-1");
-    const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 2), capturedTile],
-      [simulationTileKey(1, 1), landTile(1, 1)]
-    ]);
-
-    const replaced: string[] = [];
-    const anchorBatches: string[][] = [];
-    const settled = applyAutoFill({
-      capturedTile,
-      ownerId: "player-1",
-      tiles,
-      replaceTileState: (k) => replaced.push(k),
-      isInReach: alwaysInReach,
-      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
-    });
-
-    expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
-    // Stamped in a single batch covering exactly the tiles that were replaced.
-    expect(anchorBatches).toEqual([replaced]);
-    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
-  });
-
+describe("applyAutoFill", () => {
   it("promotes the player's own FRONTIER tiles inside a sealed pocket to SETTLED", () => {
     // (1,1) unowned land and (2,1) our own FRONTIER tile form the interior of a
     // pocket sealed on every outer edge by player-1's SETTLED territory plus the

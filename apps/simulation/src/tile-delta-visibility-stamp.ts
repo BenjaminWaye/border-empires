@@ -66,7 +66,7 @@ export const stampVisibilityAndMergeFogDeltas = <TDelta extends { x: number; y: 
       // field-dropped delta as this player's first-ever record of the tile.
       // Merge in the always-full reveal-only delta instead (same reasoning
       // as the leftKeys branch above), rather than replacing outright: the
-      // reveal builder omits transient/live fields (yield/yieldRate/yieldCap,
+      // reveal builder omits transient/live fields (yieldRate,
       // combatJson) that the batch's own delta may carry and that a plain
       // replace would silently drop for this one viewer (e.g. losing the
       // battle-overlay FX for an ATTACK that also reveals its target). Spread

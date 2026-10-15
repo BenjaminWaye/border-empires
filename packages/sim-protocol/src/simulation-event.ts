@@ -1,5 +1,6 @@
 import type { FrontierDecayKind, VisibilityState } from "@border-empires/shared";
 import type { FrontierCombatActionType, LockedFrontierCombatResult, StrategicResourceKey } from "./index.js";
+import type { TileOverlayJsonFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 // Shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (see
 // simulation.proto's combat_json doc comment). Emitted once, on the target
@@ -124,52 +125,14 @@ export type SimulationEvent =
         townType?: "MARKET" | "FARMING";
         townName?: string | undefined;
         townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-        fortJson?: string | undefined;
-        observatoryJson?: string | undefined;
-        siegeBatteryJson?: string | undefined;
-        economicStructureJson?: string | undefined;
-        sabotageJson?: string | undefined;
-        shardSiteJson?: string | undefined;
-        naturalWonderJson?: string | undefined;
-        watchtowerJson?: string | undefined;
-        waystationJson?: string | undefined;
-        musterJson?: string | undefined;
-        /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-        afcJson?: string | undefined;
+        // fortJson, musterJson, afcJson, ...: see TileOverlayJsonFields below.
         /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
         visibilityState?: VisibilityState | undefined;
-        yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldCap?: { gold: number; strategicEach: number } | undefined;
+        yieldRate?: { goldPerMinute?: number } | undefined;
         ownershipClearOnly?: boolean | undefined;
         /** One-shot combat-broadcast payload — see simulation.proto's combat_json doc comment. */
         combatJson?: string | undefined;
-      }>;
-    }
-  | {
-      eventType: "TILE_YIELD_ANCHOR_UPDATED";
-      commandId: string;
-      playerId: string;
-      tileKey: string;
-      collectedAt: number;
-    }
-  | {
-      // Batched form for upkeep accrual: at non-trivial empire sizes the
-      // per-tile UPDATED variant emits dozens-to-hundreds of events per
-      // upkeep tick, each becoming a separate SQLite appendEvent. That
-      // queue backlog has been observed to block the main event loop for
-      // 25s+ at only ~2,000 owned tiles (well under 1% of the 450x450
-      // map). Single batch event = single appendEvent.
-      eventType: "TILE_YIELD_ANCHOR_BATCH";
-      commandId: string;
-      playerId: string;
-      anchors: Array<{ tileKey: string; collectedAt: number }>;
-    }
-  | {
-      eventType: "PLAYER_YIELD_COLLECTION_EPOCH_UPDATED";
-      commandId: string;
-      playerId: string;
-      collectedAt: number;
+      } & TileOverlayJsonFields>;
     }
   | {
       eventType: "SETTLEMENT_STARTED";

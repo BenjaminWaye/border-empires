@@ -281,4 +281,63 @@ describe("muster MARCH auto-fire routing", () => {
 
     expect(acceptedAttackTargets(seen)).toEqual(["11,11"]);
   });
+
+  // REGRESSION: a MARCH ordered into enemy territory skirted the enemy border
+  // across neutral land instead of fighting in. Chebyshev movement makes a
+  // diagonal step just as short as the straight one, so the neutral tile
+  // beside the enemy border tied the settled enemy tile on route length and
+  // remaining distance -- and the "frontier over settled" tiebreak, ranked
+  // above line deviation, handed every such tie to the neutral tile. Tick
+  // after tick the flag walked around the enemy territory.
+  //
+  // Before the fix this expands onto neutral (11,11) instead of attacking the
+  // settled enemy tile (11,10) dead on the flag->target line.
+  it("attacks settled enemy ground on the line instead of skirting it across neutral land", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 14, targetY: 10, updatedAt: 1_000 }
+          },
+          // Enemy settled band running straight from the flag to the target.
+          ...Array.from({ length: 4 }, (_, i) => ({
+            x: 11 + i,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-2",
+            ownershipState: "SETTLED" as const
+          })),
+          // Neutral land flanking the band, one diagonal step off the line.
+          ...Array.from({ length: 4 }, (_, i) => ({ x: 11 + i, y: 11, terrain: "LAND" as const })),
+          // Pin the flag's other neighbours as water so the generated world
+          // can't add candidates.
+          ...[[9, 9], [10, 9], [11, 9], [9, 10], [9, 11], [10, 11]].map(([x, y]) => ({
+            x: x!,
+            y: y!,
+            terrain: "SEA" as const
+          }))
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("ATTACK");
+    expect(acceptedAttackTargets(seen)).toEqual(["11,10"]);
+  });
 });

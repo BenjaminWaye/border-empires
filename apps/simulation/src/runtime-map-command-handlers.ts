@@ -24,7 +24,7 @@ import {
 } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { EconomicStructureType } from "@border-empires/shared";
-import type { SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 export type RuntimeMapCommandContext = {
   players: Map<string, DomainPlayer>;
@@ -34,7 +34,6 @@ export type RuntimeMapCommandContext = {
   ownedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
   pickReadyOwnedObservatoryForTarget: (playerId: string, targetX: number, targetY: number, now: number) => string | undefined;
   stampObservatoryCooldown: (tileKey: string, durationMs: number, now: number, commandId: string, playerId: string) => void;
-  spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   // Re-checks a victim's frontier connectivity after SKY_DOCK_BOMBARD stripped some of their tiles.
   applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
@@ -46,13 +45,10 @@ export type RuntimeMapCommandContext = {
   // same as isStructurePowered's Ambaric Transformer check but for slot dormancy.
   isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure" | "observatory") => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
-  isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileBombardBlockedByRadar: (actorId: string, targetX: number, targetY: number) => boolean;
   emitPlayerMessage: (command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>) => void;
   getAbilityCooldownUntil: (playerId: string, abilityKey: string) => number;
   setAbilityCooldownUntil: (playerId: string, abilityKey: string, untilMs: number) => void;
-  strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
-  addStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => void;
   // §20: durable per-player event log — see @border-empires/game-domain's
   // appendPlayerEventLogEntry for the append+cap implementation.
   appendPlayerEventLogEntry: (

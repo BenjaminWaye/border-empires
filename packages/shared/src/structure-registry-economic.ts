@@ -91,7 +91,7 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
 // tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────────
 
 const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
-  label: "Gold upkeep",
+  label: "Coin upkeep",
   perMinute: { GOLD: rate },
 });
 

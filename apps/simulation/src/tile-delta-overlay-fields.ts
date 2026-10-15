@@ -1,11 +1,12 @@
 import type { AllSubstructureJson } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
+import { TILE_OVERLAY_KEYS, overlayJsonField } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 type OverlayFieldName = keyof AllSubstructureJson & keyof SimulationTileWireDelta;
 
 /**
- * Single source of truth for which "overlay" substructure JSON fields
- * (fort, natural wonder, shard site, ...) belong on a tile wire delta.
+ * Which "overlay" substructure JSON fields (fort, natural wonder, shard
+ * site, ...) belong on a tile wire delta, and how they are copied onto it.
  *
  * Both tileDeltaFromState (command-triggered deltas, runtime-tile-delta-from-state.ts)
  * and tileDeltaRevealOnly (fog-of-war reveal deltas, tile-delta-reveal-only.ts)
@@ -25,26 +26,11 @@ type OverlayFieldName = keyof AllSubstructureJson & keyof SimulationTileWireDelt
  * breaks clear-detection for that field -- do not special-case a field to
  * skip this.
  *
- * To add a new overlay field:
- *   1. Give it an Entry/getOrComputeAll/buildSparseDelta/setLastEmitted/
- *      invalidate slot in tile-delta-stringify-cache.ts (same shape as
- *      naturalWonderJson there).
- *   2. Add its field name to OVERLAY_JSON_FIELDS below.
- * No delta-building call site needs to change.
+ * The field list is derived from TILE_OVERLAY_KEYS (tile-overlay-fields.ts);
+ * see that file for how to add a new overlay. The OverlayFieldName type makes
+ * a key without a tile-delta-stringify-cache.ts slot a compile error here.
  */
-export const OVERLAY_JSON_FIELDS: readonly OverlayFieldName[] = [
-  "shardSiteJson",
-  "naturalWonderJson",
-  "fortJson",
-  "observatoryJson",
-  "siegeBatteryJson",
-  "economicStructureJson",
-  "sabotageJson",
-  "watchtowerJson",
-  "waystationJson",
-  "musterJson",
-  "afcJson"
-];
+export const OVERLAY_JSON_FIELDS: readonly OverlayFieldName[] = TILE_OVERLAY_KEYS.map(overlayJsonField);
 
 export const overlayJsonFieldsFrom = (
   cached: AllSubstructureJson

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS, FORT_TIER_LADDER, MAX_BARBARIAN_TILES, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { SETTLEMENT_BASE_GOLD_PER_MIN, STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
@@ -74,40 +74,6 @@ describe("simulation runtime", () => {
     runtime.applyPassiveIncome(startMs, inactivityCapMs);
     const playerAfter = runtime.exportState().players.find((entry) => entry.id === "player-1");
     expect(playerAfter?.points ?? 0).toBe(pointsBefore);
-  });
-
-  it("COLLECT_VISIBLE command emits COLLECT_RESULT", async () => {
-    const nowMs = Date.now();
-    const runtime = new SimulationRuntime({
-      now: () => nowMs,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1")]]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Gold Town" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-    runtime.submitCommand({
-      commandId: "collect-visible-gone",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: nowMs,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-    await Promise.resolve();
-    expect(seen.some((event) => event.eventType === "COLLECT_RESULT")).toBe(true);
   });
 
   it("spawns a settled tile for unknown subscribed players", () => {
@@ -386,27 +352,8 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 60_000,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-
-    await Promise.resolve();
-
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
-      manpowerBreakdown: { cap: Array<{ label: string; amount: number }>; regen: Array<{ label: string; amount: number }> };
-    };
+    const player = runtime.exportState().players.find((entry) => entry.id === "player-1");
+    const payload = { manpowerBreakdown: player!.manpowerBreakdown! };
     expect(payload.manpowerBreakdown.cap.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
     expect(payload.manpowerBreakdown.regen.map((line) => line.label)).toEqual(["Starting Capital", "2 Great Cities", "2 Metropolises"]);
   });
@@ -1266,114 +1213,68 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
-    const seen = collectEvents(runtime);
-
     currentNow += 5 * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
 
-    runtime.submitCommand({
-      commandId: "collect-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: currentNow,
-      type: "COLLECT_VISIBLE",
-      payloadJson: "{}"
-    });
-
-    await Promise.resolve();
-
-    const playerUpdateEvent = seen.find(
-      (event): event is Extract<SimulationRuntimeEventShape, { eventType: "PLAYER_MESSAGE" }> =>
-        event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_UPDATE"
-    );
-    expect(playerUpdateEvent).toBeDefined();
-    const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
-      strategicResources: { FOOD: number };
-    };
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
     // Town food upkeep is retired to 0 (§5.4) — the FOOD stockpile never moves.
-    expect(payload.strategicResources.FOOD).toBe(10);
+    expect(player?.strategicResources?.FOOD).toBe(10);
   });
 
-  it("pays gold upkeep from accumulated tile yield before draining the stockpile", async () => {
-    let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 8000 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "TOWN", goldPerMinute: 4 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_RIG", status: "active" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
-    // 60 minutes elapse offline. Town produces 4 gold/min (~240 gold of
-    // yield accumulates); UMBRITE_RIG draws 1.2 gold/min in upkeep (~72 gold owed).
-    // Yield easily covers the upkeep, so the stockpile must stay at 8000.
-    currentNow += 60 * 60_000;
-    runtime.exportPlannerPlayerViews(["player-1"]);
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeCloseTo(8000, 0);
+  // Regression: converter gold upkeep used to be paid first from a phantom
+  // per-tile yield buffer that passive income ALSO credited, so an active
+  // player's upkeep was partly or wholly never charged.
+  const synthesizerEmpire = (points: number) => ({
+    initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points })]]),
+    seedTiles: new Map(),
+    initialState: {
+      tiles: [
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND" as const,
+          ownerId: "player-1",
+          ownershipState: "SETTLED" as const,
+          town: { type: "TRADE" as const, populationTier: "SETTLEMENT" as const, goldPerMinute: 4 }
+        },
+        {
+          x: 6,
+          y: 5,
+          terrain: "LAND" as const,
+          ownerId: "player-1",
+          ownershipState: "SETTLED" as const,
+          economicStructure: { type: "UMBRITE_WORKS" as const, status: "active" as const, ownerId: "player-1" }
+        }
+      ],
+      activeLocks: []
+    }
   });
 
-  it("falls back to stockpile when tile yield cannot cover gold upkeep", async () => {
+  it("charges an active player's converter gold upkeep from the treasury even when town income covers it", async () => {
     let currentNow = 60_000;
-    const runtime = new SimulationRuntime({
-      now: () => currentNow,
-      initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { points: 1000 })]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          {
-            x: 5,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            town: { type: "TRADE", populationTier: "SETTLEMENT", goldPerMinute: 0 }
-          },
-          {
-            x: 6,
-            y: 5,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { type: "UMBRITE_WORKS", status: "active", ownerId: "player-1" }
-          }
-        ],
-        activeLocks: []
-      }
-    });
+    const runtime = new SimulationRuntime({ now: () => currentNow, ...synthesizerEmpire(1000) });
     // 60 min elapse: UMBRITE_WORKS draws the §6.4-decided 30 gold/day
-    // (= 30/1440 gold/min) upkeep, partially offset by the SETTLEMENT town's
-    // own SETTLEMENT_BASE_GOLD_PER_MIN yield (§24.6); the remaining deficit
-    // hits the stockpile.
+    // (= 30/1440 gold/min) upkeep — 1.25 gold — straight from the treasury.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
-    const exported = runtime.exportState();
-    const player = exported.players.find((p) => p.id === "player-1");
-    expect(player?.points).toBeGreaterThan(999);
-    expect(player?.points).toBeLessThan(1000);
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
+    expect(player?.points).toBeCloseTo(1000 - 1.25, 6);
+  });
+
+  it("nets a long-offline player's converter gold upkeep against income, charging only the shortfall", async () => {
+    let currentNow = 60_000;
+    const runtime = new SimulationRuntime({ now: () => currentNow, ...synthesizerEmpire(1000) });
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    // Past the 24h passive-income inactivity cap no income is credited; the
+    // SETTLEMENT's own income (SETTLEMENT_BASE_GOLD_PER_MIN) offsets the
+    // synthesizer's 30 gold/day upkeep, so the treasury only pays the shortfall.
+    const minutes = 25 * 60;
+    currentNow += minutes * 60_000;
+    runtime.exportPlannerPlayerViews(["player-1"]);
+    const player = runtime.exportState().players.find((p) => p.id === "player-1");
+    const fullUpkeep = (30 / 1440) * minutes;
+    expect(player?.points).toBeCloseTo(1000 - (fullUpkeep - SETTLEMENT_BASE_GOLD_PER_MIN * minutes), 2);
+    expect(player?.points).toBeGreaterThan(1000 - fullUpkeep);
   });
 
   it("exportVisibleStateForPlayer accrues gold upkeep for the requesting player but not for other visible players", () => {
@@ -1608,7 +1509,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
-        "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -3698,7 +3598,6 @@ describe("simulation runtime", () => {
         "PLAYER_MESSAGE:cmd-1",
         "COMBAT_RESOLVED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
-        "TILE_YIELD_ANCHOR_UPDATED:cmd-1:respawn:player-2",
         "TILE_DELTA_BATCH:cmd-1",
         "COMMAND_ACCEPTED:cmd-1",
         "PLAYER_MESSAGE:cmd-1",
@@ -5119,7 +5018,7 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("restores player balances, pending settlements, and collect buffers from snapshot state after restart", () => {
+  it("restores player balances and pending settlements from snapshot state after restart, dropping a legacy collect-anchor field", () => {
     const settledEvents: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({
       now: () => 10_000,
@@ -5153,7 +5052,8 @@ describe("simulation runtime", () => {
             goldCost: 3
           }
         ],
-        tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }]
+        // Written by pre-removal snapshots; must load without error and be dropped.
+        ...({ tileYieldCollectedAtByTile: [{ tileKey: "10,10", collectedAt: 9_000 }] } as object)
       }
     });
 
@@ -5185,9 +5085,8 @@ describe("simulation runtime", () => {
         resolvesAt: 70_000
       })
     ]);
-    expect(recoveredState.tileYieldCollectedAtByTile).toEqual([
-      expect.objectContaining({ tileKey: "10,10", collectedAt: 9_000 })
-    ]);
+    expect(snapshot.initialState).not.toHaveProperty("tileYieldCollectedAtByTile");
+    expect(recoveredState).not.toHaveProperty("tileYieldCollectedAtByTile");
     expect(settledEvents.some((entry) => entry.delayMs === 60_000)).toBe(true);
   });
 
@@ -5403,7 +5302,8 @@ describe("simulation runtime", () => {
     expect(actor?.strategicResources?.CRYSTAL).toBe(100 - SIPHON_CRYSTAL_COST);
     const visible = runtime.exportTilesInAreaForPlayer("player-2", 1, 1, 1, { fullVisibility: true });
     const crystalTile = visible.find((tile) => tile.x === 1 && tile.y === 1);
-    expect(crystalTile?.yieldRate?.strategicPerDay?.CRYSTAL ?? 0).toBe(0);
+    // Tiles carry only a gold rate (strategic production is slot-based).
+    expect(crystalTile?.yieldRate ?? {}).not.toHaveProperty("strategicPerDay");
   });
 
   it("migrates siphon, purge, shard collection, and terrain shaping through authoritative tile deltas", async () => {
@@ -8235,14 +8135,10 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(refreshedTown?.goldPerMinute).not.toBe(0.5);
   });
 
-  it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
-    // Repro for the post-PR-353 bug: a town's cached client snapshot kept
-    // `yield: { gold: 2105 }` from when the town had a mintworks (cap ~2112), but
-    // after mintworks loss + an upkeep tick that emptied the live buffer to 0,
-    // FetchTileDetail omitted the `yield` field entirely (because gold was
-    // ≤ 0.0001), and the gateway's shallow snapshot merge preserved the stale
-    // 2105. Verify the delta now carries `yield: { gold: 0 }` so the client
-    // can authoritatively clear stale buffers even when the live value is zero.
+  // Regression: the server used to export a per-tile stored-yield buffer
+  // (`yield`) for yield-bearing tiles, and the client drew a pulsing "ready to
+  // collect" marker whenever it was non-zero. Tiles don't hold yield any more.
+  it("never exports a stored-yield buffer or cap for a yield-bearing town tile", () => {
     const nowMs = 1_000_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -8294,19 +8190,16 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
           { x: 7, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
           { x: 8, y: 5, terrain: "LAND" as const, resource: "FISH" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
         ],
-        // lastCollectedAt = now means zero elapsed time → live buffer = 0.
-        tileYieldCollectedAtByTile: [{ tileKey: "5,5", collectedAt: nowMs }],
         activeLocks: []
       }
     });
 
     const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 5, 5, 0, { fullVisibility: true });
     expect(centerDelta).toBeDefined();
-    // Tile is yield-bearing (gpm > 0), so yield must be present even though
-    // the buffer is 0 right now. If this assertion fails, the gateway's merge
-    // will preserve whatever stale value the client cached previously.
-    expect(centerDelta?.yield).toBeDefined();
-    expect(centerDelta?.yield?.gold ?? -1).toBe(0);
+    // Hours after the last income tick (no anchor at all), a gpm > 0 town
+    // would previously have carried a large positive `yield.gold`.
+    expect(centerDelta).not.toHaveProperty("yield");
+    expect(centerDelta).not.toHaveProperty("yieldCap");
   });
 
   it("applies connectedTownBonus to goldPerMinute and cap on owned-town tile detail (sim authority)", () => {

@@ -191,7 +191,7 @@
   list-style: none;
 }
 
-/* Icon column (building art, ability glyph or resource icon) beside the
+/* Icon column (building art, ability icon or resource icon) beside the
    row's text; the icon spans the main line and its detail line. */
 .manifest-gain {
   display: grid;
@@ -223,14 +223,12 @@
   pointer-events: none;
 }
 
-.manifest-gain__glyph {
-  font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "Apple Symbols", system-ui, sans-serif;
-}
-
+.manifest-gain__img,
 .manifest-gain__icon .resource-icon-img {
+  display: block;
   width: 24px;
   height: 24px;
-  vertical-align: middle;
+  object-fit: contain;
 }
 
 /* Building art: inline styles (client-build-menu-icons.ts) scale and offset

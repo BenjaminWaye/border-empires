@@ -118,7 +118,6 @@ export type RuntimeExportState = {
     connectedDockIds?: readonly string[];
     routeWaypointsByLinkedDockId?: Readonly<Record<string, ReadonlyArray<{ x: number; y: number }>>>;
   }>;
-  tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;
   terrainEpoch: number;
   /** Cumulative count of town growth ticks skipped due to insufficient food. */
@@ -255,7 +254,6 @@ export function buildRuntimeExportState(input: RuntimeExportInput): RuntimeExpor
       }))
       .sort((left, right) => left.commandId.localeCompare(right.commandId)),
     docks: input.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-    tileYieldCollectedAtByTile: sortedCollectionEpochs(input.tileYieldCollectedAtByTile, "tileKey"),
     playerYieldCollectionEpochByPlayer: sortedCollectionEpochs(input.playerYieldCollectionEpochByPlayer, "playerId"),
     terrainEpoch: input.terrainEpoch,
     growthStalledNoFoodCounter: input.growthStalledNoFoodCounter
@@ -291,7 +289,6 @@ export async function buildRuntimeExportStateAsync(
       }))
       .sort((left, right) => left.commandId.localeCompare(right.commandId)),
     docks: input.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
-    tileYieldCollectedAtByTile: sortedCollectionEpochs(input.tileYieldCollectedAtByTile, "tileKey"),
     playerYieldCollectionEpochByPlayer: sortedCollectionEpochs(input.playerYieldCollectionEpochByPlayer, "playerId"),
     terrainEpoch: input.terrainEpoch,
     growthStalledNoFoodCounter: input.growthStalledNoFoodCounter
@@ -451,6 +448,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        nonHostilePlayerIds: [...player.allies, ...(player.truces ?? [])],
         musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
         ownedTileCount,
         frontierTileCount,

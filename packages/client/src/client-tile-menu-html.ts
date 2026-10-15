@@ -13,6 +13,7 @@ import {
 } from "./client-tile-menu-building-category/client-tile-menu-building-category.js";
 import { statusWithHelpHtml } from "./client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 import { buildActionIconHtml, buildingCategoryIconHtml } from "./client-build-menu-icons/client-build-menu-icons.js";
+import { abilityIconHtml, abilityKeyForTileAction } from "./client-ability-icons/client-ability-icons.js";
 import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
 
 // Two-color versus bar shown on the "Battle in progress" / "Under attack"
@@ -143,6 +144,12 @@ const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => {
 `;
 };
 
+
+// Abilities cast from the Crystal tab show their drawn icon.
+const abilityActionIconHtml = (actionId: TileActionDef["id"]): string | undefined => {
+  const key = abilityKeyForTileAction(actionId);
+  return key ? abilityIconHtml(key, "tile-action-ability-icon") : undefined;
+};
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id.startsWith("redeploy_afc_module:")) return "⇣";
   if (id === "expand_here") return "⚐";
@@ -153,8 +160,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "settle_connected_frontier") return "⌂+";
   if (id === "launch_attack") return "⚔";
   if (id === "diplomacy") return "🤝";
-  if (id === "reveal_empire") return "◈";
-  if (id === "reveal_empire_stats") return "◌";
   if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
   if (id === "build_palisade") return "🪵";
@@ -213,17 +218,9 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_astral_dock") return "✶";
   if (id === "build_census_directorate") return "◈";
   if (id === "build_titanium_levy") return "⬢";
-  if (id === "retort_recast_food") return "⚗";
-  if (id === "retort_recast_titanium") return "⚗";
-  if (id === "retort_recast_crystal") return "⚗";
-  if (id === "retort_recast_umbrite") return "⚗";
-  if (id === "aegis_lock") return "⬢";
   if (id === "imperial_exchange_levy") return "¤";
   if (id === "sovereign_siege_engine_strike") return "✹";
   if (id === "sky_dock_bombard") return "✹";
-  if (id === "aether_emp") return "↯";
-  if (id === "city_overclock") return "⚙";
-  if (id === "astral_dock_launch") return "☄";
   if (id === "build_resonance_grid") return "◌";
   if (id === "build_ministry_hall") return "⌘";
   if (id === "grow_settlement_to_town") return "⬆";
@@ -232,11 +229,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "grow_great_city_to_monumental_city") return "⬆";
   if (id === "remove_structure") return "⌫";
   if (id === "abandon_territory") return "✕";
-  if (id === "aether_wall") return "║";
-  if (id === "aether_bridge") return "≈";
-  if (id === "siphon_tile") return "☍";
-  if (id === "create_mountain") return "⛰";
-  if (id === "remove_mountain") return "⌵";
   return "⛺";
 };
 
@@ -254,7 +246,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 export const tileActionButtonHtml = (action: TileActionDef): string => `${tileActionButtonOnlyHtml(action)}${action.autoSettleOption ? autoSettleOptionHtml(action.autoSettleOption) : ""}`;
 
 const tileActionButtonOnlyHtml = (action: TileActionDef): string => `<button class="tile-action-btn${action.recommended ? " is-recommended" : ""}" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
-          <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
+          <span class="tile-action-icon">${buildActionIconHtml(action.id) ?? abilityActionIconHtml(action.id) ?? actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}${action.recommended ? '<span class="tile-action-recommended-badge">★ Recommended</span>' : ""}</span>
             ${action.detail ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail}</span>` : ""}

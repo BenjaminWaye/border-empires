@@ -79,7 +79,6 @@ describe("drawMiniMap content-layer recompute throttle", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
   };
@@ -185,7 +184,6 @@ describe("drawMiniMap waystation marker", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
     return contentCtx;
@@ -248,7 +246,6 @@ describe("drawMiniMap waystation marker", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
 
@@ -307,7 +304,6 @@ describe("drawMiniMap caller write-back contract", () => {
       tileVisibilityStateAt: () => "visible",
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
       replayCurrentEvent: () => undefined
     });
   };

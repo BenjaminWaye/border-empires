@@ -8,7 +8,17 @@ import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import type { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { SimulationClientEvent } from "../sim-client/sim-client.js";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { TILE_OVERLAY_WIRE_FIELDS, type PlayerSubscriptionSnapshot, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
+
+// An overlay field present but undefined is an explicit clear; JSON drops
+// undefined, so it is sent as "" (same convention as townJson above).
+const overlayClearSignals = (tileDelta: TileOverlayJsonFields): TileOverlayJsonFields => {
+  const out: TileOverlayJsonFields = {};
+  for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {
+    if (camel in tileDelta && tileDelta[camel] === undefined) out[camel] = "";
+  }
+  return out;
+};
 
 export const jsonSafeTileDeltaBatch = (
   tileDeltas: Array<
@@ -25,19 +35,7 @@ export const jsonSafeTileDeltaBatch = (
     ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
     ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
     ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
-    ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
-    ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
-    ...("siegeBatteryJson" in tileDelta && tileDelta.siegeBatteryJson === undefined ? { siegeBatteryJson: "" } : {}),
-    ...("economicStructureJson" in tileDelta && tileDelta.economicStructureJson === undefined
-      ? { economicStructureJson: "" }
-      : {}),
-    ...("sabotageJson" in tileDelta && tileDelta.sabotageJson === undefined ? { sabotageJson: "" } : {}),
-    ...("shardSiteJson" in tileDelta && tileDelta.shardSiteJson === undefined ? { shardSiteJson: "" } : {}),
-    ...("naturalWonderJson" in tileDelta && tileDelta.naturalWonderJson === undefined ? { naturalWonderJson: "" } : {}),
-    ...("watchtowerJson" in tileDelta && tileDelta.watchtowerJson === undefined ? { watchtowerJson: "" } : {}),
-    ...("waystationJson" in tileDelta && tileDelta.waystationJson === undefined ? { waystationJson: "" } : {}),
-    ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
-    ...("afcJson" in tileDelta && tileDelta.afcJson === undefined ? { afcJson: "" } : {}),
+    ...overlayClearSignals(tileDelta),
     ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
   }));
 

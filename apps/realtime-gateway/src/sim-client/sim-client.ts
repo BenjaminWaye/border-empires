@@ -461,7 +461,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       playerId: event.player_id
     };
   }
-  // Internal-only simulation events (e.g. TILE_YIELD_ANCHOR_UPDATED) reach the gateway over the same gRPC stream but have no client-facing payload — falling through to COMMAND_REJECTED made every accrual-time anchor update appear as an empty-code, empty-message client ERROR.
+  // Internal-only simulation events (e.g. SETTLEMENT_STARTED, or retired types replayed from an old event log) reach the gateway over the same gRPC stream but have no client-facing payload — falling through to COMMAND_REJECTED made every accrual-time anchor update appear as an empty-code, empty-message client ERROR.
   return undefined;
 };
 

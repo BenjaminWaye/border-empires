@@ -12,21 +12,21 @@ describe("structureModifiersFor", () => {
 
   it("falls back to a representative per-copy rate for Mintworks with no tile context", () => {
     const modifiers = structureModifiersFor("MINTWORKS");
-    const stacked = modifiers.find((m) => m.statLabel === "Gold production");
-    expect(stacked?.valueText).toBe("+10% town gold production per Mintworks");
+    const stacked = modifiers.find((m) => m.statLabel === "Coin production");
+    expect(stacked?.valueText).toBe("+10% town coin production per Mintworks");
     expect(modifiers.every((m) => m.isTownWide === true)).toBe(true);
   });
 
   it("derives the real stacked percentage for Mintworks when tile context is supplied", () => {
     const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 3, clearingHouseActive: false } } });
-    const stacked = modifiers.find((m) => m.statLabel === "Gold production");
-    expect(stacked?.valueText).toBe("+30% town gold production");
+    const stacked = modifiers.find((m) => m.statLabel === "Coin production");
+    expect(stacked?.valueText).toBe("+30% town coin production");
   });
 
   it("boosts the stacked Mintworks percentage when a Clearing House is active", () => {
     const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 2, clearingHouseActive: true } } });
-    const stacked = modifiers.find((m) => m.statLabel === "Gold production");
-    expect(stacked?.valueText).toBe("+70% town gold production");
+    const stacked = modifiers.find((m) => m.statLabel === "Coin production");
+    expect(stacked?.valueText).toBe("+70% town coin production");
   });
 
   it("marks a sample of support-tile buildings as town-wide and tile-local buildings as not", () => {
@@ -41,7 +41,7 @@ describe("structureModifiersFor", () => {
     const ancillaryDepot = structureModifiersFor("ANCILLARY_DEPOT");
     expect(ancillaryDepot[0]?.rawValue).toBe(150);
     const mintworks = structureModifiersFor("MINTWORKS");
-    const stackedPercent = mintworks.find((m) => m.statLabel === "Gold production");
+    const stackedPercent = mintworks.find((m) => m.statLabel === "Coin production");
     expect(stackedPercent?.rawValue).toBeUndefined();
   });
 
@@ -63,7 +63,7 @@ describe("structureModifiersFor", () => {
 
   it("carries an already-aggregated rawValue for Mintworks gold production once a live count is supplied", () => {
     const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 3, clearingHouseActive: false } } });
-    const stacked = modifiers.find((m) => m.statLabel === "Gold production");
+    const stacked = modifiers.find((m) => m.statLabel === "Coin production");
     expect(stacked?.rawValue).toBe(30);
     expect(stacked?.unit).toBe("percent");
     expect(stacked?.alreadyAggregated).toBe(true);
@@ -102,13 +102,13 @@ describe("structureModifiersFor", () => {
     // is the flat per-instance gold/day figure, matching the payout named in
     // valueText.
     expect(structureModifiersFor("AETHER_CONDENSER", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+10/day", tone: "positive", isTownWide: true, rawValue: 10 });
+      .toContainEqual({ statLabel: "Sell Off coin", valueText: "+10/day", tone: "positive", isTownWide: true, rawValue: 10 });
     expect(structureModifiersFor("HIGH_YIELD_AETHER_CONDENSER", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+15/day", tone: "positive", isTownWide: true, rawValue: 15 });
+      .toContainEqual({ statLabel: "Sell Off coin", valueText: "+15/day", tone: "positive", isTownWide: true, rawValue: 15 });
     expect(structureModifiersFor("TITANIUM_WORKS", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
+      .toContainEqual({ statLabel: "Sell Off coin", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
     expect(structureModifiersFor("UMBRITE_WORKS", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
+      .toContainEqual({ statLabel: "Sell Off coin", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
   });
 
   it("defaults to showing the Refine-mode slot modifier when no converterMode is supplied (back-compat)", () => {

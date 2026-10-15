@@ -192,7 +192,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("backfills yield rate and cap for owned settled tiles when the snapshot tile is thin", () => {
+  it("backfills yield rate for owned settled tiles when the snapshot tile is thin", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       tiles: [
@@ -228,8 +228,7 @@ describe("buildSnapshotTileDetail", () => {
       expect.objectContaining({
         detailLevel: "full",
         // §6.1/§24.6: SETTLEMENT_BASE_GOLD_PER_MIN 2/288 -> 0.0069, not the old flat 1.
-        yieldRate: expect.objectContaining({ goldPerMinute: 0.0069 }),
-        yieldCap: expect.objectContaining({ gold: expect.any(Number) })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0069 })
       })
     );
   });
@@ -405,74 +404,6 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("recomputes positive population growth for a fed town when isFed is missing from a thin town record", () => {
-    const snapshot: PlayerSubscriptionSnapshot = {
-      playerId: "player-1",
-      player: {
-        id: "player-1",
-        gold: 8603,
-        manpower: 1950,
-        manpowerCap: 1950,
-        incomePerMinute: 14.5,
-        strategicResources: { FOOD: 321.5, TITANIUM: 81.5, CRYSTAL: 189.4, UMBRITE: 0, SHARD: 0 },
-        strategicProductionPerMinute: { FOOD: 0.12, TITANIUM: 0.17, CRYSTAL: 0.4, UMBRITE: 0, SHARD: 0 },
-        upkeepPerMinute: { food: 0.1, titanium: 0, umbrite: 0, crystal: 0,  gold: 0.04 },
-        upkeepLastTick: { foodCoverage: 1 },
-        developmentProcessLimit: 3,
-        activeDevelopmentProcessCount: 0,
-        pendingSettlements: [],
-        techIds: [],
-        domainIds: []
-      },
-      tiles: [
-        {
-          x: 29,
-          y: 251,
-          terrain: "LAND",
-          ownerId: "player-1",
-          ownershipState: "SETTLED",
-          // isFed omitted (thin record) -- falls back to global food coverage.
-          townJson: JSON.stringify({
-            type: "FARMING",
-            populationTier: "TOWN",
-            supportCurrent: 5,
-            supportMax: 5,
-            goldPerMinute: 0,
-            cap: 0,
-            population: 19_699,
-            maxPopulation: 100_000,
-            populationGrowthPerMinute: 0,
-            connectedTownCount: 0,
-            connectedTownBonus: 0,
-            foodUpkeepPerMinute: 0.1,
-            baseGoldPerMinute: 2
-          }),
-          townType: "FARMING",
-          townPopulationTier: "TOWN"
-        },
-        { x: 28, y: 250, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 29, y: 250, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 30, y: 250, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 28, y: 251, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 30, y: 251, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
-      ]
-    };
-
-    const detail = buildSnapshotTileDetail(snapshot, "player-1", 29, 251);
-    expect(detail?.townJson).toBeTypeOf("string");
-    const town = JSON.parse(String(detail?.townJson)) as {
-      isFed: boolean;
-      populationGrowthPerMinute: number;
-      growthModifiers?: Array<{ label: string; deltaPerMinute: number }>;
-    };
-
-    expect(town.isFed).toBe(true);
-    expect(town.populationGrowthPerMinute).toBeGreaterThan(0);
-    expect(town.growthModifiers).toEqual([
-      { label: "Long time peace", deltaPerMinute: town.populationGrowthPerMinute }
-    ]);
-  });
-
   it("preserves the sim's authoritative goldPerMinute and cap (does not silently re-derive with the stripped-down local formula)", () => {
     // Repro for the prod bug where the inspector showed "Production: 2.00/m"
     // with cap 960 on a town that actually had 3 connected towns (+120%): the
@@ -525,8 +456,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(town?.cap).toBeCloseTo(2112, 0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-        yieldCap: expect.objectContaining({ gold: 2112 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
       })
     );
   });
@@ -594,18 +524,14 @@ describe("buildSnapshotTileDetail", () => {
     );
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 }),
-        yieldCap: expect.objectContaining({ gold: 2112 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
       })
     );
   });
 
   it("does not backfill cap=0 for an unfed TOWN when the snapshot also lacks cap", () => {
     // Unfed TOWN-tier with no goldPerMinute / cap on the snapshot: gpm correctly
-    // falls back to 0, but cap must stay omitted so buildTileYieldView's default
-    // TILE_YIELD_CAP_GOLD (=24) takes over for the stored-yield buffer ceiling.
-    // Hard-coding cap=0 here would clobber that fallback and break offline yield
-    // accumulation once the town becomes fed again.
+    // falls back to 0, and cap stays omitted rather than being hard-coded to 0.
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       tiles: [
@@ -637,14 +563,9 @@ describe("buildSnapshotTileDetail", () => {
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 50, 50);
     const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as Record<string, unknown>) : undefined;
     expect(town?.goldPerMinute).toBe(0);
-    // cap must NOT be present on town — otherwise the buffer cap is clobbered to 0.
     expect(town && "cap" in town).toBe(false);
-    // yieldCap should reflect the default TILE_YIELD_CAP_GOLD (24), not 0.
-    expect(detail).toEqual(
-      expect.objectContaining({
-        yieldCap: expect.objectContaining({ gold: 24 })
-      })
-    );
+    // Tiles don't hold yield any more — no stored-yield cap is sent.
+    expect(detail && "yieldCap" in detail).toBe(false);
   });
 
   it("backfills goldPerMinute when the snapshot's townJson lacks the field (prod-zero regression)", () => {
@@ -698,8 +619,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(town?.cap).toBeCloseTo(2112 / 288, 0);
     expect(detail).toEqual(
       expect.objectContaining({
-        yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 }),
-        yieldCap: expect.objectContaining({ gold: 7.333 })
+        yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 })
       })
     );
   });
@@ -745,13 +665,13 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(town?.townModifierTotals).toBeDefined();
     // 3 active Mintworks, grouped under one heading: flat +1 gold/day each
-    // (Gold: +3) plus the nonlinear stacked gold-production percentage
-    // (Gold production: +30%).
+    // (Coin: +3) plus the nonlinear stacked gold-production percentage
+    // (Coin production: +30%).
     expect(town?.townModifierTotals).toContainEqual({
       heading: "3 Mintworks",
       modifiers: [
-        { statLabel: "Gold", valueText: "+3", tone: "positive" },
-        { statLabel: "Gold production", valueText: "+30%", tone: "positive" }
+        { statLabel: "Coin", valueText: "+3", tone: "positive" },
+        { statLabel: "Coin production", valueText: "+30%", tone: "positive" }
       ]
     });
     // 1 Ancillary Depot, its own heading: flat manpower cap bonus.

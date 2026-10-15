@@ -185,8 +185,8 @@ export class TileDeltaStringifyCache {
   /**
    * Build a sparse SimulationTileWireDelta containing only fields whose
    * substructure ref or scalar value differs from the last-emitted state.
-   * Volatile fields (yield/yieldRate/yieldCap) are always included when
-   * present since they change every tick and are small.
+   * The volatile yieldRate field is always included when present since it
+   * is small and derived from economy state the substructure refs miss.
    *
    * Returns the full delta when there is no prior emission for this tile.
    */
@@ -285,11 +285,9 @@ export class TileDeltaStringifyCache {
     if (tile.town?.name !== lastTown?.name) { (delta as Record<string, unknown>).townName = tile.town?.name; hasFieldChanges = true; }
     if (tile.town?.populationTier !== lastTown?.populationTier) { (delta as Record<string, unknown>).townPopulationTier = tile.town?.populationTier; hasFieldChanges = true; }
 
-    if (fullDelta.yield) delta.yield = fullDelta.yield;
     if (fullDelta.yieldRate) delta.yieldRate = fullDelta.yieldRate;
-    if (fullDelta.yieldCap) delta.yieldCap = fullDelta.yieldCap;
 
-    return hasFieldChanges || delta.yield !== undefined || delta.yieldRate !== undefined || delta.yieldCap !== undefined
+    return hasFieldChanges || delta.yieldRate !== undefined
       ? delta
       : fullDelta;
   }

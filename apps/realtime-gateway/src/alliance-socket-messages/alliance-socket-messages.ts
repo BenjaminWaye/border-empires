@@ -4,6 +4,8 @@ import {
   readIncomingAllianceRequestAlert,
   type EmailAlertOutcome
 } from "../email-alerts/email-alerts.js";
+import { extractAllianceRequestFromPayloads } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
+import type { SocialAllianceRequest } from "../social-state/social-state.js";
 
 type SocialAllianceActionResult =
   | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
@@ -18,6 +20,7 @@ export type AllianceSocketMessageDeps = {
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
   syncAllianceToSimulation: (input: { playerId: string; targetPlayerId: string; allied: boolean }) => Promise<boolean>;
+  maybeAutoRespondToSeededAiAlliance: (request: SocialAllianceRequest | undefined) => Promise<void>;
   sendGameplayEmailAlert: (
     kind: "alliance_request" | "alliance_break",
     recipientPlayerId: string,
@@ -62,6 +65,7 @@ export const handleAllianceSocketMessage = async (
       );
     }
     deps.fanoutPlayerPayloads(result.payloadsByPlayerId);
+    await deps.maybeAutoRespondToSeededAiAlliance(extractAllianceRequestFromPayloads(result.payloadsByPlayerId, playerId));
     return true;
   }
   if (message.type === "ALLIANCE_ACCEPT") {

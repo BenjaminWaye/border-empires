@@ -190,6 +190,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
+          ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -226,6 +227,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
           ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
+          ...(input.nonHostilePlayerIds ? { nonHostilePlayerIds: input.nonHostilePlayerIds } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -389,10 +391,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     sessionPrefix: input.sessionPrefix,
     diagnostic: diagnosticBase,
     frontierAnalysis,
-    tilesByKey: input.tilesByKey,
     needsFood,
-    needsEconomy,
-    ...(input.preplanProgressState ? { preplanProgressState: input.preplanProgressState } : {})
+    needsEconomy
   };
   const summarizeStartedAt = Date.now();
   const preferredEnemyAttack = frontierAnalysis.enemyAttack ?? (frontierAnalysis.frontierEnemyPlayerTargetCount === 0 ? frontierAnalysis.attack : undefined);

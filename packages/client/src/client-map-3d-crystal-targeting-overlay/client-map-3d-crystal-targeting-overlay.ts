@@ -29,7 +29,6 @@ type SyncCrystalLineDeps = {
   camX: number;
   camY: number;
   cornerYAt: (x: number, y: number) => number;
-  tileSurfaceY: (x: number, y: number) => number;
   toroidDelta: (center: number, point: number, worldSize: number) => number;
 };
 

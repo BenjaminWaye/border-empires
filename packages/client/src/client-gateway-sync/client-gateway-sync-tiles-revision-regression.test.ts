@@ -30,16 +30,16 @@ const createDeps = () => {
 };
 
 // Regression for a live bug: TILE_DELTA_BATCH streams continuously as the
-// server's economy ticks (yield/upkeep/history recompute on essentially
+// server's economy ticks (yieldRate/upkeep/history recompute on essentially
 // every step) for every tile the player can see, and applyGatewayTileUpdate
 // bumped tilesRevision on every single one of those deltas unconditionally
-// -- even though neither map renderer reads yield/yieldRate/yieldCap/
+// -- even though neither map renderer reads yieldRate/
 // upkeepEntries/history at all. tilesRevision is the only signal the
 // true-3D renderer's rebuild loop watches, so this forced a full terrain +
 // water-surface rebuild almost continuously, visible as the sea's wave/
 // lighting animation restarting over and over with no player action.
 describe("client gateway sync tiles revision regression", () => {
-  it("does not bump tilesRevision for an economy-only delta (yield/upkeep/history), but does for a visually-relevant one", () => {
+  it("does not bump tilesRevision for an economy-only delta (yieldRate/upkeep/history), but does for a visually-relevant one", () => {
     const deps = createDeps();
     deps.state.tiles.set("5,5", {
       x: 5,

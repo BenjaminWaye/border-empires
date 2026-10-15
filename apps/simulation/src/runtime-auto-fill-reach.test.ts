@@ -170,19 +170,16 @@ describe("applyAutoFill reach gating", () => {
     const isInReach = (x: number, y: number): boolean => !(x === 2 && y === 1);
 
     const replacedTiles = new Map<string, DomainTileState>();
-    const anchorBatches: string[][] = [];
     const settled = applyAutoFill({
       capturedTile,
       ownerId: "player-1",
       tiles,
       replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach,
-      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
+      isInReach
     });
 
     expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
     expect(replacedTiles.has(simulationTileKey(2, 1))).toBe(false);
-    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
   });
 
   it("still leaves the owner's own FRONTIER tile unclaimed if it alone falls outside reach", () => {
@@ -211,7 +208,7 @@ describe("applyAutoFill reach gating", () => {
     expect(replacedTiles.size).toBe(0);
   });
 
-  it("fills nothing and skips the yield-anchor callback when the whole region is out of reach", () => {
+  it("fills nothing when the whole region is out of reach", () => {
     const capturedTile = ownedTile(1, 2, "player-1");
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -221,17 +218,14 @@ describe("applyAutoFill reach gating", () => {
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
 
-    let anchorsCalled = false;
     const settled = applyAutoFill({
       capturedTile,
       ownerId: "player-1",
       tiles,
       replaceTileState: () => { throw new Error("should not replace any tile"); },
-      isInReach: () => false,
-      recordYieldAnchors: () => { anchorsCalled = true; }
+      isInReach: () => false
     });
 
     expect(settled).toEqual([]);
-    expect(anchorsCalled).toBe(false);
   });
 });

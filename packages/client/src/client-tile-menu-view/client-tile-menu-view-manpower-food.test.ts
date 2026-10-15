@@ -72,6 +72,48 @@ describe("menuOverviewForTile — town stat grid", () => {
     expect(html).toContain("+0.42/min base regen");
   });
 
+  // Regression test: a summary-level tile delta can carry isFed (so the grid
+  // renders) before the growth rate arrives. The missing rate used to be
+  // read as 0 and painted "0.00/m — City growth paused" until tile detail
+  // landed — it must show a loading line instead of claiming a pause.
+  it("shows a loading growth line instead of 'growth paused' while the growth rate is still in flight", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 303,
+        y: 302,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Elenbloom Sanctum",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 8,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 23_052,
+          maxPopulation: 100_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMintworks: false,
+          mintworksActive: false,
+          hasIncubationEngine: false,
+          incubationEngineActive: false
+        },
+        yieldRate: { goldPerMinute: 3.8 }
+      },
+      { ...deps, populationPerMinuteLabel: () => "0.00/m", townNextGrowthEtaLabel: () => "City growth paused" }
+    );
+
+    const html = statGridHtml(lines);
+    expect(html).toContain("Growth rate loading…");
+    expect(html).not.toContain("growth paused");
+    expect(html).not.toContain("0.00/m");
+  });
+
   // Regression test: townFoodSlotDemandForTier("TOWN") is 4 — the town's
   // whole FOOD demand is satisfied (fed) or not (unfed), never partial, so
   // this must read as 4/4 or 0/4, never a fractional in-between.

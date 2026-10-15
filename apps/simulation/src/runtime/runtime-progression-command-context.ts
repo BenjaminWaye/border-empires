@@ -144,7 +144,6 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
         deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `tech-reveal:${category}:${playerId}`, playerId, tileDeltas });
       }
     },
-    maintainAutoSettleEligibility: (tileKey, previous, next) => deps.maintainAutoSettleEligibility(tileKey, previous, next),
     sweepFrontierResourceTechUnlock: (playerId, revealedCategory) => deps.sweepFrontierResourceTechUnlock(playerId, revealedCategory)
   };
 }

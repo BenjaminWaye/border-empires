@@ -68,7 +68,7 @@ export const buildCurrentSeasonSummary = ({
 }): CurrentSeasonSummary => {
   const worldStatus =
     providedWorldStatus ??
-    buildWorldStatusSnapshot("", runtimeState, undefined, {
+    buildWorldStatusSnapshot("", runtimeState, {
       ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {}),
       ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
     });
