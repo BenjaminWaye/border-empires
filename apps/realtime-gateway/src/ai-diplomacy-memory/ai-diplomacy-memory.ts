@@ -30,7 +30,6 @@ type PairMemory = {
   lastCombatAt: number | undefined;
   /** When the AI last paid this player for peace; it won't again until they fight anew. */
   aiPaidForPeaceAt: number | undefined;
-  touchedAt: number;
 };
 
 export type DiplomacyMemoryView = {
@@ -61,8 +60,7 @@ const empty = (now: number): PairMemory => ({
   goodwillCoin: { value: 0, at: now },
   lastPlayerAttackAt: undefined,
   lastCombatAt: undefined,
-  aiPaidForPeaceAt: undefined,
-  touchedAt: now
+  aiPaidForPeaceAt: undefined
 });
 
 export type CombatObservation = {
@@ -85,26 +83,22 @@ export type AiDiplomacyMemory = {
 export const createAiDiplomacyMemory = (deps: { now: () => number; isAi: (playerId: string) => boolean }): AiDiplomacyMemory => {
   const pairs = new Map<string, PairMemory>();
   const keyOf = (aiPlayerId: string, playerId: string): string => `${aiPlayerId}|${playerId}`;
+  // LRU by Map insertion order: a touched pair is moved to the end, so the
+  // first key is always the least recently touched (O(1) eviction).
   const touch = (aiPlayerId: string, playerId: string): PairMemory => {
     const now = deps.now();
     const key = keyOf(aiPlayerId, playerId);
     let entry = pairs.get(key);
-    if (!entry) {
+    if (entry) {
+      pairs.delete(key);
+    } else {
       if (pairs.size >= MAX_DIPLOMACY_MEMORY_PAIRS) {
-        let oldestKey: string | undefined;
-        let oldestAt = Number.POSITIVE_INFINITY;
-        for (const [candidateKey, candidate] of pairs) {
-          if (candidate.touchedAt < oldestAt) {
-            oldestAt = candidate.touchedAt;
-            oldestKey = candidateKey;
-          }
-        }
+        const oldestKey = pairs.keys().next().value;
         if (oldestKey !== undefined) pairs.delete(oldestKey);
       }
       entry = empty(now);
-      pairs.set(key, entry);
     }
-    entry.touchedAt = now;
+    pairs.set(key, entry);
     return entry;
   };
 

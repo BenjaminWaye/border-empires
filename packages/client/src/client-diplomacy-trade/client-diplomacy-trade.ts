@@ -23,7 +23,13 @@ type OpenScreen = {
   overlay: HTMLElement;
   deps: DiplomacyTradeDeps;
   previousFocus: HTMLElement | undefined;
+  /** The holdings last rendered, and the watch that re-renders when they change. */
+  shownHoldings: DiplomacyGoods;
+  holdingsWatch: ReturnType<typeof setInterval> | undefined;
 };
+
+/** How often an open screen checks the player's coin/Shards (income, spending elsewhere). */
+export const TRADE_HOLDINGS_CHECK_MS = 1_000;
 
 let open: OpenScreen | undefined;
 // The player's own outgoing re-offer cooldowns, from TRUCE_UPDATE (server-bounded).
@@ -68,6 +74,7 @@ const readTerms = (overlay: HTMLElement): DiplomacyTerms => ({
 const render = (screen: OpenScreen): void => {
   const { overlay, selection, reply, targetName } = screen;
   const own = screen.deps.ownHoldings();
+  screen.shownHoldings = own;
   const stanceEl = overlay.querySelector<HTMLElement>("[data-trade-stance]");
   if (stanceEl) {
     stanceEl.textContent =
@@ -111,8 +118,9 @@ const render = (screen: OpenScreen): void => {
 
 export const closeDiplomacyTradeScreen = (): void => {
   if (!open) return;
-  const { overlay, previousFocus } = open;
+  const { overlay, previousFocus, holdingsWatch } = open;
   open = undefined;
+  if (holdingsWatch !== undefined) clearInterval(holdingsWatch);
   document.removeEventListener("keydown", onKey);
   overlay.remove();
   if (previousFocus?.isConnected) previousFocus.focus();
@@ -174,9 +182,16 @@ export const openDiplomacyTradeScreen = (
     reply: undefined,
     overlay,
     deps,
-    previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined
+    previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
+    shownHoldings: deps.ownHoldings(),
+    holdingsWatch: undefined
   };
   open = screen;
+  // Keep "You have", the verdict and the top-up honest as coin comes in or is spent elsewhere.
+  screen.holdingsWatch = setInterval(() => {
+    const own = deps.ownHoldings();
+    if (own.gold !== screen.shownHoldings.gold || own.shard !== screen.shownHoldings.shard) render(screen);
+  }, TRADE_HOLDINGS_CHECK_MS);
   for (const button of Array.from(overlay.querySelectorAll<HTMLButtonElement>("[data-trade-kind]"))) {
     button.addEventListener("click", () => {
       const [kind, hours] = (button.dataset.tradeKind ?? "").split(":");
@@ -216,7 +231,7 @@ export const receiveDiplomacyStance = (reply: DiplomacyStanceReply): void => {
   render(open);
 };
 
-/** Re-render the open screen (e.g. after the player's coin changes). */
+/** Re-render the open screen (e.g. after offer cooldowns change). */
 export const refreshDiplomacyTradeScreen = (): void => {
   if (open) render(open);
 };
