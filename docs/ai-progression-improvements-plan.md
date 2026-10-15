@@ -168,8 +168,9 @@ results feed strategy. No claim of complete ability-catalog coverage is made.
 
 Diplomacy: one AI every 15 seconds, at most one 12h truce or shared-threat alliance
 offer. Existing durable requests, cooldowns and responder own the lifecycle.
-AI-to-AI acceptance synchronizes the simulation before accepted fanout. Human
-claim and gateway shutdown races are covered. No voluntary truce breaking or 24h
+AI-to-AI acceptance synchronizes the simulation before accepted fanout. The
+first evaluation waits for its 15-second interval so it cannot open subscriptions
+during gateway/login startup. Human claim and gateway shutdown races are covered. No voluntary truce breaking or 24h
 proactive offers are enabled. Decline cooldowns now also work without a persistence
 sink (previous optional chaining skipped the in-memory update).
 
