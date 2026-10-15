@@ -167,8 +167,8 @@ export const crystalAbilityInfoForKey = (
     return {
       title: "Siphon",
       detail:
-        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, the owner switches on an Aether Tower covering the tiles, your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
-      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not already covered by its owner's own Aether Tower.",
+        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, an Aether Tower of the owner's covering the tiles is back online (switched on, off cooldown and powered), your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
+      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not currently shielded by its owner's own Aether Tower (a tower on cooldown or unpowered isn't shielding).",
       costBits: [],
       cooldownLabel: `${deps.formatCooldownShort(SIPHON_COOLDOWN_MS)} after it ends`,
       durationLabel: "Until cancelled"

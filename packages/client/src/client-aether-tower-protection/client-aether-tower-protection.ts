@@ -9,12 +9,14 @@ import type { Tile } from "../client-types.js";
 //
 // Paints the tiles an Aether Tower currently shields from hostile Aether
 // abilities, using the same rule the simulation enforces
-// (isTileShieldedByEnemyObservatory, runtime-ability-helpers.ts): a tower
-// shields only tiles its OWNER holds, within the fixed
-// OBSERVATORY_PROTECTION_RADIUS (tech range bonuses widen casting reach, not
-// the shield), and only while it is active and off its own cooldown. Towers
-// the client can't currently see (fogged) are left out -- there is no
-// omniscient prediction here, only what's on the client's own tile map.
+// (apps/simulation/src/aether-shield/aether-shield.ts): a tower shields only
+// tiles its OWNER holds, within the fixed OBSERVATORY_PROTECTION_RADIUS
+// (tech range bonuses widen casting reach, not the shield), and only while
+// it is active, off its own cooldown and not dormant. Other players' towers
+// come from the server's AETHER_SHIELDS push (see aetherProtectionField), so
+// a tower hidden in fog still tints whatever of its land you can see. Targeting
+// (hostileAetherProtectionAt) reads the same field, so what's tinted red is
+// exactly what greys out.
 //
 // Shown only while it is a relevant aid, so it doesn't permanently wash the
 // map: while an Aether Tower is selected, while the tile menu's Aether
@@ -71,21 +73,41 @@ const activeAetherTowers = (tiles: ReadonlyMap<string, Tile>, tilesRevision: num
   return towers;
 };
 
-type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | "me" | "allies" | "dormantStructures">;
+type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | "me" | "allies" | "dormantStructures" | "aetherShieldTowers">;
 
-/** Every currently-known tower that is shielding its owner's tiles right now, grouped by owner. */
+/**
+ * Every tower shielding its owner's tiles right now, grouped by owner. Your
+ * own towers come from your tile map, which sees them exactly (dormancy
+ * included). Everyone else's come from the server's AETHER_SHIELDS push once
+ * it has arrived (client-aether-shield-state.ts) -- it knows towers hidden
+ * in fog and enemy dormancy -- and from visible towers before that.
+ */
 export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number): AetherProtectionField => {
   const dormantKeys = new Set(state.dormantStructures.map((entry) => entry.key));
+  const serverTowers = state.aetherShieldTowers;
   const field = new Map<string, ProtectingAetherTower[]>();
+  const add = (x: number, y: number, ownerId: string): void => {
+    const relation: AetherProtectionRelation = ownerId === state.me || state.allies.includes(ownerId) ? "friendly" : "enemy";
+    const owned = field.get(ownerId);
+    const entry = { x, y, ownerId, relation };
+    if (owned) owned.push(entry);
+    else field.set(ownerId, [entry]);
+  };
   for (const tower of activeAetherTowers(state.tiles, state.tilesRevision)) {
+    if (serverTowers && tower.ownerId !== state.me) continue;
     if (!observatoryProtectionActive(tower, nowMs)) continue;
     // dormantStructures only ever lists the local player's own structures.
     if (dormantKeys.has(`${tower.x},${tower.y}:observatory`)) continue;
-    const relation: AetherProtectionRelation = tower.ownerId === state.me || state.allies.includes(tower.ownerId) ? "friendly" : "enemy";
-    const owned = field.get(tower.ownerId);
-    const entry = { x: tower.x, y: tower.y, ownerId: tower.ownerId, relation };
-    if (owned) owned.push(entry);
-    else field.set(tower.ownerId, [entry]);
+    add(tower.x, tower.y, tower.ownerId);
+  }
+  for (const tower of serverTowers ?? []) {
+    if (tower.ownerId === state.me) continue;
+    // A listed tower in plain view that is visibly not shielding any more
+    // (just cast and cooling down, switched off, lost) drops out at once
+    // instead of waiting for the next push.
+    const seen = state.tiles.get(`${tower.x},${tower.y}`);
+    if (seen && !seen.fogged && !(seen.ownerId === tower.ownerId && seen.observatory?.status === "active" && observatoryProtectionActive(seen.observatory, nowMs))) continue;
+    add(tower.x, tower.y, tower.ownerId);
   }
   return field;
 };
@@ -109,6 +131,12 @@ export const tileAetherProtection = (
     if (chebyshevDistanceWrapped(tower.x, tower.y, tile.x, tile.y) <= OBSERVATORY_PROTECTION_RADIUS) return tower;
   }
   return undefined;
+};
+
+/** The hostile tower (if any) blocking your Aether abilities on this tile -- what targeting greys out. */
+export const hostileAetherProtectionAt = (state: AetherProtectionFieldState, tile: Pick<Tile, "x" | "y" | "ownerId">, nowMs: number): ProtectingAetherTower | undefined => {
+  const protector = tileAetherProtection(tile, aetherProtectionField(state, nowMs));
+  return protector?.relation === "enemy" ? protector : undefined;
 };
 
 /** 2D fallback renderer's counterpart of the 3D tile wash. */

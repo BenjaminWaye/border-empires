@@ -27,7 +27,8 @@ const createState = (): TriggerState => ({
   tileActionMenu: { visible: false, x: 0, y: 0, mode: "single", bulkKeys: [], currentTileKey: "", activeTab: "overview", scrollTopByTab: {}, renderSignature: "" },
   tilesRevision: 0,
   allies: [],
-  dormantStructures: []
+  dormantStructures: [],
+  aetherShieldTowers: undefined
 });
 
 describe("3D map rebuild triggers", () => {

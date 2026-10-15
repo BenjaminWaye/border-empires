@@ -47,7 +47,7 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, type ProtectingAetherTower } from "../client-tile-action-support/client-tile-action-support.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -138,7 +138,7 @@ export type TileActionLogicDeps = {
   wrapY: (y: number) => number;
   terrainAt: typeof terrainAt;
   isTileOwnedByAlly: (tile: Tile) => boolean;
-  hostileObservatoryProtectingTile: (tile: Tile) => Tile | undefined;
+  hostileObservatoryProtectingTile: (tile: Tile) => ProtectingAetherTower | undefined;
   abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
   formatCooldownShort: (ms: number) => string;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;

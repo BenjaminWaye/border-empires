@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildAiOpponent, buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
-// Server-side counterpart of client-observatory-cooldown.ts's
-// hostileObservatoryProtectingTileAt: that client function only decides what
+// Server-side counterpart of the client's hostileAetherProtectionAt
+// (client-aether-tower-protection.ts): that client function only decides what
 // a well-behaved client greys out as targetable, so without a matching
 // server check a modified client (or any direct command) could ignore it.
 // AETHER_LANCE ("Aether Purge") must reject when the target is within an

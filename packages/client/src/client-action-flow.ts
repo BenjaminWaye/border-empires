@@ -790,7 +790,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const isTileOwnedByAlly = (tile: Tile): boolean => isTileOwnedByAllyFromModule(tile, state);
   const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number =>
     chebyshevDistanceClientFromModule(ax, ay, bx, by);
-  const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => hostileObservatoryProtectingTileFromModule(state, tile);
+  const hostileObservatoryProtectingTile = (tile: Tile): ReturnType<typeof hostileObservatoryProtectingTileFromModule> => hostileObservatoryProtectingTileFromModule(state, tile);
 
   const shouldResetFrontierActionStateForError = (errorCode: string): boolean => {
     if (!errorCode) return true;

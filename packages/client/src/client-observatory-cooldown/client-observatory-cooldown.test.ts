@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  hostileObservatoryProtectingTileAt,
   observatoryProtectionActive,
   readyOwnedObservatoryCooldownRemainingMs
 } from "./client-observatory-cooldown.js";
@@ -12,33 +11,6 @@ describe("client observatory cooldown helpers", () => {
   it("drops protection while an observatory cooldown is active", () => {
     expect(observatoryProtectionActive({ cooldownUntil: 200 }, 100)).toBe(false);
     expect(observatoryProtectionActive({ cooldownUntil: 200 }, 200)).toBe(true);
-  });
-
-  it("ignores cooling hostile observatories when checking protection", () => {
-    const target = { ...baseTile(20, 20), ownerId: "enemy" } as Tile;
-    const blocked = hostileObservatoryProtectingTileAt(
-      [
-        {
-          ...baseTile(22, 22),
-          ownerId: "enemy",
-          observatory: { ownerId: "enemy", status: "active", cooldownUntil: 400 }
-        } as Tile
-      ],
-      "me",
-      [],
-      target,
-      100
-    );
-
-    expect(blocked).toBeUndefined();
-  });
-
-  it("only protects the tower owner's own tiles, never unowned or third-party land", () => {
-    const enemyTower = { ...baseTile(22, 22), ownerId: "enemy", observatory: { ownerId: "enemy", status: "active" } } as Tile;
-    const protect = (target: Tile): Tile | undefined => hostileObservatoryProtectingTileAt([enemyTower], "me", [], target, 100);
-    expect(protect({ ...baseTile(20, 20), ownerId: "enemy" } as Tile)).toBe(enemyTower);
-    expect(protect(baseTile(20, 20))).toBeUndefined();
-    expect(protect({ ...baseTile(20, 20), ownerId: "third-party" } as Tile)).toBeUndefined();
   });
 
   it("returns the shortest remaining cooldown among owned observatories in range", () => {

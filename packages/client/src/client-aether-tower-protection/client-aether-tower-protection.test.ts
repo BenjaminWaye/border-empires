@@ -6,6 +6,7 @@ import {
   aetherProtectionColor,
   aetherProtectionField,
   aetherProtectionFieldKey,
+  hostileAetherProtectionAt,
   isAetherProtectionFieldShown,
   tileAetherProtection
 } from "./client-aether-tower-protection.js";
@@ -25,6 +26,7 @@ const fieldState = (tiles: Tile[], overrides: Partial<FieldState> = {}): FieldSt
   me: "me",
   allies: [],
   dormantStructures: [],
+  aetherShieldTowers: undefined,
   ...overrides
 });
 
@@ -129,5 +131,43 @@ describe("aetherProtectionField / tileAetherProtection", () => {
     (state.tiles as Map<string, Tile>).set("10,10", tower(10, 10, "enemy"));
     state.tilesRevision += 1;
     expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("10,10:enemy");
+  });
+});
+
+describe("server AETHER_SHIELDS list", () => {
+  it("shields enemy land from a tower the client can't see at all", () => {
+    const state = fieldState([land(40, 40, "enemy")], { aetherShieldTowers: [{ x: 50, y: 40, ownerId: "enemy" }] });
+    expect(tileAetherProtection(land(40, 40, "enemy"), aetherProtectionField(state, NOW))?.relation).toBe("enemy");
+  });
+
+  it("replaces the local guess for other players' towers -- a visible enemy tower the server leaves out (dormant) doesn't shield", () => {
+    const state = fieldState([tower(10, 10, "enemy"), tower(60, 60, "me")], { aetherShieldTowers: [] });
+    const field = aetherProtectionField(state, NOW);
+    expect(tileAetherProtection(land(10, 11, "enemy"), field)).toBeUndefined();
+    // Your own towers still come from your own tile map.
+    expect(tileAetherProtection(land(60, 61, "me"), field)?.relation).toBe("friendly");
+  });
+
+  it("drops a listed tower that is visibly cooling down or switched off right now, before the next push", () => {
+    const state = fieldState([tower(10, 10, "enemy", { cooldownUntil: NOW + 5_000 }), tower(20, 20, "enemy", { status: "inactive" })], {
+      aetherShieldTowers: [{ x: 10, y: 10, ownerId: "enemy" }, { x: 20, y: 20, ownerId: "enemy" }]
+    });
+    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
+  });
+
+  it("keeps a listed tower whose tile is only remembered in fog", () => {
+    const state = fieldState([{ ...tower(10, 10, "enemy", { status: "inactive" }), fogged: true }], { aetherShieldTowers: [{ x: 10, y: 10, ownerId: "enemy" }] });
+    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("10,10:enemy");
+  });
+});
+
+describe("hostileAetherProtectionAt (what targeting greys out)", () => {
+  it("blocks enemy land shielded by an enemy tower, including one only the server knows about", () => {
+    const state = fieldState([tower(10, 10, "enemy"), tower(30, 30, "ally")], { allies: ["ally"], aetherShieldTowers: [{ x: 10, y: 10, ownerId: "enemy" }, { x: 30, y: 30, ownerId: "ally" }, { x: 90, y: 90, ownerId: "hidden" }] });
+    expect(hostileAetherProtectionAt(state, land(11, 10, "enemy"), NOW)).toMatchObject({ x: 10, y: 10 });
+    expect(hostileAetherProtectionAt(state, land(91, 90, "hidden"), NOW)).toMatchObject({ x: 90, y: 90 });
+    // Allied shields are friendly, not a block.
+    expect(hostileAetherProtectionAt(state, land(31, 30, "ally"), NOW)).toBeUndefined();
+    expect(hostileAetherProtectionAt(state, land(11, 10, "third"), NOW)).toBeUndefined();
   });
 });
