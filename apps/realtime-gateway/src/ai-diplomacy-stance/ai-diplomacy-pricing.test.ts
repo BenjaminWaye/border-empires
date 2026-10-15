@@ -6,9 +6,9 @@ import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { answerDiplomacyStanceQuery } from "./diplomacy-stance-query.js";
 
 describe("aiDiplomacyPricing", () => {
-  it("prices offers in minutes of the AI's income", () => {
+  it("prices offers in hours of the AI's income: a wary AI wants a full day for a truce", () => {
     expect(aiDiplomacyPricing({ stanceKind: "WARY", acceptsAllianceFree: false, incomePerMinute: 3, aiHoldings: { gold: 10.7, shard: 1 } })).toEqual({
-      required: { truce12: 60, truce24: 90, alliance: 180 },
+      required: { truce12: 24 * 60 * 3, truce24: 36 * 60 * 3, alliance: 72 * 60 * 3 },
       shardCoinValue: 25,
       aiHoldings: { gold: 10, shard: 1 }
     });
@@ -26,7 +26,7 @@ describe("aiDiplomacyPricing", () => {
   });
 
   it("floors income so a broke AI still has a price", () => {
-    expect(aiDiplomacyPricing({ stanceKind: "WARY", acceptsAllianceFree: false, incomePerMinute: 0, aiHoldings: { gold: 0, shard: 0 } }).required.truce12).toBe(20);
+    expect(aiDiplomacyPricing({ stanceKind: "WARY", acceptsAllianceFree: false, incomePerMinute: 0, aiHoldings: { gold: 0, shard: 0 } }).required.truce12).toBe(24 * 60);
   });
 });
 
@@ -52,7 +52,7 @@ describe("answerDiplomacyStanceQuery", () => {
       targetPlayerId: "ai-1",
       ai: true,
       stance: { kind: "INDIFFERENT", reason: "Milo has no quarrel with you: your borders don't meet." },
-      pricing: { required: { truce12: 0, truce24: 0, alliance: 60 }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
+      pricing: { required: { truce12: 0, truce24: 0, alliance: 36 * 60 * 2 }, shardCoinValue: 25, aiHoldings: { gold: 40, shard: 1 } }
     });
   });
 

@@ -103,11 +103,11 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(requestTruce).not.toHaveBeenCalled();
-    // WARY 24h truce = 30 minutes of 2 coin/min = 60; the requester holds 10.
+    // WARY 24h truce = 36 hours of 2 coin/min = 4320; the requester holds 10.
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
       announcementByPlayerId: {
         [HUMAN_ID]:
-          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 50 coin more than you can offer.",
+          "Alden Vale declined your 24h truce offer. Alden Vale is wary of you and won't lower their guard on a contested border. Alden Vale wants about 4310 coin more than you can offer.",
         [AI_ID]: "You declined Human's 24h truce offer."
       },
       startCooldown: true
@@ -117,28 +117,28 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("counter-offers with a price the requester can pay", async () => {
     const { deps, rejectTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.objectContaining({ startCooldown: true }));
-    // From the AI's side: it gives nothing and asks the requester for 60 coin.
+    // From the AI's side: it gives nothing and asks the requester for 4320 coin.
     expect(requestTruce).toHaveBeenCalledWith(AI_ID, "Human", 24, {
       targetPlayerId: HUMAN_ID,
-      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 60, shard: 0 } }
+      terms: { give: { gold: 0, shard: 0 }, ask: { gold: 4320, shard: 0 } }
     });
   });
 
   it("accepts a truce whose offered coin covers the AI's price", async () => {
     const { deps, acceptTruce, requestTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
     );
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 60, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 4320, shard: 0 }, ask: { gold: 0, shard: 0 } }
     });
 
     expect(acceptTruce).toHaveBeenCalled();
@@ -148,13 +148,13 @@ describe("createSeededAiDiplomacyResponder truce offers", () => {
   it("turns a failed payment into a decline without a cooldown", async () => {
     const { deps, acceptTruce, rejectTruce } = makeDeps(
       snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, incomePerMinute: 2, tiles: touchingTiles }),
-      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 500 })
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 100, gold: 5000 })
     );
     acceptTruce.mockResolvedValue({ ok: false, code: "DIPLOMACY_SETTLEMENT_FAILED", message: "The deal fell through: Human no longer has 60 coin." });
 
     await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiTruce({
       ...baseRequest,
-      terms: { give: { gold: 60, shard: 0 }, ask: { gold: 0, shard: 0 } }
+      terms: { give: { gold: 4320, shard: 0 }, ask: { gold: 0, shard: 0 } }
     });
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, {
