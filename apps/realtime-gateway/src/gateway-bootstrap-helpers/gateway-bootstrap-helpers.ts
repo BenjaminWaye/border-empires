@@ -11,7 +11,8 @@ import type { SimulationClientEvent } from "../sim-client/sim-client.js";
 import { TILE_OVERLAY_WIRE_FIELDS, type PlayerSubscriptionSnapshot, type TileOverlayJsonFields } from "@border-empires/sim-protocol";
 
 // An overlay field present but undefined is an explicit clear; JSON drops
-// undefined, so it is sent as "" (same convention as townJson above).
+// undefined, so it is sent as "" (same convention as townJson in
+// jsonSafeTileDeltaBatch below).
 const overlayClearSignals = (tileDelta: TileOverlayJsonFields): TileOverlayJsonFields => {
   const out: TileOverlayJsonFields = {};
   for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {

@@ -2,6 +2,16 @@
 
 Status: active proposal
 
+> **Progress (2026-10-15):** #2372 and #2374 reached most of this goal another
+> way. Instead of a proto `map<string, string>`, there is now one shared table,
+> `TILE_OVERLAY_WIRE_FIELDS` in `@border-empires/sim-protocol`, and the
+> simulation's snapshot, delta and proto code and the gateway's proto decoder
+> are derived from it. The named proto fields stay, so no wire migration was
+> needed. Remaining hand-written spots (event recovery, the full-world export,
+> some wire types, and the client) are tracked as item 1 of
+> [`code-cleanup-plan.md`](code-cleanup-plan.md). Revisit the map-field idea
+> below only if the named fields themselves become a burden.
+
 ## Background
 
 Adding "natural wonders" to the game (Aug 2026) required fixing the same bug

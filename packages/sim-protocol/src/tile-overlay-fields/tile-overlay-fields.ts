@@ -11,12 +11,20 @@
  * clear-signaling from it. Hand-maintained copies of this list drifted
  * repeatedly (natural wonders invisible after EXPAND and again across gRPC,
  * muster flags missing on reconnect, AFCs dropped from the persisted
- * snapshot), so add new overlays here and nowhere else.
+ * snapshot).
  *
  * To add an overlay: add a row here, add the `snake` field to
  * simulation.proto, and give it a slot in the simulation's
- * tile-delta-stringify-cache.ts (AllSubstructureJson); the compiler points
- * at anything else that needs it.
+ * tile-delta-stringify-cache.ts (AllSubstructureJson). Some places still
+ * hand-list overlay fields and are NOT tied to this table yet, so the
+ * compiler will not flag them -- update them by hand until they are migrated
+ * (tracked in docs/code-cleanup-plan.md):
+ *   - simulation: runtime-state-export.ts (toRuntimeExportTile),
+ *     event-recovery/event-recovery.ts, runtime-types.ts
+ *     (SimulationTileWireDelta), snapshot-tile-cache.ts (RuntimeState),
+ *     simulation-service/proto-serialization.ts (proto tile types)
+ *   - client: client-gateway-sync/client-gateway-sync.ts and the overlay
+ *     field gate in client-network/client-network.ts
  */
 export const TILE_OVERLAY_WIRE_FIELDS = [
   { key: "shardSite", camel: "shardSiteJson", snake: "shard_site_json" },
