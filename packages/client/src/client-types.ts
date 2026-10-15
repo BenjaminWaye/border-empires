@@ -82,6 +82,8 @@ export type Tile = {
   reachOwnerId?: string;
   capital?: boolean;
   breachShockUntil?: number;
+  /** Post-capture hold window end (shared capture-hold.ts): FRONTIER defends, troops stand on it. */
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;

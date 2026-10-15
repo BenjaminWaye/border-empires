@@ -3,12 +3,13 @@
 // previous owner could retake a freshly captured dock or town at a guaranteed
 // 100% for the cheap frontier muster cost, and the capture would just
 // ping-pong back and forth. For CAPTURE_HOLD_MS after the capture the new
-// owner "holds ground": the tile defends with CAPTURE_HOLD_DEFENSE_MULT (the
-// same 1.0x a plain unfortified tile starts from), giving them time to
-// garrison (SETTLE) it. Ordinary FRONTIER land that was never captured keeps
+// owner's troops "hold ground" on the tile: it defends with
+// CAPTURE_HOLD_DEFENSE_MULT (the same 1.0x a plain unfortified tile starts
+// from, no fort/town/garrison bonus), long enough to garrison (SETTLE, 60s)
+// it. Ordinary FRONTIER land that was never captured keeps
 // zero defense, so normal frontier raiding is unchanged.
 
-export const CAPTURE_HOLD_MS = 5 * 60_000;
+export const CAPTURE_HOLD_MS = 60_000;
 export const CAPTURE_HOLD_DEFENSE_MULT = 1;
 
 /** Whether a tile is inside its post-capture hold window at `nowMs`. Only FRONTIER tiles use it -- SETTLED tiles already defend on their own. */

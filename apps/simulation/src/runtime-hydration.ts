@@ -215,7 +215,8 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
     if (parsed.result) return {
       result: parsed.result,
       defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
-      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true
+      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true,
+      ...(parsed.defendedFrontier === true ? { defendedFrontier: true } : {})
     };
     return parsed as LockedCombatResolution | undefined;
   } catch {

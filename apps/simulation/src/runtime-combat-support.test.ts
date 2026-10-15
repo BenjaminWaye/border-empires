@@ -172,6 +172,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
 
     expect(resolution?.result.winChance).toBeCloseTo(0.5, 5);
     expect(resolution?.result.attackerWon).toBe(false);
+    expect(resolution?.defendedFrontier).toBe(true);
   });
 
   it("is a guaranteed capture again once the capture-hold window has expired", () => {
@@ -195,6 +196,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
 
     expect(resolution?.result.winChance).toBe(1);
     expect(resolution?.result.attackerWon).toBe(true);
+    expect(resolution?.defendedFrontier).toBeUndefined();
   });
 });
 

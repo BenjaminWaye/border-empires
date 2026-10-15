@@ -2,8 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   CAPTURE_HOLD_MS,
-  FRONTIER_CLAIM_COST,
-  isCaptureHoldActive
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { afcCapturePlunderGold, withAfcCapturePlunder } from "./afc-capture-plunder/afc-capture-plunder.js";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
@@ -190,7 +189,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     lock.actionType === "ATTACK" &&
     Boolean(previousOwnerId) &&
     previousOwnerId !== lock.playerId &&
-    (previousTarget?.ownershipState !== "FRONTIER" || isCaptureHoldActive(previousTarget, context.now()) || blockedByAegisLock);
+    (previousTarget?.ownershipState !== "FRONTIER" || combatResolution?.defendedFrontier === true || blockedByAegisLock);
   const combatBroadcastJson = hasDefendingForce && previousOwnerId
     ? JSON.stringify({
         attackerOwnerId: lock.playerId,

@@ -391,7 +391,14 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     winChance: combat.winChance,
     levelDelta: 0
   };
-  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged, ...(combat.shield ? { shield: combat.shield } : {}) };
+  const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
+  return {
+    result,
+    defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
+    targetRecentlyPillaged,
+    ...(combat.shield ? { shield: combat.shield } : {}),
+    ...(defendedFrontier ? { defendedFrontier: true } : {})
+  };
 };
 
 export { applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";

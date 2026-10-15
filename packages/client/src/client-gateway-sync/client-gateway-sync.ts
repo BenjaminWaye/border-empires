@@ -51,6 +51,7 @@ type NormalizedGatewayTileUpdate = {
   reachOwnerId?: Tile["reachOwnerId"] | undefined;
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
+  captureHoldUntil?: Tile["captureHoldUntil"] | undefined;
   yield?: Tile["yield"] | undefined;
   yieldRate?: Tile["yieldRate"] | undefined;
   yieldCap?: Tile["yieldCap"] | undefined;
@@ -73,6 +74,7 @@ export type GatewayTileUpdate = {
   reachOwnerId?: string | null;
   frontierDecayAt?: number | null;
   frontierDecayKind?: Tile["frontierDecayKind"] | null;
+  captureHoldUntil?: number | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -166,6 +168,9 @@ export const normalizeGatewayTileUpdate = (
       update.frontierDecayKind === "ENCIRCLEMENT" || update.frontierDecayKind === "OUT_OF_REACH"
         ? update.frontierDecayKind
         : undefined;
+  }
+  if ("captureHoldUntil" in update) {
+    normalized.captureHoldUntil = typeof update.captureHoldUntil === "number" && update.captureHoldUntil > 0 ? update.captureHoldUntil : undefined;
   }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;

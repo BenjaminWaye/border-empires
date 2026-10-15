@@ -178,3 +178,18 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     expect(tileMenuHeaderStatusForTile(tile, 1_000, () => true)?.helpText).toBeUndefined();
   });
 });
+
+describe("tileMenuHeaderStatusForTile capture hold", () => {
+  it("shows a Holding captured ground countdown while the hold is active", () => {
+    const nowMs = 1_000;
+    const status = tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs + 42_000 }), nowMs);
+    expect(status?.text).toBe("Holding captured ground 00:42");
+    expect(status?.tone).toBe("neutral");
+  });
+
+  it("drops the line once the hold has ended or the tile is garrisoned", () => {
+    const nowMs = 1_000;
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile({ captureHoldUntil: nowMs - 1 }), nowMs)).toBeUndefined();
+    expect(tileMenuHeaderStatusForTile(makeFrontierTile({ ownershipState: "SETTLED", captureHoldUntil: nowMs + 42_000 }), nowMs)).toBeUndefined();
+  });
+});

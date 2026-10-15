@@ -1,5 +1,6 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 
 type IncomingAttack = NonNullable<ReturnType<ClientState["incomingAttacksByTile"]["get"]>>;
 
@@ -55,7 +56,7 @@ export const incomingFrontierClaimAt = (
   if (!incoming || !state.me || incoming.resolvesAt <= nowEpochMs) return undefined;
   if (incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowEpochMs) return undefined;
   const tile = state.tiles.get(key);
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") return undefined;
+  if (!tile || tile.ownerId !== state.me || !frontierAttackIsUndefended(tile, incoming.winChance, nowEpochMs)) return undefined;
   return {
     key,
     targetX: tile.x,

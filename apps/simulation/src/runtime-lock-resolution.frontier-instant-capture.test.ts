@@ -276,13 +276,17 @@ describe("resolveLock capture hold", () => {
     expect(capturedTarget(tiles, makeWonAttackLock(), context)?.captureHoldUntil).toBeUndefined();
   });
 
-  it("emits combatJson for an ATTACK on a FRONTIER tile still holding captured ground", () => {
+  // The fight is rolled at launch, so the hold may already have expired by
+  // the time it resolves -- the broadcast keys off the rolled result's
+  // defendedFrontier flag, not the hold's live state.
+  it("emits combatJson for an ATTACK rolled against a FRONTIER tile holding captured ground, even once the hold has expired", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
-      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", captureHoldUntil: 60_000 }]
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", captureHoldUntil: -1 }]
     ]);
     const { context, events } = createContext(tiles);
-    capturedTarget(tiles, makeWonAttackLock(), context);
+    const lock = makeWonAttackLock();
+    capturedTarget(tiles, { ...lock, combatResolution: { ...lock.combatResolution!, defendedFrontier: true } }, context);
     const targetDelta = tileDeltaBatches(events).flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
     expect(targetDelta?.combatJson).toBeDefined();
   });

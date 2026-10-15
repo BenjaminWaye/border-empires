@@ -46,7 +46,8 @@ export const startTileMenuDecayTicker = (
     // Repaint once after expiry, even if the map loop already pruned the FX.
     const battleEnded = lastBattleTileKey === key || hasRenderedBattleStatus(state.tileActionMenu.renderSignature);
     lastBattleTileKey = hasBattle ? key : "";
-    if (menuTile.frontierDecayAt === undefined && !hasBattle && !battleEnded) return;
+    // captureHoldUntil: the "Holding captured ground" countdown (capture-hold).
+    if (menuTile.frontierDecayAt === undefined && menuTile.captureHoldUntil === undefined && !hasBattle && !battleEnded) return;
     renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
   }, 1_000);
 };
