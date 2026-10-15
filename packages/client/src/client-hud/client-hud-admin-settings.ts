@@ -1,4 +1,4 @@
-// Bindings for Settings > Admin (map reveal + the lighting tuner). Split out
+// Bindings for Settings > Admin (map reveal, alerts feed, lighting tuner). Split out
 // of client-hud.ts, which is already over the repo's per-file line cap and
 // must not grow (AGENTS.md), so the HUD only needs one call.
 import { fogRevealLog } from "../client-debug/client-debug.js";
@@ -14,6 +14,8 @@ export type AdminSettingsDeps = {
   readonly sendGameMessage: (payload: unknown, message?: string) => boolean;
   readonly requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
   readonly rerender: () => void;
+  /** Opens a HUD panel -- the Alerts feed now opens from here instead of a top-bar bell. */
+  readonly openPanel: (panel: "feed") => void;
 };
 
 export const bindAdminSettingsControls = (root: ParentNode, deps: AdminSettingsDeps): void => {
@@ -41,6 +43,9 @@ export const bindAdminSettingsControls = (root: ParentNode, deps: AdminSettingsD
       requestViewRefresh(2, true);
       rerender();
     };
+  });
+  (root.querySelectorAll("[data-admin-open-alerts-feed]") as NodeListOf<HTMLButtonElement>).forEach((btn) => {
+    btn.onclick = () => deps.openPanel("feed");
   });
   bindLightingTunerControls(root, rerender);
 };

@@ -51,12 +51,22 @@ export const mapRevealCardHtml = (
   `;
 };
 
+// The Alerts feed (bell) moved here from the top bar / mobile nav: the feed
+// isn't ready for players in its current form, so only admins open it.
+// Wired by client-hud-admin-settings.ts's bindAdminSettingsControls.
+const alertsFeedAdminCardHtml = (): string => `
+  <div class="auth-map-reveal">
+    <button type="button" class="panel-btn" data-admin-open-alerts-feed>Open Alerts Feed</button>
+    <p>Admin view of the alerts feed (the old bell button). Hidden from players for now.</p>
+  </div>
+`;
+
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
   { id: "account", title: "Account", desc: "Name and empire colour" },
   { id: "gameplay", title: "Gameplay", desc: "Ambient sound, rally link" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
-  { id: "admin", title: "Admin", desc: "Map reveal, photo mode, lighting tuner" }
+  { id: "admin", title: "Admin", desc: "Map reveal, photo mode, alerts feed, lighting tuner" }
 ];
 
 const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
@@ -137,6 +147,7 @@ export const settingsAdminPageHtml = (
   if (!settingsAdminAvailable(state)) return `<div class="card auth-settings-card"><p>Admin tools aren't available for this account.</p></div>`;
   return `
     <div class="card auth-settings-card">${mapRevealCardHtml(state)}</div>
+    <div class="card auth-settings-card">${alertsFeedAdminCardHtml()}</div>
     <div class="card auth-settings-card">${lightingTunerCardHtml()}</div>
   `;
 };
