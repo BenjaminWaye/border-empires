@@ -297,6 +297,23 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   {
+    createdAt: 1792006774817, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.3",
+    title: "AI empires stand down after a truce",
+    why: "An AI empire kept its muster flag, and the manpower in it, up for days after signing a truce with the player it was fighting.",
+    changes: [
+      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
+      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
+    ]
+  },
+  {
+    createdAt: 1791922964029, // Date.now() captured once for this release.
+    introducedIn: "2026.10.13.2",
+    title: "Manifest panel tabs",
+    why: "Your Manifests sat at the very bottom of the panel, below every choice.",
+    changes: ["The Manifest panel has Available and Owned tabs; a Tree view / List view toggle in the panel header replaces Expand Tree, and the tree now fills the whole window", "Owned shows how many Manifests you hold, your Manifest bonuses, and your Manifests grouped by branch", "Panels on mobile use the same brass-and-leather look as on desktop instead of a blue background", "On mobile the Manifest panel uses the full screen height in both views", "The tree's zoom control sits on one row with the unlocked/ready/total counts, and the tree's bottom edge is no longer cut off"]
+  },
+  {
     createdAt: 1791836603366, // Date.now() captured once for this release.
     introducedIn: "2026.10.13.1",
     title: "Combat reports for each muster flag",
@@ -379,6 +396,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792001165636, // Date.now() captured once for this release.
+    introducedIn: "2026.10.14.5",
+    title: "Coin everywhere",
+    why: "Several places still called the currency gold while the HUD and economy panel say Coin.",
+    changes: [
+      "Structure details, Mintworks and Sell Off modifiers, upkeep lines, the Harbor Exchange, Imperial Exchange and Siege Engine entries now say coin",
+      "Activity feed, raid and plunder summaries, town capture character, season-end income, the respawn prompt, natural wonder boons and two Manifest descriptions now say coin",
+      "Fixed the not-enough-coin alert for attacks and frontier claims, which could miss its dedicated message because the server still said gold"
+    ]
+  },
+  {
     createdAt: 1791969150437, // Date.now() captured for this update.
     introducedIn: "2026.10.14.1",
     title: "Softer 3D map daylight",
@@ -409,12 +437,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792006774817, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.14.3",
-    title: "AI empires stand down after a truce",
-    items: [
-      "An AI empire now disbands a muster flag once it has nothing left to attack, such as after it signs a truce or alliance with no barbarians nearby, and gets that manpower back",
-      "AI empires no longer plant new muster flags or plan attacks against players they have a truce or alliance with"
+    createdAt: 1792006593148, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.14.5",
+    title: "Flags head into enemy territory instead of around it",
+    why: "Marching flags could keep claiming neutral tiles beside an enemy border, and advancing flags on a dock wandered their island while fighting the enemy dock across the water.",
+    changes: [
+      "Marching flags now follow the straight line to their target, attacking enemy tiles on that line rather than detouring onto neutral land beside them",
+      "Advancing flags on a dock keep their manpower on the fight at the linked enemy dock instead of wandering around their own island"
     ]
   },
 ];

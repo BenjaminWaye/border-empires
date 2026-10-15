@@ -85,7 +85,7 @@ export const createClientViewSupport = (deps: {
       mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
       mobilePanelFeedEl: dom.mobilePanelFeedEl,
       mobilePanelSettingsEl: dom.mobilePanelSettingsEl,
-      mobileSheetHeadEl: dom.mobileSheetHeadEl
+      mobileSheetTitleEl: dom.mobileSheetTitleEl
     });
   const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderMobilePanels });
   const bindTechTreeDragScroll = (): void => bindTechTreeDragScrollFromModule(state, dom.hud);

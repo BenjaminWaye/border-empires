@@ -39,6 +39,7 @@ import { bindProposeButtons } from "../client-alliance/client-alliance-propose-b
 import { bindMetPlayerRowToggles } from "../client-alliance/client-alliance-row-toggle.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
 import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
+import { syncManifestPanelTabs } from "../client-manifest-tabs/client-manifest-tabs.js";
 import { sovereignSiegeEngineStrikeRecordToFeedEntry, SOVEREIGN_SIEGE_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-sovereign-siege-engine-strike-history/client-sovereign-siege-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
@@ -493,24 +494,11 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  syncManifestPanelTabs(dom, state, deps.effectiveOwnedTechIds().length, () => renderClientHud(deps));
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
-  dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
   dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.mobileTechTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  dom.techTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
-  dom.mobileTechTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderClientHud(deps);
-  };
   bindTechTreeDragScroll();
   const techTreeZoomButtons = dom.hud.querySelectorAll("[data-tech-tree-zoom]") as NodeListOf<HTMLButtonElement>;
   techTreeZoomButtons.forEach((btn: HTMLButtonElement) => {

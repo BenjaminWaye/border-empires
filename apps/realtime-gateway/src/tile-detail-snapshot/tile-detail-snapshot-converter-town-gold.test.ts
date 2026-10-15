@@ -106,7 +106,7 @@ describe("buildSnapshotTileDetail — converter town-support gold attribution", 
     const town = JSON.parse(detail?.townJson as string) as Record<string, unknown>;
     expect(town.townModifierTotals).toContainEqual({
       heading: "1 Aether Condenser",
-      modifiers: [{ statLabel: "Sell Off gold", valueText: "+10", tone: "positive" }]
+      modifiers: [{ statLabel: "Sell Off coin", valueText: "+10", tone: "positive" }]
     });
   });
 });

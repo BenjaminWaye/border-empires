@@ -745,13 +745,13 @@ describe("buildSnapshotTileDetail", () => {
 
     expect(town?.townModifierTotals).toBeDefined();
     // 3 active Mintworks, grouped under one heading: flat +1 gold/day each
-    // (Gold: +3) plus the nonlinear stacked gold-production percentage
-    // (Gold production: +30%).
+    // (Coin: +3) plus the nonlinear stacked gold-production percentage
+    // (Coin production: +30%).
     expect(town?.townModifierTotals).toContainEqual({
       heading: "3 Mintworks",
       modifiers: [
-        { statLabel: "Gold", valueText: "+3", tone: "positive" },
-        { statLabel: "Gold production", valueText: "+30%", tone: "positive" }
+        { statLabel: "Coin", valueText: "+3", tone: "positive" },
+        { statLabel: "Coin production", valueText: "+30%", tone: "positive" }
       ]
     });
     // 1 Ancillary Depot, its own heading: flat manpower cap bonus.
