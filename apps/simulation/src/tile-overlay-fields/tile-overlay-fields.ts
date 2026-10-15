@@ -1,43 +1,24 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { TILE_OVERLAY_WIRE_FIELDS, type TileOverlayKey as WireTileOverlayKey } from "@border-empires/sim-protocol";
 
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
 /**
- * The one list of per-tile "overlay" substructures (structures, sites and
- * flags that sit on a tile alongside its terrain/ownership/town).
+ * The simulation's view of the shared overlay table (TILE_OVERLAY_WIRE_FIELDS
+ * in @border-empires/sim-protocol -- add new overlays there, not here).
  *
- * Every projection that copies these off a DomainTileState derives its field
- * set from this list instead of hand-listing them:
+ * Every projection that copies overlays off a DomainTileState derives its
+ * field set from this list instead of hand-listing them:
  *   - the persisted snapshot (mapTile, runtime-snapshot-sections.ts)
  *   - the login/full-visibility export (runtime-visible-state.ts)
  *   - wire deltas (OVERLAY_JSON_FIELDS, tile-delta-overlay-fields.ts)
  *   - the gRPC boundary (OVERLAY_FIELDS, proto-overlay-fields.ts)
  *
- * Hand-listed copies drifted repeatedly: natural wonders went invisible after
- * EXPAND (#1157) and again across gRPC (#1160/#1162), active muster flags never
- * reached reconnecting clients, and AFCs were dropped from the persisted
- * snapshot so every restart re-placed them.
- *
- * To add an overlay: add its DomainTileState key here, give it a slot in
- * tile-delta-stringify-cache.ts (AllSubstructureJson), and add the matching
- * `<key>_json` field to simulation.proto. The wire field is always
- * `<key>Json` (`fort` -> `fortJson`).
+ * TileOverlayKey intersects the wire keys with DomainTileState's own keys,
+ * so a wire row without a matching tile field fails to compile here.
  */
-export const TILE_OVERLAY_KEYS = [
-  "shardSite",
-  "naturalWonder",
-  "fort",
-  "observatory",
-  "siegeBattery",
-  "economicStructure",
-  "sabotage",
-  "watchtower",
-  "waystation",
-  "muster",
-  "afc"
-] as const satisfies readonly (keyof DomainTileState)[];
-
-export type TileOverlayKey = (typeof TILE_OVERLAY_KEYS)[number];
+export type TileOverlayKey = WireTileOverlayKey & keyof DomainTileState;
+export const TILE_OVERLAY_KEYS: readonly TileOverlayKey[] = TILE_OVERLAY_WIRE_FIELDS.map((field) => field.key);
 export type TileOverlayJsonField = `${TileOverlayKey}Json` & keyof SimulationTileWireDelta;
 
 export const overlayJsonField = (key: TileOverlayKey): TileOverlayJsonField => `${key}Json`;
