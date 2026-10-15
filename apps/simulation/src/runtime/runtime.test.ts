@@ -8096,7 +8096,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 0.5,
-              cap: 10,
               isFed: true,
               population: 5000,
               maxPopulation: 25000,
@@ -8162,7 +8161,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 2,
-              cap: 960,
               isFed: true,
               population: 5000,
               maxPopulation: 25000,
@@ -8202,13 +8200,13 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     expect(centerDelta).not.toHaveProperty("yieldCap");
   });
 
-  it("applies connectedTownBonus to goldPerMinute and cap on owned-town tile detail (sim authority)", () => {
+  it("applies connectedTownBonus to goldPerMinute on owned-town tile detail (sim authority)", () => {
     // Mirror the user's prod scenario: TOWN-tier town at (5,5) with three
     // owned towns at 8-adjacent positions so buildConnectedTownNetworkForPlayer
     // returns connectedTownCount=3 / bonus=1.2. Town is fed, support 8/8, no
     // mintworks, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
-    // = 4.4; cap = 4.4*60*8 = 2112. If this test fails, the sim has its own
-    // bug; if it passes, the prod display of 2.00/m + cap 960 means the
+    // = 4.4. If this test fails, the sim has its own
+    // bug; if it passes, a prod display of 2.00/m means the
     // gateway's buildSnapshotTileDetail is clobbering the sim's authoritative
     // value.
     const runtime = new SimulationRuntime({
@@ -8233,7 +8231,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               supportCurrent: 8,
               supportMax: 8,
               goldPerMinute: 2,
-              cap: 960,
               isFed: true,
               population: 17669,
               maxPopulation: 10000000,

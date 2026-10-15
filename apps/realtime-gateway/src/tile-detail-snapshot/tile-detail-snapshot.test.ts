@@ -72,7 +72,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 4,
             supportMax: 8,
             goldPerMinute: 2.2,
-            cap: 1584,
             isFed: true,
             population: 18_977,
             maxPopulation: 25_000,
@@ -129,7 +128,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 4,
             supportMax: 8,
             goldPerMinute: 4.0,
-            cap: 1920,
             isFed: true,
             population: 50_000,
             maxPopulation: 100_000,
@@ -208,7 +206,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 0,
             supportMax: 0,
             goldPerMinute: 0,
-            cap: 0,
             isFed: true,
             population: 800,
             maxPopulation: 2500,
@@ -249,7 +246,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 0,
             supportMax: 0,
             goldPerMinute: 1,
-            cap: 480,
             isFed: true,
             population: 900,
             maxPopulation: 2_500,
@@ -295,7 +291,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 2,
             supportMax: 8,
             goldPerMinute: 0,
-            cap: 0,
             population: 18_977,
             maxPopulation: 25_000,
             connectedTownCount: 0,
@@ -370,7 +365,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 4,
             supportMax: 4,
             goldPerMinute: 0,
-            cap: 0,
             population: 21_277,
             maxPopulation: 25_000,
             connectedTownCount: 0,
@@ -404,7 +398,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("preserves the sim's authoritative goldPerMinute and cap (does not silently re-derive with the stripped-down local formula)", () => {
+  it("preserves the sim's authoritative goldPerMinute (does not silently re-derive with the stripped-down local formula)", () => {
     // Repro for the prod bug where the inspector showed "Production: 2.00/m"
     // with cap 960 on a town that actually had 3 connected towns (+120%): the
     // sim correctly shipped townJson with goldPerMinute=4.4 and cap=2112, but
@@ -431,7 +425,6 @@ describe("buildSnapshotTileDetail", () => {
             supportMax: 8,
             // Sim's authoritative values with bonus + popMult applied.
             goldPerMinute: 4.4,
-            cap: 2112,
             isFed: true,
             population: 17669,
             maxPopulation: 10_000_000,
@@ -453,7 +446,6 @@ describe("buildSnapshotTileDetail", () => {
     expect(town).toBeDefined();
     // The whole point of the fix: the sim's values must survive end-to-end.
     expect(town?.goldPerMinute).toBeCloseTo(4.4, 4);
-    expect(town?.cap).toBeCloseTo(2112, 0);
     expect(detail).toEqual(
       expect.objectContaining({
         yieldRate: expect.objectContaining({ goldPerMinute: 4.4 })
@@ -461,7 +453,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("preserves sim production and cap for a thin town record even when gateway-derived fed state disagrees", () => {
+  it("preserves sim production for a thin town record even when gateway-derived fed state disagrees", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       player: {
@@ -496,7 +488,6 @@ describe("buildSnapshotTileDetail", () => {
             supportCurrent: 8,
             supportMax: 8,
             goldPerMinute: 4.4,
-            cap: 2112,
             population: 17669,
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
@@ -518,8 +509,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(town).toEqual(
       expect.objectContaining({
         isFed: true,
-        goldPerMinute: 4.4,
-        cap: 2112
+        goldPerMinute: 4.4
       })
     );
     expect(detail).toEqual(
@@ -529,7 +519,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("does not backfill cap=0 for an unfed TOWN when the snapshot also lacks cap", () => {
+  it("does not add a town cap for an unfed TOWN when the snapshot lacks one", () => {
     // Unfed TOWN-tier with no goldPerMinute / cap on the snapshot: gpm correctly
     // falls back to 0, and cap stays omitted rather than being hard-coded to 0.
     const snapshot: PlayerSubscriptionSnapshot = {
@@ -616,7 +606,8 @@ describe("buildSnapshotTileDetail", () => {
     expect(town).toBeDefined();
     // §6.1: computed here (unlike the passthrough test above), so it moves with the 288x rescale.
     expect(town?.goldPerMinute).toBeCloseTo(4.4 / 288, 4);
-    expect(town?.cap).toBeCloseTo(2112 / 288, 0);
+    // The retired town gold storage cap is no longer derived.
+    expect(town && "cap" in town).toBe(false);
     expect(detail).toEqual(
       expect.objectContaining({
         yieldRate: expect.objectContaining({ goldPerMinute: 0.0153 })

@@ -273,6 +273,10 @@ export type SimulationRuntimeOptions = {
   onMusterRemoteBlocked?: () => void;
   onMusterRemoteBlockedBarbarian?: () => void;
   onAutoFillTiles?: (count: number) => void;
+  /** Fires each time an inactive human's converter gold upkeep is netted
+   *  against income (runtime-upkeep-accrual.ts). Zero forever while offline
+   *  converter owners exist means the offset never engages. */
+  onUpkeepNettedWhileIncomePaused?: (playerId: string) => void;
   /** Fires each time the tile-shedding tick skips emitPlayerStateUpdate for an
    *  AI player (no WS subscribers — see PR #732 for the same rationale
    *  applied to lock resolution). Zero forever means the skip never engages. */

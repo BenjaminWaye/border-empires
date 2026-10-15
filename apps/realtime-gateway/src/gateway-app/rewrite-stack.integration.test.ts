@@ -1137,7 +1137,7 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("preserves sim town production and cap through the tile-detail WebSocket path for a thin town record", async () => {
+  it("preserves sim town production through the tile-detail WebSocket path for a thin town record", async () => {
     // isFed omitted (thin record) -- falls back to global food coverage.
     const townJson = JSON.stringify({
       name: "Gloamspire",
@@ -1147,7 +1147,6 @@ describe("rewrite stack integration", () => {
       supportCurrent: 8,
       supportMax: 8,
       goldPerMinute: 4.4,
-      cap: 2112,
       population: 17669,
       maxPopulation: 10_000_000,
       connectedTownCount: 3,
@@ -1238,8 +1237,7 @@ describe("rewrite stack integration", () => {
       expect(town).toEqual(
         expect.objectContaining({
           isFed: true,
-          goldPerMinute: 4.4,
-          cap: 2112
+          goldPerMinute: 4.4
         })
       );
     }

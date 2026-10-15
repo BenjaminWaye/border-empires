@@ -18,7 +18,6 @@ export type TownWireSummary = {
   supportCurrent: number;
   supportMax: number;
   goldPerMinute: number;
-  cap: number;
   isFed: boolean;
   population: number;
   maxPopulation: number;

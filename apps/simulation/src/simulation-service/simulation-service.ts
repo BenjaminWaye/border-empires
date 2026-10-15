@@ -19,7 +19,7 @@ import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
-import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
+import { createOwnershipChangeHandler } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
 import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
@@ -776,44 +776,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onMusterRemoteBlocked: () => { simulationMetrics.incrementSimMusterRemoteBlocked(); },
     onMusterRemoteBlockedBarbarian: () => { simulationMetrics.incrementSimMusterRemoteBlockedBarbarian(); },
     onAutoFillTiles: (count) => { simulationMetrics.incrementSimAutoFillTiles(count); },
+    onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); },
     onAuthRecoveryRespawn: () => { simulationMetrics.incrementSimAuthRecoveryRespawn(); },
     onAuthRecoveryRespawnGuarded: () => { simulationMetrics.incrementSimAuthRecoveryRespawnGuarded(); },
-    onOwnershipChange: (sample) => {
-      const lostTown = sample.townLost;
-      const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
-      if (!lostTown && !lostSettled) return;
-      if (lostTown) {
-        const webhookUrl = process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
-        const environmentLabel = resolveEnvironmentLabel(process.env);
-        const alert = buildTownLostAlert(sample, environmentLabel, process.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
-        log.warn(alert.logFields, alert.message);
-        if (alert.skippedSettlementTier) {
-          simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier();
-        } else if (webhookUrl) {
-          fetch(webhookUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(alert.slackBody),
-            signal: AbortSignal.timeout(5_000)
-          }).catch(() => {});
-        }
-      } else {
-        const environmentLabel = resolveEnvironmentLabel(process.env);
-        log.warn(
-          {
-            tileKey: sample.tileKey,
-            x: sample.x,
-            y: sample.y,
-            previousOwnerId: sample.previousOwnerId,
-            nextOwnerId: sample.nextOwnerId,
-            commandId: sample.commandId,
-            hadTown: sample.hadTown,
-            environment: environmentLabel
-          },
-          `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
-        );
+    onOwnershipChange: createOwnershipChangeHandler({
+      log,
+      env: process.env,
+      onSettlementTierAlertSkipped: () => { simulationMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier(); },
+      postWebhook: (url, body) => {
+        fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }).catch(() => {});
       }
-    },
+    }),
     onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
@@ -1913,7 +1886,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           }
           return false;
         },
-        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
+        onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); },
+        onUpkeepNettedWhileIncomePaused: () => { simulationMetrics.incrementSimUpkeepNettedWhileIncomePaused(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
       const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {

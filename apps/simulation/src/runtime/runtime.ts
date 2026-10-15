@@ -405,6 +405,7 @@ import {
 import {
   applyPassiveIncome as applyPassiveIncomeImpl,
   applyPassiveIncomeAsync as applyPassiveIncomeAsyncImpl,
+  welcomeBackSummaryForPlayer,
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
@@ -609,6 +610,7 @@ export class SimulationRuntime {
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   private readonly onAutoFillTiles: ((count: number) => void) | undefined;
+  private readonly onUpkeepNettedWhileIncomePaused: ((playerId: string) => void) | undefined;
   private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
   private readonly onAuthRecoveryRespawn: (() => void) | undefined;
   private readonly onAuthRecoveryRespawnGuarded: (() => void) | undefined;
@@ -864,6 +866,7 @@ export class SimulationRuntime {
       onError: (error, playerId) => runtimeLogError({ err: error, playerId }, "coalesced PLAYER_UPDATE emit failed")
     });
     this.onAutoFillTiles = options.onAutoFillTiles;
+    this.onUpkeepNettedWhileIncomePaused = options.onUpkeepNettedWhileIncomePaused;
     this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
@@ -1231,34 +1234,9 @@ export class SimulationRuntime {
     await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS, yieldToEventLoop);
   }
 
-  /**
-   * `goldPerMinuteOverride` lets callers that already computed the player's
-   * income this request (e.g. the login snapshot build) reuse that value
-   * instead of paying a second, synchronous `cachedEconomySnapshot` rebuild
-   * on the live runtime — that rebuild scales with settled-tile count and
-   * was blocking the post-subscribe WS event flush (bootstrap/hydrate/
-   * welcome-back) whenever the per-player cache had just been invalidated
-   * by a recent settle. The result is discarded below 60s of elapsed time
-   * regardless, so we also skip the economy lookup entirely in that case.
-   */
-  welcomeBackSummary(
-    playerId: string,
-    nowMs: number,
-    goldPerMinuteOverride?: number
-  ): { goldEarned: number; elapsedMs: number } {
-    const lastTickAt = this.lastIncomeTickAtMsByPlayer.get(playerId);
-    if (lastTickAt === undefined) {
-      return { goldEarned: 0, elapsedMs: 0 };
-    }
-    const elapsedMs = Math.max(0, nowMs - lastTickAt);
-    if (elapsedMs <= 60_000) return { goldEarned: 0, elapsedMs };
-    const goldPerMinute =
-      goldPerMinuteOverride ?? (() => {
-        const player = this.state.players.get(playerId);
-        return player ? this.cachedEconomySnapshot(player).incomePerMinute : 0;
-      })();
-    const goldEarned = goldPerMinute * (elapsedMs / 60_000);
-    return { goldEarned: Math.floor(goldEarned), elapsedMs };
+  /** Offline-gold estimate for the welcome-back toast — see welcomeBackSummaryForPlayer. */
+  welcomeBackSummary(playerId: string, nowMs: number, goldPerMinuteOverride?: number): { goldEarned: number; elapsedMs: number } {
+    return welcomeBackSummaryForPlayer(this.passiveIncomeContext(), playerId, nowMs, goldPerMinuteOverride);
   }
 
   tickPopulationGrowth(nowMs: number = this.now()): ReturnType<typeof tickPopulationGrowthImpl> {
@@ -1897,6 +1875,7 @@ export class SimulationRuntime {
       cachedUpkeepAccrual: (player) => this.cachedUpkeepAccrual(player),
       cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      onUpkeepNettedWhileIncomePaused: this.onUpkeepNettedWhileIncomePaused,
       trackSyncMainThreadTask: this.trackSyncMainThreadTask
     };
   }
