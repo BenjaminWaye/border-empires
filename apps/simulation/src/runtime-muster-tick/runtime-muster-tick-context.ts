@@ -9,9 +9,9 @@ import type { RuntimeState } from "../runtime/runtime-state.js";
 import { isTileVisibleToPlayer } from "./muster-visibility.js";
 
 export type MusterTickContextDeps = {
-  // Shared world state: players, tiles, combat locks, dock links and the
-  // visibility coverage cache are all read from here.
-  state: Pick<RuntimeState, "players" | "tiles" | "locksByTile" | "dockLinksByDockTileKey" | "visibilityCoverage">;
+  // Shared world state: players, tiles, combat locks, the dock network and
+  // the visibility coverage cache are all read from here.
+  state: Pick<RuntimeState, "players" | "tiles" | "locksByTile" | "dockLinksByDockTileKey" | "dockNetworkComponentByTileKey" | "visibilityCoverage">;
   activeSiegeBatteriesByOwner: ReadonlyMap<string, Set<string>>;
   activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   neuralWorksTilesByOwner: ReadonlyMap<string, Set<string>>;
