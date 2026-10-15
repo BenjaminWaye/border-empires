@@ -23,18 +23,6 @@ describe("toProtoEvent", () => {
 });
 
 describe("isWireInternalEvent", () => {
-  it("flags TILE_YIELD_ANCHOR_UPDATED so it never reaches the gateway stream", () => {
-    expect(
-      isWireInternalEvent({
-        eventType: "TILE_YIELD_ANCHOR_UPDATED",
-        commandId: "accrual:upkeep:human-1:1700000000000",
-        playerId: "human-1",
-        tileKey: "12,34",
-        collectedAt: 1700000000000
-      })
-    ).toBe(true);
-  });
-
   it("flags SETTLEMENT_STARTED so replay bookkeeping never reaches the gateway stream", () => {
     expect(
       isWireInternalEvent({

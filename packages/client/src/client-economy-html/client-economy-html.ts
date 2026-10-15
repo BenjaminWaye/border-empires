@@ -329,10 +329,9 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    const amountPerMinute =
-      resource === "GOLD"
-        ? tile.yieldRate?.goldPerMinute ?? 0
-        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
+    // Tiles only carry a gold rate; strategic production is slot-based and
+    // falls through to the empire-wide gross bucket below.
+    const amountPerMinute = resource === "GOLD" ? tile.yieldRate?.goldPerMinute ?? 0 : 0;
     accumulateEconomyBucket(
       sources,
       economySourceLabelForTile(tile, resource, args.prettyToken, args.resourceLabel, args.economicStructureName),

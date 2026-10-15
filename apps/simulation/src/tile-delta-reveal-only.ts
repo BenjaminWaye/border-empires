@@ -4,6 +4,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { type TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import { overlayJsonFieldsFrom } from "./tile-delta-overlay-fields.js";
+import { townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 import { revealedResourceValueForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
 export const tileDeltaRevealOnly = (
@@ -37,10 +38,7 @@ export const tileDeltaRevealOnly = (
     frontierDecayKind: tile.frontierDecayKind ?? undefined,
     breachShockUntil: tile.breachShockUntil ?? undefined,
     captureHoldUntil: tile.captureHoldUntil ?? undefined,
-    ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-    ...(tile.town?.type ? { townType: tile.town.type } : {}),
-    ...(tile.town?.name ? { townName: tile.town.name } : {}),
-    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {})
+    ...townWireFields(tile.town)
   };
   // Always full, never sparse-diffed: this path fires for tiles entering a
   // player's fog-of-war radius, which may be the first delta that specific

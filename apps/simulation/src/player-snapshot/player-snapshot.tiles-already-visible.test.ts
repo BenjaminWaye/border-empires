@@ -70,7 +70,7 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
     const visibleState = runtime.exportVisibleStateForPlayer("player-1");
 
     const recomputed = buildPlayerSubscriptionSnapshot("player-1", visibleState);
-    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, undefined, {
+    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, {
       tilesAlreadyVisible: true
     });
 
@@ -83,7 +83,7 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
     const visibleState = runtime.exportVisibleStateForPlayer("player-1");
 
     const recomputed = buildPlayerSubscriptionSnapshot("player-1", visibleState);
-    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, undefined, {
+    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, {
       tilesAlreadyVisible: true
     });
 
@@ -102,7 +102,7 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
     const runtime = makeRuntime();
     const visibleState = runtime.exportVisibleStateForPlayer("player-1");
 
-    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, undefined, {
+    const skipped = buildPlayerSubscriptionSnapshot("player-1", visibleState, {
       tilesAlreadyVisible: true
     });
 

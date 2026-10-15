@@ -330,7 +330,7 @@ describe("buildWorldStatusSnapshot", () => {
       activeLocks: []
     } as ReturnType<SimulationRuntime["exportState"]>;
 
-    const snapshot = buildWorldStatusSnapshot("player-1", runtimeState, undefined, {
+    const snapshot = buildWorldStatusSnapshot("player-1", runtimeState, {
       nonCompetitivePlayerIds: new Set(["probe-1"])
     });
 

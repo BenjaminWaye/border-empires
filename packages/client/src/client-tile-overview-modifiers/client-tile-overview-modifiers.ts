@@ -7,6 +7,7 @@ import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeysForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
 import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
+import { formatRoughMinutes } from "../client-town-growth/client-town-growth.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -121,6 +122,17 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tone: "negative"
       });
     }
+    // Same timer-first rule as townGrowthBlocker: the war-pause timer rides
+    // every town payload, the "Nearby war" growth modifier only the full summary.
+    const warPausedUntil = tile.town.nearbyWarPausedUntil;
+    const inWarPause = !inCaptureShock && typeof warPausedUntil === "number" && warPausedUntil > nowMs;
+    if (inWarPause) {
+      modifiers.push({
+        reason: "Nearby war",
+        effect: `population growth paused, resumes in ~${formatRoughMinutes((warPausedUntil - nowMs) / 60_000)}`,
+        tone: "negative"
+      });
+    }
     if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0) {
       // connectedTownBonus is 0 whenever no town in this network has a
       // built Trade Nexus yet (networkHasTradeNexus gate,
@@ -161,7 +173,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     for (const growth of tile.town.growthModifiers ?? []) {
-      if (inCaptureShock) continue;
+      if (inCaptureShock || (inWarPause && growth.label === "Nearby war")) continue;
       modifiers.push({
         reason: growth.label === "Long time peace" ? "Long-term peace" : growth.label,
         effect: `${growth.label === "Long time peace" ? "+100%" : "-100%"} population growth`,

@@ -27,7 +27,6 @@ const setup = (townState: DomainTileState["town"] | undefined) => {
     drainAutoSettle: () => 0,
     drainBuildTail: noop,
     emitPlayerStateUpdate: noop,
-    setTileYieldCollectedAt: noop,
     now: () => 1000,
     replaceTileState: (key, tile) => tiles.set(key, tile),
     tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),

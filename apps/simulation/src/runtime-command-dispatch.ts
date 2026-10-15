@@ -19,7 +19,6 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelSettleCommand: (command: CommandEnvelope) => void;
   handleRemoveStructureCommand: (command: CommandEnvelope) => void;
   handleCancelSiegeBatteryBuildCommand: (command: CommandEnvelope) => void;
-  handleCollectVisibleCommand: (command: CommandEnvelope) => void;
   handleUncaptureTileCommand: (command: CommandEnvelope) => void;
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
@@ -89,7 +88,6 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_SETTLE") return handlers.handleCancelSettleCommand(command);
   if (command.type === "REMOVE_STRUCTURE") return handlers.handleRemoveStructureCommand(command);
   if (command.type === "CANCEL_SIEGE_BATTERY_BUILD") return handlers.handleCancelSiegeBatteryBuildCommand(command);
-  if (command.type === "COLLECT_VISIBLE") return handlers.handleCollectVisibleCommand(command);
   if (command.type === "UNCAPTURE_TILE") return handlers.handleUncaptureTileCommand(command);
   if (command.type === "CHOOSE_TECH") return handlers.handleChooseTechCommand(command);
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
@@ -161,7 +159,6 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REMOVE_STRUCTURE" ||
   command.type === "CANCEL_SIEGE_BATTERY_BUILD" ||
   command.type === "UNCAPTURE_TILE" ||
-  command.type === "COLLECT_VISIBLE" ||
   command.type === "CHOOSE_TECH" ||
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||

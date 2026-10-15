@@ -16,27 +16,13 @@ export type RuntimeTileYieldEconomyContext = {
   townNetwork: ReturnType<typeof buildConnectedTownNetworkForPlayer>;
   fedTownKeys: Set<string>;
   firstThreeTownKeys: Set<string>;
-  /** Precomputed tile keys of active HYDROWORKS structures owned by this player. */
-  hydroworksKeys: Set<string>;
-  /** Precomputed tile keys of active ORE_REFINERY structures owned by this player. */
-  oreRefineryKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
   // dormant Mintworks/Bank/Trade Nexus/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
-export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
-export type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
-export type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
-
-export const hasOutstandingUpkeepNeed = (need: UpkeepNeed): boolean => {
-  if (need.gold > 0.0001) return true;
-  for (const resource of UPKEEP_STRATEGIC_KEYS) {
-    if (need[resource] > 0.0001) return true;
-  }
-  return false;
-};
+export type UpkeepNeed = { gold: number } & Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
 
 /**
  * Distinguishes player-issued frontier locks from passive defensive fire
@@ -336,9 +322,7 @@ export type SimulationTileWireDelta = {
   waystationJson?: string | undefined;
   /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
   afcJson?: string | undefined;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
-  yieldCap?: { gold: number; strategicEach: number };
+  yieldRate?: { goldPerMinute?: number };
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;
   ownershipClearOnly?: boolean;

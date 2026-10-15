@@ -797,28 +797,21 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        resource: "GRAIN",
+        resource: "FARM",
         economicStructure: {
           ownerId: "me",
           type: "HYDROGARDEN",
           status: "active"
-        },
-        yieldRate: {
-          strategicPerDay: { FOOD: 75.6 }
-        },
-        yield: {
-          strategic: { FOOD: 1.75 }
-        },
-        yieldCap: {
-          gold: 0,
-          strategicEach: 6
         }
       },
       deps
     );
 
     expect(lines.some((line) => line.html.includes("once developed and collected"))).toBe(false);
-    expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+    // Slot supply, not a per-day yield: FOOD is slot-based, tiles don't produce it daily.
+    const production = lines.find((line) => line.html.includes("Production:"));
+    expect(production?.html).toContain("Food +");
+    expect(production?.html).not.toContain("/day");
   });
 
   it("does not show stored yield for owned unfed towns", () => {
