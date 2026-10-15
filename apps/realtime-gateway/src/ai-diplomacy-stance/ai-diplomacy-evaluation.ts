@@ -6,6 +6,7 @@ import type { AiDiplomacyPricing, DiplomacyGoods } from "@border-empires/shared"
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { aiWouldLeadAlliance, type AllyLookup, type TileLookup } from "./ai-alliance-bloc.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
@@ -28,6 +29,17 @@ export type AiDiplomacyContext = {
   requesterTruceBreaksWithOthers: number;
   memory: DiplomacyMemoryView;
   now: number;
+  /** Current alliances, for the Diplomatic Dominance "who leads the bloc" check. */
+  alliesOf: AllyLookup;
+};
+
+/** Tile counts from the AI's own leaderboard view (every active player). */
+export const tileLookupFromSnapshot = (snapshot: PlayerSubscriptionSnapshot | undefined): TileLookup => {
+  const tiles = new Map<string, number>();
+  for (const entry of snapshot?.worldStatus?.leaderboard.overall ?? []) tiles.set(entry.id, entry.tiles);
+  const self = snapshot?.worldStatus?.leaderboard.selfOverall;
+  if (self) tiles.set(self.id, self.tiles);
+  return (playerId) => tiles.get(playerId) ?? 0;
 };
 
 const holdingsOf = (snapshot: PlayerSubscriptionSnapshot | undefined): DiplomacyGoods => ({
@@ -75,6 +87,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterIncomePerMinute: requesterIncome,
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
+    aiWouldLeadAlliance: aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tileLookupFromSnapshot(input.aiSnapshot)),
     now: input.now
   });
   return {

@@ -48,7 +48,7 @@ export const createSocialAllianceBreaks = (
   };
 
   return {
-    breakAlliance(playerId, targetPlayerId): SocialActionResult {
+    breakAlliance(playerId, targetPlayerId, announcementByPlayerId): SocialActionResult {
       deps.sweepExpired();
       const actor = ensurePlayer(playerId);
       const target = deps.playersById.get(targetPlayerId);
@@ -65,7 +65,7 @@ export const createSocialAllianceBreaks = (
       };
       allianceBreaksByPair.set(pairKey(actor.id, target.id), notice);
       sink?.saveAllianceBreak(notice);
-      const announcements = {
+      const announcements = announcementByPlayerId ?? {
         [actor.id]: `Alliance break notice sent to ${target.name}. The alliance remains active for 24h.`,
         [target.id]: `${actor.name} started a 24h notice to break your alliance.`
       };

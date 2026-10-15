@@ -7,6 +7,7 @@ import type { CommandEnvelope, PlayerSubscriptionSnapshot } from "@border-empire
 import type { WebSocket } from "ws";
 
 import { combatFromSimulationEvent, createAiDiplomacyMemory } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
+import { createAiAllianceReview } from "../ai-diplomacy-stance/ai-alliance-review.js";
 import type { AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import { answerDiplomacyStanceQuery } from "../ai-diplomacy-stance/diplomacy-stance-query.js";
 import { handleAllianceSocketMessage, type AllianceSocketMessageDeps } from "../alliance-socket-messages/alliance-socket-messages.js";
@@ -46,6 +47,8 @@ export type DiplomacySocketHandler = {
     session: { playerId?: string | undefined; isGuest?: boolean | undefined },
     socket: WebSocket
   ) => Promise<boolean>;
+  /** Has AIs leave alliances they no longer lead (self-throttled; call it from a recurring task). */
+  reviewAiAlliances: () => Promise<void>;
   /** Routes deal-settlement verdicts and combat (for AI memory) from the simulation event stream. */
   observeSimulationEvent: (event: Parameters<DiplomacySettlement["observe"]>[0] & Parameters<typeof combatFromSimulationEvent>[0]) => void;
 };
@@ -83,15 +86,29 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   const fetchAiSnapshot = memoizeWithTtl((playerId) => deps.ensureSubscribed(playerId).catch(() => undefined), 3_000);
   const requesterSnapshot = async (playerId: string): Promise<PlayerSubscriptionSnapshot | undefined> =>
     deps.cachedSnapshotForPlayer(playerId) ?? (await deps.ensureSubscribed(playerId));
+  const alliesOf = (playerId: string): readonly string[] => socialState.snapshotForPlayer(playerId).allies;
   const diplomacyContext = (requesterId: string, aiPlayerId: string): AiDiplomacyContext => {
     const breaks = socialState.snapshotForPlayer(requesterId).truceBreaksThisSeason;
     return {
       requesterBrokeTruceWithAi: breaks.some((record) => record.targetPlayerId === aiPlayerId),
       requesterTruceBreaksWithOthers: breaks.filter((record) => record.targetPlayerId !== aiPlayerId).length,
       memory: memory.view(aiPlayerId, requesterId),
-      now: Date.now()
+      now: Date.now(),
+      alliesOf
     };
   };
+  const reviewAiAlliances = createAiAllianceReview({
+    seededAiPlayerIds: deps.seededAiPlayerIds,
+    hasLiveSocket: deps.hasLiveSocket,
+    alliesOf,
+    pendingBreaksOf: (playerId) => socialState.snapshotForPlayer(playerId).activeAllianceBreaks.map((notice) => notice.otherPlayerId),
+    fetchAiSnapshot,
+    playerName: socialState.playerNameOf,
+    breakAlliance: socialState.breakAlliance,
+    fanoutPlayerPayloads: deps.fanoutPlayerPayloads,
+    recordGatewayEvent: deps.recordGatewayEvent,
+    now: () => Date.now()
+  });
   const responder = createSeededAiDiplomacyResponder({
     seededAiPlayerIds: deps.seededAiPlayerIds,
     fetchPlayerSnapshot: fetchAiSnapshot,
@@ -192,6 +209,7 @@ export const buildDiplomacySocketHandler = (deps: DiplomacySocketHandlerDeps): D
   };
   return {
     handleMessage,
+    reviewAiAlliances,
     observeSimulationEvent: (event) => {
       settlement.observe(event);
       const combat = combatFromSimulationEvent(event);

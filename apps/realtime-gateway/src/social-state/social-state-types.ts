@@ -183,7 +183,8 @@ export type SocialState = {
   acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectAlliance: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  breakAlliance: (playerId: string, targetPlayerId: string) => SocialActionResult;
+  /** announcementByPlayerId replaces the default break-notice wording (e.g. an AI explaining why it leaves). */
+  breakAlliance: (playerId: string, targetPlayerId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
   finalizeExpiredAllianceBreaks: (pairs?: Array<[string, string]>) => { expiredBreaks: SocialExpiredAllianceBreak[]; payloadsByPlayerId: Map<string, unknown[]> };
   requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
@@ -199,6 +200,7 @@ export type SocialState = {
   ) => { ok: true; offer: SocialPendingOffer } | { ok: false; code: string; message: string };
   endSettlement: (requestId: string) => void;
   resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
+  playerNameOf: (playerId: string) => string;
   /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;

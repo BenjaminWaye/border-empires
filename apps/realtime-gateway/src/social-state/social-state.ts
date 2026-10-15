@@ -435,6 +435,7 @@ export const createSocialState = (options: {
       return { ok: true, offer };
     },
     endSettlement: (requestId) => { settlingRequestIds.delete(requestId); },
+    playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
     resolvePlayerByName: (playerName) => {
       const player = resolveByName(playerName);
       return player ? { id: player.id, name: player.name } : undefined;

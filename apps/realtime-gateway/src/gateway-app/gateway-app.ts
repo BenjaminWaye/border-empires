@@ -1630,7 +1630,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
-  const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
+  const allianceBreakFinalize = startRecurringTask(() => { void finalizeExpiredAllianceBreaks(); void diplomacySocket.reviewAiAlliances(); }, 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   // Season rollover never auto-starts on a timer -- a new season only begins
   // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
   // below). This intentionally drops the old auto-start timer hook's Imperial

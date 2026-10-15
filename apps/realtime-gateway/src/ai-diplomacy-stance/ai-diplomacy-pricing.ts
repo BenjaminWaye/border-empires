@@ -8,8 +8,10 @@
 //   - minus the base price entirely when the AI is desperate (armies spent, starving)
 // An AI that is losing a war will pay for peace instead (the loser pays),
 // but only once per war and never more than a quarter of its coin.
-// Alliances need an AI that is at least Pleased and hasn't fought the player
-// for a day, and the AI never pays to join one.
+// Alliances need an AI that is at least Pleased, hasn't fought the player for
+// a day, and would be the largest member of the resulting bloc (Diplomatic
+// Dominance victory goes to the bloc's largest member); the AI never pays to
+// join one.
 import { SHARD_COIN_VALUE, type AiDiplomacyPricing, type DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
@@ -51,6 +53,8 @@ export const aiDiplomacyPricing = (input: {
   requesterIncomePerMinute: number;
   aiHoldings: DiplomacyGoods;
   requesterBrokeTruceWithAi: boolean;
+  /** Diplomatic Dominance goes to a bloc's largest member: the AI only joins blocs it would lead. */
+  aiWouldLeadAlliance: boolean;
   now: number;
 }): AiDiplomacyPricingResult => {
   const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
@@ -96,6 +100,7 @@ export const aiDiplomacyPricing = (input: {
   let allianceRefusal: string | undefined;
   const foughtRecently = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < ALLIANCE_NO_FIGHTING_MS;
   if (input.requesterBrokeTruceWithAi) allianceRefusal = `${aiName} will never ally with someone who broke a truce with them.`;
+  else if (!input.aiWouldLeadAlliance) allianceRefusal = `${aiName} won't join an alliance it wouldn't lead: your alliance is too large.`;
   else if (foughtRecently) allianceRefusal = `${aiName} won't ally with an empire it fought within the last day.`;
   else if (ATTITUDE_RANK[opinion.attitude] < ATTITUDE_RANK.PLEASED) allianceRefusal = `${aiName} doesn't think well enough of you for an alliance.`;
   const allianceHours = allianceRefusal ? undefined : ALLIANCE_HOURS[opinion.attitude];

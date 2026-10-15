@@ -22,6 +22,7 @@ const quietContext = (overrides: Partial<AiDiplomacyContext["memory"]> = {}, con
     ...overrides
   },
   now: NOW,
+  alliesOf: () => [],
   ...context
 });
 

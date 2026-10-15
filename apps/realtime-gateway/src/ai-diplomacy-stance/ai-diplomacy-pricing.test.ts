@@ -31,6 +31,7 @@ const price = (options: {
   aiGold?: number;
   brokeTruce?: boolean;
   breaksWithOthers?: number;
+  aiWouldLeadAlliance?: boolean;
 }) => {
   const stanceKind = options.stanceKind ?? "WARY";
   const mem = options.memory ?? memory();
@@ -58,6 +59,7 @@ const price = (options: {
       requesterIncomePerMinute: requesterIncome,
       aiHoldings: { gold: options.aiGold ?? 0, shard: 0 },
       requesterBrokeTruceWithAi: options.brokeTruce ?? false,
+      aiWouldLeadAlliance: options.aiWouldLeadAlliance ?? true,
       now: NOW
     })
   };
@@ -140,6 +142,14 @@ describe("AI alliance pricing", () => {
     );
   });
 
+  // Diplomatic Dominance goes to a bloc's largest member, so the AI only joins blocs it would lead.
+  it("refuses an alliance it wouldn't lead, however friendly", () => {
+    const result = price({ stanceKind: "OUTMATCHED", bordersTouch: false, memory: memory({ goodwillCoin: 600 }), aiWouldLeadAlliance: false });
+    expect(result.opinion.attitude).toBe("FRIENDLY");
+    expect(result.pricing.required.alliance).toBeNull();
+    expect(result.allianceRefusal).toBe("Milo won't join an alliance it wouldn't lead: your alliance is too large.");
+  });
+
   // Goodwill is capped: coin alone can't buy friendship.
   it("caps goodwill from payments", () => {
     const rich = price({ memory: memory({ goodwillCoin: 10_000_000 }) });
@@ -170,7 +180,7 @@ describe("answerDiplomacyStanceQuery", () => {
     isAutoRespondingAi: (id: string) => id === "ai-1",
     fetchAiSnapshot: async () => aiSnapshot,
     requesterSnapshot: async () => undefined,
-    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, memory: memory(), now: NOW })
+    diplomacyContext: () => ({ requesterBrokeTruceWithAi: false, requesterTruceBreaksWithOthers: 0, memory: memory(), now: NOW, alliesOf: () => [] })
   };
 
   it("returns an AI's stance, attitude with modifiers, and prices", async () => {
