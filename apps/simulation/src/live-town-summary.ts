@@ -401,9 +401,6 @@ export const buildTownSummary = (
             deltaPerMinute: Number((baseGrowth * (1 - 1 / LONG_PEACE_GROWTH_MULT)).toFixed(4))
           }]
         : [];
-  const cap = isSettlement
-    ? goldPerMinute * 60 * 8
-    : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
   const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
     ? nextTownGrowthUpgrade(populationTier, population)
     : undefined;
@@ -430,7 +427,6 @@ export const buildTownSummary = (
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
     goldPerMinute: Number(goldPerMinute.toFixed(4)),
-    cap: Number(cap.toFixed(4)),
     isFed,
     population,
     maxPopulation,

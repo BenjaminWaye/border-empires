@@ -175,7 +175,6 @@ export type DomainTileState = {
             | "supportCurrent"
             | "supportMax"
             | "goldPerMinute"
-            | "cap"
             | "isFed"
             | "population"
             | "maxPopulation"
