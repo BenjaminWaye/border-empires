@@ -18,6 +18,9 @@ import { createAutomationNoopDiagnostic, planAutomationCommand, type AutomationP
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
+// Throttle per-tick respawn attempts for eliminated AI players. Spawn
+// placement is an O(n-tile) scan; 30 s cooldown keeps it from running
+// every 200 ms when the map is too full to place.
 const AI_RESPAWN_RETRY_INTERVAL_MS = 30_000;
 
 export type AutomationSessionPrefix = "ai-runtime" | "system-runtime";
@@ -62,7 +65,7 @@ export class RuntimeAutomationAdvisor {
   private readonly spatialFocusByPlayer = new Map<string, AiSpatialFocus>(); // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; cleared once the player owns no territory.
   private readonly spatialFocusProductiveByPlayer = new Map<string, boolean>(); // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
   private readonly hotFrontierStreakByPlayer = new Map<string, number>(); // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
-  private readonly warPostureLatchByPlayer = new Map<string, WarPostureLatchEntry>();
+  private readonly warPostureLatchByPlayer = new Map<string, WarPostureLatchEntry>(); // Backs the WAR front posture's hysteresis — see ai-war-posture-latch.ts.
   private readonly lastRespawnAttemptMsByPlayer = new Map<string, number>();
 
   constructor(private readonly deps: RuntimeAutomationAdvisorDeps) {}
