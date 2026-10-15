@@ -383,14 +383,13 @@ import {
   isRelayBeaconActive,
   isObservatoryActive
 } from "../runtime-tile-index-maintenance.js";
-import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
+import { RuntimeShardRain } from "../runtime-shard-rain-state.js";
 import {
   activateWatchtowerAt as activateWatchtowerAtImpl,
   tickWatchtowerReveals as tickWatchtowerRevealsImpl,
   type PendingWatchtowerReveal,
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js"; import { activateWaystationAt as activateWaystationAtImpl, seedWaystationVisionBonus } from "../runtime-waystation-activation.js";
-import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import type { EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
   emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
@@ -785,14 +784,16 @@ export class SimulationRuntime {
     ai: []
   };
   private readonly replayCache: RuntimeReplayCache;
-  private lastShardRainSpawnSlotKey: string | undefined;
-  private lastShardRainWarningSlotKey: string | undefined;
-  private shardRainTickCounter = 0;
-  private currentShardRainExpiresAt: number | undefined;
-  private currentShardRainSiteCount = 0;
-  private readonly lastShardRainHelloByPlayer = new Map<string, number>();
-  private readonly recentShardRainTileKeys = new Set<string>();
-  private readonly activeShardFallSiteKeys = new Set<string>();
+  private readonly shardRain: RuntimeShardRain = (() => {
+    const runtime = this;
+    return new RuntimeShardRain({
+      get state() { return runtime.state; },
+      now: () => runtime.now(),
+      replaceTileState: (tileKey, tile) => runtime.replaceTileState(tileKey, tile),
+      emitEvent: (event) => runtime.emitEvent(event),
+      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile)
+    });
+  })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
   private dormantClaimSweepDone = false;
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
@@ -961,12 +962,7 @@ export class SimulationRuntime {
       seedGrownTownSupportRingForTownTileImpl(this.grownTownSupportRingByOwner, tile, this.state.tiles);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
-        this.currentShardRainSiteCount += 1;
-        this.currentShardRainExpiresAt =
-          typeof this.currentShardRainExpiresAt === "number"
-            ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
-            : site.expiresAt;
-        this.activeShardFallSiteKeys.add(tileKey);
+        this.shardRain.recordRecoveredFallSite(tileKey, site.expiresAt);
       }
       // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
@@ -1303,34 +1299,8 @@ export class SimulationRuntime {
     });
   }
 
-  private shardRainContext() {
-    return {
-      now: this.now,
-      players: this.state.players,
-      tiles: this.state.tiles,
-      recentShardRainTileKeys: this.recentShardRainTileKeys,
-      activeShardFallSiteKeys: this.activeShardFallSiteKeys,
-      lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
-      getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
-      setCurrentShardRainExpiresAt: (expiresAt: number | undefined) => { this.currentShardRainExpiresAt = expiresAt; },
-      getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
-      setCurrentShardRainSiteCount: (siteCount: number) => { this.currentShardRainSiteCount = siteCount; },
-      getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
-      setLastShardRainSpawnSlotKey: (slotKey: string | undefined) => { this.lastShardRainSpawnSlotKey = slotKey; },
-      getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
-      setLastShardRainWarningSlotKey: (slotKey: string | undefined) => { this.lastShardRainWarningSlotKey = slotKey; },
-      incrementShardRainTickCounter: () => {
-        this.shardRainTickCounter += 1;
-        return this.shardRainTickCounter;
-      },
-      replaceTileState: (tileKey: string, tile: DomainTileState) => this.replaceTileState(tileKey, tile),
-      emitEvent: (event: SimulationEvent) => this.emitEvent(event),
-      tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile)
-    };
-  }
-
   tickShardRain(nowMs: number = this.now()): void {
-    tickShardRainImpl(this.shardRainContext(), nowMs);
+    this.shardRain.tick(nowMs);
   }
 
   private watchtowerRevealContext(): WatchtowerRevealRuntimeInput {
@@ -1430,15 +1400,11 @@ export class SimulationRuntime {
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
-    emitShardRainHelloForImpl(this.shardRainContext(), playerId, nowMs);
+    this.shardRain.emitHelloFor(playerId, nowMs);
   }
 
   currentShardRainWelcomeNotice(nowMs: number = this.now()): Record<string, unknown> {
-    return computeShardRainWelcomeNotice({
-      nowMs,
-      currentSiteCount: this.currentShardRainSiteCount,
-      currentExpiresAt: this.currentShardRainExpiresAt
-    });
+    return this.shardRain.welcomeNotice(nowMs);
   }
 
   private respawnContext(): RuntimeRespawnContext {
@@ -3322,12 +3288,9 @@ export class SimulationRuntime {
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
       ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      decrementShardRainSiteCount: () => {
-        this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
-        return this.currentShardRainSiteCount;
-      },
-      clearShardRainExpiry: () => { this.currentShardRainExpiresAt = undefined; },
-      clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
+      decrementShardRainSiteCount: () => this.shardRain.decrementSiteCount(),
+      clearShardRainExpiry: () => this.shardRain.clearExpiry(),
+      clearLastShardRainHello: () => this.shardRain.clearHellos(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId),
