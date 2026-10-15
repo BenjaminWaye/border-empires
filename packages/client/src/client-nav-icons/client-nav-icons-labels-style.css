@@ -1,5 +1,5 @@
 /* Names under the desktop top-bar panel icons (Manifest, Allies, Ranks,
-   Alerts, Activity, Sharding, Settings). Playtest feedback: "include the
+   Alerts, Sharding, Settings). Playtest feedback: "include the
    names below each icon, they are not intuitive."
 
    The label is drawn from each button's existing aria-label with ::after

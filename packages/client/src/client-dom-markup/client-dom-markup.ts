@@ -9,7 +9,6 @@ export const hudMarkup = `
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies">${navTabIconHtml("alliance")}</button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks">${navTabIconHtml("leaderboard")}</button>
       <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts">${navTabIconHtml("feed")}</button>
-      <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
       <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding">${navTabIconHtml("domains")}</button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
     </div>
   </div>
@@ -250,7 +249,6 @@ export const hudMarkup = `
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard">${navTabIconHtml("leaderboard")}</button>
     <button data-mobile-panel="social" title="Social" aria-label="Social">${navTabIconHtml("alliance")}</button>
     <button data-mobile-panel="feed" title="Alerts" aria-label="Alerts">${navTabIconHtml("feed")}</button>
-    <button data-open-activity-dashboard title="Activity" aria-label="Activity">${navTabIconHtml("activity")}</button>
     <button data-mobile-panel="settings" title="Settings" aria-label="Settings">${navTabIconHtml("settings")}</button>
   </div>
 

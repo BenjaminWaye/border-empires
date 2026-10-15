@@ -51,12 +51,24 @@ export const mapRevealCardHtml = (
   `;
 };
 
+// The activity log (client-activity-dashboard) moved here from the top bar /
+// mobile nav: it isn't ready for players in its current form, so only admins
+// can open it. data-open-activity-dashboard="admin" is wired by the HUD's
+// existing activity binding, which leaves this button's text alone (it only
+// swaps icon/badge markup on the old nav buttons).
+const activityLogAdminCardHtml = (): string => `
+  <div class="auth-map-reveal">
+    <button type="button" class="panel-btn" data-open-activity-dashboard="admin">Open Activity Log</button>
+    <p>Admin preview of the activity log (raids, captures, waystations, world pulse). Hidden from players for now.</p>
+  </div>
+`;
+
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
   { id: "account", title: "Account", desc: "Name and empire colour" },
   { id: "gameplay", title: "Gameplay", desc: "Ambient sound, rally link" },
   { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" },
-  { id: "admin", title: "Admin", desc: "Map reveal, photo mode, lighting tuner" }
+  { id: "admin", title: "Admin", desc: "Map reveal, photo mode, activity log, lighting tuner" }
 ];
 
 const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
@@ -137,6 +149,7 @@ export const settingsAdminPageHtml = (
   if (!settingsAdminAvailable(state)) return `<div class="card auth-settings-card"><p>Admin tools aren't available for this account.</p></div>`;
   return `
     <div class="card auth-settings-card">${mapRevealCardHtml(state)}</div>
+    <div class="card auth-settings-card">${activityLogAdminCardHtml()}</div>
     <div class="card auth-settings-card">${lightingTunerCardHtml()}</div>
   `;
 };
