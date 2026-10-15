@@ -4,6 +4,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext, SimulationTileWireDelta } from "./runtime-types.js";
 import { overlayJsonFieldsFrom } from "./tile-delta-overlay-fields.js";
+import { townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 export type TileDeltaFromStateDeps = {
   players: Map<string, RuntimePlayer>;
@@ -91,10 +92,7 @@ export const tileDeltaFromState = (
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
-    ...(enrichedTile.town ? { townJson: JSON.stringify(enrichedTile.town) } : {}),
-    ...(enrichedTile.town?.type ? { townType: enrichedTile.town.type } : {}),
-    ...(enrichedTile.town?.name ? { townName: enrichedTile.town.name } : {}),
-    ...(enrichedTile.town?.populationTier ? { townPopulationTier: enrichedTile.town.populationTier } : {}),
+    ...townWireFields(enrichedTile.town),
     ...(yieldView ? { yieldRate: yieldView.yieldRate } : {})
   };
   return options?.full ? fullDelta : deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta, reachOwnerId);

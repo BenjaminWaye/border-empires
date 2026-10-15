@@ -1187,7 +1187,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const snapshot = useWorkerBuild
       ? await snapshotBuildPool!.build(playerId, runtimeState, buildOpts)
       : trackSyncMainThreadTaskWithMetrics("snapshot_materialize_inline", { playerId }, () =>
-          buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, buildOpts));
+          buildPlayerSubscriptionSnapshot(playerId, runtimeState, buildOpts));
     recordSnapshotBuildTiming("snapshot_materialize", Date.now() - snapshotBuildStartedAt, {
       playerId,
       trigger: options?.trigger ?? "",
@@ -1299,7 +1299,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const runtimeState = providedRuntimeState ?? await runtime.exportStateAsync(yieldToEventLoop);
     // One tile scan feeds the leaderboard, base objectives, AND every player's
     // self-progress label — reused below so tracker re-summarization doesn't rescan.
-    const worldStatus = buildWorldStatusSnapshot("", runtimeState, undefined, {
+    const worldStatus = buildWorldStatusSnapshot("", runtimeState, {
       acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms(),
       ...(options.nonCompetitivePlayerIds ? { nonCompetitivePlayerIds: options.nonCompetitivePlayerIds } : {})
     });
@@ -1916,7 +1916,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onPlayerStateUpdateSkippedAi: () => { simulationMetrics.incrementSimPlayerStateUpdateSkippedAi(); }
       });
       const nextRuntimeState = nextRuntime.exportState();
-      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, undefined, {
+      const nextWorldStatus = buildWorldStatusSnapshot("", nextRuntimeState, {
         ...(nonCompetitivePlayerIds ? { nonCompetitivePlayerIds } : {})
       });
       const nextSummary = buildCurrentSeasonSummary({

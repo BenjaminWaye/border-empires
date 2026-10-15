@@ -19,6 +19,7 @@ import type {
 } from "./runtime-types.js";
 import type { RuntimeExportState } from "./runtime-state-export.js";
 import type { RuntimeVisibilityClassification } from "./runtime-visibility-classifier.js";
+import { overlayJsonFieldsFromTile, townWireFields } from "./tile-overlay-fields/tile-overlay-fields.js";
 
 type VisibilityPlayerProjectionDeps = {
   players: ReadonlyMap<string, RuntimePlayer>;
@@ -219,42 +220,18 @@ function visibleTileProjection(
     // Public terrain clue, never resource-gated (see prospect-signatures.ts).
     ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
-    ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-    ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
-    ...(tile.watchtower ? { watchtowerJson: JSON.stringify(tile.watchtower) } : {}),
-    ...(tile.waystation ? { waystationJson: JSON.stringify(tile.waystation) } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(reachOwnerId ? { reachOwnerId } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-    ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
-    ...(tile.town?.type ? { townType: tile.town.type } : {}),
-    ...(tile.town?.name ? { townName: tile.town.name } : {}),
-    ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
-    ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
-    ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
-    ...(tile.siegeBattery ? { siegeBatteryJson: JSON.stringify(tile.siegeBattery) } : {}),
-    ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-    ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
-    // Missing entirely until this fix, unlike every sibling overlay field
-    // above -- so a currently-active muster flag (HOLD/ADVANCE/MARCH) never
-    // reached the client via SubscribePlayer at all, real or not. It only
-    // ever became visible via a live TILE_DELTA_BATCH (tickMuster/SET_MUSTER),
-    // which a reconnecting or freshly-logged-in client hasn't received yet --
-    // and never will for a flag already sitting at its cap, since tickMuster
-    // deliberately skips emitting a delta when there's no inflow to report.
-    // Truthy-guarded like every field above: this snapshot is a bulk, cheap
-    // full-tile projection (also used for the up-to-13k-tile bootstrap
-    // export and the post-season full-visibility export), not a
-    // clear-signaling channel -- same as fort/sabotage/siegeBattery/etc.,
-    // it reports what IS there and says nothing about what changed. A stale
-    // local muster belief surviving a reconnect is the same tradeoff this
-    // snapshot already accepts for every other structure type; re-selecting
-    // the tile (REQUEST_TILE_DETAIL) is the correction path for all of them,
-    // including muster since buildSnapshotTileDetail's fix.
-    ...(tile.muster ? { musterJson: JSON.stringify(tile.muster) } : {}),
-    ...(tile.afc ? { afcJson: JSON.stringify(tile.afc) } : {})
+    ...townWireFields(tile.town),
+    // Every overlay (fort, muster, AFC, ...) from the one shared key list --
+    // this projection once silently omitted muster, so an active flag never
+    // reached a reconnecting client. Truthy-guarded: this bulk login /
+    // full-visibility export reports what IS there, not what changed; a stale
+    // local belief is corrected by REQUEST_TILE_DETAIL, same as before.
+    ...overlayJsonFieldsFromTile(tile)
   };
 }
 
