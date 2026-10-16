@@ -2,6 +2,11 @@ import type { ClientState } from "../client-state/client-state.js";
 import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js";
 import { serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { incursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
+import {
+  aetherProtectionField,
+  aetherProtectionFieldKey,
+  isAetherProtectionFieldShown
+} from "../client-aether-tower-protection/client-aether-tower-protection.js";
 
 /**
  * Non-tile state that forces client-map-3d.ts's maybeRebuild to re-run
@@ -18,9 +23,11 @@ export type Map3DRebuildTriggers = {
   // Admin pocket-edge style switch (client-incursion-breach-style.ts): redraws
   // the incursion outlines as soon as it changes, without waiting for a pan.
   incursionBreachStyle: string;
+  // See aetherProtectionRebuildKey.
+  aetherProtectionKey: string;
 };
 
-export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: "straight" };
+export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: "straight", aetherProtectionKey: "" };
 
 /**
  * What the 3D reach overlay (survey-line pylons/walls, dormant-frontier and
@@ -61,19 +68,33 @@ export const frontierAttackClaimRebuildSnapshot = (
   keyFor: (x: number, y: number) => string
 ): string => Array.from(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now())).sort().join(",");
 
+type AetherProtectionTriggerState = Parameters<typeof isAetherProtectionFieldShown>[0] & Parameters<typeof aetherProtectionField>[0];
+
+/**
+ * What the Aether Tower protection wash (client-map-3d-aether-protection-overlay.ts)
+ * was last built from: empty while it's hidden, else every tower currently
+ * shielding. Changes when the wash is toggled (tower selected, Aether tab
+ * opened, ability aimed) and when a tower comes off cooldown mid-display --
+ * that one has no tile delta of its own to trigger a rebuild.
+ */
+export const aetherProtectionRebuildKey = (state: AetherProtectionTriggerState, keyFor: (x: number, y: number) => string): string =>
+  isAetherProtectionFieldShown(state, keyFor) ? `on:${aetherProtectionFieldKey(aetherProtectionField(state, Date.now()))}` : "";
+
 export const captureMap3DRebuildTriggers = (
-  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision">,
+  state: Pick<ClientState, "crystalTargeting" | "capture" | "outgoingMusterAttacksByTile" | "tiles" | "incomingAttacksByTile" | "me" | "serverReach" | "serverReachRevision"> & AetherProtectionTriggerState,
   keyFor: (x: number, y: number) => string,
   reach3DActive: boolean
 ): Map3DRebuildTriggers => ({
   crystalTargetingActive: state.crystalTargeting.active,
   frontierAttackClaimKeys: frontierAttackClaimRebuildSnapshot(state, keyFor),
   reachKey: reach3DRebuildKey(reach3DActive, state),
-  incursionBreachStyle: incursionBreachStyle()
+  incursionBreachStyle: incursionBreachStyle(),
+  aetherProtectionKey: aetherProtectionRebuildKey(state, keyFor)
 });
 
 export const map3DRebuildTriggersChanged = (built: Map3DRebuildTriggers, now: Map3DRebuildTriggers): boolean =>
   built.crystalTargetingActive !== now.crystalTargetingActive ||
   built.frontierAttackClaimKeys !== now.frontierAttackClaimKeys ||
   built.reachKey !== now.reachKey ||
-  built.incursionBreachStyle !== now.incursionBreachStyle;
+  built.incursionBreachStyle !== now.incursionBreachStyle ||
+  built.aetherProtectionKey !== now.aetherProtectionKey;

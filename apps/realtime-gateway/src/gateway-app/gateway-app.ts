@@ -109,7 +109,7 @@ const loginPhase = createLoginPhaseNotifier(sendJson);
 
 import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import { createSimulationRpcRetry, resolveSimulationRpcRetryConfig } from "../simulation-rpc-retry/simulation-rpc-retry.js";
-import { createReachUpdateReplay } from "../reach-update-replay/reach-update-replay.js";
+import { createPlayerMessageReplay, isReplayedPlayerMessage } from "../player-message-replay/player-message-replay.js";
 import {
   jsonSafeTileDeltaBatch,
   optionalCommandMetadata,
@@ -696,7 +696,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
-  const reachUpdateReplay = createReachUpdateReplay<import("ws").WebSocket>({ maxEntries: 20_000, onSizeChange: (n) => gatewayMetrics.setReachReplayEntries(n), onEvict: () => gatewayMetrics.incrementReachReplayEvictionsTotal() }); // see reach-update-replay.ts
+  const playerMessageReplay = createPlayerMessageReplay<import("ws").WebSocket>({ maxEntries: 20_000, onSizeChange: (n) => gatewayMetrics.setReachReplayEntries(n), onEvict: () => gatewayMetrics.incrementReachReplayEvictionsTotal() }); // see player-message-replay.ts
   const tileDetailFetchByKey = new Map<string, Promise<PlayerSubscriptionSnapshot | undefined>>();
   const fetchTileDetailFromSim = async (
     playerId: string,
@@ -1278,7 +1278,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           syncGatewaySnapshotMetricsFromCache(session.playerId);
         }
         event.payload = recoveredPayload;
-        if (event.messageType === "REACH_UPDATE") reachUpdateReplay.observe(event.playerId, recoveredPayload, sockets);
+        if (isReplayedPlayerMessage(recoveredPayload)) playerMessageReplay.observe(event.playerId, recoveredPayload, sockets); // REACH_UPDATE / AETHER_SHIELDS
       }
       if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
         playerSubscriptions.updateSnapshot(event.playerId, (snapshot) =>
@@ -2074,8 +2074,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               markSimulationReady();
               authTrace.endStep("live_subscribe");
               loginTracer.stage("live_subscribe_end");
-              // ensureSubscribed skips the SubscribePlayer RPC (and so the sim's reach push) when this player already has a socket -- replay the latest border instead.
-              if (reachUpdateReplay.replayTo(playerIdentity.playerId, socket, queueOrSendSessionPayload)) gatewayMetrics.incrementReachReplaySentTotal();
+              // ensureSubscribed skips the SubscribePlayer RPC (and so the sim's reach / Aether shield push) when this player already has a socket -- replay the latest ones instead.
+              if (playerMessageReplay.replayTo(playerIdentity.playerId, socket, queueOrSendSessionPayload)) gatewayMetrics.incrementReachReplaySentTotal();
             } catch (error) {
               loginTracer.stage("live_subscribe_failed", { error: error instanceof Error ? error.message : String(error) });
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
@@ -2679,7 +2679,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           const remainingSockets = [...playerSubscriptions.socketsForPlayer(closingPlayerId)];
           if (!remainingSockets.some((s) => sessionsBySocket.get(s)?.fogDisabled === true)) fogLiveRefreshLastStartedAtByPlayerId.delete(closingPlayerId);
           evictSeededPlayerId(closingPlayerId);
-          if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); reachUpdateReplay.forget(closingPlayerId); }
+          if (remainingSockets.length === 0) { commandRateLimiter.releasePlayer(closingPlayerId); playerMessageReplay.forget(closingPlayerId); }
         }).catch((error) => app.log.error({ err: error, playerId: closingPlayerId }, "failed to unsubscribe player"));
       });
     });

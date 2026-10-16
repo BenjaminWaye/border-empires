@@ -44,21 +44,33 @@ export type ShieldAreaOverlay = {
   readonly dispose: () => void;
 };
 
-export const createShieldAreaOverlay = (scene: Scene): ShieldAreaOverlay => {
+// Overrides for reuse by a wider coverage wash (the Aether Tower protection
+// field, client-map-3d-aether-protection-overlay.ts) -- defaults are the
+// muster-flag shield's own tuning above.
+export type ShieldAreaOverlayOptions = {
+  readonly maxTiles?: number;
+  readonly opacity?: number;
+  readonly tintLighten?: number;
+  readonly renderOrder?: number;
+};
+
+export const createShieldAreaOverlay = (scene: Scene, options: ShieldAreaOverlayOptions = {}): ShieldAreaOverlay => {
+  const maxTiles = options.maxTiles ?? MAX_TILES;
+  const tintLighten = options.tintLighten ?? TINT_LIGHTEN;
   const geometry = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const material = new MeshBasicMaterial({
     toneMapped: false,
     vertexColors: true,
     transparent: true,
-    opacity: OPACITY,
+    opacity: options.opacity ?? OPACITY,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide
   });
-  const mesh = new InstancedMesh(geometry, material, MAX_TILES);
+  const mesh = new InstancedMesh(geometry, material, maxTiles);
   mesh.frustumCulled = false;
   mesh.count = 0;
-  mesh.renderOrder = 21; // just under the win-chance paint (22), alongside selection-range fill
+  mesh.renderOrder = options.renderOrder ?? 21; // just under the win-chance paint (22), alongside selection-range fill
   scene.add(mesh);
 
   let entries: ShieldAreaOverlayEntry[] = [];
@@ -67,7 +79,7 @@ export const createShieldAreaOverlay = (scene: Scene): ShieldAreaOverlay => {
   const clear = (): void => { entries = []; };
 
   const addTile = (entry: ShieldAreaOverlayEntry): void => {
-    if (entries.length >= MAX_TILES) return;
+    if (entries.length >= maxTiles) return;
     entries.push(entry);
   };
 
@@ -76,7 +88,7 @@ export const createShieldAreaOverlay = (scene: Scene): ShieldAreaOverlay => {
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i]!;
       mesh.setMatrixAt(i, tmpMatrixAt(e.sceneX, e.surfaceY + PLANE_RISE_ABOVE_HEIGHTFIELD, e.sceneZ));
-      tmpColor.set(e.ownerColor).lerp(WHITE, TINT_LIGHTEN);
+      tmpColor.set(e.ownerColor).lerp(WHITE, tintLighten);
       mesh.setColorAt(i, tmpColor);
     }
     mesh.instanceMatrix.needsUpdate = true;

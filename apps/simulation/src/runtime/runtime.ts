@@ -327,6 +327,8 @@ import {
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
 import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers } from "../aether-shield/aether-shield.js";
+import { createAetherShieldTicker, type AetherShieldTicker } from "../aether-shield/aether-shield-tick.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
@@ -405,8 +407,9 @@ import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-ti
 import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
 import { reconcileTownVisionBonus, seedTownVisionBonus } from "../runtime-town-vision/runtime-town-vision.js";
-import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
-import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
+import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus } from "../runtime-outpost-vision.js";
+import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus } from "../runtime-observatory-vision.js";
+import { createStructureVisionWiring } from "../runtime-structure-vision-wiring.js";
 import { StructureVisionDormancyTracker } from "../structure-vision-dormancy-tracker.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
@@ -497,6 +500,7 @@ export class SimulationRuntime {
   private readonly now: () => number;
   private readonly state: RuntimeState;
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
+  private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
   // Human-player TEN_TILES / FIRST_CONTACT reports for the gateway's player funnel (onboarding-milestones.ts).
@@ -764,7 +768,22 @@ export class SimulationRuntime {
         frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
       }, this.visionFootprintTable)
     });
-    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command) });
+    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      isObservatoryShielding: (tile) => this.isObservatoryShieldingNow(tile),
+      isTileShieldedByOwner: (ownerId, x, y) =>
+        isTileShieldedByOwnersIndexedTowers(this.state.tiles, this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? [], (tower) => this.isObservatoryShieldingNow(tower), ownerId, x, y)
+    });
+    this.aetherShieldTicker = createAetherShieldTicker({
+      tiles: () => this.state.tiles,
+      activeObservatoriesByOwner: () => this.ownerIndexes.activeObservatoriesByOwner,
+      players: () => this.state.players,
+      isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
+      forEachVisibleKey: (viewerId, visit) => this.state.visibilityCoverage.forEachVisibleKey(viewerId, visit),
+      hasFullVision: (playerId) => this.getAbilityCooldownUntil(playerId, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
+      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      sweepShieldReturns: (towerKeys, commandId) => this.siphonModeLifecycle.sweepShieldReturns(towerKeys, commandId),
+      emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload)
+    });
     for (const [key, tile] of this.state.tiles) this.snapshotTileCache.set(key, mapTile(tile));
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
@@ -867,8 +886,8 @@ export class SimulationRuntime {
       }
       this.ownerIndexes.seedActiveStructuresFromBootTile(tileKey, tile);
       // Seed Outpost/Observatory/Waystation vision bonuses here — see the first-pass comment above.
-      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
-      seedObservatoryVisionBonus(this.observatoryVisionDeps(), tile); seedWaystationVisionBonus(this.state.visibilityCoverage, this.visionTransitions.callbacks, tile);
+      seedOutpostVisionBonus(this.structureVision.outpostVisionDeps(), tile);
+      seedObservatoryVisionBonus(this.structureVision.observatoryVisionDeps(), tile); seedWaystationVisionBonus(this.state.visibilityCoverage, this.visionTransitions.callbacks, tile);
       this.ownerIndexes.seedMusterAndManpowerStructuresFromBootTile(tileKey, tile);
     } for (const tile of this.state.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.state.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.state.players);
     // Fixed-border reach: seed the persistent reachBorder from every anchor
@@ -1110,6 +1129,21 @@ export class SimulationRuntime {
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
+  }
+
+  /** isObservatoryShielding (aether-shield/aether-shield.ts) on this runtime's clock and dormancy. */
+  private isObservatoryShieldingNow(tile: DomainTileState): boolean {
+    return isObservatoryShielding(tile, this.now(), (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field));
+  }
+
+  /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
+  tickAetherShields(nowMs: number = this.now()): void {
+    this.aetherShieldTicker.tick(nowMs);
+  }
+
+  /** Live-subscribe push of the player's AETHER_SHIELDS list (simulation-service/live-subscribe-reach-push.ts). */
+  resendAetherShieldsForPlayer(playerId: string): void {
+    this.aetherShieldTicker.sendTo(playerId, this.now());
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
@@ -1437,61 +1471,24 @@ export class SimulationRuntime {
     return summary;
   }
 
-  // Resolves active-structure-index tile keys into current tile states —
-  // shared by ownedOutpostTilesForPlayer/ownedObservatoryTilesForPlayer below.
-  private tilesForKeys(tileKeys: Iterable<string>): DomainTileState[] {
-    const tiles: DomainTileState[] = [];
-    for (const tileKey of tileKeys) {
-      const tile = this.state.tiles.get(tileKey);
-      if (tile) tiles.push(tile);
-    }
-    return tiles;
-  }
-
-  // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
-  // effect on Light/Siege Battery vision rings) — sourced from the
-  // active-only outpost indexes rather than a full tile scan; see
-  // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
-  private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
-    return this.tilesForKeys(
-      new Set<string>([...(this.ownerIndexes.activeRelayBeaconsByOwner.get(playerId) ?? []), ...(this.ownerIndexes.activeSiegeBatteriesByOwner.get(playerId) ?? [])])
-    );
-  }
-
-  // Shared OutpostVisionCoverageDeps builder — every call site
-  // (seed/reconcile/resync) needs the same players/coverage/isStructureDormant/
-  // callbacks bundle; centralized so isStructureDormant's wiring can't drift
-  // between them.
-  private outpostVisionDeps(): OutpostVisionCoverageDeps {
-    return {
-      players: this.state.players,
-      coverage: this.state.visibilityCoverage,
-      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
-      callbacks: this.visionTransitions.callbacks
-    };
-  }
-
-  // Same role as outpostVisionDeps, for Observatory (runtime-observatory-vision.ts).
-  private observatoryVisionDeps(): ObservatoryVisionCoverageDeps {
-    return {
-      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
-      coverage: this.state.visibilityCoverage,
-      callbacks: this.visionTransitions.callbacks
-    };
-  }
-
-  // Mirrors ownedOutpostTilesForPlayer, for the active-only Observatory index.
-  private ownedObservatoryTilesForPlayer(playerId: string): DomainTileState[] {
-    return this.tilesForKeys(this.ownerIndexes.activeObservatoriesByOwner.get(playerId) ?? []);
-  }
+  private readonly structureVision = createStructureVisionWiring({
+    tiles: () => this.state.tiles,
+    players: () => this.state.players,
+    coverage: () => this.state.visibilityCoverage,
+    callbacks: () => this.visionTransitions.callbacks,
+    isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
+    activeRelayBeaconsByOwner: this.ownerIndexes.activeRelayBeaconsByOwner,
+    activeSiegeBatteriesByOwner: this.ownerIndexes.activeSiegeBatteriesByOwner,
+    activeObservatoriesByOwner: this.ownerIndexes.activeObservatoriesByOwner
+  });
 
   // See StructureVisionDormancyTracker's doc comment for why this exists and
   // why it's deferred/lazy rather than resolved eagerly in replaceTileState.
   private readonly outpostVisionDormancyTracker = new StructureVisionDormancyTracker();
 
   private resyncStructureVisionForPlayer(playerId: string): void {
-    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
-    resyncPlayerObservatoryVisionBonuses(this.observatoryVisionDeps(), playerId, this.ownedObservatoryTilesForPlayer(playerId));
+    resyncPlayerOutpostVisionBonuses(this.structureVision.outpostVisionDeps(), playerId, this.structureVision.ownedOutpostTilesForPlayer(playerId));
+    resyncPlayerObservatoryVisionBonuses(this.structureVision.observatoryVisionDeps(), playerId, this.structureVision.ownedObservatoryTilesForPlayer(playerId));
   }
 
   private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
@@ -1779,8 +1776,8 @@ export class SimulationRuntime {
     }
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-    reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
-    reconcileObservatoryVisionBonus(this.observatoryVisionDeps(), previous, tile);
+    reconcileOutpostVisionBonus(this.structureVision.outpostVisionDeps(), previous, tile);
+    reconcileObservatoryVisionBonus(this.structureVision.observatoryVisionDeps(), previous, tile);
     // §5.4: this tile's own mutation can change either owner's FOOD/UMBRITE
     // slot totals (a resource tile gained/lost, a new demand consumer built)
     // without touching any of their outposts directly — mark them dirty for
@@ -2937,7 +2934,7 @@ export class SimulationRuntime {
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now()),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now(), (ownerId) => this.ownerIndexes.activeObservatoriesByOwner.get(ownerId) ?? []),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options),
@@ -3003,7 +3000,7 @@ export class SimulationRuntime {
       townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
-      outpostVisionDeps: () => this.outpostVisionDeps(),
+      outpostVisionDeps: () => this.structureVision.outpostVisionDeps(),
       visibilityCoverage: this.state.visibilityCoverage,
       visionTransitionCallbacks: this.visionTransitions.callbacks,
       now: () => this.now(),
@@ -3016,7 +3013,7 @@ export class SimulationRuntime {
       townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
       manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
       upkeepAccrualCacheByPlayer: this.economyCaches.upkeepAccrualCacheByPlayer,
-      ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
+      ownedOutpostTilesForPlayer: (playerId) => this.structureVision.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => this.shardRain.decrementSiteCount(),
       clearShardRainExpiry: () => this.shardRain.clearExpiry(),

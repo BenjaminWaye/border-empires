@@ -9,6 +9,8 @@ import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialTileActionMenuState } from "./client-tile-action-menu-state-defaults.js";
+import { createInitialAetherShieldState } from "../client-aether-tower-protection/client-aether-shield-state.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js"; import { createInitialAfcDeliveryState } from "./client-state-afc-delivery-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
@@ -41,7 +43,6 @@ import type {
   TechInfo,
   Tile,
   TruceRequest,
-  TileMenuTab,
   TileTimedProgress,
   OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
@@ -331,6 +332,7 @@ export const createInitialState = () => ({
   ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
+  ...createInitialAetherShieldState(),
   ...createInitialShardRainState(),
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
@@ -508,17 +510,7 @@ export const createInitialState = () => ({
   // between sparse server-pushed tile deltas. Re-anchored on every delta.
   musterAmountRateByTile: new Map<string, MusterRateSample>(),
   hasOwnedTileInCache: false,
-  tileActionMenu: {
-    visible: false,
-    x: 0,
-    y: 0,
-    mode: "single" as "single" | "bulk",
-    bulkKeys: [] as string[],
-    currentTileKey: "",
-    activeTab: "overview" as TileMenuTab,
-    scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>,
-    renderSignature: ""
-  },
+  tileActionMenu: createInitialTileActionMenuState(),
   buildingPlacement: {
     active: false,
     structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "",

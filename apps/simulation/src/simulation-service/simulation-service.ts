@@ -84,7 +84,7 @@ import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-play
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
-import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
+import { formatNoFrontierDiagnostic } from "./no-frontier-diagnostic-format.js";
 import {
   createMainThreadTaskTrackerFromEnv,
   type ActiveMainThreadTask,
@@ -162,36 +162,6 @@ type ProtoSeedBarbariansResponse = {
   requested: number;
   placed: number;
   detail_json: string;
-};
-
-const formatNoFrontierDiagnostic = (
-  source: "worker" | "runtime",
-  diagnostic: AutomationPlannerDiagnostic
-): string => {
-  const parts = [
-    `source=${source}`,
-    diagnostic.playerId,
-    `owned=${diagnostic.ownedTileCount ?? 0}`,
-    `owned_frontier=${diagnostic.ownedFrontierTileCount ?? 0}`,
-    `frontier=${diagnostic.frontierTileCountInput ?? 0}`,
-    `hot=${diagnostic.hotFrontierTileCountInput ?? 0}`,
-    `strategic=${diagnostic.strategicFrontierTileCountInput ?? 0}`,
-    `origins=${diagnostic.frontierOriginCount ?? 0}`,
-    `dock_origins=${diagnostic.dockOriginCount ?? 0}`,
-    `scope_keys=${diagnostic.playerScopeKeyCount ?? 0}`,
-    `scope_tiles=${diagnostic.playerScopeTileCount ?? 0}`,
-    `enemy=${diagnostic.frontierEnemyTargetCount}`,
-    `enemy_player=${diagnostic.frontierEnemyPlayerTargetCount ?? 0}`,
-    `barbarian=${diagnostic.frontierBarbarianTargetCount ?? 0}`,
-    `neutral=${diagnostic.frontierNeutralTargetCount}`,
-    `econ=${diagnostic.frontierOpportunityEconomic ?? 0}`,
-    `support=${diagnostic.frontierOpportunityTownSupport ?? 0}`,
-    `scout=${diagnostic.frontierOpportunityScout ?? 0}`,
-    `scaffold=${diagnostic.frontierOpportunityScaffold ?? 0}`,
-    `waste=${diagnostic.frontierOpportunityWaste ?? 0}`,
-    `preplan=${diagnostic.preplanProgressState ?? "none"}`
-  ];
-  return parts.join(":");
 };
 
 type ProtoPackage = {
@@ -2525,6 +2495,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       watchtowerRevealTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
+        runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

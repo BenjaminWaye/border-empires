@@ -12,11 +12,11 @@ import {
   AMBARIC_TRANSFORMER_RADIUS,
   MANPOWER_BASE_CAP,
   OBSERVATORY_CAST_RADIUS,
-  OBSERVATORY_PROTECTION_RADIUS,
   RESONANCE_GRID_BOMBARD_BLOCK_RADIUS
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
@@ -125,38 +125,32 @@ export function isTileShieldedByEnemyAegisDome(
   return false;
 }
 
-// §5.4/ambaric-transformer-protection: server-side counterpart of the client's
-// hostileObservatoryProtectingTileAt (client-observatory-cooldown.ts) — that
-// client function only decides what a well-behaved client greys out as
-// targetable, so an ability handler that skips this check is enforceable
-// by a client that ignores it. A defending Observatory shields a nearby
-// tile only while active, owned by someone other than the actor, off its
-// own cooldown, and not resource-slot dormant — the same three gates the
-// client already applies, now backed by the simulation itself.
+// §5.4/ambaric-transformer-protection: server-side counterpart of the
+// client's protection check (client-aether-tower-protection.ts) — the client
+// only decides what a well-behaved client greys out as targetable, so an
+// ability handler that skips this check is enforceable by a client that
+// ignores it. The shielding rule itself (active, off cooldown, not dormant,
+// owner's own tiles only) lives in aether-shield/aether-shield.ts.
 export function isTileShieldedByEnemyObservatory(
   tiles: ReadonlyMap<string, DomainTileState>,
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean,
   actorId: string,
   targetX: number,
   targetY: number,
-  now: number
+  now: number,
+  // The runtime's active-Observatory index, when the caller has it: the
+  // owner's few towers instead of a 41x41 scan of the target's surroundings.
+  activeTowerKeysForOwner?: (ownerId: string) => Iterable<string>
 ): boolean {
   // Protects only the tower OWNER's tiles: unowned land, the actor's own land
   // and a third player's land near someone else's tower are never shielded.
   // Reads full world state, so a tower the actor can't see still blocks.
   const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
   if (!targetOwnerId || targetOwnerId === actorId) return false;
-  for (const candidate of tiles.values()) {
-    const observatory = candidate.observatory;
-    if (!observatory || observatory.status !== "active") continue;
-    if (observatory.ownerId !== targetOwnerId || candidate.ownerId !== targetOwnerId) continue;
-    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > OBSERVATORY_PROTECTION_RADIUS) continue;
-    if ((observatory.cooldownUntil ?? 0) > now) continue;
-    const observatoryKey = simulationTileKey(candidate.x, candidate.y);
-    if (isStructureDormant(observatory.ownerId, observatoryKey, "observatory")) continue;
-    return true;
-  }
-  return false;
+  const shielding = (tower: DomainTileState): boolean => isObservatoryShielding(tower, now, isStructureDormant);
+  return activeTowerKeysForOwner
+    ? isTileShieldedByOwnersIndexedTowers(tiles, activeTowerKeysForOwner(targetOwnerId), shielding, targetOwnerId, targetX, targetY)
+    : isTileShieldedByOwnersObservatory(tiles, shielding, targetOwnerId, targetX, targetY);
 }
 
 export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";
