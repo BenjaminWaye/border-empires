@@ -64,7 +64,9 @@ export const computeAiOpinion = (input: {
   const score = modifiers.reduce((sum, modifier) => sum + modifier.value, 0);
   const atWar = memory.lastCombatAt !== undefined && input.now - memory.lastCombatAt < AT_WAR_WINDOW_MS;
   const balance = memory.tilesTakenByAi - memory.tilesTakenFromAi;
-  const aiLosing = atWar && (balance <= -2 || input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED");
+  // Weak or desperate only counts as losing while the AI isn't gaining ground:
+  // an AI taking tiles from a stronger empire is winning that war, not paying for peace.
+  const aiLosing = atWar && (balance <= -2 || ((input.stanceKind === "SEEKING_PEACE" || input.stanceKind === "OUTMATCHED") && balance <= 0));
   const aiWinning = atWar && !aiLosing && (balance >= 2 || input.stanceKind === "WINNING");
   return { attitude: attitudeForScore(score), score, modifiers, war: { atWar, balance, aiWinning, aiLosing } };
 };

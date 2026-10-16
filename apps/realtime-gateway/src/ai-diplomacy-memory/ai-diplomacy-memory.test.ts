@@ -62,9 +62,12 @@ describe("createAiDiplomacyMemory", () => {
       clock.now += 1;
       memory.recordTruceDeal("ai-1", `p${index}`);
     }
+    // Touching the oldest pair again makes p1 the least recently touched.
+    memory.recordTruceDeal("ai-1", "p0");
     memory.recordTruceDeal("ai-2", "late");
     expect(memory.size()).toBe(MAX_DIPLOMACY_MEMORY_PAIRS);
-    expect(memory.view("ai-1", "p0").truceDeals).toBe(0);
+    expect(memory.view("ai-1", "p1").truceDeals).toBe(0);
+    expect(memory.view("ai-1", "p0").truceDeals).toBeGreaterThan(1);
     expect(memory.view("ai-2", "late").truceDeals).toBe(1);
   });
 });

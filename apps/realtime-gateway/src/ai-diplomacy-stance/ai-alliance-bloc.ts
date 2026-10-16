@@ -11,6 +11,20 @@ export const ALLIANCE_LEAD_MARGIN = 1.1;
 
 export type AllyLookup = (playerId: string) => readonly string[];
 export type TileLookup = (playerId: string) => number;
+export type LeaderboardTiles = ReadonlyArray<{ id: string; tiles: number }>;
+
+/**
+ * Tile counts from the leaderboard, or undefined when it can't vouch for the
+ * AI's own size (empty, or the AI isn't on it): callers then neither join nor
+ * leave an alliance on a guess. Players missing from a populated leaderboard
+ * are inactive and genuinely hold no land.
+ */
+export const tileLookupFor = (entries: LeaderboardTiles, aiPlayerId: string): TileLookup | undefined => {
+  const tiles = new Map<string, number>();
+  for (const entry of entries) tiles.set(entry.id, entry.tiles);
+  if (!tiles.has(aiPlayerId)) return undefined;
+  return (playerId) => tiles.get(playerId) ?? 0;
+};
 
 /** Every player reachable through alliances from `startId`, never passing through `excludeId`. */
 export const allianceBloc = (startId: string, alliesOf: AllyLookup, excludeId?: string): Set<string> => {

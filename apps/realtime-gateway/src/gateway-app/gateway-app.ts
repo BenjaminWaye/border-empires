@@ -57,7 +57,6 @@ import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./dup
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createEphemeralSimCommands } from "../ephemeral-sim-commands/ephemeral-sim-commands.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
-import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { provisionGuestProfile } from "../guest-profile/guest-profile.js";
 import { buildTakenColorSet as buildTakenColorSetFrom } from "../player-color-allocation/build-taken-color-set.js";
 import { buildTakenNameSet as buildTakenNameSetFrom, createSerialLock, providerDisplayName, suggestDefaultDisplayName } from "../display-name-uniqueness/display-name-uniqueness.js";
@@ -1007,8 +1006,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
-  const finalizeExpiredAllianceBreaks = createAllianceBreakFinalizer({ socialState, syncAllianceToSimulation, fanoutPlayerPayloads });
-
   const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
     simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
     withTimeout, markSimulationReady, handleSubmitError, recordGatewayEvent
@@ -1027,7 +1024,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert, sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert, sendTruceRequestAlert: emailAlerts.sendTruceRequestAlert,
     onDiplomacyInteraction: (playerId, targetPlayerId, kind) => playerFunnel.onDiplomacyInteraction(playerId, targetPlayerId, kind),
     submitSimulationCommand: (command) => withTimeout(simulationClient.submitCommand(command), simulationSubmitTimeoutMs, "gateway diplomacy settlement"),
-    isSimulationConnected: () => simulationHealth.connected
+    isSimulationConnected: () => simulationHealth.connected,
+    fetchSeasonLeaderboard: async () => (await simulationClient.getCurrentSeasonSummary()).overall
   });
   const refreshPlayerFogSnapshot = async (
     playerId: string,
@@ -1626,7 +1624,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     void refreshSimulationHealth();
   }, 2_000);
   const aiDiplomacyTimer = startRecurringTask(() => void diplomacySocket.tickProactive(), 15_000, { runImmediately: false });
-  const allianceBreakFinalize = startRecurringTask(() => { void finalizeExpiredAllianceBreaks(); void diplomacySocket.reviewAiAlliances(); }, 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
+  const allianceBreakFinalize = startRecurringTask(() => diplomacySocket.runAllianceMaintenance(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   // Season rollover never auto-starts on a timer -- a new season only begins
   // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
   // below). This intentionally drops the old auto-start timer hook's Imperial

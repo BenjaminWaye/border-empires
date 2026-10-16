@@ -11,6 +11,8 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
+import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
+import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
@@ -282,6 +284,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
+  ...AI_PROGRESSION_AETHER_CHANGELOG,
+  ...FAIRER_AI_DEALS_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
@@ -476,20 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
       "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
     ]
-  },
-  {
-    createdAt: 1792083271471,
-    introducedIn: "2026.10.15.1",
-    title: "AI empires grow, use aether and negotiate",
-    why: "Some AI empires stalled because their plans used outdated resource costs or tried to abandon protected territory.",
-    changes: [
-      "AI builds now check resource-slot capacity and allow FOOD improvements without retired stockpile costs",
-      "AI FOOD recovery preserves free relay beacons and never abandons its own AFC",
-      "AI research follows current unlocks, and town upgrades wait for FOOD capacity",
-      "AI empires build Aether Towers and use Purge, EMP, Siphon, bridges, walls and terrain shaping against useful visible targets",
-      "AI empires can propose truces when threatened and alliances against a shared enemy"
-    ]
-  },
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

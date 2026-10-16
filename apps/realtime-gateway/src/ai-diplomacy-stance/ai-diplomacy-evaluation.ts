@@ -5,7 +5,7 @@
 import type { AiDiplomacyPricing, DiplomacyGoods } from "@border-empires/shared";
 
 import type { DiplomacyMemoryView } from "../ai-diplomacy-memory/ai-diplomacy-memory.js";
-import { aiWouldLeadAlliance, type AllyLookup, type TileLookup } from "./ai-alliance-bloc.js";
+import { aiWouldLeadAlliance, tileLookupFor, type AllyLookup, type TileLookup } from "./ai-alliance-bloc.js";
 import { computeAiOpinion, type AiOpinion } from "./ai-diplomacy-opinion.js";
 import { aiDiplomacyPricing } from "./ai-diplomacy-pricing.js";
 import { computeAiDiplomacyStance, type AiDiplomacyStance } from "./ai-diplomacy-stance.js";
@@ -32,13 +32,10 @@ export type AiDiplomacyContext = {
   alliesOf: AllyLookup;
 };
 
-/** Tile counts from the AI's own leaderboard view (every active player). */
-export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined): TileLookup => {
-  const tiles = new Map<string, number>();
-  for (const entry of snapshot?.worldStatus?.leaderboard.overall ?? []) tiles.set(entry.id, entry.tiles);
-  const self = snapshot?.worldStatus?.leaderboard.selfOverall;
-  if (self) tiles.set(self.id, self.tiles);
-  return (playerId) => tiles.get(playerId) ?? 0;
+/** Tile counts from the AI's own leaderboard view, or undefined when it can't vouch for the AI's size. */
+export const tileLookupFromSnapshot = (snapshot: AiDiplomacySnapshot | undefined, aiPlayerId: string): TileLookup | undefined => {
+  const leaderboard = snapshot?.worldStatus?.leaderboard;
+  return tileLookupFor([...(leaderboard?.overall ?? []), ...(leaderboard?.selfOverall ? [leaderboard.selfOverall] : [])], aiPlayerId);
 };
 
 const holdingsOf = (snapshot: AiDiplomacySnapshot | undefined): DiplomacyGoods => ({
@@ -51,6 +48,11 @@ const warReason = (aiName: string, opinion: AiOpinion, fallback: string): string
   if (opinion.war.aiWinning) return `${aiName} feels they're winning this war.`;
   if (opinion.war.atWar) return `${aiName} is at war with you.`;
   return fallback;
+};
+
+const aiLeads = (input: { aiPlayerId: string; requesterId: string; aiSnapshot: AiDiplomacySnapshot | undefined; alliesOf: AllyLookup }): boolean | undefined => {
+  const tilesOf = tileLookupFromSnapshot(input.aiSnapshot, input.aiPlayerId);
+  return tilesOf ? aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tilesOf) : undefined;
 };
 
 /** undefined when the AI snapshot is missing: nothing to judge, so callers decline rather than guess. */
@@ -86,7 +88,7 @@ export const evaluateAiDiplomacy = (input: {
     requesterIncomePerMinute: requesterIncome,
     aiHoldings: holdingsOf(input.aiSnapshot),
     requesterBrokeTruceWithAi: input.requesterBrokeTruceWithAi,
-    aiWouldLeadAlliance: aiWouldLeadAlliance(input.aiPlayerId, input.requesterId, input.alliesOf, tileLookupFromSnapshot(input.aiSnapshot)),
+    aiWouldLeadAlliance: aiLeads(input),
     now: input.now
   });
   return {
