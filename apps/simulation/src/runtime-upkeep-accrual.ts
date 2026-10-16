@@ -19,6 +19,7 @@ export type RuntimeUpkeepAccrualContext = {
   cachedUpkeepAccrual: (player: RuntimePlayer) => UpkeepAccrualSnapshot;
   cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  onUpkeepNettedWhileIncomePaused?: ((playerId: string) => void) | undefined;
   trackSyncMainThreadTask?: TrackSync | undefined;
 };
 
@@ -32,7 +33,7 @@ export type RuntimeUpkeepAccrualContext = {
  * than draining to zero and shedding tiles. Mutates `need.gold` in place.
  */
 export const offsetGoldUpkeepWhileIncomePaused = (
-  ctx: Pick<RuntimeUpkeepAccrualContext, "lastActiveAtMsByPlayer" | "cachedEconomySnapshot">,
+  ctx: Pick<RuntimeUpkeepAccrualContext, "lastActiveAtMsByPlayer" | "cachedEconomySnapshot" | "onUpkeepNettedWhileIncomePaused">,
   player: RuntimePlayer,
   need: UpkeepNeed,
   elapsedMinutes: number,
@@ -42,6 +43,7 @@ export const offsetGoldUpkeepWhileIncomePaused = (
   if (!isPassiveIncomePaused(player, ctx.lastActiveAtMsByPlayer.get(player.id), nowMs, PASSIVE_INCOME_INACTIVITY_CAP_MS)) return;
   const income = Math.max(0, ctx.cachedEconomySnapshot(player).incomePerMinute) * elapsedMinutes;
   need.gold = Math.max(0, need.gold - income);
+  ctx.onUpkeepNettedWhileIncomePaused?.(player.id);
 };
 
 /**

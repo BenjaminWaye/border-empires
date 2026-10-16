@@ -170,14 +170,6 @@ const tileWithPendingBuild = () =>
     (t) => t.ownerId === state.playerId && t.pendingBuildType
   ) ?? null;
 
-const tileWithResource = () =>
-  [...state.tilesByKey.values()].find(
-    (t) => t.ownerId === state.playerId &&
-      t.resource &&
-      t.resource !== "NONE" &&
-      t.ownershipState === "SETTLED"
-  ) ?? null;
-
 const anyEnemyTile = () =>
   [...state.tilesByKey.values()].find(
     (t) => t.ownerId && t.ownerId !== state.playerId && t.terrain === "LAND"
@@ -394,12 +386,6 @@ const tryStep = async (description, fn) => {
 
 // Individual command generators
 
-const stepCollectTile = async () => {
-  const tile = tileWithResource();
-  if (!tile) return null;
-  return sendAndWait("COLLECT_TILE", { x: tile.x, y: tile.y }, "collect-tile");
-};
-
 const stepExpand = async () => {
   const candidates = frontierTiles();
   if (candidates.length === 0) return null;
@@ -600,7 +586,6 @@ const stepBreakthroughAttack = async () => {
 
 const buildPlaybook = () => [
   // Phase 0: Initial resource collection
-  ["COLLECT_TILE (initial)", stepCollectTile],
 
   // Phase 1: Expansion — drive frontier growth
   ["EXPAND (1)", stepExpand],
@@ -630,7 +615,6 @@ const buildPlaybook = () => [
   ["CANCEL_SIEGE_BATTERY_BUILD", stepCancelSiegeBatteryBuild],
 
   // Phase 5: Mid-game collection and combat
-  ["COLLECT_TILE (2)", stepCollectTile],
   ["COLLECT_SHARD (1)", stepCollectShard],
   ["ATTACK (1)", stepAttack],
   ["ATTACK (2)", stepAttack],
@@ -676,7 +660,6 @@ const buildPlaybook = () => [
   ["EXPAND (14)", stepExpand],
   ["EXPAND (15)", stepExpand],
   ["SETTLE (6)", stepSettle],
-  ["COLLECT_TILE (3)", stepCollectTile],
   ["ATTACK (4)", stepAttack],
   ["ATTACK (5)", stepAttack],
   ["CHOOSE_TECH (5)", stepChooseTech],
