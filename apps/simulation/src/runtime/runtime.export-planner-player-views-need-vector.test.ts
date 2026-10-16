@@ -19,7 +19,9 @@ describe("exportPlannerPlayerViews — needVector plumbing (§9)", () => {
   it("populates manpowerCapacity/manpowerRegenPerMinute from the same real per-player calculation exportState/exportPlayerDebugSnapshot use", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
-      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 500, manpower: 100 })]]),
+      // manpowerUpdatedAt marks an established empire, so the first-day
+      // manpower boost (starter-manpower-boost.ts) isn't part of the figure.
+      initialPlayers: new Map([["player-1", testRuntimePlayer("player-1", { points: 500, manpower: 100, manpowerUpdatedAt: 0 })]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],

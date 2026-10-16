@@ -4,7 +4,7 @@
 // that take their dependencies explicitly via RuntimeManpowerEconomyContext,
 // mirroring the build*CommandContext pattern used in Stage 1/2. No numeric
 // formula or rounding behavior was changed — only moved.
-import { MANPOWER_EPSILON } from "@border-empires/shared";
+import { createStarterManpowerBoost, MANPOWER_EPSILON, starterManpowerBoostRegenAt } from "@border-empires/shared";
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -62,12 +62,14 @@ export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext,
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
   const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
-  return playerManpowerRegenPerMinuteFromSummary(
-    ctx.summaryForPlayer(player.id),
-    railDepotNetworkLogisticsGuildCount,
-    logisticsGuildCount,
-    populationBureauManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
+  return (
+    playerManpowerRegenPerMinuteFromSummary(
+      ctx.summaryForPlayer(player.id),
+      railDepotNetworkLogisticsGuildCount,
+      logisticsGuildCount,
+      populationBureauManpowerBuildingCount,
+      player.galacticWonderManpowerRegenBonusPerMinute ?? 0
+    ) + starterManpowerBoostRegenAt(player.starterManpowerBoost, ctx.now())
   );
 }
 
@@ -85,7 +87,7 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     populationBureauManpowerBuildingCount,
     ancillaryFactoryCapacityBonusByTown
   } = ctx.cachedManpowerStructureBonusForPlayer(player);
-  return playerManpowerBreakdownFromSummary(
+  const breakdown = playerManpowerBreakdownFromSummary(
     ctx.summaryForPlayer(player.id),
     ancillaryFactoryCapacityBonusByTown ? 0 : garrisonHallCount,
     ancillaryFactoryCapacityBonusByTown ? 0 : assemblyWorksNetworkGarrisonHallCount,
@@ -95,6 +97,12 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
     ancillaryFactoryCapacityBonusByTown
   );
+  const starterBoost = starterManpowerBoostRegenAt(player.starterManpowerBoost, ctx.now());
+  if (starterBoost > 0 && player.starterManpowerBoost) {
+    const hoursLeft = Math.max(1, Math.ceil((player.starterManpowerBoost.until - ctx.now()) / 3_600_000));
+    breakdown.regen.push({ label: "First-day boost", amount: starterBoost, note: `${hoursLeft}h left` });
+  }
+  return breakdown;
 }
 
 export function effectiveManpowerAtForPlayer(
@@ -125,6 +133,13 @@ export function applyManpowerRegenForPlayer(
  * and on the periodic tick, so player gold/resources catch up within a
  * single planner cycle.
  */
+// Every new empire (human or AI) gets the first-day boost; barbarians are
+// not empires (their cap is effectively unlimited -- see playerManpowerCap).
+const stampStarterManpowerBoost = (player: RuntimePlayer, nowMs: number): void => {
+  if (player.id.startsWith("barbarian-")) return;
+  player.starterManpowerBoost ??= createStarterManpowerBoost(nowMs);
+};
+
 export function refreshManpowerOnlyForPlayer(
   ctx: RuntimeManpowerEconomyContext,
   player: RuntimePlayer,
@@ -134,6 +149,7 @@ export function refreshManpowerOnlyForPlayer(
   if (!Number.isFinite(player.manpower)) {
     player.manpower = cap;
     delete player.manpowerBanked;
+    stampStarterManpowerBoost(player, nowMs);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
@@ -143,6 +159,10 @@ export function refreshManpowerOnlyForPlayer(
     player.manpower = Math.min(manpowerCeiling(player, cap), Math.max(0, player.manpower) + (cap - previousCap));
   }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
+    // A player's first manpower settle is the start of their empire: a new
+    // human just joined, or an AI empire at season start (persisted players
+    // already carry manpowerUpdatedAt, so nobody existing is stamped).
+    stampStarterManpowerBoost(player, nowMs);
     player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
     settleWaystationManpowerOverflow(player, cap);
     player.manpowerUpdatedAt = nowMs;

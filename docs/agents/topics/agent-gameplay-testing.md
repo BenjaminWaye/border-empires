@@ -52,6 +52,28 @@ Visual verification (real client, agent-driven browser):
 2. `navigate` to `http://localhost:5173/?devPlayerId=<same player id>`.
 3. `computer` screenshot / `read_page` / `read_console_messages` / `resize_window` as normal.
 
+## First-day manpower simulation (headless, virtual clock)
+
+`apps/simulation/src/first-day-sim/first-day-sim.sim.ts` runs the real
+`SimulationRuntime` on a virtual clock (injected `now` / `scheduleSoon` /
+`scheduleAfter`) with the real `season-20ai` world and AI planner, plus
+`SIM_HUMANS` freshly-joined humans driven by the same planner during
+`SIM_SESSIONS` online windows, and writes a per-empire time series (manpower,
+cap, regen, towns, territory, spend) to JSON. Use it to check manpower
+pacing changes (e.g. the first-day boost, `starter-manpower-boost.ts`) with
+real numbers instead of hand math. Never runs in CI.
+
+```bash
+SIM_HOURS=24 SIM_LABEL=baseline SIM_OUT=/tmp/sim-baseline.json \
+  pnpm --filter @border-empires/simulation sim:first-day
+# variants: SIM_BOOST_REGEN=1.6 (0 = off) SIM_BOOST_SCOPE=all|humans SIM_BOOST_HOURS=24
+```
+
+A 24h run takes 1-3 hours of wall time (AIs tick at the production 250ms
+for the first 2h, then 2s). The sim humans play like novices -- the planner
+can't garrison a plain border tile and beacon off it once reach runs out --
+so treat the AI empires as the engaged-player reference.
+
 ## Photo mode and clean captures
 
 `?photo=1` (`packages/client/src/client-photo-mode/client-photo-mode.ts`) hides the

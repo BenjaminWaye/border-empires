@@ -466,6 +466,16 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1792187006316, // frozen Date.now() value for this release
+    introducedIn: "2026.10.16.1",
+    title: "New empires get a first-day manpower boost",
+    why: "A new empire's first day was one short burst of play followed by a long wait for manpower.",
+    changes: [
+      "For its first 24 hours, every new empire -- yours when you join, and AI empires when a season starts -- regenerates +1.6 manpower per minute on top of its normal rate",
+      "It pays out with your normal manpower refills and shows as \"First-day boost\" in the manpower breakdown"
+    ]
+  },
+  {
     createdAt: 1791905157542, // frozen Date.now() value for this release
     introducedIn: "2026.10.13.1",
     title: "Relay Beacons show where to build them",
