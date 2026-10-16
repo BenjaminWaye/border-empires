@@ -143,17 +143,13 @@ import {
   type PlannerPlayerTileKeysResult,
   type PlannerTileKeysCacheEntry
 } from "../planner-tile-keys-cache.js";
+import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import {
-  createAutomationNoopDiagnostic,
-  planAutomationCommand,
-  type AutomationPlannerDiagnostic
-} from "../ai/automation-command-planner.js";
-import { recordHotFrontierStreak, shouldForceBroadFrontierScan } from "../ai/ai-hot-frontier-streak.js";
-import { chooseAutomationPreplanCommand } from "../ai/ai-preplan-command.js";
-import { mergePreplanDiagnostic } from "./merge-preplan-diagnostic.js";
-import type { DecisionCooldownMap } from "../ai/ai-rejection-cooldown.js";
-import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js"; import type { WarPostureLatchEntry } from "../ai/ai-war-posture-latch.js";
-import { refreshSpatialFocusForSummary, recordSpatialFocusOutcome, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
+  RuntimeAutomationAdvisor,
+  type AutomationCommandExplanation,
+  type AutomationSessionPrefix,
+  type ExplainAutomationCommandOptions
+} from "../ai/runtime-automation-advisor.js";
 import {
   InMemorySimulationPersistence,
   type ActiveAetherBridgeView,
@@ -163,7 +159,6 @@ import {
   type LockedCombatResolution,
   type RuntimePlayer,
   type RuntimeTileYieldEconomyContext,
-  type SimulationJob,
   type PersistenceLogStats,
   type SimulationPersistence,
   type SimulationRuntimeOptions,
@@ -174,13 +169,7 @@ import {
   applyEconomyAccrual as applyEconomyAccrualImpl,
   type RuntimeUpkeepAccrualContext
 } from "../runtime-upkeep-accrual.js";
-import {
-  enqueueJob as enqueueJobImpl,
-  type RuntimeJobQueueContext,
-  type RuntimeJobQueueMutableState
-} from "../runtime-job-queue.js";
-import { RuntimeJobQueueState } from "../runtime-job-queue-state.js";
-import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
+import { RuntimeJobQueue } from "../runtime-job-queue-state.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import { parseSettlePayload } from "../runtime-command-parsers.js";
 import {
@@ -228,7 +217,6 @@ import {
   handleWatchMusterCommand as handleWatchMusterCommandImpl,
   handleUnwatchMusterCommand as handleUnwatchMusterCommandImpl
 } from "../runtime-muster-watch.js";
-import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
 import {
@@ -267,7 +255,6 @@ import {
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
-import { plannerPlayerScopeKeyCount } from "../planner-scope-key-count.js";
 import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   mapTile,
   type SnapshotTile
@@ -389,14 +376,13 @@ import {
   isRelayBeaconActive,
   isObservatoryActive
 } from "../runtime-tile-index-maintenance.js";
-import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
+import { RuntimeShardRain } from "../runtime-shard-rain-state.js";
 import {
   activateWatchtowerAt as activateWatchtowerAtImpl,
   tickWatchtowerReveals as tickWatchtowerRevealsImpl,
   type PendingWatchtowerReveal,
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js"; import { activateWaystationAt as activateWaystationAtImpl, seedWaystationVisionBonus } from "../runtime-waystation-activation.js";
-import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import type { EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
   emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
@@ -494,7 +480,6 @@ import { rescheduleRecoveredStructureTimers } from "../structure-timer-recovery/
 import { updateTileSettledAt, withoutStaleCaptureHold } from "../runtime-tile-write-rules/runtime-tile-write-rules.js";
 
 export type { VisibilityAuditSample };
-const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 // §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
 // line with how far everything else in the new economy scale shrank.
 const RESPAWN_MINIMUM_GOLD = 10;
@@ -529,12 +514,25 @@ export class SimulationRuntime {
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
-  private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
-  private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>(); // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; refreshed via refreshSpatialFocusForPlayer, cleared once the player owns no territory.
-  private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>(); // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
-  private readonly aiHotFrontierStreakByPlayer = new Map<string, number>(); // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
-  // Backs the WAR front posture's hysteresis — see ai-war-posture-latch.ts.
-  private readonly aiWarPostureLatchByPlayer = new Map<string, WarPostureLatchEntry>();
+  // The AI planner's per-player memory and planning entry point; see ai/runtime-automation-advisor.ts.
+  private readonly automationAdvisor: RuntimeAutomationAdvisor = (() => {
+    const runtime = this;
+    return new RuntimeAutomationAdvisor({
+      get state() { return runtime.state; },
+      now: () => runtime.now(),
+      summaryForPlayer: (playerId) => runtime.summaryForPlayer(playerId),
+      respawnIfEliminated: (playerId, commandId) => runtime.respawnIfEliminated(playerId, commandId),
+      tileKeySetToTiles: (keys) => runtime.tileKeySetToTiles(keys),
+      estimatedIncomePerMinuteForPlayer: (playerId) => runtime.estimatedIncomePerMinuteForPlayer(playerId),
+      ownedStructureCountsForPlayer: (playerId) => runtime.ownedStructureCountsForPlayer(playerId),
+      isPlayerTileInReach: (playerId, x, y) => runtime.isPlayerTileInReach(playerId, x, y),
+      resourceSlotSupplyForPlayer: (playerId) => runtime.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
+      resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
+      playerManpowerCap: (player) => runtime.playerManpowerCap(player),
+      playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player)
+    });
+  })();
   // Incrementally-maintained planner player-view tile key cache: six TileKeyArrayEntry objects per entry, updated O(1) per tile mutation instead of rebuilt O(territory) per miss.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   // Bundles the four maps above by reference for plannerPlayerTileKeys; built once since the Maps themselves are never reassigned, only mutated.
@@ -660,11 +658,6 @@ export class SimulationRuntime {
   private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
-  // Throttle per-tick respawn attempts for eliminated AI players. Spawn
-  // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
-  // every 200 ms when the map is too full to place.
-  private readonly lastAiRespawnAttemptMsByPlayer = new Map<string, number>();
-  private static readonly AI_RESPAWN_RETRY_INTERVAL_MS = 30_000;
   private readonly lastEmittedStorageCapByPlayer = new Map<string, EmpireStorageCap>();
   // Phase 3c: pre-serialized snapshot form of every tile, kept in sync with
   // this.state.tiles via replaceTileState and the two direct tiles.set paths.
@@ -776,28 +769,23 @@ export class SimulationRuntime {
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
   private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>(); private readonly pendingAetherBridgeReachExpiry = new Map<string, { anchor: ReachAnchor; endsAt: number }>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
-  private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
-    human_interactive: [],
-    human_noninteractive: [],
-    system: [],
-    ai: []
-  };
+  private readonly jobQueue: RuntimeJobQueue;
   private readonly replayCache: RuntimeReplayCache;
-  private lastShardRainSpawnSlotKey: string | undefined;
-  private lastShardRainWarningSlotKey: string | undefined;
-  private shardRainTickCounter = 0;
-  private currentShardRainExpiresAt: number | undefined;
-  private currentShardRainSiteCount = 0;
-  private readonly lastShardRainHelloByPlayer = new Map<string, number>();
-  private readonly recentShardRainTileKeys = new Set<string>();
-  private readonly activeShardFallSiteKeys = new Set<string>();
+  private readonly shardRain: RuntimeShardRain = (() => {
+    const runtime = this;
+    return new RuntimeShardRain({
+      get state() { return runtime.state; },
+      now: () => runtime.now(),
+      replaceTileState: (tileKey, tile) => runtime.replaceTileState(tileKey, tile),
+      emitEvent: (event) => runtime.emitEvent(event),
+      tileDeltaFromState: (tile) => runtime.tileDeltaFromState(tile)
+    });
+  })();
   private readonly nextTerritoryAutomationCommandId = createTerritoryAutomationCommandIdGenerator();
   private dormantClaimSweepDone = false;
-  private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
-  private readonly scheduleSoon: (task: () => void) => void;
+  private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() });
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly playerUpdateEmitter: PlayerUpdateEmitter;
-  private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"]; private readonly alertedManpowerFullPlayerIds = new Set<string>();
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
@@ -806,42 +794,17 @@ export class SimulationRuntime {
     | ((sample: { commandId: string; playerId: string; tileCount: number; durationMs: number }) => void)
     | undefined;
   private readonly onShardCollected: (() => void) | undefined;
-  private readonly onQueueDrain:
-    | ((sample: {
-        durationMs: number;
-        processedJobs: number;
-        backgroundJobsProcessed: number;
-        yieldedForBackground: boolean;
-        processedByLane: Record<QueueLane, number>;
-        queueDepthsBefore: Record<QueueLane, number>;
-        queueDepthsAfter: Record<QueueLane, number>;
-      }) => void)
-    | undefined;
-  private readonly onJobApplied:
-    | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"]; commandId?: string }) => void)
-    | undefined;
-  private readonly wrapJobRun: ((run: () => void, meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }) => () => void) | undefined;
-  private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
-
-  private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    return rememberedAutomationVictoryPathCountsImpl(
-      this.rememberedAutomationVictoryPathByPlayer,
-      (playerId) => this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0
-    );
-  }
 
   constructor(options: SimulationRuntimeOptions = {}) {
     const seedWorld = options.initialPlayers && options.seedTiles ? undefined : createSeedWorld(options.seedProfile);
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
-    this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 1);
     this.replayCache = new RuntimeReplayCache(
       Math.max(0, options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY),
       Math.max(0, options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES)
     );
-    this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     // scheduleAfter(0, ...) previously used setTimeout(0) (Timers phase, before
     // Check-phase setImmediate snapshot-build yields), so every yield ate a
     // ~200ms AI drain callback first — 22+s login stalls. Fix: setImmediate for
@@ -851,7 +814,16 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) =>
       delayMs === 0 ? void setImmediate(task) : void setTimeout(task, delayMs)
     );
-    this.shouldPauseBackground = options.shouldPauseBackground;
+    this.jobQueue = new RuntimeJobQueue({
+      backgroundBatchSize: Math.max(1, options.backgroundBatchSize ?? 1),
+      now: () => this.now(),
+      scheduleSoon: options.scheduleSoon ?? ((task) => queueMicrotask(task)),
+      scheduleAfter: this.scheduleAfter,
+      shouldPauseBackground: options.shouldPauseBackground,
+      wrapJobRun: options.wrapJobRun,
+      onQueueDrain: options.onQueueDrain,
+      onJobApplied: options.onJobApplied
+    });
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
@@ -870,9 +842,6 @@ export class SimulationRuntime {
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
     this.onOwnershipChange = options.onOwnershipChange; this.isPlayerSubscribed = options.isPlayerSubscribed;
-    this.onQueueDrain = options.onQueueDrain;
-    this.onJobApplied = options.onJobApplied;
-    this.wrapJobRun = options.wrapJobRun;
     this.onVisibilityAudit = options.onVisibilityAudit;
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
@@ -966,12 +935,7 @@ export class SimulationRuntime {
       seedGrownTownSupportRingForTownTileImpl(this.grownTownSupportRingByOwner, tile, this.state.tiles);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
-        this.currentShardRainSiteCount += 1;
-        this.currentShardRainExpiresAt =
-          typeof this.currentShardRainExpiresAt === "number"
-            ? Math.max(this.currentShardRainExpiresAt, site.expiresAt)
-            : site.expiresAt;
-        this.activeShardFallSiteKeys.add(tileKey);
+        this.shardRain.recordRecoveredFallSite(tileKey, site.expiresAt);
       }
       // Part 1: populate frontierTilesByOwner index.
       if (tile.ownershipState === "FRONTIER" && tile.ownerId && !tile.ownerId.startsWith("barbarian-")) {
@@ -1308,34 +1272,8 @@ export class SimulationRuntime {
     });
   }
 
-  private shardRainContext() {
-    return {
-      now: this.now,
-      players: this.state.players,
-      tiles: this.state.tiles,
-      recentShardRainTileKeys: this.recentShardRainTileKeys,
-      activeShardFallSiteKeys: this.activeShardFallSiteKeys,
-      lastShardRainHelloByPlayer: this.lastShardRainHelloByPlayer,
-      getCurrentShardRainExpiresAt: () => this.currentShardRainExpiresAt,
-      setCurrentShardRainExpiresAt: (expiresAt: number | undefined) => { this.currentShardRainExpiresAt = expiresAt; },
-      getCurrentShardRainSiteCount: () => this.currentShardRainSiteCount,
-      setCurrentShardRainSiteCount: (siteCount: number) => { this.currentShardRainSiteCount = siteCount; },
-      getLastShardRainSpawnSlotKey: () => this.lastShardRainSpawnSlotKey,
-      setLastShardRainSpawnSlotKey: (slotKey: string | undefined) => { this.lastShardRainSpawnSlotKey = slotKey; },
-      getLastShardRainWarningSlotKey: () => this.lastShardRainWarningSlotKey,
-      setLastShardRainWarningSlotKey: (slotKey: string | undefined) => { this.lastShardRainWarningSlotKey = slotKey; },
-      incrementShardRainTickCounter: () => {
-        this.shardRainTickCounter += 1;
-        return this.shardRainTickCounter;
-      },
-      replaceTileState: (tileKey: string, tile: DomainTileState) => this.replaceTileState(tileKey, tile),
-      emitEvent: (event: SimulationEvent) => this.emitEvent(event),
-      tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile)
-    };
-  }
-
   tickShardRain(nowMs: number = this.now()): void {
-    tickShardRainImpl(this.shardRainContext(), nowMs);
+    this.shardRain.tick(nowMs);
   }
 
   private watchtowerRevealContext(): WatchtowerRevealRuntimeInput {
@@ -1435,15 +1373,11 @@ export class SimulationRuntime {
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
-    emitShardRainHelloForImpl(this.shardRainContext(), playerId, nowMs);
+    this.shardRain.emitHelloFor(playerId, nowMs);
   }
 
   currentShardRainWelcomeNotice(nowMs: number = this.now()): Record<string, unknown> {
-    return computeShardRainWelcomeNotice({
-      nowMs,
-      currentSiteCount: this.currentShardRainSiteCount,
-      currentExpiresAt: this.currentShardRainExpiresAt
-    });
+    return this.shardRain.welcomeNotice(nowMs);
   }
 
   private respawnContext(): RuntimeRespawnContext {
@@ -1457,7 +1391,7 @@ export class SimulationRuntime {
       lastRespawnNoticeByPlayerId: this.lastRespawnNoticeByPlayerId,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       locksByTile: this.state.locksByTile,
-      rememberedAutomationVictoryPathByPlayer: this.rememberedAutomationVictoryPathByPlayer,
+      rememberedAutomationVictoryPathByPlayer: this.automationAdvisor.victoryPathByPlayer,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
@@ -1670,11 +1604,11 @@ export class SimulationRuntime {
   }
 
   queueDepths(): Record<QueueLane, number> {
-    return computeQueueDepths(this.jobsByLane);
+    return this.jobQueue.depths();
   }
 
   queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
-    return computeQueueBacklogMs(this.jobsByLane, nowMs);
+    return this.jobQueue.backlogMs(nowMs);
   }
 
   private summaryForPlayer(playerId: string): PlayerRuntimeSummary {
@@ -2221,127 +2155,10 @@ export class SimulationRuntime {
     playerId: string,
     clientSeq: number,
     issuedAt: number,
-    sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap; blockedActionKeys?: ReadonlyMap<string, string>; beaconBoostActive?: boolean }
-  ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
-    const player = this.state.players.get(playerId);
-    if (!player) {
-      return {
-        diagnostic: createAutomationNoopDiagnostic(playerId, sessionPrefix, "player_missing")
-      };
-    }
-    const summary = this.summaryForPlayer(playerId);
-    if (summary.territoryTileKeys.size <= 0) {
-      this.rememberedAutomationVictoryPathByPlayer.delete(playerId); this.aiSpatialFocusByPlayer.delete(playerId);
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId); this.aiHotFrontierStreakByPlayer.delete(playerId);
-      this.aiWarPostureLatchByPlayer.delete(playerId);
-      if (player.isAi) {
-        const nowMs = this.now();
-        const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
-        if (nowMs - lastAttempt >= SimulationRuntime.AI_RESPAWN_RETRY_INTERVAL_MS) {
-          this.lastAiRespawnAttemptMsByPlayer.set(playerId, nowMs);
-          this.respawnIfEliminated(playerId, `ai-zero-tile-check:${playerId}:${nowMs}`);
-        }
-      }
-    }
-    const ownedTiles = this.tileKeySetToTiles(summary.territoryTileKeys);
-    const spatialFocus = refreshSpatialFocusForSummary(playerId, this.now(), summary, this.aiSpatialFocusByPlayer, this.aiSpatialFocusProductiveByPlayer);
-    // No-alloc per-tick check: short-circuit on first player-issued lock.
-    // Allocating a Set for one .has() lookup would be wasteful in the AI
-    // planner hot path (per AI per planner tick).
-    let hasActiveLock = false;
-    for (const lock of this.state.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.source === "automation") continue;
-      hasActiveLock = true;
-      break;
-    }
-    let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
-    if (!options?.skipPreplan) {
-      const townTiles = this.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
-      const preplan = chooseAutomationPreplanCommand({
-        playerId,
-        points: player.points,
-        manpower: player.manpower,
-        techIds: [...player.techIds],
-        domainIds: player.domainIds ? [...player.domainIds] : [],
-        strategicResources: { ...(player.strategicResources ?? {}) },
-        settledTileCount: summary.settledTileCount,
-        townCount: summary.townCount,
-        incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
-        hasActiveLock,
-        ownedTiles, townTiles,
-        clientSeq, issuedAt, sessionPrefix,
-        ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {})
-      });
-      preplanDiagnostic = preplan.diagnostic;
-      if (preplan.command) return preplan;
-    }
-    const forceBroadFrontierScan = shouldForceBroadFrontierScan(this.aiHotFrontierStreakByPlayer, playerId);
-    const playerScopeKeyCount = plannerPlayerScopeKeyCount(summary);
-    const plan = planAutomationCommand({
-      playerId,
-      points: player.points,
-      manpower: player.manpower,
-      ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
-      ...((player.domainIds ? [...player.domainIds] : []).length ? { domainIds: [...(player.domainIds ?? [])] } : {}),
-      ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
-      settledTileCount: summary.settledTileCount,
-      townCount: summary.townCount,
-      incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
-      hasActiveLock,
-      activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
-      ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
-      ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
-      frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
-      hotFrontierTiles: this.tileKeySetToTiles(summary.hotFrontierTileKeys),
-      strategicFrontierTiles: this.tileKeySetToTiles(summary.strategicFrontierTileKeys),
-      buildCandidateTiles: this.tileKeySetToTiles(summary.buildCandidateTileKeys),
-      ownedTiles,
-      tilesByKey: this.state.tiles,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      // Fixed-border reach: lets the AI's frontier-candidate enumeration
-      // prune EXPAND targets outside the player's reach (see ReachLookup in
-      // frontier-command-planner.ts — this was the one deliberately-deferred
-      // integration point from that change, now that isPlayerTileInReach
-      // exists). ATTACK candidates are unaffected.
-      reachLookup: { isInReach: (pid, x, y) => this.isPlayerTileInReach(pid, x, y) },
-      slotSupplyByResource: this.resourceSlotSupplyForPlayer(playerId),
-      slotDemandByResource: this.resourceSlotDemandForPlayer(playerId),
-      foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
-      manpowerCapacity: this.playerManpowerCap(player),
-      manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
-      playerScopeKeyCount,
-      playerScopeTileCount: playerScopeKeyCount,
-      previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
-      pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
-      previousWarPostureLatch: this.aiWarPostureLatchByPlayer.get(playerId),
-      onStrategicSnapshot: (snapshot) => {
-        if (summary.territoryTileKeys.size <= 0) return;
-        this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
-        this.aiWarPostureLatchByPlayer.set(playerId, snapshot.warPostureLatch);
-      },
-      ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
-      ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
-      ...(forceBroadFrontierScan ? { forceBroadFrontierScan } : {}),
-      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}), ...(options?.beaconBoostActive ? { beaconBoostActive: true } : {}), ...(options?.blockedActionKeys ? { blockedActionKeys: options.blockedActionKeys } : {}),
-      clientSeq,
-      issuedAt,
-      sessionPrefix
-    });
-    if (preplanDiagnostic?.preplanReason) {
-      plan.diagnostic = mergePreplanDiagnostic(plan.diagnostic, preplanDiagnostic);
-    }
-    if (typeof plan.diagnostic.scanFoundActionableCandidate === "boolean") {
-      this.aiSpatialFocusProductiveByPlayer.set(playerId, plan.diagnostic.scanFoundActionableCandidate);
-    } else {
-      // No scan ran this tick (e.g. active_lock noop) - clear any cached
-      // value instead of leaving a stale one, so the next refresh sees "no
-      // signal" (treated as productive) rather than a lock-outlasting false.
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
-    }
-    recordHotFrontierStreak(this.aiHotFrontierStreakByPlayer, playerId, plan.diagnostic.broadFallbackSkipped);
-    return plan;
+    sessionPrefix: AutomationSessionPrefix,
+    options?: ExplainAutomationCommandOptions
+  ): AutomationCommandExplanation {
+    return this.automationAdvisor.explainNextCommand(playerId, clientSeq, issuedAt, sessionPrefix, options);
   }
 
   chooseNextAutomationCommand(
@@ -2774,13 +2591,11 @@ export class SimulationRuntime {
 
   // Worker-thread sync counterpart to reachTileKeysForPlayer above.
   spatialFocusFrontTileKeysForPlayer(playerId: string): string[] {
-    const summary = this.summaryForPlayer(playerId);
-    const focus = refreshSpatialFocusForSummary(playerId, this.now(), summary, this.aiSpatialFocusByPlayer, this.aiSpatialFocusProductiveByPlayer);
-    return focus ? [...focus.primaryFront] : [];
+    return this.automationAdvisor.spatialFocusFrontTileKeys(playerId);
   }
 
   recordAiAutomationDiagnosticFeedback(playerId: string, diagnostic: Pick<AutomationPlannerDiagnostic, "scanFoundActionableCandidate" | "broadFallbackSkipped">): void {
-    recordSpatialFocusOutcome(playerId, diagnostic, this.aiSpatialFocusProductiveByPlayer, this.aiHotFrontierStreakByPlayer);
+    this.automationAdvisor.recordDiagnosticFeedback(playerId, diagnostic);
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
@@ -3117,26 +2932,6 @@ export class SimulationRuntime {
     return true;
   }
 
-  private jobQueueContext(): RuntimeJobQueueContext {
-    return {
-      jobsByLane: this.jobsByLane,
-      priorityOrder,
-      backgroundBatchSize: this.backgroundBatchSize,
-      now: () => this.now(),
-      scheduleSoon: this.scheduleSoon,
-      scheduleAfter: this.scheduleAfter,
-      queueDepths: () => this.queueDepths(),
-      shouldPauseBackground: this.shouldPauseBackground,
-      wrapJobRun: this.wrapJobRun,
-      onQueueDrain: this.onQueueDrain,
-      onJobApplied: this.onJobApplied
-    };
-  }
-
-  private jobQueueMutableState(): RuntimeJobQueueMutableState {
-    return this.jobQueueState;
-  }
-
   private enqueueJob(
     lane: QueueLane,
     run: () => void,
@@ -3144,7 +2939,7 @@ export class SimulationRuntime {
     scheduling: "immediate" | "background" = "immediate",
     commandId?: string
   ): void {
-    enqueueJobImpl(this.jobQueueContext(), this.jobQueueMutableState(), lane, run, commandType, scheduling, commandId);
+    this.jobQueue.enqueue(lane, run, commandType, scheduling, commandId);
   }
 
   private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
@@ -3446,12 +3241,9 @@ export class SimulationRuntime {
       upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
       ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      decrementShardRainSiteCount: () => {
-        this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
-        return this.currentShardRainSiteCount;
-      },
-      clearShardRainExpiry: () => { this.currentShardRainExpiresAt = undefined; },
-      clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
+      decrementShardRainSiteCount: () => this.shardRain.decrementSiteCount(),
+      clearShardRainExpiry: () => this.shardRain.clearExpiry(),
+      clearLastShardRainHello: () => this.shardRain.clearHellos(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId),

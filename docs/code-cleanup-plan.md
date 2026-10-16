@@ -95,7 +95,7 @@ them growing. The largest:
 
 | Lines | File |
 |---:|---|
-| 4,000 | `apps/simulation/src/runtime/runtime.ts` |
+| 3,783 | `apps/simulation/src/runtime/runtime.ts` (was 3,990; see progress below) |
 | 2,881 | `apps/simulation/src/simulation-service/simulation-service.ts` |
 | 2,726 | `apps/realtime-gateway/src/gateway-app/gateway-app.ts` |
 | 2,723 | `packages/client/src/client-network/client-network.ts` |
@@ -106,16 +106,51 @@ them growing. The largest:
 
 `runtime.ts` already delegates most logic to `*Impl` modules. Most of its
 bulk is context-builder methods (`xContext(): RuntimeXContext { return {...} }`)
-and one-line private wrappers. A workable route:
+and one-line private wrappers.
 
-1. Move each context builder into the module that owns that context, as a
-   factory taking explicit deps.
-2. Delete wrappers that only forward to an `*Impl`.
+**Moving context builders out as-is does not work.** Each builder is a closure
+over `SimulationRuntime`'s private members (the class has about 410 members,
+330 of them private). TypeScript private members can't be read from another
+module, so a builder in its own file would need roughly 200 members made
+public, which is worse than the current file.
 
-Do this one context per PR; merging `develop` often is essential, because
-this file changes in most PRs. Re-run the deps-field scan
-(method step 3) as you go, because several contexts still carry fields only
-some consumers need.
+**Route that works: extract cohesive owners.** Find a cluster of private
+fields that only a few methods touch, and move the fields plus those methods
+into a small class with an explicit `*Deps` interface. The runtime then holds
+one instance and keeps thin public delegators, so callers don't change. Pass
+the runtime's `state` through a getter (`get state() { return runtime.state; }`)
+so the owner can be built in a field initializer before the constructor
+assigns `state`. Tests that poked the old private fields through
+`as unknown as {...}` casts need their path updated
+(`automationAdvisor.victoryPathByPlayer`, for example).
+
+Progress (PR "split SimulationRuntime, step 1", 3,990 → 3,783 lines):
+
+| Owner | File | Took over |
+|---|---|---|
+| `RuntimeAutomationAdvisor` | `apps/simulation/src/ai/runtime-automation-advisor.ts` | the six per-player AI memory maps, the respawn throttle, `explainNextAutomationCommand`, spatial-focus feedback |
+| `RuntimeShardRain` | `apps/simulation/src/runtime-shard-rain-state.ts` | the eight shard-rain fields, the context closure, tick/hello/welcome, boot recovery of live FALL sites |
+| `RuntimeJobQueue` | `apps/simulation/src/runtime-job-queue-state.ts` | the four job lanes, the drain state, the scheduling and metrics hooks |
+
+Next clusters, roughly in order of size and independence:
+
+1. **Economy caches**: `economySnapshot*`, `defensibilityMetrics*`, the
+   `resourceSlotSupply/Demand/Dormancy` cache, dirty and last-rebuilt maps,
+   `upkeepAccrual*`, `manpowerStructureBonusCache`, `tileYieldContextCache`,
+   `townNetworkCache`, `townConnectivityState`. The `refreshEconomyCachesForTileChange`
+   call in `replaceTileState` and `economyCacheContext` move with them.
+2. **Structure-by-owner indexes** (`frontierTilesByOwner`, `activeFortAnchorsByOwner`,
+   `musterTilesByOwner` and about ten more), fed by `refreshRuntimeTileIndexesForChange`.
+3. **Shrink the large context builders** (`lockResolutionContext`,
+   `exportContext`, `progressionCommandContext`, `structureCommandContext`)
+   once the clusters above own their fields: a builder can then pass an owner
+   object instead of listing its maps one by one.
+4. `replaceTileState` (160 lines) and the constructor (about 320 lines) are
+   last; they touch almost every cluster and shrink as the clusters move out.
+
+Merging `develop` often is essential, because this file changes in most PRs.
+Re-run the deps-field scan (method step 3) as you go, because several
+contexts still carry fields only some consumers need.
 
 ### 2. Optional: reduce module surface (effort: mechanical; value: moderate)
 
