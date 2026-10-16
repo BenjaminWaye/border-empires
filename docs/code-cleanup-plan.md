@@ -95,7 +95,7 @@ them growing. The largest:
 
 | Lines | File |
 |---:|---|
-| 3,576 | `apps/simulation/src/runtime/runtime.ts` (was 3,990; see progress below) |
+| 3,552 | `apps/simulation/src/runtime/runtime.ts` (was 3,990; see progress below) |
 | 2,881 | `apps/simulation/src/simulation-service/simulation-service.ts` |
 | 2,726 | `apps/realtime-gateway/src/gateway-app/gateway-app.ts` |
 | 2,723 | `packages/client/src/client-network/client-network.ts` |
@@ -124,7 +124,7 @@ assigns `state`. Tests that poked the old private fields through
 `as unknown as {...}` casts need their path updated
 (`automationAdvisor.victoryPathByPlayer`, for example).
 
-Progress (#2385 step 1: 3,990 → 3,783 lines; step 2: → 3,576 lines):
+Progress (#2385 step 1: 3,990 → 3,783 lines; step 2: → 3,552 lines, after merging develop):
 
 | Owner | File | Took over |
 |---|---|---|
