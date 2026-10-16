@@ -7,7 +7,8 @@ import {
   closeDiplomacyTradeScreen,
   openDiplomacyTradeScreen,
   receiveDiplomacyStance,
-  setDiplomacyOfferCooldowns
+  setDiplomacyOfferCooldowns,
+  TRADE_HOLDINGS_CHECK_MS
 } from "./client-diplomacy-trade.js";
 import { diplomacyTermsLineHtml } from "./client-diplomacy-terms-html.js";
 import { tradeVerdict, type DiplomacyStanceReply, type TradeSelection } from "./client-diplomacy-trade-view.js";
@@ -121,6 +122,32 @@ describe("diplomacy trade screen", () => {
     const sendButton = overlay.querySelector<HTMLButtonElement>("[data-trade-send]")!;
     expect(sendButton.disabled).toBe(true);
     expect(sendButton.textContent).toBe("Can offer again in 10m");
+  });
+
+  // Coin keeps arriving (or being spent elsewhere) while the screen is open.
+  it("re-renders when the player's coin changes, and stops watching once closed", () => {
+    vi.useFakeTimers();
+    try {
+      const holdings = { gold: 10, shard: 0 };
+      const ownHoldings = vi.fn(() => ({ ...holdings }));
+      openDiplomacyTradeScreen({ targetName: "Milo", kind: "truce", durationHours: 12 }, { send: vi.fn().mockReturnValue(true), ownHoldings });
+      const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+      receiveDiplomacyStance(aiReply);
+      expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 10 coin and 0 Shards.");
+      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.hidden).toBe(true);
+
+      holdings.gold = 400;
+      vi.advanceTimersByTime(TRADE_HOLDINGS_CHECK_MS);
+      expect(overlay.querySelector("[data-trade-holdings]")?.textContent).toBe("You have 400 coin and 0 Shards.");
+      expect(overlay.querySelector<HTMLButtonElement>("[data-trade-topup]")!.hidden).toBe(false);
+
+      closeDiplomacyTradeScreen();
+      const callsAtClose = ownHoldings.mock.calls.length;
+      vi.advanceTimersByTime(5 * TRADE_HOLDINGS_CHECK_MS);
+      expect(ownHoldings.mock.calls.length).toBe(callsAtClose);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ignores a stance reply for a different target", () => {
