@@ -103,6 +103,9 @@ export const createPlannerRelevantTileKeyIndex = (
   // Absence means the player hasn't been synced yet → full rebuild required.
   const playerTerritoryByPlayerId = new Map<string, Set<string>>();
   const versionByPlayerId = new Map<string, number>();
+  // Seeded once per worker lifetime: no new player keys are admitted here.
+  // Each value is bounded by the tactical-view sampling contract (1,936).
+  const tacticalKeysByPlayer = new Map(worldView.players.map(player => [player.id, new Set<string>()]));
 
   const addKeys = (keys: ReadonlySet<string>): void => {
     for (const key of keys) {
@@ -149,6 +152,16 @@ export const createPlannerRelevantTileKeyIndex = (
   ): ReadonlySet<string> => {
     const newlyRelevant = new Set<string>();
     for (const player of players) {
+      const previousTactical = tacticalKeysByPlayer.get(player.id);
+      if (previousTactical) {
+        const nextTactical = new Set(player.tacticalView?.visibleTileKeys ?? []);
+        const removed = new Set([...previousTactical].filter(key => !nextTactical.has(key)));
+        const added = new Set([...nextTactical].filter(key => !previousTactical.has(key)));
+        removeKeys(removed);
+        addKeys(added);
+        for (const key of added) newlyRelevant.add(key);
+        tacticalKeysByPlayer.set(player.id, nextTactical);
+      }
       const nextVersion = player.topologyVersion;
       const cachedVersion = versionByPlayerId.get(player.id);
       const dirtyTileKeys = player.topologyDirtyTileKeys ?? [];

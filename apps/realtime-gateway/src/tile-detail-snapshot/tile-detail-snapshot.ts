@@ -36,7 +36,7 @@ type YieldSourceTile = Parameters<typeof buildTileYieldView>[0];
 // "keyFor(tile.x, tile.y)" map-building convention too.
 const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
 
-// Keep this in sync with buildTownSummary's gpm/cap branches in
+// Keep this in sync with buildTownSummary's goldPerMinute branch in
 // apps/simulation/src/live-snapshot-view.ts (around lines 720-770). Used to
 // backfill goldPerMinute when the snapshot tile's townJson is missing it —
 // without this, the gateway-cached tile-detail path serves
@@ -80,9 +80,6 @@ const fallbackTownGoldPerMinute = (input: {
     ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount + input.converterGoldPerMinute
   );
 };
-
-const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, mintworksCount: number, clearingHouseActive: boolean): number =>
-  isSettlement ? goldPerMinute * 60 * 8 : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
 
 const parseTown = (tile: SnapshotTile): Partial<import("@border-empires/shared").Tile["town"]> | undefined => {
   if (!tile?.townJson) return undefined;
@@ -244,15 +241,6 @@ export const buildSnapshotTileDetail = (
           firstThreeTownGoldMult,
           terrainGoldMultiplier
         });
-  // Only backfill cap when goldPerMinute is positive — an unfed TOWN-tier
-  // tile's formula multiplies through 0, and a hard 0 cap is less faithful
-  // than leaving the field absent.
-  const cap =
-    typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
-      ? parsedTown.cap
-      : goldPerMinute > 0
-        ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.mintworksCount, supportStructures.clearingHouseActive)
-        : undefined;
   const { populationGrowthPerMinute, growthModifiers } = snapshotTownGrowth({
     parsedTown,
     isFed,
@@ -292,7 +280,6 @@ export const buildSnapshotTileDetail = (
         baseGoldPerMinute,
         foodUpkeepPerMinute: townFoodUpkeep,
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
-        ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
         growthModifiers,
         ...(townModifierTotals.length > 0 ? { townModifierTotals } : {}),

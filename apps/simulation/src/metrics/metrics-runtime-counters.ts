@@ -11,6 +11,7 @@ export type RuntimeCounterSnapshot = {
   simGuestJoinRejectedFullTotal: number;
   simGuestUpgradedTotal: number;
   simSeasonGuestPlayers: number;
+  simUpkeepNettedWhileIncomePausedTotal: number;
 };
 
 // `increments` is spread straight into the simulation metrics object, so a
@@ -29,6 +30,7 @@ export const createRuntimeCounters = () => {
   let simGuestJoinRejectedFullTotal = 0;
   let simGuestUpgradedTotal = 0;
   let simSeasonGuestPlayers = 0;
+  let simUpkeepNettedWhileIncomePausedTotal = 0;
 
   return {
     increments: {
@@ -43,7 +45,8 @@ export const createRuntimeCounters = () => {
       incrementSimAutoFillTiles: (count: number): void => { simAutoFillTilesTotal += Math.max(0, count); },
       incrementSimGuestJoinRejectedFull: (): void => { simGuestJoinRejectedFullTotal += 1; },
       incrementSimGuestUpgraded: (): void => { simGuestUpgradedTotal += 1; },
-      setSimSeasonGuestPlayers: (count: number): void => { simSeasonGuestPlayers = Math.max(0, count); }
+      setSimSeasonGuestPlayers: (count: number): void => { simSeasonGuestPlayers = Math.max(0, count); },
+      incrementSimUpkeepNettedWhileIncomePaused: (): void => { simUpkeepNettedWhileIncomePausedTotal += 1; }
     },
     snapshot: (): RuntimeCounterSnapshot => ({
       simMusterRemoteAttackTotal,
@@ -57,7 +60,8 @@ export const createRuntimeCounters = () => {
       simAutoFillTilesTotal,
       simGuestJoinRejectedFullTotal,
       simGuestUpgradedTotal,
-      simSeasonGuestPlayers
+      simSeasonGuestPlayers,
+      simUpkeepNettedWhileIncomePausedTotal
     })
   };
 };

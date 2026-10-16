@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { buildTownLostAlert, isSettlementTierTownLoss, resolveEnvironmentLabel } from "./ownership-change-alert.js";
+import { buildTownLostAlert, createOwnershipChangeHandler, isSettlementTierTownLoss, resolveEnvironmentLabel } from "./ownership-change-alert.js";
 import type { OwnershipChangeSample } from "../runtime/runtime-ownership-change-sample.js";
 
 const baseSample: OwnershipChangeSample = {
@@ -71,5 +71,40 @@ describe("buildTownLostAlert", () => {
     const wrapperText = alert.slackBody?.text ?? "";
     expect(wrapperText.match(/\(staging\)/g)).toHaveLength(1);
     expect(wrapperText).toContain("border-empires");
+  });
+});
+
+describe("createOwnershipChangeHandler", () => {
+  const makeHandler = (env: NodeJS.ProcessEnv = { SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK: "https://hooks.example/x" }) => {
+    const deps = { log: { warn: vi.fn() }, env, onSettlementTierAlertSkipped: vi.fn(), postWebhook: vi.fn() };
+    return { deps, handle: createOwnershipChangeHandler(deps) };
+  };
+
+  it("ignores a change that loses neither a town nor a settled tile", () => {
+    const { deps, handle } = makeHandler();
+    handle({ ...baseSample, townLost: false, hadOwnershipState: "FRONTIER" });
+    expect(deps.log.warn).not.toHaveBeenCalled();
+    expect(deps.postWebhook).not.toHaveBeenCalled();
+  });
+
+  it("logs and posts the webhook for a lost town", () => {
+    const { deps, handle } = makeHandler();
+    handle({ ...baseSample, previousTownPopulationTier: "CITY" });
+    expect(deps.log.warn).toHaveBeenCalledTimes(1);
+    expect(deps.postWebhook).toHaveBeenCalledWith("https://hooks.example/x", expect.anything());
+  });
+
+  it("counts instead of posting when the lost town was SETTLEMENT tier", () => {
+    const { deps, handle } = makeHandler();
+    handle({ ...baseSample, previousTownPopulationTier: "SETTLEMENT" });
+    expect(deps.onSettlementTierAlertSkipped).toHaveBeenCalledTimes(1);
+    expect(deps.postWebhook).not.toHaveBeenCalled();
+  });
+
+  it("logs an ownership audit line when a settled non-town tile goes neutral", () => {
+    const { deps, handle } = makeHandler();
+    handle({ ...baseSample, townLost: false, hadTown: false, nextOwnerId: undefined });
+    expect(deps.log.warn).toHaveBeenCalledWith(expect.objectContaining({ tileKey: "207,89" }), expect.stringContaining("[ownership_audit]"));
+    expect(deps.postWebhook).not.toHaveBeenCalled();
   });
 });

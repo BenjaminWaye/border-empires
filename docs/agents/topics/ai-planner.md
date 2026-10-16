@@ -55,10 +55,30 @@ Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `BUILD_SIEGE_BATTERY`, `SETTLE`; barbarian planner:
 `EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
-The AI does **NOT** emit `BUILD_OBSERVATORY`. Any AI code computing
-candidates/branches for it is dead. `evaluateSettlementCandidate` is still
-used for frontier *classification* (planner-candidate-index,
-frontier-command-planner) — that one is NOT dead.
+The bounded tactical interrupt (`ai-aether-planner.ts`) also emits
+`BUILD_OBSERVATORY`, `AETHER_LANCE`, `AETHER_EMP`, `SIPHON_TILE`, `CANCEL_SIPHON`,
+`CAST_AETHER_BRIDGE`, `CAST_AETHER_WALL`, `CREATE_MOUNTAIN`, and `REMOVE_MOUNTAIN`.
+Worker mode emits `SURVEY_SWEEP` only with a result consumer; the direct fallback
+keeps that cast disabled. `REVEAL_EMPIRE` and `REVEAL_EMPIRE_STATS` remain disabled
+until their intelligence changes decisions. Tower builds require an installed
+AFC module, CRYSTAL capacity, development capacity and a useful visible front.
+
+`ai-tactical-view.ts` projects existing per-player visibility around at most 16
+sampled focus origins (at most 1,936 visibility reads), without selecting concrete
+targets in snapshot builders. The worker's shared tile cache is filtered through
+that player's visibility mask before tactical selection. Tactical scope changes
+backfill incrementally without rebuilding territory relevance. Diagnostics include
+`tacticalAction`, `tacticalVisibleTileCount`, and `tacticalOmittedOriginCount`.
+Known shields are avoided; unseen shields remain authoritative runtime rejections.
+Concrete rejected actions expire after 10 seconds or a world revision, and do not
+suppress unrelated FOOD producers or free relays.
+
+The gateway owns proactive diplomacy (`proactive-ai-diplomacy.ts`): one AI per
+15-second evaluation, at most one offer, existing durable SocialState and responder.
+No diplomacy request store is added to the simulation. See
+[AI progression review and implementation](../../ai-progression-improvements-plan.md).
+
+`evaluateSettlementCandidate` still classifies frontier tiles; it remains live.
 
 **`SETTLE` is no longer human-client-only** (fixed-borders-via-reach plan):
 `BUILD_BEACON`'s `executeClass` branch (`ai/utility/utility-dispatch.ts`)
@@ -93,7 +113,7 @@ changes. If you can't, it's a suspect.** Concretely:
    it's dead weight (this is exactly how `choose_settlement` was caught).
 2. **Grep command emitters vs. types.** `grep -rn 'type: "X"'` per command type;
    if a type is only constructed by the client (or not at all on the AI path),
-   AI code computing for it is dead (caught SETTLE, BUILD_OBSERVATORY).
+   AI code computing for it may be dead; check the tactical and utility emitters.
 3. **Compute-then-discard when a flag is off.** Check that a feature flag gates
    the *compute*, not just the output. `buildAiTrainingRecord` was passed as the
    argument to a no-op recorder — the build ran regardless (caught #956).

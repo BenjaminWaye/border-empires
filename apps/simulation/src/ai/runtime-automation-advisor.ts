@@ -9,13 +9,16 @@ import type { RuntimeState } from "../runtime/runtime-state.js";
 import type { RuntimePlayer } from "../runtime-types.js";
 import { rememberedAutomationVictoryPathCounts } from "../runtime-victory-path-counts.js";
 import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
+import { activeAfcModuleTechIds } from "./ai-build-unlocks.js";
 import { recordHotFrontierStreak, shouldForceBroadFrontierScan } from "./ai-hot-frontier-streak.js";
 import { chooseAutomationPreplanCommand } from "./ai-preplan-command.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
+import type { AiTacticalView } from "./ai-tactical-view.js";
 import { recordSpatialFocusOutcome, refreshSpatialFocusForSummary, type AiSpatialFocus } from "./ai-spatial-focus.js";
 import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import { createAutomationNoopDiagnostic, planAutomationCommand, type AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import type { AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import { hasPlannerGatingLock } from "./planner-gating-lock.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 // Throttle per-tick respawn attempts for eliminated AI players. Spawn
@@ -50,6 +53,8 @@ export interface RuntimeAutomationAdvisorDeps {
   resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy;
   playerManpowerCap(player: RuntimePlayer): number;
   playerManpowerRegenPerMinute(player: RuntimePlayer): number;
+  /** Visible aether targets around the focus front; only consulted once the player can cast (crystal-lattices or an Observatory). */
+  tacticalViewForPlayer(playerId: string, focusKeys: readonly string[]): AiTacticalView;
 }
 
 /**
@@ -99,16 +104,7 @@ export class RuntimeAutomationAdvisor {
     }
     const ownedTiles = deps.tileKeySetToTiles(summary.territoryTileKeys);
     const spatialFocus = refreshSpatialFocusForSummary(playerId, deps.now(), summary, this.spatialFocusByPlayer, this.spatialFocusProductiveByPlayer);
-    // No-alloc per-tick check: short-circuit on first player-issued lock.
-    // Allocating a Set for one .has() lookup would be wasteful in the AI
-    // planner hot path (per AI per planner tick).
-    let hasActiveLock = false;
-    for (const lock of state.locksByTile.values()) {
-      if (lock.playerId !== playerId) continue;
-      if (lock.source === "automation") continue;
-      hasActiveLock = true;
-      break;
-    }
+    const hasActiveLock = hasPlannerGatingLock(state.locksByTile.values(), playerId);
     let preplanDiagnostic: AutomationPlannerDiagnostic | undefined;
     if (!options?.skipPreplan) {
       const townTiles = deps.tileKeySetToTiles(summary.ownedTownTierByTile.keys()); // resolved only when preplan actually runs
@@ -116,6 +112,8 @@ export class RuntimeAutomationAdvisor {
         playerId,
         points: player.points,
         manpower: player.manpower,
+        slotSupplyByResource: deps.resourceSlotSupplyForPlayer(playerId),
+        slotDemandByResource: deps.resourceSlotDemandForPlayer(playerId),
         techIds: [...player.techIds],
         domainIds: player.domainIds ? [...player.domainIds] : [],
         strategicResources: { ...(player.strategicResources ?? {}) },
@@ -145,6 +143,10 @@ export class RuntimeAutomationAdvisor {
       hasActiveLock,
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
+      installedModuleTechIds: activeAfcModuleTechIds(playerId, summary.ownedAfcTileKeys, state.tiles),
+      tacticalView: (player.techIds.has("crystal-lattices") || (deps.ownedStructureCountsForPlayer(playerId).OBSERVATORY ?? 0) > 0)
+        ? deps.tacticalViewForPlayer(playerId, [...(spatialFocus?.primaryFront ?? [])])
+        : undefined,
       ownedStructureCounts: deps.ownedStructureCountsForPlayer(playerId),
       frontierTiles: deps.tileKeySetToTiles(summary.frontierTileKeys),
       hotFrontierTiles: deps.tileKeySetToTiles(summary.hotFrontierTileKeys),
