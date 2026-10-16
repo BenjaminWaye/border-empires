@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-
-import { aiWouldLeadAlliance, alliancesAiShouldLeave, allianceBloc, largestOtherMember } from "./ai-alliance-bloc.js";
+import { aiWouldLeadAlliance, alliancesAiShouldLeave, allianceBloc, largestOtherMember, tileLookupFor } from "./ai-alliance-bloc.js";
 import { createAiAllianceReview, AI_ALLIANCE_REVIEW_INTERVAL_MS } from "./ai-alliance-review.js";
 
 const graph = (edges: Array<[string, string]>) => (playerId: string): string[] =>
@@ -26,6 +24,13 @@ describe("alliance blocs", () => {
     expect(aiWouldLeadAlliance("ai", "human", graph([]), sizes({ ai: 110, human: 100 }))).toBe(true);
   });
 
+  it("only vouches for sizes when the leaderboard lists the AI", () => {
+    expect(tileLookupFor([], "ai")).toBeUndefined();
+    expect(tileLookupFor([{ id: "human", tiles: 40 }], "ai")).toBeUndefined();
+    const tilesOf = tileLookupFor([{ id: "ai", tiles: 100 }, { id: "human", tiles: 40 }], "ai");
+    expect([tilesOf?.("ai"), tilesOf?.("human"), tilesOf?.("inactive")]).toEqual([100, 40, 0]);
+  });
+
   it("leaves only the allies through whom a larger empire is reached", () => {
     const alliesOf = graph([["ai", "small"], ["ai", "grown"], ["ai", "bridge"], ["bridge", "giant"]]);
     expect(alliancesAiShouldLeave("ai", alliesOf, sizes({ ai: 100, small: 40, grown: 100, bridge: 30, giant: 150 })).sort()).toEqual(["bridge", "grown"]);
@@ -33,26 +38,43 @@ describe("alliance blocs", () => {
 });
 
 describe("createAiAllianceReview", () => {
-  const snapshot = (tiles: Record<string, number>) =>
-    ({ playerId: "ai-1", tiles: [], worldStatus: { leaderboard: { overall: Object.entries(tiles).map(([id, count]) => ({ id, name: id, tiles: count })) } } }) as unknown as PlayerSubscriptionSnapshot;
+  const leaderboard = (tiles: Record<string, number>) => Object.entries(tiles).map(([id, count]) => ({ id, tiles: count }));
 
-  const setup = (tiles: Record<string, number>, pending: string[] = []) => {
+  const setup = (tiles: Record<string, number>, pending: string[] = [], ais = ["ai-1"], edges: Array<[string, string]> = [["ai-1", "human"]]) => {
     const clock = { now: 0 };
     const breakAlliance = vi.fn().mockReturnValue({ ok: true, payloadsByPlayerId: new Map() });
+    const fetchLeaderboard = vi.fn(async () => leaderboard(tiles));
     const review = createAiAllianceReview({
-      seededAiPlayerIds: new Set(["ai-1"]),
+      seededAiPlayerIds: new Set(ais),
       hasLiveSocket: () => false,
-      alliesOf: graph([["ai-1", "human"]]),
+      alliesOf: graph(edges),
       pendingBreaksOf: () => pending,
-      fetchAiSnapshot: async () => snapshot(tiles),
+      fetchLeaderboard,
       playerName: (id) => (id === "ai-1" ? "Milo" : "Beejac"),
       breakAlliance,
       fanoutPlayerPayloads: () => undefined,
       recordGatewayEvent: () => undefined,
       now: () => clock.now
     });
-    return { review, breakAlliance, clock };
+    return { review, breakAlliance, clock, fetchLeaderboard };
   };
+
+  // One cached season-summary read per run, never a subscription as each AI.
+  it("reads the leaderboard once per run, however many AIs it checks", async () => {
+    const { review, breakAlliance, fetchLeaderboard } = setup({ "ai-1": 100, "ai-2": 100, human: 120 }, [], ["ai-1", "ai-2"], [["ai-1", "human"], ["ai-2", "human"]]);
+    await review();
+    expect(fetchLeaderboard).toHaveBeenCalledTimes(1);
+    expect(breakAlliance).toHaveBeenCalledTimes(2);
+  });
+
+  // An AI missing from the leaderboard would otherwise count as 0 tiles and leave every alliance.
+  it("doesn't leave on a guess when the leaderboard has no size for the AI", async () => {
+    for (const tiles of [{}, { human: 120 }]) {
+      const { review, breakAlliance } = setup(tiles);
+      await review();
+      expect(breakAlliance).not.toHaveBeenCalled();
+    }
+  });
 
   it("gives notice to an ally that has outgrown the AI, explaining why", async () => {
     const { review, breakAlliance } = setup({ "ai-1": 100, human: 120 });

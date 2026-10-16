@@ -49,6 +49,8 @@ type SnapshotOptions = {
   gold?: number;
   incomePerMinute?: number;
   tiles?: PlayerSubscriptionSnapshot["tiles"];
+  /** Leaderboard tile counts by player id (the alliance bloc-lead check reads these). */
+  leaderboardTiles?: Record<string, number>;
 };
 
 const snapshotFor = (playerId: string, options: SnapshotOptions): PlayerSubscriptionSnapshot =>
@@ -61,7 +63,16 @@ const snapshotFor = (playerId: string, options: SnapshotOptions): PlayerSubscrip
       incomePerMinute: options.incomePerMinute ?? 1,
       ...(options.manpowerCap !== undefined ? { manpowerCap: options.manpowerCap } : {})
     },
-    ...(options.score !== undefined ? { worldStatus: { leaderboard: { selfOverall: { score: options.score } } } } : {})
+    ...(options.score !== undefined
+      ? {
+          worldStatus: {
+            leaderboard: {
+              selfOverall: { score: options.score },
+              overall: Object.entries(options.leaderboardTiles ?? {}).map(([id, tiles]) => ({ id, tiles }))
+            }
+          }
+        }
+      : {})
   }) as unknown as PlayerSubscriptionSnapshot;
 
 // AI at (0,0) and the human at (1,0): their borders touch.
@@ -285,7 +296,7 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
   // stronger empire, and past payments (capped goodwill) together.
   it("allies for free once Friendly, and syncs the alliance to the simulation", async () => {
     const { deps, acceptAlliance, rejectAlliance, syncAllianceToSimulation } = makeDeps(
-      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100, leaderboardTiles: { [AI_ID]: 100, [HUMAN_ID]: 50 } }),
       snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 200 }),
       quietContext({ goodwillCoin: 120 })
     );
@@ -298,6 +309,22 @@ describe("createSeededAiDiplomacyResponder alliance offers", () => {
       [AI_ID]: "You accepted Human's alliance."
     });
     expect(syncAllianceToSimulation).toHaveBeenCalledWith({ playerId: AI_ID, targetPlayerId: HUMAN_ID, allied: true });
+  });
+
+  // No size for the AI on its leaderboard: it can't tell whether it would lead the bloc, so it doesn't guess.
+  it("declines an alliance while its leaderboard can't vouch for its size", async () => {
+    const { deps, acceptAlliance, rejectAlliance } = makeDeps(
+      snapshotFor(AI_ID, { manpower: 800, manpowerCap: 1000, score: 100 }),
+      snapshotFor(HUMAN_ID, { manpower: 800, manpowerCap: 1000, score: 200 }),
+      quietContext({ goodwillCoin: 120 })
+    );
+
+    await createSeededAiDiplomacyResponder(deps).maybeAutoRespondToSeededAiAlliance(allianceRequest);
+
+    expect(acceptAlliance).not.toHaveBeenCalled();
+    expect(rejectAlliance).toHaveBeenCalledWith(AI_ID, allianceRequest.id, expect.objectContaining({
+      announcementByPlayerId: expect.objectContaining({ [HUMAN_ID]: expect.stringContaining("can't weigh up an alliance right now") })
+    }));
   });
 
   it("won't ally with a merely Cautious AI's neighbour", async () => {

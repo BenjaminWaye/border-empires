@@ -2,10 +2,11 @@
 // partner (or anyone in the bloc reached through them) is at least as large
 // as the AI, staying would hand that player the Diplomatic Dominance win.
 // Uses the normal 24h break notice, so the partner sees it coming.
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-
-import { alliancesAiShouldLeave, type AllyLookup } from "./ai-alliance-bloc.js";
-import { tileLookupFromSnapshot } from "./ai-diplomacy-evaluation.js";
+//
+// Sizes come from the simulation's cached season leaderboard, fetched once
+// per run -- not from a subscription as each AI, which would hold a full
+// player snapshot per allied AI for the rest of the season.
+import { alliancesAiShouldLeave, tileLookupFor, type AllyLookup, type LeaderboardTiles } from "./ai-alliance-bloc.js";
 
 /** How often the review actually runs (it is called from the gateway's 60s alliance-break task). */
 export const AI_ALLIANCE_REVIEW_INTERVAL_MS = 5 * 60_000;
@@ -19,7 +20,8 @@ export type AiAllianceReviewDeps = {
   alliesOf: AllyLookup;
   /** Allies the AI already gave notice to leave. */
   pendingBreaksOf: (playerId: string) => readonly string[];
-  fetchAiSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
+  /** Every competitive player's tile count (the season summary's overall leaderboard). */
+  fetchLeaderboard: () => Promise<LeaderboardTiles>;
   playerName: (playerId: string) => string;
   breakAlliance: (playerId: string, targetPlayerId: string, announcementByPlayerId: Partial<Record<string, string>>) => BreakResult;
   fanoutPlayerPayloads: (payloadsByPlayerId: Map<string, unknown[]>) => void;
@@ -35,13 +37,15 @@ export const createAiAllianceReview = (deps: AiAllianceReviewDeps): (() => Promi
     running = true;
     lastRunAt = deps.now();
     try {
+      let leaderboard: LeaderboardTiles | undefined;
       for (const aiId of deps.seededAiPlayerIds) {
         if (deps.hasLiveSocket(aiId)) continue;
         const pending = new Set(deps.pendingBreaksOf(aiId));
         if (deps.alliesOf(aiId).every((allyId) => pending.has(allyId))) continue;
-        const snapshot = await deps.fetchAiSnapshot(aiId);
-        if (!snapshot?.worldStatus) continue;
-        const tilesOf = tileLookupFromSnapshot(snapshot);
+        leaderboard ??= await deps.fetchLeaderboard().catch(() => []);
+        // No size for the AI: don't leave an alliance on a guess.
+        const tilesOf = tileLookupFor(leaderboard, aiId);
+        if (!tilesOf) continue;
         for (const allyId of alliancesAiShouldLeave(aiId, deps.alliesOf, tilesOf)) {
           if (pending.has(allyId)) continue;
           const aiName = deps.playerName(aiId);
