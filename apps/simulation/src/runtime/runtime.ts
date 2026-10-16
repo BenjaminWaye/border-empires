@@ -1,3 +1,5 @@
+import { planDirectFrontierCommand } from "../ai/direct-frontier-planner.js";
+import { buildAiTacticalView, type AiTacticalView } from "../ai/ai-tactical-view.js";
 import { resolvePendingSettlement as resolvePendingSettlementImpl, type SettlementResolutionInput } from "./runtime-settlement-resolution.js";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope, ManpowerBreakdown, SimulationEvent } from "@border-empires/sim-protocol";
@@ -35,13 +37,12 @@ import {
   type FrontierCommandType
 } from "@border-empires/game-domain";
 import {
-  ATTACK_MANPOWER_MIN,
   BREAKTHROUGH_ENABLED,
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
+  GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST, isAutoSettleAllowed, settleIgnoresReach,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -74,7 +75,6 @@ import {
   findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
   type DockCrossingOrigin
 } from "./runtime-crossing.js";
-import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
@@ -531,7 +531,8 @@ export class SimulationRuntime {
       resourceSlotDemandForPlayer: (playerId) => runtime.resourceSlotDemandForPlayer(playerId),
       resourceSlotDormancyForPlayer: (playerId) => runtime.resourceSlotDormancyForPlayer(playerId),
       playerManpowerCap: (player) => runtime.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player)
+      playerManpowerRegenPerMinute: (player) => runtime.playerManpowerRegenPerMinute(player),
+      tacticalViewForPlayer: (playerId, focusKeys) => runtime.tacticalViewForPlayer(playerId, focusKeys)
     });
   })();
   // Incrementally-maintained planner player-view tile key cache: six TileKeyArrayEntry objects per entry, updated O(1) per tile mutation instead of rebuilt O(territory) per miss.
@@ -2118,16 +2119,12 @@ export class SimulationRuntime {
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime"
   ): CommandEnvelope | undefined {
-    for (const lock of this.state.locksByTile.values()) {
-      if (lock.playerId === playerId) return undefined;
-    }
-    const ownedTiles = this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys);
     const player = this.state.players.get(playerId);
-    return chooseNextOwnedFrontierCommandFromLookup(this.state.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
-      canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
-      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= EXPAND_MANPOWER_COST,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey
-    });
+    return planDirectFrontierCommand({ tiles: this.state.tiles,
+      ownedTiles: this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys),
+      locks: this.state.locksByTile.values(), dockLinks: this.state.dockLinksByDockTileKey,
+      playerId, points: player?.points ?? 0, manpower: player?.manpower ?? 0,
+      clientSeq, issuedAt, sessionPrefix });
   }
 
   explainNextAutomationCommand(
@@ -2217,13 +2214,14 @@ export class SimulationRuntime {
       growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
       recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
       prebuiltTiles: this.snapshotTileCache,
-      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
+      plannerGatingLockPlayerIds: () => plannerGatingLockPlayerIdsImpl(this.state.locksByTile),
       refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
       reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       spatialFocusFrontForPlayer: (playerId) => this.spatialFocusFrontTileKeysForPlayer(playerId),
+      tacticalViewForPlayer: (id, focusKeys) => this.tacticalViewForPlayer(id, focusKeys),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
@@ -2569,6 +2567,12 @@ export class SimulationRuntime {
   }
 
   // Worker-thread sync counterpart to reachTileKeysForPlayer above.
+  private tacticalViewForPlayer(playerId: string, focusKeys: readonly string[]): AiTacticalView {
+    return buildAiTacticalView({ focusKeys, isVisible: (key) => this.state.visibilityCoverage.isVisible(playerId, key),
+      crystalDormancy: this.resourceSlotDormancyForPlayer(playerId).CRYSTAL, castRange: this.observatoryCastRadiusFor(playerId),
+      bridges: this.activeAetherBridgesForPlayer(playerId), walls: this.activeAetherWallsForPlayer(playerId) });
+  }
+
   spatialFocusFrontTileKeysForPlayer(playerId: string): string[] {
     return this.automationAdvisor.spatialFocusFrontTileKeys(playerId);
   }
@@ -3532,13 +3536,6 @@ export class SimulationRuntime {
   }
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
-
-  // Player-ids with at least one *player-issued* frontier lock - i.e. locks
-  // that should gate the AI strategic planner. Automation combat locks are
-  // filtered so defensive sweeps do not starve the planner.
-  private plannerGatingLockPlayerIds(): Set<string> {
-    return plannerGatingLockPlayerIdsImpl(this.state.locksByTile);
-  }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
 

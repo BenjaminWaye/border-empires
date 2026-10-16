@@ -11,6 +11,8 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
+import { AI_PROGRESSION_AETHER_CHANGELOG } from "./client-changelog-ai-progression-aether.js";
+import { FAIRER_AI_DEALS_CHANGELOG } from "./client-changelog-fairer-ai-deals.js";
 import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
@@ -282,6 +284,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
+  ...AI_PROGRESSION_AETHER_CHANGELOG,
+  ...FAIRER_AI_DEALS_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
@@ -476,20 +480,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
       "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
     ]
-  },
-  {
-    createdAt: 1792107390391, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.16.1",
-    title: "Fairer AI deals",
-    why: "A few gaps in the new trade screen let deals go wrong: a slow payment could take your coin without the deal, and an AI's old counter-offer could be accepted after you'd attacked it.",
-    changes: [
-      "If a deal's payment goes through after it was reported as failed, the coin and Shards are paid straight back",
-      "An AI checks its counter-offer again when you accept it, and withdraws it if you've attacked it since or its price has gone up",
-      "An AI that is outmatched but taking your land no longer pays you for peace; it charges for it instead",
-      "An AI that can't yet tell how big its alliance would be declines for now instead of guessing",
-      "The trade screen keeps your coin, the verdict and the top-up suggestion up to date while it's open"
-    ]
-  },
+  }
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));

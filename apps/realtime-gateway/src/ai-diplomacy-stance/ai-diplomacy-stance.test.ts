@@ -56,6 +56,10 @@ describe("computeAiDiplomacyStance", () => {
     expect(stance.reason).toContain("food");
   });
 
+  it("uses current FOOD capacity ahead of retired stockpile projections", () => {
+    expect(computeAiDiplomacyStance(baseInput({}, { foodSlotDeficit: 1, foodStock: 10000 })).kind).toBe("SEEKING_PEACE");
+    expect(computeAiDiplomacyStance(baseInput({}, { foodSlotDeficit: 0, foodStock: 0, foodNetPerMinute: -100 })).kind).toBe("WARY");
+  });
   it("only allies with a desperate AI's equal or better", () => {
     const spent = { manpower: 0 };
     expect(computeAiDiplomacyStance(baseInput({ requester: { score: 100, manpowerCap: 1000 } }, spent)).acceptsAlliance).toBe(true);

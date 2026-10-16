@@ -6,7 +6,7 @@ import {
   describeDiplomacyTermsForRecipient,
   type DiplomacyTerms
 } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { AiDiplomacySnapshot } from "../ai-diplomacy-stance/ai-diplomacy-stance-input.js";
 
 import { evaluateAiDiplomacy, type AiDiplomacyContext } from "../ai-diplomacy-stance/ai-diplomacy-evaluation.js";
 import type { SocialAllianceRequest, SocialOfferOptions, SocialTruceRequest } from "../social-state/social-state-types.js";
@@ -67,9 +67,9 @@ export type SeededAiDiplomacyResponderDeps = {
   // them -- this must pull live state straight from the simulation (e.g. via
   // playerSubscriptions.ensureSubscribed), or the decision never reflects
   // real battle losses.
-  fetchPlayerSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
+  fetchPlayerSnapshot: (playerId: string) => Promise<AiDiplomacySnapshot | undefined>;
   /** The requester is online (they just sent the offer); prefer their cached snapshot. */
-  requesterSnapshot: (playerId: string) => Promise<PlayerSubscriptionSnapshot | undefined>;
+  requesterSnapshot: (playerId: string) => Promise<AiDiplomacySnapshot | undefined>;
   /** Grudges and memory for the pair (truce breaks, fights, past deals). */
   diplomacyContext: (requesterId: string, aiPlayerId: string) => AiDiplomacyContext;
   // A seeded-AI identity that a human has actually claimed with a live

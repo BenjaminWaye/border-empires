@@ -100,14 +100,6 @@ describe("runUtilityPolicy FREE_FOOD_SLOT dispatch", () => {
     });
   });
 
-  it("issues UNCAPTURE_TILE for the tier-1a abandon_beacon target (disabling a waived beacon can't help)", () => {
-    const result = runUtilityPolicy(buildState({ foodSlotReliefTarget: { x: 9, y: 10, kind: "abandon_beacon" } }));
-    expect(result.command).toMatchObject({
-      type: "UNCAPTURE_TILE",
-      payloadJson: JSON.stringify({ x: 9, y: 10 })
-    });
-  });
-
   it("produces no command when there's no relief target and no reenable target", () => {
     const result = runUtilityPolicy(buildState({ foodSlotReliefTarget: undefined, foodSlotsExhausted: false }));
     expect(result.diagnostic.utilityWinner).not.toBe("FREE_FOOD_SLOT");

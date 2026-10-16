@@ -36,10 +36,12 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
   ...(tile.naturalWonder ? { naturalWonder: true } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.afc ? { afc: { ownerId: tile.afc.ownerId } } : {}),
   ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town
     ? {
         town: {
+          ...(typeof tile.town.population === "number" ? { population: tile.town.population } : {}),
           ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
           ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {}),
           ...(tile.town.type ? { type: tile.town.type } : {}),
@@ -49,14 +51,20 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
       }
     : {}),
   ...(tile.fort ? { fort: { ownerId: tile.fort.ownerId, status: tile.fort.status } } : {}),
-  ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status } } : {}),
+  ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status,
+    ...(tile.observatory.cooldownUntil !== undefined ? { cooldownUntil: tile.observatory.cooldownUntil } : {}),
+    ...(tile.observatory.siphon ? { siphon: { targetX: tile.observatory.siphon.targetX, targetY: tile.observatory.siphon.targetY } } : {}) } } : {}),
+  ...(tile.muster ? { muster: { ownerId: tile.muster.ownerId, amount: tile.muster.amount } } : {}),
+  ...(tile.sabotage ? { sabotage: { ownerId: tile.sabotage.ownerId, endsAt: tile.sabotage.endsAt } } : {}),
   ...(tile.siegeBattery ? { siegeBattery: { ownerId: tile.siegeBattery.ownerId, status: tile.siegeBattery.status } } : {}),
   ...(tile.economicStructure
     ? {
         economicStructure: {
           ownerId: tile.economicStructure.ownerId,
           type: tile.economicStructure.type,
-          status: tile.economicStructure.status
+          status: tile.economicStructure.status,
+          ...(tile.economicStructure.disabledUntil !== undefined ? { disabledUntil: tile.economicStructure.disabledUntil } : {}),
+          ...(tile.economicStructure.inactiveReason ? { inactiveReason: tile.economicStructure.inactiveReason } : {})
         }
       }
     : {})

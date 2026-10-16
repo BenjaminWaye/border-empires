@@ -1,3 +1,5 @@
+import type { AiTacticalTileFields } from "./ai-tactical-tile.js";
+import type { AiTacticalView } from "./ai-tactical-view.js";
 /**
  * Public types, constants, and small helpers for the automation command planner.
  *
@@ -40,7 +42,8 @@ export const AUTOMATION_NOOP_REASONS = [
   "wait_and_recover",
   "BLOCKED_NO_REACHABLE_BEACON_SITE",
   "BLOCKED_NO_FOOD_SLOT_RELIEF",
-  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET"
+  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET",
+  "BLOCKED_ACTION_RETRY"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -67,15 +70,18 @@ export type AutomationPreplanReason = (typeof AUTOMATION_PREPLAN_REASONS)[number
 export type AutomationPreplanProgressState = (typeof AUTOMATION_PREPLAN_PROGRESS_STATES)[number];
 export type AutomationSessionPrefix = "ai-runtime" | "system-runtime";
 
-export type AutomationPlannerTile = {
+export type AutomationPlannerTile = AiTacticalTileFields & {
+  naturalWonder?: boolean | DomainTileState["naturalWonder"];
   x: number;
   y: number;
   terrain: Terrain;
   ownerId?: string | undefined;
   ownershipState?: DomainTileState["ownershipState"] | undefined;
+  afc?: { ownerId?: string } | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
   town?: {
+    population?: number | undefined;
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
     type?: "MARKET" | "FARMING";
@@ -89,6 +95,9 @@ export type AutomationPlannerTile = {
 };
 
 export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
+  canConsumeSurveyResults?: boolean;
+  tacticalView?: AiTacticalView | undefined;
+  installedModuleTechIds?: readonly string[] | undefined;
   playerId: string;
   points: number;
   manpower: number;
@@ -255,6 +264,9 @@ export type AutomationPlannerDiagnostic = {
    *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
   relayBeaconSiteValue?: number;
   // Utility AI fields — populated on every result from the main planner.
+  tacticalOmittedOriginCount?: number | undefined;
+  tacticalVisibleTileCount?: number | undefined;
+  tacticalAction?: CommandEnvelope["type"];
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;
   utilityRunnerUp?: DecisionClass;
