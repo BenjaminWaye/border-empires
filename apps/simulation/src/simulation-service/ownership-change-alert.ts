@@ -78,3 +78,43 @@ export const buildTownLostAlert = (
         }
   };
 };
+
+export type OwnershipChangeHandlerDeps = {
+  log: Pick<Console, "warn">;
+  env: NodeJS.ProcessEnv;
+  onSettlementTierAlertSkipped: () => void;
+  postWebhook: (url: string, body: unknown) => void;
+};
+
+/**
+ * Runtime `onOwnershipChange` handler: a lost town logs (and posts to the
+ * ownership-change Slack webhook, except SETTLEMENT-tier losses); a SETTLED
+ * tile going neutral without a town is logged as an ownership audit line.
+ */
+export const createOwnershipChangeHandler = (deps: OwnershipChangeHandlerDeps) => (sample: OwnershipChangeSample): void => {
+  const lostTown = sample.townLost;
+  const lostSettled = sample.hadOwnershipState === "SETTLED" && !sample.nextOwnerId;
+  if (!lostTown && !lostSettled) return;
+  const environmentLabel = resolveEnvironmentLabel(deps.env);
+  if (lostTown) {
+    const webhookUrl = deps.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_WEBHOOK ?? deps.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK;
+    const alert = buildTownLostAlert(sample, environmentLabel, deps.env.SIMULATION_OWNERSHIP_CHANGE_SLACK_LABEL ?? "border-empires");
+    deps.log.warn(alert.logFields, alert.message);
+    if (alert.skippedSettlementTier) deps.onSettlementTierAlertSkipped();
+    else if (webhookUrl) deps.postWebhook(webhookUrl, alert.slackBody);
+    return;
+  }
+  deps.log.warn(
+    {
+      tileKey: sample.tileKey,
+      x: sample.x,
+      y: sample.y,
+      previousOwnerId: sample.previousOwnerId,
+      nextOwnerId: sample.nextOwnerId,
+      commandId: sample.commandId,
+      hadTown: sample.hadTown,
+      environment: environmentLabel
+    },
+    `[ownership_audit] (${environmentLabel}) SETTLED tile ${sample.tileKey} (${sample.x},${sample.y}) became neutral — previous owner ${sample.previousOwnerId}`
+  );
+};

@@ -1,3 +1,4 @@
+import { isAiCommandOutcome } from "./ai-command-outcome.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
@@ -164,8 +165,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     }
     if (!pendingMatches && !trackedPreplanMatches) return;
     if (
-      event.eventType === "COMMAND_REJECTED" ||
-      isAcceptedWorldChange
+      isAiCommandOutcome(event.eventType)
     ) {
       if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
       if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);

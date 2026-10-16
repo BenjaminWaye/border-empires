@@ -1,3 +1,4 @@
+import { chooseAiAetherCommand } from "./ai-aether-planner.js";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
@@ -77,6 +78,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       diagnostic: createAutomationNoopDiagnostic(input.playerId, input.sessionPrefix, "active_lock")
     };
   }
+
+  const aether = chooseAiAetherCommand(input);
+  if (aether) return aether;
 
   // Restrict per-AI candidate sets to the spatial focus front when present.
   // Without this, large empires made per-tick selectors (structure build)
@@ -176,7 +180,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     controlledTileCount = computedControlledTileCount;
   }
   const incomePerMinute = input.incomePerMinute ?? 0;
-  const needsFood = foodCoverageLow(input.strategicResources, townCount);
+  const needsFood = foodCoverageLow(input.strategicResources, townCount, input.slotSupplyByResource && input.slotDemandByResource ? { supply: input.slotSupplyByResource.FOOD ?? 0, demand: input.slotDemandByResource.FOOD ?? 0 } : undefined);
   const needsEconomy = economyWeak(input.manpower, settledTileCount);
   const frontierStartedAt = Date.now();
   let frontierOrigins = narrowFrontierOrigins;
@@ -255,7 +259,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       manpower: spendableBuildManpowerForPlanner(input),
       ...(input.techIds ? { techIds: input.techIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
+      ...(input.installedModuleTechIds ? { installedModuleTechIds: input.installedModuleTechIds } : {}),
+      ...(input.blockedActionKeys ? { blockedActionKeys: input.blockedActionKeys } : {}),
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),
+      ...(input.slotSupplyByResource ? { slotSupplyByResource: input.slotSupplyByResource } : {}),
+      ...(input.slotDemandByResource ? { slotDemandByResource: input.slotDemandByResource } : {}),
       settledTileCount,
       townCount,
       incomePerMinute
@@ -315,6 +323,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const domainTilesByKey = input.tilesByKey as unknown as ReadonlyMap<string, DomainTileState>;
   const diagnosticBase: AutomationPlannerDiagnostic = {
     playerId: input.playerId,
+    tacticalOmittedOriginCount: input.tacticalView?.omittedOriginCount,
+    tacticalVisibleTileCount: input.tacticalView?.visibleTileKeys.length,
     sessionPrefix: input.sessionPrefix,
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
     frontierEnemyPlayerTargetCount: frontierAnalysis.frontierEnemyPlayerTargetCount,
@@ -439,7 +449,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
-  const foodSlotBlocked = [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
+  const foodSlotBlocked = !input.slotSupplyByResource && [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
   const foodSlotRelief = foodSlotReliefFromPlannerInput(
     input.ownedTiles,
     input.playerId,

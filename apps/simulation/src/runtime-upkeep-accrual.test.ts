@@ -60,6 +60,8 @@ describe("offsetGoldUpkeepWhileIncomePaused", () => {
 
   it("leaves gold need untouched for an active human (income is credited to the treasury separately)", () => {
     const { ctx, lastActiveAtMsByPlayer, cachedEconomySnapshot } = createHarness({ incomePerMinute: 10 });
+    const onNetted = vi.fn();
+    ctx.onUpkeepNettedWhileIncomePaused = onNetted;
     lastActiveAtMsByPlayer.set("player-1", nowMs - 60_000);
     const need = goldNeed(2);
 
@@ -67,10 +69,13 @@ describe("offsetGoldUpkeepWhileIncomePaused", () => {
 
     expect(need.gold).toBe(2);
     expect(cachedEconomySnapshot).not.toHaveBeenCalled();
+    expect(onNetted).not.toHaveBeenCalled();
   });
 
   it("nets gold need against income while a human's passive income is paused for inactivity", () => {
     const { ctx, lastActiveAtMsByPlayer } = createHarness({ incomePerMinute: 1.5 });
+    const onNetted = vi.fn();
+    ctx.onUpkeepNettedWhileIncomePaused = onNetted;
     lastActiveAtMsByPlayer.set("player-1", longInactive);
     const need = goldNeed(2);
 
@@ -78,6 +83,8 @@ describe("offsetGoldUpkeepWhileIncomePaused", () => {
 
     expect(need.gold).toBeCloseTo(0.5, 6);
     expect(need.FOOD).toBe(1);
+    // The counter is the only production signal that this offset ever engages.
+    expect(onNetted).toHaveBeenCalledWith("player-1");
   });
 
   it("clamps at zero when income covers the whole upkeep", () => {

@@ -1,3 +1,6 @@
+import type { AiSurveyObjective } from "./ai-survey-objective.js";
+import type { AiTacticalTileFields } from "./ai-tactical-tile.js";
+import type { AiTacticalView } from "./ai-tactical-view.js";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
@@ -9,7 +12,7 @@ import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-coun
 
 // ─── Tile view ────────────────────────────────────────────────────────────────
 
-export type PlannerTileView = {
+export type PlannerTileView = AiTacticalTileFields & {
   x: number;
   y: number;
   terrain: Terrain;
@@ -20,10 +23,12 @@ export type PlannerTileView = {
   naturalWonder?: boolean;
   ownerId?: string;
   ownershipState?: DomainTileState["ownershipState"];
+  afc?: { ownerId?: string };
   /** Capture-hold deadline (shared capture-hold.ts): a held FRONTIER tile is a real fight, not a free capture. */
   captureHoldUntil?: number;
   /** Minimal town info needed to score settlement priority. */
   town?: {
+    population?: number;
     supportMax?: number;
     supportCurrent?: number;
     type?: "MARKET" | "FARMING";
@@ -33,7 +38,7 @@ export type PlannerTileView = {
   fort?: { ownerId?: string; status?: string } | null;
   observatory?: { ownerId?: string; status?: string } | null;
   siegeBattery?: { ownerId?: string; status?: string } | null;
-  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null;
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string } | null;
 };
 
 export type PlannerDockView = {
@@ -46,6 +51,9 @@ export type PlannerDockView = {
 // ─── Per-player view ──────────────────────────────────────────────────────────
 
 export type PlannerPlayerView = {
+  tacticalView?: AiTacticalView;
+  installedModuleTechIds?: readonly string[] | undefined;
+  surveyObjective?: AiSurveyObjective;
   id: string;
   points: number;
   manpower: number;

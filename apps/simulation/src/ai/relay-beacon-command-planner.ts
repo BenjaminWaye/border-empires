@@ -332,6 +332,7 @@ export const chooseBestRelayBeaconBuild = (
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
+    if (player.blockedActionKeys?.has(`BUILD_ECONOMIC_STRUCTURE:${tile.x},${tile.y}:RELAY_BEACON`)) continue;
     const isSettled = tile.ownershipState === "SETTLED";
     const needsSettle = tile.ownershipState === "FRONTIER";
     if (!isSettled && !needsSettle) continue;
