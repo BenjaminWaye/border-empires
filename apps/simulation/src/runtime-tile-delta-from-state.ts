@@ -92,6 +92,7 @@ export const tileDeltaFromState = (
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
+    ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
     ...townWireFields(enrichedTile.town),
     ...(yieldView ? { yieldRate: yieldView.yieldRate } : {})
   };

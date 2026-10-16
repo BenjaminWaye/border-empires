@@ -11,6 +11,7 @@ import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garriso
 // and delete them here and from the per-feature files below.
 import { RECENT_CLIENT_CHANGELOG_ENTRIES } from "./client-changelog-data-october.js";
 import { TILE_YIELD_REMOVAL_CHANGELOG } from "./client-changelog-tile-yield-removal.js";
+import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persistence.js";
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
@@ -47,6 +48,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
+    introducedIn: "2026.10.15.1",
+    title: "Warnings for enemy muster flags near your border",
+    why: "An enemy could stage troops on a muster flag right next to your land, and you only found out once the attack landed.",
+    changes: [
+      "A warning pops up when an enemy muster flag appears within 4 tiles of your territory, or an existing one switches to Advance or March, with a button to center on it",
+      "Enemy flags near your border get a red off-screen pointer in both map renderers, ahead of your own alerts while still leaving room for them",
+      "Flags of allies and truce partners don't trigger warnings"
+    ]
+  },
   {
     createdAt: 1791970358363, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.14.3",
@@ -112,31 +124,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1791462529729,
-    introducedIn: "2026.10.08.4",
-    title: "Map effects stay put when you pan",
-    why: "Panning the 3D map could leave effects such as the aegis lock field, bombardments, unsettle and the floating population-loss text offset from the tile they belong to.",
-    changes: ["Effects on the 3D map now stay on their tile while you pan, including the 15-minute aegis lock field and after panning all the way around the world"]
-  },
-  {
-    createdAt: 1791469121213,
-    introducedIn: "2026.10.08.5",
-    title: "New empires no longer land inside a neighbour's reach",
-    why: "A new empire could land right next to another player whose reach already covered its starting land. The AFC then claimed almost nothing and could barely see past its own tile.",
-    changes: [
-      "New and respawning empires now land where their starting reach is clear of every other empire's reach, whenever the map has room",
-      "Your AFC always sees 4 tiles around itself",
-      "Even on a crowded map, a newly landed AFC always keeps the 3x3 ground it stands on"
-    ]
-  },
-  {
-    createdAt: 1791488967000,
-    introducedIn: "2026.10.08.7",
-    title: "Waystations no longer promise population without a town",
-    why: "A waystation could announce +5,000 population even when you owned no town to receive it, so nothing was actually granted.",
-    changes: ["If a waystation rolls its population boost and you have no town, it now pays out coin instead, and the popup says so"]
-  },
-  {
     createdAt: 1791832192120,
     introducedIn: "2026.10.12.2",
     title: "Storm clouds over unexplored land",
@@ -164,26 +151,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The clouds now roll back off newly explored land in one smooth, slower motion, even when the land comes into view a bit at a time or you move the camera",
       "Trees, mountains and hills appear as the clouds part over them, instead of popping up through the cloud"
-    ]
-  },
-  {
-    createdAt: 1791489815345,
-    introducedIn: "2026.10.08.7",
-    title: "Relay Beacon build time and rush price fixed",
-    why: "The build menu said a Relay Beacon takes 1 minute when it really takes an hour, and its rush-buy button showed 0 coin.",
-    changes: [
-      "The build menu shows the real Relay Beacon build time: instant for your first five, 60m after that",
-      "Rush-buy prices for buildings now match how much of the build is actually left, so a half-built structure costs about half"
-    ]
-  },
-  {
-    createdAt: 1791489790895, // Date.now() frozen for this entry
-    introducedIn: "2026.10.08.1",
-    title: "Resource Monopoly counts only settled, revealed resources",
-    why: "Resource Monopoly progress was counting frontier tiles and resources you hadn't revealed yet, so it could show you holding Umbrite you didn't actually control.",
-    changes: [
-      "Only settled resource tiles now count toward Resource Monopoly",
-      "A resource only counts once you've researched the tech that reveals it"
     ]
   },
   {
@@ -317,6 +284,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
   ...TILE_YIELD_REMOVAL_CHANGELOG,
+  ...OVERLAY_PERSISTENCE_CHANGELOG,
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",
@@ -475,12 +443,53 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
   },
   {
+    createdAt: 1792044983124, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Trade screen for truces and alliances",
+    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
+    changes: [
+      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
+      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
+      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
+      "Alliances need an AI that likes you and would be the largest empire in the alliance (Diplomatic Dominance goes to the largest member); AIs never pay to join one",
+      "An AI gives 24h notice to leave an alliance once a partner grows larger than it",
+      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
+      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
+      "Pending offers show their terms in the Alliances panel"
+    ]
+  },
+  {
     createdAt: 1792042002455, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.15.1",
     title: "War music stops when your flag has nothing to fight",
     why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
     changes: [
       "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
+  },
+  {
+    createdAt: 1792062991009, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Captured tiles can't be taken straight back",
+    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
+    changes: [
+      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
+      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
+      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
+    ]
+  },
+  {
+    createdAt: 1792107390391, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.16.1",
+    title: "Fairer AI deals",
+    why: "A few gaps in the new trade screen let deals go wrong: a slow payment could take your coin without the deal, and an AI's old counter-offer could be accepted after you'd attacked it.",
+    changes: [
+      "If a deal's payment goes through after it was reported as failed, the coin and Shards are paid straight back",
+      "An AI checks its counter-offer again when you accept it, and withdraws it if you've attacked it since or its price has gone up",
+      "An AI that is outmatched but taking your land no longer pays you for peace; it charges for it instead",
+      "An AI that can't yet tell how big its alliance would be declines for now instead of guessing",
+      "The trade screen keeps your coin, the verdict and the top-up suggestion up to date while it's open"
     ]
   },
 ];

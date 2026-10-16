@@ -16,7 +16,8 @@ describe("gateway fog capability regression guard", () => {
     // extraction's regression test above.
     const setProfileSource = sourceFor("./handle-set-profile-message.ts");
 
-    expect(source).toContain("canToggleFog: boolean;");
+    // The per-socket session type moved to gateway-app-socket-session.ts.
+    expect(sourceFor("./gateway-app-socket-session.ts")).toContain("canToggleFog: boolean;");
     expect(source).toContain("canToggleFog: false");
     expect(source).toContain("session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);");
     expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids\n              );");

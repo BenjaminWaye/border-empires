@@ -1,4 +1,4 @@
-import type { ClientMessage } from "@border-empires/shared";
+import type { ClientMessage, DiplomacyTerms } from "@border-empires/shared";
 import {
   readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
@@ -12,8 +12,9 @@ type SocialAllianceActionResult =
   | { ok: false; code: string; message: string };
 
 export type AllianceSocketMessageDeps = {
-  requestAlliance: (fromPlayerId: string, targetPlayerName: string) => SocialAllianceActionResult;
-  acceptAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult;
+  requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: { terms?: DiplomacyTerms }) => SocialAllianceActionResult;
+  /** Async when the offer carries terms the simulation must pay out first. */
+  acceptAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult | Promise<SocialAllianceActionResult>;
   rejectAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult;
   cancelAlliance: (playerId: string, requestId: string) => SocialAllianceActionResult;
   breakAlliance: (playerId: string, targetPlayerId: string) => SocialAllianceActionResult;
@@ -55,7 +56,7 @@ export const handleAllianceSocketMessage = async (
   socket: import("ws").WebSocket
 ): Promise<boolean> => {
   if (message.type === "ALLIANCE_REQUEST") {
-    const result = deps.requestAlliance(playerId, message.targetPlayerName);
+    const result = deps.requestAlliance(playerId, message.targetPlayerName, message.terms ? { terms: message.terms } : undefined);
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);
@@ -69,7 +70,7 @@ export const handleAllianceSocketMessage = async (
     return true;
   }
   if (message.type === "ALLIANCE_ACCEPT") {
-    const result = deps.acceptAlliance(playerId, message.requestId);
+    const result = await deps.acceptAlliance(playerId, message.requestId);
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const allyPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);

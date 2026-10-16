@@ -37,6 +37,7 @@ export const tileDeltaRevealOnly = (
     frontierDecayAt: tile.frontierDecayAt ?? undefined,
     frontierDecayKind: tile.frontierDecayKind ?? undefined,
     breachShockUntil: tile.breachShockUntil ?? undefined,
+    captureHoldUntil: tile.captureHoldUntil ?? undefined,
     ...townWireFields(tile.town)
   };
   // Always full, never sparse-diffed: this path fires for tiles entering a
