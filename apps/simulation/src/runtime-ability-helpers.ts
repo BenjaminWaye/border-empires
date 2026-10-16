@@ -16,7 +16,7 @@ import {
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
+import { isObservatoryShielding, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
@@ -144,7 +144,7 @@ export function isTileShieldedByEnemyObservatory(
   // Reads full world state, so a tower the actor can't see still blocks.
   const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
   if (!targetOwnerId || targetOwnerId === actorId) return false;
-  return isTileShieldedByOwnersObservatory(tiles, isStructureDormant, targetOwnerId, targetX, targetY, now);
+  return isTileShieldedByOwnersObservatory(tiles, (tower) => isObservatoryShielding(tower, now, isStructureDormant), targetOwnerId, targetX, targetY);
 }
 
 export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";

@@ -2,11 +2,11 @@
 // watchtower ticker and throttled here: Siphon's tower-comes-back-online end
 // (SiphonModeLifecycle.sweepShieldReturns) and the per-player AETHER_SHIELDS
 // push (aether-shield-broadcast.ts). Both exist because a tower's cooldown
-// running out, or it leaving dormancy, changes whether it shields without
-// writing any tile, so nothing event-driven ever sees it.
+// running out (and, for the push, its power coming and going) changes what it
+// shields without writing any tile, so nothing event-driven ever sees it.
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { collectShieldingTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
+import { collectReadyTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
 import { AetherShieldBroadcaster, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
 export const AETHER_SHIELD_TICK_MIN_INTERVAL_MS = 3_000;
@@ -16,7 +16,7 @@ export type AetherShieldTickDeps = {
   readonly activeObservatoriesByOwner: () => ReadonlyMap<string, ReadonlySet<string>>;
   readonly players: () => ReadonlyMap<string, { readonly isAi?: boolean | undefined }>;
   readonly isPlayerSubscribed: (playerId: string) => boolean;
-  readonly isVisible: (viewerId: string, tileKey: string) => boolean;
+  readonly forEachVisibleKey: (viewerId: string, visit: (tileKey: string) => void) => void;
   readonly hasFullVision: (viewerId: string) => boolean;
   readonly isStructureDormant: ObservatoryDormancyCheck;
   readonly sweepShieldReturns: (towerKeys: Iterable<string>, commandId: string) => number;
@@ -34,8 +34,8 @@ export const createAetherShieldTicker = (deps: AetherShieldTickDeps): ((nowMs: n
     viewerIds: function* () {
       for (const [playerId, player] of deps.players()) if (!player.isAi && deps.isPlayerSubscribed(playerId)) yield playerId;
     },
-    shieldingTowers: () => collectShieldingTowers(deps.activeObservatoriesByOwner(), deps.tiles(), tickNow, deps.isStructureDormant),
-    isVisible: deps.isVisible,
+    shieldingTowers: () => collectReadyTowers(deps.activeObservatoriesByOwner(), deps.tiles(), tickNow, deps.isStructureDormant),
+    forEachVisibleKey: deps.forEachVisibleKey,
     hasFullVision: deps.hasFullVision,
     emitPlayerMessage: deps.emitPlayerMessage
   });

@@ -26,6 +26,7 @@ const createState = (): TriggerState => ({
   selected: undefined,
   tileActionMenu: { visible: false, x: 0, y: 0, mode: "single", bulkKeys: [], currentTileKey: "", activeTab: "overview", scrollTopByTab: {}, renderSignature: "" },
   tilesRevision: 0,
+  chunkFullCount: 0,
   allies: [],
   dormantStructures: [],
   aetherShieldTowers: undefined

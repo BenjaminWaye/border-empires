@@ -159,11 +159,10 @@ describe("Siphon siphon mode", () => {
     expect(tileAt(runtime, TOWER)?.observatory?.siphon).toBeUndefined();
   });
 
-  // The victim's tower is shielding only while off cooldown and not dormant
-  // (aether-shield/aether-shield.ts), the same rule every other Aether
-  // ability follows: a tower in either state lets the drain through, and the
-  // siphon ends once that tower shields again -- which writes no tile, so
-  // only the periodic tickAetherShields sweep can see it.
+  // Against Siphon a victim tower counts once it is switched on and off
+  // cooldown (isObservatoryBlockingSiphon): a tower on cooldown lets the drain
+  // through, and the siphon ends once the cooldown runs out -- which writes no
+  // tile, so only the periodic tickAetherShields sweep can see it.
   it("drains land whose tower is on cooldown, then ends once that tower comes off cooldown", async () => {
     let clock = 10_000;
     const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000, cooldownUntil: 20_000 } };
@@ -196,23 +195,33 @@ describe("Siphon siphon mode", () => {
     expectSiphonEnded(runtime);
   });
 
-  it("drains land whose tower is dormant, then ends once the tower is powered again", async () => {
+  // Code review regression: the drain itself moves the victim's CRYSTAL to the
+  // caster, which can leave the victim's tower dormant. If power counted for
+  // Siphon, that tower would never be "back online" and the siphon would never end.
+  it("still ends when the siphon starves the victim's own tower of CRYSTAL", async () => {
     let clock = 10_000;
-    // No CRYSTAL for the victim's tower slot: dormant, so not shielding.
+    const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000, cooldownUntil: 20_000 } };
+    // The victim's only CRYSTAL source, inside the 3x3 the cast drains.
+    const victimGems = { x: 11, y: 2, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" };
+    const runtime = buildRuntime([victimTower, victimGems], undefined, () => clock);
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(false);
+    await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    expect(tileAt(runtime, "11,2")?.sabotage).toMatchObject({ observatoryTileKey: TOWER });
+    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(true);
+
+    clock = 20_001;
+    runtime.tickAetherShields(clock);
+    expect(tileAt(runtime, TOWER)?.observatory?.siphon).toBeUndefined();
+    expect(tileAt(runtime, "11,2")?.sabotage).toBeUndefined();
+  });
+
+  it("an unpowered tower still blocks Siphon while it is off cooldown", async () => {
     const victimTower = { x: 12, y: 1, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", observatory: { ownerId: VICTIM, status: "active", activatedAt: 1_000 } };
-    const runtime = buildRuntime([victimTower], undefined, () => clock);
+    const runtime = buildRuntime([victimTower]);
     expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(true);
     const seen = collectEvents(runtime);
     const cast = await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
-    expect(rejection(seen, cast)).toBeUndefined();
-    expectSiphonActive(runtime);
-
-    // The victim gains a CRYSTAL tile: the tower powers up without its own tile changing.
-    internals(runtime).replaceTileState("12,2", { x: 12, y: 2, terrain: "LAND", ownerId: VICTIM, ownershipState: "SETTLED", resource: "GEMS" } as DomainTileState, "victim-gains-gems");
-    expect(runtime.isStructureDormant(VICTIM, "12,1", "observatory")).toBe(false);
-    clock = 14_000;
-    runtime.tickAetherShields(clock);
-    expectSiphonEnded(runtime);
+    expect(rejection(seen, cast)).toMatchObject({ code: "SIPHON_INVALID" });
   });
 
   it("ends when the caster switches the siphoning tower off", async () => {

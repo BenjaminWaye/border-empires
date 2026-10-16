@@ -23,6 +23,7 @@ const fieldState = (tiles: Tile[], overrides: Partial<FieldState> = {}): FieldSt
   tiles: new Map(tiles.map((tile) => [keyFor(tile.x, tile.y), tile])),
   // Each fixture gets its own revision so the module's one-entry memo never serves a stale scan.
   tilesRevision: ++revision,
+  chunkFullCount: 0,
   me: "me",
   allies: [],
   dormantStructures: [],
@@ -132,6 +133,14 @@ describe("aetherProtectionField / tileAetherProtection", () => {
     state.tilesRevision += 1;
     expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("10,10:enemy");
   });
+
+  it("rescans when a chunk lands, which writes tiles without bumping tilesRevision", () => {
+    const state = fieldState([]);
+    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
+    (state.tiles as Map<string, Tile>).set("10,10", tower(10, 10, "me"));
+    state.chunkFullCount += 1;
+    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("10,10:friendly");
+  });
 });
 
 describe("server AETHER_SHIELDS list", () => {
@@ -153,6 +162,13 @@ describe("server AETHER_SHIELDS list", () => {
       aetherShieldTowers: [{ x: 10, y: 10, ownerId: "enemy" }, { x: 20, y: 20, ownerId: "enemy" }]
     });
     expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
+  });
+
+  it("an unpowered (dormant) enemy tower isn't tinted, but still blocks Siphon targets", () => {
+    const state = fieldState([land(40, 40, "enemy")], { aetherShieldTowers: [{ x: 45, y: 40, ownerId: "enemy", dormant: true }] });
+    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
+    expect(hostileAetherProtectionAt(state, land(40, 40, "enemy"), NOW)).toBeUndefined();
+    expect(hostileAetherProtectionAt(state, land(40, 40, "enemy"), NOW, { againstSiphon: true })).toMatchObject({ x: 45, y: 40 });
   });
 
   it("keeps a listed tower whose tile is only remembered in fog", () => {

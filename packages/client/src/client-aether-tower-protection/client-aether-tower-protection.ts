@@ -56,11 +56,15 @@ type ActiveAetherTower = { readonly x: number; readonly y: number; readonly owne
 // the rebuild-trigger check (client-map-3d-rebuild-triggers.ts) asks for the
 // field every frame while it's shown. Cooldowns are re-checked per call
 // against the live clock, so a tower coming off cooldown shows up without a
-// tile change.
-let activeTowersMemo: { tiles: ReadonlyMap<string, Tile>; revision: number; towers: ActiveAetherTower[] } | undefined;
+// tile change. chunkFullCount is part of the key because CHUNK_FULL /
+// CHUNK_BATCH (client-network.ts applyChunkTiles) write state.tiles without
+// bumping tilesRevision, so a tower loaded by a chunk would otherwise be
+// missed until some unrelated tile delta arrived.
+let activeTowersMemo: { tiles: ReadonlyMap<string, Tile>; revision: number; chunkCount: number; towers: ActiveAetherTower[] } | undefined;
 
-const activeAetherTowers = (tiles: ReadonlyMap<string, Tile>, tilesRevision: number): ActiveAetherTower[] => {
-  if (activeTowersMemo && activeTowersMemo.tiles === tiles && activeTowersMemo.revision === tilesRevision) return activeTowersMemo.towers;
+const activeAetherTowers = (tiles: ReadonlyMap<string, Tile>, tilesRevision: number, chunkCount: number): ActiveAetherTower[] => {
+  const memo = activeTowersMemo;
+  if (memo && memo.tiles === tiles && memo.revision === tilesRevision && memo.chunkCount === chunkCount) return memo.towers;
   const towers: ActiveAetherTower[] = [];
   for (const tile of tiles.values()) {
     const observatory = tile.observatory;
@@ -69,11 +73,22 @@ const activeAetherTowers = (tiles: ReadonlyMap<string, Tile>, tilesRevision: num
     if (!tile.ownerId || observatory.ownerId !== tile.ownerId) continue;
     towers.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, cooldownUntil: observatory.cooldownUntil ?? 0 });
   }
-  activeTowersMemo = { tiles, revision: tilesRevision, towers };
+  activeTowersMemo = { tiles, revision: tilesRevision, chunkCount, towers };
   return towers;
 };
 
-type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | "me" | "allies" | "dormantStructures" | "aetherShieldTowers">;
+type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | "chunkFullCount" | "me" | "allies" | "dormantStructures" | "aetherShieldTowers">;
+
+export type AetherProtectionFieldOptions = {
+  /** Count unpowered enemy towers too: they still block Siphon (server: isObservatoryBlockingSiphon). */
+  readonly againstSiphon?: boolean;
+};
+
+// One-entry memo: targeting asks for the field once per candidate tile
+// (computeCrystalTargets walks the whole tile cache) and the tile menu several
+// times per render. Keyed on everything the field reads, with the clock
+// rounded to the second, so a tower's cooldown ends at most a second late.
+let fieldMemo: { key: readonly unknown[]; field: AetherProtectionField } | undefined;
 
 /**
  * Every tower shielding its owner's tiles right now, grouped by owner. Your
@@ -82,7 +97,10 @@ type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | 
  * it has arrived (client-aether-shield-state.ts) -- it knows towers hidden
  * in fog and enemy dormancy -- and from visible towers before that.
  */
-export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number): AetherProtectionField => {
+export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number, options: AetherProtectionFieldOptions = {}): AetherProtectionField => {
+  const againstSiphon = options.againstSiphon === true;
+  const key = [state.tiles, state.tilesRevision, state.chunkFullCount, state.aetherShieldTowers, state.dormantStructures, state.me, state.allies.join(","), againstSiphon, Math.floor(nowMs / 1000)];
+  if (fieldMemo && fieldMemo.key.every((part, index) => part === key[index])) return fieldMemo.field;
   const dormantKeys = new Set(state.dormantStructures.map((entry) => entry.key));
   const serverTowers = state.aetherShieldTowers;
   const field = new Map<string, ProtectingAetherTower[]>();
@@ -93,7 +111,7 @@ export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: 
     if (owned) owned.push(entry);
     else field.set(ownerId, [entry]);
   };
-  for (const tower of activeAetherTowers(state.tiles, state.tilesRevision)) {
+  for (const tower of activeAetherTowers(state.tiles, state.tilesRevision, state.chunkFullCount)) {
     if (serverTowers && tower.ownerId !== state.me) continue;
     if (!observatoryProtectionActive(tower, nowMs)) continue;
     // dormantStructures only ever lists the local player's own structures.
@@ -101,7 +119,7 @@ export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: 
     add(tower.x, tower.y, tower.ownerId);
   }
   for (const tower of serverTowers ?? []) {
-    if (tower.ownerId === state.me) continue;
+    if (tower.ownerId === state.me || (tower.dormant && !againstSiphon)) continue;
     // A listed tower in plain view that is visibly not shielding any more
     // (just cast and cooling down, switched off, lost) drops out at once
     // instead of waiting for the next push.
@@ -109,6 +127,7 @@ export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: 
     if (seen && !seen.fogged && !(seen.ownerId === tower.ownerId && seen.observatory?.status === "active" && observatoryProtectionActive(seen.observatory, nowMs))) continue;
     add(tower.x, tower.y, tower.ownerId);
   }
+  fieldMemo = { key, field };
   return field;
 };
 
@@ -134,8 +153,13 @@ export const tileAetherProtection = (
 };
 
 /** The hostile tower (if any) blocking your Aether abilities on this tile -- what targeting greys out. */
-export const hostileAetherProtectionAt = (state: AetherProtectionFieldState, tile: Pick<Tile, "x" | "y" | "ownerId">, nowMs: number): ProtectingAetherTower | undefined => {
-  const protector = tileAetherProtection(tile, aetherProtectionField(state, nowMs));
+export const hostileAetherProtectionAt = (
+  state: AetherProtectionFieldState,
+  tile: Pick<Tile, "x" | "y" | "ownerId">,
+  nowMs: number,
+  options: AetherProtectionFieldOptions = {}
+): ProtectingAetherTower | undefined => {
+  const protector = tileAetherProtection(tile, aetherProtectionField(state, nowMs, options));
   return protector?.relation === "enemy" ? protector : undefined;
 };
 

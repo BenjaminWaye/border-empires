@@ -111,7 +111,7 @@ export const computeCrystalTargets = (
       continue;
     }
     if (!tile.ownerId || tile.ownerId === state.me || deps.isTileOwnedByAlly(tile)) continue;
-    if (deps.hostileObservatoryProtectingTile(tile)) continue;
+    if (deps.hostileObservatoryProtectingTile(tile, { againstSiphon: ability === "siphon" })) continue;
     if ((tile.resource || tile.town) && !tile.sabotage) validTargets.add(deps.keyFor(tile.x, tile.y));
   }
   return { validTargets, originByTarget };
@@ -261,7 +261,7 @@ export const executeCrystalTargeting = (
     state.crystalTargeting.ability !== "sovereign_siege_engine_strike" &&
     state.crystalTargeting.ability !== "sky_dock_bombard" &&
     state.crystalTargeting.ability !== "imperial_exchange_levy" &&
-    deps.hostileObservatoryProtectingTile(tile)
+    deps.hostileObservatoryProtectingTile(tile, { againstSiphon: state.crystalTargeting.ability === "siphon" })
   ) {
     deps.pushFeed("Blocked by Aether Tower field.", "combat", "warn");
     return false;

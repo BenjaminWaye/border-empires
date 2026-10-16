@@ -47,7 +47,7 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, type ProtectingAetherTower } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, type AetherProtectionFieldOptions, type ProtectingAetherTower } from "../client-tile-action-support/client-tile-action-support.js";
 import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -138,7 +138,7 @@ export type TileActionLogicDeps = {
   wrapY: (y: number) => number;
   terrainAt: typeof terrainAt;
   isTileOwnedByAlly: (tile: Tile) => boolean;
-  hostileObservatoryProtectingTile: (tile: Tile) => ProtectingAetherTower | undefined;
+  hostileObservatoryProtectingTile: (tile: Tile, options?: AetherProtectionFieldOptions) => ProtectingAetherTower | undefined;
   abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
   formatCooldownShort: (ms: number) => string;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
@@ -1822,7 +1822,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       )
     });
   }
-  const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+  const observatoryProtection = deps.hostileObservatoryProtectingTile(tile, { againstSiphon: true }); // only the Siphon action below reads it
   out.push(...crystalCoreActions());
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
     const isBarbarianOwner = tile.ownerId.startsWith("barbarian");

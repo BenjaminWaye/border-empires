@@ -340,7 +340,7 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { isObservatoryShielding, isTileShieldedByOwnersObservatory } from "../aether-shield/aether-shield.js"; import { createAetherShieldTicker } from "../aether-shield/aether-shield-tick.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { isObservatoryBlockingSiphon, isTileShieldedByOwnersObservatory } from "../aether-shield/aether-shield.js"; import { createAetherShieldTicker } from "../aether-shield/aether-shield-tick.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
@@ -905,13 +905,13 @@ export class SimulationRuntime {
         frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
       }, this.visionFootprintTable)
     });
-    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), isObservatoryShielding: (tile) => isObservatoryShielding(tile, this.now(), (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field)), isTileShieldedByOwner: (ownerId, x, y) => isTileShieldedByOwnersObservatory(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), ownerId, x, y, this.now()) });
+    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), isObservatoryBlockingSiphon: (tile) => isObservatoryBlockingSiphon(tile, this.now()), isTileShieldedByOwner: (ownerId, x, y) => isTileShieldedByOwnersObservatory(this.state.tiles, (tower) => isObservatoryBlockingSiphon(tower, this.now()), ownerId, x, y) });
     this.aetherShieldTicker = createAetherShieldTicker({
       tiles: () => this.state.tiles,
       activeObservatoriesByOwner: () => this.activeObservatoriesByOwner,
       players: () => this.state.players,
       isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
-      isVisible: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
+      forEachVisibleKey: (viewerId, visit) => this.state.visibilityCoverage.forEachVisibleKey(viewerId, visit),
       hasFullVision: (playerId) => this.getAbilityCooldownUntil(playerId, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       sweepShieldReturns: (towerKeys, commandId) => this.siphonModeLifecycle.sweepShieldReturns(towerKeys, commandId),

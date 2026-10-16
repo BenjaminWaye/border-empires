@@ -10,12 +10,13 @@
 //     own (destroyed, captured, removed, toggled off),
 //   - a drained tile changes owner, or loses its siphon stamp any other way
 //     (so no future write path can strand a tower in siphon mode),
-//   - one of the victim's own Aether Towers is shielding a drained tile
-//     again (aether-shield/aether-shield.ts: active, off cooldown, not
-//     dormant). A siphon can be cast onto land whose tower is on cooldown,
-//     so this fires when the tower is switched on or built (a tile write,
-//     onTileReplaced) and when its cooldown runs out or it stops being
-//     dormant (no tile write: the periodic sweepShieldReturns).
+//   - one of the victim's own Aether Towers covering a drained tile is
+//     ready again (isObservatoryBlockingSiphon, aether-shield/aether-shield.ts:
+//     switched on and off cooldown; power ignored, since the drain itself can
+//     be what starves it). A siphon can be cast onto land whose tower is on
+//     cooldown, so this fires when the tower is switched on or built (a tile
+//     write, onTileReplaced) and when its cooldown runs out (no tile write:
+//     the periodic sweepShieldReturns).
 // Every tile write goes through SimulationRuntime.replaceTileState, which
 // calls onTileReplaced below, so no write path can leave the two halves out
 // of sync. Ending clears both halves; the slot caches of the caster and every
@@ -23,10 +24,10 @@
 // economy-relevant fields — runtime-economy-cache-invalidation.ts), and a
 // player-state update is pushed to each so dormancy flips show immediately.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { OBSERVATORY_PROTECTION_RADIUS, SIPHON_COOLDOWN_MS } from "@border-empires/game-domain";
-import { isSiphonModeSabotage, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { SIPHON_COOLDOWN_MS } from "@border-empires/game-domain";
+import { isSiphonModeSabotage } from "@border-empires/shared";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { simulationTileKey } from "../seed-state/seed-state.js";
+import { someProtectionSquareKey } from "../aether-shield/aether-shield.js";
 import type { ObservatoryTileWriteDeps } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 
 export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory";
@@ -41,9 +42,9 @@ export type SiphonEndRequest = {
 export type SiphonModeLifecycleDeps = ObservatoryTileWriteDeps & {
   now: () => number;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
-  /** isObservatoryShielding (aether-shield.ts) bound to the runtime's clock and dormancy. */
-  isObservatoryShielding: (tile: DomainTileState) => boolean;
-  /** isTileShieldedByOwnersObservatory (aether-shield.ts) bound the same way. */
+  /** isObservatoryBlockingSiphon (aether-shield.ts) bound to the runtime's clock. */
+  isObservatoryBlockingSiphon: (tile: DomainTileState) => boolean;
+  /** isTileShieldedByOwnersObservatory (aether-shield.ts) with that same predicate. */
   isTileShieldedByOwner: (ownerId: string, x: number, y: number) => boolean;
 };
 
@@ -65,7 +66,7 @@ export const siphonEndsForTileChange = (
   tileKey: string,
   previous: DomainTileState | undefined,
   next: DomainTileState,
-  isObservatoryShielding: (tile: DomainTileState) => boolean
+  isObservatoryBlockingSiphon: (tile: DomainTileState) => boolean
 ): SiphonEndRequest[] => {
   const ends: SiphonEndRequest[] = [];
   const previousSiphon = previous?.observatory?.siphon;
@@ -83,28 +84,27 @@ export const siphonEndsForTileChange = (
     ends.push({ observatoryKey, casterId: previousSabotage.ownerId, tileKeys: [...new Set([...tileKeys, tileKey])], reason: "drained_tile_lost" });
   }
   const victimId = newlyActiveObservatoryOwner(previous, next);
-  // Switched on (or finished) while still on cooldown or dormant: not
-  // shielding yet, so the drain carries on until sweepShieldReturns sees it shield.
-  if (victimId && isObservatoryShielding(next)) {
+  // Switched on (or finished) while still on cooldown: not ready yet, so the
+  // drain carries on until sweepShieldReturns sees the cooldown run out.
+  if (victimId && isObservatoryBlockingSiphon(next)) {
     const seen = new Set<string>();
-    for (let dy = -OBSERVATORY_PROTECTION_RADIUS; dy <= OBSERVATORY_PROTECTION_RADIUS; dy += 1) {
-      for (let dx = -OBSERVATORY_PROTECTION_RADIUS; dx <= OBSERVATORY_PROTECTION_RADIUS; dx += 1) {
-        const drained = tiles.get(simulationTileKey(wrapX(next.x + dx, WORLD_WIDTH), wrapY(next.y + dy, WORLD_HEIGHT)));
-        const sabotage = drained?.sabotage;
-        if (!drained || drained.ownerId !== victimId || !isSiphonModeSabotage(sabotage) || sabotage.ownerId === victimId) continue;
-        if (seen.has(sabotage.observatoryTileKey)) continue;
-        seen.add(sabotage.observatoryTileKey);
-        const tileKeys = tiles.get(sabotage.observatoryTileKey)?.observatory?.siphon?.tileKeys ?? [simulationTileKey(drained.x, drained.y)];
-        ends.push({ observatoryKey: sabotage.observatoryTileKey, casterId: sabotage.ownerId, tileKeys, reason: "victim_observatory" });
-      }
-    }
+    someProtectionSquareKey(next.x, next.y, (drainedKey) => {
+      const drained = tiles.get(drainedKey);
+      const sabotage = drained?.sabotage;
+      if (!drained || drained.ownerId !== victimId || !isSiphonModeSabotage(sabotage) || sabotage.ownerId === victimId) return false;
+      if (seen.has(sabotage.observatoryTileKey)) return false;
+      seen.add(sabotage.observatoryTileKey);
+      const tileKeys = tiles.get(sabotage.observatoryTileKey)?.observatory?.siphon?.tileKeys ?? [drainedKey];
+      ends.push({ observatoryKey: sabotage.observatoryTileKey, casterId: sabotage.ownerId, tileKeys, reason: "victim_observatory" });
+      return false;
+    });
   }
   return ends;
 };
 
 /**
- * Which live siphons a victim tower now shields, for the periodic sweep: a
- * tower coming off cooldown or out of dormancy writes no tile, so
+ * Which live siphons a victim tower now blocks, for the periodic sweep: a
+ * tower coming off cooldown writes no tile, so
  * onTileReplaced never sees it. `towerKeys` are candidate caster towers
  * (the active-Observatory index); only ones in siphon mode are read.
  */
@@ -139,7 +139,7 @@ export class SiphonModeLifecycle {
   /** Hook for SimulationRuntime.replaceTileState — must run after all other tile maintenance. */
   onTileReplaced(tileKey: string, previous: DomainTileState | undefined, next: DomainTileState, commandId: string): void {
     if (!previous?.observatory?.siphon && !previous?.sabotage?.observatoryTileKey && next.observatory?.status !== "active") return;
-    for (const end of siphonEndsForTileChange(this.deps.tiles, tileKey, previous, next, this.deps.isObservatoryShielding)) this.pending.push({ ...end, commandId });
+    for (const end of siphonEndsForTileChange(this.deps.tiles, tileKey, previous, next, this.deps.isObservatoryBlockingSiphon)) this.pending.push({ ...end, commandId });
     this.flush();
   }
 
