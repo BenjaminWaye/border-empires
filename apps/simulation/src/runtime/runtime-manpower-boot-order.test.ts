@@ -117,8 +117,8 @@ describe("manpower boot-order regression", () => {
     // this player in production. Pre-fix, this is the trigger point where
     // the bogus low->true cap delta got added to player.manpower.
     (
-      runtime as unknown as { manpowerStructureBonusCacheByPlayer: Map<string, unknown> }
-    ).manpowerStructureBonusCacheByPlayer.delete(TEST_PLAYER_ID);
+      runtime as unknown as { economyCaches: { manpowerStructureBonusCacheByPlayer: Map<string, unknown> } }
+    ).economyCaches.manpowerStructureBonusCacheByPlayer.delete(TEST_PLAYER_ID);
 
     runtime.exportPlayerDebugSnapshot(); // triggers refreshManpowerOnly as a side effect
     const afterInvalidation = runtime.exportState().players.find((p) => p.id === TEST_PLAYER_ID)!;

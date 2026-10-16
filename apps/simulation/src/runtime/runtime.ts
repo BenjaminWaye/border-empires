@@ -104,7 +104,6 @@ import {
   cachedManpowerStructureBonusForPlayer as cachedManpowerStructureBonusForPlayerImpl,
   type ManpowerStructureBonus
 } from "../runtime-manpower-structure-bonus.js";
-import { type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -220,7 +219,7 @@ import {
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import { applyCensusHallPopulationBonuses as applyCensusHallPopulationBonusesImpl } from "../runtime-census-hall-bonus.js";
 import {
-  AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
+  applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
   cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
   cachedEconomySnapshot as cachedEconomySnapshotImpl,
   cachedUpkeepAccrual as cachedUpkeepAccrualImpl,
@@ -347,7 +346,7 @@ import {
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
   weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
-import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
+import { RuntimeEconomyCaches } from "../runtime-economy-caches/runtime-economy-caches.js";
 import { createPlayerUpdateEmitter, type PlayerUpdateEmitter } from "../runtime-player-update-emitter/runtime-player-update-emitter.js";
 import { runtimeLogError, runtimeLogInfo } from "../runtime-log/runtime-log.js";
 import {
@@ -671,44 +670,11 @@ export class SimulationRuntime {
   // Exposed for diagnostics / metrics.
   growthStalledNoFoodCounter = 0;
   private readonly lastEconomyAccrualAtByPlayer = new Map<string, number>();
-  // Cached economy snapshot per player. Invalidated in replaceTileState on any
-  // income/upkeep-relevant tile mutation; keyed by player ID, missing = dirty.
-  private readonly economySnapshotCacheByPlayer = new Map<string, PlayerUpdateEconomySnapshot>();
-  // Incremental upkeep cache: unlike economySnapshotCacheByPlayer (invalidate +
-  // O(tiles) rebuild), kept warm via O(1) add/subtract in replaceTileState.
-  // Lazily populated on first read; invalidated when tech/domain mults change.
-  private readonly upkeepAccrualCacheByPlayer = new Map<string, UpkeepAccrualSnapshot>();
-  // Per-player read counter for the upkeep cache. Drives the periodic full
-  // rebuild that bounds floating-point drift (see cachedUpkeepAccrual).
-  private readonly upkeepAccrualReadCountByPlayer = new Map<string, number>();
-  // Cached tile-yield economy context per player. Includes town network, fed-town
-  // keys, and first-three-town keys. Invalidated alongside economySnapshotCacheByPlayer
-  // (same replaceTileState triggers). Used by tileDeltaFromState and
-  // applyPassiveIncome to avoid rebuilding the town network from all settled tiles.
-  private readonly tileYieldContextCacheByPlayer = new Map<string, RuntimeTileYieldEconomyContext>();
-  // Shared town-network cache: buildConnectedTownNetworkForPlayer is O(settled
-  // tiles + towns^2) and was being built TWICE per cache-miss cycle (once here,
-  // once inside buildPlayerUpdateEconomySnapshot). Sharing cuts that in half.
-  private readonly townNetworkCacheByPlayer = new Map<string, Map<string, ConnectedTownNetworkEntry>>();
-  // Incremental union-find backing buildConnectedTownNetworkForPlayer's fast
-  // path (see town-connectivity-incremental.ts) — maintained per-player by
-  // refreshEconomyCachesForTileChange on every tile mutation, so a
-  // townNetworkCacheByPlayer cache-miss can usually resolve via O(towns)
-  // union-find lookups instead of a full O(settled tiles) BFS.
-  private readonly townConnectivityStateByPlayer = new Map<string, TownConnectivityState>();
-  // §4.4 manpower structure bonuses (Ancillary Depot flat cap + Neural Works
-  // network cap/regen) — invalidated alongside townNetworkCacheByPlayer since
-  // it's derived from that same network plus a Ancillary Depot/Neural Works scan.
-  private readonly manpowerStructureBonusCacheByPlayer = new Map<
-    string,
-    {
-      ancillaryDepotCount: number;
-      reserveLatticeNetworkAncillaryDepotCount: number;
-      neuralWorksNetworkAncillaryFactoryCount: number;
-      ancillaryFactoryCount: number;
-      censusDirectorateManpowerBuildingCount: number;
-    }
-  >();
+  // Derived per-player economy caches and their AI coalescing; see runtime-economy-caches.ts.
+  private readonly economyCaches = new RuntimeEconomyCaches({
+    now: () => this.now(),
+    isAiPlayer: (playerId) => this.state.players.get(playerId)?.isAi === true
+  });
   // Counts recovered players whose persisted manpowerCapSnapshot disagreed
   // with what boot hydration computed once this.state.tiles and every
   // structure-by-owner index (ancillaryDepotTilesByOwner etc.) were fully
@@ -722,41 +688,7 @@ export class SimulationRuntime {
   // guard silently stops firing on some future refactor) is observable in
   // prod — see feedback_counter_on_skip_paths.md.
   private manpowerCapBootstrapRestampedCount = 0;
-  // Defensibility metrics cache; invalidated alongside economy snapshot (same
-  // tile mutations change income and border exposure T/E/Ts/Es).
-  private readonly defensibilityMetricsCacheByPlayer = new Map<string, PlayerDefensibilityMetrics>();
-  // §5 (resource slots) supply/demand caches. emitPlayerStateUpdate calls
-  // these on every command AND on the periodic income tick (runtime-passive-
-  // income.ts) for every player, so an uncached O(territory) rescan here
-  // would be a real per-tick cost at scale, unlike hasFreeResourceSlots'
-  // once-per-build call. Supply only depends on SETTLED resource tiles, so
-  // it's invalidated on the same SETTLED-gated trigger as
-  // economySnapshotCacheByPlayer. Demand depends on fort/siegeBattery/
-  // economicStructure on ANY owned tile (Siege Batteries can be FRONTIER,
-  // resource-slot-view.ts), so it must invalidate unconditionally like
-  // defensibilityMetricsCacheByPlayer does, not gated on SETTLED.
-  private readonly resourceSlotSupplyCacheByPlayer = new Map<string, ResourceSlotTotals>();
-  private readonly resourceSlotDemandCacheByPlayer = new Map<string, ResourceSlotTotals>();
-  // §5.4 dormancy: derived from both supply and demand, so it must be
-  // invalidated on the union of their triggers — piggybacks on the demand
-  // cache's unconditional (not SETTLED-gated) invalidation below.
-  private readonly resourceSlotDormancyCacheByPlayer = new Map<string, ResourceSlotDormancy>(); private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
-  // AI-only rebuild coalescing (2026-07-29 login-stall investigation): AI
-  // players settle/expand continuously with no live subscriber, so a
-  // continuous-settling AI empire was paying a fresh O(settled-tiles)
-  // economy/defensibility rebuild on nearly every command. These track "needs
-  // a rebuild eventually" + "when did we last actually rebuild" so a dirty AI
-  // player's cache is served as-is (slightly stale) for up to
-  // AI_DERIVED_CACHE_COALESCE_MS before the next read pays the real rebuild
-  // cost, instead of on literally every mutation. Human players never touch
-  // these — see refreshEconomyCachesForTileChange, which still deletes their
-  // cache entries immediately so a human's own action is reflected instantly.
-  private readonly economySnapshotDirtyPlayerIds = new Set<string>();
-  private readonly economySnapshotLastRebuiltAtMsByPlayer = new Map<string, number>();
-  private readonly defensibilityMetricsDirtyPlayerIds = new Set<string>();
-  private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
-  private readonly resourceSlotSupplyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotSupplyLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDemandDirtyPlayerIds = new Set<string>();
-  private readonly resourceSlotDemandLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDormancyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotDormancyLastRebuiltAtMsByPlayer = new Map<string, number>();
+  private readonly wonderCacheByPlayer = new Map<string, Set<string>>();
   // Event-driven auto-settle eligibility, replacing AutoSettlementQueueCache
   // -- see runtime-auto-settle-eligibility.ts's doc comment. Neither map is
   // snapshotted: like frontierTilesByOwner, both are re-derivable from tile
@@ -907,8 +839,7 @@ export class SimulationRuntime {
     // hazard independent of manpower — see the Weapons Workshop network bonus
     // comment below — so it's still defensively cleared here even though
     // nothing above this point calls into it anymore.
-    this.townNetworkCacheByPlayer.clear();
-    this.townConnectivityStateByPlayer.clear();
+    this.economyCaches.clearTownNetworks();
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.state.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
@@ -1237,10 +1168,7 @@ export class SimulationRuntime {
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      invalidateEconomyCachesForPlayer: (playerId) => {
-        this.economySnapshotCacheByPlayer.delete(playerId);
-        this.tileYieldContextCacheByPlayer.delete(playerId);
-      },
+      invalidateEconomyCachesForPlayer: (playerId) => this.economyCaches.invalidateEconomySnapshot(playerId),
       integrityGrowthMultForPlayer: EMPIRE_INTEGRITY_ENABLED
         ? (playerId) => {
             const summary = this.summaryForPlayer(playerId);
@@ -1773,14 +1701,14 @@ export class SimulationRuntime {
       tiles: this.state.tiles,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       players: this.state.players,
-      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
-      economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
-      economySnapshotLastRebuiltAtMsByPlayer: this.economySnapshotLastRebuiltAtMsByPlayer,
-      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
-      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
-      defensibilityMetricsLastRebuiltAtMsByPlayer: this.defensibilityMetricsLastRebuiltAtMsByPlayer,
-      upkeepAccrualReadCountByPlayer: this.upkeepAccrualReadCountByPlayer,
-      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      economySnapshotCacheByPlayer: this.economyCaches.economySnapshotCacheByPlayer,
+      economySnapshotDirtyPlayerIds: this.economyCaches.economySnapshotDirtyPlayerIds,
+      economySnapshotLastRebuiltAtMsByPlayer: this.economyCaches.economySnapshotLastRebuiltAtMsByPlayer,
+      defensibilityMetricsCacheByPlayer: this.economyCaches.defensibilityMetricsCacheByPlayer,
+      defensibilityMetricsDirtyPlayerIds: this.economyCaches.defensibilityMetricsDirtyPlayerIds,
+      defensibilityMetricsLastRebuiltAtMsByPlayer: this.economyCaches.defensibilityMetricsLastRebuiltAtMsByPlayer,
+      upkeepAccrualReadCountByPlayer: this.economyCaches.upkeepAccrualReadCountByPlayer,
+      upkeepAccrualCacheByPlayer: this.economyCaches.upkeepAccrualCacheByPlayer,
       settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
       cachedTownNetworkForPlayer: (player, settledTiles, maxConnectedTownNames) =>
         this.cachedTownNetworkForPlayer(player, settledTiles, maxConnectedTownNames),
@@ -1871,25 +1799,7 @@ export class SimulationRuntime {
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
-    refreshEconomyCachesForTileChange({
-      tileKey,
-      previous,
-      next: tile,
-      players: this.state.players,
-      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
-      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
-      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
-      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
-      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
-      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
-      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
-      resourceSlotSupplyCacheByPlayer: this.resourceSlotSupplyCacheByPlayer,
-      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
-      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
-      economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
-      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
-      resourceSlotSupplyDirtyPlayerIds: this.resourceSlotSupplyDirtyPlayerIds, resourceSlotDemandDirtyPlayerIds: this.resourceSlotDemandDirtyPlayerIds, resourceSlotDormancyDirtyPlayerIds: this.resourceSlotDormancyDirtyPlayerIds
-    });
+    this.economyCaches.refreshForTileChange(tileKey, previous, tile, this.state.players);
     const wasSettledForSameOwner = updateTileSettledAt(this.tileSettledAtByKey, tileKey, previous, tile, this.now());
     const previousOwnerTileOrder =
       previous?.ownerId && sameOwner
@@ -2612,35 +2522,27 @@ export class SimulationRuntime {
   // incrementally indexed (see resource-slot-view.ts's header comment).
   // Caching added because emitPlayerStateUpdate calls this on the periodic
   // income tick for every player, not just once per BUILD_STRUCTURE command
-  // — see the cache field comments above for the invalidation gates.
-  // Shared by the 3 resource-slot getters below (same dirty+coalesce shape as cachedEconomySnapshot); forceFresh bypasses the AI window.
-  private coalescedResourceSlotRead<V>(cache: Map<string, V>, dirty: Set<string>, lastRebuiltAt: Map<string, number>, playerId: string, forceFresh: boolean, rebuild: () => V): V {
-    const cached = cache.get(playerId);
-    if (cached && !forceFresh && (!dirty.has(playerId) || (this.state.players.get(playerId)?.isAi && this.now() - (lastRebuiltAt.get(playerId) ?? 0) < AI_DERIVED_CACHE_COALESCE_MS))) return cached;
-    const result = rebuild();
-    cache.set(playerId, result); dirty.delete(playerId); lastRebuiltAt.set(playerId, this.now());
-    return result;
-  }
-
+  // — see RuntimeEconomyCaches for the caching and AI coalescing, and
+  // refreshEconomyCachesForTileChange for the invalidation gates.
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
-    return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+    return this.economyCaches.resourceSlotSupply(playerId, forceFresh, () => {
       const playerOf = (id: string): RuntimePlayer | undefined => this.state.players.get(id); // Siphon: drained resource tiles' slots move from owner to caster (siphon-slot-transfer.ts).
       const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.activeObservatoriesByOwner.get(id) ?? [], grantedSupplyForPlayer: (id) => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; }, fishFoodSlotBonusForPlayer: (id) => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } }); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
   private resourceSlotDemandForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
-    return this.coalescedResourceSlotRead(this.resourceSlotDemandCacheByPlayer, this.resourceSlotDemandDirtyPlayerIds, this.resourceSlotDemandLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
+    return this.economyCaches.resourceSlotDemand(playerId, forceFresh, () => {
       const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers, this.tileSettledAtByKey);
     });
   }
 
   // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI.
   private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
-    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => { const supply = this.resourceSlotSupplyForPlayer(playerId); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers, this.tileSettledAtByKey); });
+    return this.economyCaches.resourceSlotDormancy(playerId, () => { const supply = this.resourceSlotSupplyForPlayer(playerId); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers, this.tileSettledAtByKey); });
   }
   // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
-  refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
+  refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.economyCaches.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
 
   isStructureDormant(playerId: string, tileKey: string, field: DormancyStructureField): boolean {
     return isStructureDormantForTile({ tile: this.state.tiles.get(tileKey), tileKey, playerId, field, dormancy: () => this.resourceSlotDormancyForPlayer(playerId) });
@@ -2702,9 +2604,9 @@ export class SimulationRuntime {
   private townNetworkContext(): RuntimeTownNetworkContext {
     return {
       tiles: this.state.tiles,
-      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
-      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
-      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
+      townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
+      tileYieldContextCacheByPlayer: this.economyCaches.tileYieldContextCacheByPlayer,
       quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {}),
       players: this.state.players,
@@ -2742,7 +2644,7 @@ export class SimulationRuntime {
     return cachedManpowerStructureBonusForPlayerImpl(
       {
         tiles: this.state.tiles,
-        manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+        manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
         ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
         neuralWorksTilesByOwner: this.neuralWorksTilesByOwner,
         reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
@@ -2750,7 +2652,7 @@ export class SimulationRuntime {
         quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
         incubationEngineTilesByOwner: this.incubationEngineTilesByOwner,
         censusHallTilesByOwner: this.censusHallTilesByOwner,
-        townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+        townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
         activeMonumentOwnerByType: this.activeMonumentOwnerByType,
         dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId),
         summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -3223,7 +3125,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, causeCommandId, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) }),
       snapshotTileCache: this.snapshotTileCache,
-      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
+      townConnectivityStateByPlayer: this.economyCaches.townConnectivityStateByPlayer,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
       outpostVisionDeps: () => this.outpostVisionDeps(),
@@ -3232,13 +3134,13 @@ export class SimulationRuntime {
       now: () => this.now(),
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
-      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
-      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
-      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
-      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
-      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
-      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      economySnapshotCacheByPlayer: this.economyCaches.economySnapshotCacheByPlayer,
+      resourceSlotDemandCacheByPlayer: this.economyCaches.resourceSlotDemandCacheByPlayer,
+      resourceSlotDormancyCacheByPlayer: this.economyCaches.resourceSlotDormancyCacheByPlayer,
+      tileYieldContextCacheByPlayer: this.economyCaches.tileYieldContextCacheByPlayer,
+      townNetworkCacheByPlayer: this.economyCaches.townNetworkCacheByPlayer,
+      manpowerStructureBonusCacheByPlayer: this.economyCaches.manpowerStructureBonusCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.economyCaches.upkeepAccrualCacheByPlayer,
       ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => this.shardRain.decrementSiteCount(),
