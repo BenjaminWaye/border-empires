@@ -54,11 +54,12 @@ export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
   {
     createdAt: 1792108265294, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.15.1",
-    title: "Siphon land while its Aether Tower recharges",
+    title: "Siphon land while its Aether Tower is down",
     why: "Siphon was blocked by an enemy Aether Tower even while that tower was on cooldown, unlike every other Aether ability.",
     changes: [
-      "You can now Siphon land whose Aether Tower is on cooldown",
-      "The siphon ends on its own as soon as that tower's cooldown runs out (an unpowered tower still blocks Siphon, even if your siphon is what cut its power)"
+      "You can now Siphon land whose Aether Tower is on cooldown or unpowered",
+      "The siphon ends on its own as soon as that tower is back online (off cooldown and powered)",
+      "Siphon the victim's CRYSTAL and their tower stays unpowered: they have to win the tile back, find CRYSTAL elsewhere, or take out your siphoning tower"
     ]
   }
 ];

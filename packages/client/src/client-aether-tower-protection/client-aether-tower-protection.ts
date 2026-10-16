@@ -79,11 +79,6 @@ const activeAetherTowers = (tiles: ReadonlyMap<string, Tile>, tilesRevision: num
 
 type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | "chunkFullCount" | "me" | "allies" | "dormantStructures" | "aetherShieldTowers">;
 
-export type AetherProtectionFieldOptions = {
-  /** Count unpowered enemy towers too: they still block Siphon (server: isObservatoryBlockingSiphon). */
-  readonly againstSiphon?: boolean;
-};
-
 // One-entry memo: targeting asks for the field once per candidate tile
 // (computeCrystalTargets walks the whole tile cache) and the tile menu several
 // times per render. Keyed on everything the field reads, with the clock
@@ -97,9 +92,8 @@ let fieldMemo: { key: readonly unknown[]; field: AetherProtectionField } | undef
  * it has arrived (client-aether-shield-state.ts) -- it knows towers hidden
  * in fog and enemy dormancy -- and from visible towers before that.
  */
-export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number, options: AetherProtectionFieldOptions = {}): AetherProtectionField => {
-  const againstSiphon = options.againstSiphon === true;
-  const key = [state.tiles, state.tilesRevision, state.chunkFullCount, state.aetherShieldTowers, state.dormantStructures, state.me, state.allies.join(","), againstSiphon, Math.floor(nowMs / 1000)];
+export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number): AetherProtectionField => {
+  const key = [state.tiles, state.tilesRevision, state.chunkFullCount, state.aetherShieldTowers, state.dormantStructures, state.me, state.allies.join(","), Math.floor(nowMs / 1000)];
   if (fieldMemo && fieldMemo.key.every((part, index) => part === key[index])) return fieldMemo.field;
   const dormantKeys = new Set(state.dormantStructures.map((entry) => entry.key));
   const serverTowers = state.aetherShieldTowers;
@@ -119,7 +113,7 @@ export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: 
     add(tower.x, tower.y, tower.ownerId);
   }
   for (const tower of serverTowers ?? []) {
-    if (tower.ownerId === state.me || (tower.dormant && !againstSiphon)) continue;
+    if (tower.ownerId === state.me) continue;
     // A listed tower in plain view that is visibly not shielding any more
     // (just cast and cooling down, switched off, lost) drops out at once
     // instead of waiting for the next push.
@@ -156,10 +150,9 @@ export const tileAetherProtection = (
 export const hostileAetherProtectionAt = (
   state: AetherProtectionFieldState,
   tile: Pick<Tile, "x" | "y" | "ownerId">,
-  nowMs: number,
-  options: AetherProtectionFieldOptions = {}
+  nowMs: number
 ): ProtectingAetherTower | undefined => {
-  const protector = tileAetherProtection(tile, aetherProtectionField(state, nowMs, options));
+  const protector = tileAetherProtection(tile, aetherProtectionField(state, nowMs));
   return protector?.relation === "enemy" ? protector : undefined;
 };
 

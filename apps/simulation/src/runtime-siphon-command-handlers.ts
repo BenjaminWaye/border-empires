@@ -14,7 +14,6 @@ import { parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeAbilityCommandContext } from "./runtime-ability-command-handlers.js";
-import { isObservatoryBlockingSiphon, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
 
 function rejectCommand(
   context: RuntimeAbilityCommandContext,
@@ -47,18 +46,19 @@ function siphonableTileForActor(
   return !isActiveSiphon(tile, now);
 }
 
-// A tile its owner covers with a ready Aether Tower (switched on, off
-// cooldown) is off limits. A tower on cooldown lets the drain through, and
-// the siphon ends as soon as that tower is ready again (the victim-tower
-// rule, siphon-mode/siphon-mode-lifecycle.ts). Unlike the other Aether
-// abilities, power doesn't matter here: see isObservatoryBlockingSiphon.
+// A tile its owner's Aether Tower is shielding right now is off limits, the
+// same rule every other hostile Aether ability follows. A tower on cooldown
+// or unpowered isn't shielding, so its land can be drained -- and the siphon
+// ends as soon as that tower shields again (the victim-tower rule,
+// siphon-mode/siphon-mode-lifecycle.ts). Draining the victim's CRYSTAL can be
+// what keeps their tower unpowered: that is the point, not a bug.
 function drainableTileForActor(
   context: RuntimeAbilityCommandContext,
   tile: DomainTileState | undefined,
   actor: DomainPlayer,
   now: number
 ): tile is DomainTileState {
-  return siphonableTileForActor(tile, actor, now) && !isTileShieldedByOwnersObservatory(context.tiles, (tower) => isObservatoryBlockingSiphon(tower, now), tile.ownerId!, tile.x, tile.y);
+  return siphonableTileForActor(tile, actor, now) && !context.isTileShieldedByEnemyObservatory(actor.id, tile.x, tile.y);
 }
 
 export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {

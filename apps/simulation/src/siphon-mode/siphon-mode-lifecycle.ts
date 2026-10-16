@@ -10,13 +10,15 @@
 //     own (destroyed, captured, removed, toggled off),
 //   - a drained tile changes owner, or loses its siphon stamp any other way
 //     (so no future write path can strand a tower in siphon mode),
-//   - one of the victim's own Aether Towers covering a drained tile is
-//     ready again (isObservatoryBlockingSiphon, aether-shield/aether-shield.ts:
-//     switched on and off cooldown; power ignored, since the drain itself can
-//     be what starves it). A siphon can be cast onto land whose tower is on
-//     cooldown, so this fires when the tower is switched on or built (a tile
-//     write, onTileReplaced) and when its cooldown runs out (no tile write:
-//     the periodic sweepShieldReturns).
+//   - one of the victim's own Aether Towers is shielding a drained tile
+//     again (isObservatoryShielding, aether-shield/aether-shield.ts: switched
+//     on, off cooldown, powered). A siphon can be cast onto land whose tower
+//     is on cooldown or unpowered, so this fires when the tower is switched
+//     on or built (a tile write, onTileReplaced) and when its cooldown runs
+//     out or its power returns (no tile write: the periodic
+//     sweepShieldReturns). A siphon that drains the victim's CRYSTAL can keep
+//     their tower unpowered -- the victim then has to win the tile back, find
+//     CRYSTAL elsewhere, or take out the caster's tower.
 // Every tile write goes through SimulationRuntime.replaceTileState, which
 // calls onTileReplaced below, so no write path can leave the two halves out
 // of sync. Ending clears both halves; the slot caches of the caster and every
@@ -42,8 +44,8 @@ export type SiphonEndRequest = {
 export type SiphonModeLifecycleDeps = ObservatoryTileWriteDeps & {
   now: () => number;
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
-  /** isObservatoryBlockingSiphon (aether-shield.ts) bound to the runtime's clock. */
-  isObservatoryBlockingSiphon: (tile: DomainTileState) => boolean;
+  /** isObservatoryShielding (aether-shield.ts) bound to the runtime's clock and dormancy. */
+  isObservatoryShielding: (tile: DomainTileState) => boolean;
   /** isTileShieldedByOwnersObservatory (aether-shield.ts) with that same predicate. */
   isTileShieldedByOwner: (ownerId: string, x: number, y: number) => boolean;
 };
@@ -66,7 +68,7 @@ export const siphonEndsForTileChange = (
   tileKey: string,
   previous: DomainTileState | undefined,
   next: DomainTileState,
-  isObservatoryBlockingSiphon: (tile: DomainTileState) => boolean
+  isObservatoryShielding: (tile: DomainTileState) => boolean
 ): SiphonEndRequest[] => {
   const ends: SiphonEndRequest[] = [];
   const previousSiphon = previous?.observatory?.siphon;
@@ -84,9 +86,9 @@ export const siphonEndsForTileChange = (
     ends.push({ observatoryKey, casterId: previousSabotage.ownerId, tileKeys: [...new Set([...tileKeys, tileKey])], reason: "drained_tile_lost" });
   }
   const victimId = newlyActiveObservatoryOwner(previous, next);
-  // Switched on (or finished) while still on cooldown: not ready yet, so the
-  // drain carries on until sweepShieldReturns sees the cooldown run out.
-  if (victimId && isObservatoryBlockingSiphon(next)) {
+  // Switched on (or finished) while still on cooldown or unpowered: not
+  // shielding yet, so the drain carries on until sweepShieldReturns sees it shield.
+  if (victimId && isObservatoryShielding(next)) {
     const seen = new Set<string>();
     someProtectionSquareKey(next.x, next.y, (drainedKey) => {
       const drained = tiles.get(drainedKey);
@@ -103,8 +105,8 @@ export const siphonEndsForTileChange = (
 };
 
 /**
- * Which live siphons a victim tower now blocks, for the periodic sweep: a
- * tower coming off cooldown writes no tile, so
+ * Which live siphons a victim tower now shields, for the periodic sweep: a
+ * tower coming off cooldown or getting its power back writes no tile, so
  * onTileReplaced never sees it. `towerKeys` are candidate caster towers
  * (the active-Observatory index); only ones in siphon mode are read.
  */
@@ -139,7 +141,7 @@ export class SiphonModeLifecycle {
   /** Hook for SimulationRuntime.replaceTileState — must run after all other tile maintenance. */
   onTileReplaced(tileKey: string, previous: DomainTileState | undefined, next: DomainTileState, commandId: string): void {
     if (!previous?.observatory?.siphon && !previous?.sabotage?.observatoryTileKey && next.observatory?.status !== "active") return;
-    for (const end of siphonEndsForTileChange(this.deps.tiles, tileKey, previous, next, this.deps.isObservatoryBlockingSiphon)) this.pending.push({ ...end, commandId });
+    for (const end of siphonEndsForTileChange(this.deps.tiles, tileKey, previous, next, this.deps.isObservatoryShielding)) this.pending.push({ ...end, commandId });
     this.flush();
   }
 

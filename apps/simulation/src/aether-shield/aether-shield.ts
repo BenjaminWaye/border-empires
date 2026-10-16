@@ -19,7 +19,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field: "observatory") => boolean;
 
 /** Active, its owner holds the tower tile, and off its own cast cooldown. */
-export const isObservatoryReady = (tile: DomainTileState | undefined, now: number): boolean => {
+const isObservatoryReady = (tile: DomainTileState | undefined, now: number): boolean => {
   const observatory = tile?.observatory;
   if (!tile || !observatory || observatory.status !== "active") return false;
   if (!tile.ownerId || observatory.ownerId !== tile.ownerId) return false;
@@ -37,14 +37,6 @@ export const isObservatoryShielding = (
 };
 
 /**
- * Siphon's victim-tower rule: ready, power ignored. A siphon moves the
- * victim's resource slots to the caster, so draining their CRYSTAL can be
- * what leaves their tower dormant -- counting dormancy here would let a
- * siphon keep the tower that should end it switched off for good.
- */
-export const isObservatoryBlockingSiphon = isObservatoryReady;
-
-/**
  * Visits every tile key in the OBSERVATORY_PROTECTION_RADIUS square around
  * (x, y), wrapped across the world seams. Stops early and returns true as
  * soon as `visit` returns true.
@@ -60,8 +52,7 @@ export const someProtectionSquareKey = (x: number, y: number, visit: (tileKey: s
 
 /**
  * True when (x, y) is held by `ownerId` and one of `ownerId`'s own towers
- * passes `isShieldingTower` (isObservatoryShielding, or
- * isObservatoryBlockingSiphon for Siphon). Scans the protection square
+ * passes `isShieldingTower` (normally isObservatoryShielding). Scans the protection square
  * around the tile rather than every tile on the map.
  */
 export const isTileShieldedByOwnersObservatory = (
@@ -101,11 +92,10 @@ export const isTileShieldedByOwnersIndexedTowers = (
   return false;
 };
 
-/** A ready tower; `dormant` when unpowered, in which case it blocks Siphon only. */
-export type ShieldingTower = { readonly x: number; readonly y: number; readonly ownerId: string; readonly dormant?: true };
+export type ShieldingTower = { readonly x: number; readonly y: number; readonly ownerId: string };
 
-/** Every ready tower, read from the runtime's active-Observatory index (not a full tile scan). */
-export const collectReadyTowers = (
+/** Every tower shielding right now, read from the runtime's active-Observatory index (not a full tile scan). */
+export const collectShieldingTowers = (
   activeObservatoriesByOwner: ReadonlyMap<string, ReadonlySet<string>>,
   tiles: ReadonlyMap<string, DomainTileState>,
   now: number,
@@ -115,9 +105,7 @@ export const collectReadyTowers = (
   for (const [ownerId, tileKeys] of activeObservatoriesByOwner) {
     for (const tileKey of tileKeys) {
       const tile = tiles.get(tileKey);
-      if (tile?.ownerId !== ownerId || !isObservatoryReady(tile, now)) continue;
-      const dormant = isStructureDormant(ownerId, tileKey, "observatory");
-      towers.push(dormant ? { x: tile.x, y: tile.y, ownerId, dormant: true } : { x: tile.x, y: tile.y, ownerId });
+      if (tile?.ownerId === ownerId && isObservatoryShielding(tile, now, isStructureDormant)) towers.push({ x: tile.x, y: tile.y, ownerId });
     }
   }
   return towers;

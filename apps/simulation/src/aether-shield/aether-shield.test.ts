@@ -3,7 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
-import { collectReadyTowers, isObservatoryBlockingSiphon, isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory, type ShieldingTower } from "./aether-shield.js";
+import { collectShieldingTowers, isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory, type ShieldingTower } from "./aether-shield.js";
 import { AetherShieldBroadcaster, TowerCoverageGrid, VISIBLE_TILE_BUDGET_PER_TICK, shieldingTowersVisibleTo, tileIndexFromKey, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
 const NOW = 50_000;
@@ -24,12 +24,6 @@ describe("isObservatoryShielding", () => {
     expect(isObservatoryShielding({ ...tower(5, 5, "a"), ownerId: "captor" } as DomainTileState, NOW, notDormant)).toBe(false);
     expect(isObservatoryShielding(tower(5, 5, "a"), NOW, () => true)).toBe(false);
   });
-
-  it("blocks Siphon whether or not it is powered -- a siphon can be what starves it", () => {
-    expect(isObservatoryBlockingSiphon(tower(5, 5, "a"), NOW)).toBe(true);
-    expect(isObservatoryBlockingSiphon(tower(5, 5, "a", { cooldownUntil: NOW + 1 }), NOW)).toBe(false);
-    expect(isObservatoryBlockingSiphon(tower(5, 5, "a", { status: "inactive" }), NOW)).toBe(false);
-  });
 });
 
 describe("isTileShieldedByOwnersObservatory", () => {
@@ -47,11 +41,11 @@ describe("isTileShieldedByOwnersObservatory", () => {
   });
 });
 
-describe("collectReadyTowers", () => {
-  it("reads the active-Observatory index, drops towers on cooldown and flags unpowered ones", () => {
+describe("collectShieldingTowers", () => {
+  it("reads the active-Observatory index and drops towers on cooldown or unpowered", () => {
     const tiles = tileMap([tower(1, 1, "a"), tower(2, 2, "a", { cooldownUntil: NOW + 1 }), tower(3, 3, "b")]);
     const index = new Map([["a", new Set([key(1, 1), key(2, 2)])], ["b", new Set([key(3, 3)])]]);
-    expect(collectReadyTowers(index, tiles, NOW, (owner) => owner === "b")).toEqual([{ x: 1, y: 1, ownerId: "a" }, { x: 3, y: 3, ownerId: "b", dormant: true }]);
+    expect(collectShieldingTowers(index, tiles, NOW, (owner) => owner === "b")).toEqual([{ x: 1, y: 1, ownerId: "a" }]);
   });
 });
 

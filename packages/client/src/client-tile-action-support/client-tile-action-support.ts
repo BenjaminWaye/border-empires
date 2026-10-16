@@ -1,12 +1,12 @@
 import { requiredTechIdsForAbility } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { hostileAetherProtectionAt, type AetherProtectionFieldOptions, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
+import { hostileAetherProtectionAt, type ProtectingAetherTower } from "../client-aether-tower-protection/client-aether-tower-protection.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import { hideTechLockedTileAction as hideTechLockedTileActionFromModule, type TileActionFilterState } from "./client-tech-locked-tile-action.js";
 // Re-exported for client-tile-action-logic.ts, whose deps type names them.
-export type { AetherProtectionFieldOptions, ProtectingAetherTower };
+export type { ProtectingAetherTower };
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
@@ -399,9 +399,8 @@ export const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: 
 // out exactly when it is tinted red -- including for a tower hidden in fog.
 export const hostileObservatoryProtectingTile = (
   state: Parameters<typeof hostileAetherProtectionAt>[0],
-  tile: Tile,
-  options?: AetherProtectionFieldOptions
-): ProtectingAetherTower | undefined => hostileAetherProtectionAt(state, tile, Date.now(), options);
+  tile: Tile
+): ProtectingAetherTower | undefined => hostileAetherProtectionAt(state, tile, Date.now());
 
 // §14.2: state.dormantStructures only ever describes the logged-in player's
 // own structures (PLAYER_UPDATE is a private per-player message), so a

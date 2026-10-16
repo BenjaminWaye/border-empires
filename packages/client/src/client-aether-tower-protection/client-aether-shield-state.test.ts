@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { applyAetherShieldsMessage, createInitialAetherShieldState } from "./client-aether-shield-state.js";
 
 describe("applyAetherShieldsMessage", () => {
-  it("stores the server's tower list, keeping the dormant flag", () => {
+  it("stores the server's tower list", () => {
     const state = createInitialAetherShieldState();
     expect(state.aetherShieldTowers).toBeUndefined();
-    expect(applyAetherShieldsMessage(state, { type: "AETHER_SHIELDS", towers: [{ x: 3, y: 4, ownerId: "enemy" }, { x: 5, y: 6, ownerId: "enemy", dormant: true }] })).toBe(true);
-    expect(state.aetherShieldTowers).toEqual([{ x: 3, y: 4, ownerId: "enemy" }, { x: 5, y: 6, ownerId: "enemy", dormant: true }]);
+    expect(applyAetherShieldsMessage(state, { type: "AETHER_SHIELDS", towers: [{ x: 3, y: 4, ownerId: "enemy" }, { x: 5, y: 6, ownerId: "enemy" }] })).toBe(true);
+    expect(state.aetherShieldTowers).toEqual([{ x: 3, y: 4, ownerId: "enemy" }, { x: 5, y: 6, ownerId: "enemy" }]);
     expect(applyAetherShieldsMessage(state, { type: "AETHER_SHIELDS", towers: [] })).toBe(true);
     expect(state.aetherShieldTowers).toEqual([]);
   });

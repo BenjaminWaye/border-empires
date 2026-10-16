@@ -164,13 +164,6 @@ describe("server AETHER_SHIELDS list", () => {
     expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
   });
 
-  it("an unpowered (dormant) enemy tower isn't tinted, but still blocks Siphon targets", () => {
-    const state = fieldState([land(40, 40, "enemy")], { aetherShieldTowers: [{ x: 45, y: 40, ownerId: "enemy", dormant: true }] });
-    expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("");
-    expect(hostileAetherProtectionAt(state, land(40, 40, "enemy"), NOW)).toBeUndefined();
-    expect(hostileAetherProtectionAt(state, land(40, 40, "enemy"), NOW, { againstSiphon: true })).toMatchObject({ x: 45, y: 40 });
-  });
-
   it("keeps a listed tower whose tile is only remembered in fog", () => {
     const state = fieldState([{ ...tower(10, 10, "enemy", { status: "inactive" }), fogged: true }], { aetherShieldTowers: [{ x: 10, y: 10, ownerId: "enemy" }] });
     expect(aetherProtectionFieldKey(aetherProtectionField(state, NOW))).toBe("10,10:enemy");

@@ -1,7 +1,6 @@
 // AETHER_SHIELDS push: tells each online player which OTHER players' Aether
-// Towers are ready (switched on, off cooldown) and cover land they can
-// currently see, flagging the unpowered ones (`dormant`: they block Siphon
-// only), so the client's protection-field tint and target greying
+// Towers are shielding (switched on, off cooldown, powered) land they can
+// currently see, so the client's protection-field tint and target greying
 // (packages/client/src/client-aether-tower-protection) are right even for a
 // tower hidden in fog, and for enemy power state the client can't know.
 //
@@ -163,7 +162,7 @@ export const shieldingTowersVisibleTo = (
 };
 
 const signatureFor = (towers: readonly ShieldingTower[]): string =>
-  towers.map((tower) => `${tower.x},${tower.y}:${tower.ownerId}${tower.dormant ? ":dormant" : ""}`).join("|");
+  towers.map((tower) => `${tower.x},${tower.y}:${tower.ownerId}`).join("|");
 
 export class AetherShieldBroadcaster {
   private readonly lastSentByPlayer = new Map<string, string>();

@@ -2,11 +2,11 @@
 // watchtower ticker (at most once a second, each run's cost bounded): Siphon's tower-comes-back-online end
 // (SiphonModeLifecycle.sweepShieldReturns) and the per-player AETHER_SHIELDS
 // push (aether-shield-broadcast.ts). Both exist because a tower's cooldown
-// running out (and, for the push, its power coming and going) changes what it
-// shields without writing any tile, so nothing event-driven ever sees it.
+// running out, or its power coming and going, changes whether it shields
+// without writing any tile, so nothing event-driven ever sees it.
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import { collectReadyTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
+import { collectShieldingTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
 import { AetherShieldBroadcaster, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
 export const AETHER_SHIELD_TICK_MIN_INTERVAL_MS = 1_000;
@@ -40,7 +40,7 @@ export const createAetherShieldTicker = (deps: AetherShieldTickDeps): AetherShie
     viewerIds: function* () {
       for (const [playerId, player] of deps.players()) if (!player.isAi && deps.isPlayerSubscribed(playerId)) yield playerId;
     },
-    shieldingTowers: () => collectReadyTowers(deps.activeObservatoriesByOwner(), deps.tiles(), clockMs, deps.isStructureDormant),
+    shieldingTowers: () => collectShieldingTowers(deps.activeObservatoriesByOwner(), deps.tiles(), clockMs, deps.isStructureDormant),
     forEachVisibleKey: deps.forEachVisibleKey,
     hasFullVision: deps.hasFullVision,
     emitPlayerMessage: deps.emitPlayerMessage
