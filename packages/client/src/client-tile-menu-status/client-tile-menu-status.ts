@@ -1,4 +1,4 @@
-import { OUT_OF_REACH_DECAY_MS } from "@border-empires/shared";
+import { OUT_OF_REACH_DECAY_MS, isCaptureHoldActive } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
@@ -123,6 +123,19 @@ export const tileMenuHeaderStatusForTile = (
     return {
       text: `Beyond ${viewerOwnsTile ? "your" : "its owner’s"} reach — decays in ${seconds}s`,
       tone: "warning"
+    };
+  }
+
+  // Capture hold (shared capture-hold.ts): the new owner's troops still
+  // stand on this freshly captured FRONTIER tile, so it fights back instead
+  // of being a free retake -- and the clock is how long that lasts.
+  if (isCaptureHoldActive(tile, nowMs)) {
+    return {
+      text: `Holding captured ground ${formatHeaderCountdown(tile.captureHoldUntil! - nowMs)}`,
+      tone: "neutral",
+      helpText: viewerOwnsTile
+        ? "Your troops are holding this tile after taking it, so it defends like ordinary ground until the timer ends. Garrison it to keep it defended."
+        : "Its new owner's troops are holding this tile after taking it, so attacking it is a real fight until the timer ends."
     };
   }
 

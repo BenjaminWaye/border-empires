@@ -10,6 +10,19 @@ import type {
   SocialCompletedAllianceBreak,
   SocialTruceRequest
 } from "../social-state/social-state.js";
+import { DiplomacyTermsSchema, type DiplomacyTerms } from "@border-empires/shared";
+
+// undefined = a corrupt terms blob. The whole offer is then dropped: keeping
+// it without its terms would let the target accept a paid deal for free.
+const termsFromJson = (json: string | null | undefined): { terms?: DiplomacyTerms } | undefined => {
+  if (!json) return {};
+  try {
+    const parsed = DiplomacyTermsSchema.safeParse(JSON.parse(json));
+    return parsed.success ? { terms: parsed.data } : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 export type PlayerRow = { player_id: string; name: string; updated_at: number };
 export type AllianceRow = { player_a_id: string; player_b_id: string; created_at: number };
@@ -32,6 +45,7 @@ export type AllianceRequestRow = {
   created_at: number;
   from_name: string | null;
   to_name: string | null;
+  terms_json?: string | null;
 };
 export type TruceRequestRow = {
   id: string;
@@ -42,6 +56,7 @@ export type TruceRequestRow = {
   duration_hours: number;
   from_name: string | null;
   to_name: string | null;
+  terms_json?: string | null;
 };
 export type ActiveTruceRow = {
   pair_key: string;
@@ -54,14 +69,21 @@ export type ActiveTruceRow = {
 export type TruceLockoutRow = { player_id: string; lockout_until: number };
 export type TruceBreakRow = { player_id: string; target_player_id: string; target_player_name: string; broken_at: number };
 
-export const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest => ({
-  id: row.id,
-  fromPlayerId: row.from_player_id,
-  toPlayerId: row.to_player_id,
-  createdAt: row.created_at,
-  ...(row.from_name ? { fromName: row.from_name } : {}),
-  ...(row.to_name ? { toName: row.to_name } : {})
-});
+export const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest[] => {
+  const terms = termsFromJson(row.terms_json);
+  if (!terms) return [];
+  return [
+    {
+      id: row.id,
+      fromPlayerId: row.from_player_id,
+      toPlayerId: row.to_player_id,
+      createdAt: row.created_at,
+      ...(row.from_name ? { fromName: row.from_name } : {}),
+      ...(row.to_name ? { toName: row.to_name } : {}),
+      ...terms
+    }
+  ];
+};
 
 export const allianceBreakFromRow = (row: AllianceBreakRow): SocialAllianceBreak => ({
   playerAId: row.player_a_id,
@@ -77,16 +99,23 @@ export const completedAllianceBreakFromRow = (row: CompletedAllianceBreakRow): S
   notificationExpiresAt: row.notification_expires_at
 });
 
-export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest => ({
-  id: row.id,
-  fromPlayerId: row.from_player_id,
-  toPlayerId: row.to_player_id,
-  createdAt: row.created_at,
-  expiresAt: row.expires_at,
-  durationHours: row.duration_hours as 12 | 24,
-  ...(row.from_name ? { fromName: row.from_name } : {}),
-  ...(row.to_name ? { toName: row.to_name } : {})
-});
+export const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest[] => {
+  const terms = termsFromJson(row.terms_json);
+  if (!terms) return [];
+  return [
+    {
+      id: row.id,
+      fromPlayerId: row.from_player_id,
+      toPlayerId: row.to_player_id,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      durationHours: row.duration_hours as 12 | 24,
+      ...(row.from_name ? { fromName: row.from_name } : {}),
+      ...(row.to_name ? { toName: row.to_name } : {}),
+      ...terms
+    }
+  ];
+};
 
 export const activeTruceFromRow = (row: ActiveTruceRow): SocialActiveTruce => ({
   playerAId: row.player_a_id,

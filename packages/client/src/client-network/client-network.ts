@@ -27,7 +27,7 @@ import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/clien
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
-import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
@@ -37,12 +37,7 @@ import { attackSyncLog, debugTileLog, debugTileTimeline, fogRevealLog, recordCli
 import { recordSocketDisconnect } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer } from "../client-development-queue/client-development-queue.js";
-import {
-  applyAllianceUpdateMessage,
-  applyTruceUpdateMessage,
-  notifyIncomingAllianceRequest,
-  notifyIncomingTruceRequest
-} from "../client-diplomacy-notifications/client-diplomacy-notifications.js";
+import { handleDiplomacySocketMessage } from "../client-diplomacy-notifications/client-diplomacy-messages.js";
 import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-auth-reconnect.js";
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -1815,14 +1810,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "townType" in update ||
             "townName" in update ||
             "townPopulationTier" in update ||
-            "fortJson" in update ||
-            "observatoryJson" in update ||
-            "siegeBatteryJson" in update ||
-            "economicStructureJson" in update ||
-            "sabotageJson" in update ||
-            "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
-            "musterJson" in update ||
-            "afcJson" in update ||
+            hasGatewayOverlayField(update) ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),
@@ -2086,55 +2074,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request && !state.incomingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingAllianceRequests.push(request);
-      }
-      notifyIncomingAllianceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_REQUESTED") {
-      const request = msg.request as any;
-      if (request && !state.outgoingAllianceRequests.some((existing: any) => existing.id === request.id)) {
-        state.outgoingAllianceRequests.push(request);
-      }
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "ALLIANCE_UPDATE") {
-      applyAllianceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUEST_INCOMING") {
-      const request = (msg.request as any) ?? undefined;
-      if (request) {
-        const fromName = msg.fromName as string | undefined;
-        if (fromName) request.fromName = fromName;
-        state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
-      }
-      notifyIncomingTruceRequest(state, request, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_REQUESTED") {
-      const request = msg.request as any;
-      const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
-      pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
-      renderHud();
-      return;
-    }
-
-    if (msg.type === "TRUCE_UPDATE") {
-      applyTruceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
+    if (handleDiplomacySocketMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely, playerNameForOwner })) {
       renderHud();
       return;
     }

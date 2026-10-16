@@ -1,4 +1,4 @@
-import type { ClientMessage } from "@border-empires/shared";
+import type { ClientMessage, DiplomacyTerms } from "@border-empires/shared";
 import { readIncomingTruceRequestAlert, type EmailAlertOutcome } from "../email-alerts/email-alerts.js";
 import { extractTruceRequestFromPayloads } from "../seeded-ai-diplomacy-responder/seeded-ai-diplomacy-responder.js";
 import type { SocialTruceRequest } from "../social-state/social-state.js";
@@ -8,8 +8,9 @@ type SocialTruceActionResult =
   | { ok: false; code: string; message: string };
 
 export type TruceSocketMessageDeps = {
-  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24) => SocialTruceActionResult;
-  acceptTruce: (playerId: string, requestId: string) => SocialTruceActionResult;
+  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: { terms?: DiplomacyTerms }) => SocialTruceActionResult;
+  /** Async when the offer carries terms the simulation must pay out first. */
+  acceptTruce: (playerId: string, requestId: string) => SocialTruceActionResult | Promise<SocialTruceActionResult>;
   rejectTruce: (playerId: string, requestId: string) => SocialTruceActionResult;
   cancelTruce: (playerId: string, requestId: string) => SocialTruceActionResult;
   breakTruce: (playerId: string, targetPlayerId: string) => SocialTruceActionResult;
@@ -43,7 +44,7 @@ export const handleTruceSocketMessage = async (
   socket: import("ws").WebSocket
 ): Promise<boolean> => {
   if (message.type === "TRUCE_REQUEST") {
-    const result = deps.requestTruce(playerId, message.targetPlayerName, message.durationHours);
+    const result = deps.requestTruce(playerId, message.targetPlayerName, message.durationHours, message.terms ? { terms: message.terms } : undefined);
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);
@@ -57,7 +58,7 @@ export const handleTruceSocketMessage = async (
     return true;
   }
   if (message.type === "TRUCE_ACCEPT") {
-    const result = deps.acceptTruce(playerId, message.requestId);
+    const result = await deps.acceptTruce(playerId, message.requestId);
     if (!result.ok) { sendError(deps, socket, result); return true; }
     deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const targetPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);

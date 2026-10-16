@@ -6,6 +6,7 @@ import {
   commitOddsMultiplier,
   defendingFortVariant,
   isFortDefending,
+  isUndefendedFrontierTile,
   requiredMusterForFort,
   rollFrontierCombat,
   shieldDefenseMultiplier,
@@ -198,7 +199,8 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
 
 // EXPAND always targets unowned land (validated before the lock is created)
 // and always succeeds, so there's nothing to roll for. Likewise, an ATTACK on
-// a FRONTIER tile targets undefended ground -- defenderBattle in
+// a FRONTIER tile targets undefended ground (unless it is still inside its
+// post-capture hold window, shared capture-hold.ts) -- defenderBattle in
 // frontier-combat.ts already zeroes its defense multiplier, so there's no
 // force to fight either. Both cases share this same trivial preview instead
 // of the full attacker/defender combat math (outpost scan, tech multipliers,
@@ -288,7 +290,8 @@ const resolveAttackCombat = (
         dockId: previousTarget.dockId,
         townType: previousTarget.town?.type,
         fortVariant: targetHasActiveFort ? defendingFortVariant(previousTarget.fort) : undefined,
-        breachShockUntil: previousTarget.breachShockUntil
+        breachShockUntil: previousTarget.breachShockUntil,
+        captureHoldUntil: previousTarget.captureHoldUntil
       }
     : { terrain: "LAND" };
   // docs/replenishment-update-plan.md D6, revised: the odds ratio is scaled by
@@ -325,7 +328,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const combat: FrontierCombatPreview & { attackerWon: boolean; shield?: ShieldConsumption } =
-    lock.actionType === "EXPAND" || previousTarget?.ownershipState === "FRONTIER"
+    lock.actionType === "EXPAND" || isUndefendedFrontierTile(previousTarget, ctx.now())
       ? GUARANTEED_CAPTURE_COMBAT_PREVIEW
       : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
@@ -388,7 +391,14 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     winChance: combat.winChance,
     levelDelta: 0
   };
-  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged, ...(combat.shield ? { shield: combat.shield } : {}) };
+  const defendedFrontier = lock.actionType === "ATTACK" && previousTarget?.ownershipState === "FRONTIER" && combat !== GUARANTEED_CAPTURE_COMBAT_PREVIEW;
+  return {
+    result,
+    defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
+    targetRecentlyPillaged,
+    ...(combat.shield ? { shield: combat.shield } : {}),
+    ...(defendedFrontier ? { defendedFrontier: true } : {})
+  };
 };
 
 export { applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";

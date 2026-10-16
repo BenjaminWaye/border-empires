@@ -23,6 +23,8 @@ import type { Tile, TileMenuView } from "../client-types.js";
  * every other HUD section every second purely to refresh a few words of
  * countdown text.
  */
+const HOLD_REPAINT_GRACE_MS = 2_000;
+
 export const startTileMenuDecayTicker = (
   state: ClientState,
   tileMenuViewForTile: (tile: Tile) => TileMenuView,
@@ -46,7 +48,11 @@ export const startTileMenuDecayTicker = (
     // Repaint once after expiry, even if the map loop already pruned the FX.
     const battleEnded = lastBattleTileKey === key || hasRenderedBattleStatus(state.tileActionMenu.renderSignature);
     lastBattleTileKey = hasBattle ? key : "";
-    if (menuTile.frontierDecayAt === undefined && !hasBattle && !battleEnded) return;
+    // The "Holding captured ground" countdown (capture-hold): tick while it
+    // runs, plus a moment past the deadline to repaint it away -- a tile can
+    // keep a long-expired captureHoldUntil, which must not tick forever.
+    const holdTicking = (menuTile.captureHoldUntil ?? 0) > nowMs - HOLD_REPAINT_GRACE_MS;
+    if (menuTile.frontierDecayAt === undefined && !holdTicking && !hasBattle && !battleEnded) return;
     renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
   }, 1_000);
 };

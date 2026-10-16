@@ -12,7 +12,7 @@ import {
   type SocialAllianceBreak,
   type SocialAllianceRequest,
   type SocialCompletedAllianceBreak,
-  type SocialExpiredAllianceBreak,
+  type SocialPendingOffer,
   type SocialPlayerRecord,
   type SocialSnapshot,
   type SocialState,
@@ -22,8 +22,11 @@ import {
   type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
+import { diplomacyTermsAreEmpty, type DiplomacyTerms } from "@border-empires/shared";
+
 import { buildUpdatePayloads } from "./social-state-payloads.js";
 import { buildSocialSnapshot } from "./social-state-snapshot.js";
+import { createSocialAllianceBreaks } from "./social-state-alliance-breaks.js";
 import {
   createSocialOfferCooldowns,
   formatCooldownRemaining,
@@ -45,13 +48,12 @@ export type {
   SocialTruceRequest
 } from "./social-state-types.js";
 
-export const ALLIANCE_BREAK_NOTICE_MS = 24 * 60 * 60_000;
+export { ALLIANCE_BREAK_NOTICE_MS, COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS } from "./social-state-alliance-breaks.js";
 // Bounds the per-player truceBreaksByPlayerId list (a season-long, otherwise
 // unbounded growable array -- see docs/agents/state-and-persistence-discipline.md).
 // A player realistically breaks a handful of truces per season; this caps the
 // list to the most recent breaks rather than growing forever.
 export const MAX_TRUCE_BREAKS_PER_PLAYER = 20;
-export const COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60_000;
 
 export const createSocialState = (options: {
   now?: () => number;
@@ -70,6 +72,10 @@ export const createSocialState = (options: {
   const truceLockoutUntilByPlayerId = new Map<string, number>();
   const truceBreaksByPlayerId = new Map<string, SocialTruceBreakRecord[]>();
   const offerCooldowns = createSocialOfferCooldowns(now, options.initial?.offerCooldowns);
+  // Offers whose terms the simulation is paying out right now (beginSettlement).
+  const settlingRequestIds = new Set<string>();
+  const settlingError: SocialActionResult = { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
+  const termsField = (terms: DiplomacyTerms | undefined): { terms?: DiplomacyTerms } => (terms && !diplomacyTermsAreEmpty(terms) ? { terms } : {});
   const startOfferCooldown = (kind: SocialOfferKind, fromPlayerId: string, toPlayerId: string, durationMs: number): void => {
     sink?.saveOfferCooldown(offerCooldowns.start(kind, fromPlayerId, toPlayerId, durationMs));
   };
@@ -105,7 +111,7 @@ export const createSocialState = (options: {
     const current = now();
     let pruned = false;
     for (const [requestId, request] of truceRequests) {
-      if (request.expiresAt <= current) {
+      if (request.expiresAt <= current && !settlingRequestIds.has(requestId)) {
         truceRequests.delete(requestId);
         startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_EXPIRED_COOLDOWN_MS);
         pruned = true;
@@ -153,17 +159,9 @@ export const createSocialState = (options: {
     payloadsByPlayerId: updatePayloadsFor(playerIds, announcementByPlayerId)
   });
 
-  const expiredAllianceBreaks = (): SocialExpiredAllianceBreak[] => {
-    const current = now();
-    const expired: SocialExpiredAllianceBreak[] = [];
-    for (const notice of allianceBreaksByPair.values()) {
-      if (notice.endsAt > current) continue;
-      const playerA = ensurePlayer(notice.playerAId);
-      const playerB = ensurePlayer(notice.playerBId);
-      expired.push({ ...notice, playerIds: [playerA.id, playerB.id] });
-    }
-    return expired;
-  };
+  const allianceBreaks = createSocialAllianceBreaks({
+    now, sink, playersById, ensurePlayer, allianceBreaksByPair, completedAllianceBreaks, sweepExpired, updatePayloadsFor
+  });
 
   for (const player of options.players ?? []) ensurePlayer(player.id, player.name);
 
@@ -226,10 +224,10 @@ export const createSocialState = (options: {
     syncPlayers(playerIds, announcementByPlayerId) {
       return ok(playerIds, announcementByPlayerId);
     },
-    requestAlliance(fromPlayerId, targetPlayerName) {
+    requestAlliance(fromPlayerId, targetPlayerName, offerOptions) {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
-      const target = resolveByName(targetPlayerName);
+      const target = offerOptions?.targetPlayerId ? playersById.get(offerOptions.targetPlayerId) : resolveByName(targetPlayerName);
       if (!target || target.id === fromPlayerId) return { ok: false, code: "ALLIANCE_TARGET", message: "target not found" };
       if (actor.allies.has(target.id)) return { ok: false, code: "ALLIANCE_EXISTS", message: "already allied" };
       const existingRequest = findAllianceRequestBetweenPlayers(allianceRequests.values(), actor.id, target.id);
@@ -246,7 +244,8 @@ export const createSocialState = (options: {
         toPlayerId: target.id,
         createdAt: now(),
         fromName: actor.name,
-        toName: target.name
+        toName: target.name,
+        ...termsField(offerOptions?.terms)
       };
       allianceRequests.set(request.id, request);
       sink?.saveAllianceRequest(request);
@@ -273,6 +272,7 @@ export const createSocialState = (options: {
       sink?.deleteAllianceRequest(requestId);
       sink?.addAlliance(actor.id, from.id, now());
       sink?.removeCompletedAllianceBreak(actor.id, from.id);
+      settlingRequestIds.delete(requestId);
       const notifyPlayerIds = [actor.id, from.id];
       return { ok: true, notifyPlayerIds, payloadsByPlayerId: updatePayloadsFor(notifyPlayerIds, undefined, announcementByPlayerId) };
     },
@@ -280,6 +280,7 @@ export const createSocialState = (options: {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.toPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
+      if (settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -290,79 +291,17 @@ export const createSocialState = (options: {
       sweepExpired();
       const request = allianceRequests.get(requestId);
       if (!request || request.fromPlayerId !== playerId) return { ok: false, code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" };
+      if (settlingRequestIds.has(requestId)) return settlingError;
       allianceRequests.delete(requestId);
       sink?.deleteAllianceRequest(requestId);
       startOfferCooldown("alliance", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
       return ok([playerId, request.toPlayerId]);
     },
-    breakAlliance(playerId, targetPlayerId) {
-      sweepExpired();
-      const actor = ensurePlayer(playerId);
-      const target = playersById.get(targetPlayerId);
-      if (!target || !actor.allies.has(target.id)) return { ok: false, code: "ALLIANCE_BREAK_INVALID", message: "not allied with target" };
-      if (allianceBreaksByPair.has(pairKey(actor.id, target.id))) {
-        return { ok: false, code: "ALLIANCE_BREAK_INVALID", message: "alliance break notice already active" };
-      }
-      const notice: SocialAllianceBreak = {
-        playerAId: actor.id,
-        playerBId: target.id,
-        startedAt: now(),
-        endsAt: now() + ALLIANCE_BREAK_NOTICE_MS,
-        createdByPlayerId: actor.id
-      };
-      allianceBreaksByPair.set(pairKey(actor.id, target.id), notice);
-      sink?.saveAllianceBreak(notice);
-      const announcements = {
-        [actor.id]: `Alliance break notice sent to ${target.name}. The alliance remains active for 24h.`,
-        [target.id]: `${actor.name} started a 24h notice to break your alliance.`
-      };
-      const payloads = updatePayloadsFor([actor.id, target.id], undefined, announcements);
-      payloads.get(target.id)?.push({ type: "ALLIANCE_BREAK_INCOMING", fromName: actor.name, fromPlayerId: actor.id, toPlayerId: target.id });
-      return { ok: true, notifyPlayerIds: [actor.id, target.id], payloadsByPlayerId: payloads };
-    },
-    expiredAllianceBreaks,
-    finalizeExpiredAllianceBreaks(pairs) {
-      const allowedPairs = pairs ? new Set(pairs.map(([left, right]) => pairKey(left, right))) : undefined;
-      const expiredBreaks = expiredAllianceBreaks().filter((notice) =>
-        allowedPairs ? allowedPairs.has(pairKey(notice.playerIds[0], notice.playerIds[1])) : true
-      );
-      const affectedPlayerIds = new Set<string>();
-      for (const notice of expiredBreaks) {
-        const [playerAId, playerBId] = notice.playerIds;
-        const playerA = ensurePlayer(playerAId);
-        const playerB = ensurePlayer(playerBId);
-        playerA.allies.delete(playerB.id);
-        playerB.allies.delete(playerA.id);
-        allianceBreaksByPair.delete(pairKey(playerA.id, playerB.id));
-        sink?.removeAllianceBreak(playerA.id, playerB.id);
-        sink?.removeAlliance(playerA.id, playerB.id);
-        const completedNotice: SocialCompletedAllianceBreak = {
-          ...notice,
-          finalizedAt: now(),
-          notificationExpiresAt: now() + COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS
-        };
-        completedAllianceBreaks.set(pairKey(playerA.id, playerB.id), completedNotice);
-        sink?.saveCompletedAllianceBreak(completedNotice);
-        affectedPlayerIds.add(playerA.id);
-        affectedPlayerIds.add(playerB.id);
-      }
-      const announcementByPlayerId: Partial<Record<string, string>> = {};
-      for (const notice of expiredBreaks) {
-        const [playerAId, playerBId] = notice.playerIds;
-        const playerA = ensurePlayer(playerAId);
-        const playerB = ensurePlayer(playerBId);
-        announcementByPlayerId[playerAId] = `Your alliance with ${playerB.name} is now broken.`;
-        announcementByPlayerId[playerBId] = `Your alliance with ${playerA.name} is now broken.`;
-      }
-      return {
-        expiredBreaks,
-        payloadsByPlayerId: updatePayloadsFor([...affectedPlayerIds], undefined, announcementByPlayerId)
-      };
-    },
-    requestTruce(fromPlayerId, targetPlayerName, durationHours) {
+    ...allianceBreaks,
+    requestTruce(fromPlayerId, targetPlayerName, durationHours, offerOptions) {
       sweepExpired();
       const actor = ensurePlayer(fromPlayerId);
-      const target = resolveByName(targetPlayerName);
+      const target = offerOptions?.targetPlayerId ? playersById.get(offerOptions.targetPlayerId) : resolveByName(targetPlayerName);
       if (!target || target.id === fromPlayerId || target.id.startsWith("barbarian")) {
         return { ok: false, code: "TRUCE_TARGET", message: "target not found" };
       }
@@ -385,7 +324,8 @@ export const createSocialState = (options: {
         expiresAt: now() + TRUCE_REQUEST_TTL_MS,
         durationHours,
         fromName: actor.name,
-        toName: target.name
+        toName: target.name,
+        ...termsField(offerOptions?.terms)
       };
       truceRequests.set(request.id, request);
       sink?.saveTruceRequest(request);
@@ -397,9 +337,11 @@ export const createSocialState = (options: {
     acceptTruce(playerId, requestId, announcementByPlayerId) {
       sweepExpired();
       const request = truceRequests.get(requestId);
-      if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
+      // A settling offer may pass its expiry while the simulation pays out; it still completes.
+      if (!request || request.toPlayerId !== playerId || (request.expiresAt < now() && !settlingRequestIds.has(requestId))) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
+      settlingRequestIds.delete(requestId);
       const actor = ensurePlayer(playerId);
       const from = playersById.get(request.fromPlayerId);
       if (!from) {
@@ -439,6 +381,7 @@ export const createSocialState = (options: {
       if (!request || request.toPlayerId !== playerId || request.expiresAt < now()) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
+      if (settlingRequestIds.has(requestId)) return settlingError;
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       if (options?.startCooldown !== false) startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -450,6 +393,7 @@ export const createSocialState = (options: {
       if (!request || request.fromPlayerId !== playerId || request.expiresAt < now()) {
         return { ok: false, code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" };
       }
+      if (settlingRequestIds.has(requestId)) return settlingError;
       truceRequests.delete(requestId);
       sink?.deleteTruceRequest(requestId);
       startOfferCooldown("truce", request.fromPlayerId, request.toPlayerId, OFFER_REJECTED_COOLDOWN_MS);
@@ -473,6 +417,28 @@ export const createSocialState = (options: {
       sink?.saveTruceBreak(actor.id, breakRecord);
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
+    },
+    beginSettlement(kind, playerId, requestId) {
+      sweepExpired();
+      const invalid = { ok: false as const, code: kind === "truce" ? "TRUCE_REQUEST_INVALID" : "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" };
+      if (settlingRequestIds.has(requestId)) return { ok: false, code: "OFFER_SETTLING", message: "That offer is being settled right now." };
+      let offer: SocialPendingOffer | undefined;
+      if (kind === "truce") {
+        const request = truceRequests.get(requestId);
+        if (request && request.expiresAt >= now()) offer = { kind, request };
+      } else {
+        const request = allianceRequests.get(requestId);
+        if (request) offer = { kind, request };
+      }
+      if (!offer || offer.request.toPlayerId !== playerId) return invalid;
+      settlingRequestIds.add(requestId);
+      return { ok: true, offer };
+    },
+    endSettlement: (requestId) => { settlingRequestIds.delete(requestId); },
+    playerNameOf: (playerId) => playersById.get(playerId)?.name ?? playerId,
+    resolvePlayerByName: (playerName) => {
+      const player = resolveByName(playerName);
+      return player ? { id: player.id, name: player.name } : undefined;
     },
     activeTrucePairs: () => (sweepExpired(), [...trucesByPair.values()].map((truce): [string, string] => [truce.playerAId, truce.playerBId]))
   };

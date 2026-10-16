@@ -1,4 +1,4 @@
-import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent, TileOverlayJsonFields } from "@border-empires/sim-protocol";
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -92,6 +92,10 @@ export type LockedCombatResolution = {
   // the attacker's side) since the shield tile's live amount may have moved
   // between the two.
   shield?: { tileKey: string; x: number; y: number; matched: number };
+  // A FRONTIER target still inside its capture-hold window when the attack
+  // was rolled (shared capture-hold.ts): a real fight, so resolution emits a
+  // battle broadcast even if the hold has expired by the time it resolves.
+  defendedFrontier?: boolean;
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";
@@ -301,22 +305,11 @@ export type SimulationTileWireDelta = {
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
-  fortJson?: string | undefined;
-  observatoryJson?: string | undefined;
-  siegeBatteryJson?: string | undefined;
-  economicStructureJson?: string | undefined;
-  sabotageJson?: string | undefined;
-  musterJson?: string | undefined;
+  captureHoldUntil?: number | undefined;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-  naturalWonderJson?: string | undefined;
-  shardSiteJson?: string | undefined;
-  watchtowerJson?: string | undefined;
-  waystationJson?: string | undefined;
-  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
-  afcJson?: string | undefined;
   yieldRate?: { goldPerMinute?: number };
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;
@@ -335,4 +328,4 @@ export type SimulationTileWireDelta = {
   // capture: both the attacker and the previous owner may lack live coverage
   // of the tile) -- one delta object, not one per forced viewer.
   forceVisibleForPlayerId?: string | readonly string[] | undefined;
-};
+} & TileOverlayJsonFields;

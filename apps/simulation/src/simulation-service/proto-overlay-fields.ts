@@ -1,4 +1,8 @@
-import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
+import {
+  TILE_OVERLAY_WIRE_FIELDS,
+  type TileOverlayJsonFields,
+  type TileOverlayProtoField
+} from "@border-empires/sim-protocol";
 
 /**
  * The tile "overlay" JSON fields (fort, natural wonder, shard site, ...)
@@ -17,37 +21,35 @@ import { TILE_OVERLAY_WIRE_FIELDS } from "@border-empires/sim-protocol";
  * SimulationTileWireDelta correctly, but proto-serialization.ts's hand-listed
  * mappings never carried it across the gRPC boundary to the gateway.
  *
- * The rows come straight from TILE_OVERLAY_WIRE_FIELDS in
+ * The helpers below iterate TILE_OVERLAY_WIRE_FIELDS from
  * @border-empires/sim-protocol, the table the gateway also decodes with, so
  * no caller in proto-serialization.ts changes when an overlay is added.
  */
-export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = TILE_OVERLAY_WIRE_FIELDS;
-
-type TileLike = Record<string, unknown>;
+type ProtoOverlayStrings = { [F in TileOverlayProtoField]?: string };
 
 /** TILE_DELTA_BATCH snake_case array: present key means "touched this delta", `?? ""` signals an explicit clear. */
-export const overlaySnakeClearFields = (tile: TileLike): Record<string, string> => {
-  const out: Record<string, string> = {};
-  for (const { camel, snake } of OVERLAY_FIELDS) {
-    if (camel in tile) out[snake] = (tile[camel] as string | undefined) ?? "";
+export const overlaySnakeClearFields = (tile: TileOverlayJsonFields): ProtoOverlayStrings => {
+  const out: ProtoOverlayStrings = {};
+  for (const { camel, snake } of TILE_OVERLAY_WIRE_FIELDS) {
+    if (camel in tile) out[snake] = tile[camel] ?? "";
   }
   return out;
 };
 
 /** TILE_DELTA_BATCH camelCase array: same clear-signaling contract, no `?? ""` coercion (JSON-native, not proto3). */
-export const overlayCamelClearFields = (tile: TileLike): Record<string, string | undefined> => {
-  const out: Record<string, string | undefined> = {};
-  for (const { camel } of OVERLAY_FIELDS) {
-    if (camel in tile) out[camel] = tile[camel] as string | undefined;
+export const overlayCamelClearFields = (tile: TileOverlayJsonFields): TileOverlayJsonFields => {
+  const out: TileOverlayJsonFields = {};
+  for (const { camel } of TILE_OVERLAY_WIRE_FIELDS) {
+    if (camel in tile) out[camel] = tile[camel];
   }
   return out;
 };
 
 /** Full-snapshot serializer: truthy-guard only, no clear-signaling (see toFullSnapshotProtoTile's comment). */
-export const overlaySnakeTruthyFields = (tile: TileLike): Record<string, string> => {
-  const out: Record<string, string> = {};
-  for (const { camel, snake } of OVERLAY_FIELDS) {
-    const value = tile[camel] as string | undefined;
+export const overlaySnakeTruthyFields = (tile: TileOverlayJsonFields): ProtoOverlayStrings => {
+  const out: ProtoOverlayStrings = {};
+  for (const { camel, snake } of TILE_OVERLAY_WIRE_FIELDS) {
+    const value = tile[camel];
     if (value) out[snake] = value;
   }
   return out;
