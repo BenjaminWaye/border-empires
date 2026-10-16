@@ -340,7 +340,7 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { isObservatoryBlockingSiphon, isTileShieldedByOwnersObservatory } from "../aether-shield/aether-shield.js"; import { createAetherShieldTicker } from "../aether-shield/aether-shield-tick.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { isObservatoryBlockingSiphon, isTileShieldedByOwnersIndexedTowers } from "../aether-shield/aether-shield.js"; import { createAetherShieldTicker, type AetherShieldTicker } from "../aether-shield/aether-shield-tick.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
 import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
@@ -517,7 +517,7 @@ export class SimulationRuntime {
   private readonly now: () => number;
   private readonly state: RuntimeState;
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
-  private readonly aetherShieldTicker: (nowMs: number) => void; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
+  private readonly aetherShieldTicker: AetherShieldTicker; // Siphon tower-comes-back-online sweep + AETHER_SHIELDS push — aether-shield/aether-shield-tick.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
   // Human-player TEN_TILES / FIRST_CONTACT reports for the gateway's player funnel (onboarding-milestones.ts).
@@ -905,7 +905,7 @@ export class SimulationRuntime {
         frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
       }, this.visionFootprintTable)
     });
-    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), isObservatoryBlockingSiphon: (tile) => isObservatoryBlockingSiphon(tile, this.now()), isTileShieldedByOwner: (ownerId, x, y) => isTileShieldedByOwnersObservatory(this.state.tiles, (tower) => isObservatoryBlockingSiphon(tower, this.now()), ownerId, x, y) });
+    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command), isObservatoryBlockingSiphon: (tile) => isObservatoryBlockingSiphon(tile, this.now()), isTileShieldedByOwner: (ownerId, x, y) => isTileShieldedByOwnersIndexedTowers(this.state.tiles, this.activeObservatoriesByOwner.get(ownerId) ?? [], (tower) => isObservatoryBlockingSiphon(tower, this.now()), ownerId, x, y) });
     this.aetherShieldTicker = createAetherShieldTicker({
       tiles: () => this.state.tiles,
       activeObservatoriesByOwner: () => this.activeObservatoriesByOwner,
@@ -1371,7 +1371,12 @@ export class SimulationRuntime {
 
   /** Throttled inside; see aether-shield/aether-shield-tick.ts. */
   tickAetherShields(nowMs: number = this.now()): void {
-    this.aetherShieldTicker(nowMs);
+    this.aetherShieldTicker.tick(nowMs);
+  }
+
+  /** Live-subscribe push of the player's AETHER_SHIELDS list (simulation-service/live-subscribe-reach-push.ts). */
+  resendAetherShieldsForPlayer(playerId: string): void {
+    this.aetherShieldTicker.sendTo(playerId, this.now());
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {

@@ -13,7 +13,7 @@
 // shield).
 import type { DomainTileState } from "@border-empires/game-domain";
 import { OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, chebyshevWithWrap, wrapX, wrapY } from "@border-empires/shared";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ObservatoryDormancyCheck = (playerId: string, tileKey: string, field: "observatory") => boolean;
@@ -77,6 +77,28 @@ export const isTileShieldedByOwnersObservatory = (
     if (candidate?.ownerId !== ownerId || candidate.observatory?.ownerId !== ownerId) return false;
     return isShieldingTower(candidate);
   });
+};
+
+/**
+ * Same question as isTileShieldedByOwnersObservatory, answered from the
+ * owner's own active towers (the runtime's active-Observatory index) instead
+ * of a 41x41 scan -- for the once-a-second Siphon sweep.
+ */
+export const isTileShieldedByOwnersIndexedTowers = (
+  tiles: ReadonlyMap<string, DomainTileState>,
+  ownerTowerKeys: Iterable<string>,
+  isShieldingTower: (tower: DomainTileState) => boolean,
+  ownerId: string,
+  x: number,
+  y: number
+): boolean => {
+  if (tiles.get(simulationTileKey(x, y))?.ownerId !== ownerId) return false;
+  for (const towerKey of ownerTowerKeys) {
+    const tower = tiles.get(towerKey);
+    if (!tower || tower.ownerId !== ownerId || tower.observatory?.ownerId !== ownerId) continue;
+    if (chebyshevWithWrap(tower.x, tower.y, x, y) <= OBSERVATORY_PROTECTION_RADIUS && isShieldingTower(tower)) return true;
+  }
+  return false;
 };
 
 /** A ready tower; `dormant` when unpowered, in which case it blocks Siphon only. */

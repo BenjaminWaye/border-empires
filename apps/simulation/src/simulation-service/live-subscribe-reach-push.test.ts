@@ -7,18 +7,18 @@ const noopLog = { error: () => {} };
 const liveOptions = { trigger: "gateway_live_subscribe", subscriptionKey: "key-1" };
 
 describe("registerSubscribeAndMaybePushReach", () => {
-  it("registers the subscription before pushing reach, so the socket is attached", () => {
+  it("registers the subscription before pushing reach and Aether shields, so the socket is attached", () => {
     const order: string[] = [];
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => order.push("subscribe") },
-      { resendReachForPlayer: () => order.push("reach") },
+      { resendReachForPlayer: () => order.push("reach"), resendAetherShieldsForPlayer: () => order.push("aether") },
       "player-1",
       liveOptions,
       noopLog
     );
 
-    expect(order).toEqual(["subscribe", "reach"]);
+    expect(order).toEqual(["subscribe", "reach", "aether"]);
   });
 
   it("passes the subscription key through to the registry", () => {
@@ -26,7 +26,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: (playerId, key) => seen.push([playerId, key]) },
-      { resendReachForPlayer: () => {} },
+      { resendReachForPlayer: () => {}, resendAetherShieldsForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog
@@ -35,14 +35,15 @@ describe("registerSubscribeAndMaybePushReach", () => {
     expect(seen).toEqual([["player-1", "key-1"]]);
   });
 
-  it("keeps the subscription alive when the reach push throws", () => {
+  it("keeps the subscription alive, and still pushes Aether shields, when the reach push throws", () => {
     const errors: Array<Record<string, unknown>> = [];
     let subscribed = false;
+    let shieldsPushed = false;
 
     expect(() =>
       registerSubscribeAndMaybePushReach(
         { subscribe: () => { subscribed = true; } },
-        { resendReachForPlayer: () => { throw new Error("boom"); } },
+        { resendReachForPlayer: () => { throw new Error("boom"); }, resendAetherShieldsForPlayer: () => { shieldsPushed = true; } },
         "player-1",
         { trigger: "gateway_live_subscribe" },
         { error: (payload) => errors.push(payload) }
@@ -50,6 +51,21 @@ describe("registerSubscribeAndMaybePushReach", () => {
     ).not.toThrow();
 
     expect(subscribed).toBe(true);
+    expect(shieldsPushed).toBe(true);
+    expect(errors).toHaveLength(1);
+  });
+
+  it("keeps the subscription alive when the Aether shields push throws", () => {
+    const errors: Array<Record<string, unknown>> = [];
+    expect(() =>
+      registerSubscribeAndMaybePushReach(
+        { subscribe: () => {} },
+        { resendReachForPlayer: () => {}, resendAetherShieldsForPlayer: () => { throw new Error("boom"); } },
+        "player-1",
+        { trigger: "gateway_live_subscribe" },
+        { error: (payload) => errors.push(payload) }
+      )
+    ).not.toThrow();
     expect(errors).toHaveLength(1);
   });
 
@@ -58,7 +74,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach") },
+      { resendReachForPlayer: () => calls.push("reach"), resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { mode: "bootstrap-only", trigger: "gateway_live_subscribe" },
       noopLog
@@ -80,7 +96,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
 
     registerSubscribeAndMaybePushReach(
       { subscribe: () => calls.push("subscribe") },
-      { resendReachForPlayer: () => calls.push("reach") },
+      { resendReachForPlayer: () => calls.push("reach"), resendAetherShieldsForPlayer: () => calls.push("aether") },
       "player-1",
       { trigger: "gateway_fog_refresh", subscriptionKey: "key-2" },
       noopLog
@@ -133,7 +149,7 @@ describe("registerSubscribeAndMaybePushReach", () => {
       { resendReachForPlayer: (playerId) => {
         markReachForResend(state, playerId);
         flushReachUpdates(state, context, "cmd-live-subscribe");
-      } },
+      }, resendAetherShieldsForPlayer: () => {} },
       "player-1",
       liveOptions,
       noopLog

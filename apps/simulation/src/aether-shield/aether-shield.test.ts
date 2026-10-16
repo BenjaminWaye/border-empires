@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { OBSERVATORY_PROTECTION_RADIUS } from "@border-empires/game-domain";
-import { WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
-import { collectReadyTowers, isObservatoryBlockingSiphon, isObservatoryShielding, isTileShieldedByOwnersObservatory, type ShieldingTower } from "./aether-shield.js";
-import { AETHER_SHIELDS_REFRESH_MS, AetherShieldBroadcaster, indexTowersByShieldedKey, shieldingTowersVisibleTo, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
+import { collectReadyTowers, isObservatoryBlockingSiphon, isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory, type ShieldingTower } from "./aether-shield.js";
+import { AetherShieldBroadcaster, TowerCoverageGrid, VISIBLE_TILE_BUDGET_PER_TICK, shieldingTowersVisibleTo, tileIndexFromKey, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
 const NOW = 50_000;
 const key = (x: number, y: number): string => `${x},${y}`;
@@ -41,6 +41,9 @@ describe("isTileShieldedByOwnersObservatory", () => {
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "a", r + 1, 10)).toBe(false);
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "b", 3, 10)).toBe(false);
     expect(isTileShieldedByOwnersObservatory(tiles, shielding, "a", 4, 10)).toBe(false);
+    // The index-driven variant agrees.
+    const indexed = (owner: string, x: number): boolean => isTileShieldedByOwnersIndexedTowers(tiles, [key(0, 10)], shielding, owner, x, 10);
+    expect([indexed("a", WORLD_WIDTH - r), indexed("a", r + 1), indexed("b", 3), indexed("a", 4)]).toEqual([true, false, false, false]);
   });
 });
 
@@ -54,20 +57,49 @@ describe("collectReadyTowers", () => {
 
 describe("AETHER_SHIELDS broadcast", () => {
   const enemyTower: ShieldingTower = { x: 10, y: 10, ownerId: "enemy" };
-  const tiles = tileMap([tower(10, 10, "enemy"), land(12, 10, "enemy"), land(40, 40, "viewer")]);
+  const tiles = tileMap([tower(10, 10, "enemy"), land(12, 10, "enemy"), land(14, 10, "third"), land(40, 40, "viewer")]);
+  const sees = (visible: string[]) => (_viewer: string, visit: (tileKey: string) => void): void => visible.forEach(visit);
 
   it("sends a tower only to viewers who can see land it shields, never their own", () => {
-    const index = indexTowersByShieldedKey(tiles, [enemyTower]);
-    expect([...index.keys()].sort()).toEqual([key(10, 10), key(12, 10)]);
-    const sees = (visible: string[]) => (_viewer: string, visit: (tileKey: string) => void): void => visible.forEach(visit);
+    const grid = new TowerCoverageGrid();
+    grid.rebuild([enemyTower]);
+    const visibleTo = (viewer: string, visible: string[], fullVision = false): ShieldingTower[] =>
+      shieldingTowersVisibleTo(viewer, grid, tiles, sees(visible), fullVision).towers;
     // The tower tile itself hidden in fog, its land in view: still sent.
-    expect(shieldingTowersVisibleTo("viewer", [enemyTower], index, sees([key(12, 10)]), false)).toEqual([enemyTower]);
-    expect(shieldingTowersVisibleTo("viewer", [enemyTower], index, sees([key(40, 40)]), false)).toEqual([]);
-    expect(shieldingTowersVisibleTo("viewer", [enemyTower], index, sees([]), true)).toEqual([enemyTower]);
-    expect(shieldingTowersVisibleTo("enemy", [enemyTower], index, sees([key(12, 10)]), true)).toEqual([]);
+    expect(visibleTo("viewer", [key(12, 10)])).toEqual([enemyTower]);
+    // Someone else's land inside the square doesn't count -- the tower doesn't shield it.
+    expect(visibleTo("viewer", [key(14, 10)])).toEqual([]);
+    expect(visibleTo("viewer", [key(40, 40)])).toEqual([]);
+    expect(visibleTo("viewer", [], true)).toEqual([enemyTower]);
+    expect(visibleTo("enemy", [key(12, 10)], true)).toEqual([]);
+    expect(shieldingTowersVisibleTo("viewer", grid, tiles, sees([key(12, 10), key(40, 40)]), false).visitedTiles).toBe(2);
   });
 
-  it("only re-sends when a player's list changes, refreshes slowly, and forgets offline players", () => {
+  it("coverage grid wraps across the world seams and clears old stamps on rebuild", () => {
+    const grid = new TowerCoverageGrid();
+    const r = OBSERVATORY_PROTECTION_RADIUS;
+    const seam: ShieldingTower = { x: 0, y: 0, ownerId: "a" };
+    grid.rebuild([seam]);
+    const covering = (x: number, y: number): ShieldingTower[] => {
+      const out: ShieldingTower[] = [];
+      grid.forEachCovering(tileIndexFromKey(key(x, y)), (t) => out.push(t));
+      return out;
+    };
+    expect(covering(WORLD_WIDTH - r, 0)).toEqual([seam]);
+    expect(covering(WORLD_WIDTH - r - 1, 0)).toEqual([]);
+    const moved: ShieldingTower = { x: 100, y: 100, ownerId: "a" };
+    grid.rebuild([moved]);
+    expect(covering(0, 0)).toEqual([]);
+    expect(covering(100 + r, 100 - r)).toEqual([moved]);
+  });
+
+  it("parses tile keys to world indices, rejecting malformed or out-of-world ones", () => {
+    expect(tileIndexFromKey("12,3")).toBe(3 * WORLD_WIDTH + 12);
+    expect(tileIndexFromKey("0,0")).toBe(0);
+    for (const bad of ["", ",", "1,", ",1", "a,1", "1,b", "-1,2", `${WORLD_WIDTH},0`, `0,${WORLD_HEIGHT}`]) expect(tileIndexFromKey(bad)).toBe(-1);
+  });
+
+  it("only sends when a player's list changes, pushes on demand for a fresh subscribe, and forgets offline players", () => {
     const sent: Array<{ playerId: string; payload: AetherShieldsPayload }> = [];
     let online = ["viewer"];
     let towers: ShieldingTower[] = [enemyTower];
@@ -75,19 +107,43 @@ describe("AETHER_SHIELDS broadcast", () => {
       tiles,
       viewerIds: () => online,
       shieldingTowers: () => [...towers],
-      forEachVisibleKey: (_viewer, visit) => visit(key(12, 10)),
+      forEachVisibleKey: sees([key(12, 10)]),
       hasFullVision: () => false,
       emitPlayerMessage: (command, payload) => sent.push({ playerId: command.playerId, payload })
     });
-    expect(broadcaster.tick(NOW)).toBe(1);
+    expect(broadcaster.tick()).toBe(1);
     expect(sent[0]).toEqual({ playerId: "viewer", payload: { type: "AETHER_SHIELDS", towers: [enemyTower] } });
-    expect(broadcaster.tick(NOW + 3_000)).toBe(0);
+    expect(broadcaster.tick()).toBe(0); // unchanged stays silent: no periodic refresh
+    broadcaster.sendTo("viewer"); // a fresh live subscribe gets it anyway
+    expect(sent).toHaveLength(2);
     towers = []; // tower went on cooldown
-    expect(broadcaster.tick(NOW + 6_000)).toBe(1);
-    expect(sent[1]?.payload.towers).toEqual([]);
-    expect(broadcaster.tick(NOW + 6_000 + AETHER_SHIELDS_REFRESH_MS)).toBe(1);
+    expect(broadcaster.tick()).toBe(1);
+    expect(sent[2]?.payload.towers).toEqual([]);
     online = [];
-    broadcaster.tick(NOW + 7_000 + AETHER_SHIELDS_REFRESH_MS);
+    broadcaster.tick();
     expect(broadcaster.size()).toBe(0);
+  });
+
+  it("caps the visible tiles walked per tick, carrying the rest of the viewers round-robin to the next tick", () => {
+    const viewers = ["a", "b", "c"];
+    const walked: string[] = [];
+    const bigVision = Array.from({ length: VISIBLE_TILE_BUDGET_PER_TICK }, (_, i) => `${i % 600},${Math.floor(i / 600)}`);
+    const broadcaster = new AetherShieldBroadcaster({
+      tiles,
+      viewerIds: () => viewers,
+      shieldingTowers: () => [enemyTower],
+      forEachVisibleKey: (viewer, visit) => {
+        walked.push(viewer);
+        bigVision.forEach(visit);
+      },
+      hasFullVision: () => false,
+      emitPlayerMessage: () => {}
+    });
+    broadcaster.tick();
+    expect(walked).toEqual(["a"]);
+    broadcaster.tick();
+    broadcaster.tick();
+    broadcaster.tick();
+    expect(walked).toEqual(["a", "b", "c", "a"]);
   });
 });

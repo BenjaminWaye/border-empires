@@ -2521,7 +2521,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       watchtowerRevealTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
-        runtime.tickAetherShields(Date.now()); // throttled to every few seconds inside -- aether-shield/aether-shield-tick.ts
+        runtime.tickAetherShields(Date.now()); // bounded per-tick work inside -- aether-shield/aether-shield-tick.ts
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {

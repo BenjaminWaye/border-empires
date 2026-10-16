@@ -40,7 +40,7 @@
  * already subscribed (a second tab/device, or a reconnect before the old socket
  * is reaped), so no push fires here for that login. The gateway covers that
  * case itself by replaying the latest REACH_UPDATE it relayed
- * (apps/realtime-gateway/src/reach-update-replay/reach-update-replay.ts).
+ * (apps/realtime-gateway/src/player-message-replay/player-message-replay.ts).
  *
  * `registerSubscribeAndMaybePushReach` is scoped to the gateway's actual
  * connect subscribe (`trigger: "gateway_live_subscribe"`) internally, not
@@ -69,9 +69,10 @@ export type LiveSubscribeRegistry = {
   subscribe: (playerId: string, subscriptionKey?: string) => void;
 };
 
-/** The runtime capability this module needs: force a reach re-push. */
+/** The runtime capabilities this module needs: force a reach / Aether shield re-push. */
 export type LiveSubscribeReachRuntime = {
   resendReachForPlayer: (playerId: string) => void;
+  resendAetherShieldsForPlayer: (playerId: string) => void;
 };
 
 export type LiveSubscribeReachLog = {
@@ -112,5 +113,12 @@ export const registerSubscribeAndMaybePushReach = (
     runtime.resendReachForPlayer(playerId);
   } catch (error) {
     log.error({ err: error, playerId }, "live subscribe reach push failed");
+  }
+  // Same delivery problem and fix for AETHER_SHIELDS (aether-shield-broadcast.ts):
+  // it is change-driven, so a connect needs its own push of the current list.
+  try {
+    runtime.resendAetherShieldsForPlayer(playerId);
+  } catch (error) {
+    log.error({ err: error, playerId }, "live subscribe aether shields push failed");
   }
 };
