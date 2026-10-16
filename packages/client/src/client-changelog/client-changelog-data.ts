@@ -441,12 +441,53 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["The coldest polar ground now renders as white snow in 3D, matching the 2D map"]
   },
   {
+    createdAt: 1792044983124, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Trade screen for truces and alliances",
+    why: "Offering a truce was a single button with no way to sweeten the deal or know how it would land.",
+    changes: [
+      "Offering a truce or alliance opens a trade screen: add coin or Shards you give or ask for, and see the empire's mood toward you",
+      "Against AI empires the screen shows live whether they would accept, and how much more coin they want",
+      "AI empires remember how you treat them: taking their land, attacking, breaking truces and paying them all shift their attitude, shown on the trade screen",
+      "Truce prices depend on whether you're at war and who is winning; AIs won't talk peace right after you attack, and charge more each time you buy peace",
+      "Alliances need an AI that likes you and would be the largest empire in the alliance (Diplomatic Dominance goes to the largest member); AIs never pay to join one",
+      "An AI gives 24h notice to leave an alliance once a partner grows larger than it",
+      "AI empires counter-offer with a price you can actually pay, or tell you their price is more than you can offer",
+      "Coin and Shards change hands only when the deal is accepted, and the deal falls through if either side can no longer pay",
+      "Pending offers show their terms in the Alliances panel"
+    ]
+  },
+  {
     createdAt: 1792042002455, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.15.1",
     title: "War music stops when your flag has nothing to fight",
     why: "An advancing muster flag on a border with a truce partner kept battle music playing even though it could not attack.",
     changes: [
       "Advance and March flags with no target in range no longer keep battle music playing"
+    ]
+  },
+  {
+    createdAt: 1792062991009, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.15.1",
+    title: "Captured tiles can't be taken straight back",
+    why: "A freshly captured dock or town lands as frontier, and frontier had no defense, so the old owner could retake it for free and captures just went back and forth.",
+    changes: [
+      "For 1 minute after you capture a tile from another player, your troops stay standing on it and it defends like ordinary ground, so retaking it is a real fight",
+      "If it is attacked during that minute, those troops are the defenders in the battle; time to garrison it is what the minute is for",
+      "The tile menu shows a Holding captured ground countdown, and in 2D the holding troops are drawn on the tile with a bar for the time left"
+    ]
+  },
+  {
+    createdAt: 1792107390391, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.16.1",
+    title: "Fairer AI deals",
+    why: "A few gaps in the new trade screen let deals go wrong: a slow payment could take your coin without the deal, and an AI's old counter-offer could be accepted after you'd attacked it.",
+    changes: [
+      "If a deal's payment goes through after it was reported as failed, the coin and Shards are paid straight back",
+      "An AI checks its counter-offer again when you accept it, and withdraws it if you've attacked it since or its price has gone up",
+      "An AI that is outmatched but taking your land no longer pays you for peace; it charges for it instead",
+      "An AI that can't yet tell how big its alliance would be declines for now instead of guessing",
+      "The trade screen keeps your coin, the verdict and the top-up suggestion up to date while it's open"
     ]
   },
 ];

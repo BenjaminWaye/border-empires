@@ -2,6 +2,8 @@
 // keep that file under the repo's 500-line cap. No state lives here — these
 // are just the shapes createSocialState operates on plus small pure helpers
 // shared by its request/truce lookups.
+import type { DiplomacyTerms } from "@border-empires/shared";
+
 import type { SocialOfferCooldown, SocialOfferKind } from "./social-offer-cooldowns.js";
 
 export type SocialAllianceRequest = {
@@ -11,6 +13,8 @@ export type SocialAllianceRequest = {
   createdAt: number;
   fromName?: string;
   toName?: string;
+  /** Coin/Shards the deal moves, from the proposer's side; settled in the simulation on accept. */
+  terms?: DiplomacyTerms;
 };
 
 export type SocialTruceRequest = {
@@ -22,6 +26,7 @@ export type SocialTruceRequest = {
   durationHours: 12 | 24;
   fromName?: string;
   toName?: string;
+  terms?: DiplomacyTerms;
 };
 
 export type SocialActiveTruce = {
@@ -158,20 +163,44 @@ export type SocialRejectOptions = {
   startCooldown?: boolean;
 };
 
+export type SocialOfferOptions = {
+  terms?: DiplomacyTerms;
+  /** Address the target by id instead of display name (e.g. an AI's counter-offer back to the requester). */
+  targetPlayerId?: string;
+};
+
+export type SocialPendingOffer =
+  | { kind: "truce"; request: SocialTruceRequest }
+  | { kind: "alliance"; request: SocialAllianceRequest };
+
 export type SocialState = {
   registerPlayer: (playerId: string, name: string) => void;
   renamePlayer: (playerId: string, name: string) => void;
   snapshotForPlayer: (playerId: string) => SocialSnapshot;
   syncPlayers: (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>) => SocialSyncResult;
-  requestAlliance: (fromPlayerId: string, targetPlayerName: string) => SocialActionResult;
+  requestAlliance: (fromPlayerId: string, targetPlayerName: string, options?: SocialOfferOptions) => SocialActionResult;
   /** announcementByPlayerId replaces the default (none) for an accept. */
   acceptAlliance: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectAlliance: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;
   cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  breakAlliance: (playerId: string, targetPlayerId: string) => SocialActionResult;
+  /** announcementByPlayerId replaces the default break-notice wording (e.g. an AI explaining why it leaves). */
+  breakAlliance: (playerId: string, targetPlayerId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
   finalizeExpiredAllianceBreaks: (pairs?: Array<[string, string]>) => { expiredBreaks: SocialExpiredAllianceBreak[]; payloadsByPlayerId: Map<string, unknown[]> };
-  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24) => SocialActionResult;
+  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24, options?: SocialOfferOptions) => SocialActionResult;
+  /**
+   * Locks an incoming offer that carries terms while the simulation moves
+   * the coin/Shards: cancel/reject/expiry leave it alone until endSettlement,
+   * so the payment can never land without the agreement it paid for.
+   */
+  beginSettlement: (
+    kind: "truce" | "alliance",
+    playerId: string,
+    requestId: string
+  ) => { ok: true; offer: SocialPendingOffer } | { ok: false; code: string; message: string };
+  endSettlement: (requestId: string) => void;
+  resolvePlayerByName: (playerName: string) => { id: string; name: string } | undefined;
+  playerNameOf: (playerId: string) => string;
   /** announcementByPlayerId replaces the default "X and Y agreed to a truce." */
   acceptTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
   rejectTruce: (playerId: string, requestId: string, options?: SocialRejectOptions) => SocialActionResult;

@@ -1,4 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import { isUndefendedFrontierTile } from "@border-empires/shared";
 
 import type { SettlementCandidateEvaluation } from "./ai-settlement-priority.js";
 import { evaluateSettlementCandidate } from "./ai-settlement-priority.js";
@@ -40,6 +41,8 @@ export interface ReachLookup {
 }
 
 type FrontierAffordability = {
+  /** Clock for the capture-hold check; defaults to Date.now(). */
+  nowMs?: number;
   canAttack?: boolean;
   canExpand?: boolean;
   needsFood?: boolean;
@@ -130,6 +133,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const expansionObjective = affordability.expansionObjective;
   const emitTiming = affordability.onAnalyzeTiming;
   const preferFogEfficientExpansion = affordability.preferFogEfficientExpansion ?? false;
+  const nowMs = affordability.nowMs ?? Date.now();
   const iterStartedAt = performance.now();
   const originCandidateKeyCache = new Map<string, string[]>();
   const cachedCandidateKeysForOrigin = (from: PlannerTile): string[] => {
@@ -229,7 +233,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
             emitTiming?.("analyze_neighbor_lookups", neighborMs);
             const result =
               strategicFrontierTargetScore(target, needsFood) +
-              (target.ownershipState === "FRONTIER" ? 120 : 0) +
+              // Only undefended frontier is a free capture; a capture-held tile rolls real combat.
+              (isUndefendedFrontierTile(target, nowMs) ? 120 : 0) +
               neighborOwned * 95 +
               neighborCoastline * 0.35;
             const scoreMs = performance.now() - scoreStartedAt;

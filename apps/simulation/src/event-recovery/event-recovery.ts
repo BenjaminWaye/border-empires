@@ -24,6 +24,7 @@ type RecoveredTileState = {
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
   frontierDecayKind?: DomainTileState["frontierDecayKind"];
+  captureHoldUntil?: DomainTileState["captureHoldUntil"];
   town?: DomainTileState["town"];
   // Phase 3 (dormant): Phase 4 will start writing this unified field. Accepted
   // here so post-Phase-4 snapshots can be loaded by a Phase-3-era binary without
@@ -85,6 +86,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays from the shared table: this list was once hand-written with no
   // muster line, so every restart dropped every active muster flag.
@@ -159,6 +161,13 @@ const applyTileDeltaToRecoveredAccumulator = (
         : {}
       : existing?.frontierDecayKind
         ? { frontierDecayKind: existing.frontierDecayKind }
+        : {}),
+    ...("captureHoldUntil" in tileDelta
+      ? typeof tileDelta.captureHoldUntil === "number"
+        ? { captureHoldUntil: tileDelta.captureHoldUntil }
+        : {}
+      : typeof existing?.captureHoldUntil === "number"
+        ? { captureHoldUntil: existing.captureHoldUntil }
         : {}),
     ...(recoveredTown ? { town: recoveredTown } : {}),
     ...recoverOverlaySubstructures(tileDelta, existing)

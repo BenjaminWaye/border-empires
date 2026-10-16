@@ -40,6 +40,24 @@ describe("attackPreviewResult", () => {
     expect(preview.atkMult).toBe(1);
   });
 
+  it("previews real defense on a freshly captured FRONTIER tile still holding ground, and zero once the hold expires", async () => {
+    const tileWith = (captureHoldUntil: number) => [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "FRONTIER", dockId: "dock-1", captureHoldUntil },
+      ...warIndustryTiles("player-1"),
+      ...warIndustryTiles("player-2")
+    ];
+    const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+
+    const held = await attackPreviewResult("player-1", tileWith(Date.now() + 60_000), undefined, message, [], []);
+    const expired = await attackPreviewResult("player-1", tileWith(Date.now() - 1), undefined, message, [], []);
+
+    expect(held.defMult).toBeGreaterThan(0);
+    expect(held.winChance as number).toBeLessThan(1);
+    expect(expired.defMult).toBe(0);
+    expect(expired.winChance).toBe(1);
+  });
+
   it("applies the target's active fort defense bonus", async () => {
     const fortJson = JSON.stringify({ ownerId: "player-2", status: "active", variant: "FORT" });
     const tilesWithFort = [

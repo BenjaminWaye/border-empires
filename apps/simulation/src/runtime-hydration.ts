@@ -163,6 +163,7 @@ const createTilesFromInitialStateUncleared = (
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
       ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+      ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
       ...(hydratedTown ? { town: hydratedTown } : {}),
       ...(tile.fort ? { fort: tile.fort } : {}),
       ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -215,7 +216,8 @@ const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCo
     if (parsed.result) return {
       result: parsed.result,
       defenderGoldLoss: typeof parsed.defenderGoldLoss === "number" ? parsed.defenderGoldLoss : 0,
-      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true
+      targetRecentlyPillaged: parsed.targetRecentlyPillaged === true,
+      ...(parsed.defendedFrontier === true ? { defendedFrontier: true } : {})
     };
     return parsed as LockedCombatResolution | undefined;
   } catch {
@@ -274,7 +276,7 @@ export const hydrateCommandHistory = ({
   if (!recoveredCommandHistory) return;
 
   for (const command of recoveredCommandHistory.commands) {
-    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE") continue;
+    if (command.type === "SYNC_ALLIANCE" || command.type === "SYNC_TRUCE" || command.type === "SETTLE_DIPLOMACY_TERMS") continue;
     commandIdsByPlayerSeq.set(`${command.playerId}:${command.clientSeq}`, command.commandId);
   }
   for (const [commandId, events] of recoveredCommandHistory.eventsByCommandId.entries()) {

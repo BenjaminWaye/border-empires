@@ -1,5 +1,6 @@
 import { clearForestAroundAfcTile, clearForestOnTownOrDockTile, type FrontierDecayKind, type ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
+import { noteCaptureHoldDeadline } from "../client-capture-hold/client-capture-hold.js";
 import type { Tile } from "../client-types.js";
 
 /**
@@ -45,6 +46,7 @@ export type CommonTileFieldsUpdate = {
   reachOwnerId?: string | null | undefined;
   frontierDecayAt?: number | null | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | null | undefined;
+  captureHoldUntil?: number | null | undefined;
   shardSite?: Tile["shardSite"];
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
@@ -94,6 +96,11 @@ export const applyCommonTileFields = (
   if ("frontierDecayKind" in normalizedUpdate) {
     if (normalizedUpdate.frontierDecayKind) merged.frontierDecayKind = normalizedUpdate.frontierDecayKind;
     else delete merged.frontierDecayKind;
+  }
+  if ("captureHoldUntil" in normalizedUpdate) {
+    if (typeof normalizedUpdate.captureHoldUntil === "number") merged.captureHoldUntil = normalizedUpdate.captureHoldUntil;
+    else delete merged.captureHoldUntil;
+    noteCaptureHoldDeadline(keyForTile(merged.x, merged.y), merged.captureHoldUntil);
   }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
 

@@ -25,6 +25,7 @@ export const jsonSafeTileDeltaBatch = (
       ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
       ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
       ...("breachShockUntil" in tileDelta && tileDelta.breachShockUntil === undefined ? { breachShockUntil: null } : {}),
+      ...("captureHoldUntil" in tileDelta && tileDelta.captureHoldUntil === undefined ? { captureHoldUntil: null } : {}),
       ...("townJson" in tileDelta && tileDelta.townJson === undefined ? { townJson: "" } : {}),
       ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
     };

@@ -9,6 +9,7 @@ import { createPopupBlockedCheck, type PopupGateState } from "../client-map-unob
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { setTextWithResourceIcons } from "../client-resource-icons/client-resource-icons.js";
+import { frontierAttackIsUndefended } from "../client-capture-hold/client-capture-hold.js";
 
 // Capped just *below* `required`, never at or above it: promotion out of
 // pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
@@ -145,7 +146,7 @@ export const renderCaptureProgress = (
     // reason. The claim-plate/expand-style animation it gets instead
     // (client-map-3d-frontier-claim-plates.ts) is already timed to
     // resolvesAt, same as this progress bar.
-    const targetIsKnownFrontier = state.tiles.get(captureTargetKey)?.ownershipState === "FRONTIER";
+    const targetIsKnownFrontier = frontierAttackIsUndefended(state.tiles.get(captureTargetKey), state.capture.combatSnapshot?.winChance);
     const activeBattle = state.activeBattles.get(captureTargetKey);
     const battleFxDoneAt = activeBattle
       ? activeBattle.endAt

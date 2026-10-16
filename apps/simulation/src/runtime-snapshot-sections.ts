@@ -38,6 +38,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
+  ...(typeof tile.captureHoldUntil === "number" ? { captureHoldUntil: tile.captureHoldUntil } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   // Overlays come from the one shared key list: AFCs were once missing here,
   // so they were never saved and every restart re-placed them elsewhere.

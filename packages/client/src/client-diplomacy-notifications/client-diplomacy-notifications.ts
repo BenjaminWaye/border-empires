@@ -1,3 +1,5 @@
+import { describeDiplomacyTermsForRecipient } from "@border-empires/shared";
+
 import { storageGet, storageSet } from "../client-state/client-state.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ActiveAllianceBreakView, AllianceRequest, RecentAllianceBreakView, TruceRequest } from "../client-types.js";
@@ -12,11 +14,17 @@ type DiplomacyNotificationDeps = {
 const senderName = (request: { fromName?: string; fromPlayerId: string }): string =>
   request.fromName?.trim() || request.fromPlayerId.slice(0, 8);
 
+// " (Milo pays 50 coin; you pay 2 Shards)" when the offer carries terms.
+const termsSuffix = (request: AllianceRequest | TruceRequest): string => {
+  const terms = describeDiplomacyTermsForRecipient(request.terms, senderName(request));
+  return terms ? ` (${terms})` : "";
+};
+
 const allianceDetail = (request: AllianceRequest): string =>
-  `${senderName(request)} sent an alliance request. Open Alliances to accept or reject.`;
+  `${senderName(request)} sent an alliance request${termsSuffix(request)}. Open Alliances to accept or reject.`;
 
 const truceDetail = (request: TruceRequest): string =>
-  `${senderName(request)} offered a ${request.durationHours}h truce. Open Alliances to accept or reject.`;
+  `${senderName(request)} offered a ${request.durationHours}h truce${termsSuffix(request)}. Open Alliances to accept or reject.`;
 
 const STORAGE_KEY = (playerId: string): string => `be:diplomacy:notified:${playerId}`;
 const MAX_STORED = 500;

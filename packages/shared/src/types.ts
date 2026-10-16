@@ -27,6 +27,7 @@ export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
 export type TownType = "MARKET" | "FARMING";
 export type { EmpireVisualTint, EmpireBorderStyle, EmpireStructureAccent } from "./empire-cosmetics-types.js";
 import type { TownWireSummary } from "./town-wire-summary.js";
+import type { DiplomacyTerms } from "./diplomacy-terms/diplomacy-terms.js";
 export type { TownWireSummary } from "./town-wire-summary.js";
 export type { NaturalWonderType, NaturalWonderState } from "./natural-wonder-types.js";
 import type { ConverterMode, EconomicStructure } from "./economic-structure.js";
@@ -165,6 +166,7 @@ export interface TruceRequest {
   durationHours: 12 | 24;
   fromName?: string;
   toName?: string;
+  terms?: DiplomacyTerms;
 }
 
 export interface ActiveTruceView {
@@ -236,6 +238,8 @@ export interface Tile {
   ownershipState?: OwnershipState;
   capital?: boolean | undefined;
   breachShockUntil?: number;
+  // Post-capture hold window end (capture-hold.ts) -- FRONTIER only.
+  captureHoldUntil?: number;
   frontierDecayAt?: number;
   frontierDecayKind?: FrontierDecayKind;
   continentId?: number;

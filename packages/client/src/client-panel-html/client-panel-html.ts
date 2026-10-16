@@ -1,4 +1,5 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
+import { diplomacyTermsLineHtml } from "../client-diplomacy-trade/client-diplomacy-terms-html.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
 import { resourceGlyphsToIconHtml, resourceIconHtml } from "../client-resource-icons/client-resource-icons.js";
@@ -186,7 +187,7 @@ export const allianceRequestsHtml = (
           <div class="alliance-reference-time">${ageLabel}</div>
         </div>
       </div>
-      ${socialMetaLineHtml(sentBy, waitingOn)}
+      ${socialMetaLineHtml(sentBy, waitingOn)}${diplomacyTermsLineHtml(request.terms, kind, playerName)}
       ${
         kind === "incoming"
           ? `<div class="alliance-reference-actions">
@@ -272,7 +273,7 @@ export const truceRequestsHtml = (
           <div class="alliance-reference-duration-note">duration</div>
         </div>
       </div>
-      ${socialMetaLineHtml(sentBy, waitingOn)}
+      ${socialMetaLineHtml(sentBy, waitingOn)}${diplomacyTermsLineHtml(request.terms, kind, playerName)}
       ${
         kind === "incoming"
           ? `<div class="alliance-reference-actions">

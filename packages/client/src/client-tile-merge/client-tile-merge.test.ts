@@ -151,3 +151,17 @@ describe("applyCommonTileFields AFC forest clearing", () => {
     resetForestClearings();
   });
 });
+
+describe("applyCommonTileFields — captureHoldUntil", () => {
+  it("sets the capture-hold deadline and clears it on an explicit null", () => {
+    const held = applyCommonTileFields(baseTile, { ...baseTile }, { captureHoldUntil: 123_456 }, {});
+    expect(held.captureHoldUntil).toBe(123_456);
+    const cleared = applyCommonTileFields(held, { ...held }, { captureHoldUntil: null }, {});
+    expect(cleared.captureHoldUntil).toBeUndefined();
+  });
+
+  it("keeps the existing deadline when the update omits it", () => {
+    const held = { ...baseTile, captureHoldUntil: 123_456 };
+    expect(applyCommonTileFields(held, { ...held }, {}, {}).captureHoldUntil).toBe(123_456);
+  });
+});
