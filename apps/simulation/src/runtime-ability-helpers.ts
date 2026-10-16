@@ -16,7 +16,7 @@ import {
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { isObservatoryShielding, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
+import { isObservatoryShielding, isTileShieldedByOwnersIndexedTowers, isTileShieldedByOwnersObservatory } from "./aether-shield/aether-shield.js";
 import type { ActiveAetherBridgeView, ActiveAetherWallView, AetherWallDirection, StrategicResourceKey } from "./runtime-types.js";
 
 export function revealCapacityForPlayer(player: DomainPlayer, revealTargetCount: number): number {
@@ -137,14 +137,20 @@ export function isTileShieldedByEnemyObservatory(
   actorId: string,
   targetX: number,
   targetY: number,
-  now: number
+  now: number,
+  // The runtime's active-Observatory index, when the caller has it: the
+  // owner's few towers instead of a 41x41 scan of the target's surroundings.
+  activeTowerKeysForOwner?: (ownerId: string) => Iterable<string>
 ): boolean {
   // Protects only the tower OWNER's tiles: unowned land, the actor's own land
   // and a third player's land near someone else's tower are never shielded.
   // Reads full world state, so a tower the actor can't see still blocks.
   const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
   if (!targetOwnerId || targetOwnerId === actorId) return false;
-  return isTileShieldedByOwnersObservatory(tiles, (tower) => isObservatoryShielding(tower, now, isStructureDormant), targetOwnerId, targetX, targetY);
+  const shielding = (tower: DomainTileState): boolean => isObservatoryShielding(tower, now, isStructureDormant);
+  return activeTowerKeysForOwner
+    ? isTileShieldedByOwnersIndexedTowers(tiles, activeTowerKeysForOwner(targetOwnerId), shielding, targetOwnerId, targetX, targetY)
+    : isTileShieldedByOwnersObservatory(tiles, shielding, targetOwnerId, targetX, targetY);
 }
 
 export const AEGIS_LOCK_ACTIVE_UNTIL_KEY = "aegis_lock_active_until";

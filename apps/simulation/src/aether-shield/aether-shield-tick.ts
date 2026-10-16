@@ -9,7 +9,11 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { collectShieldingTowers, type ObservatoryDormancyCheck } from "./aether-shield.js";
 import { AetherShieldBroadcaster, type AetherShieldsPayload } from "./aether-shield-broadcast.js";
 
-export const AETHER_SHIELD_TICK_MIN_INTERVAL_MS = 1_000;
+// Under the 1s ticker period on purpose: the caller's Date.now() lands a
+// variable few ms into each interval callback (after the watchtower tick), so
+// consecutive runs can be measured as e.g. 996ms apart. A floor equal to the
+// period would then skip every such run and stretch the cadence to 2s.
+export const AETHER_SHIELD_TICK_MIN_INTERVAL_MS = 900;
 
 export type AetherShieldTickDeps = {
   readonly tiles: () => ReadonlyMap<string, DomainTileState>;

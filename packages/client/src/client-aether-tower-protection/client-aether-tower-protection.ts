@@ -83,6 +83,8 @@ type AetherProtectionFieldState = Pick<ClientState, "tiles" | "tilesRevision" | 
 // (computeCrystalTargets walks the whole tile cache) and the tile menu several
 // times per render. Keyed on everything the field reads, with the clock
 // rounded to the second, so a tower's cooldown ends at most a second late.
+// allies is compared by identity: the network handlers replace the array
+// wholesale (client-diplomacy-notifications.ts, client-network-init-message.ts).
 let fieldMemo: { key: readonly unknown[]; field: AetherProtectionField } | undefined;
 
 /**
@@ -93,7 +95,7 @@ let fieldMemo: { key: readonly unknown[]; field: AetherProtectionField } | undef
  * in fog and enemy dormancy -- and from visible towers before that.
  */
 export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: number): AetherProtectionField => {
-  const key = [state.tiles, state.tilesRevision, state.chunkFullCount, state.aetherShieldTowers, state.dormantStructures, state.me, state.allies.join(","), Math.floor(nowMs / 1000)];
+  const key = [state.tiles, state.tilesRevision, state.chunkFullCount, state.aetherShieldTowers, state.dormantStructures, state.me, state.allies, Math.floor(nowMs / 1000)];
   if (fieldMemo && fieldMemo.key.every((part, index) => part === key[index])) return fieldMemo.field;
   const dormantKeys = new Set(state.dormantStructures.map((entry) => entry.key));
   const serverTowers = state.aetherShieldTowers;
@@ -125,11 +127,19 @@ export const aetherProtectionField = (state: AetherProtectionFieldState, nowMs: 
   return field;
 };
 
+// The 3D rebuild-trigger check asks for this every frame while the field is
+// shown, but the field itself only changes about once a second (fieldMemo).
+const fieldKeyCache = new WeakMap<AetherProtectionField, string>();
+
 /** Stable snapshot of the field, so the 3D map can rebuild when a tower starts or stops protecting. */
 export const aetherProtectionFieldKey = (field: AetherProtectionField): string => {
+  const cached = fieldKeyCache.get(field);
+  if (cached !== undefined) return cached;
   const keys: string[] = [];
   for (const towers of field.values()) for (const tower of towers) keys.push(`${tower.x},${tower.y}:${tower.relation}`);
-  return keys.sort().join("|");
+  const key = keys.sort().join("|");
+  fieldKeyCache.set(field, key);
+  return key;
 };
 
 /** The tower (if any) shielding this tile -- only its owner's own towers count. */

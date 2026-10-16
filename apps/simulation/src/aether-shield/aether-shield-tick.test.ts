@@ -11,6 +11,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
 import type { RuntimePlayer } from "../runtime-types.js";
+import { createAetherShieldTicker } from "./aether-shield-tick.js";
 
 const VIEWER = "player-1";
 const ENEMY = "player-2";
@@ -61,5 +62,30 @@ describe("tickAetherShields", () => {
     expect(messages[0]?.towers).toEqual([{ x: 15, y: 1, ownerId: ENEMY }]);
     // Not subscribed: nothing pushed.
     expect(shieldMessages(seen, ENEMY)).toHaveLength(0);
+  });
+});
+
+describe("createAetherShieldTicker throttle", () => {
+  it("still runs when the 1s ticker's clock reading lands a few ms short of a full second", () => {
+    let sweeps = 0;
+    const ticker = createAetherShieldTicker({
+      tiles: () => new Map(),
+      activeObservatoriesByOwner: () => new Map(),
+      players: () => new Map(),
+      isPlayerSubscribed: () => false,
+      forEachVisibleKey: () => {},
+      hasFullVision: () => false,
+      isStructureDormant: () => false,
+      sweepShieldReturns: () => {
+        sweeps += 1;
+        return 0;
+      },
+      emitPlayerMessage: () => {}
+    });
+    ticker.tick(10_000);
+    ticker.tick(10_996); // next interval callback, read slightly early relative to the last one
+    expect(sweeps).toBe(2);
+    ticker.tick(11_100); // a burst of extra calls inside one second is still throttled
+    expect(sweeps).toBe(2);
   });
 });
