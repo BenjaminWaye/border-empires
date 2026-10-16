@@ -41,14 +41,14 @@ describe("SimulationRuntime — resource-slot cache self-heals on connect", () =
     // Populate the cache with the correct value first (2 FISH tiles x 2 slots each).
     const runtimeInternals = runtime as unknown as {
       resourceSlotSupplyForPlayer: (playerId: string) => { FOOD: number };
-      resourceSlotSupplyCacheByPlayer: Map<string, { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number }>;
+      economyCaches: { resourceSlotSupplyCacheByPlayer: Map<string, { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number }> };
       refreshResourceSlotCachesForPlayer: (playerId: string) => void;
     };
     expect(runtimeInternals.resourceSlotSupplyForPlayer("player-1").FOOD).toBe(4);
 
     // Simulate the class of bug this guards against: the cache holding a
     // wrong value with no tile change of the player's own to invalidate it.
-    runtimeInternals.resourceSlotSupplyCacheByPlayer.set("player-1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
+    runtimeInternals.economyCaches.resourceSlotSupplyCacheByPlayer.set("player-1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
     expect(runtimeInternals.resourceSlotSupplyForPlayer("player-1").FOOD).toBe(0);
 
     runtimeInternals.refreshResourceSlotCachesForPlayer("player-1");
