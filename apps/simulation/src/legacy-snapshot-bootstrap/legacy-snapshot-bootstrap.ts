@@ -291,10 +291,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       townCaptureShockUntilByTile,
       townGrowthShockUntilByTile
     });
-    const cap =
-      tier === "SETTLEMENT"
-        ? goldPerMinute * 60 * 8
-        : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
     tile.town = {
       ...(town.name ? { name: town.name } : {}),
       type: town.type,
@@ -303,7 +299,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       supportCurrent: support.supportCurrent,
       supportMax: support.supportMax,
       goldPerMinute: Number(goldPerMinute.toFixed(4)),
-      cap: Number(cap.toFixed(4)),
       isFed,
       population: town.population,
       maxPopulation: town.maxPopulation,
