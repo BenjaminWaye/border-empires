@@ -210,6 +210,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
       }]]),
       initialState: {
         tiles: [
+          afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           // §5.3: town draws 4 FOOD, MANUFACTORY 1 more — 2 FISH (2 each) + 1 FARM = 5.
@@ -223,7 +224,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
 
     runtime.submitCommand({
       commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
-      type: "BUILD_STRUCTURE" as any,
+      type: "BUILD_STRUCTURE",
       payloadJson: JSON.stringify({ x: 10, y: 11, structureType: "MANUFACTORY" }),
     });
     await Promise.resolve();
@@ -247,6 +248,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
       }]]),
       initialState: {
         tiles: [
+          afcModuleFixtureTile("player-1"),
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -259,7 +261,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
 
     runtime.submitCommand({
       commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
-      type: "BUILD_STRUCTURE" as any,
+      type: "BUILD_STRUCTURE",
       // Targets the town tile itself -- only a Fort belongs directly on it.
       payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "MANUFACTORY" }),
     });
