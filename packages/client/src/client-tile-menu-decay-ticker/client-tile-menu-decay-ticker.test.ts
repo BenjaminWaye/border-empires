@@ -31,7 +31,7 @@ describe("startTileMenuDecayTicker", () => {
   afterEach(() => vi.useRealTimers());
 
   it("re-renders every second while the open menu's tile is decaying", () => {
-    const state = makeState({ ...baseTile, frontierDecayAt: Date.now() + 30_000, frontierDecayKind: "OUT_OF_REACH" });
+    const state = makeState({ ...baseTile, frontierDecayAt: Date.now() + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
     const renderTileActionMenu = vi.fn();
     startTileMenuDecayTicker(state, () => stubView, renderTileActionMenu);
     vi.advanceTimersByTime(3_000);

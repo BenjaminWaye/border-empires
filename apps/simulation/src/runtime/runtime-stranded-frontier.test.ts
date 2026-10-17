@@ -73,13 +73,13 @@ describe("stranded frontier: origin check", () => {
     expect(strandedFrontierCounter("originSlowPath")).toBe(slowBefore);
   });
 
-  it("still allows expanding from an out-of-reach (decaying) tile that is connected to settled land", async () => {
-    // A frontier chain running far past the town's reach: the far end carries an
-    // out-of-reach decay timer but is still supply-connected, so it stays a
-    // valid origin (out-of-reach decay is a separate, timer-based mechanic).
+  it("still allows expanding from an out-of-reach tile that is connected to settled land", async () => {
+    // A frontier chain running far past the town's reach: the far end is out
+    // of reach but still supply-connected, so it stays a valid origin. Out of
+    // reach no longer carries any decay timer, at boot or otherwise.
     const chain = Array.from({ length: 30 }, (_, i) => frontier(11 + i, 10, "player-1"));
     const runtime = buildRuntime([town(10, 10, "player-1"), ...chain, neutral(41, 10)]);
-    expect(runtime.wireDeltaForTileKey("40,10", "player-1")?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(runtime.wireDeltaForTileKey("40,10", "player-1")?.frontierDecayKind).toBeUndefined();
 
     const seen = await expand(runtime, [40, 10], [41, 10], "expand-out-of-reach");
 

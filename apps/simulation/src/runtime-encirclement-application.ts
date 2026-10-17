@@ -178,8 +178,7 @@ export function clearCutOffFrontierTiles(
     // feature, not a player-built structure, and survives losing an owner
     // just like it survives never having one -- clearing it here permanently
     // erased wonders that were claimed but then cut off by encirclement
-    // before being settled. Mirrors the same fix in
-    // runtime-out-of-reach-decay.ts's clearedTile.
+    // before being settled.
     const healAt = nowMs + FRONTIER_AUTO_HEAL_MS;
     const cleared: DomainTileState = {
       ...tile,

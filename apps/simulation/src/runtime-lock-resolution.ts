@@ -9,7 +9,7 @@ import { capturedStructureFields } from "./capture-structures/capture-structures
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
-import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
+import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.js";
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
@@ -67,20 +67,15 @@ export type RuntimeLockResolutionContext = {
   // for this tile, if any -- i.e. auto-SETTLE (+ auto-BUILD) it now that a
   // winning EXPAND actually landed ownership. No-op if none was registered.
   maybeDrainClaimContinuation: (targetKey: string, x: number, y: number, playerId: string) => void;
-  // Out-of-reach decay (see runtime-out-of-reach-decay.ts): returns the decay
-  // deadline for a FRONTIER tile this player just took outside their own
-  // reach, or undefined if the tile is in reach or sits in an actively
-  // contested reach zone (2+ players' live anchors overlap it), which is
-  // exempt. Applies to EXPAND and ATTACK alike -- both land ground the player
-  // may not be able to hold.
-  outOfReachDecayDeadline: (playerId: string, x: number, y: number) => number | undefined;
-  registerOutOfReachDecay: (tileKey: string, deadlineAt: number) => void;
+  // True when a tile this player just took sits beyond their own reach and
+  // outside any actively contested reach zone (see isTileBeyondReach in
+  // runtime-reach-out-of-reach.ts). Only drives the captured town/dock
+  // auto-settle below -- out-of-reach FRONTIER no longer decays.
+  isTileBeyondReach: (playerId: string, x: number, y: number) => boolean;
   // Out-of-reach auto-settle for a captured/claimed town or dock tile (see
   // runtime.ts's canAutoSettleCapturedAnchor / autoSettleCapturedAnchor).
   // Pure eligibility check first (can the player pay + do they have a free
-  // development slot), then the mutating start -- kept separate so the
-  // caller can decide whether to stamp a decay timer BEFORE attempting the
-  // mutation, never after (no reason to pay a settle cost only to also decay).
+  // development slot), then the mutating start.
   canAutoSettleCapturedAnchor: (playerId: string) => boolean;
   // Player's "towns" auto-settle opt-in (auto-settle-prefs.ts); optional so fixtures stay valid. Gates only town/dock anchors, not captured buildings.
   isTownAutoSettleAllowed?: (playerId: string) => boolean;
@@ -252,12 +247,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   if (attackerWon) {
     const townAftermath = capturedTownAftermath(previousTarget?.town, previousOwnerId, lock.playerId, context.now());
     settlementRelocationPopulation = townAftermath.settlementRelocationPopulation;
-    // Barbarians resolve to SETTLED (below) and are never reach-gated, so only
-    // real players' FRONTIER claims can carry an out-of-reach deadline.
-    const outOfReachDecayAt =
-      lock.playerId === "barbarian-1"
-        ? undefined
-        : context.outOfReachDecayDeadline(lock.playerId, lock.targetX, lock.targetY);
+    // Barbarians resolve to SETTLED (below) and are never reach-gated.
+    const targetBeyondReach = lock.playerId !== "barbarian-1" && context.isTileBeyondReach(lock.playerId, lock.targetX, lock.targetY);
     // Towns/docks (reach anchors) and forts/observatories/economic structures
     // (buildings) try to auto-settle instead of landing plain FRONTIER -- see
     // capturedTileWillAutoSettle's doc comment for why each qualifies.
@@ -268,7 +259,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       playerId: lock.playerId,
       isAnchorStructureTile,
       hasCapturedBuilding,
-      outOfReachDecayAt,
+      targetBeyondReach,
       canAutoSettleCapturedAnchor: context.canAutoSettleCapturedAnchor,
       ...(context.isTownAutoSettleAllowed ? { isAnchorAutoSettleAllowed: context.isTownAutoSettleAllowed } : {})
     });
@@ -286,14 +277,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedFields,
       ownerId: lock.playerId,
-      // willAutoSettle only skips stamping a decay timer below -- it doesn't
-      // flip this to SETTLED itself. autoSettleCapturedAnchor kicks off the
-      // same async settlement process a manual SETTLE would (cost charged
-      // now, ownershipState flips once startSettlementProcess's timer resolves).
+      // willAutoSettle doesn't flip this to SETTLED itself:
+      // autoSettleCapturedAnchor kicks off the same async settlement process
+      // a manual SETTLE would (cost charged now, ownershipState flips once
+      // startSettlementProcess's timer resolves).
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
-      ...(outOfReachDecayAt !== undefined && !willAutoSettle
-        ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
-        : {}),
       // Capture hold (shared capture-hold.ts): a tile won from another player
       // defends for a while instead of being a free 100% retake.
       ...(lock.actionType === "ATTACK" && lock.playerId !== "barbarian-1" && previousOwnerId && previousOwnerId !== lock.playerId && previousOwnerId !== "barbarian-1"
@@ -336,7 +324,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       });
     }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
-    else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
     // Watchtower/waystation activation is keyed off "does this player now own

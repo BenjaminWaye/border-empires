@@ -359,7 +359,7 @@ describe("territory automation", () => {
           // resource tile, a captured town/dock is allowed to auto-settle
           // regardless of reach (it has no reach of its own to grant until
           // settled, mirroring the capture-time bypass in
-          // runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.ts).
+          // runtime-out-of-reach-auto-settle/runtime-out-of-reach-auto-settle.ts).
           { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 210, y: 210, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }
         ],

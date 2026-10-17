@@ -7,17 +7,19 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { CombatLockIndex } from "./combat-lock-index/combat-lock-index.js";
 
 /**
- * Out-of-reach auto-settle: a captured/claimed town or dock tries to settle
- * itself immediately instead of decaying, since it's the reach anchor that
- * would otherwise be needed to save it -- decaying it away is a dead end.
- * Resource/wonder tiles get no such treatment; they just decay normally.
+ * Out-of-reach auto-settle: a captured/claimed town or dock beyond reach
+ * tries to settle itself immediately, since SETTLE is reach-gated and it's the
+ * anchor that would otherwise be needed to ever settle it. Resource/wonder
+ * tiles get no such treatment; they just stay FRONTIER.
+ *
+ * Out-of-reach FRONTIER no longer decays, so no capture here may ever carry a
+ * frontier decay timer (regression for the removed OUT_OF_REACH stamp).
  */
 
 const ATTACKER_ID = "player-1";
 const DEFENDER_ID = "player-2";
 const ORIGIN_KEY = simulationTileKey(5, 5);
 const TARGET_KEY = simulationTileKey(6, 5);
-const OUT_OF_REACH_DEADLINE = 120_000;
 
 const makePlayer = (id: string): DomainPlayer => ({ id, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() });
 
@@ -28,7 +30,6 @@ type ContextOptions = {
 
 function createContext(tiles: Map<string, DomainTileState>, options: ContextOptions) {
   const events: SimulationEvent[] = [];
-  const registerOutOfReachDecay = vi.fn();
   const autoSettleCapturedAnchor = vi.fn((_playerId: string, targetKey: string, target: DomainTileState) => {
     tiles.set(targetKey, target); // mirrors startSettlementProcess leaving the tile FRONTIER, in-flight
   });
@@ -66,13 +67,12 @@ function createContext(tiles: Map<string, DomainTileState>, options: ContextOpti
     maybeActivateWatchtower: () => {},
     maybeActivateWaystation: () => {},
     maybeDrainClaimContinuation: () => {},
-    outOfReachDecayDeadline: () => (options.outOfReach ? OUT_OF_REACH_DEADLINE : undefined),
-    registerOutOfReachDecay,
+    isTileBeyondReach: () => options.outOfReach,
     canAutoSettleCapturedAnchor,
     autoSettleCapturedAnchor,
     tryDrainWaypointQueue: () => {}
   };
-  return { context, events, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor };
+  return { context, events, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor };
 }
 
 /** Registers a lock in both lock maps the way the runtime does before resolving it -- resolveLock bails out immediately otherwise. */
@@ -129,7 +129,7 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
       [ORIGIN_KEY, originTile()],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "Rival Town" } }]
     ]);
-    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
     const lock = makeWonAttackLock();
     lockTile(context, lock);
 
@@ -138,12 +138,10 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
     const target = tiles.get(TARGET_KEY);
     expect(target?.ownerId).toBe(ATTACKER_ID);
     expect(target?.town).toBeDefined();
-    // No decay stamp -- auto-settle took the branch instead.
     expect(target?.frontierDecayAt).toBeUndefined();
     expect(target?.frontierDecayKind).toBeUndefined();
     expect(autoSettleCapturedAnchor).toHaveBeenCalledTimes(1);
     expect(autoSettleCapturedAnchor).toHaveBeenCalledWith(ATTACKER_ID, TARGET_KEY, expect.objectContaining({ town: expect.anything() }), "attack-1");
-    expect(registerOutOfReachDecay).not.toHaveBeenCalled();
   });
 
   it("auto-settles a captured dock outside reach", () => {
@@ -151,7 +149,7 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
       [ORIGIN_KEY, originTile()],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", dockId: "dock-a" }]
     ]);
-    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
 
     const lock = makeWonAttackLock();
     lockTile(context, lock);
@@ -161,15 +159,14 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
     expect(target?.dockId).toBe("dock-a");
     expect(target?.frontierDecayKind).toBeUndefined();
     expect(autoSettleCapturedAnchor).toHaveBeenCalledTimes(1);
-    expect(registerOutOfReachDecay).not.toHaveBeenCalled();
   });
 
-  it("falls back to normal out-of-reach decay when the player can't afford to auto-settle", () => {
+  it("leaves the town FRONTIER with no decay timer when the player can't afford to auto-settle", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, originTile()],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "Rival Town" } }]
     ]);
-    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: false });
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: false });
 
     const lock = makeWonAttackLock();
     lockTile(context, lock);
@@ -178,28 +175,28 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
     const target = tiles.get(TARGET_KEY);
     expect(target?.ownerId).toBe(ATTACKER_ID);
     expect(target?.ownershipState).toBe("FRONTIER");
-    expect(target?.frontierDecayAt).toBe(OUT_OF_REACH_DEADLINE);
-    expect(target?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(target?.frontierDecayAt).toBeUndefined();
+    expect(target?.frontierDecayKind).toBeUndefined();
     expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
-    expect(registerOutOfReachDecay).toHaveBeenCalledWith(TARGET_KEY, OUT_OF_REACH_DEADLINE);
   });
 
-  it("does not auto-settle a plain resource tile -- it just decays like any other out-of-reach capture", () => {
+  it("does not auto-settle a plain resource tile -- it stays FRONTIER, with no decay timer", () => {
     const tiles = new Map<string, DomainTileState>([
       [ORIGIN_KEY, originTile()],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", resource: "TITANIUM" }]
     ]);
-    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
+    const { context, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor } = createContext(tiles, { outOfReach: true, canAutoSettle: true });
 
     const lock = makeWonAttackLock();
     lockTile(context, lock);
     resolveLock(context, lock);
 
     const target = tiles.get(TARGET_KEY);
-    expect(target?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(target?.frontierDecayAt).toBeUndefined();
+    expect(target?.frontierDecayKind).toBeUndefined();
     expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
     expect(canAutoSettleCapturedAnchor).not.toHaveBeenCalled(); // isAnchorStructureTile short-circuits first
-    expect(registerOutOfReachDecay).toHaveBeenCalledWith(TARGET_KEY, OUT_OF_REACH_DEADLINE);
   });
 
   it("does not attempt auto-settle for a town captured inside reach", () => {
@@ -207,7 +204,7 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
       [ORIGIN_KEY, originTile()],
       [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "Rival Town" } }]
     ]);
-    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor } = createContext(tiles, { outOfReach: false, canAutoSettle: true });
+    const { context, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor } = createContext(tiles, { outOfReach: false, canAutoSettle: true });
 
     const lock = makeWonAttackLock();
     lockTile(context, lock);
@@ -218,6 +215,5 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
     expect(target?.frontierDecayKind).toBeUndefined();
     expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
     expect(canAutoSettleCapturedAnchor).not.toHaveBeenCalled();
-    expect(registerOutOfReachDecay).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA" | "PLAINS" | "JUNGLE" | "MARSH" | "SNOW" | "GRASSLAND"; // PLAINS/JUNGLE/MARSH/SNOW (v8+) and GRASSLAND (v9+) are visual-only promotions -- see visualLandBiomeAt in worldgen-visual-biome.ts
 export type ClusterType = "FERTILE_PLAINS" | "TITANIUM_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
+// Neither kind is written any more (encirclement is instant; out-of-reach decay was removed). Kept so older snapshots/wire payloads still type-check; the simulation strips OUT_OF_REACH stamps at boot.
 export type FrontierDecayKind = "ENCIRCLEMENT" | "OUT_OF_REACH";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeBatteryStatus = "under_construction" | "active" | "removing";

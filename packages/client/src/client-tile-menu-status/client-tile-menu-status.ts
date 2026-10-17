@@ -1,4 +1,4 @@
-import { OUT_OF_REACH_DECAY_MS, isCaptureHoldActive } from "@border-empires/shared";
+import { isCaptureHoldActive } from "@border-empires/shared";
 import { escapeHtml } from "../client-duke-panel/client-duke-escape.js";
 import type { Tile } from "../client-types.js";
 
@@ -19,6 +19,8 @@ export type TileMenuHeaderStatus = {
 };
 
 const INSIDE_REACH_HELP_TEXT = "Can't garrison inside another empire's reach.";
+const BEYOND_REACH_HELP_TEXT =
+  "Can't garrison beyond your reach. This land holds only while its chain of frontier links back to your settled land — if that chain is cut anywhere, everything past the cut is lost at once.";
 
 const disabledUntilForTileStructure = (tile: Tile): number | undefined => tile.economicStructure?.disabledUntil ?? tile.fort?.disabledUntil;
 
@@ -56,20 +58,6 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
   return remaining;
 };
 
-/**
- * Remaining ms for a frontier tile decaying because it was claimed outside its
- * owner's reach. Unlike encirclement this timer is live: the sim expires the
- * tile when it runs out unless reach catches up first.
- */
-export const outOfReachDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
-  if (tile.ownershipState !== "FRONTIER") return undefined;
-  if (typeof tile.frontierDecayAt !== "number") return undefined;
-  if (tile.frontierDecayKind !== "OUT_OF_REACH") return undefined;
-  const remaining = tile.frontierDecayAt - nowMs;
-  if (remaining <= 0 || remaining > OUT_OF_REACH_DECAY_MS) return undefined;
-  return remaining;
-};
-
 /** True iff this owned tile is an encircled (cut-off-from-supply) frontier
  *  tile, which the sim rejects as an ATTACK/EXPAND origin (ORIGIN_CUT_OFF). */
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
@@ -95,7 +83,7 @@ export const tileMenuHeaderStatusForTile = (
   viewerOwnsTile = true
 ): TileMenuHeaderStatus | undefined => {
   // Fogged takes precedence over everything below: those other statuses
-  // (encirclement/out-of-reach decay countdowns, capture recovery) are all
+  // (encirclement countdowns, capture recovery) are all
   // computed from timestamps in the tile's own data, which for a fogged
   // tile is frozen at whatever it was the last time it was actually
   // visible -- showing a live-looking "disappears in 3s" countdown built
@@ -110,18 +98,6 @@ export const tileMenuHeaderStatusForTile = (
     const seconds = Math.max(1, Math.ceil(encirclementRemaining / 1000));
     return {
       text: `Cut off from supply — disappears in ${seconds}s`,
-      tone: "warning"
-    };
-  }
-
-  // Out-of-reach decay outranks capture recovery for the same reason
-  // encirclement does: the tile is about to be lost outright, which matters
-  // more than a temporary structure debuff.
-  const outOfReachRemaining = outOfReachDecayRemainingMsForTile(tile, nowMs);
-  if (outOfReachRemaining !== undefined) {
-    const seconds = Math.max(1, Math.ceil(outOfReachRemaining / 1000));
-    return {
-      text: `Beyond ${viewerOwnsTile ? "your" : "its owner’s"} reach — decays in ${seconds}s`,
       tone: "warning"
     };
   }
@@ -150,14 +126,14 @@ export const tileMenuHeaderStatusForTile = (
   // Fixed-border reach: settling/building an outpost on this FRONTIER tile
   // is still blocked until reach catches up, even though EXPAND itself no
   // longer is -- flag it so the header explains why those actions are
-  // disabled instead of leaving the player to guess. Reaching this branch
-  // (outside the player's own reach, but with no OUT_OF_REACH timer above)
-  // means the sim has already exempted the tile from decay because another
-  // player's live reach also covers it (see outOfReachDecayDeadline's
-  // contested-zone exemption) -- that's an actively contested tile sitting
-  // inside an enemy's reach, not empty no-man's-land, so say so.
+  // disabled instead of leaving the player to guess. Two cases: ground some
+  // other empire's reach covers ("Inside ... Reach"), and genuine
+  // no-man's-land nobody's reach covers ("Beyond your reach"), which can't be
+  // garrisoned and lives or dies by its supply line (see encirclement.ts).
   if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
-    return { text: insideReachText(reachOwnerNames?.() ?? []), tone: "warning", helpText: INSIDE_REACH_HELP_TEXT };
+    const ownerNames = reachOwnerNames?.() ?? [];
+    if (ownerNames.length === 0 && !tile.reachOwnerId) return { text: "Beyond your reach", tone: "warning", helpText: BEYOND_REACH_HELP_TEXT };
+    return { text: insideReachText(ownerNames), tone: "warning", helpText: INSIDE_REACH_HELP_TEXT };
   }
 
   return undefined;

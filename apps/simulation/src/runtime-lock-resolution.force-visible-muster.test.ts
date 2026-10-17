@@ -53,8 +53,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
     maybeActivateWatchtower: () => {},
     maybeActivateWaystation: () => {},
     maybeDrainClaimContinuation: () => {},
-    outOfReachDecayDeadline: () => undefined,
-    registerOutOfReachDecay: () => {},
+    isTileBeyondReach: () => false,
     canAutoSettleCapturedAnchor: () => false,
     autoSettleCapturedAnchor: () => {},
     tryDrainWaypointQueue: () => {}

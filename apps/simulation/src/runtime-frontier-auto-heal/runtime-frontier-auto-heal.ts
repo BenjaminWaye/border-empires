@@ -24,7 +24,7 @@
  *
  * ## Why a queue and not a sweep
  *
- * Mirrors runtime-out-of-reach-decay.ts exactly, for the same reason: a
+ * A deadline FIFO rather than a sweep: a
  * per-tick scan over every neutral tile (up to 202,500 tiles on the largest
  * maps) to find the ones due for healing would be O(world), and the previous
  * frontier-decay sweep this codebase once shipped caused a 9-second
