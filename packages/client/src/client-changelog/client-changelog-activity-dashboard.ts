@@ -14,5 +14,14 @@ export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[]
       "Waystation tech grants in Yours show the tech's name",
       "Tile history, error messages, economy breakdown and help text use the current names (Aether Tower, Sky Dock, Hydroworks, Sovereign Siege Engine and others)"
     ]
+  },
+  {
+    createdAt: 1792204070169 /* Date.now() frozen for the changelog gate */,
+    introducedIn: "2026.10.17.1",
+    title: "AI empires named properly in your activity",
+    why: "The Yours activity view called AI empires by a placeholder like AI 5 instead of the name shown on the leaderboard.",
+    changes: [
+      "Battles and territory changes in Yours now name AI empires the same way the leaderboard does"
+    ]
   }
 ];

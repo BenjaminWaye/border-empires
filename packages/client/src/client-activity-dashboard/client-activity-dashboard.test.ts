@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
-import type { WorldPulse } from "@border-empires/game-domain";
+import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldPulse } from "@border-empires/game-domain";
 import type { ClientEventLogEntry } from "../client-event-log-html.js";
 import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "./client-activity-dashboard.js";
@@ -29,6 +29,16 @@ const makeState = () => ({
   camSubY: 0,
   selected: undefined as { x: number; y: number } | undefined,
   me: "player-1",
+  leaderboard: {
+    overall: [] as LeaderboardOverallEntry[],
+    selfOverall: undefined as LeaderboardOverallEntry | undefined,
+    selfByTiles: undefined as LeaderboardMetricEntry | undefined,
+    selfByIncome: undefined as LeaderboardMetricEntry | undefined,
+    selfByTechs: undefined as LeaderboardMetricEntry | undefined,
+    byTiles: [] as LeaderboardMetricEntry[],
+    byIncome: [] as LeaderboardMetricEntry[],
+    byTechs: [] as LeaderboardMetricEntry[]
+  },
   manpowerCap: 1000,
   bridgeDebugSeasonId: "season-1",
   authEmail: "a@example.com",
@@ -187,6 +197,46 @@ describe("renderClientActivityDashboardOverlay", () => {
     centerBtn!.click();
     expect(state.camX).toBe(3);
     expect(state.camY).toBe(4);
+  });
+
+  it("names an AI opponent by its leaderboard name, not the stable \"AI N\" diplomacy name", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.playerNames.set("ai-5", "AI 5");
+    state.leaderboard.overall.push({ id: "ai-5", name: "Astrid", tiles: 10, incomePerMinute: 1, techs: 1, manpowerCap: 100, score: 50, rank: 1 });
+    state.activityDashboard.timeline = {
+      to: 5000,
+      summary: { tilesClaimed: 0, tilesLost: 1, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0 },
+      goldPlundered: 0,
+      goldRaidedFromYou: 0,
+      manpowerSpentAttacking: 0,
+      cards: [{ kind: "COMBAT", id: "c", occurredAt: 1000, attackerId: "ai-5", defenderId: "player-1", attackerWon: true, pillagedGold: 0, defenderGoldLoss: 0, x: 1, y: 2 }],
+      truncated: false
+    };
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).toContain("lost a tile to Astrid");
+    expect(deps.overlayEl.textContent).not.toContain("AI 5");
+  });
+
+  it("names an AI territory counterparty by its leaderboard name", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.playerNames.set("ai-5", "AI 5");
+    state.leaderboard.byTiles.push({ id: "ai-5", name: "Astrid", value: 10, rank: 1 });
+    state.activityDashboard.timeline = {
+      to: 5000,
+      summary: { tilesClaimed: 0, tilesLost: 2, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0 },
+      goldPlundered: 0,
+      goldRaidedFromYou: 0,
+      manpowerSpentAttacking: 0,
+      cards: [{ kind: "TERRITORY_FLIP_GROUP", id: "t", occurredAt: 1000, direction: "LOST", counterpartyPlayerId: "ai-5", tileCount: 2, x: 1, y: 2 }],
+      truncated: false
+    };
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).toContain("(Astrid)");
+    expect(deps.overlayEl.textContent).not.toContain("AI 5");
   });
 
   it("renders World Pulse without a map action or a personal acknowledgement", () => {
