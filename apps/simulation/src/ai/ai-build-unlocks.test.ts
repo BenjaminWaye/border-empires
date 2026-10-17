@@ -17,6 +17,10 @@ describe("AI installed AFC build modules", () => {
     expect(hasInstalledAiBuildModule([], "crystal-lattices")).toBe(false);
     expect(hasInstalledAiBuildModule(["crystal-lattices"], "crystal-lattices")).toBe(true);
   });
+  it("requires installed tooling before the AI builds a Manufactory", () => {
+    expect(hasInstalledAiBuildModule([], "trade")).toBe(false);
+    expect(hasInstalledAiBuildModule(["trade"], "trade")).toBe(true);
+  });
   it("keeps recipe structures available and gates module structures", () => {
     const player = { id: "ai-1", points: 100000, manpower: 100000, installedModuleTechIds: [] as string[] };
     const techs = new Set(Object.values(TECH_REQUIREMENTS_BY_STRUCTURE));

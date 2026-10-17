@@ -79,8 +79,8 @@ describe("client gateway sync — town summaries (part 2)", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })

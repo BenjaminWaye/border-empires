@@ -269,7 +269,7 @@ export const createStructureOverlay = (
     contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
   };
 
-  // Family-local animation state (e.g. mintworks flywheel records) resets
+  // Family-local animation state (e.g. manufactory flywheel records) resets
   // alongside the shared piece buffers, and update() drives them per frame.
   // The shared contactShadows overlay is cleared/committed/disposed by its
   // owner (client-map-3d.ts), once, after every caller has had a turn — not

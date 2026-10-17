@@ -19,7 +19,7 @@ const STRUCTURE_UNLOCK_KEYS: Record<string, EconomicStructureType | StructureInf
   unlockHydrogarden: "HYDROGARDEN",
   unlockUmbriteRig: "UMBRITE_RIG",
   unlockMine: "MINE",
-  unlockMintworks: "MINTWORKS",
+  unlockManufactory: "MANUFACTORY",
   unlockForts: "FORT",
   unlockObservatory: "OBSERVATORY",
   unlockSiegeBatteries: "SIEGE_BATTERY",

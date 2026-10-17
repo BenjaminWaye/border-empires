@@ -20,16 +20,16 @@
       "id": "trade",
       "tier": 1,
       "branch": "economy",
-      "name": "Trade Clearance Grant",
-      "description": "Offworld recognition that lets this planet's surplus be registered as Coin. Unlocks Mintworks.",
+      "name": "Industrial Tooling Module",
+      "description": "AFC module: a precision toolmaking system that fabricates and refurbishes machine tools, press dies, gauges, and replacement parts from local materials for this planet's workshops. Unlocks Manufactories while installed on an active AFC: build several around a town to expand the industrial output backing its Coin credit. Each Manufactory's town income bonus stacks.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockMintworks": true
+        "unlockManufactory": true
       },
-      "manifestCategory": "CHARTER_WARRANT"
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "masonry",

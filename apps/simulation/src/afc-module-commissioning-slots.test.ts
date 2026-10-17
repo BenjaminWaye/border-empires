@@ -48,9 +48,9 @@ describe("AFC module slots", () => {
     expect(tiles.get("5,0")?.afc?.houseModules).toEqual(["masonry"]);
   });
 
-  it("leaves a researched module waiting when every AFC is full", () => {
+  it.each(["masonry", "trade"])("leaves %s waiting when every AFC is full", (techId) => {
     const { tiles, ctx } = setup([afcTile(0, 1_000, EIGHT_MODULES)]);
-    commissionModuleIfApplicable(ctx, "player-1", "masonry", "cmd-1");
+    commissionModuleIfApplicable(ctx, "player-1", techId, "cmd-1");
     expect(tiles.get("0,0")?.afc?.modules).toEqual(EIGHT_MODULES);
   });
 

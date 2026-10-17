@@ -32,8 +32,8 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false,
         firstThreeTownGoldMult: 1.5,
@@ -65,8 +65,8 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMintworks: false,
-        mintworksActive: false,
+        hasManufactory: false,
+        manufactoryActive: false,
         hasIncubationEngine: false,
         incubationEngineActive: false
       }

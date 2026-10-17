@@ -129,7 +129,7 @@ describe("automation command planner — utility AI path", () => {
 
   it("economic build fires when there is no frontier opportunity", () => {
     // Mirrors the GOAP test — isolated town with no neutral neighbours, plus
-    // one open SETTLED support-tile neighbor. MINTWORKS is a town-support
+    // one open SETTLED support-tile neighbor. MANUFACTORY is a town-support
     // structure — the runtime places it on an open neighbor assigned to this
     // town (resolveTownSupportTarget), never on the town tile itself, so a
     // fixture with zero neighbors is unrealistic (see
@@ -143,12 +143,12 @@ describe("automation command planner — utility AI path", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      // MINTWORKS costs 150 manpower, but scoreBuildEconomy only scores
+      // MANUFACTORY costs 150 manpower, but scoreBuildEconomy only scores
       // meaningfully while needsEconomy holds — economyWeak(manpower,
       // settledTileCount), i.e. manpower < max(40, settledTileCount * 6). Those
       // two conditions only overlap once the empire is large enough for the
       // threshold to clear the structure's price (>25 settled tiles for
-      // MINTWORKS), so this fixture models that empire rather than a 6-tile one.
+      // MANUFACTORY), so this fixture models that empire rather than a 6-tile one.
       // See docs/ai-structure-building-rewrite-plan.md §13.6.
       manpower: 150,
       techIds: ["trade"],
@@ -315,12 +315,12 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      // MINTWORKS costs 150 manpower, but scoreBuildEconomy only scores
+      // MANUFACTORY costs 150 manpower, but scoreBuildEconomy only scores
       // meaningfully while needsEconomy holds — economyWeak(manpower,
       // settledTileCount), i.e. manpower < max(40, settledTileCount * 6). Those
       // two conditions only overlap once the empire is large enough for the
       // threshold to clear the structure's price (>25 settled tiles for
-      // MINTWORKS), so this fixture models that empire rather than a 6-tile one.
+      // MANUFACTORY), so this fixture models that empire rather than a 6-tile one.
       // See docs/ai-structure-building-rewrite-plan.md §13.6.
       manpower: 150,
       techIds: ["trade"],

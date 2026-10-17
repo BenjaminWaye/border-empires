@@ -63,9 +63,10 @@ describe("AFC module family registry", () => {
   });
 
 
-  it("lists exactly the 13 module families built so far", () => {
-    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(13);
-    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(13);
+  it("lists the 14 module families, including industrial tooling", () => {
+    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(14);
+    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(14);
+    expect(AFC_MODULE_FAMILY_TECH_IDS).toContain("trade");
   });
 
   it("docks a known module family and grows the scene's instanced meshes", () => {
@@ -112,14 +113,14 @@ describe("AFC module family registry", () => {
     group.dispose();
   });
 
-  it("renders a generic cartridge for a docked tech that has no bespoke family, in its own socket", () => {
+  it.each(["some-unbuilt-module-tech"])("renders a cartridge for %s in its own socket", (techId) => {
     const scene = new Scene();
     const group = createAfcOverlayGroup(scene, 2);
     group.addAfc(0, 0, 0, 5, 5, []);
     group.commit();
     const afcOnly = totalInstanceCount(scene);
     group.clear();
-    group.addAfc(0, 0, 0, 5, 5, ["some-unbuilt-module-tech"]);
+    group.addAfc(0, 0, 0, 5, 5, [techId]);
     group.commit();
     // Before the fallback existed an unmapped tech added zero instances, so
     // an unlocked module looked like it never attached.

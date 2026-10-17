@@ -109,10 +109,10 @@ describe("converter mode economy", () => {
     expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
   });
 
-  // Mintworks-style town attribution: an EXCHANGE-mode converter built in a
+  // Manufactory-style town attribution: an EXCHANGE-mode converter built in a
   // town's support ring pays its gold through that town's own "Towns"
   // bucket instead of a separate standalone bucket (so it shows up in the
-  // town's own gold-production number/modifier list, like Mintworks) — and
+  // town's own gold-production number/modifier list, like Manufactory) — and
   // must not be counted twice.
   describe("town-support attribution", () => {
     const townPlusConverterTiles = (): Map<string, DomainTileState> => {

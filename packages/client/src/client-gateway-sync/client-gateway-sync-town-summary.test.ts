@@ -78,8 +78,8 @@ describe("client gateway sync — town summaries", () => {
             isFed: false,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })
@@ -145,8 +145,8 @@ describe("client gateway sync — town summaries", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })
@@ -235,8 +235,8 @@ describe("client gateway sync — town summaries", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })
@@ -297,8 +297,8 @@ describe("client gateway sync — town summaries", () => {
             connectedTownBonus: 0,
             manpowerCurrent: 80,
             manpowerCap: 100,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
             nextPopulationTierUpgrade: {
@@ -332,8 +332,8 @@ describe("client gateway sync — town summaries", () => {
           isFed: true,
           connectedTownCount: 1,
           connectedTownBonus: 0.1,
-          hasMintworks: true,
-          mintworksActive: true,
+          hasManufactory: true,
+          manufactoryActive: true,
           hasIncubationEngine: false,
           incubationEngineActive: false,
         })
@@ -348,8 +348,8 @@ describe("client gateway sync — town summaries", () => {
         supportMax: 6,
         connectedTownCount: 1,
         connectedTownBonus: 0.1,
-        hasMintworks: true,
-        mintworksActive: true
+        hasManufactory: true,
+        manufactoryActive: true
       })
     );
     expect(deps.state.tiles.get("40,18")?.town?.manpowerCurrent).toBeUndefined();
@@ -382,8 +382,8 @@ describe("client gateway sync — town summaries", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })
@@ -429,8 +429,8 @@ describe("client gateway sync — town summaries", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMintworks: false,
-            mintworksActive: false,
+            hasManufactory: false,
+            manufactoryActive: false,
             hasIncubationEngine: false,
             incubationEngineActive: false,
           })

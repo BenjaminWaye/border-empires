@@ -41,14 +41,14 @@ describe("build menu building art", () => {
   });
 
   it("scales the crop box to fill the slot and centres it", () => {
-    // mintworks art box [0.098, 0.117, 0.699, 0.695]: scale 1/0.699 = 143.06%,
-    // left -0.098*1.4306 + (1-1)/2 = -14.02%, top -0.117*1.4306 + (1-0.9943)/2 = -16.45%
-    const html = buildActionIconHtml("build_mintworks") ?? "";
-    expect(html).toContain('style="width:143.06%;height:143.06%;left:-14.02%;top:-16.45%"');
+    // Manufactory art box [0.06, 0.07, 0.89, 0.90]: scale 1/0.90 = 111.11%,
+    // left -0.06/0.90 + (1-0.89/0.90)/2 = -6.11%, top -0.07/0.90 = -7.78%.
+    const html = buildActionIconHtml("build_manufactory") ?? "";
+    expect(html).toContain('style="width:111.11%;height:111.11%;left:-6.11%;top:-7.78%"');
   });
 
   it("shows the building's own map art for buildings that have it", () => {
-    expect(buildActionArtUrl("build_mintworks")).toBe("/overlays/mintworks-overlay.svg");
+    expect(buildActionArtUrl("build_manufactory")).toBe("/overlays/manufactory-overlay.svg");
     expect(buildActionArtUrl("build_fortification")).toBe("/overlays/fort-ring-overlay-closed.svg");
     expect(buildActionArtUrl("upgrade_titanium_works")).toBe("/overlays/high-yield-titanium-works-overlay.svg");
   });
@@ -61,7 +61,7 @@ describe("build menu building art", () => {
   });
 
   it("gives structure-type callers the same cropped thumbnail", () => {
-    expect(structureArtIconHtml("MINTWORKS", "manifest-gain__art")).toBe(buildActionIconHtml("build_mintworks")?.replace("tile-action-art", "manifest-gain__art"));
+    expect(structureArtIconHtml("MANUFACTORY", "manifest-gain__art")).toBe(buildActionIconHtml("build_manufactory")?.replace("tile-action-art", "manifest-gain__art"));
     expect(structureArtIconHtml("THUNDER_BASTION", "x")).toContain('src="/overlays/fort-ring-overlay-closed.svg"');
     expect(structureArtIconHtml("DREAD_TOWER", "x")).toContain('src="/overlays/siege-battery-overlay.svg"');
     expect(structureArtIconHtml("NOT_A_STRUCTURE", "x")).toBeUndefined();

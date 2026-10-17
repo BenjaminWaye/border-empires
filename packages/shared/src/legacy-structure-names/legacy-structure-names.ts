@@ -13,6 +13,7 @@ type Rule = { readonly old: readonly string[]; readonly neu: readonly string[] }
 // [old words, new words], lowercase. Plurals are listed explicitly because
 // identifiers like `oldPluralByOwner` appear in persisted keys.
 const RULE_TABLE: ReadonlyArray<readonly [string, string]> = [
+  ["mintworks", "manufactory"],
   ["advanced umbrite synthesizer", "high yield umbrite works"],
   ["advanced umbrite synthesizers", "high yield umbrite works"],
   ["advanced titanium works", "high yield titanium works"],
@@ -71,10 +72,10 @@ const BLOCKED_BEFORE: Readonly<Record<string, ReadonlySet<string>>> = {
 };
 
 // Tech and domain ids are not structure ids and were not renamed.
-const PROTECTED_VALUES: ReadonlySet<string> = new Set(["world-engine", "cogwork-foundries", "war-foundries"]);
+const PROTECTED_VALUES: ReadonlySet<string> = new Set(["world-engine", "urban-mintworks", "cogwork-foundries", "war-foundries"]);
 
 // Cheap pre-filter: a string without any of these fragments cannot match.
-const CANDIDATE = /synthesizer|aether.?tower|siege.?outpost|farmstead|waterworks|granar|airport|wooden.?fort|caravanar|foundr|garrison.?hall|customs.?house|governors.?office|radar.?system|logistics.?guild|assembly.?works|rail.?depot|world.?engine|population.?bureau/i;
+const CANDIDATE = /mintworks|synthesizer|aether.?tower|siege.?outpost|farmstead|waterworks|granar|airport|wooden.?fort|caravanar|foundr|garrison.?hall|customs.?house|governors.?office|radar.?system|logistics.?guild|assembly.?works|rail.?depot|world.?engine|population.?bureau/i;
 
 const ruleAt = (words: readonly string[], i: number): Rule | undefined => {
   for (const rule of RULES) {

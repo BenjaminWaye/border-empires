@@ -41,16 +41,16 @@ export type TownWireSummary = {
   connectedUmbriteWeaponsFactoryCount?: number;
   manpowerCurrent?: number;
   manpowerCap?: number;
-  hasMintworks: boolean;
-  mintworksActive: boolean;
-  // mintworks-stacking task: real count of active Mintworks in this town's
-  // support ring, feeding mintworksGoldProductionMultiplier() — hasMintworks/
-  // mintworksActive stay as-is for existing boolean consumers. Optional (not
+  hasManufactory: boolean;
+  manufactoryActive: boolean;
+  // manufactory-stacking task: real count of active Manufactory in this town's
+  // support ring, feeding manufactoryGoldProductionMultiplier() — hasManufactory/
+  // manufactoryActive stay as-is for existing boolean consumers. Optional (not
   // required) so the large number of existing test-fixture town objects
   // across the monorepo don't all need updating under
   // exactOptionalPropertyTypes; every real read site treats a missing
   // value as 0 via `?? 0`.
-  mintworksCount?: number;
+  manufactoryCount?: number;
   hasIncubationEngine: boolean;
   incubationEngineActive: boolean;
   foodUpkeepPerMinute?: number;

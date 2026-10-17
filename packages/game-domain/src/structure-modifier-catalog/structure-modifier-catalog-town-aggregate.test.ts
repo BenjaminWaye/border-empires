@@ -32,14 +32,14 @@ describe("townModifierTotalsFromCounts", () => {
     expect(groups).toHaveLength(2);
   });
 
-  it("stacks Mintworks nonlinearly (Clearing House aware) under one heading", () => {
-    const groups = townModifierTotalsFromCounts({ MINTWORKS: 6 }, { clearingHouseActive: true });
-    const mintworks = groups.find((g) => g.heading === "6 Mintworks");
-    expect(mintworks?.modifiers).toContainEqual({ statLabel: "Coin production", valueText: "+210%", tone: "positive" });
+  it("stacks Manufactory nonlinearly (Clearing House aware) under one heading", () => {
+    const groups = townModifierTotalsFromCounts({ MANUFACTORY: 6 }, { clearingHouseActive: true });
+    const manufactory = groups.find((g) => g.heading === "6 Manufactories");
+    expect(manufactory?.modifiers).toContainEqual({ statLabel: "Coin production", valueText: "+210%", tone: "positive" });
   });
 
   it("omits a building type entirely when its count is 0", () => {
-    const groups = townModifierTotalsFromCounts({ ANCILLARY_DEPOT: 0, MINTWORKS: 2 });
+    const groups = townModifierTotalsFromCounts({ ANCILLARY_DEPOT: 0, MANUFACTORY: 2 });
     expect(groups.some((g) => g.heading.includes("Garrison"))).toBe(false);
   });
 

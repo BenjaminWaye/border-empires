@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
+import { buildPlayer, collectEvents, afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 
 const BUILD_AT_MS = 1_000;
 
@@ -22,6 +22,7 @@ const buildRuntime = () => {
     ]),
     initialState: {
       tiles: [
+        afcModuleFixtureTile("player-1"),
         { x: 16, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" } },
         { x: 16, y: 17, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -58,7 +59,7 @@ describe("structure startedAt stamping", () => {
         clientSeq: 1,
         issuedAt: BUILD_AT_MS,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MINTWORKS" })
+        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MANUFACTORY" })
       });
       await Promise.resolve();
 
@@ -68,7 +69,7 @@ describe("structure startedAt stamping", () => {
       expect(building?.status).toBe("under_construction");
       expect(building?.startedAt).toBe(BUILD_AT_MS);
       // The window the client divides by is the real build duration, not a flat constant.
-      expect((building?.completesAt ?? 0) - (building?.startedAt ?? 0)).toBe(structureBuildDurationMs("MINTWORKS"));
+      expect((building?.completesAt ?? 0) - (building?.startedAt ?? 0)).toBe(structureBuildDurationMs("MANUFACTORY"));
 
       advanceTo((building?.completesAt ?? 0) + 1);
       await vi.advanceTimersByTimeAsync((building?.completesAt ?? 0) - BUILD_AT_MS + 1);

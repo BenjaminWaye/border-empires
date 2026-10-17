@@ -73,7 +73,7 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 // occupation IS its upkeep now — there is nothing left to meter per-minute
 // on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
 // were never retired to 0 when their build cost moved to manpower + slots
-// (unlike MINTWORKS_FOOD_UPKEEP/TRADE_NEXUS_FOOD_UPKEEP below,
+// (unlike MANUFACTORY_FOOD_UPKEEP/TRADE_NEXUS_FOOD_UPKEEP below,
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const HYDROGARDEN_GOLD_UPKEEP = 0;
@@ -144,43 +144,43 @@ export const HIGH_YIELD_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY = 45;
 export const AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY = 40;
 export const HIGH_YIELD_AETHER_CONDENSER_GOLD_UPKEEP_PER_DAY = 60;
 
-// Mintworks rebalance (structure-detail-screen task): an instant one-time gold
+// Manufactory rebalance (structure-detail-screen task): an instant one-time gold
 // grant on completion, plus a small flat gold/min bonus expressed so it sums
 // to exactly its stated gold/day amount. Its main ongoing effect is a PER-
-// MINTWORKS +10% town gold production bonus (+35% with an active Clearing
+// MANUFACTORY +10% town gold production bonus (+35% with an active Clearing
 // House, preserving the existing +25pp Clearing House synergy gap), and
-// STACKS ADDITIVELY across every active Mintworks in a town's support ring —
-// e.g. 5 plain Mintworks = +50% (1.5x), not a flat capped 10%/35%.
+// STACKS ADDITIVELY across every active Manufactory in a town's support ring —
+// e.g. 5 plain Manufactory = +50% (1.5x), not a flat capped 10%/35%.
 //
-// mintworks-stacking task: this used to be two independently-driftable
-// MULTIPLIER constants (MINTWORKS_GOLD_PRODUCTION_MULT = 1.1 /
-// MINTWORKS_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35) paired with a boolean
-// hasMintworks gate — every call site multiplied by one of those two constants
+// manufactory-stacking task: this used to be two independently-driftable
+// MULTIPLIER constants (MANUFACTORY_GOLD_PRODUCTION_MULT = 1.1 /
+// MANUFACTORY_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35) paired with a boolean
+// hasManufactory gate — every call site multiplied by one of those two constants
 // directly, and several other call sites (live-town-summary.ts,
 // tile-detail-snapshot.ts, legacy-snapshot-bootstrap.ts,
 // legacy-snapshot-economy.ts) had independently hardcoded 1.5/1.75 instead of
 // even referencing the constants, so the four formulas silently disagreed.
-// Replaced with a single BONUS-per-mintworks source of truth plus the
-// mintworksGoldProductionMultiplier() pure function below — every call site now
-// computes a real mintworks COUNT (economy-network.ts's countSupportedStructures)
+// Replaced with a single BONUS-per-manufactory source of truth plus the
+// manufactoryGoldProductionMultiplier() pure function below — every call site now
+// computes a real manufactory COUNT (economy-network.ts's countSupportedStructures)
 // and calls this one function, so the four formulas can no longer drift.
-export const MINTWORKS_INSTANT_GOLD_BONUS = 10;
-export const MINTWORKS_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
-export const MINTWORKS_GOLD_PRODUCTION_BONUS = 0.10;
-export const MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
+export const MANUFACTORY_INSTANT_GOLD_BONUS = 10;
+export const MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
+export const MANUFACTORY_GOLD_PRODUCTION_BONUS = 0.10;
+export const MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
 
 /**
- * Pure per-mintworks gold production multiplier — the single shared source of
+ * Pure per-manufactory gold production multiplier — the single shared source of
  * truth for both server (apps/simulation, apps/realtime-gateway) and client
- * (packages/client) call sites. Returns 1 (no bonus) when mintworksCount <= 0;
- * otherwise 1 + mintworksCount * (per-mintworks bonus, higher with an active
+ * (packages/client) call sites. Returns 1 (no bonus) when manufactoryCount <= 0;
+ * otherwise 1 + manufactoryCount * (per-manufactory bonus, higher with an active
  * Clearing House). Deliberately takes a real count, not a boolean — each
- * Mintworks contributes its own bonus, stacking additively, not just "any
- * Mintworks present."
+ * Manufactory contributes its own bonus, stacking additively, not just "any
+ * Manufactory present."
  */
-export const mintworksGoldProductionMultiplier = (mintworksCount: number, clearingHouseActive: boolean): number => {
-  if (mintworksCount <= 0) return 1;
-  return 1 + mintworksCount * (clearingHouseActive ? MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MINTWORKS_GOLD_PRODUCTION_BONUS);
+export const manufactoryGoldProductionMultiplier = (manufactoryCount: number, clearingHouseActive: boolean): number => {
+  if (manufactoryCount <= 0) return 1;
+  return 1 + manufactoryCount * (clearingHouseActive ? MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MANUFACTORY_GOLD_PRODUCTION_BONUS);
 };
 
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
@@ -205,7 +205,7 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
  * the structure isn't in any town's support ring) and its town-support
  * attribution (when it IS in a town's support ring, this same per-instance
  * amount is folded into that town's own gold production instead, the same
- * way Mintworks contributes to town gold — see
+ * way Manufactory contributes to town gold — see
  * apps/simulation/economy-network.ts's supportedConverterGoldPerMinuteForTown
  * and apps/simulation/live-town-summary.ts's wire-shaped counterpart).
  * Returns 0 for anything that isn't an active EXCHANGE-mode synthesizer.
@@ -223,7 +223,7 @@ export const converterExchangeGoldPerMinute = (structureType: string, mode: stri
 // (their call sites — player-update-economy.ts, player-upkeep-incremental.ts —
 // stay in place and naturally go inert, same "leave plumbing, starve input"
 // treatment TITANIUM/CRYSTAL/UMBRITE got when their production was retired).
-export const MINTWORKS_FOOD_UPKEEP = 0;
+export const MANUFACTORY_FOOD_UPKEEP = 0;
 export const RELAY_BEACON_GOLD_UPKEEP = 0;
 export const TRADE_NEXUS_FOOD_UPKEEP = 0;
 export const HARBOR_EXCHANGE_GOLD_UPKEEP = 0;
@@ -318,7 +318,7 @@ export const SETTLEMENT_GROWTH_RATE_MULT = 4;
 // deleted; several display/aggregation call sites (live-town-summary.ts,
 // player-upkeep-incremental.ts, the legacy/reconnect snapshot paths) still
 // read it for a "food upkeep per minute" figure that's now always 0, same
-// "leave plumbing, starve input" treatment as MINTWORKS_FOOD_UPKEEP above.
+// "leave plumbing, starve input" treatment as MANUFACTORY_FOOD_UPKEEP above.
 export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
 
 /**

@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MINTWORKS_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
+import { MANUFACTORY_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import { INCUBATION_ENGINE_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -80,13 +80,13 @@ export function grantIncubationEnginePopulationBurst(
   return INCUBATION_ENGINE_INSTANT_POPULATION_BURST;
 }
 
-export function grantMintworksInstantGoldBonus(
+export function grantManufactoryInstantGoldBonus(
   context: RuntimeStructureCommandContext,
   ownerId: string
 ): void {
   const owner = context.players.get(ownerId);
   if (!owner) return;
-  owner.points += MINTWORKS_INSTANT_GOLD_BONUS;
+  owner.points += MANUFACTORY_INSTANT_GOLD_BONUS;
 }
 
 export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
@@ -122,13 +122,13 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
-  // Mintworks rebalance (structure-detail-screen task): instant one-time gold
+  // Manufactory rebalance (structure-detail-screen task): instant one-time gold
   // grant on completion, on top of its ongoing flat/percentage gold bonuses.
   // Credited before the single emitPlayerStateUpdate call below so that
   // broadcast carries the post-bonus gold total rather than a stale value
   // followed by a second, redundant PLAYER_UPDATE.
-  if (structureType === "MINTWORKS") {
-    grantMintworksInstantGoldBonus(context, ownerId);
+  if (structureType === "MANUFACTORY") {
+    grantManufactoryInstantGoldBonus(context, ownerId);
   }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
@@ -154,7 +154,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     x: completedTile.x,
     y: completedTile.y,
     structureType,
-    ...(structureType === "MINTWORKS" ? { instantGold: MINTWORKS_INSTANT_GOLD_BONUS } : {}),
+    ...(structureType === "MANUFACTORY" ? { instantGold: MANUFACTORY_INSTANT_GOLD_BONUS } : {}),
     ...(populationBurst ? { populationBurst } : {})
   });
   // Relay Beacon (and other reach-anchor) activations happened synchronously

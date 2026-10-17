@@ -220,7 +220,7 @@ describe("structure command planner — manpower affordability", () => {
   });
 
   it("degrades to a cheaper affordable economic structure rather than proposing an unaffordable one", () => {
-    // A well-fed TOWN below its support cap offers two candidates: MINTWORKS
+    // A well-fed TOWN below its support cap offers two candidates: MANUFACTORY
     // (150 manpower, score 54) and INCUBATION_ENGINE (80 manpower, score 20). The gate is
     // applied per-candidate *before* the best-score pick, so a player who can
     // afford only the cheaper one still gets a usable build instead of falling
@@ -239,7 +239,7 @@ describe("structure command planner — manpower affordability", () => {
       id: "ai-1",
       points: 10_000,
       techIds: ["trade", "pottery"],
-      // Comfortably above foodCoverageLow's max(24, townCount*12), so MINTWORKS
+      // Comfortably above foodCoverageLow's max(24, townCount*12), so MANUFACTORY
       // outscores INCUBATION_ENGINE and the fallback below is driven purely by manpower.
       strategicResources: { FOOD: 1_000 },
       settledTileCount: 10,
@@ -254,18 +254,18 @@ describe("structure command planner — manpower affordability", () => {
 
     // Below INCUBATION_ENGINE's 80 — nothing is affordable, so nothing is proposed.
     expect(chooseAt(79)).toBeUndefined();
-    // Affords INCUBATION_ENGINE but not MINTWORKS — takes the cheaper one.
+    // Affords INCUBATION_ENGINE but not MANUFACTORY — takes the cheaper one.
     expect(chooseAt(80)?.structureType).toBe("INCUBATION_ENGINE");
     expect(chooseAt(149)?.structureType).toBe("INCUBATION_ENGINE");
-    // Affords MINTWORKS — the higher-scoring candidate wins again.
-    expect(chooseAt(150)?.structureType).toBe("MINTWORKS");
+    // Affords MANUFACTORY — the higher-scoring candidate wins again.
+    expect(chooseAt(150)?.structureType).toBe("MANUFACTORY");
   });
 
 });
 
 describe("chooseBestEconomicBuild — town support tile availability", () => {
   // Regression: production staging showed BUILD_ECONOMIC_STRUCTURE rejected
-  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MINTWORKS/
+  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MANUFACTORY/
   // INCUBATION_ENGINE whenever a town's supportCurrent < supportMax, without checking
   // whether a physical open SETTLED neighbor tile actually existed to host
   // the structure. The runtime places these on an adjacent support tile
@@ -305,7 +305,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, openSupportTile], tilesByKey);
     expect(result).toBeDefined();
     expect(result?.tile).toBe(town);
-    expect(["MINTWORKS", "INCUBATION_ENGINE"]).toContain(result?.structureType);
+    expect(["MANUFACTORY", "INCUBATION_ENGINE"]).toContain(result?.structureType);
   });
 
   it("does not re-propose a structure type the town already has, even when it outscores the genuinely missing type", () => {
@@ -316,7 +316,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     // THIS specific type. The runtime's economicStructureForSupportedTown
     // check catches the duplicate; chooseBestEconomicBuild must too.
     //
-    // The town already has INCUBATION_ENGINE (score 20) — only MINTWORKS (score 54) is
+    // The town already has INCUBATION_ENGINE (score 20) — only MANUFACTORY (score 54) is
     // genuinely missing, so the fix must not re-propose INCUBATION_ENGINE.
     //
     // Coordinates kept positive and away from 0 — negative offsets wrap
@@ -348,7 +348,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
       [town2, existingIncubationEngine, openSupportTile, ...frontierNeighbors],
       tilesByKey
     );
-    expect(result?.structureType).toBe("MINTWORKS");
+    expect(result?.structureType).toBe("MANUFACTORY");
   });
 
   it("does not propose a town-support structure when the only SETTLED neighbor already has a structure", () => {

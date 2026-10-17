@@ -445,9 +445,9 @@ describe("development queue helpers", () => {
 
     const sent = sendDevelopmentBuild(
       state,
-      { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" },
+      { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MANUFACTORY" },
       optimistic,
-      { x: 6, y: 7, label: "Mintworks at (6, 7)", optimisticKind: "MINTWORKS" },
+      { x: 6, y: 7, label: "Manufactory at (6, 7)", optimisticKind: "MANUFACTORY" },
       {
         keyFor: (x, y) => `${x},${y}`,
         queueDevelopmentAction: vi.fn(() => true),
@@ -460,9 +460,9 @@ describe("development queue helpers", () => {
     );
 
     expect(sent).toBe(true);
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_ECONOMIC_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" });
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_ECONOMIC_STRUCTURE", x: 6, y: 7, structureType: "MANUFACTORY" });
     expect(state.lastDevelopmentAttempt).toMatchObject({
-      payload: { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" }
+      payload: { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MANUFACTORY" }
     });
     expect(optimistic).toHaveBeenCalledTimes(1);
   });
@@ -554,9 +554,9 @@ describe("development queue helpers", () => {
         x: 3,
         y: 4,
         tileKey: "3,4",
-        label: "Mintworks at (3, 4)",
-        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MINTWORKS" },
-        optimisticKind: "MINTWORKS"
+        label: "Manufactory at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MANUFACTORY" },
+        optimisticKind: "MANUFACTORY"
       }
     ]);
 
@@ -571,9 +571,9 @@ describe("development queue helpers", () => {
         x: 3,
         y: 4,
         tileKey: "3,4",
-        label: "Mintworks at (3, 4)",
-        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MINTWORKS" },
-        optimisticKind: "MINTWORKS"
+        label: "Manufactory at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MANUFACTORY" },
+        optimisticKind: "MANUFACTORY"
       }
     ]);
   });

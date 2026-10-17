@@ -169,7 +169,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_hydrogarden") return "▥";
   if (id === "build_umbrite_rig") return "⛺";
   if (id === "build_mine") return "⛏";
-  if (id === "build_mintworks") return "▣";
+  if (id === "build_manufactory") return "▣";
   if (id === "build_incubation_engine") return "◫";
   if (id === "build_bank") return "◧";
   if (id === "build_sky_dock") return "✈";

@@ -64,7 +64,7 @@ describe("menuOverviewForTile: waystation line", () => {
   });
 
   it("leads with the Built line on a settled structure tile", () => {
-    const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" } } as Tile;
+    const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } } as Tile;
     expect(menuOverviewForTile(tile, deps)[0]?.html).toContain("Built:");
   });
 });

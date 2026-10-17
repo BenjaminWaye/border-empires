@@ -82,9 +82,9 @@ export const isCompleteTownSummary = (town: Partial<NonNullable<Tile["town"]>> |
       isFiniteNumber(town.maxPopulation) &&
       isFiniteNumber(town.connectedTownCount) &&
       isFiniteNumber(town.connectedTownBonus) &&
-      typeof town.hasMintworks === "boolean" &&
-      typeof town.mintworksActive === "boolean" &&
-      isFiniteNumber(town.mintworksCount) &&
+      typeof town.hasManufactory === "boolean" &&
+      typeof town.manufactoryActive === "boolean" &&
+      isFiniteNumber(town.manufactoryCount) &&
       typeof town.hasIncubationEngine === "boolean" &&
       typeof town.incubationEngineActive === "boolean"
   );

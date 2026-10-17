@@ -24,12 +24,12 @@ const deps = {
 describe("menuOverviewForTile: 'Built:' structure overview line", () => {
   it("shows a 'Built:' line with a clickable structure-info link for a tile with a structure on it", () => {
     const lines = menuOverviewForTile(
-      { x: 90, y: 329, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" } },
+      { x: 90, y: 329, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "MANUFACTORY", status: "active" } },
       deps
     );
     const html = lines.map((line) => line.html).join(" ");
     expect(html).toContain("Built:");
-    expect(html).toContain('<button data-structure-info="MINTWORKS">MINTWORKS</button>');
+    expect(html).toContain('<button data-structure-info="MANUFACTORY">MANUFACTORY</button>');
   });
 
   it("omits the 'Built:' line when no structure is on the tile", () => {
