@@ -147,7 +147,14 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
 
   const ringGeometry = new RingGeometry(0.3, 0.38, 4, 1, 0); // 4 segments from angle 0: a diamond, matching the 2D marker
   ringGeometry.rotateX(-Math.PI / 2);
-  const ringMaterial = new MeshBasicMaterial({ color: SUPPLY_CHOKEPOINT_COLOR, transparent: true, depthTest: false, depthWrite: false, side: DoubleSide, toneMapped: false });
+  const ringMaterial = new MeshBasicMaterial({
+    toneMapped: false,
+    color: SUPPLY_CHOKEPOINT_COLOR,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    side: DoubleSide
+  });
   const rings = new InstancedMesh(ringGeometry, ringMaterial, MAX_CHOKEPOINTS);
   rings.count = 0;
   rings.frustumCulled = false;

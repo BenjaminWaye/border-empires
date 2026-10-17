@@ -17,6 +17,7 @@ import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persis
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
+import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
 import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
@@ -176,6 +177,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...GARRISON_OUTSIDE_REACH_CHANGELOG,
+  ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -484,18 +486,6 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Frontier outside your reach stays yours; there is no decay timer any more",
       "You still can't garrison it, and if its chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once",
       "Its tile menu now says Beyond your reach and explains this, instead of a countdown"
-    ]
-  },
-  {
-    createdAt: 1792267552682,
-    introducedIn: "2026.10.17.1",
-    title: "Supply lines show how thin your far frontier is",
-    why: "Frontier beyond your reach lives only as long as its chain back to your settled land holds, and nothing on the map showed that chain or where it was weakest.",
-    changes: [
-      "Faint arrows now flow from the edge of your reach into any frontier past it, fading the further out it goes",
-      "Where the line narrows to a single tile, the arrows turn amber and a pulsing diamond marks the pinch: lose that tile and everything past it goes",
-      "Tap a pinch tile to see how many tiles depend on it",
-      "Works on both the 3D and the 2D map"
     ]
   }
 ];
