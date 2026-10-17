@@ -1469,7 +1469,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             supportPlacementBlocked
               ? "Tile already has structure"
               : !state.techIds.includes("trade")
-                ? "Requires Industrial Tooling Consignment"
+                ? "Requires Industrial Tooling Module"
                 : missingResourceSlotReason(state, "MANUFACTORY") ?? "Unavailable",
             `${deps.structureCostText("MANUFACTORY")} • ${buildTimeLabel(economicBuildMsForState(state, "MANUFACTORY"))} • +${Math.round((manufactoryGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town coin production (stacks)${upkeepSuffixFor("MANUFACTORY")}`
           ),

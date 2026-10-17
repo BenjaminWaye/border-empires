@@ -3,11 +3,11 @@ import techTree from "../../data/tech-tree.json" with { type: "json" };
 import { structureCostDefinition, structureSlotRequirements, TECH_REQUIREMENTS_BY_STRUCTURE } from "@border-empires/shared";
 
 describe("Manufactory Manifest compatibility", () => {
-  it("keeps the existing unlock as a tooling shipment without using an AFC module slot", () => {
+  it("keeps the existing unlock and assigns its reusable tooling capability to an AFC module", () => {
     const tooling = techTree.techs.find((tech) => tech.id === "trade");
     expect(tooling).toMatchObject({
-      name: "Industrial Tooling Consignment",
-      manifestCategory: "CREW_OFFICE_CONSIGNMENT",
+      name: "Industrial Tooling Module",
+      manifestCategory: "AFC_MODULE",
       effects: { unlockManufactory: true }
     });
     expect(TECH_REQUIREMENTS_BY_STRUCTURE.MANUFACTORY).toBe("trade");

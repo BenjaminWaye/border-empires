@@ -14,7 +14,7 @@ const make = (id: string, name: string, branch: string, effects: Record<string, 
   requirements: { gold: 0, resources: {} }
 });
 
-const catalog = [make("masonry", "Titanium Forge Module", "war", { unlockForts: true }), make("trade", "Industrial Tooling Consignment", "economy", { unlockManufactory: true })];
+const catalog = [make("masonry", "Titanium Forge Module", "war", { unlockForts: true }), make("trade", "Industrial Tooling Module", "economy", { unlockManufactory: true })];
 
 // The old list was a stack of full-description cards you could not click.
 describe("techOwnedHtml (Your Manifests)", () => {

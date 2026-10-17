@@ -104,8 +104,11 @@ slot until removal completes.
   Each occupies 1 FOOD slot and retains the same income: +10 Coin on
   completion, +1 Coin/day, and an additive +10% town income per copy
   (+35% with an active local or connected Clearing House). The Industrial
-  Tooling Consignment delivers machine tools and installation equipment;
-  it is a consignment, not an AFC module, and does not occupy a module slot.
+  Tooling Module fabricates and refurbishes workshop equipment and parts
+  from local materials.
+  It occupies one AFC module slot; constructing Manufactories requires it
+  installed on an active owned AFC. Existing trade unlocks receive their
+  module through the normal call-down system when an AFC slot is free.
 
 - Gold is passive per-minute income, rescaled by `GOLD_RESCALE_DIVISOR = 288`.
   Baseline town income is `2 / 288` gold/minute and a dock is `0.5 / 288`;

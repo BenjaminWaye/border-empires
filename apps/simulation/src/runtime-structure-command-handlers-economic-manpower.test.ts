@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs, structureBuildManpowerCost } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime/runtime.js";
-import { buildPlayer, collectEvents } from "./runtime/runtime.test-helpers.js";
+import { afcModuleFixtureTile, buildPlayer, collectEvents } from "./runtime/runtime.test-helpers.js";
 
 type RawPlayerRef = { manpower: number };
 
@@ -29,6 +29,7 @@ const buildRuntimeWithManpower = (startingManpower: number, extraTiles: Array<Re
     ]),
     initialState: {
       tiles: [
+        afcModuleFixtureTile("player-1"),
         {
           x: 16,
           y: 16,

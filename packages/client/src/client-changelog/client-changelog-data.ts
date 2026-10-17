@@ -491,11 +491,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792266826875, // Date.now() captured when this entry was written.
+    createdAt: 1792269690926, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.17.2",
     title: "Manufactories turn town industry into Coin credit",
     why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
-    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Consignment delivers workshop equipment and unlocks Manufactories without using an AFC module slot", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
+    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
   }
 ];
 
