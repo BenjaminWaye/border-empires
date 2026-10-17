@@ -20,8 +20,8 @@
       "id": "trade",
       "tier": 1,
       "branch": "economy",
-      "name": "Industrial Tooling Consignment",
-      "description": "An offworld shipment of machine tools, press dies, gauges, and installation equipment for this planet's workshops. Unlocks Manufactories: build several around a town to expand its industrial output and the Coin credit backed by that output. Each Manufactory's town income bonus stacks.",
+      "name": "Industrial Tooling Module",
+      "description": "AFC module: a precision toolmaking system that fabricates and refurbishes machine tools, press dies, gauges, and replacement parts from local materials for this planet's workshops. Unlocks Manufactories while installed on an active AFC: build several around a town to expand the industrial output backing its Coin credit. Each Manufactory's town income bonus stacks.",
       "cost": {
         "gold": 10
       },
@@ -29,7 +29,7 @@
       "effects": {
         "unlockManufactory": true
       },
-      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "masonry",

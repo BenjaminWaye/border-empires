@@ -177,6 +177,7 @@ describe("RUSH_BUY", () => {
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000, techIds: new Set(["trade"]) })]]),
         initialState: {
           tiles: [
+            afcModuleFixtureTile("player-1"),
             {
               x: 16, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
               town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" }

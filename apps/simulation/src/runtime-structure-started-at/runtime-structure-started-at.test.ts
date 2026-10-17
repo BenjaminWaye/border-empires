@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
+import { buildPlayer, collectEvents, afcModuleFixtureTile } from "../runtime/runtime.test-helpers.js";
 
 const BUILD_AT_MS = 1_000;
 
@@ -22,6 +22,7 @@ const buildRuntime = () => {
     ]),
     initialState: {
       tiles: [
+        afcModuleFixtureTile("player-1"),
         { x: 16, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Trade Hub", type: "MARKET", populationTier: "TOWN" } },
         { x: 16, y: 17, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
         { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },

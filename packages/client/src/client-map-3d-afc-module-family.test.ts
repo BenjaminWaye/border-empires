@@ -112,14 +112,14 @@ describe("AFC module family registry", () => {
     group.dispose();
   });
 
-  it("renders a generic cartridge for a docked tech that has no bespoke family, in its own socket", () => {
+  it.each(["some-unbuilt-module-tech", "trade"])("renders a cartridge for %s in its own socket", (techId) => {
     const scene = new Scene();
     const group = createAfcOverlayGroup(scene, 2);
     group.addAfc(0, 0, 0, 5, 5, []);
     group.commit();
     const afcOnly = totalInstanceCount(scene);
     group.clear();
-    group.addAfc(0, 0, 0, 5, 5, ["some-unbuilt-module-tech"]);
+    group.addAfc(0, 0, 0, 5, 5, [techId]);
     group.commit();
     // Before the fallback existed an unmapped tech added zero instances, so
     // an unlocked module looked like it never attached.
