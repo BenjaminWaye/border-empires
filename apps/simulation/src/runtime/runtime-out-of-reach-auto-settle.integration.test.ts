@@ -10,7 +10,7 @@ import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
  * context (see runtime-lock-resolution.out-of-reach-auto-settle.test.ts for
  * the branch-level unit coverage). This also locks in the companion change:
  * a dock only projects reach once SETTLED, so the auto-settle path is what
- * actually lets a far-off dock become useful instead of just decaying.
+ * actually lets a far-off dock become useful instead of sitting as FRONTIER.
  */
 
 const runScheduled = async (scheduledTasks: Array<() => void>): Promise<void> => {
@@ -56,7 +56,7 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
     nowMs += FRONTIER_CLAIM_MS;
     await runScheduled(scheduledTasks); // resolves the claim lock, then chains straight into the auto-started settlement (the mocked scheduleAfter ignores delay)
 
-    // Auto-settle took the branch instead of stamping a decay timer at any point.
+    // Auto-settle ran, and no decay timer was stamped at any point.
     expect(seen.some((event) => event.eventType === "SETTLEMENT_STARTED")).toBe(true);
     expect(
       seen.some((event) => event.eventType === "TILE_DELTA_BATCH" && event.tileDeltas.some((d) => d.frontierDecayKind === "OUT_OF_REACH"))
@@ -72,7 +72,7 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
     expect(runtime.reachTileKeysForPlayer("player-1")).toContain("50,50");
   });
 
-  it("clears a neighboring tile's out-of-reach decay once a nearby dock settles and its reach catches up to it", async () => {
+  it("clears a persisted out-of-reach decay timer at boot and the tile stays held through a nearby dock settling", async () => {
     const scheduledTasks: Array<() => void> = [];
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
@@ -84,8 +84,9 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
           { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
-          // Already owned and decaying out of reach, at the edge of what the
-          // dock's DOCK_REACH_RADIUS=1 disk will cover once it settles.
+          // Snapshot from before out-of-reach decay was removed: still carries
+          // the timer, at the edge of what the dock's DOCK_REACH_RADIUS=1 disk
+          // will cover once it settles.
           { x: 51, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM", frontierDecayAt: 9_999_999, frontierDecayKind: "OUT_OF_REACH" }
         ],
         docks: [
@@ -96,7 +97,9 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
       }
     });
 
-    expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.frontierDecayKind).toBe("OUT_OF_REACH");
+    // Regression: boot strips the dead timer instead of leaving a countdown nothing will ever expire.
+    expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.frontierDecayKind).toBeUndefined();
+    expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.frontierDecayAt).toBeUndefined();
 
     runtime.submitCommand({
       commandId: "cmd-dock-expand-rescue",
@@ -111,12 +114,11 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
     await runScheduled(scheduledTasks); // claim resolves, dock auto-settles, its anchor activates and its disk covers (51,50)
 
     expect(runtime.wireDeltaForTileKey("50,50", "player-1")?.ownershipState).toBe("SETTLED");
-    // The neighboring tile's decay timer is gone -- reach caught up to it.
     expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.frontierDecayKind).toBeUndefined();
-    expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.ownerId).toBe("player-1"); // and it's still held, not expired
+    expect(runtime.wireDeltaForTileKey("51,50", "player-1")?.ownerId).toBe("player-1");
   });
 
-  it("decays a claimed dock that's out of reach if the player can't afford to auto-settle", async () => {
+  it("leaves a claimed out-of-reach dock FRONTIER, with no decay timer, if the player can't afford to auto-settle", async () => {
     const scheduledTasks: Array<() => void> = [];
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
@@ -155,9 +157,9 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
     const claimed = runtime.wireDeltaForTileKey("50,50", "player-1");
     expect(claimed?.ownerId).toBe("player-1");
     expect(claimed?.ownershipState).toBe("FRONTIER");
-    // Can't afford SETTLE_MANPOWER_COST -- falls back to the ordinary decay path.
-    expect(claimed?.frontierDecayKind).toBe("OUT_OF_REACH");
-    expect(typeof claimed?.frontierDecayAt).toBe("number");
+    // Can't afford SETTLE_MANPOWER_COST -- stays plain FRONTIER. Out-of-reach frontier no longer decays.
+    expect(claimed?.frontierDecayKind).toBeUndefined();
+    expect(claimed?.frontierDecayAt).toBeUndefined();
   });
 
   it("lets a human SETTLE command claim a captured town frontier tile outside their reach", async () => {

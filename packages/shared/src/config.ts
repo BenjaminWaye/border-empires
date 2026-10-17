@@ -297,13 +297,7 @@ export const AFC_VISION_RADIUS = TOWN_REACH_RADIUS + 1;
 // rival's reach already covered it (see ReachAnchor.guaranteedRadius).
 export const AFC_LANDING_GUARANTEED_REACH_RADIUS = 1;
 
-// Decay window for a FRONTIER tile claimed/captured outside the owner's
-// current reach (distinct from encirclement decay, which is
-// connectivity-based and lives in apps/simulation). See reach.ts's
-// reachOwnerCountAt for the contested-zone exception that suppresses this.
-export const OUT_OF_REACH_DECAY_MS = 300_000;
-
-// A FRONTIER tile that reverts to neutral (out-of-reach decay or
+// A FRONTIER tile that reverts to neutral (an
 // encirclement cut-off) auto-heals back to FRONTIER after this long,
 // provided it is STILL neutral and STILL inside some owner's persistent
 // reach border at the moment its deadline comes due -- see

@@ -23,7 +23,6 @@ const makePlayer = (id: string): DomainPlayer => ({ id, isAi: false, points: 0, 
 
 function createContext(tiles: Map<string, DomainTileState>, options: { canAutoSettle: boolean }) {
   const events: SimulationEvent[] = [];
-  const registerOutOfReachDecay = vi.fn();
   const autoSettleCapturedAnchor = vi.fn((_playerId: string, targetKey: string, target: DomainTileState) => {
     tiles.set(targetKey, target);
   });
@@ -61,8 +60,7 @@ function createContext(tiles: Map<string, DomainTileState>, options: { canAutoSe
     maybeActivateWatchtower: () => {},
     maybeActivateWaystation: () => {},
     maybeDrainClaimContinuation: () => {},
-    outOfReachDecayDeadline: () => undefined,
-    registerOutOfReachDecay,
+    isTileBeyondReach: () => false,
     canAutoSettleCapturedAnchor,
     autoSettleCapturedAnchor,
     tryDrainWaypointQueue: () => {}

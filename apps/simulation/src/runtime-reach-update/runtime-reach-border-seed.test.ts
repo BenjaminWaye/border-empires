@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { OUT_OF_REACH_DECAY_MS, type ReachAnchor } from "@border-empires/shared";
+import type { ReachAnchor } from "@border-empires/shared";
 import {
   countBorderOwnershipMismatches,
   seedReachBorderFromAnchors,
-  stampOwnedFrontierReachGapsForDecay,
   type BorderSeedTileView
 } from "./runtime-reach-border-seed.js";
 
@@ -73,8 +72,6 @@ describe("seedReachBorderFromAnchors", () => {
       applyReachAnchorActivation,
       tiles: new Map(),
       reachBorder: () => new Map(),
-      now: () => 0,
-      stampDecay: vi.fn(),
       runtimeLogInfo
     });
 
@@ -92,8 +89,6 @@ describe("seedReachBorderFromAnchors", () => {
       applyReachAnchorActivation: vi.fn(),
       tiles: tileMap(Object.fromEntries([tileAt("87,318", { ownerId: "enemy", ownershipState: "SETTLED" })])),
       reachBorder: () => new Map([["87,318", "me"]]),
-      now: () => 0,
-      stampDecay: vi.fn(),
       runtimeLogInfo
     });
 
@@ -117,147 +112,28 @@ describe("seedReachBorderFromAnchors", () => {
       applyReachAnchorActivation: () => { tiles.set("0,0", { x: 0, y: 0, ownerId: "me", ownershipState: "FRONTIER" }); },
       tiles,
       reachBorder: () => new Map(),
-      now: () => 0,
-      stampDecay: vi.fn(),
       runtimeLogInfo
     });
 
     expect(result.unsettled).toBe(1);
-    // "0,0" is now FRONTIER, still owned by "me", with no border slot -- the
-    // gap-decay pass picks it up too and logs a second time.
-    expect(result.gapsStamped).toBe(1);
-    expect(runtimeLogInfo).toHaveBeenCalledTimes(2);
+    expect(runtimeLogInfo).toHaveBeenCalledTimes(1);
     expect(runtimeLogInfo.mock.calls[0]?.[0]).toMatchObject({ unsettled: 1 });
-    expect(runtimeLogInfo.mock.calls[1]?.[0]).toEqual({ gapsStamped: 1 });
   });
 
-  it("logs and reports how many owned FRONTIER gap tiles got a fresh decay timer", () => {
+  it("leaves an owned FRONTIER tile outside every anchor's disk alone -- out-of-reach frontier no longer decays", () => {
     const runtimeLogInfo = vi.fn();
-    const stampDecay = vi.fn();
+    const tiles = tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER" })]));
 
     const result = seedReachBorderFromAnchors({
       gatherReachAnchors: () => [],
       applyReachAnchorActivation: vi.fn(),
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER" })])),
+      tiles,
       reachBorder: () => new Map(),
-      now: () => 1_000,
-      stampDecay,
       runtimeLogInfo
     });
 
-    expect(result.gapsStamped).toBe(1);
-    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + OUT_OF_REACH_DECAY_MS);
-    expect(runtimeLogInfo.mock.calls.at(-1)?.[0]).toEqual({ gapsStamped: 1 });
-  });
-});
-
-describe("stampOwnedFrontierReachGapsForDecay", () => {
-  it("stamps an owned FRONTIER tile the anchor replay never covered", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER" })])),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(1);
-    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + OUT_OF_REACH_DECAY_MS);
-  });
-
-  it("does not touch a tile the anchor replay already covers", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER" })])),
-      reachBorder: () => new Map([["42,7", "me"]]),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
-  });
-
-  it("does not re-stamp a tile that is already decaying (either reason)", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(
-        Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER", frontierDecayKind: "OUT_OF_REACH" })])
-      ),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
-  });
-
-  it("does not touch SETTLED tiles -- decay only ever applies to FRONTIER ground", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "SETTLED" })])),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
-  });
-
-  it("skips barbarian-held ground -- environment, not a bordered empire", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "barbarian-1", ownershipState: "FRONTIER" })])),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
-  });
-
-  it("skips unowned tiles", () => {
-    const stampDecay = vi.fn();
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownershipState: "FRONTIER" })])),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
-  });
-
-  it("does not stamp a tile actively contested by 2+ live anchors -- fought over, not undefended", () => {
-    const stampDecay = vi.fn();
-    const rival: ReachAnchor = { x: 42, y: 7, ownerId: "rival", activatedAt: 1, kind: "TOWN" };
-    const another: ReachAnchor = { x: 43, y: 7, ownerId: "another", activatedAt: 1, kind: "TOWN" };
-
-    const stamped = stampOwnedFrontierReachGapsForDecay({
-      tiles: tileMap(Object.fromEntries([tileAt("42,7", { ownerId: "me", ownershipState: "FRONTIER" })])),
-      reachBorder: () => new Map(),
-      gatherReachAnchors: () => [rival, another],
-      now: () => 1_000,
-      stampDecay
-    });
-
-    expect(stamped).toBe(0);
-    expect(stampDecay).not.toHaveBeenCalled();
+    expect(result).toEqual({ unsettled: 0, mismatches: 0 });
+    expect(tiles.get("42,7")).toEqual({ x: 42, y: 7, ownerId: "me", ownershipState: "FRONTIER" });
+    expect(runtimeLogInfo).not.toHaveBeenCalled();
   });
 });

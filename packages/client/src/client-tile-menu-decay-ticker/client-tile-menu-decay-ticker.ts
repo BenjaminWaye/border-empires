@@ -4,8 +4,8 @@ import type { Tile, TileMenuView } from "../client-types.js";
 
 /**
  * The tile menu header status (tileMenuHeaderStatusForTile,
- * client-tile-menu-status.ts) shows a live "disappears in Xs" / "decays in
- * Xs" countdown for an encircled or out-of-reach frontier tile. That text is
+ * client-tile-menu-status.ts) shows a live "disappears in Xs" countdown for
+ * an encircled frontier tile. That text is
  * only recomputed when the open menu re-renders, which otherwise only
  * happens on an incoming server message -- with the menu open on a decaying
  * tile and no other traffic touching it, the countdown just sat frozen at

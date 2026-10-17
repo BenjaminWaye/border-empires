@@ -462,6 +462,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
       "The 2D map keeps the plain outline for now"
     ]
+  },
+  {
+    createdAt: 1792266607210,
+    introducedIn: "2026.10.17.1",
+    title: "Land beyond your reach no longer decays",
+    why: "Land claimed outside your reach vanished on a hidden 5-minute timer, and when the oldest tile went, every tile chained behind it went with it, with no warning.",
+    changes: [
+      "Frontier outside your reach stays yours; there is no decay timer any more",
+      "You still can't garrison it, and if its chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once",
+      "Its tile menu now says Beyond your reach and explains this, instead of a countdown"
+    ]
   }
 ];
 

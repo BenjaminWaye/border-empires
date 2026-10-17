@@ -180,19 +180,18 @@ export const buildPlayerSubscriptionSnapshot = (
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
           if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return undefined;
-          // This queue always dispatches a normal client-side SETTLE command
+          // This queue dispatches a normal client-side SETTLE command
           // (client-development-queue.ts), which handleSettleCommand rejects
-          // with OUT_OF_REACH unconditionally -- it has no exemption for
-          // town/dock anchor tiles. A captured town/dock anchor that would
-          // otherwise decay for being out of reach gets its own, separate,
-          // synchronous auto-settle at capture-resolution time instead (see
-          // canAutoSettleCapturedAnchor / autoSettleCapturedAnchor in
-          // runtime-out-of-reach-auto-settle.ts, invoked from resolveLock);
-          // if that one-shot attempt didn't happen or failed (no dev slot,
-          // can't afford it), the tile is already committed to decay and
-          // must not be re-queued here for a doomed retry. So this queue
-          // must skip every out-of-reach FRONTIER tile, not just resources.
-          if (tile.frontierDecayKind === "OUT_OF_REACH") return undefined;
+          // with OUT_OF_REACH for any tile outside the player's reach border
+          // except reach anchors and captured buildings (settleIgnoresReach in
+          // shared reach-settle-exemption.ts). Skip the rest, or the client
+          // would retry a doomed SETTLE forever. Towns/docks stay eligible:
+          // settling one is exactly what gives it reach. reachOwnerId is only
+          // sourced by the per-player visible-state export; the
+          // full-visibility export (season ended / spectator) doesn't carry
+          // it, and nobody settles there anyway.
+          const isReachAnchor = Boolean(tile.townJson || tile.dockId);
+          if (!isReachAnchor && options?.fullVisibility !== true && tile.reachOwnerId !== playerId) return undefined;
           let hasTownSupport = false;
           forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
             if (!hasTownSupport) {

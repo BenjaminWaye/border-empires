@@ -667,8 +667,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
-      // Keyed off the SERVER's stamp, so the contested-border exemption never fires a false warning.
-      if (merged.frontierDecayKind === "OUT_OF_REACH" && merged.ownerId === state.me && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: merged.x, y: merged.y });
+      // A claim of ours that just landed beyond our reach: explain why it can't be garrisoned and how it can be lost.
+      if (merged.ownerId === state.me && existing?.ownerId !== state.me && merged.ownershipState === "FRONTIER" && state.discoveryTipQueue && !resolveMyReachCached(state).has(tileKey)) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: merged.x, y: merged.y });
     }
     const resultAlert = combatResolutionAlert(msg, {
       targetTileBefore: targetBefore,

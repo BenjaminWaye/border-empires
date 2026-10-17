@@ -62,12 +62,10 @@ const setWaypointForSelected = (
     return true;
   }
   // EXPAND isn't reach-gated server-side -- this waypoint's destination can
-  // still land outside the player's reach, it'll just start decaying two
-  // minutes after the claim lands unless reach is extended to it. Warn them
-  // now, at the moment they queue it, rather than only after the server's
-  // tile-delta confirms the decay stamp (client-action-flow.ts's
-  // frontierDecayKind handler) -- by then the claim/decay is already
-  // underway and the "why" is easy to miss.
+  // still land outside the player's reach, where it can't be garrisoned and
+  // is lost if its supply line is cut. Warn them now, at the moment they
+  // queue it, rather than only once the claim lands (client-action-flow.ts's
+  // combat-result handler) -- by then the "why" is easy to miss.
   if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) announceDiscoveryTipForState(state, "OUT_OF_REACH_EXPAND", renderHud, { x: selected.x, y: selected.y });
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
