@@ -23,8 +23,6 @@ export type RecoveredPlayerState = {
   // Regen banked toward the next refill; must round-trip or a restart wipes up to a window of regen.
   manpowerBanked?: number;
   manpowerCapSnapshot?: number;
-  // First-day manpower boost; must round-trip or a restart cancels it early.
-  starterManpowerBoost?: { until: number; regenPerMinute: number };
   techIds?: string[];
   domainIds?: string[];
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;

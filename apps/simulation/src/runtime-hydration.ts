@@ -59,7 +59,6 @@ export const createPlayersFromRecoveredState = (
           ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
           ...(typeof player.manpowerBanked === "number" && player.manpowerBanked > 0 ? { manpowerBanked: player.manpowerBanked } : {}),
           ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-          ...(player.starterManpowerBoost ? { starterManpowerBoost: { ...player.starterManpowerBoost } } : {}),
           techIds,
           domainIds,
           mods: recomputeMods({ techIds, domainIds }),

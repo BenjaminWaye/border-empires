@@ -12,12 +12,12 @@
 // "engaged player" reference.
 //
 // The Probe casts below read SimulationRuntime internals for measurement
-// only; nothing is written through them except the boost variant override.
+// only; nothing is written through them except the landing-reserve variant override.
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "vitest";
-import { DEFAULT_AUTO_SETTLE_PREFS } from "@border-empires/shared";
+import { DEFAULT_AUTO_SETTLE_PREFS, LANDING_MANPOWER_RESERVE } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { createAiCommandProducer } from "../ai/ai-command-producer.js";
 import type { RuntimePlayer } from "../runtime-types.js";
@@ -85,20 +85,18 @@ it("first-day sim", async () => {
     probe.state.players.get(id)!.autoSettle = { ...DEFAULT_AUTO_SETTLE_PREFS };
   }
   const t0 = clock.now;
-  // Variant control for the first-day boost: settle everyone once (stamps the
-  // boost at its defaults), then override. SIM_BOOST_REGEN=0 removes it;
-  // SIM_BOOST_SCOPE=humans keeps it for humans only (fairness comparison).
+  // Variant control for the one-time landing reserve (landing-manpower-reserve.ts):
+  // settle everyone once (grants the reserve), then SIM_LANDING_RESERVE=0
+  // takes it back to compare against the old start.
   runtime.exportState();
-  const boostRegen = process.env.SIM_BOOST_REGEN;
-  const boostScope = process.env.SIM_BOOST_SCOPE ?? "all";
-  const boostHours = Number(process.env.SIM_BOOST_HOURS ?? "24");
-  for (const p of probe.state.players.values()) {
-    if (boostRegen === undefined) continue;
-    const eligible = boostScope === "all" || (boostScope === "humans" && !p.isAi);
-    if (Number(boostRegen) <= 0 || !eligible) delete p.starterManpowerBoost;
-    else p.starterManpowerBoost = { until: t0 + boostHours * HOUR, regenPerMinute: Number(boostRegen) };
+  if (process.env.SIM_LANDING_RESERVE === "0") {
+    for (const p of probe.state.players.values()) {
+      if (p.id.startsWith("barbarian-")) continue;
+      p.manpower = Math.min(probe.playerManpowerCap(p), Math.max(0, p.manpower - LANDING_MANPOWER_RESERVE));
+      delete p.waystationManpowerOverflow;
+    }
   }
-  console.log(LABEL, "boost sample", JSON.stringify([...probe.state.players.values()].slice(0, 2).map((p) => [p.id, p.starterManpowerBoost])), JSON.stringify(probe.state.players.get(humanIds[0]!)?.starterManpowerBoost));
+  console.log(LABEL, "start manpower", JSON.stringify([humanIds[0]!, aiIds[0]!].map((id) => [id, Math.round(probe.state.players.get(id)!.manpower)])));
   console.log(LABEL, "world ready in", Date.now() - startedAt, "ms; ais", aiIds.length, "humans", humanIds.length);
   const spent = new Map<string, number>();
   const lastMp = new Map<string, number>();

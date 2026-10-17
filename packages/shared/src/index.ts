@@ -4,7 +4,7 @@ export * from "./town-terrain-profile.js";
 export * from "./muster-state.js";
 export * from "./muster-config.js";
 export * from "./manpower-refill.js";
-export * from "./starter-manpower-boost.js";
+export * from "./landing-manpower-reserve.js";
 export * from "./tech-economy.js";
 export * from "./afc-build-cost.js";
 export * from "./afc-module-call-down.js";

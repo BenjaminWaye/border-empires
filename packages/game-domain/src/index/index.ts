@@ -66,9 +66,6 @@ export type DomainPlayer = {
   // boundary (apps/simulation/src/runtime-manpower.ts accrueManpower).
   manpowerBanked?: number;
   manpowerCapSnapshot?: number;
-  // First-day manpower boost (packages/shared/src/starter-manpower-boost.ts),
-  // stamped at the player's first manpower settle.
-  starterManpowerBoost?: { until: number; regenPerMinute: number };
   wonderVisionRadiusBonus?: number;
   wonderDockGoldMultiplier?: number;
   wonderDockAttackMultiplier?: number;

@@ -468,11 +468,11 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1792187006316, // frozen Date.now() value for this release
     introducedIn: "2026.10.16.1",
-    title: "New empires get a first-day manpower boost",
-    why: "A new empire's first day was one short burst of play followed by a long wait for manpower.",
+    title: "New empires land with a manpower reserve",
+    why: "New players ran out of manpower within the first 15-20 minutes, and manpower only refills every few hours.",
     changes: [
-      "For its first 24 hours, every new empire -- yours when you join, and AI empires when a season starts -- regenerates +1.6 manpower per minute on top of its normal rate",
-      "It pays out with your normal manpower refills and shows as \"First-day boost\" in the manpower breakdown"
+      "Every new empire -- yours when you join, and AI empires when a season starts -- lands with a one-time +1,000 manpower on top of its starting manpower",
+      "The reserve can sit above your manpower cap; regeneration pauses until you have spent back below the cap"
     ]
   },
   {
