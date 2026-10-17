@@ -87,7 +87,7 @@ import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
-import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { addProspectTile, PROSPECT_CLUE_OPACITY } from "../client-map-3d-prospect-overlay-sync.js";
+import { buildTerrainCutLookups } from "./client-map-3d-terrain-cut-lookups.js"; import { createProspectClueLayer, prospectClueTreeTint } from "../client-map-3d-prospect-clue/client-map-3d-prospect-clue-layer.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
@@ -158,7 +158,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
-  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: PROSPECT_CLUE_OPACITY, frontier: PROSPECT_CLUE_OPACITY });
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const prospectClues = createProspectClueLayer(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker(); const barbarianFrontierTint = createBarbarianFrontierTintTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
@@ -748,7 +748,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear(); tropicalForest.clear();
-    ownershipOverlay.clear(); prospectOverlay.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
+    ownershipOverlay.clear(); prospectClues.clear(); frontierDecayPulse.reset(); barbarianFrontierTint.reset(Date.now());
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
     townOverlay.clear();
@@ -880,7 +880,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const { surfaceY, flatOverlayY } = tileSurfaceHeights({ heightfield, wx, wy, wxNext, wyNext, rise: OVERLAY_RISE_ABOVE_HEIGHTFIELD, isHillsAt: isHillsTile, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
-        addProspectTile({ overlay: prospectOverlay, tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
+        prospectClues.addTile({ tile, terrain, visibility, x, z, wx, wy, wxNext, wyNext, surfaceY, treesOnTile: shouldDrawForestInstance(forestTile, tile) || shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile), cornerYAt: heightfield.cornerYAt, wrapX: deps.wrapX, wrapY: deps.wrapY, roadDirsAt: hillCutAt });
         if (visibility === "fogged" && !revealWholeMapInTrue3DMode) {
           // Fogged (remembered) tiles show their terrain as an aged survey
           // print -- land under fogDarkenOverlay's sepia wash, water
@@ -981,9 +981,9 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
-          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy, prospectClueTreeTint(tile, terrain, visibility));
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
-        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
+        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy, prospectClueTreeTint(tile, terrain, visibility));
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
@@ -1235,7 +1235,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit(); tropicalForest.commit();
-    ownershipOverlay.commit(); prospectOverlay.commit();
+    ownershipOverlay.commit(); prospectClues.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
     townOverlay.commit();
@@ -1496,7 +1496,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     contextGuard.dispose();
     renderer.dispose();
-    ownershipOverlay.dispose(); prospectOverlay.dispose();
+    ownershipOverlay.dispose(); prospectClues.dispose();
     fogDarkenOverlay.dispose();
     fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();
