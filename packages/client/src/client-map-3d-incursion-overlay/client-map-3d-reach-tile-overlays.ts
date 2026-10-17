@@ -9,7 +9,7 @@ export type ReachTileOverlayDeps = IncursionDeps & {
   readonly me: string;
   /** The (viewer-separated) owner colour lookup the ownership fill uses; the hatch pairs the intruder's colour with the viewer's. */
   readonly ownerColor: (ownerId: string) => string;
-  /** Pocket-edge look on sides facing the viewer's land; defaults to the live admin setting (client-incursion-breach-style.ts). */
+  /** Pocket-edge look on sides facing the viewer's land; defaults to the live setting (spikes unless an admin changed it; client-incursion-breach-style.ts). */
   readonly breachStyle?: IncursionBreachStyle;
 };
 

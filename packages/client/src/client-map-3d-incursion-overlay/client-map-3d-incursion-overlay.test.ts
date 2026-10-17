@@ -27,7 +27,7 @@ describe("createIncursionOverlay3D", () => {
     const group = new Group();
     const overlay = createIncursionOverlay3D(group, 2);
     const noEdges = { north: false, east: false, south: false, west: false };
-    const straight = { straightEdges: { north: true, east: true, south: true, west: true }, front: [], roundedCorners: 0, band: [], veilSides: [] };
+    const straight = { straightEdges: { north: true, east: true, south: true, west: true }, front: [], band: [], veilSides: [] };
     overlay.addTile(0, 0, 0, { theirs: "#ff0000", mine: "#00ff00" }, "#ffffff", straight.straightEdges, { style: "straight", worldX: 0, worldY: 0, layout: straight });
     overlay.commit();
     overlay.update(1000);
@@ -47,9 +47,9 @@ describe("createIncursionOverlay3D", () => {
     const hatch = { theirs: "#ff0000", mine: "#00ff00" };
     // Two pocket tiles side by side, both listing the same tile of mine north of the seam.
     const shared = { dx: 0, dy: -1, side: 1 as const, mask: 0b0100_0000 };
-    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, front: [], roundedCorners: 0, band: [shared], veilSides: [] } });
-    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, front: [], roundedCorners: 0, band: [{ ...shared, dx: -1 }], veilSides: [] } });
-    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, front: [], roundedCorners: 0, band: [], veilSides: ["north", "east"] } });
+    overlay.addTile(0, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 10, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [shared], veilSides: [] } });
+    overlay.addTile(1, 0, 0, hatch, "#ffffff", noEdges, { style: "ember", worldX: 11, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [{ ...shared, dx: -1 }], veilSides: [] } });
+    overlay.addTile(2, 0, 0, hatch, "#ffffff", noEdges, { style: "veil", worldX: 12, worldY: 10, layout: { straightEdges: noEdges, front: [], band: [], veilSides: ["north", "east"] } });
     overlay.commit();
     const [, , band, veil] = group.children as Mesh[];
     expect(drawnQuads(band!)).toBe(1);
@@ -79,10 +79,12 @@ describe("createIncursionOverlay3D", () => {
       style: "spikes",
       worldX: 2,
       worldY: 3,
-      layout: { straightEdges: noEdges, front: [line, tooth], roundedCorners: 0, band: [], veilSides: [] }
+      layout: { straightEdges: noEdges, front: [line, tooth], band: [], veilSides: [] }
     });
     overlay.commit();
-    const [, , , , outline, front] = group.children as Mesh[];
+    // Spikes only create their own two meshes (outline + fill), after hatch and edge strips.
+    expect(group.children).toHaveLength(4);
+    const [, , outline, front] = group.children as Mesh[];
     expect(drawnQuads(front!)).toBe(2);
     expect(drawnQuads(outline!)).toBe(2);
     // Outlines draw before fills.
@@ -100,22 +102,6 @@ describe("createIncursionOverlay3D", () => {
     expect(position.getZ(6)).toBeCloseTo(2.32);
     overlay.dispose();
     expect(group.children).toHaveLength(0);
-  });
-
-  it("passes the breach's rounded outer corners to the hatch, so the stripes follow the curved front line", () => {
-    const group = new Group();
-    const overlay = createIncursionOverlay3D(group, 2);
-    const hatch = group.children[0] as Mesh;
-    const noEdges = { north: false, east: false, south: false, west: false };
-    const colours = { theirs: "#ff0000", mine: "#00ff00" };
-    overlay.addTile(0, 0, 0, colours, "#141414", noEdges, { style: "spikes", worldX: 0, worldY: 0, layout: { straightEdges: noEdges, front: [], roundedCorners: 0b0101, band: [], veilSides: [] } });
-    overlay.addTile(1, 0, 0, colours, "#141414", { north: true, east: true, south: true, west: true });
-    overlay.commit();
-    const round = (hatch.geometry as BufferGeometry).getAttribute("hatchRound");
-    expect(round.getX(0)).toBe(5); // NW + SE
-    expect(round.getY(0)).toBeCloseTo(0.28);
-    expect(round.getX(4)).toBe(0); // no breach: square
-    overlay.dispose();
   });
 
   it("stops adding tiles (and their edges) once the hatch buffer is full", () => {

@@ -59,15 +59,17 @@ describe("organicSideFront", () => {
     for (const y of ys) expect(Math.abs(y + 0.5)).toBeLessThan(0.12);
   });
 
-  it("rounds an outer corner: the line pulls in from the square corner and carries a tooth on the curve", () => {
+  it("turns an outer corner square: the line runs right up to the corner, capped with a square", () => {
     // A lone pocket tile: the north side starts at the north-west outer corner.
     const pieces = organicSideFront(NORTH, true, 0, 0, around({}));
-    const nearestToCorner = Math.min(...linePoints(pieces).map((p) => Math.hypot(p.x + 0.5, p.y + 0.5)));
-    expect(nearestToCorner).toBeGreaterThan(0.05);
-    // 3 teeth on the straight stretch would include u = 1/6, inside the curve; it's replaced by one on the curve.
-    const tips = teeth(pieces).map((p) => p.points[2]!);
-    const diagonalTip = tips.find((p) => p.x < -0.5 && p.y < -0.5);
-    expect(diagonalTip).toBeDefined();
+    const line = linePoints(pieces);
+    // The stroke reaches the corner rather than pulling in from it (only the meander moves it).
+    expect(Math.min(...line.map((p) => Math.hypot(p.x + 0.5, p.y + 0.5)))).toBeLessThan(0.12);
+    // Exactly one square cap, over that start corner.
+    const caps = pieces.filter((p) => p.points.length === 4 && Math.hypot(p.points[0]!.x - p.points[2]!.x, p.points[0]!.y - p.points[2]!.y) < 0.1 && Math.abs(Math.hypot(p.points[0]!.x - p.points[1]!.x, p.points[0]!.y - p.points[1]!.y) - Math.hypot(p.points[1]!.x - p.points[2]!.x, p.points[1]!.y - p.points[2]!.y)) < 1e-9);
+    expect(caps).toHaveLength(1);
+    // No tooth sits diagonally off the corner any more.
+    expect(teeth(pieces).some((p) => p.points[2]!.x < -0.5 && p.points[2]!.y < -0.5)).toBe(false);
   });
 
   it("gives every piece a thin rim: its outer points pushed out by about a hundredth of a tile", () => {
@@ -114,10 +116,9 @@ describe("organicSideFront", () => {
     expect(width(line[0]!, 0)).toBeGreaterThan(0.02); // the other end runs on into the next tile at full width
   });
 
-  it("puts teeth only where asked, and no corner tooth when the other side of the corner isn't mine", () => {
+  it("puts teeth only where asked", () => {
     expect(teeth(organicSideFront(NORTH, false, 0, 0, around({})))).toHaveLength(0);
-    const westUnowned = organicSideFront(NORTH, true, 0, 0, around({ "-1,0": "other" }));
-    expect(teeth(westUnowned).some((p) => p.points[2]!.x < -0.5 && p.points[2]!.y < -0.5)).toBe(false);
+    expect(toothOutlines(organicSideFront(NORTH, true, 0, 0, around({})))).toHaveLength(4);
   });
 
   it("runs straight up to the old border and stops there, with no curl into the rival's own land", () => {
@@ -132,12 +133,15 @@ describe("organicSideFront", () => {
     expect(Math.max(...pts.map((p) => p.x))).toBeLessThan(0.62);
   });
 
-  it("curves round an inner corner through my tile instead of dropping into the pocket", () => {
+  it("turns an inner corner square and drops the end tooth that would cross its neighbour's", () => {
     // The pocket continues north-west and west of the corner: north side's start is an inner corner.
     const kinds = around({ "-1,-1": "pocket", "-1,0": "pocket" });
-    const pts = linePoints(organicSideFront(NORTH, true, 0, 0, kinds));
-    // The curve bulges out into my tile to the north (y < -0.5) near the corner, not into the pocket.
-    const nearCorner = pts.filter((p) => p.x < -0.3);
-    expect(Math.min(...nearCorner.map((p) => p.y))).toBeLessThan(-0.6);
+    const pieces = organicSideFront(NORTH, true, 0, 0, kinds);
+    // Still runs right to the corner (no curve out into my tile)...
+    const line = linePoints(pieces);
+    expect(Math.min(...line.map((p) => p.x))).toBeLessThan(-0.4);
+    expect(Math.min(...line.map((p) => p.y))).toBeGreaterThan(-0.65);
+    // ...and only 3 of the 4 teeth: the one at the inside corner is dropped.
+    expect(toothOutlines(pieces)).toHaveLength(3);
   });
 });

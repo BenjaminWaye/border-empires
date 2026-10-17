@@ -1,6 +1,6 @@
 import type { IncursionEdges } from "./client-reach-incursion.js";
 import type { IncursionBreachStyle } from "./client-incursion-breach-style.js";
-import { isOuterStartCorner, organicSideFront, type BreachFrontPiece, type FrontNeighbourKind } from "./client-incursion-breach-front.js";
+import { organicSideFront, type BreachFrontPiece, type FrontNeighbourKind } from "./client-incursion-breach-front.js";
 
 export type { BreachFrontPiece, BreachPoint } from "./client-incursion-breach-front.js";
 
@@ -43,9 +43,7 @@ export type IncursionBreachLayout = {
   readonly straightEdges: IncursionEdges;
   /** Spikes style: a thin line round the pocket, with teeth on the sides facing my land. */
   readonly front: readonly BreachFrontPiece[];
-  /** Spikes style: the tile's outer corners the line rounds off (bit 0 NW, 1 NE, 2 SE, 3 SW), so the hatch can round them too. */
-  readonly roundedCorners: number;
-  /** Distance-field band tiles (ember / ink / the spikes' pressure wash). My tiles may be listed by several pocket tiles; the renderer de-duplicates by world tile. */
+  /** Distance-field band tiles (ember / ink). My tiles may be listed by several pocket tiles; the renderer de-duplicates by world tile. */
   readonly band: readonly BreachBandTile[];
   /** Sides that raise the veil (veil style). */
   readonly veilSides: readonly (keyof IncursionEdges)[];
@@ -72,20 +70,16 @@ export const incursionBreachLayout = (
   const straightEdges = { north: false, east: false, south: false, west: false };
   const veilSides: (keyof IncursionEdges)[] = [];
   const front: BreachFrontPiece[] = [];
-  let roundedCorners = 0;
-  SIDES.forEach((side, index) => {
+  SIDES.forEach((side) => {
     const across = kindAt(side.dx, side.dy);
     // Pocket continues, or the old border with the rival's own land: no edge there.
     if (across === "pocket" || across === "rival") return;
-    // Each side starts at corner `index` (NW, NE, SE, SW).
-    if (style === "spikes" && isOuterStartCorner(side, kindAt)) roundedCorners |= 1 << index;
     // Spikes replace the strip all the way round with the thin front line; only sides facing my land get teeth.
     if (style === "spikes") front.push(...organicSideFront(side, across === "mine", worldX, worldY, kindAt));
     else if (style === "straight" || across !== "mine") straightEdges[side.key] = true;
     else if (style === "veil") veilSides.push(side.key);
   });
-  // Spikes also get a band: the pressure wash under the front line, on my side only.
-  if (style !== "ember" && style !== "ink" && style !== "spikes") return { straightEdges, front, roundedCorners, band: [], veilSides };
+  if (style !== "ember" && style !== "ink") return { straightEdges, front, band: [], veilSides };
 
   const band: BreachBandTile[] = [];
   const ownMask = maskAround(0, 0, "mine", kindAt);
@@ -95,5 +89,5 @@ export const incursionBreachLayout = (
     if ((ownMask & (1 << bit)) === 0) return;
     band.push({ dx, dy, side: 1, mask: maskAround(dx, dy, "pocket", kindAt) });
   });
-  return { straightEdges, front, roundedCorners, band, veilSides };
+  return { straightEdges, front, band, veilSides };
 };

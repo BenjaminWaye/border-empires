@@ -2,9 +2,8 @@
 // own land (client-incursion-breach-layout.ts decides where; the admin
 // switch in client-incursion-breach-style.ts decides which):
 //   - spikes: a thin Hearts-of-Iron-style front line with teeth, flat in the
-//     attacker's colour, over a hair-thin rim in the pocket's outline colour,
-//     with a soft breathing "pressure wash" of the attacker's colour on the
-//     band beneath it (same distance field as ember / ink).
+//     attacker's colour, over a hair-thin rim in the pocket's outline colour.
+//     No glow: the shape alone carries it.
 //   - ember / ink: flat quads over the tiles either side of the boundary,
 //     shaded from a per-pixel distance field to it (8-neighbour box distance),
 //     so the effect is seamless across tiles and round at corners.
@@ -21,8 +20,8 @@ import type { IncursionBreachStyle } from "../client-reach-incursion/client-incu
 /** Band quads (one per tile near a breached boundary) and veil quads (one per breached side). */
 const MAX_BAND_QUADS = 4096;
 const MAX_VEIL_QUADS = 2048;
-/** Front-line pieces (line segments + tooth halves; triangles stored as degenerate quads). */
-const MAX_FRONT_QUADS = 24576;
+/** Front-line pieces: line segments, corner caps and tooth triangles (stored as degenerate quads); about 17 per breached side, so ~700 sides on screen. */
+const MAX_FRONT_QUADS = 12288;
 /** The front line sits just above the pocket's edge strips. */
 const FRONT_LIFT = 0.004;
 const BAND_LIFT = 0.003;
@@ -31,7 +30,7 @@ const VEIL_HEIGHT = 0.55;
 
 const wrapWorld = (v: number, size: number): number => ((v % size) + size) % size;
 
-const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2, spikes: 3 };
+const STYLE_CODE: Partial<Record<IncursionBreachStyle, number>> = { ember: 1, ink: 2 };
 
 const NOISE_GLSL = /* glsl */ `
   float bHash(vec2 p) {
@@ -110,16 +109,6 @@ const BAND_FRAGMENT = /* glsl */ `
       vec3 ember = mix(vec3(1.0, 0.36, 0.06), vTheirs, 0.2);
       col = mix(ember, vec3(1.0, 0.93, 0.78), clamp(core * 1.3, 0.0, 1.0));
       alpha = clamp(core + glow * 0.72 * flicker, 0.0, 1.0);
-    } else if (vBand.z > 2.5) {
-      // Spikes' pressure wash: the attacker's colour glows out from the front
-      // line into my land and fades, in soft streaks that drift slowly
-      // forward, breathing -- the shaded advance zone of a war map.
-      if (s <= 0.0) discard;
-      float streak = 0.7 + 0.3 * bFbm(wp * 2.4 + vec2(uTime * 0.07, uTime * 0.05));
-      float reach = 0.42 * (0.85 + 0.15 * sin(uTime * 0.9 + (wp.x + wp.y) * 0.7));
-      float fade = exp(-s / reach);
-      col = vTheirs;
-      alpha = 0.65 * fade * fade * streak;
     } else {
       // Ink: the intruder's colour soaks into my land like watercolour --
       // irregular feathered front, pigment pooling darker at the front, a
@@ -270,21 +259,52 @@ export type IncursionBreachFx3D = {
   readonly dispose: () => void;
 };
 
+/** A group of meshes sharing one material, created the first time something is drawn with it. */
+type Kit = { readonly streams: readonly QuadStream[]; readonly material: ShaderMaterial | MeshBasicMaterial };
+
 export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D => {
-  const bandMaterial = createMaterial(BAND_VERTEX, BAND_FRAGMENT, NormalBlending);
-  // Additive, so the veil reads as light rather than a tinted sheet, even over the striped pocket.
-  const veilMaterial = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
-  const band = createQuadStream(MAX_BAND_QUADS, bandMaterial, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10);
-  const veil = createQuadStream(MAX_VEIL_QUADS, veilMaterial, { position: 3, aVeil: 2, aTheirs: 3 }, 11);
-  // Unlit flat colour, like the edge strips. Every outline draws before every
-  // fill, so where pieces overlap the rim only shows round the whole shape.
-  const frontMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
-  const frontOutline = createQuadStream(MAX_FRONT_QUADS, frontMaterial, { position: 3, color: 3 }, 12);
-  const front = createQuadStream(MAX_FRONT_QUADS, frontMaterial, { position: 3, color: 3 }, 13);
-  parent.add(band.mesh, veil.mesh, frontOutline.mesh, front.mesh);
+  // Each look's buffers (up to a few MB) and shader are only created once a
+  // tile actually uses that look, so the default spikes never pay for the
+  // ember/ink/veil shaders, and nobody pays for anything with no pocket on screen.
+  const kits: Kit[] = [];
+  const makeKit = <T extends Kit>(kit: T): T => {
+    for (const stream of kit.streams) parent.add(stream.mesh);
+    kits.push(kit);
+    return kit;
+  };
+  let bandKit: (Kit & { readonly band: QuadStream; readonly material: ShaderMaterial }) | undefined;
+  let veilKit: (Kit & { readonly veil: QuadStream; readonly material: ShaderMaterial }) | undefined;
+  let frontKit: (Kit & { readonly outline: QuadStream; readonly fill: QuadStream }) | undefined;
+  const bandStream = (): QuadStream => {
+    if (!bandKit) {
+      const material = createMaterial(BAND_VERTEX, BAND_FRAGMENT, NormalBlending);
+      const band = createQuadStream(MAX_BAND_QUADS, material, { position: 3, aLocal: 2, aWorld: 2, aBand: 3, aTheirs: 3 }, 10);
+      bandKit = makeKit({ streams: [band], material, band });
+    }
+    return bandKit.band;
+  };
+  const veilStream = (): QuadStream => {
+    if (!veilKit) {
+      // Additive, so the veil reads as light rather than a tinted sheet, even over the striped pocket.
+      const material = createMaterial(VEIL_VERTEX, VEIL_FRAGMENT, AdditiveBlending);
+      const veil = createQuadStream(MAX_VEIL_QUADS, material, { position: 3, aVeil: 2, aTheirs: 3 }, 11);
+      veilKit = makeKit({ streams: [veil], material, veil });
+    }
+    return veilKit.veil;
+  };
+  const frontStreams = (): { readonly outline: QuadStream; readonly fill: QuadStream } => {
+    if (!frontKit) {
+      // Unlit flat colour, like the edge strips. Every outline draws before every
+      // fill, so where pieces overlap the rim only shows round the whole shape.
+      const material = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
+      const outline = createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 12);
+      const fill = createQuadStream(MAX_FRONT_QUADS, material, { position: 3, color: 3 }, 13);
+      frontKit = makeKit({ streams: [outline, fill], material, outline, fill });
+    }
+    return frontKit;
+  };
   // My tiles border several pocket tiles; each world tile gets one band quad per rebuild.
   const bandTilesThisRebuild = new Set<string>();
-  const streams = [band, veil, frontOutline, front];
 
   /** Quad vertex order is (0, 1, 2), (1, 3, 2): a polygon p0..p3 maps to p0, p1, p3, p2; a triangle repeats its last point. */
   const quadCorners = (pts: readonly BreachPoint[], x: number, y: number, z: number): number[] => {
@@ -295,14 +315,18 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
   const add: IncursionBreachFx3D["add"] = (x, z, surfaceY, breach, theirs, mark) => {
     const colour = [theirs.r, theirs.g, theirs.b];
     const frontY = surfaceY + FRONT_LIFT;
-    for (const piece of breach.layout.front) {
-      const written =
-        writeQuad(frontOutline, { position: quadCorners(piece.outline, x, frontY, z), color: [mark.r, mark.g, mark.b] }) &&
-        writeQuad(front, { position: quadCorners(piece.points, x, frontY, z), color: colour });
-      if (!written) break;
+    if (breach.layout.front.length > 0) {
+      const { outline, fill } = frontStreams();
+      for (const piece of breach.layout.front) {
+        const written =
+          writeQuad(outline, { position: quadCorners(piece.outline, x, frontY, z), color: [mark.r, mark.g, mark.b] }) &&
+          writeQuad(fill, { position: quadCorners(piece.points, x, frontY, z), color: colour });
+        if (!written) break;
+      }
     }
     const style = STYLE_CODE[breach.style];
-    if (style !== undefined) {
+    if (style !== undefined && breach.layout.band.length > 0) {
+      const band = bandStream();
       const y = surfaceY + BAND_LIFT;
       for (const tile of breach.layout.band) {
         const worldX = breach.worldX + tile.dx;
@@ -323,6 +347,8 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
         if (!written) break;
       }
     }
+    if (breach.layout.veilSides.length === 0) return;
+    const veil = veilStream();
     for (const key of breach.layout.veilSides) {
       const side = VEIL_SIDES[key];
       const along0 = side.alongX ? breach.worldX + side.from[0] : breach.worldY + side.from[1];
@@ -339,29 +365,34 @@ export const createIncursionBreachFx3D = (parent: Group): IncursionBreachFx3D =>
     }
   };
 
+  const allStreams = (): QuadStream[] => kits.flatMap((kit) => kit.streams);
   return {
     clear: () => {
-      for (const stream of streams) stream.count = 0;
+      for (const stream of allStreams()) stream.count = 0;
       bandTilesThisRebuild.clear();
     },
     add,
     commit: () => {
-      for (const stream of streams) uploadStream(stream);
+      for (const stream of allStreams()) uploadStream(stream);
     },
     update: (nowMs) => {
       // Wrapped so the float stays precise in long sessions; the shaders only use slow drifts of it.
       const t = (nowMs / 1000) % 3600;
-      bandMaterial.uniforms.uTime!.value = t;
-      veilMaterial.uniforms.uTime!.value = t;
+      if (bandKit) bandKit.material.uniforms.uTime!.value = t;
+      if (veilKit) veilKit.material.uniforms.uTime!.value = t;
     },
     dispose: () => {
-      for (const stream of streams) {
-        parent.remove(stream.mesh);
-        stream.geometry.dispose();
+      for (const kit of kits) {
+        for (const stream of kit.streams) {
+          parent.remove(stream.mesh);
+          stream.geometry.dispose();
+        }
+        kit.material.dispose();
       }
-      bandMaterial.dispose();
-      veilMaterial.dispose();
-      frontMaterial.dispose();
+      kits.length = 0;
+      bandKit = undefined;
+      veilKit = undefined;
+      frontKit = undefined;
     }
   };
 };

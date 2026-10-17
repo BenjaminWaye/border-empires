@@ -1,6 +1,7 @@
 // The "Breach Edge Style" field on Settings > Admin: switches the 3D incursion
-// pocket outline between the straight strip and the candidate breach looks (client-incursion-breach-style.ts) so they can be compared in-game.
-// Admin-only while the look is being chosen.
+// pocket outline between the default spikes and the other breach looks
+// (client-incursion-breach-style.ts) so they can be compared in-game. Players
+// get the default; only admins see the switch.
 import {
   INCURSION_BREACH_STYLES,
   incursionBreachStyle,
@@ -10,8 +11,8 @@ import {
 } from "./client-incursion-breach-style.js";
 
 const LABELS: Readonly<Record<IncursionBreachStyle, string>> = {
-  straight: "Straight outline (current)",
-  spikes: "Front-line spikes",
+  straight: "Straight outline (old)",
+  spikes: "Front-line spikes (default)",
   ember: "Ember seam",
   ink: "Ink bleed",
   veil: "Aether veil"
