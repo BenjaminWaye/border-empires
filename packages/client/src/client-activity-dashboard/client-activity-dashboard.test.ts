@@ -29,7 +29,6 @@ const makeState = () => ({
   camSubY: 0,
   selected: undefined as { x: number; y: number } | undefined,
   me: "player-1",
-  meName: "Me",
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     selfOverall: undefined as LeaderboardOverallEntry | undefined,
@@ -217,6 +216,26 @@ describe("renderClientActivityDashboardOverlay", () => {
     const deps = makeDeps(state);
     renderClientActivityDashboardOverlay(deps);
     expect(deps.overlayEl.textContent).toContain("lost a tile to Astrid");
+    expect(deps.overlayEl.textContent).not.toContain("AI 5");
+  });
+
+  it("names an AI territory counterparty by its leaderboard name", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.playerNames.set("ai-5", "AI 5");
+    state.leaderboard.byTiles.push({ id: "ai-5", name: "Astrid", value: 10, rank: 1 });
+    state.activityDashboard.timeline = {
+      to: 5000,
+      summary: { tilesClaimed: 0, tilesLost: 2, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0 },
+      goldPlundered: 0,
+      goldRaidedFromYou: 0,
+      manpowerSpentAttacking: 0,
+      cards: [{ kind: "TERRITORY_FLIP_GROUP", id: "t", occurredAt: 1000, direction: "LOST", counterpartyPlayerId: "ai-5", tileCount: 2, x: 1, y: 2 }],
+      truncated: false
+    };
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).toContain("(Astrid)");
     expect(deps.overlayEl.textContent).not.toContain("AI 5");
   });
 

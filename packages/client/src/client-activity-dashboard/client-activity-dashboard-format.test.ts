@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityCardCoordinates, activityCardText, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardText, activityPlayerNameLookup, shouldShowManpowerHeadline, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 
 describe("shouldShowManpowerHeadline", () => {
   it("is false below the absolute floor even at a huge cap share", () => {
@@ -147,5 +147,33 @@ describe("activityCardText / activityCardCoordinates", () => {
     expect(activityCardText(tradeNexus as any, "me", noNames)).toBe("Trade Nexus completed");
     expect(activityCardText(incubationEngine as any, "me", noNames)).toBe("Incubation Engine completed");
     expect(activityCardText(unknown as any, "me", noNames)).toBe("Some future hall completed");
+  });
+});
+
+describe("activityPlayerNameLookup", () => {
+  const leaderboardWith = (entries: Array<{ id: string; name: string }>) => ({
+    overall: entries.map((entry, index) => ({ ...entry, tiles: 1, incomePerMinute: 1, techs: 1, manpowerCap: 100, score: 1, rank: index + 1 })),
+    selfOverall: undefined,
+    selfByTiles: undefined,
+    selfByIncome: undefined,
+    selfByTechs: undefined,
+    byTiles: [],
+    byIncome: [],
+    byTechs: []
+  });
+
+  it("names an AI by its leaderboard name instead of the stable \"AI N\" diplomacy name", () => {
+    const lookup = activityPlayerNameLookup({ playerNames: new Map([["ai-5", "AI 5"]]), leaderboard: leaderboardWith([{ id: "ai-5", name: "Astrid" }]) });
+    expect(lookup("ai-5")).toBe("Astrid");
+  });
+
+  it("keeps a human's fresh playerNames entry over a stale leaderboard name", () => {
+    const lookup = activityPlayerNameLookup({ playerNames: new Map([["player-2", "Rex"]]), leaderboard: leaderboardWith([{ id: "player-2", name: "Bob" }]) });
+    expect(lookup("player-2")).toBe("Rex");
+  });
+
+  it("falls back to playerNames for an AI missing from the leaderboard", () => {
+    const lookup = activityPlayerNameLookup({ playerNames: new Map([["ai-7", "AI 7"]]), leaderboard: leaderboardWith([]) });
+    expect(lookup("ai-7")).toBe("AI 7");
   });
 });
