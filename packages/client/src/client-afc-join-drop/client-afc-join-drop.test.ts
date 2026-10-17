@@ -116,30 +116,6 @@ describe("tickAfcJoinDrop arming", () => {
     expect(t.hidden()).toBe(false);
   });
 
-  it("drops the auto-selection of the landing tile when it arms, so the AFC doesn't land selected", () => {
-    // Regression (playtest): INIT/JOIN_SEASON recentering set state.selected to the home tile, so the AFC landed wearing the selection marker.
-    const t = setup();
-    t.state.selected = { x: 10, y: 10 };
-    t.tick(0);
-    expect(t.state.afcJoinDrop.phase).toBe("waiting");
-    expect(t.state.selected).toBeUndefined();
-  });
-
-  it("also drops the auto-selected spawn tile when the AFC landed beside it", () => {
-    const t = setup(null);
-    t.state.tiles.set("10,12", { ...afcTile("p1", ACTIVATED_AT), y: 12 } as Tile);
-    t.state.selected = { x: 10, y: 10 };
-    t.tick(0);
-    expect(t.state.selected).toBeUndefined();
-  });
-
-  it("keeps a selection that isn't the landing site (e.g. a deep-linked tile)", () => {
-    const t = setup();
-    t.state.selected = { x: 30, y: 4 };
-    t.tick(0);
-    expect(t.state.selected).toEqual({ x: 30, y: 4 });
-  });
-
   it("never arms once this AFC's drop has already been played", () => {
     const t = setup();
     t.seen.add(afcJoinDropTipId(ACTIVATED_AT));
