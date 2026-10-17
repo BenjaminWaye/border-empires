@@ -24,6 +24,7 @@ import {
 import { STRUCTURE_DISPLAY_NAMES } from "../client-map-display.js";
 import type { OccupationSurveyReport, OccupationSurveyResource } from "../client-occupation-survey.js";
 import type { TechInfo, Tile } from "../client-types.js";
+import { prospectClueShownAt } from "../client-prospect-clue/client-prospect-clue.js";
 
 // Unlock effect key -> the structure a player can then build directly.
 // Monuments (multi-part projects) are left out on purpose: they are never
@@ -98,7 +99,7 @@ export const hasProspectClueNearTerritory = (tiles: Iterable<Tile>, me: string, 
   const clues: Tile[] = [];
   for (const tile of tiles) {
     if (tile.ownerId === me && tile.terrain === "LAND") owned.add(`${tile.x},${tile.y}`);
-    if (tile.prospectSignature === signature) clues.push(tile);
+    if (tile.prospectSignature === signature && prospectClueShownAt(tile)) clues.push(tile);
   }
   const r = CLUE_NEARBY_RADIUS;
   return clues.some((clue) => {

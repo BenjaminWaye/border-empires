@@ -37,6 +37,12 @@ describe("hasProspectClueNearTerritory", () => {
     expect(hasProspectClueNearTerritory([owned(5, 5), { ...clue(6, 5), prospectSignature: "BLACKWOOD_CANOPY" }], "me", "FERROUS_DUST")).toBe(false);
     expect(hasProspectClueNearTerritory([clue(6, 5)], "me", "FERROUS_DUST")).toBe(false);
   });
+
+  // Review finding: a clue tile the map no longer decorates (feature tile, or fogged) must not light the tech-panel hint.
+  it("ignores clue tiles the map does not show", () => {
+    expect(hasProspectClueNearTerritory([owned(5, 5), { ...clue(6, 5), resource: "IRON" }], "me", "FERROUS_DUST")).toBe(false);
+    expect(hasProspectClueNearTerritory([owned(5, 5), { ...clue(6, 5), fogged: true }], "me", "FERROUS_DUST")).toBe(false);
+  });
 });
 
 describe("manifestFit", () => {
