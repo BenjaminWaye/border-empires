@@ -21,10 +21,10 @@ describe("buildDetailTextForAction — build_observatory", () => {
   });
 });
 
-describe("buildDetailTextForAction — build_mintworks", () => {
+describe("buildDetailTextForAction — build_manufactory", () => {
   it("describes the flat income, production bonus, and completion reward", () => {
-    const text = buildDetailTextForAction("build_mintworks", baseTile);
-    expect(text).toContain("+1 base coin income");
+    const text = buildDetailTextForAction("build_manufactory", baseTile);
+    expect(text).toContain("+1 coin/day");
     expect(text).toContain("+10% town coin production");
     expect(text).toContain("+10 instant coin on completion");
   });

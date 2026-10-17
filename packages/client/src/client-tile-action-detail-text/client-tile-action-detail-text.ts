@@ -14,7 +14,7 @@ import {
   TILE_SLOT_BOOST_STRUCTURES,
   HYDROWORKS_HYDROGARDEN_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
+import { manufactoryGoldProductionMultiplier, MANUFACTORY_GOLD_PRODUCTION_BONUS, MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
 import { converterStructureDetailText } from "../client-converter-menu.js";
 import { observatoryToggleDetailText } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -67,12 +67,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_mine") return `Adds +1 ${tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL"} slot on this tile.`;
-  if (actionId === "build_mintworks") {
-    // mintworks-stacking task: this describes what THIS one Mintworks will add
-    // (stacks additively with any other Mintworks already supporting the
+  if (actionId === "build_manufactory") {
+    // manufactory-stacking task: this describes what THIS one Manufactory will add
+    // (stacks additively with any other Manufactory already supporting the
     // town), not the town's total post-build multiplier.
-    const perMintworksPercent = Math.round((mintworksGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
-    return `Build on this support tile for ${supportedTownLabel}. Grants +1 base coin income, +${perMintworksPercent}% town coin production, and +10 instant coin on completion (stacks with other Mintworks).`;
+    const perManufactoryPercent = Math.round((manufactoryGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
+    return `Build on this support tile for ${supportedTownLabel}. Grants +1 coin/day, +${perManufactoryPercent}% town coin production, and +10 instant coin on completion (stacks with other Manufactories).`;
   }
   if (actionId === "build_incubation_engine") {
     // Incubation Engine (Incubation Engine) grants an instant one-time population
@@ -97,7 +97,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_INCUBATION_ENGINE.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade coin cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
   }
   if (actionId === "build_clearing_house") {
-    return `Build on this support tile for ${supportedTownLabel}. Raises the coin bonus of every connected Mintworks from +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
+    return `Build on this support tile for ${supportedTownLabel}. Raises the coin bonus of every connected Manufactory from +${Math.round(MANUFACTORY_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MANUFACTORY_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
   }
   // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
   if (actionId === "build_umbrite_works") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 coin/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 coin/day from the slot instead.";

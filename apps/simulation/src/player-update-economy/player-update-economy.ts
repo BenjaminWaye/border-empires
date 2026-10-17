@@ -2,8 +2,8 @@ import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "
 
 import {
   DOCK_INCOME_PER_MIN,
-  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
-  mintworksGoldProductionMultiplier,
+  MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN,
+  manufactoryGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -160,14 +160,14 @@ export const townGoldPerMinuteForPlayer = (
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
   connectedClearingHouseKeys?: readonly string[],
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Trade Nexus/Clearing House stops granting its gold
+  // dormant Manufactory/Trade Nexus/Clearing House stops granting its gold
   // bonus, same as hasSupportedStructure's matching param.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
-  // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
+  // Manufactory-style attribution: gold/minute from active EXCHANGE-mode
   // converters (Aether Condenser/Titanium Works/Umbrite Works) in this
   // town's support ring — see supportedConverterGoldPerMinuteForTown.
   // Excluded for SETTLEMENT-tier towns via the early return below, same gate
-  // MINTWORKS_FLAT_GOLD_BONUS_PER_MIN already uses.
+  // MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN already uses.
   converterGoldPerMinute: number = 0
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
@@ -181,10 +181,10 @@ export const townGoldPerMinuteForPlayer = (
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-  // mintworks-stacking task: MINTWORKS's gold bonus stacks additively per active
-  // Mintworks in the support ring (mintworksGoldProductionMultiplier), not a
-  // boolean "any Mintworks" gate — see countSupportedStructures.
-  const mintworksCount = countSupportedStructures(player.id, tile, "MINTWORKS", tiles, dormantEconomicStructureKeys);
+  // manufactory-stacking task: MANUFACTORY's gold bonus stacks additively per active
+  // Manufactory in the support ring (manufactoryGoldProductionMultiplier), not a
+  // boolean "any Manufactory" gate — see countSupportedStructures.
+  const manufactoryCount = countSupportedStructures(player.id, tile, "MANUFACTORY", tiles, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -204,11 +204,11 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
+    manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount + converterGoldPerMinute;
+  ) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN * manufactoryCount + converterGoldPerMinute;
 };
 
 export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";
@@ -280,7 +280,7 @@ export const buildPlayerUpdateEconomySnapshot = (
     prebuiltTownNetwork ??
     buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries());
-  // Mintworks-style attribution (§built-like-Mintworks): an EXCHANGE-mode
+  // Manufactory-style attribution (§built-like-Manufactory): an EXCHANGE-mode
   // converter in a town's support ring pays its gold through that town's own
   // production instead of as separate empire income — computed once per town
   // here so the main settled-tile loop below can (a) add each town's share
@@ -380,7 +380,7 @@ export const buildPlayerUpdateEconomySnapshot = (
       const modeLocked = typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now;
       // A converter claimed by a town's support ring (townClaimedConverterKeys)
       // already had its gold folded into that town's own "Towns" bucket above
-      // (Mintworks-style attribution) — adding it again here would double-pay it.
+      // (Manufactory-style attribution) — adding it again here would double-pay it.
       if (output.GOLD && !modeLocked && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`) && !townClaimedConverterKeys.has(`${tile.x},${tile.y}`)) {
         addBucket(goldSources, structure.type, output.GOLD * incomeMultiplier * PASSIVE_INCOME_MULT, { count: 1 });
       }

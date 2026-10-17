@@ -20,16 +20,16 @@
       "id": "trade",
       "tier": 1,
       "branch": "economy",
-      "name": "Trade Clearance Grant",
-      "description": "Offworld recognition that lets this planet's surplus be registered as Coin. Unlocks Mintworks.",
+      "name": "Industrial Tooling Consignment",
+      "description": "An offworld shipment of machine tools, press dies, gauges, and installation equipment for this planet's workshops. Unlocks Manufactories: build several around a town to expand its industrial output and the Coin credit backed by that output. Each Manufactory's town income bonus stacks.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockMintworks": true
+        "unlockManufactory": true
       },
-      "manifestCategory": "CHARTER_WARRANT"
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "masonry",

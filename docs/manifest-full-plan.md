@@ -559,7 +559,7 @@ document.
 | Current tech | Replacement Manifest | Type | Unlock / purpose |
 |---|---|---|---|
 | Agrarian Works | Hyperfeed Seedstock Consignment | Consignment | Hydrogardens |
-| Merchant Charters | Trade Clearance Grant | Grant | Mintworks |
+| Merchant Charters | Industrial Tooling Consignment | Consignment | Manufactories; imported machine tools, dies, gauges and installation equipment equip local industry whose output backs Coin credit |
 | Deep Shaft Mining | Prospector Crew | Crew | Mines |
 | Hydraulic Works | Hydroworks Engineering Crew | Crew | Hydroworks |
 | Artisan Workshops | Umbrite Synthesis Module | AFC Module | Umbrite Works |

@@ -31,7 +31,7 @@ describe("automation planner economy gate", () => {
       ownershipState: "SETTLED",
       town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
     });
-    // MINTWORKS is a town-support structure — the runtime places it on an open,
+    // MANUFACTORY is a town-support structure — the runtime places it on an open,
     // SETTLED neighbor tile assigned to this town (resolveTownSupportTarget),
     // never on the town tile itself. A fixture with no such neighbor is
     // unrealistic and previously masked the AI proposing commands the
@@ -41,7 +41,7 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // MANUFACTORY costs 150 manpower, and scoreBuildEconomy only scores
       // meaningfully while needsEconomy holds — manpower < max(40,
       // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
       // this models that empire. See
@@ -67,7 +67,7 @@ describe("automation planner economy gate", () => {
 
     expect(result.command).toMatchObject({
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MINTWORKS" })
+      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MANUFACTORY" })
     });
   });
 
@@ -80,7 +80,7 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // MANUFACTORY costs 150 manpower, and scoreBuildEconomy only scores
       // meaningfully while needsEconomy holds — manpower < max(40,
       // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
       // this models that empire. See
@@ -115,7 +115,7 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // MANUFACTORY costs 150 manpower, and scoreBuildEconomy only scores
       // meaningfully while needsEconomy holds — manpower < max(40,
       // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
       // this models that empire. See

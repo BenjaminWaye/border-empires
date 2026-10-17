@@ -7,10 +7,10 @@ describe("structureRequiresTownOrSupportTile", () => {
     expect(structureRequiresTownOrSupportTile("INCUBATION_ENGINE")).toBe(true);
   });
 
-  // Mintworks / Ancillary Depot / the two Weapons Factories are placementMode
+  // Manufactory / Ancillary Depot / the two Weapons Factories are placementMode
   // "same_tile" so they can stack per town, but are still support-ring-only.
   it("is true for stacking same_tile structures that are still support-ring-only", () => {
-    for (const type of ["MINTWORKS", "ANCILLARY_DEPOT", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"] as const) {
+    for (const type of ["MANUFACTORY", "ANCILLARY_DEPOT", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"] as const) {
       expect(isTownSupportPlacementStructure(type)).toBe(false);
       expect(structureRequiresTownOrSupportTile(type)).toBe(true);
     }

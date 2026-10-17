@@ -248,7 +248,7 @@ export const chooseBestEconomicBuild = (
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
-    // Town-support structures (MINTWORKS/INCUBATION_ENGINE) build on an open,
+    // Town-support structures (MANUFACTORY/INCUBATION_ENGINE) build on an open,
     // already-SETTLED neighbor tile assigned to this town
     // (resolveTownSupportTarget in runtime-structure-command-handlers.ts),
     // never on the town tile itself. Computed once per tile — the neighbor
@@ -281,7 +281,7 @@ export const chooseBestEconomicBuild = (
         // Computed once per tile, not per candidate type — see
         // economicStructureTypesForSupportedTown's docs in town-support-lookup.ts.
         existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
-        candidates.push({ type: foodLow ? "INCUBATION_ENGINE" : "MINTWORKS", score: foodLow ? 160 : 54 });
+        candidates.push({ type: foodLow ? "INCUBATION_ENGINE" : "MANUFACTORY", score: foodLow ? 160 : 54 });
         candidates.push({ type: "INCUBATION_ENGINE", score: foodLow ? 132 : 20 });
         if (needVector) {
           for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
@@ -323,7 +323,7 @@ export const chooseBestEconomicBuild = (
       }
       // A town needing MORE support capacity overall (supportCurrent <
       // supportMax, checked above) does not mean it's missing THIS specific
-      // type — it might already have a INCUBATION_ENGINE and just need a Mintworks.
+      // type — it might already have a INCUBATION_ENGINE and just need a Manufactory.
       // The runtime rejects a duplicate ("town already has incubation engine") via
       // economicStructureForSupportedTown; without this same check here the
       // AI kept proposing a structure type the town already had, on repeat,

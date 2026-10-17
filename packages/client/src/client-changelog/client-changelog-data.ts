@@ -489,6 +489,13 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
       "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
     ]
+  },
+  {
+    createdAt: 1792266826875, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.17.2",
+    title: "Manufactories turn town industry into Coin credit",
+    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
+    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Consignment delivers workshop equipment and unlocks Manufactories without using an AFC module slot", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
   }
 ];
 

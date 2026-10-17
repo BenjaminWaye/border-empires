@@ -1151,8 +1151,8 @@ describe("rewrite stack integration", () => {
       maxPopulation: 10_000_000,
       connectedTownCount: 3,
       connectedTownBonus: 1.2,
-      hasMintworks: false,
-      mintworksActive: false,
+      hasManufactory: false,
+      manufactoryActive: false,
       hasIncubationEngine: false,
       incubationEngineActive: false,
     });
@@ -1447,7 +1447,7 @@ describe("rewrite stack integration", () => {
           ownerId: "player-1",
           ownershipState: "SETTLED"
         },
-        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MINTWORKS draws 1 more.
+        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MANUFACTORY draws 1 more.
         { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -1494,7 +1494,7 @@ describe("rewrite stack integration", () => {
     const socket = await openSocket(gatewayAddress.wsUrl);
     cleanup.push(() => closeSocket(socket.socket));
     socket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
-    expect((await nextNonBootstrapMessage(socket, "mintworks init")).type).toBe("INIT");
+    expect((await nextNonBootstrapMessage(socket, "manufactory init")).type).toBe("INIT");
     socket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 4 }));
 
     socket.socket.send(
@@ -1502,13 +1502,13 @@ describe("rewrite stack integration", () => {
         type: "BUILD_ECONOMIC_STRUCTURE",
         x: 16,
         y: 16,
-        structureType: "MINTWORKS",
-        commandId: "mintworks-cmd-1",
+        structureType: "MANUFACTORY",
+        commandId: "manufactory-cmd-1",
         clientSeq: 1
       })
     );
 
-    const queued = await nextNonBootstrapMessage(socket, "mintworks queued");
+    const queued = await nextNonBootstrapMessage(socket, "manufactory queued");
     // See the siege-battery test above: dispatchDurableCommand never forwards
     // the client's own clientSeq, so this is gateway-assigned.
     expect(queued).toEqual(
@@ -1524,26 +1524,26 @@ describe("rewrite stack integration", () => {
     flushScheduledTasks(scheduledBuilds, 0);
 
     // The build command targets (16,16) — the town's own tile — same as
-    // pressing Mintworks in the build menu while looking at the town. Per
+    // pressing Manufactory in the build menu while looking at the town. Per
     // resolveTownSupportTarget in runtime-structure-command-handlers.ts
     // ("the only structure that belongs directly ON a town tile is a
-    // Fort"), MINTWORKS is redirected to the nearest open support tile via
+    // Fort"), MANUFACTORY is redirected to the nearest open support tile via
     // firstAvailableTownSupportTile — which only ever considers the town's
     // neighbor tiles, never the town's own coordinates — so the structure
     // lands at (16,17), the one plain open support tile in this fixture's
     // neighbor ring, and (16,16) never gets an economicStructureJson at
     // all. A previous version of this test/comment incorrectly asserted
-    // the opposite (that Mintworks lands ON the town tile) and always
+    // the opposite (that Manufactory lands ON the town tile) and always
     // failed as a result — confirmed against the real redirect logic, not
     // a flake.
     await waitUntil(() => {
       const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 17);
       return typeof tile?.economicStructureJson === "string" &&
-        tile.economicStructureJson.includes("\"type\":\"MINTWORKS\"") &&
+        tile.economicStructureJson.includes("\"type\":\"MANUFACTORY\"") &&
         tile.economicStructureJson.includes("\"status\":\"active\"");
     }, 8_000);
     const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
-    expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MINTWORKS\"");
+    expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MANUFACTORY\"");
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"status\":\"active\"");
     const townTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
     expect(townTile?.economicStructureJson ?? null).toBeFalsy();

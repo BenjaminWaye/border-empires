@@ -1,6 +1,6 @@
 // Need-weighted catalog for chooseBestEconomicBuild's non-resource,
 // non-original-town-support economic structures (structure-command-planner.ts).
-// The original 5 types (HYDROGARDEN/UMBRITE_RIG/MINE/MINTWORKS/INCUBATION_ENGINE) keep
+// The original 5 types (HYDROGARDEN/UMBRITE_RIG/MINE/MANUFACTORY/INCUBATION_ENGINE) keep
 // their existing hand-tuned foodLow/econWeak scoring — already shipped and
 // tested, no reason to disturb it. This catalog is additive: it's how the
 // newly-reachable types below get scored, using computeNeedVector's real
@@ -61,7 +61,7 @@ export const ECONOMIC_STRUCTURE_CATALOG: readonly EconomicCatalogEntry[] = [
   { type: "MINISTRY_HALL", needKey: "FOOD_SLOTS", placement: "open_settled", maxScore: 130 },
 
   // Town-support neighbor tile — same placement mechanism already used for
-  // MINTWORKS/INCUBATION_ENGINE (openTownSupportNeighborTiles).
+  // MANUFACTORY/INCUBATION_ENGINE (openTownSupportNeighborTiles).
   { type: "ANCILLARY_DEPOT", needKey: "MANPOWER_CEILING", placement: "town_support", maxScore: 150 },
   { type: "ANCILLARY_FACTORY", needKey: "MANPOWER_THROUGHPUT", placement: "town_support", maxScore: 160 },
   { type: "TRADE_NEXUS", needKey: "GOLD", placement: "town_support", maxScore: 120 },

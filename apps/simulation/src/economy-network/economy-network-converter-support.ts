@@ -7,7 +7,7 @@ import { supportTileBelongsToTown } from "./economy-network.js";
 
 /**
  * EXCHANGE-mode converters (Aether Condenser/Titanium Works/Umbrite Works,
- * Advanced tiers included) built in a town's support ring: like Mintworks,
+ * Advanced tiers included) built in a town's support ring: like Manufactory,
  * their gold becomes part of THIS town's own production
  * (townGoldPerMinuteForPlayer's converterGoldPerMinute param,
  * player-update-economy.ts) instead of paying out as separate empire-wide

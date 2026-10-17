@@ -83,7 +83,7 @@ describe("createAtmosphere shadow wiring", () => {
   });
 });
 
-// Regression coverage for a live bug: structure materials (mintworks and
+// Regression coverage for a live bug: structure materials (manufactory and
 // most other buildings) use non-trivial MeshStandardMaterial `metalness`
 // (0.2-0.9), while three.js scales a metallic surface's diffuse response
 // toward zero -- it's lit almost entirely by specular reflection of an

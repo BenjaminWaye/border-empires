@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCILLARY_DEPOT_MANPOWER_CAP_BONUS,
-  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
-  MINTWORKS_GOLD_PRODUCTION_BONUS,
+  MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN,
+  MANUFACTORY_GOLD_PRODUCTION_BONUS,
   percentLabel,
   TOWN_BASE_GOLD_PER_MIN
 } from "@border-empires/game-domain";
@@ -85,29 +85,29 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     });
   });
 
-  it("aggregates Mintworks gold production non-linearly (via the live count) instead of a naive per-copy multiply, under a '<count> Mintworks' heading", () => {
+  it("aggregates Manufactory gold production non-linearly (via the live count) instead of a naive per-copy multiply, under a '<count> Manufactory' heading", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
       town,
-      supportTile(11, 10, ownerId, "MINTWORKS"),
-      supportTile(9, 10, ownerId, "MINTWORKS"),
-      supportTile(10, 11, ownerId, "MINTWORKS")
+      supportTile(11, 10, ownerId, "MANUFACTORY"),
+      supportTile(9, 10, ownerId, "MANUFACTORY"),
+      supportTile(10, 11, ownerId, "MANUFACTORY")
     ];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
-    const expectedPercent = MINTWORKS_GOLD_PRODUCTION_BONUS * 100 * 3;
+    const expectedPercent = MANUFACTORY_GOLD_PRODUCTION_BONUS * 100 * 3;
     expect(summary?.townModifierTotals).toContainEqual({
-      heading: "3 Mintworks",
+      heading: "3 Manufactories",
       modifiers: expect.arrayContaining([{ statLabel: "Coin production", valueText: percentLabel(expectedPercent), tone: "positive" }])
     });
   });
 });
 
-// Mintworks-style town attribution: an EXCHANGE-mode converter (Aether
+// Manufactory-style town attribution: an EXCHANGE-mode converter (Aether
 // Condenser/Titanium Works/Umbrite Works) in a town's support ring folds its
 // gold into that town's own production and surfaces a "Sell Off gold"
-// modifier under a "<count> <Building>" heading, exactly like Mintworks.
+// modifier under a "<count> <Building>" heading, exactly like Manufactory.
 describe("buildTownSummary — converter town-support attribution", () => {
   const converterSupportTile = (x: number, y: number, ownerId: string, type: string, converterMode?: string): FixtureTile => ({
     x,
@@ -150,26 +150,26 @@ describe("buildTownSummary — converter town-support attribution", () => {
     expect(summary?.townModifierTotals ?? []).toEqual([]);
   });
 
-  // Regression test: Mintworks (and other TOWN_MODIFIER_AGGREGATE_TYPES
+  // Regression test: Manufactory (and other TOWN_MODIFIER_AGGREGATE_TYPES
   // members with "same_tile"/"town_support" placementMode) can legally be
   // built directly on the town's own tile, not only its support ring — the
   // support-ring dx/dy loop used to skip (0,0) entirely, so an on-tile
-  // Mintworks was silently never counted, leaving hasMintworks/
-  // mintworksCount/townModifierTotals all reporting zero for a town whose
+  // Manufactory was silently never counted, leaving hasManufactory/
+  // manufactoryCount/townModifierTotals all reporting zero for a town whose
   // owner could plainly see the structure built on it.
-  it("counts a Mintworks built directly on the town's own tile, not just its support ring", () => {
+  it("counts a Manufactory built directly on the town's own tile, not just its support ring", () => {
     const ownerId = "p1";
     const town: FixtureTile = {
       ...townTile(10, 10, ownerId),
-      economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active", ownerId })
+      economicStructureJson: JSON.stringify({ type: "MANUFACTORY", status: "active", ownerId })
     };
     const tiles: FixtureTile[] = [town];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
-    expect(summary?.hasMintworks).toBe(true);
-    expect(summary?.mintworksCount).toBe(1);
+    expect(summary?.hasManufactory).toBe(true);
+    expect(summary?.manufactoryCount).toBe(1);
     expect(summary?.townModifierTotals).toContainEqual(
-      expect.objectContaining({ heading: "1 Mintworks" })
+      expect.objectContaining({ heading: "1 Manufactory" })
     );
   });
 });
@@ -186,25 +186,25 @@ describe("buildTownSummary — goldPerMinute", () => {
   });
 
   // Regression test: this formula used to duplicate townGoldPerMinuteForPlayer
-  // (player-update-economy.ts) without its trailing "+ MINTWORKS_FLAT_GOLD_BONUS_PER_MIN
-  // * mintworksCount" term — each Mintworks' own flat +1 gold/day-per-copy
+  // (player-update-economy.ts) without its trailing "+ MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN
+  // * manufactoryCount" term — each Manufactory' own flat +1 gold/day-per-copy
   // bonus (separate from its % production multiplier) silently never showed
   // up in a town's displayed gold production. Exactly the "duplicate-logic
   // risk this codebase has hit before" this file's own comments elsewhere
   // warn about.
-  it("includes each active Mintworks' flat gold/min bonus, not just its % production multiplier", () => {
+  it("includes each active Manufactory' flat gold/min bonus, not just its % production multiplier", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
       town,
-      supportTile(11, 10, ownerId, "MINTWORKS"),
+      supportTile(11, 10, ownerId, "MANUFACTORY"),
       supportTile(9, 10, ownerId)
     ];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const fedTownKeys = new Set([keyFor(10, 10)]);
     const summary = buildTownSummary(town as never, undefined, tilesByKey, fedTownKeys, true);
     const expectedGoldPerMinute =
-      TOWN_BASE_GOLD_PER_MIN * (1 + MINTWORKS_GOLD_PRODUCTION_BONUS) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN;
+      TOWN_BASE_GOLD_PER_MIN * (1 + MANUFACTORY_GOLD_PRODUCTION_BONUS) + MANUFACTORY_FLAT_GOLD_BONUS_PER_MIN;
     // buildTownSummary rounds goldPerMinute before returning it — compare
     // at reduced precision rather than exact float equality.
     expect(summary?.goldPerMinute).toBeCloseTo(expectedGoldPerMinute, 4);

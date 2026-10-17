@@ -59,8 +59,8 @@ const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> =
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  // Mintworks coin production used to be recomputed here from
-  // tile.mintworksCount AND separately as part of the town's
+  // Manufactory coin production used to be recomputed here from
+  // tile.manufactoryCount AND separately as part of the town's
   // townModifierTotals (menuOverviewForTile, client-tile-menu-view.ts) —
   // both fed off the same live count, so the town-center tile always showed
   // two "Gold production" lines side by side. townModifierTotals is the

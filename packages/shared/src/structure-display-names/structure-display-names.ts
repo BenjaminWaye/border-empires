@@ -76,7 +76,7 @@ export const STRUCTURE_DISPLAY_NAMES: Readonly<Record<StructureDisplayKey, strin
   WEAPONS_WORKSHOP: "Weapons Workshop",
   TITANIUM_WEAPONS_FACTORY: "Titanium Weapons Factory",
   UMBRITE_WEAPONS_FACTORY: "Umbrite Weapons Factory",
-  MINTWORKS: "Mintworks"
+  MANUFACTORY: "Manufactory"
 };
 
 const hasStructureDisplayName = (type: string): type is StructureDisplayKey =>

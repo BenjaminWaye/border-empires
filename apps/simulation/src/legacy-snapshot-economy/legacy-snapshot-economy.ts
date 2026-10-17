@@ -25,8 +25,8 @@ import {
   INCUBATION_ENGINE_GOLD_UPKEEP,
   TITANIUM_WORKS_TITANIUM_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  MINTWORKS_FOOD_UPKEEP,
-  mintworksGoldProductionMultiplier,
+  MANUFACTORY_FOOD_UPKEEP,
+  manufactoryGoldProductionMultiplier,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
   RESONANCE_GRID_GOLD_UPKEEP,
@@ -193,7 +193,7 @@ const economicStructureOutputMultAt = (
   if (!structure || structure.ownerId !== ownerId || structure.status !== "active") return 1;
   if (
     structure.type === "INCUBATION_ENGINE" ||
-    structure.type === "MINTWORKS" ||
+    structure.type === "MANUFACTORY" ||
     structure.type === "SKY_DOCK" ||
     structure.type === "PALISADE" ||
     structure.type === "RELAY_BEACON" ||
@@ -274,7 +274,7 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
 const MILITARY_FOOD_UPKEEP_TYPES = new Set(["PALISADE", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_BATTERY", "SIEGE_TOWER", "DREAD_TOWER"]);
 
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
-  if (structureType === "MINTWORKS") return MINTWORKS_FOOD_UPKEEP / 10;
+  if (structureType === "MANUFACTORY") return MANUFACTORY_FOOD_UPKEEP / 10;
   if (structureType === "TRADE_NEXUS") return TRADE_NEXUS_FOOD_UPKEEP / 10;
   if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
@@ -329,9 +329,9 @@ const supportedStructureAtTown = (
   return false;
 };
 
-// mintworks-stacking task: counting sibling of supportedStructureAtTown above,
-// same support-ring loop, for Mintworks's now-additive-per-instance gold bonus
-// (mintworksGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// manufactory-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Manufactory's now-additive-per-instance gold bonus
+// (manufactoryGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
 // in this file keep using supportedStructureAtTown unchanged.
 const countedStructuresAtTown = (
   townTileKey: string,
@@ -518,24 +518,24 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       const { supportCurrent, supportMax } = supportRatioForTown(town.tileKey, playerId, ownershipByTile, ownershipStateByTile, args.world);
       const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
       if (!fedTownKeys.has(town.tileKey)) continue;
-      const mintworksCount = countedStructuresAtTown(town.tileKey, playerId, "MINTWORKS", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const hasMintworks = mintworksCount > 0;
+      const manufactoryCount = countedStructuresAtTown(town.tileKey, playerId, "MANUFACTORY", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
+      const hasManufactory = manufactoryCount > 0;
       // No town-level Clearing House signal exists on this legacy path
       // (pre-existing gap — Clearing House was never wired into this formula
-      // even before mintworks-stacking). Detected here the same way Mintworks
+      // even before manufactory-stacking). Detected here the same way Manufactory
       // itself is, via the local support-ring scan.
       const clearingHouseActive = supportedStructureAtTown(town.tileKey, playerId, "CLEARING_HOUSE", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const mintworksMult = mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
+      const manufactoryMult = manufactoryGoldProductionMultiplier(manufactoryCount, clearingHouseActive);
       const currentTownIncome =
         TOWN_BASE_GOLD_PER_MIN *
         supportRatio *
         townPopulationMultiplier(town) *
         (1 + town.connectedTownBonus) *
-        mintworksMult *
+        manufactoryMult *
         (player.mods?.income ?? 1) *
         PASSIVE_INCOME_MULT;
       townIncome += currentTownIncome;
-      if (hasMintworks) addBucket(sourceBuckets.GOLD, "Mintworks bonus", currentTownIncome - currentTownIncome / mintworksMult, { count: 1 });
+      if (hasManufactory) addBucket(sourceBuckets.GOLD, "Manufactory bonus", currentTownIncome - currentTownIncome / manufactoryMult, { count: 1 });
     }
 
     for (const dock of ownedDocks) {

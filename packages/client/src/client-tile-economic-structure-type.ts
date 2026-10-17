@@ -7,7 +7,7 @@ export type ClientTileEconomicStructure = {
     | "HYDROWORKS"
     | "UMBRITE_RIG"
     | "MINE"
-    | "MINTWORKS"
+    | "MANUFACTORY"
     | "INCUBATION_ENGINE"
     | "CENSUS_HALL"
     | "CLEARING_HOUSE"

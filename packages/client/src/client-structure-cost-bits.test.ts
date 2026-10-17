@@ -11,7 +11,7 @@ describe("costBitsFor", () => {
   });
 
   it("omits the resource line for structures with no resourceCost", () => {
-    expect(costBitsFor("MINTWORKS")).not.toEqual(expect.arrayContaining([expect.stringContaining("shard")]));
+    expect(costBitsFor("MANUFACTORY")).not.toEqual(expect.arrayContaining([expect.stringContaining("shard")]));
   });
 
   it("does not show a titanium/food/crystal/umbrite line, since those resourceCost entries are never actually charged", () => {

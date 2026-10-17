@@ -6,7 +6,7 @@ import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 
 // Split out of tile-detail-snapshot.test.ts (already well over the repo's
 // 500-line soft cap) to keep that file from growing further -- see its own
-// split-rationale comments (tile-detail-snapshot-mintworks-gold.test.ts,
+// split-rationale comments (tile-detail-snapshot-manufactory-gold.test.ts,
 // tile-detail-snapshot-converter-mode-upkeep.test.ts) for the same pattern.
 describe("buildSnapshotTileDetail — isFed authority", () => {
   it("does not override a fresh isFed: false with the legacy foodCoverage/adjacent-food heuristics", () => {

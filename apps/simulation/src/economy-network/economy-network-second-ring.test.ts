@@ -26,7 +26,7 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
     terrain: "LAND",
     ownerId: "player-1",
     ownershipState: "SETTLED",
-    economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active" }
+    economicStructure: { ownerId: "player-1", type: "MANUFACTORY", status: "active" }
   };
   const tiles = new Map<string, DomainTileState>([
     [`${greatCityTile.x},${greatCityTile.y}`, greatCityTile],
@@ -38,11 +38,11 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
   });
 
   it("hasSupportedStructure finds a structure on the second ring", () => {
-    expect(hasSupportedStructure("player-1", greatCityTile, "MINTWORKS", tiles)).toBe(true);
+    expect(hasSupportedStructure("player-1", greatCityTile, "MANUFACTORY", tiles)).toBe(true);
   });
 
   it("countSupportedStructures counts a structure on the second ring", () => {
-    expect(countSupportedStructures("player-1", greatCityTile, "MINTWORKS", tiles)).toBe(1);
+    expect(countSupportedStructures("player-1", greatCityTile, "MANUFACTORY", tiles)).toBe(1);
   });
 
   it("does not assign the same distance-2 tile to a same-owner CITY-tier town (its own radius is only 1)", () => {
@@ -59,7 +59,7 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
       [`${distance2Structure.x},${distance2Structure.y}`, distance2Structure]
     ]);
     expect(supportTileBelongsToTown("player-1", distance2Structure, cityTile, cityTiles)).toBe(false);
-    expect(hasSupportedStructure("player-1", cityTile, "MINTWORKS", cityTiles)).toBe(false);
+    expect(hasSupportedStructure("player-1", cityTile, "MANUFACTORY", cityTiles)).toBe(false);
   });
 
   it("a player with no GREAT_CITY/METROPOLIS town still gets the normal base-8 ring for their CITY town", () => {
@@ -77,12 +77,12 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
       terrain: "LAND",
       ownerId: "player-2",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-2", type: "MINTWORKS", status: "active" }
+      economicStructure: { ownerId: "player-2", type: "MANUFACTORY", status: "active" }
     };
     const cityTiles = new Map<string, DomainTileState>([
       [`${cityTile.x},${cityTile.y}`, cityTile],
       [`${distance1Structure.x},${distance1Structure.y}`, distance1Structure]
     ]);
-    expect(hasSupportedStructure("player-2", cityTile, "MINTWORKS", cityTiles)).toBe(true);
+    expect(hasSupportedStructure("player-2", cityTile, "MANUFACTORY", cityTiles)).toBe(true);
   });
 });

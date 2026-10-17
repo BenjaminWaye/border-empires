@@ -4,7 +4,7 @@ import {
 } from "@border-empires/shared";
 import { structureInfoBuildMs, type BuildSpeedState } from "./client-structure-time-labels/client-structure-time-labels.js";
 import {
-  mintworksGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
+  manufactoryGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { resourceIconGlyph, resourceIconHtml } from "./client-resource-icons/client-resource-icons.js";
@@ -15,13 +15,13 @@ import { upkeepDescriptorFor } from "./client-structure-upkeep-text/client-struc
 
 export type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
-// mintworks-stacking task: these three call sites are generic/help copy (no
-// specific tile/town in scope) describing the PER-MINTWORKS rate, not a real
+// manufactory-stacking task: these three call sites are generic/help copy (no
+// specific tile/town in scope) describing the PER-MANUFACTORY rate, not a real
 // town's stacked total — derived from the shared function rather than a
 // separate hardcoded literal so the numbers can't drift from it, with
 // wording that makes the additive stacking explicit.
-const MINTWORKS_PER_MINTWORKS_PERCENT = Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100);
-const MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE = Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100);
+const MANUFACTORY_PER_MANUFACTORY_PERCENT = Math.round((manufactoryGoldProductionMultiplier(1, false) - 1) * 100);
+const MANUFACTORY_PER_MANUFACTORY_PERCENT_CLEARING_HOUSE = Math.round((manufactoryGoldProductionMultiplier(1, true) - 1) * 100);
 
 export type StructureInfoKey =
   | "FORT"
@@ -32,7 +32,7 @@ export type StructureInfoKey =
   | "HYDROWORKS"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MINTWORKS"
+  | "MANUFACTORY"
   | "INCUBATION_ENGINE"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
@@ -172,7 +172,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   WEAPONS_WORKSHOP: "War",
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
   HYDROGARDEN: "Economy", HYDROWORKS: "Economy", MINE: "Economy",
-  MINTWORKS: "Economy", CLEARING_HOUSE: "Economy",
+  MANUFACTORY: "Economy", CLEARING_HOUSE: "Economy",
   UMBRITE_WORKS: "Economy", HIGH_YIELD_UMBRITE_WORKS: "Economy",
   TITANIUM_WORKS: "Economy", HIGH_YIELD_TITANIUM_WORKS: "Economy",
   ORE_REFINERY: "Economy", HARBOR_EXCHANGE: "Economy",
@@ -238,7 +238,7 @@ export const structureInfoForKey = (
     if (key === "HYDROWORKS") return [];
     if (key === "UMBRITE_RIG") return [];
     if (key === "MINE") return [];
-    if (key === "MINTWORKS") return ["Stacks additively across every active Mintworks in the town"];
+    if (key === "MANUFACTORY") return ["Stacks additively across every active Manufactory in the town"];
     if (key === "INCUBATION_ENGINE") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
@@ -357,12 +357,12 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "MINTWORKS") {
+  if (type === "MANUFACTORY") {
     return structure({
-      title: "Mintworks",
-      detail: `Mintworks are built on a town support tile. Each grants +10 coin instantly on completion, +1 coin/day, and increases that town's coin production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
-      glyph: "◌",
-      placement: "Build on an open garrisoned support tile for a town you own.",
+      title: "Manufactory",
+      detail: `A Manufactory equips local industry to produce goods backing the House’s offworld Coin credit. Build on a town or its support tiles. Each grants +10 coin instantly on completion, +1 coin/day, and increases that town's coin production by ${MANUFACTORY_PER_MANUFACTORY_PERCENT}% (+${MANUFACTORY_PER_MANUFACTORY_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Manufactories stack additively.`,
+      glyph: "⚙",
+      placement: "Build on an open garrisoned town or support tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -390,7 +390,7 @@ export const structureInfoForKey = (
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the coin bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
+      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the coin bonus of every Manufactory in this town and its directly connected towns from +${MANUFACTORY_PER_MANUFACTORY_PERCENT}% to +${MANUFACTORY_PER_MANUFACTORY_PERCENT_CLEARING_HOUSE}% per copy.`,
       glyph: "⌂",
       placement: "Build on an open garrisoned support tile for a town with a connected city network.",
       costBits: costBitsFor(type),

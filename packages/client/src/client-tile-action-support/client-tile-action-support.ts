@@ -104,8 +104,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "UMBRITE_RIG";
     case "build_mine":
       return "MINE";
-    case "build_mintworks":
-      return "MINTWORKS";
+    case "build_manufactory":
+      return "MANUFACTORY";
     case "build_incubation_engine":
       return "INCUBATION_ENGINE";
     case "build_census_hall":
@@ -251,7 +251,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "irrigation";
     case "build_mine":
       return "mining";
-    case "build_mintworks":
+    case "build_manufactory":
       return "trade";
     case "build_incubation_engine":
       return "pottery";

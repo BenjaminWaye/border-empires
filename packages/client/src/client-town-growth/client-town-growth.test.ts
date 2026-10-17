@@ -18,8 +18,8 @@ const makeTown = (populationTier: NonNullable<NonNullable<Tile["town"]>["populat
   populationTier,
   connectedTownCount: 2,
   connectedTownBonus: 0.2,
-  hasMintworks: false,
-  mintworksActive: false,
+  hasManufactory: false,
+  manufactoryActive: false,
   hasIncubationEngine: false,
   incubationEngineActive: false,
 });
