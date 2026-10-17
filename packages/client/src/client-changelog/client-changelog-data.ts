@@ -17,6 +17,7 @@ import { OVERLAY_PERSISTENCE_CHANGELOG } from "./client-changelog-overlay-persis
 import { AFC_MODULE_TAB_CHANGELOG } from "./client-changelog-afc-module-tab.js";
 import { RIVERS_MOUNTAINS_CHANGELOG } from "./client-changelog-rivers-mountains.js";
 import { GARRISON_OUTSIDE_REACH_CHANGELOG } from "./client-changelog-garrison-outside-reach.js";
+import { OUT_OF_REACH_NO_DECAY_CHANGELOG } from "./client-changelog-out-of-reach-no-decay.js";
 import { FRONTIER_SUPPLY_LINES_CHANGELOG } from "./client-changelog-frontier-supply-lines.js";
 import { MANPOWER_BATCH_LABEL_CHANGELOG } from "./client-changelog-manpower-batch-label.js";
 import { RESTART_TILE_STATE_CHANGELOG } from "./client-changelog-restart-tile-state.js";
@@ -177,6 +178,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...CLIENT_CHANGELOG_ENTRIES_AFC_LANDING,
   ...GARRISON_OUTSIDE_REACH_CHANGELOG,
+  ...OUT_OF_REACH_NO_DECAY_CHANGELOG,
   ...FRONTIER_SUPPLY_LINES_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_2D_SETTLE_DOTS,
   ...CLIENT_CHANGELOG_ENTRIES_GARRISON_RENAME,
@@ -478,14 +480,14 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792266607210,
+    createdAt: 1792265619894,
     introducedIn: "2026.10.17.1",
-    title: "Land beyond your reach no longer decays",
-    why: "Land claimed outside your reach vanished on a hidden 5-minute timer, and when the oldest tile went, every tile chained behind it went with it, with no warning.",
+    title: "Better Relay Beacon tips after landing",
+    why: "Right after your AFC landed, the AFC tile was selected for no reason, and the guide suggested building your first Relay Beacon on the AFC. A beacon there shows almost nothing your AFC can't already see.",
     changes: [
-      "Frontier outside your reach stays yours; there is no decay timer any more",
-      "You still can't garrison it, and if its chain of frontier back to your settled land is cut anywhere, everything past the cut is lost at once",
-      "Its tile menu now says Beyond your reach and explains this, instead of a countdown"
+      "Your AFC no longer lands with its tile selected",
+      "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
+      "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
     ]
   }
 ];
