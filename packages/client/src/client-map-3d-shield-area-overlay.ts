@@ -1,4 +1,4 @@
-import { Color, DoubleSide, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Scene } from "three";
+import { Color, DoubleSide, InstancedMesh, Matrix4, MeshBasicMaterial, NormalBlending, PlaneGeometry, Scene, type Blending } from "three";
 
 // Workstream F3 (docs/replenishment-update-plan.md): shield-coverage-area
 // overlay, 3D renderer only. Paints a flat tinted plane over every tile a
@@ -52,6 +52,8 @@ export type ShieldAreaOverlayOptions = {
   readonly opacity?: number;
   readonly tintLighten?: number;
   readonly renderOrder?: number;
+  /** AdditiveBlending makes the wash brighten what's under it instead of shading it. */
+  readonly blending?: Blending;
 };
 
 export const createShieldAreaOverlay = (scene: Scene, options: ShieldAreaOverlayOptions = {}): ShieldAreaOverlay => {
@@ -65,7 +67,8 @@ export const createShieldAreaOverlay = (scene: Scene, options: ShieldAreaOverlay
     opacity: options.opacity ?? OPACITY,
     depthTest: false,
     depthWrite: false,
-    side: DoubleSide
+    side: DoubleSide,
+    blending: options.blending ?? NormalBlending
   });
   const mesh = new InstancedMesh(geometry, material, maxTiles);
   mesh.frustumCulled = false;

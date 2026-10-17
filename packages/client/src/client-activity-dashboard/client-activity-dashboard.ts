@@ -3,7 +3,7 @@ import { changelogBodyHtml, latestClientChangelogTimestamp, markClientChangelogS
 import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity, requestWorldPulse } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
-import { activityCardCoordinates, activityCardText, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
+import { activityCardCoordinates, activityCardText, activityPlayerNameLookup, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 import { clearActivityDashboard, paintActivityDashboard, resetActivityDashboardScroll, syncActivityDashboardScroll } from "./client-activity-dashboard-scroll.js";
 import { worldPulseAtGlanceHtml, worldPulseBodyHtml } from "./client-activity-dashboard-world-pulse.js";
 import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.js";
@@ -11,7 +11,7 @@ import { resourceSurveySectionHtml } from "./client-activity-dashboard-surveys.j
 type ActivityDashboardDeps = {
   state: Pick<
     ClientState,
-    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "techCatalog" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail" | "eventLog" | "techIds"
+    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "leaderboard" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames" | "techCatalog" | "changelog" | "authSessionReady" | "profileSetupRequired" | "authEmail" | "eventLog" | "techIds"
   >;
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
@@ -76,6 +76,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
   }
 
   const timeline = state.activityDashboard.timeline;
+  const playerName = activityPlayerNameLookup(state);
   const yoursTimelineHtml = state.activityDashboard.loading && !timeline
     ? `<div class="activity-dashboard-empty-state">Loading your activity…</div>`
     : state.activityDashboard.error && !timeline
@@ -85,7 +86,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         : `
           <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
-          ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id), (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
+          ${timeline.cards.map((card) => cardRowHtml(card, state.me, playerName, (id) => state.techCatalog.find((tech) => tech.id === id)?.name)).join("")}
         `;
   const yoursBodyHtml = resourceSurveySectionHtml(state.eventLog, state.techIds) + yoursTimelineHtml;
   const activeView = state.activityDashboard.activeView;
