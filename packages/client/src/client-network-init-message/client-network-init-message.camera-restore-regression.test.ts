@@ -143,6 +143,34 @@ describe("INIT camera-restore regression", () => {
     expect(state.camY).toBe(40);
   });
 
+  it("centers on the home tile without selecting it", () => {
+    // Regression (playtest): every connect selected the home tile, so the AFC
+    // came up wearing the selection marker on each load.
+    const state = createState();
+    state.cameraRestoredFromStorage = false;
+    state.selected = undefined;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+
+    expect(state.camX).toBe(40);
+    expect(state.selected).toBeUndefined();
+  });
+
+  it("keeps the player's selection through an in-place reconnect's INIT", () => {
+    const state = createState();
+    state.selected = undefined;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    sendInit(ws);
+
+    state.selected = { x: 12, y: 7 };
+    sendInit(ws);
+
+    expect(state.selected).toEqual({ x: 12, y: 7 });
+  });
+
   it("does not re-snap the camera to the home tile on a second INIT from an in-place reconnect", () => {
     // In-place reconnect (client-multiplex-websocket.ts reconnect()) can now
     // deliver a second INIT within the same browser session. Before this
