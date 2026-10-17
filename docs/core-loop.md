@@ -495,8 +495,11 @@ As implemented in `client-onboarding-checklist.ts`:
    When no objective is in reach, it retains the Relay Beacon note:
    ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
-   you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
-   session is long enough to finish the checklist without stalling.
+   you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). On top of
+   that, every new empire lands with a one-time +1,000 manpower reserve that
+   may sit above the cap (`LANDING_MANPOWER_RESERVE`,
+   `packages/shared/src/landing-manpower-reserve.ts`). The first session is
+   long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
    within three land steps (already in AFC reach), four slots within six,
    and a town within eight.

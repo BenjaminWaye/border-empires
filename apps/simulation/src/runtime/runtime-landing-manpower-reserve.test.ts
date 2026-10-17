@@ -36,6 +36,14 @@ describe("landing manpower reserve", () => {
     expect(manpowerOf(runtime, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
   });
 
+  it("is granted on top of a full cap when a new empire's manpower was never set", () => {
+    const runtime = runtimeWith(() => NOW, [buildPlayer("human-1", { manpower: Number.NaN })]);
+    const probe = runtime as unknown as { playerManpowerCap(player: RuntimePlayer): number; state: { players: Map<string, RuntimePlayer> } };
+    const cap = probe.playerManpowerCap(probe.state.players.get("human-1")!);
+    expect(manpowerOf(runtime, "human-1")).toBe(cap + LANDING_MANPOWER_RESERVE);
+    expect(manpowerOf(runtime, "human-1")).toBe(cap + LANDING_MANPOWER_RESERVE);
+  });
+
   it("is never granted to an empire that already existed, or to barbarians", () => {
     const runtime = runtimeWith(() => NOW, [
       buildPlayer("veteran", { manpower: 300, manpowerUpdatedAt: NOW - 3 * MINUTE, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP }),

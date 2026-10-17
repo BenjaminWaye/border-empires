@@ -60,7 +60,7 @@ const MIN = 60_000;
 const yieldNow = async (): Promise<void> => {};
 const SIM_HOURS = Number(process.env.SIM_HOURS ?? "1");
 const LABEL = process.env.SIM_LABEL ?? "baseline";
-const OUT = process.env.SIM_OUT ?? join(tmpdir(), `first-day-sim-${process.env.SIM_LABEL ?? "baseline"}.json`);
+const OUT = process.env.SIM_OUT ?? join(tmpdir(), `first-day-sim-${LABEL}.json`);
 const HUMANS = Number(process.env.SIM_HUMANS ?? "3");
 // Human online sessions (start minute, length minutes) -- a first session
 // plus four return visits across the day.
@@ -100,8 +100,9 @@ it("first-day sim", async () => {
   console.log(LABEL, "world ready in", Date.now() - startedAt, "ms; ais", aiIds.length, "humans", humanIds.length);
   const spent = new Map<string, number>();
   const lastMp = new Map<string, number>();
+  const countInto = (m: Map<string, number>, k: string): void => { m.set(k, (m.get(k) ?? 0) + 1); };
   const aiDiag = new Map<string, number>();
-  const aiBump = (k: string) => aiDiag.set(k, (aiDiag.get(k) ?? 0) + 1);
+  const aiBump = (k: string) => countInto(aiDiag, k);
   const ai = createAiCommandProducer({
     runtime, aiPlayerIds: aiIds, submitCommand: async (c) => runtime.submitCommand(c), now: () => clock.now, tickIntervalMs: 250,
     onCommand: ({ commandType }) => aiBump(`cmd:${commandType}`),
@@ -109,7 +110,7 @@ it("first-day sim", async () => {
     onNoCommand: (d) => aiBump(`none:${String(d.noCommandReason ?? "?")}`)
   });
   const diag = new Map<string, Map<string, number>>();
-  const bump = (id: string, k: string) => { const m = diag.get(id) ?? new Map<string, number>(); m.set(k, (m.get(k) ?? 0) + 1); diag.set(id, m); };
+  const bump = (id: string, k: string) => { const m = diag.get(id) ?? new Map<string, number>(); countInto(m, k); diag.set(id, m); };
   const human = createAiCommandProducer({
     runtime, aiPlayerIds: humanIds, submitCommand: async (c) => runtime.submitCommand(c), now: () => clock.now, tickIntervalMs: 1_000,
     onCommand: ({ playerId, commandType }) => bump(playerId, `cmd:${commandType}`),

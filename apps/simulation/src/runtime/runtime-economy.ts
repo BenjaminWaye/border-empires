@@ -115,6 +115,19 @@ export function applyManpowerRegenForPlayer(
   refreshManpowerOnlyForPlayer(ctx, player, nowMs);
 }
 
+// A player's first manpower settle is the start of their empire: a new human
+// just joined, or an AI empire at season start (persisted players already
+// carry manpowerUpdatedAt, so nobody existing gets it -- except a record that
+// repairZeroGrossIncomeSettlements rebuilds from orphaned territory, which
+// also lacks it and so is treated as new). Every new empire lands
+// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
+// Waystation grant; barbarians are not empires (their cap is effectively
+// unlimited -- see playerManpowerCap).
+const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
+  if (player.id.startsWith("barbarian-")) return;
+  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
+};
+
 /**
  * Manpower-only variant of {@link applyManpowerRegenForPlayer} that skips the
  * economy-accrual side effect. The accrual is O(territory tiles) per call
@@ -125,17 +138,6 @@ export function applyManpowerRegenForPlayer(
  * and on the periodic tick, so player gold/resources catch up within a
  * single planner cycle.
  */
-// A player's first manpower settle is the start of their empire: a new human
-// just joined, or an AI empire at season start (persisted players already
-// carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
-// with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
-// Waystation grant; barbarians are not empires (their cap is effectively
-// unlimited -- see playerManpowerCap).
-const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
-  if (player.id.startsWith("barbarian-")) return;
-  grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
-};
-
 export function refreshManpowerOnlyForPlayer(
   ctx: RuntimeManpowerEconomyContext,
   player: RuntimePlayer,
