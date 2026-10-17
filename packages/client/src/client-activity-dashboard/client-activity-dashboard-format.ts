@@ -1,5 +1,6 @@
 import type { PersonalActivityCard, PersonalActivitySummary, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { structureDisplayName } from "@border-empires/shared";
+import type { ClientState } from "../client-state/client-state.js";
 
 // Materiality gate for the manpower-spent-attacking headline (plan §2.3):
 // only surface it up top when it's both a large absolute number and a
@@ -59,9 +60,25 @@ const timeLabel = (occurredAt: number): string => {
 // Cards carry only stable player ids by design (game-domain's own comment:
 // a renamed/deleted player still renders correctly since the client resolves
 // display names from its own live roster at render time, not from the card).
-// `playerNames` is that roster (ClientState.playerNames); an unresolvable id
-// (e.g. a player who left before ever being seen) falls back to the raw id.
+// That roster is built by activityPlayerNameLookup below; these are display
+// names only, never safe as gateway identity (truce/alliance target) names.
+// An unresolvable id (e.g. a player who left before ever being seen) falls
+// back to the raw id.
 export type PlayerNameLookup = (playerId: string) => string | undefined;
+
+// An AI player's ClientState.playerNames entry is the stable "AI N" diplomacy
+// name (see client-owner-name.ts), so AI display names come from the
+// leaderboard's live seasonal name. Everyone else keeps resolving through
+// playerNames, which a PLAYER_STYLE rename updates immediately while the
+// leaderboard lags until the next status update. Build once per render.
+export const activityPlayerNameLookup = (state: Pick<ClientState, "playerNames" | "leaderboard">): PlayerNameLookup => {
+  const aiNames = new Map<string, string>();
+  const { overall, byTiles, byIncome, byTechs } = state.leaderboard;
+  for (const entry of [...overall, ...byTiles, ...byIncome, ...byTechs]) {
+    if (entry.id.startsWith("ai-") && !aiNames.has(entry.id)) aiNames.set(entry.id, entry.name);
+  }
+  return (playerId) => aiNames.get(playerId) ?? state.playerNames.get(playerId);
+};
 
 // Resolves a tech id to its player-facing name (ClientState.techCatalog);
 // an unknown id falls back to the raw id.
