@@ -485,6 +485,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Refractive ground: a pale glassy glint or two half-buried in the soil",
       "The coloured patch under clue tiles is gone, and the tile menu only explains a clue on tiles that show it; works on both the 3D and 2D maps"
     ]
+  },
+  {
+    createdAt: 1792265619894,
+    introducedIn: "2026.10.17.1",
+    title: "Better Relay Beacon tips after landing",
+    why: "Right after your AFC landed, the AFC tile was selected for no reason, and the guide suggested building your first Relay Beacon on the AFC. A beacon there shows almost nothing your AFC can't already see.",
+    changes: [
+      "Your AFC no longer lands with its tile selected",
+      "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
+      "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
+    ]
   }
 ];
 

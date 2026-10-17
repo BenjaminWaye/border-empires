@@ -18,8 +18,9 @@ export const onboardingRelayBeaconSite = (): { x: number; y: number } | undefine
 
 export const injectOnboardingRelayBeaconRecommendation = (view: TileMenuView, tile: Pick<Tile, "x" | "y">): void => {
   if (!recommendedSite || recommendedSite.x !== tile.x || recommendedSite.y !== tile.y) return;
+  // build_relay_beacon_frontier is the neutral-tile variant (expand + garrison + build), already on Actions.
   for (const action of [...view.actions, ...view.buildings]) {
-    if (action.id === "build_relay_beacon") action.recommended = true;
+    if (action.id === "build_relay_beacon" || action.id === "build_relay_beacon_frontier") action.recommended = true;
   }
   // A settled tile's beacon lives in Buildings, but the menu opens on Actions
   // when that tab exists -- surface it there too (same dual-tab treatment as
