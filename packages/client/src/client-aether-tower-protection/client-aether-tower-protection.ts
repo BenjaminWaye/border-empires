@@ -1,7 +1,7 @@
 import { OBSERVATORY_PROTECTION_RADIUS } from "../client-constants.js";
 import { chebyshevDistanceWrapped, observatoryProtectionActive } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile } from "../client-types.js";
+import type { CrystalTargetingAbility, Tile } from "../client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 // Aether Tower (OBSERVATORY) protection field overlay, shared by both map
@@ -26,7 +26,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 //
 // Shown only while it is a relevant aid, so it doesn't permanently wash the
 // map: while an Aether Tower is selected, while the tile menu's Aether
-// ("crystal") tab is open, or while aiming an Aether ability.
+// ("crystal") tab is open, or while aiming an Aether ability a shield blocks.
 
 export type AetherProtectionRelation = "friendly" | "enemy";
 
@@ -52,7 +52,7 @@ type AetherProtectionShownState = Pick<ClientState, "selected" | "tiles" | "tile
 // isTileShieldedByEnemyObservatory callers). Aiming anything else -- Sky Dock
 // bombard, levy, siege engine strike -- shows no field, since it would wrongly
 // suggest the red tiles are off limits.
-const SHIELD_BLOCKED_TARGETING: ReadonlySet<string> = new Set(["siphon", "aether_emp", "aether_bridge"]);
+const SHIELD_BLOCKED_TARGETING: ReadonlySet<CrystalTargetingAbility> = new Set<CrystalTargetingAbility>(["siphon", "aether_emp", "aether_bridge"]);
 
 export const isAetherProtectionFieldShown = (state: AetherProtectionShownState, keyFor: (x: number, y: number) => string): boolean => {
   if (state.crystalTargeting.active) return SHIELD_BLOCKED_TARGETING.has(state.crystalTargeting.ability);
@@ -178,7 +178,7 @@ export const hostileAetherProtectionAt = (
   return protector?.relation === "enemy" ? protector : undefined;
 };
 
-/** Sides of a shielded tile where the field's outline runs: the neighbour there isn't shielded the same way. */
+/** Sides of a shielded tile where the field's outline runs: the neighbour there isn't shielded by the same owner's towers. */
 export type AetherProtectionEdges = { readonly north: boolean; readonly east: boolean; readonly south: boolean; readonly west: boolean };
 
 export const aetherProtectionEdges = (
@@ -190,7 +190,9 @@ export const aetherProtectionEdges = (
   const sameShield = (dx: number, dy: number): boolean => {
     const x = (((tile.x + dx) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
     const y = (((tile.y + dy) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-    return tileAetherProtection(tileAt(x, y), field)?.relation === protector.relation;
+    // Same owner, not just same colour: two rival empires' (or you and an
+    // ally's) shields that touch each keep their own outline.
+    return tileAetherProtection(tileAt(x, y), field)?.ownerId === protector.ownerId;
   };
   return { north: !sameShield(0, -1), east: !sameShield(1, 0), south: !sameShield(0, 1), west: !sameShield(-1, 0) };
 };
@@ -202,7 +204,8 @@ export const drawAetherProtectionTile2D = (
   ctx: CanvasRenderingContext2D,
   tile: Tile | undefined,
   field: AetherProtectionField | undefined,
-  tileAt: (x: number, y: number) => Tile | undefined,
+  tiles: ReadonlyMap<string, Tile>,
+  keyFor: (x: number, y: number) => string,
   px: number,
   py: number,
   size: number
@@ -217,7 +220,7 @@ export const drawAetherProtectionTile2D = (
   ctx.fillRect(px, py, size, size);
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 0.95;
-  const edges = aetherProtectionEdges(tile, protector, field, tileAt);
+  const edges = aetherProtectionEdges(tile, protector, field, (x, y) => tiles.get(keyFor(x, y)));
   const width = Math.max(2, Math.round(size * 0.1));
   if (edges.north) ctx.fillRect(px, py, size, width);
   if (edges.south) ctx.fillRect(px, py + size - width, size, width);

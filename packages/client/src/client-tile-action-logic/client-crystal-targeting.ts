@@ -28,6 +28,15 @@ export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string 
 export const crystalTargetingTone = (ability: CrystalTargetingAbility): "amber" | "cyan" | "red" =>
   ability === "aether_bridge" ? "cyan" : ability === "aether_wall" || ability === "aether_emp" ? "amber" : "red";
 
+// Server (handleCastAetherBridgeCommand): landing is blocked only on a
+// shielded tile whose owner is neither allied nor truced with you.
+// hostileObservatoryProtectingTile already excludes unowned, your own and
+// allied land, so only a truce needs checking on top.
+const aetherBridgeLandingShielded = (
+  tile: Tile,
+  deps: Pick<TileActionLogicDeps, "hostileObservatoryProtectingTile" | "activeTruceWithPlayer">
+): boolean => Boolean(deps.hostileObservatoryProtectingTile(tile)) && !deps.activeTruceWithPlayer(tile.ownerId);
+
 export const clearCrystalTargeting = (state: ClientState): void => {
   state.crystalTargeting.active = false;
   state.crystalTargeting.validTargets.clear();
@@ -50,7 +59,7 @@ const collectValidAetherWallOrigins = (
 export const computeCrystalTargets = (
   state: ClientState,
   ability: CrystalTargetingAbility,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "wrapX" | "wrapY" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "selectedTile">
+  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "wrapX" | "wrapY" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "activeTruceWithPlayer" | "selectedTile">
 ): { validTargets: Set<string>; originByTarget: Map<string, string> } => {
   const validTargets = new Set<string>();
   const originByTarget = new Map<string, string>();
@@ -62,7 +71,7 @@ export const computeCrystalTargets = (
     if (ability === "aether_bridge") {
       if (!hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrain)) continue;
       // Landing on a hostile owner's shielded coast is rejected server-side (runtime-ability-command-handlers.ts).
-      if (tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile) && deps.hostileObservatoryProtectingTile(tile)) continue;
+      if (aetherBridgeLandingShielded(tile, deps)) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
     }
@@ -136,6 +145,7 @@ export const beginCrystalTargeting = (
     | "terrainAt"
     | "isTileOwnedByAlly"
     | "hostileObservatoryProtectingTile"
+    | "activeTruceWithPlayer"
     | "abilityCooldownRemainingMs"
     | "formatCooldownShort"
     | "pushFeed"
@@ -254,16 +264,18 @@ export const beginCrystalTargeting = (
 export const executeCrystalTargeting = (
   state: ClientState,
   tile: Tile,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "hostileObservatoryProtectingTile" | "pushFeed" | "requireAuthedSession" | "ws" | "hideTileActionMenu">
+  deps: Pick<TileActionLogicDeps, "keyFor" | "hostileObservatoryProtectingTile" | "activeTruceWithPlayer" | "pushFeed" | "requireAuthedSession" | "ws" | "hideTileActionMenu">
 ): boolean => {
   const targetKey = deps.keyFor(tile.x, tile.y);
   if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
-  if (
-    state.crystalTargeting.ability !== "sovereign_siege_engine_strike" &&
-    state.crystalTargeting.ability !== "sky_dock_bombard" &&
-    state.crystalTargeting.ability !== "imperial_exchange_levy" &&
-    deps.hostileObservatoryProtectingTile(tile)
-  ) {
+  const shieldBlocked =
+    state.crystalTargeting.ability === "aether_bridge"
+      ? aetherBridgeLandingShielded(tile, deps)
+      : state.crystalTargeting.ability !== "sovereign_siege_engine_strike" &&
+        state.crystalTargeting.ability !== "sky_dock_bombard" &&
+        state.crystalTargeting.ability !== "imperial_exchange_levy" &&
+        Boolean(deps.hostileObservatoryProtectingTile(tile));
+  if (shieldBlocked) {
     deps.pushFeed("Blocked by Aether Tower field.", "combat", "warn");
     return false;
   }

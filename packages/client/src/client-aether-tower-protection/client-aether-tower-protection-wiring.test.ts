@@ -29,7 +29,7 @@ describe("Aether Tower protection field renderer wiring", () => {
       "const aetherProtection2D = !isTrue3DRendererActive() && isAetherProtectionFieldShown(state, deps.keyFor) ? aetherProtectionField(state, Date.now()) : undefined;"
     );
     expect(loop).toContain(
-      'if (!isTrue3DRendererActive() && vis === "visible") drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, (x, y) => state.tiles.get(deps.keyFor(x, y)), px, py, size);'
+      'if (!isTrue3DRendererActive() && vis === "visible") drawAetherProtectionTile2D(deps.ctx, t, aetherProtection2D, state.tiles, deps.keyFor, px, py, size);'
     );
   });
 });

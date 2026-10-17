@@ -202,6 +202,16 @@ describe("protection field outline", () => {
     expect(aetherProtectionEdges(tileAt(51, 49)!, corner, field, tileAt)).toEqual({ north: true, east: true, south: false, west: false });
   });
 
+  it("keeps an outline between two different empires' shields, even when both are the same colour", () => {
+    const rivals = fieldState([tower(10, 10, "enemy"), tower(11, 10, "rival")]);
+    const rivalAt = (x: number, y: number): Tile | undefined => rivals.tiles.get(keyFor(x, y));
+    const rivalField = aetherProtectionField(rivals, NOW);
+    const enemyTile = tileAetherProtection(rivalAt(10, 10), rivalField)!;
+    expect(enemyTile.relation).toBe("enemy");
+    expect(tileAetherProtection(rivalAt(11, 10), rivalField)?.relation).toBe("enemy");
+    expect(aetherProtectionEdges(rivalAt(10, 10)!, enemyTile, rivalField, rivalAt).east).toBe(true);
+  });
+
   it("2D: glows additively (never darkens) and draws a strip on each outer side", () => {
     const calls: Array<{ op: string; alpha: number; rect: number[] }> = [];
     const ctx = {
@@ -215,12 +225,12 @@ describe("protection field outline", () => {
       }
     } as unknown as CanvasRenderingContext2D;
     const field = aetherProtectionField(state, NOW);
-    drawAetherProtectionTile2D(ctx, tileAt(50, 50), field, tileAt, 0, 0, 40);
+    drawAetherProtectionTile2D(ctx, tileAt(50, 50), field, state.tiles, keyFor, 0, 0, 40);
     expect(calls[0]).toEqual({ op: "lighter", alpha: 0.24, rect: [0, 0, 40, 40] });
     // One outer side (west) -> one opaque strip.
     expect(calls.slice(1)).toEqual([{ op: "source-over", alpha: 0.95, rect: [0, 0, 4, 40] }]);
     calls.length = 0;
-    drawAetherProtectionTile2D(ctx, tileAt(52, 50), field, tileAt, 0, 0, 40);
+    drawAetherProtectionTile2D(ctx, tileAt(52, 50), field, state.tiles, keyFor, 0, 0, 40);
     expect(calls).toEqual([]);
   });
 });

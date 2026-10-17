@@ -94,6 +94,17 @@ describe("Aether Bridge coastal check uses real synced tile terrain", () => {
     state.tiles.set(keyFor(5, 5), { ...targetTile, ownerId: "enemy", ownershipState: "SETTLED" } as Tile);
     const shielded = computeCrystalTargets(state, "aether_bridge", { ...baseDeps, selectedTile: () => undefined, hostileObservatoryProtectingTile: () => ({ x: 9, y: 9, ownerId: "enemy", relation: "enemy" as const }) });
     expect(shielded.validTargets.has(keyFor(5, 5))).toBe(false);
+
+    // ...but a truced owner's shielded coast stays landable: the server only
+    // blocks owners that are neither allied nor truced (isAlliedOrTruced).
+    const truce = { otherPlayerId: "enemy", otherPlayerName: "Enemy", startedAt: 0, endsAt: Number.MAX_SAFE_INTEGER, createdByPlayerId: "me" };
+    const truced = computeCrystalTargets(state, "aether_bridge", {
+      ...baseDeps,
+      selectedTile: () => undefined,
+      hostileObservatoryProtectingTile: () => ({ x: 9, y: 9, ownerId: "enemy", relation: "enemy" as const }),
+      activeTruceWithPlayer: (playerId?: string | null) => (playerId === "enemy" ? truce : undefined)
+    });
+    expect(truced.validTargets.has(keyFor(5, 5))).toBe(true);
   });
 
   it("keeps casting disabled when no real neighbor tile is sea, even though it's otherwise a plausible target", () => {
