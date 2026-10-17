@@ -47,7 +47,9 @@ it("does not offer an enemy town as an Expand To objective", () => {
   tiles.get("5,6")!.ownerId = "enemy";
   const state = onboardingChecklistState(tiles, "me");
   expect(state.townFound).toBe(false);
-  expect(state.highlightTiles).toEqual([]);
+  expect(state.highlightTiles).not.toContainEqual({ x: 5, y: 6 });
+  // The only highlight is where to build a Relay Beacon, never the enemy town.
+  expect(state.highlightTiles).toEqual(state.relayBeaconSite ? [state.relayBeaconSite] : []);
 });
 
 it("keeps pending food discovered but neither actionable nor counted as usable slots", () => {

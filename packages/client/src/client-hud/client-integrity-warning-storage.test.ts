@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearIntegrityWarningDismissed,
   isIntegrityWarningDismissed,
+  resetIntegrityWarningIfRecovered,
   setIntegrityWarningDismissed
 } from "./client-integrity-warning-storage.js";
 
@@ -63,5 +64,14 @@ describe("client-integrity-warning-storage", () => {
     setIntegrityWarningDismissed("a@example.com");
     expect(isIntegrityWarningDismissed("a@example.com")).toBe(true);
     expect(isIntegrityWarningDismissed("b@example.com")).toBe(false);
+  });
+
+  it("keeps a dismissal through small wobbles around 50% and re-arms only after a clear recovery", () => {
+    setIntegrityWarningDismissed("a@example.com");
+    expect(resetIntegrityWarningIfRecovered(50, "a@example.com")).toBe(false);
+    expect(resetIntegrityWarningIfRecovered(55, "a@example.com")).toBe(false);
+    expect(isIntegrityWarningDismissed("a@example.com")).toBe(true);
+    expect(resetIntegrityWarningIfRecovered(60, "a@example.com")).toBe(true);
+    expect(isIntegrityWarningDismissed("a@example.com")).toBe(false);
   });
 });

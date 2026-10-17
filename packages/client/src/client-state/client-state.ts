@@ -513,7 +513,7 @@ export const createInitialState = () => ({
   tileActionMenu: createInitialTileActionMenuState(),
   buildingPlacement: {
     active: false,
-    structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "",
+    structureType: "" as "HYDROWORKS" | "ORE_REFINERY" | "AFC" | "RELAY_BEACON" | "",
     x: 0,
     y: 0
   },

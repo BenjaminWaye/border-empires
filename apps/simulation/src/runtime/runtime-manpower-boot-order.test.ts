@@ -47,7 +47,7 @@
  * contributions on top of what this test sets up.
  */
 import { describe, expect, it } from "vitest";
-import { ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/shared";
+import { ANCILLARY_DEPOT_MANPOWER_CAP_BONUS, LANDING_MANPOWER_RESERVE, STARTING_CAPITAL_MANPOWER_CAP } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
 
@@ -175,7 +175,8 @@ describe("manpower boot-order regression", () => {
     });
 
     const bootPlayer = runtime.exportState().players.find((p) => p.id === TEST_PLAYER_ID)!;
-    expect(bootPlayer.manpower).toBe(150);
+    // Untouched apart from the one-time landing reserve every new empire gets.
+    expect(bootPlayer.manpower).toBe(150 + LANDING_MANPOWER_RESERVE);
     expect(bootPlayer.manpowerCapSnapshot).toBe(STARTING_CAPITAL_MANPOWER_CAP);
   });
 });

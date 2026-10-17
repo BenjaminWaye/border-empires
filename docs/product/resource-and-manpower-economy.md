@@ -23,6 +23,12 @@ code and update this document in the same branch when the rule changes.
 
 - Manpower is capped and regenerates. The always-present starting capital adds
   **720 cap** and **0.4/minute**; it is additive with towns.
+- Every new empire (a human on join, an AI empire at season start; not
+  barbarians) lands with a one-time **+1,000** manpower reserve
+  (`LANDING_MANPOWER_RESERVE`), granted at the player's first manpower settle
+  in `refreshManpowerOnlyForPlayer`. Like a Waystation grant it may sit above
+  the cap (tracked as `waystationManpowerOverflow`), and regen pauses until it
+  is spent back under the cap.
 - **Regeneration is paid out in refills, not continuously.** Regen accrues at
   the per-minute rates below into a bank (`manpowerBanked`) that is settled at
   the current rate on every settle (every command and the 15s player-update

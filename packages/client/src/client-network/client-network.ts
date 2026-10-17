@@ -25,7 +25,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { createLateFrontierAckHandlers } from "../client-frontier-late-ack/client-frontier-late-ack.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
-import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
+import { applyPlayerUpdateIntegrity } from "../client-integrity-pct/client-player-update-integrity.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
@@ -1211,17 +1211,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.stamina = msg.stamina as number;
       if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
       if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-      state.defensibilityPct = typeof msg.integrityPct === "number" && Number.isFinite(msg.integrityPct as number) ? Math.max(0, Math.min(100, msg.integrityPct as number)) : defensibilityPctFromTE(state.settledT, state.settledE);
-      if (resetIntegrityWarningIfRecovered(state.defensibilityPct, state.authEmail)) state.integrityWarningDismissed = false;
-      if (state.defensibilityPct > prevDefensibility + 0.05) {
-        state.defensibilityAnimUntil = Date.now() + 550;
-        state.defensibilityAnimDir = 1;
-      } else if (state.defensibilityPct < prevDefensibility - 0.05) {
-        state.defensibilityAnimUntil = Date.now() + 550;
-        state.defensibilityAnimDir = -1;
-      } else if (Date.now() >= state.defensibilityAnimUntil) {
-        state.defensibilityAnimDir = 0;
-      }
+      applyPlayerUpdateIntegrity(state, msg, prevDefensibility, () => defensibilityPctFromTE(state.settledT, state.settledE));
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();

@@ -23,6 +23,8 @@ export type RecoveredPlayerState = {
   // Regen banked toward the next refill; must round-trip or a restart wipes up to a window of regen.
   manpowerBanked?: number;
   manpowerCapSnapshot?: number;
+  // Must round-trip, or a record rebuilt after a restart could be granted the landing reserve again.
+  landingReserveGranted?: boolean;
   techIds?: string[];
   domainIds?: string[];
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;

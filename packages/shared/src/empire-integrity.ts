@@ -9,6 +9,13 @@ import {
 } from "./config.js";
 import { defensibilityScore } from "./math/math.js";
 
+/**
+ * Integrity (0-100%) below which the economy/growth multipliers drop under 1x
+ * -- the midpoint of integrityEconomyMult/integrityGrowthMult's ranges. The
+ * HUD only surfaces integrity (top-bar chip + warning) below this.
+ */
+export const INTEGRITY_PENALTY_PCT = 50;
+
 const lerpByIntegrity = (t: number, min: number, max: number): number => min + t * (max - min);
 
 // Lowest integrity a new empire can show at `settledTiles`: flat at the grace

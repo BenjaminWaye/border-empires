@@ -494,8 +494,11 @@ As implemented in `client-onboarding-checklist.ts`:
    When no objective is in reach, it retains the Relay Beacon note:
    ordinary expansion and plain-land garrisons do not extend reach.
 3. The starting capital is sized for about 40 expands and 8 settles before
-   you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
-   session is long enough to finish the checklist without stalling.
+   you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). On top of
+   that, every new empire lands with a one-time +1,000 manpower reserve that
+   may sit above the cap (`LANDING_MANPOWER_RESERVE`,
+   `packages/shared/src/landing-manpower-reserve.ts`). The first session is
+   long enough to finish the checklist without stalling.
 4. Newly generated worlds require 50 spaced starting sites with first food
    within three land steps (already in AFC reach), four slots within six,
    and a town within eight.
@@ -581,7 +584,9 @@ deliberately no decay for simply being offline.
    metric parks near 50% for almost everyone (expansion brief §7). New
    empires get a grace period: integrity stays at 90%+ until 50 settled tiles,
    then the floor fades out by 100 tiles (`INTEGRITY_GRACE_*` in
-   `packages/shared/src/config.ts`).
+   `packages/shared/src/config.ts`). The HUD keeps integrity in the Economy
+   panel and only puts a top-bar chip and warning up once it is below 50%
+   (`INTEGRITY_PENALTY_PCT`), where it starts costing coin and growth.
 4. **Onboarding teaches the wrong growth verb.** The checklist (and the
    removed intro guide) frame Expand To as how you grow ("Tap a neutral tile next to your border to
    claim it… Settle it"). In the live game, beacons and town/dock anchors move

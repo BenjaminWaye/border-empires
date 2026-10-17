@@ -123,7 +123,8 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
       now: () => nowMs,
       scheduleAfter: (_delayMs, task) => { scheduledTasks.push(task); },
       // Enough manpower to EXPAND (costs EXPAND_MANPOWER_COST=10) but not enough left to auto-settle (needs SETTLE_MANPOWER_COST=20).
-      initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 15 })]]),
+      // manpowerUpdatedAt: an established empire, so no one-time landing reserve.
+      initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 15, manpowerUpdatedAt: nowMs })]]),
       seedTiles: new Map(),
       initialState: {
         tiles: [

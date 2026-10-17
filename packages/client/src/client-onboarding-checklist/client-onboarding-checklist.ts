@@ -31,7 +31,9 @@
 // computes the player's local reach set, the same math
 // client-reach-overlay.ts's map overlay uses -- not just "known to the
 // client at all"), or EXPAND_RELAY_BEACON when there isn't one yet, which
-// points the player at building a RELAY_BEACON to push reach out instead.
+// points the player at building a RELAY_BEACON to push reach out instead --
+// highlighting the best tile to build it on (client-relay-beacon-site.ts),
+// aimed at the blocked town/food target.
 // Reappears as many times as needed -- once reach grows to cover a target,
 // the checklist resumes whichever goal was blocked.
 //
@@ -43,6 +45,7 @@ import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-beacon-site.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
 
 export const ONBOARDING_FOOD_SLOTS_TARGET = 4;
@@ -66,6 +69,8 @@ export type OnboardingChecklistState = {
   foodSlotsTarget: number;
   /** Tile coordinates the map should highlight for the current step. Empty once step is DONE. */
   highlightTiles: Array<{ x: number; y: number }>;
+  /** During EXPAND_RELAY_BEACON: the tile to build the beacon on (also in highlightTiles), when the player has one. */
+  relayBeaconSite?: { x: number; y: number };
 };
 
 const FOOD_SLOTS_BY_RESOURCE: Record<string, number> = { FARM: 1, FISH: 2 };
@@ -84,6 +89,21 @@ export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" |
   }
   return slots;
 };
+
+/** Best tile for a Relay Beacon that pushes reach toward `targets` (or, with none known, toward the most new ground). */
+const relayBeaconSiteToward = (
+  tiles: ReadonlyMap<string, Tile>,
+  playerId: string,
+  reach: ReadonlySet<string>,
+  targets: readonly { x: number; y: number }[]
+): { x: number; y: number } | undefined => {
+  const [site] = bestRelayBeaconSites(tiles, playerId, { reach, targets, limit: 1 });
+  return site ? { x: site.x, y: site.y } : undefined;
+};
+
+// The best site can be the player's own town tile itself -- don't ring it twice.
+const withSite = (anchors: Array<{ x: number; y: number }>, site: { x: number; y: number } | undefined): Array<{ x: number; y: number }> =>
+  site && !anchors.some((a) => a.x === site.x && a.y === site.y) ? [...anchors, site] : anchors;
 
 /**
  * Derives the current onboarding checklist state from the client's tiles.
@@ -179,10 +199,27 @@ export const onboardingChecklistState = (
     // No town within actual reach (not just "none known") -- Expand To has
     // nothing to target yet. Point at building a RELAY_BEACON (an
     // outpost-family structure -- see client-reach-overlay.ts's
-    // OUTPOST_STRUCTURE_TYPES) from the player's own anchor instead, which
-    // extends reach outward until a town falls inside it.
+    // OUTPOST_STRUCTURE_TYPES) instead, which extends reach outward until a
+    // town falls inside it. ownTownTierAnchors is always empty on this
+    // branch (no town-tier town yet), so the beacon site is the only
+    // highlight -- without it a new player was told to build a beacon with
+    // nothing on the map saying where.
+    if (pendingInReach(captureTownCandidates)) {
+      return {
+        step: "EXPAND_TOWN",
+        townFound,
+        townExpanded: false,
+        foodFound,
+        foodSlotsFound,
+        foodExpanded,
+        foodSlotsClaimed,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: ownTownTierAnchors
+      };
+    }
+    const site = relayBeaconSiteToward(tiles, playerId, reach, captureTownCandidates);
     return {
-      step: pendingInReach(captureTownCandidates) ? "EXPAND_TOWN" : "EXPAND_RELAY_BEACON",
+      step: "EXPAND_RELAY_BEACON",
       townFound,
       townExpanded: false,
       foodFound,
@@ -190,7 +227,8 @@ export const onboardingChecklistState = (
       foodExpanded,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-      highlightTiles: ownTownTierAnchors
+      highlightTiles: withSite(ownTownTierAnchors, site),
+      ...(site ? { relayBeaconSite: site } : {})
     };
   }
 
@@ -198,8 +236,10 @@ export const onboardingChecklistState = (
     const reachableFoodCandidates = foodCandidates.filter(inReach);
     if (reachableFoodCandidates.length === 0) {
       // Same "nothing actually reachable yet" case as above, now for food.
+      const pending = pendingInReach(foodCandidates);
+      const site = pending ? undefined : relayBeaconSiteToward(tiles, playerId, reach, foodCandidates);
       return {
-        step: pendingInReach(foodCandidates) ? "EXPAND_FOOD" : "EXPAND_RELAY_BEACON",
+        step: pending ? "EXPAND_FOOD" : "EXPAND_RELAY_BEACON",
         townFound: true,
         townExpanded: true,
         foodFound,
@@ -207,7 +247,8 @@ export const onboardingChecklistState = (
         foodExpanded,
         foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-        highlightTiles: ownTownTierAnchors
+        highlightTiles: withSite(ownTownTierAnchors, site),
+        ...(site ? { relayBeaconSite: site } : {})
       };
     }
     // Keep the town highlighted alongside the food candidates: it's the

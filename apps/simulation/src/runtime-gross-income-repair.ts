@@ -37,8 +37,9 @@ export const repairZeroGrossIncomeSettlements = (
     let player = ctx.players.get(playerId);
     if (!player) {
       if (!ctx.hasTerritory(playerId)) continue;
-      // A record rebuilt from existing territory is an established player, not a new join: keep the legacy all-on behavior.
-      player = isAiId ? createAiRuntimePlayer(playerId) : { ...createHumanRuntimePlayer(playerId), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } };
+      // A record rebuilt from existing territory is an established player, not a new join: keep the legacy
+      // all-on behavior, and never grant the new-empire landing manpower reserve (they already had it).
+      player = { ...(isAiId ? createAiRuntimePlayer(playerId) : { ...createHumanRuntimePlayer(playerId), autoSettle: { ...DEFAULT_AUTO_SETTLE_PREFS } }), landingReserveGranted: true };
       ctx.players.set(playerId, player);
     } else if (isAiId && !player.isAi) {
       player = { ...player, isAi: true };

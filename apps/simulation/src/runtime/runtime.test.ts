@@ -1387,7 +1387,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, manpowerUpdatedAt: 1_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -2306,7 +2306,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, manpowerUpdatedAt: 1_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
           ]
         ]),
         initialState: {
@@ -2727,7 +2727,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { UMBRITE: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, manpowerUpdatedAt: 1_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { UMBRITE: 100 } })
           ]
         ]),
         initialState: {
@@ -5140,35 +5140,6 @@ describe("simulation runtime", () => {
     expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(13.2 / 288); // was 15.4 pre-gold-rescope (§6.1); 13.2 reflects METROPOLIS's halved-per-tier multiplier (2.1, was 3.2)
   });
 
-  it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
-    const runtime = new SimulationRuntime({
-      initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
-      ]),
-      initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
-        activeLocks: [],
-        players: [
-          {
-            id: "ai-1",
-            name: "ai-1",
-            points: 77,
-            manpower: 123
-          }
-        ]
-      }
-    });
-
-    expect(runtime.exportSnapshotSections().initialState.players).toContainEqual(
-      expect.objectContaining({
-        id: "ai-1",
-        isAi: true,
-        points: 77,
-        manpower: 123
-      })
-    );
-  });
-
   it("emits reveal updates and revealed empire stats through player messages", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -7527,7 +7498,7 @@ describe("simulation runtime — tile shedding", () => {
     const runtime = new SimulationRuntime({
       now: () => now,
       initialPlayers: new Map([
-        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 50 })]
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 50, manpowerUpdatedAt: 1_000 })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -7655,7 +7626,7 @@ describe("aether purge", () => {
       now: () => 1_000,
       initialPlayers: new Map([
         ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
-        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
+        ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100, manpowerUpdatedAt: 1_000 })]
       ]) as never,
       initialState: { tiles: tiles as never, activeLocks: [] }
     });

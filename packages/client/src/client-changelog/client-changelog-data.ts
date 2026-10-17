@@ -36,6 +36,7 @@ import { CLIENT_CHANGELOG_ENTRIES_ALLIANCE_TAB_REDESIGN } from "./client-changel
 import { CLIENT_CHANGELOG_ENTRIES_DIPLOMACY_TILE_ACTION } from "./client-changelog-diplomacy-tile-action.js";
 import { MOBILE_LOADING_FIT_CHANGELOG } from "./client-changelog-mobile-loading-fit.js";
 import { CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION } from "./client-changelog-waystation-auto-claim-activation.js";
+import { CLIENT_CHANGELOG_ENTRIES_OCT_12 } from "./client-changelog-data-oct-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT } from "./client-changelog-afc-hill-cut.js";
 import { CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS } from "./client-changelog-compact-met-players.js";
 import { CLIENT_CHANGELOG_ENTRIES_TOWN_GROWTH_LOADING } from "./client-changelog-town-growth-loading.js";
@@ -207,33 +208,27 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   },
   ...AFC_MODULE_TAB_CHANGELOG,
   ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION_AUTO_CLAIM_ACTIVATION,
+  ...CLIENT_CHANGELOG_ENTRIES_OCT_12,
   ...CLIENT_CHANGELOG_ENTRIES_AFC_HILL_CUT,
   ...CLIENT_CHANGELOG_ENTRIES_COMPACT_MET_PLAYERS,
   {
-    createdAt: 1791803592000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.1",
-    title: "Resource clues now show on the map",
-    why: "Land near Titanium, Umbrite and Crystal carries a clue (ferrous dust, blackwood canopy, refractive ground), but the clues were lost on every server restart, never sent when you logged in, and drawn too faintly to see. Occupation-survey reports from conquered towns also vanished after a few dozen other events.",
+    createdAt: 1791921253260, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Empire Integrity moves to the Economy panel",
+    why: "Playtesters watched Empire Integrity fall as they expanded and read it as being punished. In fact it was still a bonus, and some updates briefly showed it lower than it really was.",
     changes: [
-      "Clue tiles now get a clear tint on both the 3D and 2D maps: rust for Titanium, violet for Umbrite, ice-cyan for Crystal",
-      "Selecting a clue tile explains it in the tile overview, e.g. \"Ferrous dust: Titanium deposits are likely within a few tiles\"",
-      "Garrisoning a neutral town now surveys the land around it: nearby clues become a report like \"Titanium likely north-east of this town\" (capturing an enemy town no longer does)",
-      "Survey reports are no longer pushed out of your event log by later events"
+      "Empire Integrity now lives in the Economy panel; the top bar only shows it, with a warning, once it drops below 50% and actually reduces your coin and growth",
+      "Fixed integrity sometimes showing lower than it really was (e.g. 80% for a small new empire) after changing your profile or colour, toggling auto-garrison, or using an ability"
     ]
   },
   {
-    createdAt: 1791804620000, // frozen Date.now() value for this release
-    introducedIn: "2026.10.12.2",
-    title: "Manifest panel: clearer details, Good pick badge, clickable owned list",
-    why: "The tech details were boxes inside boxes, listed the same unlocks three times, scrolled the whole panel so the name and Unlock button slid out of view, and never said whether a pick fit your empire. Your owned techs were a list you couldn't click.",
+    createdAt: 1791927499454, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Top bar icons are labelled",
+    why: "Playtesters couldn't tell what the icons in the top-right corner opened without hovering over each one.",
     changes: [
-      "The Technology Tree is now the Manifest panel; each entry shows its type, e.g. \"AFC Module · War · Tier 1\"",
-      "Details are one clean card: name and status stay at the top, the Unlock button (with its cost) stays at the bottom, and only the middle scrolls",
-      "\"What you get\" lists every building, ability, revealed resource and bonus once, with a short description",
-      "A Good pick badge appears when it fits your empire right now -- signs of its resource near your land, a survey from a neutral town you garrisoned, or a building you can start immediately; a note warns when everything it unlocks needs a resource you don't hold yet",
-      "\"Leads to\" shows the next Manifests, what else each still needs, and how many more come after",
-      "Your Manifests are grouped by branch as buttons; tap one to see what it gave you",
-      "Rigging Works Module now lists the Umbrite Rig it unlocks"
+      "Manifest, Allies, Ranks, Activity, Sharding and Settings now show their name under the icon on desktop",
+      "The Alerts (bell) button has been removed from the top bar and the mobile menu while the alerts feed is reworked -- the Activity dashboard is where to see what happened"
     ]
   },
   ...OCTOBER_STRUCTURE_ART_CHANGELOG,
@@ -241,6 +236,28 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...AI_PROGRESSION_AETHER_CHANGELOG,
   ...FAIRER_AI_DEALS_CHANGELOG,
   ...OVERLAY_PERSISTENCE_CHANGELOG,
+  {
+    createdAt: 1792187006316, // frozen Date.now() value for this release
+    introducedIn: "2026.10.16.1",
+    title: "New empires land with a manpower reserve",
+    why: "New players ran out of manpower within the first 15-20 minutes, and manpower only refills every few hours.",
+    changes: [
+      "Every new empire -- yours when you join, and AI empires when a season starts -- lands with a one-time +1,000 manpower on top of its starting manpower",
+      "The reserve can sit above your manpower cap; regeneration pauses until you have spent back below the cap"
+    ]
+  },
+  {
+    createdAt: 1791905157542, // frozen Date.now() value for this release
+    introducedIn: "2026.10.13.1",
+    title: "Relay Beacons show where to build them",
+    why: "Playtesters placed Relay Beacons by trial and error -- dropping them inside reach they already had, or cancelling and re-placing them -- and the new-player checklist said to build a beacon without showing where.",
+    changes: [
+      "When nothing worth taking is in reach, the new-player checklist now marks the tile to build your Relay Beacon on, aimed at the nearest town or food you still need",
+      "On that marked tile, Build Relay Beacon is tagged ★ Recommended and listed first",
+      "Choosing Build Relay Beacon now lets you pick the spot first, with the new land it would reach shaded before you confirm",
+      "Works on both the 3D and 2D maps"
+    ]
+  },
   {
     createdAt: 1792006774817, // Date.now() captured when this entry was written.
     introducedIn: "2026.10.14.3",

@@ -3,7 +3,8 @@ import {
   empireIntegrity,
   integrityEconomyMult,
   integrityGrowthMult,
-  defensibilityScore
+  defensibilityScore,
+  INTEGRITY_PENALTY_PCT
 } from "./index.js";
 
 describe("empireIntegrity", () => {
@@ -80,5 +81,14 @@ describe("integrity multipliers respond to real shape, not a fixed ~50% (the bug
 
   test("never lowers a score that is already above the grace floor", () => {
     expect(empireIntegrity(100, 0)).toBe(1);
+  });
+});
+
+describe("INTEGRITY_PENALTY_PCT", () => {
+  test("is where the multipliers stop being a bonus and become a penalty", () => {
+    const t = INTEGRITY_PENALTY_PCT / 100;
+    expect(integrityEconomyMult(t)).toBeCloseTo(1, 5);
+    expect(integrityGrowthMult(t)).toBeCloseTo(1, 5);
+    expect(integrityEconomyMult(t - 0.01)).toBeLessThan(1);
   });
 });
