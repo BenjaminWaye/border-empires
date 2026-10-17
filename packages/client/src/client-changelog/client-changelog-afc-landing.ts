@@ -37,5 +37,15 @@ export const CLIENT_CHANGELOG_ENTRIES_AFC_LANDING: ClientChangelogEntry[] = [
     title: "Quieter AFC landing",
     why: "The rocket roar of your AFC's landing from orbit played about three times louder than the music.",
     changes: ["The landing rocket now plays at the same loudness as the soundtrack and still follows your music volume and mute settings"]
+  },
+  {
+    createdAt: 1792271636258,
+    introducedIn: "2026.10.17.1",
+    title: "Loading in no longer selects your home tile",
+    why: "Every time you loaded or reconnected, your home tile (usually your AFC) came up selected, and a reconnect replaced whatever tile you had selected.",
+    changes: [
+      "Loading the game still centers the map on your home but leaves nothing selected",
+      "A reconnect keeps the tile you had selected"
+    ]
   }
 ];
