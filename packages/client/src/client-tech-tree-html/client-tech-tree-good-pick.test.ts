@@ -18,10 +18,31 @@ for (const render of [renderCompactTechChoiceGridHtml, renderExpandedTechChoiceT
       const html = render(args);
       expect(html).toMatch(/data-tech-card="agriculture"[\s\S]*?Good pick[\s\S]*?<\/button>/);
     });
+    it("leads the card with the gilded band and frames it in gold", () => {
+      const html = render(args);
+      expect(html).toMatch(/class="[^"]*\btech-card\b[^"]*\bgood-pick\b[^"]*"[\s\S]*?>\s*<span class="manifest-good-pick-band">/);
+      expect(html).not.toContain("manifest-chip--good-pick");
+    });
     it("does not badge owned, pending, or unsuitable Manifests", () => {
       expect(render({ ...args, effectiveOwnedTechIds: [tech.id] })).not.toContain("Good pick");
       expect(render({ ...args, isPendingTechUnlock: () => true })).not.toContain("Good pick");
       expect(render({ ...args, isGoodPick: () => false })).not.toContain("Good pick");
+      expect(render({ ...args, isGoodPick: () => false })).not.toContain("good-pick");
     });
   });
 }
+
+// Review finding: the layout reserved band height for owned nodes that never show the band.
+describe("expanded tree Good pick layout", () => {
+  const minHeight = (html: string) => html.match(/data-tech-card="agriculture"[\s\S]*?min-height:(\d+)px/)?.[1];
+  it("reserves band height only on nodes that show the band", () => {
+    // A long name keeps the estimate above the node's minimum height, where the extra 30px would show.
+    const owned = { ...args, techCatalog: [{ ...tech, name: "Seedstock Of The Long Name Variety" }], effectiveOwnedTechIds: [tech.id] };
+    expect(minHeight(renderExpandedTechChoiceTreeHtml(owned))).toBe(minHeight(renderExpandedTechChoiceTreeHtml({ ...owned, isGoodPick: () => false })));
+  });
+  it("evaluates each Manifest's fit once per render", () => {
+    let calls = 0;
+    renderExpandedTechChoiceTreeHtml({ ...args, techCatalog: [{ ...tech, name: "Seedstock Of The Long Name Variety" }], isGoodPick: () => { calls += 1; return true; } });
+    expect(calls).toBe(1);
+  });
+});
