@@ -53,6 +53,13 @@ it("tags Build Relay Beacon as Recommended on the tile the onboarding checklist 
   expect(other.actions).toEqual([]);
 });
 
+it("also tags the neutral-tile Build Relay Beacon (expand + garrison + build) on the marked tile", () => {
+  renderOnboardingChecklistOverlay(beaconStepTiles(), ME, null);
+  const view: TileMenuView = { ...menuView(), tabs: ["overview", "actions"], buildings: [], actions: [{ id: "build_relay_beacon_frontier", label: "Build Relay Beacon" }] };
+  injectOnboardingRelayBeaconRecommendation(view, { x: 3, y: 0 });
+  expect(view.actions).toEqual([expect.objectContaining({ id: "build_relay_beacon_frontier", recommended: true })]);
+});
+
 it("drops the tag once the checklist moves past the Relay Beacon step, or while it is deferred", () => {
   const tiles = beaconStepTiles();
   renderOnboardingChecklistOverlay(tiles, ME, null, true);

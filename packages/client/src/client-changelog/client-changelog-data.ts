@@ -471,7 +471,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Your AFC no longer lands with its tile selected",
       "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
-      "The suggested spot can be frontier land: Build Relay Beacon there garrisons the tile first, then builds"
+      "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
     ]
   }
 ];

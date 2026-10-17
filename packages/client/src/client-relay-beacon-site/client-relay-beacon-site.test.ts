@@ -27,13 +27,28 @@ describe("isRelayBeaconPlacementTile", () => {
 });
 
 describe("isRelayBeaconSiteCandidate", () => {
-  it("also accepts owned FRONTIER land, which the tile menu garrisons and then builds on", () => {
-    expect(isRelayBeaconSiteCandidate(owned(0, 0), ME)).toBe(true);
-    expect(isRelayBeaconSiteCandidate(owned(0, 0, { ownershipState: "FRONTIER" }), ME)).toBe(true);
-    expect(isRelayBeaconSiteCandidate(owned(0, 0, { ownershipState: "FRONTIER", ownerId: "rival" }), ME)).toBe(false);
-    expect(isRelayBeaconSiteCandidate(owned(0, 0, { ownershipState: "FRONTIER", terrain: "SEA" }), ME)).toBe(false);
-    expect(isRelayBeaconSiteCandidate(owned(0, 0, { ownershipState: "FRONTIER", optimisticPending: "settle" }), ME)).toBe(false);
-    expect(isRelayBeaconSiteCandidate(owned(0, 0, { ownershipState: "FRONTIER", observatory: { ownerId: ME, status: "active" } }), ME)).toBe(false);
+  const reach = new Set([tileKey(0, 0)]);
+  const candidate = (tile: Tile, inReach = reach): boolean => isRelayBeaconSiteCandidate(tile, ME, inReach);
+
+  it("accepts every tile inside reach the tile menu offers Build Relay Beacon on", () => {
+    expect(candidate(owned(0, 0))).toBe(true);
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER" }))).toBe(true);
+    expect(candidate(land(0, 0))).toBe(true); // neutral: expand + garrison + build
+  });
+
+  it("rejects neutral land outside reach, fogged, or held by a rival's reach", () => {
+    expect(candidate(land(0, 0), new Set())).toBe(false);
+    expect(candidate(land(0, 0, { fogged: true }))).toBe(false);
+    expect(candidate(land(0, 0, { reachOwnerId: "rival" }))).toBe(false);
+  });
+
+  it("rejects rival, water, pending or structure-blocked tiles", () => {
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", ownerId: "rival" }))).toBe(false);
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", terrain: "SEA" }))).toBe(false);
+    expect(candidate(land(0, 0, { terrain: "SEA" }))).toBe(false);
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", optimisticPending: "settle" }))).toBe(false);
+    expect(candidate(owned(0, 0, { ownershipState: "FRONTIER", observatory: { ownerId: ME, status: "active" } }))).toBe(false);
+    expect(candidate(land(0, 0, { economicStructure: { ownerId: "old", type: "MINE", status: "inactive" } }))).toBe(false);
   });
 });
 
@@ -72,15 +87,28 @@ describe("bestRelayBeaconSites", () => {
     expect(best?.score ?? 0).toBeGreaterThan(afcOnlyScore);
   });
 
+  it("considers neutral land inside reach, not just owned tiles", () => {
+    // AFC at (20,20) with only its own tile owned: the rest of its radius-3
+    // reach is visible neutral land, so the best site sits on that land.
+    const tiles = freshLanding();
+    for (const [key, tile] of tiles) if (tile.ownershipState === "FRONTIER") tiles.set(key, land(tile.x, tile.y));
+    const [best] = sites(tiles);
+    expect(best).toBeDefined();
+    expect(tiles.get(tileKey(best?.x ?? 0, best?.y ?? 0))?.ownerId).toBeUndefined();
+    expect(Math.max(Math.abs((best?.x ?? 20) - 20), Math.abs((best?.y ?? 20) - 20))).toBe(3);
+  });
+
   it("counts fogged land as revealed, but not fogged water", () => {
     const base = [owned(10, 10, { townType: "FARMING", townPopulationTier: "TOWN" })];
     const visibleRing: Tile[] = [];
-    for (let dy = -5; dy <= 5; dy += 1) for (let dx = -5; dx <= 5; dx += 1) if (dx || dy) visibleRing.push(land(10 + dx, 10 + dy));
+    // Held by a rival's reach, so only the town is a site and only reveals score.
+    const rivalHeld = { reachOwnerId: "rival" };
+    for (let dy = -5; dy <= 5; dy += 1) for (let dx = -5; dx <= 5; dx += 1) if (dx || dy) visibleRing.push(land(10 + dx, 10 + dy, rivalHeld));
     const allVisible = sites(tilesMap([...visibleRing, ...base]))[0]?.score ?? 0;
-    const fogLand = sites(tilesMap([...visibleRing, land(15, 15, { fogged: true }), ...base]))[0]?.score ?? 0;
-    const fogSea = sites(tilesMap([...visibleRing, land(15, 15, { fogged: true, terrain: "SEA" }), ...base]))[0]?.score ?? 0;
+    const fogLand = sites(tilesMap([...visibleRing, land(15, 15, { ...rivalHeld, fogged: true }), ...base]))[0]?.score ?? 0;
+    const fogSea = sites(tilesMap([...visibleRing, land(15, 15, { ...rivalHeld, fogged: true, terrain: "SEA" }), ...base]))[0]?.score ?? 0;
     expect(fogLand).toBe(allVisible + 1);
-    expect(fogSea).toBeLessThan(allVisible);
+    expect(fogSea).toBe(allVisible);
   });
 
 
@@ -99,7 +127,8 @@ describe("bestRelayBeaconSites", () => {
     // its x=16 edge column is already in the radius-5 reach of an existing
     // active beacon at (10,10) -- only that 11-tile column is new.
     const tiles = new Map<string, Tile>();
-    for (let y = 4; y <= 16; y += 1) for (let x = 4; x <= 17; x += 1) tiles.set(tileKey(x, y), land(x, y));
+    // Rival-owned so they aren't beacon sites themselves; reach credit is unaffected.
+    for (let y = 4; y <= 16; y += 1) for (let x = 4; x <= 17; x += 1) tiles.set(tileKey(x, y), land(x, y, { ownerId: "rival", ownershipState: "SETTLED" }));
     tiles.set(tileKey(10, 10), owned(10, 10, { economicStructure: { ownerId: ME, type: "RELAY_BEACON", status: "active" } }));
     tiles.set(tileKey(11, 10), owned(11, 10));
     expect(sites(tiles)).toEqual([{ x: 11, y: 10, score: 11, coversTarget: false }]);

@@ -278,7 +278,10 @@ describe("onboardingChecklistState", () => {
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     expect(state.foodSlotsClaimed).toBe(0);
-    expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }]);
+    // The beacon site is the neutral tile at the edge of the town's reach,
+    // which reveals more than the town tile itself.
+    expect(state.relayBeaconSite).toEqual({ x: 8, y: 5 });
+    expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }, { x: 8, y: 5 }]);
     // The town goals stay done even though `step` reads EXPAND_RELAY_BEACON
     // -- it's blocking the food goals here, not the (already-done) town
     // ones. A checklist UI rendering all 4 goals as checkboxes needs this

@@ -14,9 +14,10 @@
 // wins, and when no single beacon can reach one yet, the site closest to the
 // nearest target wins so a chain of beacons walks reach toward it.
 //
-// Candidates include owned FRONTIER tiles, not just SETTLED ones: the tile
-// menu offers Build Relay Beacon there as a garrison-then-build chain. Being
-// already settled earns no credit (playtest: right after landing the AFC was
+// Candidates are every tile inside reach the tile menu offers Build Relay
+// Beacon on, not just SETTLED ones: owned FRONTIER land (garrison, then
+// build) and neutral land (expand, garrison, then build). Being already
+// owned or settled earns no credit (playtest: right after landing the AFC was
 // the only settled tile, so it was recommended even though a beacon on it
 // reveals barely anything past the AFC's own vision).
 //
@@ -71,14 +72,26 @@ export const isRelayBeaconPlacementTile = (tile: Tile | undefined, playerId: str
       !tile.observatory
   );
 
+const hasNoBlockingStructure = (tile: Tile): boolean =>
+  tile.terrain === "LAND" && !tile.optimisticPending && !tile.economicStructure && !tile.siegeBattery && !tile.observatory;
+
 /**
- * Could the onboarding hint send the player to build a beacon here? Settled
- * placement tiles, plus owned FRONTIER land the tile menu can garrison and
- * then build on (same structure guards).
+ * Could the onboarding hint send the player to build a beacon here? Any tile
+ * inside reach the tile menu offers Build Relay Beacon on: settled placement
+ * tiles, owned FRONTIER land (garrison, then build), and visible neutral land
+ * in reach that no rival's reach holds (expand, garrison, then build --
+ * client-tile-action-neutral.ts's build_relay_beacon_frontier).
  */
-export const isRelayBeaconSiteCandidate = (tile: Tile | undefined, playerId: string): boolean =>
-  isRelayBeaconPlacementTile(tile, playerId) ||
-  Boolean(tile && tile.ownershipState === "FRONTIER" && isRelayBeaconPlacementTile({ ...tile, ownershipState: "SETTLED" }, playerId));
+export const isRelayBeaconSiteCandidate = (tile: Tile | undefined, playerId: string, reach: ReadonlySet<string>): boolean => {
+  if (!tile || !hasNoBlockingStructure(tile)) return false;
+  if (tile.ownerId === playerId) return tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
+  return (
+    !tile.ownerId &&
+    !tile.fogged &&
+    reach.has(tileKey(tile.x, tile.y)) &&
+    (!tile.reachOwnerId || tile.reachOwnerId === playerId)
+  );
+};
 
 /** The reach disk a beacon at (x, y) would add -- same land-gated math computeLocalReachSet uses for real anchors. */
 export const relayBeaconReachDisk = (tiles: ReadonlyMap<string, Tile>, x: number, y: number): string[] =>
@@ -175,7 +188,7 @@ export const bestRelayBeaconSites = (
   let evaluated = 0;
   for (const tile of tiles.values()) {
     if (evaluated >= MAX_EVALUATED_CANDIDATES) break;
-    if (!isRelayBeaconSiteCandidate(tile, playerId) || !mayAddReach(tile.x, tile.y, reach)) continue;
+    if (!isRelayBeaconSiteCandidate(tile, playerId, options.reach) || !mayAddReach(tile.x, tile.y, reach)) continue;
     evaluated += 1;
     const { score, coversTarget } = scoreSite(tiles, playerId, tile.x, tile.y, reach, targetKeys);
     if (score <= 0) continue;
