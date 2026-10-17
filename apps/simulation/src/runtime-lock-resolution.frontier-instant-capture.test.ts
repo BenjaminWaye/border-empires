@@ -65,8 +65,7 @@ function createContext(
     maybeActivateWatchtower: () => {},
     maybeActivateWaystation,
     maybeDrainClaimContinuation: () => {},
-    outOfReachDecayDeadline: () => undefined,
-    registerOutOfReachDecay: () => {},
+    isTileBeyondReach: () => false,
     canAutoSettleCapturedAnchor: () => false,
     autoSettleCapturedAnchor: () => {},
     tryDrainWaypointQueue: () => {}

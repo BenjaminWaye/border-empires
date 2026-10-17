@@ -11,5 +11,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_101: ClientChangelogEntry[] = [
       "A dock's tile menu now has a Connected docks row: use ◀ ▶ to jump the camera to each linked dock and Back to return",
       "The dashed dock route line no longer breaks or jumps when it wraps around the map edge or leaves the area around you"
     ]
-  },
+  }
 ];

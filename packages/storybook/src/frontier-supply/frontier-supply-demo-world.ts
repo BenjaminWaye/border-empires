@@ -1,0 +1,107 @@
+import { computeFrontierSupplyModel, type FrontierSupplyModel, type FrontierSupplyTile } from "@client/client-frontier-supply/client-frontier-supply.js";
+
+/**
+ * Small fixture empires for the supply-route stories. Only the tiles and the
+ * reach set are hand-built; the supply model always comes from the real
+ * computeFrontierSupplyModel the game ships, and both stories draw it with
+ * the real 2D/3D renderers.
+ */
+
+export const DEMO_ME = "player-1";
+export const DEMO_RIVAL = "rival";
+export const DEMO_COLOR = "#3fa9f5";
+export const DEMO_RIVAL_COLOR = "#e5484d";
+export const DEMO_WORLD = 64;
+
+export type SupplyScenario = "snake" | "corridor" | "branching" | "reroute";
+
+export type SupplyDemoWorld = {
+  /** The viewer's tiles plus any rival-captured ones (ownerId DEMO_RIVAL). */
+  tiles: FrontierSupplyTile[];
+  reach: Set<string>;
+  model: FrontierSupplyModel;
+  /** Bounds of all tiles, for framing the camera. */
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+const REACH_RADIUS = 3;
+const HOME = { x: 20, y: 20 };
+const EAST = HOME.x + REACH_RADIUS + 1;
+
+/** The two tiles the Reroute story's rival takes in turn, one on each arm of the loop. */
+export const REROUTE_TARGETS = [`${EAST + 3},${HOME.y - 2}`, `${EAST + 3},${HOME.y + 2}`] as const;
+
+/**
+ * Reroute phases: both arms held, upper arm cut, both held, lower arm cut.
+ * Returns the tile keys the rival holds at `nowMs`.
+ */
+export const rerouteCapturesAt = (nowMs: number, phaseMs: number): string[] => {
+  const phase = Math.floor(nowMs / phaseMs) % 4;
+  return phase === 1 ? [REROUTE_TARGETS[0]] : phase === 3 ? [REROUTE_TARGETS[1]] : [];
+};
+
+export const buildSupplyDemoWorld = (scenario: SupplyScenario, captured: readonly string[] = []): SupplyDemoWorld => {
+  const byKey = new Map<string, FrontierSupplyTile>();
+  const put = (x: number, y: number, ownershipState: "SETTLED" | "FRONTIER"): void => {
+    byKey.set(`${x},${y}`, { x, y, ownerId: DEMO_ME, ownershipState });
+  };
+  const reach = new Set<string>();
+
+  // A home town: settled core, frontier out to the edge of its reach disk.
+  for (let dy = -REACH_RADIUS; dy <= REACH_RADIUS; dy += 1) {
+    for (let dx = -REACH_RADIUS; dx <= REACH_RADIUS; dx += 1) {
+      reach.add(`${HOME.x + dx},${HOME.y + dy}`);
+      put(HOME.x + dx, HOME.y + dy, Math.max(Math.abs(dx), Math.abs(dy)) <= 1 ? "SETTLED" : "FRONTIER");
+    }
+  }
+
+  if (scenario === "snake") {
+    // The reported case: a one-tile-wide line pushed far past reach.
+    for (let i = 0; i < 14; i += 1) put(EAST + i, HOME.y + (i >= 7 ? 1 : 0), "FRONTIER");
+  } else if (scenario === "corridor") {
+    // Two tiles wide: no single tile holds the line up, until it narrows at the tip.
+    for (let i = 0; i < 10; i += 1) {
+      put(EAST + i, HOME.y, "FRONTIER");
+      put(EAST + i, HOME.y + 1, "FRONTIER");
+    }
+    for (let i = 10; i < 13; i += 1) put(EAST + i, HOME.y, "FRONTIER");
+  } else if (scenario === "branching") {
+    // A trunk that forks: the trunk carries both branches.
+    for (let i = 0; i < 5; i += 1) put(EAST + i, HOME.y, "FRONTIER");
+    for (let i = 1; i <= 6; i += 1) put(EAST + 4 + i, HOME.y - i, "FRONTIER");
+    for (let i = 1; i <= 8; i += 1) put(EAST + 4 + i, HOME.y + Math.min(i, 3), "FRONTIER");
+  } else {
+    // A loop with a tail: two routes out to the far side, so losing a tile on
+    // one arm reroutes supply down the other instead of losing anything.
+    put(EAST, HOME.y, "FRONTIER");
+    put(EAST + 1, HOME.y, "FRONTIER");
+    for (const side of [-1, 1]) {
+      put(EAST + 2, HOME.y + side, "FRONTIER");
+      put(EAST + 3, HOME.y + side * 2, "FRONTIER");
+      put(EAST + 4, HOME.y + side * 2, "FRONTIER");
+      put(EAST + 5, HOME.y + side, "FRONTIER");
+    }
+    for (let i = 6; i <= 11; i += 1) put(EAST + i, HOME.y, "FRONTIER");
+  }
+
+  for (const key of captured) {
+    const tile = byKey.get(key);
+    if (tile) byKey.set(key, { ...tile, ownerId: DEMO_RIVAL, ownershipState: "FRONTIER" });
+  }
+
+  const tiles = [...byKey.values()];
+  const model = computeFrontierSupplyModel({ tiles, me: DEMO_ME, reach, worldWidth: DEMO_WORLD, worldHeight: DEMO_WORLD });
+  const xs = tiles.map((tile) => tile.x);
+  const ys = tiles.map((tile) => tile.y);
+  return { tiles, reach, model, minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+};
+
+export const SUPPLY_SCENARIO_DESCRIPTIONS: Record<SupplyScenario, string> = {
+  snake: "A one-tile-wide line pushed 14 tiles past reach (the reported case): one route from the reach edge to an arrowhead at the tip.",
+  corridor: "A two-wide corridor: one line down it to the far end (not one per row), thick near supply and thinning toward the tip.",
+  branching: "A trunk that forks into two branches. The trunk is thicker because it carries both; each branch ends in an arrowhead.",
+  reroute: "A loop past reach. Every few seconds a rival (red) takes a tile on one arm: the line instantly redraws down the other arm. When the tile is retaken it goes back to the shorter route."
+};

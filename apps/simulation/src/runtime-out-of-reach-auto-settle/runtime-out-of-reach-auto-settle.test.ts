@@ -5,7 +5,7 @@ const base = {
   playerId: "player-1",
   isAnchorStructureTile: true,
   hasCapturedBuilding: false,
-  outOfReachDecayAt: 5_000,
+  targetBeyondReach: true,
   canAutoSettleCapturedAnchor: () => true
 };
 
@@ -15,8 +15,12 @@ describe("capturedTileWillAutoSettle and the towns auto-settle opt-in", () => {
     expect(capturedTileWillAutoSettle({ ...base, isAnchorAutoSettleAllowed: () => true })).toBe(true);
   });
 
-  it("leaves a captured anchor FRONTIER (falls back to the decay path) when the player opted out of towns", () => {
+  it("leaves a captured anchor FRONTIER when the player opted out of towns", () => {
     expect(capturedTileWillAutoSettle({ ...base, isAnchorAutoSettleAllowed: () => false })).toBe(false);
+  });
+
+  it("does not auto-settle a captured anchor inside reach (the player can SETTLE it by hand)", () => {
+    expect(capturedTileWillAutoSettle({ ...base, targetBeyondReach: false })).toBe(false);
   });
 
   it("still auto-settles captured buildings: the towns toggle governs anchors only", () => {

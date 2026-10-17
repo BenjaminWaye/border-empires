@@ -33,9 +33,9 @@ describe("frontier decay pulse tracker", () => {
   it("produces a different color across two render() calls at different nowMs, with no rebuild in between", () => {
     const tracker = createFrontierDecayPulseTracker();
     const overlay = fakeOverlay();
-    const baseColor = new Color(1, 1, 1);
+    const baseColor = new Color(0.2, 0.4, 0.6); // not white: the pulse lerps toward white
 
-    tracker.track({ index: 0, isHill: false, frontierDecayAt: 100_000, frontierDecayKind: "OUT_OF_REACH", baseColor });
+    tracker.track({ index: 0, isHill: false, frontierDecayAt: 50_000, frontierDecayKind: "ENCIRCLEMENT", baseColor });
 
     tracker.render(0, overlay);
     tracker.render(500, overlay); // quarter of the 2000ms pulse period -- must land at a different blink phase
@@ -47,7 +47,7 @@ describe("frontier decay pulse tracker", () => {
   it("skips a tile once its decay window has fully elapsed, without needing reset()/track() again", () => {
     const tracker = createFrontierDecayPulseTracker();
     const overlay = fakeOverlay();
-    tracker.track({ index: 0, isHill: false, frontierDecayAt: 1_000, frontierDecayKind: "OUT_OF_REACH", baseColor: new Color(1, 1, 1) });
+    tracker.track({ index: 0, isHill: false, frontierDecayAt: 1_000, frontierDecayKind: "ENCIRCLEMENT", baseColor: new Color(1, 1, 1) });
 
     tracker.render(500, overlay); // still within the decay window
     expect(overlay.calls).toHaveLength(1);
@@ -59,7 +59,7 @@ describe("frontier decay pulse tracker", () => {
   it("clears tracked tiles on reset()", () => {
     const tracker = createFrontierDecayPulseTracker();
     const overlay = fakeOverlay();
-    tracker.track({ index: 0, isHill: false, frontierDecayAt: 100_000, frontierDecayKind: "OUT_OF_REACH", baseColor: new Color(1, 1, 1) });
+    tracker.track({ index: 0, isHill: false, frontierDecayAt: 50_000, frontierDecayKind: "ENCIRCLEMENT", baseColor: new Color(1, 1, 1) });
 
     tracker.reset();
     tracker.render(0, overlay);

@@ -23,14 +23,13 @@ const deps = {
 };
 
 describe("foreign ownership headers", () => {
-  it("shows the seasonal AI name and attributes frontier decay to its owner", () => {
+  it("shows the seasonal AI name for its frontier tile", () => {
     const state = createInitialState();
     state.me = "me";
     state.playerNames.set("ai-1", "AI 1");
     state.leaderboard.overall = [{ id: "ai-1", name: "Freja Sund", rank: 1, score: 42, tiles: 8, incomePerMinute: 4.2, techs: 1, manpowerCap: 300 }];
     const menu = tileMenuViewForTile({
-      x: 337, y: 307, terrain: "LAND", dockId: "dock-1", ownerId: "ai-1", ownershipState: "FRONTIER",
-      frontierDecayKind: "OUT_OF_REACH", frontierDecayAt: Date.now() + 190_000
+      x: 337, y: 307, terrain: "LAND", dockId: "dock-1", ownerId: "ai-1", ownershipState: "FRONTIER"
     }, {
       ...deps, state,
       playerNameForOwner: (id) => playerDisplayNameForOwnerFromState(state, id),
@@ -48,7 +47,6 @@ describe("foreign ownership headers", () => {
     });
     expect(menu.subtitle).toContain("Freja Sund");
     expect(menu.subtitleHtml).toContain('data-player-name-id="ai-1"');
-    expect(menu.statusText).toBe("Beyond its owner’s reach — decays in 190s");
   });
   it("shows the owner player name instead of enemy text for hostile land", () => {
     const menu = tileMenuViewForTile(

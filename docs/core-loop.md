@@ -212,10 +212,11 @@ a development slot. It buys three things:
   1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
   `territory-automation.ts`). The rest stays FRONTIER, with zero defense,
   unless you settle it by hand (20 MP, only while in reach).
-- **You can't keep ground outside reach.** FRONTIER claimed or captured
-  outside reach decays after 5 minutes (`OUT_OF_REACH_DECAY_MS`). A SETTLED
-  tile whose reach is taken away is downgraded back to FRONTIER, and then it
-  decays too.
+- **Ground outside reach stays thin.** FRONTIER claimed or captured outside
+  reach doesn't decay, but it can't be settled, so it never gains defense,
+  and it is lost at once if its chain of frontier back to settled land is cut
+  (encirclement). A SETTLED tile whose reach is taken away is downgraded back
+  to FRONTIER.
 - A Relay Beacon has to go on a SETTLED tile you own. So the growth step is:
   get a settled tile near the edge of your reach (usually a resource or
   town-ring tile that auto-settled) → build a beacon there (30 MP, 60s) → its
@@ -394,8 +395,9 @@ to expansion and war.
 
 - **Reach.** Ground only stays yours inside your reach border. Towns grant
   radius 3, Relay Beacons and outposts radius 5, docks radius 1 (`reach.ts`).
-  FRONTIER outside reach **decays after 5 min** (`OUT_OF_REACH_DECAY_MS`), and
-  a SETTLED tile that loses reach is downgraded to FRONTIER. Settling (manual
+  FRONTIER outside reach can't be settled and lives only as long as its
+  supply chain to settled land holds (encirclement), and a SETTLED tile that
+  loses reach is downgraded to FRONTIER. Settling (manual
   or auto) is only legal in reach, except for towns and docks. Losing a beacon
   or town pulls reach back over its whole disk, so anchors are what really
   hold territory. Reach turns "expand anywhere" into a sequence: take an
@@ -528,7 +530,6 @@ town-engine loop at small scale.
 | Tech cost | 10 gold, then +30 (techs 1–4), +40 (5–9), +50 (10+) | `tech-economy.ts` |
 | Domain cost | 40 / 200+1 shard / 400+2 / 800+3 / 1,800+5 | `domain-tree.json` |
 | Reach radius | Town 3, Outpost/Beacon 5, Dock 1 | `*_REACH_RADIUS` |
-| Out-of-reach decay | 5 min | `OUT_OF_REACH_DECAY_MS` |
 | Passive income inactivity cap (a human idle this long stops earning; converter gold upkeep is then netted against income instead of drained from the treasury) | 24h | `PASSIVE_INCOME_INACTIVITY_CAP_MS`, `runtime-upkeep-accrual.ts` |
 | Shard rain | 08:00 and 21:00 UTC, 3–6 sites, 30-min TTL | `runtime-shard-rain-rules.ts` |
 | Victory hold | 24h | `SEASON_VICTORY_HOLD_MS` |
