@@ -1,6 +1,6 @@
 // The one Manifest detail view, shared by the desktop side panel ("inline")
-// and the mobile overlay ("overlay"). Layout: a fixed header (type, name,
-// status, Good pick badge), one scrolling body (what you get, why it fits,
+// and the mobile overlay ("overlay"). Layout: an optional Good pick band, a
+// fixed header (type, name, status), one scrolling body (what you get, why it fits,
 // what it leads to), and a fixed footer with the unlock button -- replacing
 // the old card-inside-a-card that scrolled the whole side panel and pushed
 // the Unlock button below the fold.
@@ -12,6 +12,7 @@ import { techBlockedReasonSummary } from "../client-tech-requirements/client-tec
 import type { StructureInfoKey } from "../client-map-display.js";
 import type { TechInfo } from "../client-types.js";
 import { manifestFit, type ManifestFitInput } from "./client-manifest-fit.js";
+import { GOOD_PICK_BAND_HTML, GOOD_PICK_CARD_CLASS } from "./client-manifest-good-pick.js";
 import { manifestGainRows, type ManifestGainRow } from "./client-manifest-gains.js";
 import { manifestFlavorLine, manifestKicker } from "./client-manifest-labels.js";
 import { manifestLeadsTo, type ManifestLeadsTo } from "./client-manifest-leads-to.js";
@@ -32,7 +33,7 @@ export type ManifestDetailContext = {
   structureDetail?: (type: StructureInfoKey) => string | undefined;
   coin?: number;
   // Omitted in contexts without live player state (tests, previews): no
-  // Good pick badge or "Not useful yet" note is shown then.
+  // Good pick band or "Not useful yet" note is shown then.
   fit?: ManifestFitInput;
 };
 
@@ -89,7 +90,7 @@ const fitHtml = (reasons: string[], notUsefulYet: string | undefined): string =>
   if (reasons.length > 0) {
     parts.push(`<ul class="manifest-fit manifest-fit--good">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>`);
   }
-  // Next to a Good pick badge, "Not useful yet" would read as a contradiction;
+  // Next to a Good pick band, "Not useful yet" would read as a contradiction;
   // the fact still matters (you'll need that resource first), so it stays as a heads-up.
   if (notUsefulYet) parts.push(`<p class="manifest-fit manifest-fit--later">${reasons.length > 0 ? "Heads-up" : "Not useful yet"}: ${escapeHtml(notUsefulYet)}</p>`);
   return parts.join("");
@@ -147,14 +148,14 @@ export const renderManifestDetailHtml = (context: ManifestDetailContext): string
     techPrereqIds: context.techPrereqIds,
     techTier: context.techTier
   });
-  const article = `<article class="manifest-detail manifest-detail--${context.mode}" data-manifest-detail="${escapeHtml(tech.id)}">
+  const article = `<article class="manifest-detail manifest-detail--${context.mode}${goodPick ? GOOD_PICK_CARD_CLASS : ""}" data-manifest-detail="${escapeHtml(tech.id)}">
+    ${goodPick ? GOOD_PICK_BAND_HTML : ""}
     <header class="manifest-detail__head">
       <div class="manifest-detail__titles">
         <span class="manifest-detail__kicker">${escapeHtml(manifestKicker(tech, tier))}</span>
         <h3 class="manifest-detail__name">${escapeHtml(tech.name)}</h3>
         <div class="manifest-detail__chips">
           <span class="manifest-chip manifest-chip--${status}">${STATUS_CHIP[status]}</span>
-          ${goodPick ? `<span class="manifest-chip manifest-chip--good-pick">Good pick</span>` : ""}
         </div>
       </div>
       <button class="manifest-detail__close" type="button" aria-label="Close Manifest details" data-tech-detail-close="button">×</button>

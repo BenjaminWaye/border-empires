@@ -462,6 +462,15 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
       "The 2D map keeps the plain outline for now"
     ]
+  },
+  {
+    createdAt: 1792232600942,
+    introducedIn: "2026.10.17.2",
+    title: "Good pick Manifests stand out",
+    why: "The small orange Good pick pill was easy to miss and used the same colour as missing-resource warnings.",
+    changes: [
+      "Good pick Manifests now get a gold band across the top of the card and a gold frame, in the Manifest list, the expanded tree and the Manifest details"
+    ]
   }
 ];
 

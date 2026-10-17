@@ -18,10 +18,16 @@ for (const render of [renderCompactTechChoiceGridHtml, renderExpandedTechChoiceT
       const html = render(args);
       expect(html).toMatch(/data-tech-card="agriculture"[\s\S]*?Good pick[\s\S]*?<\/button>/);
     });
+    it("leads the card with the gilded band and frames it in gold", () => {
+      const html = render(args);
+      expect(html).toMatch(/class="[^"]*\btech-card\b[^"]*\bgood-pick\b[^"]*"[\s\S]*?>\s*<span class="manifest-good-pick-band">/);
+      expect(html).not.toContain("manifest-chip--good-pick");
+    });
     it("does not badge owned, pending, or unsuitable Manifests", () => {
       expect(render({ ...args, effectiveOwnedTechIds: [tech.id] })).not.toContain("Good pick");
       expect(render({ ...args, isPendingTechUnlock: () => true })).not.toContain("Good pick");
       expect(render({ ...args, isGoodPick: () => false })).not.toContain("Good pick");
+      expect(render({ ...args, isGoodPick: () => false })).not.toContain("good-pick");
     });
   });
 }

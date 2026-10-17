@@ -108,7 +108,7 @@ describe("renderManifestDetailHtml", () => {
     expect(html).toMatch(/data-tech-unlock="bastion"\s+disabled/);
   });
 
-  it("shows a Good pick badge with its reason when Titanium clues border your land", () => {
+  it("shows a Good pick band with its reason when Titanium clues border your land", () => {
     const html = renderManifestDetailHtml(
       context({
         fit: {
@@ -119,6 +119,8 @@ describe("renderManifestDetailHtml", () => {
         }
       })
     );
+    expect(html).toMatch(/<article class="manifest-detail [^"]*\bgood-pick\b[^"]*"[^>]*>\s*<span class="manifest-good-pick-band">/);
+    expect(html).not.toContain("manifest-chip--good-pick");
     expect(html).toContain("Good pick");
     expect(html).toContain("Signs of Titanium near your land");
     expect(html).not.toContain("Not useful yet");

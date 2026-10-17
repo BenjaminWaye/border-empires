@@ -1,7 +1,9 @@
 import { techAgeMetaForTier } from "./client-tech-tree-ages.js";
 import { techBranchTagHtml } from "../client-tech-html/client-tech-html.js";
 import { renderTechHighlightTagsHtml, techHighlightTags } from "../client-tech-payoffs.js";
-import { techBlockedReasonSummary, techMissingResourceSummary, techMissingResourceSummaryHtml } from "../client-tech-requirements/client-tech-requirements.js";
+import { techMissingResourceSummary, techMissingResourceSummaryHtml } from "../client-tech-requirements/client-tech-requirements.js";
+import { GOOD_PICK_BAND_HTML, GOOD_PICK_CARD_CLASS } from "../client-manifest-detail/client-manifest-good-pick.js";
+import { techCardIsAvailable, techCardStatusLine } from "./client-tech-tree-card-status.js";
 import type { TechInfo } from "../client-types.js";
 
 const TECH_TREE_NODE_W = 216;
@@ -47,19 +49,6 @@ type TechTreeArgs = {
   pulseUntilByTechId?: ReadonlyMap<string, number>; // "reward is ready" pulse, §7.3 — tech id -> pulse-expiry ms
 };
 
-
-const techCardStatusLine = (
-  tech: TechInfo,
-  prereqText: string,
-  formatTechCost: (tech: TechInfo) => string
-): { text: string; tone: "cost" | "missing" | "blocked" } => {
-  if (tech.requirements.canResearch) return { text: formatTechCost(tech), tone: "cost" };
-  const blocked = techBlockedReasonSummary(tech, prereqText);
-  return { text: blocked.label, tone: blocked.tone };
-};
-
-const techCardIsAvailable = (tech: TechInfo, isChoice: boolean, isPending: boolean): boolean =>
-  !isPending && (tech.requirements.canResearch || isChoice);
 
 const techTierSlotWidth = (): number => TECH_TREE_NODE_W + TECH_TREE_TIER_SPREAD * 2;
 
@@ -167,12 +156,13 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
                 : blockedStatus.tone === "blocked"
                 ? " tech-card-cost-blocked"
                 : "";
-          return `<button class="tech-card${selected}${owned}${available}${blocked}${pulsing}${missingResources ? " resource-blocked" : ""}" data-tech-card="${tech.id}">
+          const goodPick = !isOwned && !isPending && Boolean(args.isGoodPick?.(tech));
+          return `<button class="tech-card${selected}${owned}${available}${blocked}${pulsing}${missingResources ? " resource-blocked" : ""}${goodPick ? GOOD_PICK_CARD_CLASS : ""}" data-tech-card="${tech.id}">
+            ${goodPick ? GOOD_PICK_BAND_HTML : ""}
             <div class="tech-card-top">
               <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
               <span class="tech-card-badge">T${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
-            ${!isOwned && !isPending && args.isGoodPick?.(tech) ? `<span class="manifest-chip manifest-chip--good-pick">Good pick</span>` : ""}
             ${renderTechHighlightTagsHtml(tech)}
             <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
           </button>`;
@@ -434,6 +424,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
       const choice = isChoice ? " choice" : "";
       const available = techCardIsAvailable(tech, isChoice, isPending) ? " available" : "";
       const blocked = isOwned || available || isPending ? "" : " blocked";
+      const goodPick = !isOwned && !isPending && Boolean(args.isGoodPick?.(tech));
       const prereqs = args.techPrereqIds(tech);
       const stateLabel = researchingThis ? "Researching" : isPending ? "Unlocking" : isOwned ? "Unlocked" : available ? "Available" : "Locked";
       const costLabel =
@@ -454,15 +445,15 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
                 ? " tech-card-cost-blocked"
                 : "";
       return `<button
-        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}${missingResources ? " resource-blocked" : ""}"
+        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}${missingResources ? " resource-blocked" : ""}${goodPick ? GOOD_PICK_CARD_CLASS : ""}"
         data-tech-card="${tech.id}"
         style="left:${layout.x}px;top:${layout.y}px;width:${TECH_TREE_NODE_W}px;min-height:${layout.height}px;"
       >
+        ${goodPick ? GOOD_PICK_BAND_HTML : ""}
         <div class="tech-card-top">
           <strong>${tech.name}${techBranchTagHtml(tech.branch)}</strong>
           <span class="tech-tree-card-badge">${stateLabel}</span>
         </div>
-        ${!isOwned && !isPending && args.isGoodPick?.(tech) ? `<span class="manifest-chip manifest-chip--good-pick">Good pick</span>` : ""}
         ${renderTechHighlightTagsHtml(tech)}
         <p class="tech-card-cost${costToneClass}">${missingResourcesHtml ?? costLabel}</p>
       </button>`;
