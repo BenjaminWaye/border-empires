@@ -462,6 +462,18 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
       "The 2D map keeps the plain outline for now"
     ]
+  },
+  {
+    createdAt: 1792257568272,
+    introducedIn: "2026.10.17.1",
+    title: "Prospect clues look like what they are",
+    why: "Blackwood canopy, ferrous dust and refractive ground were just coloured patches on the map, so nothing about them looked like a canopy, dust or crystal.",
+    changes: [
+      "Blackwood canopy: trees on the tile turn violet-black, and open ground grows gaunt blackwood trees",
+      "Ferrous dust: rust-red flecks are scattered over the ground",
+      "Refractive ground: a pale glassy glint or two half-buried in the soil",
+      "The coloured patch under clue tiles is gone, and the tile menu only explains a clue on tiles that show it; works on both the 3D and 2D maps"
+    ]
   }
 ];
 
