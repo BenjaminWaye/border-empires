@@ -466,10 +466,12 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1792232600942,
     introducedIn: "2026.10.17.2",
-    title: "Good pick Manifests stand out",
-    why: "The small orange Good pick pill was easy to miss and used the same colour as missing-resource warnings.",
+    title: "Good pick Manifests stand out, and mean more",
+    why: "The small orange Good pick pill was easy to miss and used the same colour as missing-resource warnings. It also appeared on almost every Manifest, because nearly any unlocked building can be built right away.",
     changes: [
-      "Good pick Manifests now get a gold band across the top of the card and a gold frame, in the Manifest list, the expanded tree and the Manifest details"
+      "Good pick Manifests now get a gold band across the top of the card and a gold frame, in the Manifest list, the expanded tree and the Manifest details",
+      "Being able to build a Manifest's building right away no longer makes it a Good pick on its own",
+      "Good pick now means signs of the resource it reveals near your land (or from a town you garrisoned), or extra Food when your Food capacity is tight"
     ]
   }
 ];

@@ -51,16 +51,14 @@ describe("manifestFit", () => {
     expect(fit.goodPickReasons).toEqual(["A town you garrisoned turned up signs of Titanium nearby"]);
   });
 
-  it("says you can build right away when slots and manpower allow", () => {
-    const fit = manifestFit(tech({ unlockMine: true }), input({ manpower: 10_000, resourceSlots: { supply: slots({ FOOD: 2 }), demand: slots({ FOOD: 1 }) } }));
-    expect(fit.goodPickReasons).toEqual(["You can build a Mine right away"]);
-  });
-
-  // Regression: the reason always said "a", giving "a Ambaric Transformer".
-  it("uses 'an' before a building name that starts with a vowel", () => {
+  // Regression: "You can build X right away" badged almost every Manifest,
+  // because nearly every unlock can be built as soon as you take it.
+  it("is not a Good pick just because its structure can be built right away", () => {
     const plenty = slots({ FOOD: 9, TITANIUM: 9, CRYSTAL: 9, UMBRITE: 9 });
-    const fit = manifestFit(tech({ unlockAmbaricTransformer: true }), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
-    expect(fit.goodPickReasons).toEqual(["You can build an Ambaric Transformer right away"]);
+    for (const effects of [{ unlockMine: true }, { unlockAmbaricTransformer: true }, { unlockForts: true }]) {
+      const fit = manifestFit(tech(effects), input({ manpower: 100_000, resourceSlots: { supply: plenty, demand: slots() } }));
+      expect(fit.goodPickReasons).toEqual([]);
+    }
   });
 
   it("does not claim build-right-away when every slot of that resource is in use", () => {
@@ -78,7 +76,6 @@ describe("manifestFit", () => {
   it("does not flag 'not useful yet' once you hold that resource", () => {
     const fit = manifestFit(tech({ unlockForts: true }), input({ manpower: 10_000, resourceSlots: { supply: slots({ TITANIUM: 2 }), demand: slots() } }));
     expect(fit.notUsefulYet).toBeUndefined();
-    expect(fit.goodPickReasons).toEqual(["You can build a Fort right away"]);
   });
 
   // Regression: Titanium Works was flagged "needs Titanium slots, and you
@@ -110,7 +107,7 @@ describe("Manifest build fit", () => {
   });
   it("recommends a buildable Hydrogarden when Food capacity is tight", () => {
     expect(manifestFit(tech({ unlockHydrogarden: true }), input({ manpower: 100_000,
-      resourceSlots: { supply: slots({ FOOD: 3 }), demand: slots({ FOOD: 3 }) } })).goodPickReasons).toContain("You can build a Hydrogarden right away");
+      resourceSlots: { supply: slots({ FOOD: 3 }), demand: slots({ FOOD: 3 }) } })).goodPickReasons).toContain("Your Food capacity is tight, and you can build a Hydrogarden right away");
   });
   it("recommends the fish bonus only with owned Fish and tight Food capacity", () => {
     const agriculture = { ...tech({ unlockHydrogarden: true }), id: "agriculture" };
