@@ -1,7 +1,8 @@
 import { OBSERVATORY_PROTECTION_RADIUS } from "../client-constants.js";
 import { chebyshevDistanceWrapped, observatoryProtectionActive } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile } from "../client-types.js";
+import type { CrystalTargetingAbility, Tile } from "../client-types.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 // Aether Tower (OBSERVATORY) protection field overlay, shared by both map
 // renderers (client-map-3d-aether-protection-overlay.ts on true-3D, the
@@ -18,9 +19,14 @@ import type { Tile } from "../client-types.js";
 // (hostileAetherProtectionAt) reads the same field, so what's tinted red is
 // exactly what greys out.
 //
+// Drawn as a glow (it brightens the tiles, so it never reads as the owner's
+// land going dark) with a solid outline along the field's edge, so it reads
+// as a bounded shield; the tile menu spells out the colours
+// (client-tile-menu-observatory-lines.ts).
+//
 // Shown only while it is a relevant aid, so it doesn't permanently wash the
 // map: while an Aether Tower is selected, while the tile menu's Aether
-// ("crystal") tab is open, or while aiming an Aether ability.
+// ("crystal") tab is open, or while aiming an Aether ability a shield blocks.
 
 export type AetherProtectionRelation = "friendly" | "enemy";
 
@@ -42,8 +48,14 @@ export const aetherProtectionColor = (relation: AetherProtectionRelation): strin
 
 type AetherProtectionShownState = Pick<ClientState, "selected" | "tiles" | "tileActionMenu" | "crystalTargeting">;
 
+// Targeted abilities an enemy Aether Tower's shield blocks (server:
+// isTileShieldedByEnemyObservatory callers). Aiming anything else -- Sky Dock
+// bombard, levy, siege engine strike -- shows no field, since it would wrongly
+// suggest the red tiles are off limits.
+const SHIELD_BLOCKED_TARGETING: ReadonlySet<CrystalTargetingAbility> = new Set<CrystalTargetingAbility>(["siphon", "aether_emp", "aether_bridge"]);
+
 export const isAetherProtectionFieldShown = (state: AetherProtectionShownState, keyFor: (x: number, y: number) => string): boolean => {
-  if (state.crystalTargeting.active) return true;
+  if (state.crystalTargeting.active) return SHIELD_BLOCKED_TARGETING.has(state.crystalTargeting.ability);
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.activeTab === "crystal") return true;
   if (!state.selected) return false;
   const selectedTile = state.tiles.get(keyFor(state.selected.x, state.selected.y));
@@ -166,21 +178,53 @@ export const hostileAetherProtectionAt = (
   return protector?.relation === "enemy" ? protector : undefined;
 };
 
-/** 2D fallback renderer's counterpart of the 3D tile wash. */
+/** Sides of a shielded tile where the field's outline runs: the neighbour there isn't shielded by the same owner's towers. */
+export type AetherProtectionEdges = { readonly north: boolean; readonly east: boolean; readonly south: boolean; readonly west: boolean };
+
+export const aetherProtectionEdges = (
+  tile: Pick<Tile, "x" | "y">,
+  protector: ProtectingAetherTower,
+  field: AetherProtectionField,
+  tileAt: (x: number, y: number) => Tile | undefined
+): AetherProtectionEdges => {
+  const sameShield = (dx: number, dy: number): boolean => {
+    const x = (((tile.x + dx) % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+    const y = (((tile.y + dy) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+    // Same owner, not just same colour: two rival empires' (or you and an
+    // ally's) shields that touch each keep their own outline.
+    return tileAetherProtection(tileAt(x, y), field)?.ownerId === protector.ownerId;
+  };
+  return { north: !sameShield(0, -1), east: !sameShield(1, 0), south: !sameShield(0, 1), west: !sameShield(-1, 0) };
+};
+
+// 2D fallback renderer's counterpart of client-map-3d-aether-protection-overlay.ts:
+// an additive glow over each shielded tile (so the owner's land brightens
+// rather than darkens) plus a solid strip along every side where the field ends.
 export const drawAetherProtectionTile2D = (
   ctx: CanvasRenderingContext2D,
   tile: Tile | undefined,
   field: AetherProtectionField | undefined,
+  tiles: ReadonlyMap<string, Tile>,
+  keyFor: (x: number, y: number) => string,
   px: number,
   py: number,
   size: number
 ): void => {
-  if (!field) return;
+  if (!field || !tile) return;
   const protector = tileAetherProtection(tile, field);
   if (!protector) return;
   ctx.save();
-  ctx.globalAlpha = 0.22;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.24;
   ctx.fillStyle = aetherProtectionColor(protector.relation);
   ctx.fillRect(px, py, size, size);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 0.95;
+  const edges = aetherProtectionEdges(tile, protector, field, (x, y) => tiles.get(keyFor(x, y)));
+  const width = Math.max(2, Math.round(size * 0.1));
+  if (edges.north) ctx.fillRect(px, py, size, width);
+  if (edges.south) ctx.fillRect(px, py + size - width, size, width);
+  if (edges.west) ctx.fillRect(px, py, width, size);
+  if (edges.east) ctx.fillRect(px + size - width, py, width, size);
   ctx.restore();
 };

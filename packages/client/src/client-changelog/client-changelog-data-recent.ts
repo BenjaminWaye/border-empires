@@ -61,5 +61,16 @@ export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
       "The siphon ends on its own as soon as that tower is back online (off cooldown and powered)",
       "Siphon the victim's CRYSTAL and their tower stays unpowered: they have to win the tile back, find CRYSTAL elsewhere, or take out your siphoning tower"
     ]
+  },
+  {
+    createdAt: 1792204433519, // Date.now() captured when this entry was written.
+    introducedIn: "2026.10.17.1",
+    title: "Aether Tower shields are easier to read",
+    why: "Selecting an Aether Tower tinted enemy land red, which just looked like their territory going dark, with nothing saying it was a shield or where it ended.",
+    changes: [
+      "Shielded tiles now glow (blue for your and allied towers, red for enemy towers) instead of being shaded, and a solid outline marks where each shield ends, on both the 3D and 2D maps",
+      "Selecting an Aether Tower explains the colours in the tile menu, and selecting a shielded enemy tile says which tower is shielding it",
+      "The shield field only shows while aiming abilities a shield actually blocks (Siphon, Aether EMP, Aether Bridge), and Aether Bridge no longer offers landings on shielded enemy coast"
+    ]
   }
 ];
