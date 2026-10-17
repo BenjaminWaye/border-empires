@@ -140,7 +140,7 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const CompareAll: Story = { render: renderCompare };
-export const Current: Story = { args: { style: "straight" } };
+export const OldStraight: Story = { args: { style: "straight" } };
 export const Spikes: Story = { args: { style: "spikes" } };
 /** Spikes with a dark attacker: blue teeth on a white rim. */
 export const SpikesDarkIntruder: Story = { args: { style: "spikes", intruderColor: "#2b3a8c" } };
@@ -151,4 +151,4 @@ export const Option3Veil: Story = { args: { style: "veil" } };
 export const CompareAllDarkIntruder: Story = { args: { intruderColor: "#2b3a8c" }, render: renderCompare };
 /** The rival pushing across a shared border: the front line only runs where their push meets my land. */
 export const SpikesAtBorder: Story = { args: { style: "spikes", scenario: "border" } };
-export const CurrentAtBorder: Story = { args: { style: "straight", scenario: "border" } };
+export const OldStraightAtBorder: Story = { args: { style: "straight", scenario: "border" } };

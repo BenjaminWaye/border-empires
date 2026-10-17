@@ -17,7 +17,7 @@ describe("incursionBreachLayout", () => {
     expect(incursionBreachLayout("straight", kinds)).toEqual({
       straightEdges: { north: true, east: false, south: true, west: true },
       front: [],
-      roundedCorners: 0,
+      frontEdges: { north: false, east: false, south: false, west: false },
       band: [],
       veilSides: []
     });
@@ -32,6 +32,7 @@ describe("incursionBreachLayout", () => {
   it("replaces the strip with the front line all round for spikes, with teeth only on the sides facing my land", () => {
     const layout = incursionBreachLayout("spikes", kinds, 10, 20);
     expect(layout.straightEdges).toEqual({ north: false, east: false, south: false, west: false });
+    expect(layout.frontEdges).toEqual({ north: true, east: false, south: true, west: true });
     const toothTips = layout.front.filter((piece) => piece.points.length === 3).map((piece) => piece.points[2]!);
     // Teeth reach out past the north and west sides (mine) but never past the unowned south side.
     expect(toothTips.some((p) => p.y < -0.6)).toBe(true);
@@ -42,27 +43,15 @@ describe("incursionBreachLayout", () => {
     expect(Math.max(...lineYs)).toBeGreaterThan(0.35);
   });
 
-  it("lays the spikes' pressure wash on my side of the front only", () => {
-    const { band } = incursionBreachLayout("spikes", kinds);
-    expect(band.length).toBeGreaterThan(0);
-    expect(band.every((t) => t.side === 1)).toBe(true);
-    // Never on the unowned south side or the pocket continuing east.
-    expect(band.some((t) => (t.dx === 0 && t.dy === 1) || (t.dx === 1 && t.dy === 0))).toBe(false);
-  });
-
-  it("marks the outer corners the spikes line rounds off, so the hatch can match", () => {
-    // Open north, south and west; the pocket continues east: outer corners at NW and SW only.
-    expect(incursionBreachLayout("spikes", kinds).roundedCorners).toBe(0b1001);
-    // A lone pocket tile rounds all four.
-    expect(incursionBreachLayout("spikes", around({})).roundedCorners).toBe(0b1111);
-    expect(incursionBreachLayout("straight", around({})).roundedCorners).toBe(0);
+  it("gives spikes no glow band: the front line alone marks the breach", () => {
+    expect(incursionBreachLayout("spikes", kinds).band).toEqual([]);
+    expect(incursionBreachLayout("spikes", kinds).front.length).toBeGreaterThan(0);
   });
 
   it("draws no edge at all along the old border with the rival's own land", () => {
     const atBorder = around({ "1,0": "rival", "1,-1": "rival", "1,1": "rival" });
     expect(incursionBreachLayout("straight", atBorder).straightEdges.east).toBe(false);
-    // Spikes: the east side gets no line, and no outer-corner rounding on that side.
-    expect(incursionBreachLayout("spikes", atBorder).roundedCorners & 0b0110).toBe(0);
+    // Spikes: the east side gets no line.
     expect(incursionBreachLayout("spikes", atBorder).front.some((piece) => piece.points.some((p) => p.x > 0.6))).toBe(false);
   });
 

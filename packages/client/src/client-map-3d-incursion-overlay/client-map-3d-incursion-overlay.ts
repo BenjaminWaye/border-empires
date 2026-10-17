@@ -8,20 +8,21 @@
 //     pixels they blend to the average colour instead of shimmering. UVs run
 //     0..1 per tile and the stripe count per tile is whole, so neighbouring
 //     tiles' stripes line up.
-//   - solid strips just inside every pocket edge in a colour contrasting with
-//     the intruder's fill (incursionMarkColor), so the pocket has a crisp
-//     outline inside the viewer's bright reach border.
-//   - optionally, an animated "breach" look (spikes / ember / ink / veil) on the
-//     boundary with the viewer's own land, in place of the strip there --
-//     see client-map-3d-incursion-breach-fx.ts.
+//   - the pocket's edge (client-incursion-breach-layout.ts decides which look
+//     goes where): by default the spiked front line all round the pocket, or
+//     an ember / ink / veil look on the sides facing the viewer's land
+//     (client-map-3d-incursion-breach-fx.ts); every other side, and every
+//     side on the old "straight" style, gets a solid strip just inside the
+//     pocket in a colour contrasting with the intruder's fill
+//     (incursionMarkColor). If the front-line buffer is full, a tile falls
+//     back to the strips so it never loses its outline.
 // Rebuilt from the throttled terrain rebuild (clear/add/commit), like the
 // dormant-frontier tint it sits beside in client-map-3d-aether-survey-line.ts.
 
-import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, LinearSRGBColorSpace, Material, Mesh, MeshBasicMaterial, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
+import { BufferAttribute, BufferGeometry, Color, DoubleSide, Group, Material, Mesh, MeshBasicMaterial, ShaderMaterial, UniformsLib, UniformsUtils } from "three";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import type { IncursionEdges, incursionHatchColors } from "../client-reach-incursion/client-reach-incursion.js";
 import { createIncursionBreachFx3D, type IncursionBreachFx3D, type IncursionBreachTile } from "./client-map-3d-incursion-breach-fx.js";
-import { FRONT_CORNER_RADIUS } from "../client-reach-incursion/client-incursion-breach-front.js";
 
 type IncursionHatchColors = ReturnType<typeof incursionHatchColors>;
 
@@ -58,16 +59,13 @@ const HATCH_VERTEX_SHADER = /* glsl */ `
   attribute vec3 hatchTheirs;
   attribute vec3 hatchMine;
   attribute vec2 hatchUv;
-  attribute vec3 hatchRound;
   varying vec3 vTheirs;
   varying vec3 vMine;
   varying vec2 vHatchUv;
-  varying vec2 vRound;
   void main() {
     vTheirs = hatchTheirs;
     vMine = hatchMine;
     vHatchUv = hatchUv;
-    vRound = hatchRound.xy;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -81,19 +79,7 @@ const HATCH_FRAGMENT_SHADER = /* glsl */ `
   varying vec3 vTheirs;
   varying vec3 vMine;
   varying vec2 vHatchUv;
-  varying vec2 vRound; // (corner bitmask NW=1 NE=2 SE=4 SW=8, radius in tiles)
   void main() {
-    // Round off the outer corners the breach front line curves round (client-incursion-breach-front.ts).
-    vec2 p = vec2(vHatchUv.x, 1.0 - vHatchUv.y); // 0..1 from the NW corner, +x east, +y south
-    float mask = floor(vRound.x + 0.5);
-    float r = vRound.y;
-    for (int i = 0; i < 4; i++) {
-      if (mod(floor(mask / exp2(float(i))), 2.0) < 0.5) continue;
-      vec2 corner = vec2(i == 1 || i == 2 ? 1.0 : 0.0, i >= 2 ? 1.0 : 0.0);
-      vec2 inward = sign(vec2(0.5) - corner);
-      vec2 local = (p - corner) * inward; // 0..1 into the tile from this corner
-      if (local.x < r && local.y < r && length(local - vec2(r)) > r) discard;
-    }
     // t advances by 1 per theirs+mine stripe pair along the diagonal.
     float t = (vHatchUv.x + vHatchUv.y) * uStripePairs;
     float tri = abs(fract(t) - 0.5); // 0..0.5; the two colours meet where tri == 0.25
@@ -178,19 +164,17 @@ const upload = (buf: QuadBuffer): void => {
 
 export const createIncursionOverlay3D = (parent: Group, maxTiles: number): IncursionOverlay3D => {
   const hatchMaterial = createHatchMaterial();
-  const hatch = createQuadBuffer(maxTiles, hatchMaterial, ["hatchTheirs", "hatchMine", "hatchRound"], "hatchUv", 8);
+  const hatch = createQuadBuffer(maxTiles, hatchMaterial, ["hatchTheirs", "hatchMine"], "hatchUv", 8);
   const edgeMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, transparent: true, opacity: EDGE_OPACITY, depthWrite: false, side: DoubleSide });
   const edges = createQuadBuffer(maxTiles * MAX_EDGE_QUADS_PER_TILE, edgeMaterial, ["color"], undefined, 9);
   const buffers = [hatch, edges];
   parent.add(hatch.mesh, edges.mesh);
-  // Created on first use: the breach looks are an admin-only, default-off
-  // option, so most clients never pay for their buffers (several MB) or shaders.
+  // Created on first use, so a client with no breached pocket on screen (or on
+  // the old straight style) never pays for the breach buffers or shaders.
   let breachFx: IncursionBreachFx3D | undefined;
   const theirs = new Color();
   const mine = new Color();
   const edge = new Color();
-  // Not a colour: (corner bitmask, radius, 0) for the hatch's corner rounding, carried in a per-quad vec3 slot.
-  const round = new Color();
 
   const addTile: IncursionOverlay3D["addTile"] = (x, z, surfaceY, hatchColors, edgeColor, tileEdges, breach) => {
     const x0 = x - 0.5;
@@ -199,18 +183,22 @@ export const createIncursionOverlay3D = (parent: Group, maxTiles: number): Incur
     const z1 = z + 0.5;
     theirs.set(normalizeColorForThree(hatchColors.theirs));
     mine.set(normalizeColorForThree(hatchColors.mine));
-    round.setRGB(breach?.layout.roundedCorners ?? 0, FRONT_CORNER_RADIUS, 0, LinearSRGBColorSpace);
-    if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine, round])) return;
+    if (!writeQuad(hatch, x0, x1, z0, z1, surfaceY, [theirs, mine])) return;
     edge.set(normalizeColorForThree(edgeColor));
-    const y = surfaceY + EDGE_LIFT;
-    if (tileEdges.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);
-    if (tileEdges.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
-    if (tileEdges.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
-    if (tileEdges.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
+    let strips = tileEdges;
     if (breach && breach.style !== "straight") {
       breachFx ??= createIncursionBreachFx3D(parent);
-      breachFx.add(x, z, surfaceY, breach, theirs, edge);
+      // A full front-line buffer draws nothing for this tile: give it the plain strips instead.
+      if (!breachFx.add(x, z, surfaceY, breach, theirs, edge)) {
+        const f = breach.layout.frontEdges;
+        strips = { north: strips.north || f.north, east: strips.east || f.east, south: strips.south || f.south, west: strips.west || f.west };
+      }
     }
+    const y = surfaceY + EDGE_LIFT;
+    if (strips.north) writeQuad(edges, x0, x1, z0, z0 + EDGE_WIDTH, y, [edge]);
+    if (strips.south) writeQuad(edges, x0, x1, z1 - EDGE_WIDTH, z1, y, [edge]);
+    if (strips.west) writeQuad(edges, x0, x0 + EDGE_WIDTH, z0, z1, y, [edge]);
+    if (strips.east) writeQuad(edges, x1 - EDGE_WIDTH, x1, z0, z1, y, [edge]);
   };
 
   return {

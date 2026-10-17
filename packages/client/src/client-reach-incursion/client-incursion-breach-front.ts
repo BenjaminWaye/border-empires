@@ -1,14 +1,14 @@
 // The spikes-style front line around one incursion tile (see
 // client-incursion-breach-layout.ts), after Hearts of Iron IV: one flat shape
 // in the attacker's colour -- a thin line with small, widely spaced teeth
-// standing on it, with a very thin contrasting outline -- drawn ORGANICALLY
-// rather than along the tile grid:
-//   - corners where the boundary turns are rounded (outer corners curve
-//     inside the pocket, inner corners curve out round my tile);
+// standing on it, with a very thin contrasting outline -- drawn organically
+// rather than ruled along the tile grid:
+//   - corners where the boundary turns stay square: the two stretches meet
+//     under a square cap, as on a map symbol;
 //   - every point is pushed by a smooth noise field sampled in WORLD space,
 //     so the line meanders gently, and since a shared world point always
 //     moves the same way, neighbouring tiles' pieces still meet exactly;
-//   - teeth follow the curve's normal, with one on each rounded outer corner;
+//   - teeth follow the line's normal (none crowding into an inside corner);
 //   - drawn like an inked campaign map: the stroke swells and thins along the
 //     front (calligraphic), teeth are tall, even, straight-sided triangles,
 //     and where the front meets the old border the stroke tapers to a point
@@ -50,14 +50,10 @@ const TOOTH_HEIGHT = 0.27;
 const TOOTH_HALF_BASE = 0.055;
 /** Outline thickness, in tiles. */
 const OUTLINE_WIDTH = 0.011;
-/** Rounding radius (tiles) where the front line turns a corner; the 3D hatch rounds its outer corners to match. */
-export const FRONT_CORNER_RADIUS = 0.28;
-const CORNER_RADIUS = FRONT_CORNER_RADIUS;
 /** Meander: how far (in tiles) and how broadly (noise cells per tile) the line wanders. */
 const WARP_AMPLITUDE = 0.075;
 const WARP_FREQUENCY = 0.85;
 const STRAIGHT_STEPS = 8;
-const ARC_STEPS = 6;
 
 const fract = (v: number): number => v - Math.floor(v);
 const lattice = (ix: number, iy: number, seed: number): number => fract(Math.sin(ix * 127.1 + iy * 311.7 + seed * 74.7) * 43758.5453);
@@ -104,31 +100,29 @@ const unit = (p: BreachPoint): BreachPoint => {
 type CornerTurn = "straight" | "outer" | "inner" | "border";
 
 /**
- * How the boundary continues past one end of a side: on along the next tile,
- * round an outer corner, round an inner one -- or into the rival's own land
- * behind the old border ("border"), where the front line simply ends, run
- * right up to the corner, since no incursion tile carries it on.
+ * How the boundary continues past one end of a side. `next` is the tile beside
+ * this one along the side, `diagonal` the tile across from that:
+ *   - next is pocket, diagonal isn't: on along the next tile ("straight");
+ *   - next and diagonal both pocket: round an inner corner ("inner");
+ *   - next isn't pocket: round this tile's outer corner ("outer") -- also when
+ *     the diagonal is pocket, since a tile touching only at the corner point
+ *     has its own outer corner there;
+ *   - the line would carry on into the rival's own land behind the old border
+ *     ("border"), where it simply ends, run right up to the corner, since no
+ *     incursion tile carries it on.
  */
 const cornerTurn = (side: FrontSide, along: 1 | -1, kindAt: (dx: number, dy: number) => FrontNeighbourKind): CornerTurn => {
-  const diagonal = kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along);
   const next = kindAt(side.t.x * along, side.t.y * along);
-  if (diagonal === "rival" || next === "rival") return "border";
-  if (diagonal === "pocket") return "inner";
-  return next === "pocket" ? "straight" : "outer";
+  if (next === "rival") return "border";
+  if (next !== "pocket") return "outer";
+  const diagonal = kindAt(side.dx + side.t.x * along, side.dy + side.t.y * along);
+  if (diagonal === "rival") return "border";
+  return diagonal === "pocket" ? "inner" : "straight";
 };
 
-/** Whether the boundary turns an OUTER corner at this side's start corner (the corner the hatch must round off). */
-export const isOuterStartCorner = (side: FrontSide, kindAt: (dx: number, dy: number) => FrontNeighbourKind): boolean => cornerTurn(side, -1, kindAt) === "outer";
-
-/** Quarter arc from `from` to `to` about `centre` (from - centre is perpendicular to to - centre). */
-const quarterArc = (centre: BreachPoint, from: BreachPoint, to: BreachPoint): BreachPoint[] => {
-  const a = add(from, centre, -1);
-  const b = add(to, centre, -1);
-  return Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
-    const angle = (i / ARC_STEPS) * (Math.PI / 2);
-    return { x: centre.x + a.x * Math.cos(angle) + b.x * Math.sin(angle), y: centre.y + a.y * Math.cos(angle) + b.y * Math.sin(angle) };
-  });
-};
+/** Unit tangent of the warped line at `base`, heading along `tangent` (finite difference). */
+const warpedTangent = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint): BreachPoint =>
+  unit(add(warp(add(base, tangent, 0.01)), warp(add(base, tangent, -0.01)), -1));
 
 /** Thick polyline with mitred joints (per-vertex averaged normals), each vertex at its own half-width, plus its rim. */
 const strip = (pts: readonly BreachPoint[], halfWidths: readonly number[]): BreachFrontPiece[] => {
@@ -156,9 +150,8 @@ const swellAt =
  * corners pushed out by OUTLINE_WIDTH (mitred, capped at the sharp tip).
  */
 const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent: BreachPoint, outward: BreachPoint): BreachFrontPiece[] => {
-  const eps = 0.01;
   const centre = warp(base);
-  const t = unit(add(warp(add(base, tangent, eps)), warp(add(base, tangent, -eps)), -1));
+  const t = warpedTangent(warp, base, tangent);
   let n = { x: -t.y, y: t.x };
   if (n.x * outward.x + n.y * outward.y < 0) n = { x: -n.x, y: -n.y };
   const boundary = [add(centre, t, -TOOTH_HALF_BASE), add(centre, n, LINE_WIDTH / 2 + TOOTH_HEIGHT), add(centre, t, TOOTH_HALF_BASE)];
@@ -180,9 +173,10 @@ const tooth = (warp: (p: BreachPoint) => BreachPoint, base: BreachPoint, tangent
 
 /**
  * Front line for one open side of the pocket tile at world (worldX, worldY):
- * the side's own stretch, plus the rounded corner at its START (each corner
- * is the start of exactly one side, so every curve is drawn once). Teeth only
- * when `withTeeth` (the side faces my land).
+ * the side's own stretch, corner to corner, plus a square cap on the corner at
+ * its START if the boundary turns there (each corner is the start of exactly
+ * one side, so every cap is drawn once). Teeth only when `withTeeth` (the side
+ * faces my land).
  */
 export const organicSideFront = (
   side: FrontSide,
@@ -196,32 +190,15 @@ export const organicSideFront = (
   const at = (u: number): BreachPoint => add(side.a, side.t, u);
   const startTurn = cornerTurn(side, -1, kindAt);
   const endTurn = cornerTurn(side, 1, kindAt);
-  const runsToCorner = (turn: CornerTurn): boolean => turn === "straight" || turn === "border";
-  const u0 = runsToCorner(startTurn) ? 0 : CORNER_RADIUS;
-  const u1 = runsToCorner(endTurn) ? 1 : 1 - CORNER_RADIUS;
+  const turns = (turn: CornerTurn): boolean => turn === "outer" || turn === "inner";
 
   const path: BreachPoint[] = [];
-  let arcTooth: BreachFrontPiece[] = [];
-  if (!runsToCorner(startTurn)) {
-    // The previous side runs into this corner along tPrev: turned one way round an outer corner, the other round an inner one.
-    const tPrev = startTurn === "outer" ? { x: side.t.y, y: -side.t.x } : { x: -side.t.y, y: side.t.x };
-    const from = add(side.a, tPrev, -CORNER_RADIUS);
-    const centre = add(add(side.a, side.t, CORNER_RADIUS), tPrev, -CORNER_RADIUS);
-    const arc = quarterArc(centre, from, at(u0));
-    path.push(...arc.slice(0, -1));
-    // Outer corners carry a tooth at the middle of the curve, pointing away from its centre (out of the pocket).
-    // Only when the previous side (outward = tPrev turned a quarter) faces my land too.
-    if (startTurn === "outer" && withTeeth && kindAt(tPrev.y, -tPrev.x) === "mine") {
-      const mid = arc[ARC_STEPS / 2]!;
-      arcTooth = tooth(warp, mid, unit({ x: arc[ARC_STEPS / 2 + 1]!.x - arc[ARC_STEPS / 2 - 1]!.x, y: arc[ARC_STEPS / 2 + 1]!.y - arc[ARC_STEPS / 2 - 1]!.y }), add(mid, centre, -1));
-    }
-  }
-  const steps = Math.max(2, Math.round((u1 - u0) * STRAIGHT_STEPS));
-  for (let i = 0; i <= steps; i += 1) path.push(at(u0 + ((u1 - u0) * i) / steps));
+  for (let i = 0; i <= STRAIGHT_STEPS; i += 1) path.push(at(i / STRAIGHT_STEPS));
 
   // Stroke width: the world-space swell, tapering to a point over BORDER_TAPER at an end that meets the old border.
   const swell = swellAt(worldX, worldY);
-  const along = path.map((_, i) => path.slice(1, i + 1).reduce((sum, p, k) => sum + Math.hypot(p.x - path[k]!.x, p.y - path[k]!.y), 0));
+  const along: number[] = [];
+  path.forEach((p, i) => along.push(i === 0 ? 0 : along[i - 1]! + Math.hypot(p.x - path[i - 1]!.x, p.y - path[i - 1]!.y)));
   const total = along[along.length - 1] ?? 0;
   const taper = (d: number): number => smooth(Math.min(1, d / BORDER_TAPER));
   const halfWidths = path.map((p, i) => {
@@ -231,13 +208,23 @@ export const organicSideFront = (
     return w;
   });
   const pieces = strip(path.map(warp), halfWidths);
+  if (turns(startTurn)) {
+    // Square cap over the corner, aligned with this stretch, sized to the
+    // stroke there (the same world point for both stretches, so it fits both).
+    const centre = warp(side.a);
+    const t = warpedTangent(warp, side.a, side.t);
+    const n = { x: -t.y, y: t.x };
+    const square = (h: number): BreachPoint[] => [add(add(centre, t, -h), n, -h), add(add(centre, t, h), n, -h), add(add(centre, t, h), n, h), add(add(centre, t, -h), n, h)];
+    const h = swell(side.a);
+    pieces.push({ points: square(h), outline: square(h + OUTLINE_WIDTH) });
+  }
   if (!withTeeth) return pieces;
-  pieces.push(...arcTooth);
   for (let i = 0; i < TEETH_PER_SIDE; i += 1) {
-    const u = (i + 0.5) / TEETH_PER_SIDE;
-    // Teeth on the straight stretch only; the rounded corners handle their own.
-    if (u < u0 || u > u1) continue;
-    pieces.push(...tooth(warp, at(u), side.t, out));
+    // At an inside corner the stretch that ends there and the one that starts
+    // there both have an end tooth pointing into the same tile of mine; drop
+    // just the starting stretch's, which is enough to stop them crossing.
+    if (i === 0 && startTurn === "inner") continue;
+    pieces.push(...tooth(warp, at((i + 0.5) / TEETH_PER_SIDE), side.t, out));
   }
   return pieces;
 };

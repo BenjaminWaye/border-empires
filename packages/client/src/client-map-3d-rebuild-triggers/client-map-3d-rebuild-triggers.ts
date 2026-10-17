@@ -1,7 +1,7 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js";
 import { serverReachKey } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { incursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
+import { DEFAULT_INCURSION_BREACH_STYLE, incursionBreachStyle } from "../client-reach-incursion/client-incursion-breach-style.js";
 import {
   aetherProtectionField,
   aetherProtectionFieldKey,
@@ -27,7 +27,7 @@ export type Map3DRebuildTriggers = {
   aetherProtectionKey: string;
 };
 
-export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: "straight", aetherProtectionKey: "" };
+export const EMPTY_MAP_3D_REBUILD_TRIGGERS: Map3DRebuildTriggers = { crystalTargetingActive: false, frontierAttackClaimKeys: "", reachKey: "", incursionBreachStyle: DEFAULT_INCURSION_BREACH_STYLE, aetherProtectionKey: "" };
 
 /**
  * What the 3D reach overlay (survey-line pylons/walls, dormant-frontier and
