@@ -1,3 +1,4 @@
+import { MANUFACTORY_CHANGELOG } from "./client-changelog-manufactory.js";
 import { AETHER_ABILITY_ICONS_CHANGELOG } from "./client-changelog-aether-ability-icons.js";
 import { OCTOBER_STRUCTURE_ART_CHANGELOG } from "./client-changelog-structure-art-october.js";
 import { AUTO_GARRISON_REQUEUE_CHANGELOG } from "./client-changelog-auto-garrison-requeue.js";
@@ -52,6 +53,7 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...MANUFACTORY_CHANGELOG,
   {
     createdAt: 1792044007050, // Date.now() frozen for the changelog gate.
     introducedIn: "2026.10.15.1",
@@ -490,20 +492,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The suggested spot can be any land inside your reach: on your frontier, Build Relay Beacon garrisons the tile first, and on unclaimed land it expands, garrisons, then builds"
     ]
   },
-  {
-    createdAt: 1792269690926, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.2",
-    title: "Manufactories turn town industry into Coin credit",
-    why: "The stackable economic building represents manufactured output backing offworld purchasing credit.",
-    changes: ["Mintworks are now Manufactories, preserving their costs, income, stacking and Clearing House bonuses", "The Industrial Tooling Module fabricates and refurbishes equipment for local Manufactories; new construction requires the module installed on an active AFC", "New factory artwork appears in both the 3D and 2D maps; existing buildings and queued builds carry over"]
-  },
-  {
-    createdAt: 1792270126879, // Date.now() captured when this entry was written.
-    introducedIn: "2026.10.17.3",
-    title: "Industrial Tooling docks as a precision mill",
-    why: "The Manufactory unlock deserves its own visible AFC machine.",
-    changes: ["The Industrial Tooling Module now has a dedicated 3D milling gantry with a moving spindle, rotating drive wheel and tool rack", "The 2D map shows a matching gantry symbol on AFCs with tooling installed"]
-  }
+
 ];
 
 const latestCreatedAt = Math.max(...ALL_CLIENT_CHANGELOG_ENTRIES.map((entry) => entry.createdAt));
