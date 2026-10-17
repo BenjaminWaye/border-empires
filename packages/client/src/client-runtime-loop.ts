@@ -1370,8 +1370,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!isTrue3DRendererActive()) {
       drawFrontierSupply2D(deps.ctx, frontierSupplyModelForState(state), {
         tileCenter: (x, y) => deps.worldToScreen(x, y, size, halfW, halfH),
-        wrapDeltaX: (from, to) => deps.toroidDelta(from, to, WORLD_WIDTH),
-        wrapDeltaY: (from, to) => deps.toroidDelta(from, to, WORLD_HEIGHT),
         size,
         viewportWidth: deps.canvas.width,
         viewportHeight: deps.canvas.height,

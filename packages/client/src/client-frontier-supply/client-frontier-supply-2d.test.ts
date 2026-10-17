@@ -3,13 +3,15 @@ import { describe, expect, it } from "vitest";
 import { drawFrontierSupply2D, type FrontierSupply2DDeps } from "./client-frontier-supply-2d.js";
 import type { FrontierSupplyModel } from "./client-frontier-supply.js";
 
-type Call = { op: string; args: number[]; alpha: number; stroke: string };
+type Call = { op: string; args: number[]; alpha: number; stroke: string; fill: string; lineWidth: number };
 
-/** Records path/transform calls so the test can check what was drawn where, without a real canvas. */
+/** Records path/style calls so the test can check what was drawn, without a real canvas. */
 const recordingContext = (): { ctx: CanvasRenderingContext2D; calls: Call[] } => {
   const calls: Call[] = [];
-  const state = { globalAlpha: 1, strokeStyle: "", lineWidth: 1, lineCap: "butt", lineJoin: "miter" };
-  const record = (op: string) => (...args: number[]) => { calls.push({ op, args, alpha: state.globalAlpha, stroke: String(state.strokeStyle) }); };
+  const state = { globalAlpha: 1, strokeStyle: "", fillStyle: "", lineWidth: 1, lineCap: "butt", lineJoin: "miter" };
+  const record = (op: string) => (...args: number[]) => {
+    calls.push({ op, args, alpha: state.globalAlpha, stroke: String(state.strokeStyle), fill: String(state.fillStyle), lineWidth: state.lineWidth });
+  };
   const ctx = new Proxy(state, {
     get: (target, prop: string) => (prop in target ? target[prop as keyof typeof target] : record(prop))
   }) as unknown as CanvasRenderingContext2D;
@@ -18,63 +20,56 @@ const recordingContext = (): { ctx: CanvasRenderingContext2D; calls: Call[] } =>
 
 const deps = (overrides: Partial<FrontierSupply2DDeps> = {}): FrontierSupply2DDeps => ({
   tileCenter: (x, y) => ({ sx: x * 32 + 16, sy: y * 32 + 16 }),
-  wrapDeltaX: (from, to) => to - from,
-  wrapDeltaY: (from, to) => to - from,
   size: 32,
   viewportWidth: 640,
   viewportHeight: 480,
   ownerColor: "#3fa9f5",
-  nowMs: 400, // a quarter of the flow period: chevrons sit a quarter of the way along
+  nowMs: 0,
   ...overrides
 });
 
-const oneHop: FrontierSupplyModel = {
-  links: [{ from: { x: 2, y: 2 }, to: { x: 3, y: 2 }, depthBeyondReach: 1, fragile: false }],
-  chokepoints: new Map([["2,2", { x: 2, y: 2, dependentTiles: 1, pinch: true }]])
-};
+const link = (fromX: number, toX: number, extra: { downstream?: number; depth?: number; tip?: boolean } = {}) => ({
+  from: { x: fromX, y: 2 },
+  to: { x: toX, y: 2 },
+  depthBeyondReach: extra.depth ?? toX - 2,
+  downstream: extra.downstream ?? 1,
+  tip: extra.tip ?? true
+});
+
+const strokes = (calls: Call[]) => calls.filter((call) => call.op === "stroke");
+const fills = (calls: Call[]) => calls.filter((call) => call.op === "fill");
 
 describe("drawFrontierSupply2D", () => {
-  it("draws the chevron partway along the hop in the empire colour, over a dark underlay", () => {
+  it("strokes each route as a dark shadow edge, an empire-coloured body and a light core, then fills an arrowhead at the tip", () => {
     const { ctx, calls } = recordingContext();
-    drawFrontierSupply2D(ctx, oneHop, deps());
-    const translates = calls.filter((call) => call.op === "translate");
-    // Two chevrons per hop at this size (phases 0 and 0.5), each drawn twice (underlay + colour).
-    expect(translates).toHaveLength(4);
-    expect(translates[0]!.args).toEqual([80 + 32 * 0.25, 80]);
-    const strokes = calls.filter((call) => call.op === "stroke").map((call) => call.stroke);
-    expect(strokes).toContain("#3fa9f5");
-    expect(strokes).toContain("#0b0f16");
+    const model: FrontierSupplyModel = { links: [link(2, 3, { downstream: 2, tip: false }), link(3, 4)] };
+    drawFrontierSupply2D(ctx, model, deps());
+    const colours = strokes(calls).map((call) => call.stroke);
+    expect(colours).toContain("#05080d");
+    expect(colours).toContain("#3fa9f5");
+    expect(colours).toContain("#ffffff");
+    // Shadow is the widest layer, the core the narrowest.
+    const widthOf = (colour: string) => Math.max(...strokes(calls).filter((call) => call.stroke === colour).map((call) => call.lineWidth));
+    expect(widthOf("#05080d")).toBeGreaterThan(widthOf("#3fa9f5"));
+    expect(widthOf("#3fa9f5")).toBeGreaterThan(widthOf("#ffffff"));
+    expect(fills(calls).some((call) => call.fill === "#3fa9f5")).toBe(true); // arrowhead body
   });
 
-  it("outlines a pinch-point chokepoint in amber, but not every chokepoint along a fragile stretch", () => {
-    const { ctx, calls } = recordingContext();
-    drawFrontierSupply2D(ctx, oneHop, deps());
-    expect(calls.some((call) => call.op === "closePath")).toBe(true);
-    expect(calls.filter((call) => call.op === "stroke").at(-1)?.stroke).toBe("#ffb03b");
-
-    const notPinch = recordingContext();
-    drawFrontierSupply2D(notPinch.ctx, { ...oneHop, chokepoints: new Map([["2,2", { x: 2, y: 2, dependentTiles: 1, pinch: false }]]) }, deps());
-    expect(notPinch.calls.some((call) => call.op === "closePath")).toBe(false);
+  it("draws the route thicker where it feeds more land", () => {
+    const thick = recordingContext();
+    drawFrontierSupply2D(thick.ctx, { links: [link(2, 3, { downstream: 9 })] }, deps());
+    const thin = recordingContext();
+    drawFrontierSupply2D(thin.ctx, { links: [link(2, 3, { downstream: 1 })] }, deps());
+    const bodyWidth = (calls: Call[]) => Math.max(...strokes(calls).filter((call) => call.stroke === "#3fa9f5").map((call) => call.lineWidth));
+    expect(bodyWidth(thick.calls)).toBeGreaterThan(bodyWidth(thin.calls));
   });
 
-  it("draws a hop out of a chokepoint in amber instead of the empire colour", () => {
-    const { ctx, calls } = recordingContext();
-    drawFrontierSupply2D(ctx, { links: [{ ...oneHop.links[0]!, fragile: true }], chokepoints: new Map() }, deps());
-    const strokes = calls.filter((call) => call.op === "stroke").map((call) => call.stroke);
-    expect(strokes).toContain("#ffb03b");
-    expect(strokes).not.toContain("#3fa9f5");
-  });
-
-  it("skips hops that are entirely off screen", () => {
-    const { ctx, calls } = recordingContext();
-    const far: FrontierSupplyModel = { links: [{ from: { x: 90, y: 90 }, to: { x: 91, y: 90 }, depthBeyondReach: 1, fragile: false }], chokepoints: new Map() };
-    drawFrontierSupply2D(ctx, far, deps());
-    expect(calls.filter((call) => call.op === "translate")).toHaveLength(0);
-  });
-
-  it("draws nothing for an empty model", () => {
-    const { ctx, calls } = recordingContext();
-    drawFrontierSupply2D(ctx, { links: [], chokepoints: new Map() }, deps());
-    expect(calls).toHaveLength(0);
+  it("skips routes that are entirely off screen, and draws nothing for an empty model", () => {
+    const far = recordingContext();
+    drawFrontierSupply2D(far.ctx, { links: [{ ...link(2, 3), from: { x: 90, y: 90 }, to: { x: 91, y: 90 } }] }, deps());
+    expect(strokes(far.calls)).toHaveLength(0);
+    const empty = recordingContext();
+    drawFrontierSupply2D(empty.ctx, { links: [] }, deps());
+    expect(empty.calls).toHaveLength(0);
   });
 });

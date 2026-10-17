@@ -1,51 +1,32 @@
-import {
-  Color,
-  DoubleSide,
-  Float32BufferAttribute,
-  InstancedBufferAttribute,
-  InstancedBufferGeometry,
-  InstancedMesh,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
-  RingGeometry,
-  Scene,
-  ShaderMaterial
-} from "three";
+import { BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, Scene, ShaderMaterial } from "three";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 import type { FrontierSupplyModel } from "./client-frontier-supply/client-frontier-supply.js";
-import {
-  SUPPLY_CHOKEPOINT_COLOR,
-  SUPPLY_FLOW_PERIOD_MS,
-  supplyChevronAlpha,
-  supplyChokepointPulse
-} from "./client-frontier-supply/client-frontier-supply-style.js";
+import { supplyRoutesFor, type SupplyRoute } from "./client-frontier-supply/client-frontier-supply-routes.js";
+import { SUPPLY_CORE_WHITE_MIX, SUPPLY_PULSE_SPACING, SUPPLY_PULSE_SPEED } from "./client-frontier-supply/client-frontier-supply-style.js";
 
-// True-3D renderer for frontier supply lines (the 2D counterpart is
-// client-frontier-supply/client-frontier-supply-2d.ts; both share
-// client-frontier-supply-style.ts). Faint chevrons flow outward along each
-// supply hop into frontier beyond the viewer's reach, amber where the hop
-// leaves a chokepoint; the pinch where a fragile stretch begins gets a
-// pulsing amber diamond.
+// True-3D renderer for frontier supply routes (the 2D counterpart is
+// client-frontier-supply/client-frontier-supply-2d.ts; both draw the routes
+// from client-frontier-supply-routes.ts in the look defined by
+// client-frontier-supply-style.ts).
 //
-// Chevrons are one InstancedBufferGeometry: each instance carries its hop's
-// two endpoints, an opacity, a fragile flag and a phase, and the vertex shader slides it
-// along the hop from a single time uniform -- per frame the CPU touches one
-// uniform, not every instance. Buffers are rebuilt only when the model or the
+// Every route is one ribbon in a single merged mesh. The ribbon is wider than
+// the visible route by RIBBON_EXTENT so the fragment shader can draw, from
+// the across-ribbon coordinate alone: a bright core, the empire-tinted body,
+// and a soft dark shadow edge that keeps it legible on any terrain. Pulses
+// travel along a per-vertex distance-from-supply attribute, so per frame the
+// CPU sets one time uniform. Geometry is rebuilt only when the model or the
 // scene origin changes.
 
-// Narrow (about 50 degrees open) so it still reads as an arrowhead on a
-// diagonal hop; a right-angled ">" turned 45 degrees reads as an "L".
-const CHEVRON_HALF_WIDTH = 0.15;
-const CHEVRON_LENGTH = 0.32;
-const CHEVRON_THICKNESS = 0.085;
-/** Chevrons sit on the viewer's own territory colour, so lift them toward white to read against it. */
-const CHEVRON_WHITE_MIX = 0.6;
-const RISE_ABOVE_SURFACE = 0.03;
-/** Hard bound on drawn hops, so a pathological empire can't grow GPU buffers without limit. */
-export const FRONTIER_SUPPLY_MAX_LINKS = 4_000;
-const CHEVRONS_PER_LINK = 2;
-const MAX_CHOKEPOINTS = 512;
+const RISE_ABOVE_SURFACE = 0.035;
+/** Ribbon half-width as a multiple of the visible route's half-width: the rest is the soft shadow edge. */
+const RIBBON_EXTENT = 1.9;
+const ARROW_HALF_WIDTH_SCALE = 2.1;
+const ARROW_MIN_HALF_WIDTH = 0.13;
+const ARROW_BACK = 0.12;
+const ARROW_FORWARD = 0.26;
+/** Hard bound on route vertices, so a pathological empire can't grow GPU buffers without limit. */
+export const FRONTIER_SUPPLY_MAX_VERTICES = 60_000;
 
 export type FrontierSupplyScenePoint = { sceneX: number; sceneZ: number; surfaceY: number };
 
@@ -65,137 +46,157 @@ export type FrontierSupplyOverlay = {
   readonly dispose: () => void;
 };
 
-/** A ">" made of two thin quads, pointing along local +Z, centred on the origin. */
-const buildChevronShape = (): { positions: number[]; indices: number[] } => {
-  const positions: number[] = [];
-  const indices: number[] = [];
-  const arm = (side: number): void => {
-    const base = positions.length / 3;
-    const tailX = side * CHEVRON_HALF_WIDTH;
-    const tailZ = -CHEVRON_LENGTH / 2;
-    const tipZ = CHEVRON_LENGTH / 2;
-    const t = CHEVRON_THICKNESS / 2;
-    positions.push(tailX, 0, tailZ - t, tailX, 0, tailZ + t, 0, 0, tipZ + t, 0, 0, tipZ - t);
-    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  };
-  arm(-1);
-  arm(1);
-  return { positions, indices };
-};
-
-const chevronMaterial = (): ShaderMaterial =>
+const routeMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
-    uniforms: { uFlow: { value: 0 }, uColor: { value: new Color("#ffffff") }, uWarn: { value: new Color(SUPPLY_CHOKEPOINT_COLOR) } },
+    uniforms: {
+      uTimeS: { value: 0 },
+      uBody: { value: new Color("#ffffff") },
+      uCore: { value: new Color("#ffffff") },
+      uExtent: { value: RIBBON_EXTENT },
+      uSpeed: { value: SUPPLY_PULSE_SPEED },
+      uSpacing: { value: SUPPLY_PULSE_SPACING }
+    },
     transparent: true,
     depthTest: false,
     depthWrite: false,
     side: DoubleSide,
     vertexShader: `
-      attribute vec3 aFrom;
-      attribute vec3 aTo;
+      attribute float aAcross;
+      attribute float aDistance;
       attribute float aAlpha;
-      attribute float aPhase;
-      attribute float aFragile;
-      uniform float uFlow;
+      attribute float aTip;
+      varying float vAcross;
+      varying float vDistance;
       varying float vAlpha;
-      varying float vFragile;
+      varying float vTip;
       void main() {
-        float f = fract(uFlow + aPhase);
-        vec2 hop = aTo.xz - aFrom.xz;
-        vec2 fwd = length(hop) > 1e-4 ? normalize(hop) : vec2(0.0, 1.0);
-        vec2 right = vec2(fwd.y, -fwd.x);
-        vec3 centre = mix(aFrom, aTo, f);
-        vec3 p = centre + vec3(right.x * position.x + fwd.x * position.z, position.y, right.y * position.x + fwd.y * position.z);
-        vAlpha = aAlpha * min(1.0, min(f / 0.15, (1.0 - f) / 0.15));
-        vFragile = aFragile;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        vAcross = aAcross; vDistance = aDistance; vAlpha = aAlpha; vTip = aTip;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform vec3 uColor;
-      uniform vec3 uWarn;
+      uniform float uTimeS;
+      uniform vec3 uBody;
+      uniform vec3 uCore;
+      uniform float uExtent;
+      uniform float uSpeed;
+      uniform float uSpacing;
+      varying float vAcross;
+      varying float vDistance;
       varying float vAlpha;
-      varying float vFragile;
+      varying float vTip;
       void main() {
-        gl_FragColor = vec4(mix(uColor, uWarn, vFragile), vAlpha);
+        // Pulse: sharp head moving outward, soft tail back toward supply (see supplyPulseAt).
+        float t = (vDistance - uTimeS * uSpeed) / uSpacing;
+        float behind = 1.0 - fract(t);
+        float pulse = min(1.0, behind / 0.04) * max(0.0, 1.0 - behind / 0.45);
+        if (vTip > 0.5) {
+          gl_FragColor = vec4(mix(uBody, uCore, 0.3 + 0.6 * pulse), vAlpha);
+          return;
+        }
+        float a = abs(vAcross) * uExtent; // 1.0 at the visible route edge
+        float inBody = 1.0 - smoothstep(0.78, 1.0, a);
+        float inShadow = (1.0 - smoothstep(1.0, uExtent, a)) * (1.0 - inBody);
+        float inCore = 1.0 - smoothstep(0.0, 0.5, a);
+        vec3 lit = mix(uBody, uCore, min(1.0, inCore * 0.7 + pulse * 0.9));
+        vec3 color = mix(lit, vec3(0.02, 0.03, 0.05), inShadow);
+        float alpha = (inBody * (0.82 + 0.18 * pulse) + inShadow * 0.38) * vAlpha;
+        gl_FragColor = vec4(color, alpha);
       }
     `
   });
 
+type RouteBuffers = {
+  positions: number[];
+  across: number[];
+  distance: number[];
+  alpha: number[];
+  tip: number[];
+  indices: number[];
+};
+
+const wrapCoord = (v: number, size: number): number => ((Math.round(v) % size) + size) % size;
+
+/** Appends one route's ribbon (and its arrowhead) to the merged buffers. Returns false once the vertex cap is hit. */
+const appendRoute = (out: RouteBuffers, route: SupplyRoute, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): boolean => {
+  const points = route.points;
+  if (points.length < 2) return true;
+  const extraVertices = points.length * 2 + (route.endsAtTip ? 3 : 0);
+  if (out.positions.length / 3 + extraVertices > FRONTIER_SUPPLY_MAX_VERTICES) return false;
+  const first = points[0]!;
+  const anchor = sceneFor(first.x, first.y);
+  const scene = points.map((p) => ({
+    x: anchor.sceneX + (p.x - first.x),
+    z: anchor.sceneZ + (p.y - first.y),
+    y: sceneFor(wrapCoord(p.x, WORLD_WIDTH), wrapCoord(p.y, WORLD_HEIGHT)).surfaceY + RISE_ABOVE_SURFACE
+  }));
+  const base = out.positions.length / 3;
+  for (let i = 0; i < points.length; i += 1) {
+    const prev = scene[Math.max(0, i - 1)]!;
+    const next = scene[Math.min(points.length - 1, i + 1)]!;
+    let tx = next.x - prev.x;
+    let tz = next.z - prev.z;
+    const len = Math.hypot(tx, tz) || 1;
+    tx /= len;
+    tz /= len;
+    const half = (points[i]!.width / 2) * RIBBON_EXTENT;
+    const s = scene[i]!;
+    out.positions.push(s.x - tz * half, s.y, s.z + tx * half, s.x + tz * half, s.y, s.z - tx * half);
+    out.across.push(-1, 1);
+    for (let k = 0; k < 2; k += 1) {
+      out.distance.push(points[i]!.distance);
+      out.alpha.push(points[i]!.alpha);
+      out.tip.push(0);
+    }
+    if (i > 0) {
+      const a = base + (i - 1) * 2;
+      out.indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  }
+  if (route.endsAtTip) {
+    const end = scene[scene.length - 1]!;
+    const before = scene[scene.length - 2]!;
+    const len = Math.hypot(end.x - before.x, end.z - before.z) || 1;
+    const dx = (end.x - before.x) / len;
+    const dz = (end.z - before.z) / len;
+    const last = points[points.length - 1]!;
+    const half = Math.max(ARROW_MIN_HALF_WIDTH, (last.width / 2) * ARROW_HALF_WIDTH_SCALE);
+    const bx = end.x - dx * ARROW_BACK;
+    const bz = end.z - dz * ARROW_BACK;
+    const tipIndex = out.positions.length / 3;
+    out.positions.push(bx - dz * half, end.y, bz + dx * half, bx + dz * half, end.y, bz - dx * half, end.x + dx * ARROW_FORWARD, end.y, end.z + dz * ARROW_FORWARD);
+    for (let k = 0; k < 3; k += 1) {
+      out.across.push(0);
+      out.distance.push(last.distance);
+      out.alpha.push(last.alpha);
+      out.tip.push(1);
+    }
+    out.indices.push(tipIndex, tipIndex + 1, tipIndex + 2);
+  }
+  return true;
+};
+
 export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay => {
-  const shape = buildChevronShape();
-  const geometry = new InstancedBufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(shape.positions, 3));
-  geometry.setIndex(shape.indices);
-  const capacity = FRONTIER_SUPPLY_MAX_LINKS * CHEVRONS_PER_LINK;
-  const aFrom = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-  const aTo = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-  const aAlpha = new InstancedBufferAttribute(new Float32Array(capacity), 1);
-  const aPhase = new InstancedBufferAttribute(new Float32Array(capacity), 1);
-  const aFragile = new InstancedBufferAttribute(new Float32Array(capacity), 1);
-  geometry.setAttribute("aFrom", aFrom);
-  geometry.setAttribute("aTo", aTo);
-  geometry.setAttribute("aAlpha", aAlpha);
-  geometry.setAttribute("aPhase", aPhase);
-  geometry.setAttribute("aFragile", aFragile);
-  geometry.instanceCount = 0;
-  const material = chevronMaterial();
-  const chevrons = new Mesh(geometry, material);
-  chevrons.frustumCulled = false; // instance positions live in attributes, not the base geometry's bounds
-  chevrons.renderOrder = 24;
-  scene.add(chevrons);
+  const geometry = new BufferGeometry();
+  const material = routeMaterial();
+  const routes = new Mesh(geometry, material);
+  routes.frustumCulled = false; // rebuilt in place; bounds would only lag behind
+  routes.renderOrder = 24;
+  scene.add(routes);
 
-  const ringGeometry = new RingGeometry(0.3, 0.38, 4, 1, 0); // 4 segments from angle 0: a diamond, matching the 2D marker
-  ringGeometry.rotateX(-Math.PI / 2);
-  const ringMaterial = new MeshBasicMaterial({
-    toneMapped: false,
-    color: SUPPLY_CHOKEPOINT_COLOR,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const rings = new InstancedMesh(ringGeometry, ringMaterial, MAX_CHOKEPOINTS);
-  rings.count = 0;
-  rings.frustumCulled = false;
-  rings.renderOrder = 25;
-  scene.add(rings);
-
-  const tmpMatrix = new Matrix4();
   const white = new Color("#ffffff");
   let lastModel: FrontierSupplyModel | undefined;
   let lastPlacementKey = "";
 
   const rebuild = (model: FrontierSupplyModel, sceneFor: (x: number, y: number) => FrontierSupplyScenePoint): void => {
-    let n = 0;
-    for (const link of model.links) {
-      if (n / CHEVRONS_PER_LINK >= FRONTIER_SUPPLY_MAX_LINKS) break;
-      const from = sceneFor(link.from.x, link.from.y);
-      const to = sceneFor(link.to.x, link.to.y);
-      const alpha = supplyChevronAlpha(link.depthBeyondReach);
-      for (let c = 0; c < CHEVRONS_PER_LINK; c += 1) {
-        aFrom.setXYZ(n, from.sceneX, from.surfaceY + RISE_ABOVE_SURFACE, from.sceneZ);
-        aTo.setXYZ(n, to.sceneX, to.surfaceY + RISE_ABOVE_SURFACE, to.sceneZ);
-        aAlpha.setX(n, alpha);
-        aPhase.setX(n, c / CHEVRONS_PER_LINK);
-        aFragile.setX(n, link.fragile ? 1 : 0);
-        n += 1;
-      }
-    }
-    geometry.instanceCount = n;
-    for (const attribute of [aFrom, aTo, aAlpha, aPhase, aFragile]) attribute.needsUpdate = true;
-
-    let r = 0;
-    for (const choke of model.chokepoints.values()) {
-      if (r >= MAX_CHOKEPOINTS) break;
-      if (!choke.pinch) continue;
-      const at = sceneFor(choke.x, choke.y);
-      tmpMatrix.makeTranslation(at.sceneX, at.surfaceY + RISE_ABOVE_SURFACE, at.sceneZ);
-      rings.setMatrixAt(r, tmpMatrix);
-      r += 1;
-    }
-    rings.count = r;
-    rings.instanceMatrix.needsUpdate = true;
+    const out: RouteBuffers = { positions: [], across: [], distance: [], alpha: [], tip: [], indices: [] };
+    for (const route of supplyRoutesFor(model)) if (!appendRoute(out, route, sceneFor)) break;
+    geometry.setAttribute("position", new Float32BufferAttribute(out.positions, 3));
+    geometry.setAttribute("aAcross", new Float32BufferAttribute(out.across, 1));
+    geometry.setAttribute("aDistance", new Float32BufferAttribute(out.distance, 1));
+    geometry.setAttribute("aAlpha", new Float32BufferAttribute(out.alpha, 1));
+    geometry.setAttribute("aTip", new Float32BufferAttribute(out.tip, 1));
+    geometry.setIndex(out.indices);
   };
 
   const sync: FrontierSupplyOverlay["sync"] = (model, sceneFor, placementKey, ownerColor, nowMs) => {
@@ -204,24 +205,17 @@ export const createFrontierSupplyOverlay = (scene: Scene): FrontierSupplyOverlay
       lastModel = model;
       lastPlacementKey = placementKey;
     }
-    (material.uniforms.uColor!.value as Color).set(ownerColor).lerp(white, CHEVRON_WHITE_MIX);
-    material.uniforms.uFlow!.value = (nowMs / SUPPLY_FLOW_PERIOD_MS) % 1;
-    const pulse = supplyChokepointPulse(nowMs);
-    ringMaterial.opacity = 0.45 + 0.45 * pulse;
-    chevrons.visible = geometry.instanceCount > 0;
-    rings.visible = rings.count > 0;
+    (material.uniforms.uBody!.value as Color).set(ownerColor).lerp(white, 0.2);
+    (material.uniforms.uCore!.value as Color).set(ownerColor).lerp(white, SUPPLY_CORE_WHITE_MIX + 0.3);
+    material.uniforms.uTimeS!.value = nowMs / 1000;
+    routes.visible = (geometry.index?.count ?? 0) > 0;
   };
 
   const dispose = (): void => {
-    scene.remove(chevrons);
-    scene.remove(rings);
+    scene.remove(routes);
     geometry.dispose();
     material.dispose();
-    ringGeometry.dispose();
-    ringMaterial.dispose();
-    rings.dispose();
   };
 
   return { sync, dispose };
 };
-

@@ -1,6 +1,6 @@
 /**
- * Frontier supply lines: which way supply flows into the viewer's frontier
- * that sits beyond their reach, and which single tiles hold it together.
+ * Frontier supply lines: which way supply flows out to the viewer's frontier
+ * that sits beyond their reach.
  *
  * Mirrors the simulation's encirclement rule
  * (apps/simulation/src/encirclement/encirclement.ts): a FRONTIER tile stays
@@ -11,17 +11,14 @@
  * only thing keeping it -- this model is what the map draws to make that
  * visible.
  *
- * - `links`: one supply hop per beyond-reach tile, parent (closer to supply)
- *   -> child, from a multi-source BFS. Drawn as flowing chevrons; a hop out
- *   of a chokepoint is `fragile` and drawn as a warning.
- * - `chokepoints`: FRONTIER tiles whose loss alone would cut beyond-reach
- *   tiles off from supply (articulation points of the supply graph), with
- *   how many tiles depend on each. `pinch` marks the first chokepoint of a
- *   fragile stretch (its supply parent isn't one), so a one-wide snake gets
- *   one marker where it narrows rather than one on every tile.
+ * A multi-source BFS gives every tile its fewest-steps route back to supply
+ * (ties prefer straight steps). Lines are drawn only out to the frontier's
+ * tips -- tiles with nothing of the viewer's further out -- so a snake or a
+ * branch gets one line, and a wide area gets a few lines to its far edge
+ * instead of a line into every tile. Side-by-side tips at the same distance
+ * (the edge of a block, the end of a two-wide corridor) share one line.
  *
- * Pure and O(owned tiles): one pass to collect the viewer's tiles, a BFS, and
- * an iterative Tarjan DFS (no recursion -- a long snake would blow the stack).
+ * Pure and O(owned tiles).
  */
 
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
@@ -39,22 +36,14 @@ export type FrontierSupplyLink = {
   to: { x: number; y: number };
   /** Hops beyond reach at the child end (1 = first tile past the reach edge). Drawn fainter the further out it is. */
   depthBeyondReach: number;
-  /** The hop leaves a chokepoint: losing `from` would cut `to` off. */
-  fragile: boolean;
-};
-
-export type FrontierSupplyChokepoint = {
-  x: number;
-  y: number;
-  /** Owned FRONTIER tiles that would be cut off from supply if this tile were lost. */
-  dependentTiles: number;
-  /** First chokepoint of a fragile stretch: where the supply line narrows to one tile. */
-  pinch: boolean;
+  /** Beyond-reach tiles this hop carries: everything fed through `to`, plus undrawn branches beside it that the line stands in for. Drawn as line thickness. */
+  downstream: number;
+  /** `to` is a frontier tip the line ends at: drawn with an arrowhead. */
+  tip: boolean;
 };
 
 export type FrontierSupplyModel = {
   links: FrontierSupplyLink[];
-  chokepoints: Map<string, FrontierSupplyChokepoint>;
 };
 
 export type FrontierSupplyInput = {
@@ -68,7 +57,7 @@ export type FrontierSupplyInput = {
   worldHeight?: number;
 };
 
-export const EMPTY_FRONTIER_SUPPLY_MODEL: FrontierSupplyModel = { links: [], chokepoints: new Map() };
+export const EMPTY_FRONTIER_SUPPLY_MODEL: FrontierSupplyModel = { links: [] };
 
 const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1], [0, -1], [1, -1],
@@ -166,92 +155,100 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     depth[i] = beyondReach(i) ? depth[best]! + 1 : 0;
   }
 
-  const chokepoints = findChokepoints(adjacency, isSource, nodeTiles, beyondReach);
-  const tileKeyOf = (i: number): string => key(nodeTiles[i]!.x, nodeTiles[i]!.y);
-  for (const [chokeKey, chokepoint] of chokepoints) {
-    const from = parent[indexByKey.get(chokeKey)!]!;
-    chokepoint.pinch = !(from > 0 && chokepoints.has(tileKeyOf(from)));
+  // How many beyond-reach tiles each hop feeds: accumulate up the supply
+  // tree in reverse BFS order, so every child is counted before its parent.
+  const fed = new Int32Array(nodeCount);
+  for (let n = tail - 1; n >= 1; n -= 1) {
+    const i = order[n]!;
+    if (beyondReach(i)) fed[i]! += 1;
+    if (parent[i]! > 0) fed[parent[i]!]! += fed[i]!;
+  }
+
+  // Tips: where the frontier ends. Group side-by-side beyond-reach tiles at
+  // the same distance from supply; a group is an edge of the frontier only if
+  // none of its tiles has a neighbour further out (so a block's near corners,
+  // which sit level with tiles that lead on, don't count, and nor does the
+  // point where two arms of a loop meet). Each edge gets one line, into its
+  // middle tile.
+  const isTip = new Uint8Array(nodeCount);
+  const grouped = new Uint8Array(nodeCount);
+  for (let n = 1; n < tail; n += 1) {
+    const seed = order[n]!;
+    if (grouped[seed] === 1 || !beyondReach(seed)) continue;
+    const group: number[] = [seed];
+    grouped[seed] = 1;
+    let leadsFurther = false;
+    for (let g = 0; g < group.length; g += 1) {
+      const i = group[g]!;
+      for (const j of adjacency[i]!) {
+        if (level[j]! > level[i]!) leadsFurther = true;
+        if (level[j] === level[i] && grouped[j] === 0 && beyondReach(j)) {
+          grouped[j] = 1;
+          group.push(j);
+        }
+      }
+    }
+    if (leadsFurther) continue;
+    // Middle tile: nearest the group's centre (offsets from the seed, so a group straddling the world seam still averages correctly).
+    const seedTile = nodeTiles[seed]!;
+    const offset = (i: number): [number, number] => {
+      const dx = nodeTiles[i]!.x - seedTile.x;
+      const dy = nodeTiles[i]!.y - seedTile.y;
+      return [dx - Math.round(dx / width) * width, dy - Math.round(dy / height) * height];
+    };
+    let cx = 0;
+    let cy = 0;
+    for (const i of group) {
+      const [dx, dy] = offset(i);
+      cx += dx / group.length;
+      cy += dy / group.length;
+    }
+    let middle = seed;
+    let best = Infinity;
+    for (const i of group) {
+      const [dx, dy] = offset(i);
+      const d = (dx - cx) ** 2 + (dy - cy) ** 2;
+      if (d < best) { best = d; middle = i; }
+    }
+    isTip[middle] = 1;
+  }
+
+  // Keep only the hops on a route out to a tip.
+  const onRoute = new Uint8Array(nodeCount);
+  for (let i = 1; i < nodeCount; i += 1) {
+    if (isTip[i] !== 1) continue;
+    for (let node = i; node > 0 && beyondReach(node) && onRoute[node] === 0; node = parent[node]!) onRoute[node] = 1;
+  }
+
+  // A drawn line stands in for the undrawn land beside it: give each drawn
+  // hop the weight of its pruned sibling branches too, so the single line into
+  // a wide block draws as thick as the land it carries.
+  const carried = Int32Array.from(fed);
+  const firstDrawnChild = new Int32Array(nodeCount).fill(-1);
+  for (let i = 1; i < nodeCount; i += 1) {
+    if (onRoute[i] === 1 && parent[i]! >= 0 && firstDrawnChild[parent[i]!] === -1) firstDrawnChild[parent[i]!] = i;
+  }
+  for (let i = 1; i < nodeCount; i += 1) {
+    const p = parent[i]!;
+    if (onRoute[i] === 1 || p < 0 || !beyondReach(i)) continue;
+    const stand = firstDrawnChild[p]!;
+    if (stand > 0) carried[stand]! += fed[i]!;
   }
 
   const links: FrontierSupplyLink[] = [];
   for (let i = 1; i < nodeCount; i += 1) {
     const from = parent[i]!;
-    if (from <= 0 || !beyondReach(i)) continue;
+    if (from <= 0 || onRoute[i] !== 1) continue;
     const fromTile = nodeTiles[from]!;
     const toTile = nodeTiles[i]!;
     links.push({
       from: { x: fromTile.x, y: fromTile.y },
       to: { x: toTile.x, y: toTile.y },
       depthBeyondReach: depth[i]!,
-      fragile: chokepoints.has(tileKeyOf(from))
+      downstream: carried[i]!,
+      tip: isTip[i] === 1
     });
   }
 
-  return { links, chokepoints };
-};
-
-/**
- * Articulation points of the supply graph (iterative Tarjan from the root).
- * Removing non-source vertex v disconnects the DFS subtree of each child c
- * with low[c] >= disc[v]. Only FRONTIER (non-source) tiles qualify -- those
- * are the instantly capturable ones -- and only when what they hold up
- * includes at least one beyond-reach tile, which is where the map is meant to
- * warn.
- */
-const findChokepoints = (
-  adjacency: number[][],
-  isSource: boolean[],
-  nodeTiles: Array<FrontierSupplyTile | undefined>,
-  beyondReach: (i: number) => boolean
-): Map<string, FrontierSupplyChokepoint> => {
-  const nodeCount = adjacency.length;
-  const disc = new Int32Array(nodeCount).fill(-1);
-  const low = new Int32Array(nodeCount);
-  const subtreeSize = new Int32Array(nodeCount);
-  const subtreeBeyond = new Int32Array(nodeCount);
-  const cutSize = new Int32Array(nodeCount);
-  const cutBeyond = new Int32Array(nodeCount);
-  const edgeCursor = new Int32Array(nodeCount);
-  const stack: number[] = [0];
-  const dfsParent = new Int32Array(nodeCount).fill(-1);
-  let time = 0;
-  disc[0] = low[0] = time++;
-  subtreeSize[0] = 1;
-
-  while (stack.length > 0) {
-    const v = stack[stack.length - 1]!;
-    const edges = adjacency[v]!;
-    if (edgeCursor[v]! < edges.length) {
-      const w = edges[edgeCursor[v]!]!;
-      edgeCursor[v]! += 1;
-      if (disc[w] === -1) {
-        dfsParent[w] = v;
-        disc[w] = low[w] = time++;
-        subtreeSize[w] = 1;
-        subtreeBeyond[w] = beyondReach(w) ? 1 : 0;
-        stack.push(w);
-      } else if (w !== dfsParent[v]) {
-        low[v] = Math.min(low[v]!, disc[w]!);
-      }
-      continue;
-    }
-    stack.pop();
-    const p = dfsParent[v]!;
-    if (p < 0) continue;
-    low[p] = Math.min(low[p]!, low[v]!);
-    subtreeSize[p]! += subtreeSize[v]!;
-    subtreeBeyond[p]! += subtreeBeyond[v]!;
-    if (low[v]! >= disc[p]!) {
-      cutSize[p]! += subtreeSize[v]!;
-      cutBeyond[p]! += subtreeBeyond[v]!;
-    }
-  }
-
-  const chokepoints = new Map<string, FrontierSupplyChokepoint>();
-  for (let v = 1; v < nodeCount; v += 1) {
-    if (isSource[v] || cutBeyond[v]! === 0) continue;
-    const tile = nodeTiles[v]!;
-    chokepoints.set(`${tile.x},${tile.y}`, { x: tile.x, y: tile.y, dependentTiles: cutSize[v]!, pinch: false }); // pinch filled in by the caller
-  }
-  return chokepoints;
+  return { links };
 };

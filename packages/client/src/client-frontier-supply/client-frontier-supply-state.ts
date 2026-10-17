@@ -1,6 +1,6 @@
 import { reachCacheKey, resolveMyReachCached, type ReachCacheState } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ActiveAetherBridgeView } from "../client-types.js";
-import { computeFrontierSupplyModel, EMPTY_FRONTIER_SUPPLY_MODEL, type FrontierSupplyChokepoint, type FrontierSupplyModel } from "./client-frontier-supply.js";
+import { computeFrontierSupplyModel, EMPTY_FRONTIER_SUPPLY_MODEL, type FrontierSupplyModel } from "./client-frontier-supply.js";
 
 /** The subset of ClientState the supply model reads. */
 export type FrontierSupplyState = ReachCacheState & { activeAetherBridges: readonly ActiveAetherBridgeView[] };
@@ -28,7 +28,7 @@ const bridgeLinksFor = (state: FrontierSupplyState, nowMs: number): Array<readon
 /**
  * The viewer's frontier supply model, memoised per state on the reach cache
  * key plus the viewer's live Aether bridges. Safe to call every frame from
- * both renderers and the tile menu. `wallNowMs` is epoch time (bridge expiry
+ * both renderers. `wallNowMs` is epoch time (bridge expiry
  * is server epoch ms).
  */
 export const frontierSupplyModelForState = (state: FrontierSupplyState, wallNowMs = Date.now()): FrontierSupplyModel => {
@@ -42,19 +42,3 @@ export const frontierSupplyModelForState = (state: FrontierSupplyState, wallNowM
   return model;
 };
 
-/** A state that may or may not carry everything the supply model needs (e.g. the tile menu's narrow deps.state). */
-export type PartialFrontierSupplyState = { me: string } & Partial<Omit<FrontierSupplyState, "me">>;
-
-const isFrontierSupplyState = (state: PartialFrontierSupplyState): state is FrontierSupplyState =>
-  state.tiles !== undefined &&
-  typeof state.tilesRevision === "number" &&
-  typeof state.serverReachRevision === "number" &&
-  typeof state.myReachRevisionAtCompute === "string" &&
-  state.activeAetherBridges !== undefined;
-
-/** The chokepoint at `tile`, if the viewer's supply line runs through it; undefined when the state can't say. */
-export const frontierSupplyChokepointForState = (
-  state: PartialFrontierSupplyState,
-  tile: { x: number; y: number }
-): FrontierSupplyChokepoint | undefined =>
-  isFrontierSupplyState(state) ? frontierSupplyModelForState(state).chokepoints.get(`${tile.x},${tile.y}`) : undefined;

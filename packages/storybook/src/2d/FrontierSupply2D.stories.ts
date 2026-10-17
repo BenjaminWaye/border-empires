@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { drawFrontierSupply2D } from "@client/client-frontier-supply/client-frontier-supply-2d.js";
 import { drawReachBoundaryLine } from "@client/client-reach-overlay/client-reach-overlay.js";
-import { buildSupplyDemoWorld, DEMO_COLOR, DEMO_WORLD, SUPPLY_SCENARIO_DESCRIPTIONS, type SupplyScenario } from "../frontier-supply/frontier-supply-demo-world.js";
+import { buildSupplyDemoWorld, DEMO_COLOR, DEMO_RIVAL, DEMO_RIVAL_COLOR, DEMO_WORLD, rerouteCapturesAt, SUPPLY_SCENARIO_DESCRIPTIONS, type SupplyScenario } from "../frontier-supply/frontier-supply-demo-world.js";
 
 /**
  * The real 2D-canvas frontier supply renderer (client-frontier-supply-2d.ts,
@@ -10,13 +10,15 @@ import { buildSupplyDemoWorld, DEMO_COLOR, DEMO_WORLD, SUPPLY_SCENARIO_DESCRIPTI
  * plain stand-in for the 2D terrain/ownership pass.
  */
 
-type Args = { scenario: SupplyScenario; tileSize: number };
+type Args = { scenario: SupplyScenario; tileSize: number; reroutePhaseMs: number };
 
 const PAD_TILES = 2;
 const GROUND = "#3f5d3a";
 
 const render = (args: Args): HTMLElement => {
-  const world = buildSupplyDemoWorld(args.scenario);
+  let world = buildSupplyDemoWorld(args.scenario);
+  let capturesKey = "";
+  const start = performance.now();
   const size = args.tileSize;
   const originX = world.minX - PAD_TILES;
   const originY = world.minY - PAD_TILES;
@@ -34,13 +36,21 @@ const render = (args: Args): HTMLElement => {
   root.append(caption, canvas);
   const ctx = canvas.getContext("2d")!;
 
-  const owned = new Map(world.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+  let owned = new Map(world.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
   const wrap = (v: number): number => ((v % DEMO_WORLD) + DEMO_WORLD) % DEMO_WORLD;
   const reachDeps = { keyFor: (x: number, y: number) => `${x},${y}`, wrapX: wrap, wrapY: wrap };
 
   let rafId = 0;
   const frame = (): void => {
     const nowMs = performance.now();
+    if (args.scenario === "reroute") {
+      const captures = rerouteCapturesAt(nowMs - start, args.reroutePhaseMs);
+      if (captures.join("|") !== capturesKey) {
+        capturesKey = captures.join("|");
+        world = buildSupplyDemoWorld(args.scenario, captures);
+        owned = new Map(world.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+      }
+    }
     ctx.fillStyle = GROUND;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     for (let row = 0; row < rows; row += 1) {
@@ -49,17 +59,16 @@ const render = (args: Args): HTMLElement => {
         const y = originY + row;
         const tile = owned.get(`${x},${y}`);
         if (!tile) continue;
-        ctx.globalAlpha = tile.ownershipState === "SETTLED" ? 0.75 : 0.32;
-        ctx.fillStyle = DEMO_COLOR;
+        const rival = tile.ownerId === DEMO_RIVAL;
+        ctx.globalAlpha = tile.ownershipState === "SETTLED" ? 0.75 : rival ? 0.6 : 0.32;
+        ctx.fillStyle = rival ? DEMO_RIVAL_COLOR : DEMO_COLOR;
         ctx.fillRect(col * size + 1, row * size + 1, size - 2, size - 2);
         ctx.globalAlpha = 1;
-        drawReachBoundaryLine(ctx, x, y, col * size, row * size, size, world.reach, DEMO_COLOR, reachDeps);
+        if (!rival) drawReachBoundaryLine(ctx, x, y, col * size, row * size, size, world.reach, DEMO_COLOR, reachDeps);
       }
     }
     drawFrontierSupply2D(ctx, world.model, {
       tileCenter: (x, y) => ({ sx: (x - originX + 0.5) * size, sy: (y - originY + 0.5) * size }),
-      wrapDeltaX: (from, to) => to - from,
-      wrapDeltaY: (from, to) => to - from,
       size,
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
@@ -93,10 +102,11 @@ const meta: Meta<Args> = {
     }
   },
   argTypes: {
-    scenario: { control: "inline-radio", options: ["snake", "corridor", "branching"] },
+    scenario: { control: "inline-radio", options: ["snake", "corridor", "branching", "reroute"] },
+    reroutePhaseMs: { control: { type: "range", min: 1000, max: 8000, step: 500 } },
     tileSize: { control: { type: "range", min: 12, max: 48, step: 2 } }
   },
-  args: { scenario: "snake", tileSize: 32 },
+  args: { scenario: "snake", tileSize: 32, reroutePhaseMs: 3000 },
   render
 };
 
@@ -106,6 +116,7 @@ type Story = StoryObj<Args>;
 export const Snake: Story = {};
 export const Corridor: Story = { args: { scenario: "corridor" } };
 export const Branching: Story = { args: { scenario: "branching" } };
+export const Reroute: Story = { args: { scenario: "reroute" } };
 export const SmallTiles: Story = {
   args: { tileSize: 16 },
   parameters: { docs: { description: { story: "Zoomed out: one chevron per hop instead of two, so the stream stays readable." } } }
