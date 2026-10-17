@@ -17,7 +17,7 @@ import {
 // at touchdown; (4) persists "played" when the drop completes.
 
 export type AfcJoinDropTickState = MapUnobstructedState &
-  Pick<ClientState, "me" | "tiles" | "tilesRevision" | "connection" | "firstChunkAt" | "camX" | "camY" | "afcJoinDrop" | "afcJoinDropFxQueue">;
+  Pick<ClientState, "me" | "tiles" | "tilesRevision" | "connection" | "firstChunkAt" | "camX" | "camY" | "afcJoinDrop" | "afcJoinDropFxQueue" | "homeTile" | "selected">;
 
 export type AfcJoinDropTickDeps = {
   readonly state: AfcJoinDropTickState;
@@ -86,6 +86,18 @@ const findFreshOwnAfc = (deps: AfcJoinDropTickDeps): FreshAfc | undefined => {
   return best;
 };
 
+// A connect INIT re-selects state.homeTile as a side effect of recentering,
+// so a freshly landed AFC (or the spawn tile beside it) would otherwise wear
+// the selection marker the player never asked for. Drop that auto-selection
+// when the landing arms; anything the player clicks afterwards stays.
+const clearAutoSelectionAtLanding = (state: AfcJoinDropTickState, x: number, y: number): void => {
+  const selected = state.selected;
+  if (!selected) return;
+  const isAfc = selected.x === x && selected.y === y;
+  const isHome = state.homeTile !== undefined && selected.x === state.homeTile.x && selected.y === state.homeTile.y;
+  if (isAfc || isHome) state.selected = undefined;
+};
+
 const gateOpen = (deps: AfcJoinDropTickDeps, x: number, y: number): boolean =>
   deps.tabVisible &&
   deps.state.connection === "initialized" &&
@@ -132,6 +144,7 @@ export const tickAfcJoinDrop = (deps: AfcJoinDropTickDeps): void => {
     Object.assign(drop, {
       phase: "waiting", x: fresh.x, y: fresh.y, tipId, waitingSince: nowMs, gateOpenSince: 0, startedAt: 0, landsAt: 0, revealed: false
     });
+    clearAutoSelectionAtLanding(state, fresh.x, fresh.y);
     deps.onTileChanged(fresh.x, fresh.y);
     return;
   }

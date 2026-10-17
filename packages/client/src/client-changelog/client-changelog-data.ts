@@ -462,6 +462,17 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Spikes only appear where the enemy touches your own land, and the line stops at the old border when they push across it",
       "The 2D map keeps the plain outline for now"
     ]
+  },
+  {
+    createdAt: 1792265619894,
+    introducedIn: "2026.10.17.1",
+    title: "Better Relay Beacon tips after landing",
+    why: "Right after your AFC landed, the AFC tile was selected for no reason, and the guide suggested building your first Relay Beacon on the AFC. A beacon there shows almost nothing your AFC can't already see.",
+    changes: [
+      "Your AFC no longer lands with its tile selected",
+      "The suggested Relay Beacon spot now goes by how much new land it shows you and brings into reach, so it usually sits at the edge of your land instead of on the AFC",
+      "The suggested spot can be frontier land: Build Relay Beacon there garrisons the tile first, then builds"
+    ]
   }
 ];
 
