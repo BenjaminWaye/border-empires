@@ -41,10 +41,10 @@ describe("build menu building art", () => {
   });
 
   it("scales the crop box to fill the slot and centres it", () => {
-    // manufactory art box [0.098, 0.117, 0.699, 0.695]: scale 1/0.699 = 143.06%,
-    // left -0.098*1.4306 + (1-1)/2 = -14.02%, top -0.117*1.4306 + (1-0.9943)/2 = -16.45%
+    // Manufactory art box [0.06, 0.07, 0.89, 0.90]: scale 1/0.90 = 111.11%,
+    // left -0.06/0.90 + (1-0.89/0.90)/2 = -6.11%, top -0.07/0.90 = -7.78%.
     const html = buildActionIconHtml("build_manufactory") ?? "";
-    expect(html).toContain('style="width:143.06%;height:143.06%;left:-14.02%;top:-16.45%"');
+    expect(html).toContain('style="width:111.11%;height:111.11%;left:-6.11%;top:-7.78%"');
   });
 
   it("shows the building's own map art for buildings that have it", () => {
