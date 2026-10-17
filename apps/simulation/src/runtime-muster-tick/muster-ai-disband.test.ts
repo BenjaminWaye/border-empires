@@ -13,8 +13,9 @@ const buildRuntime = (clock: { nowMs: number }, neighbor: { ownerId: string; own
   new SimulationRuntime({
     now: () => clock.nowMs,
     initialPlayers: new Map([
-      ["ai-1", buildPlayer("ai-1", { isAi: true, manpower: 5_000 })],
-      ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
+      // Established empires (manpowerUpdatedAt set): no one-time landing reserve.
+      ["ai-1", buildPlayer("ai-1", { isAi: true, manpower: 5_000, manpowerUpdatedAt: clock.nowMs })],
+      ["player-2", buildPlayer("player-2", { manpower: 5_000, manpowerUpdatedAt: clock.nowMs })]
     ]),
     seedTiles: new Map(),
     initialState: {

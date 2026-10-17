@@ -19,8 +19,9 @@ function runtimeFor(tiles: DomainTileState[], techIds: string[], now = () => 100
   for (const tile of tiles) if (tile.afc?.ownerId === "ai-1") tile.afc.modules = [...techIds];
   return new SimulationRuntime({ now,
     initialPlayers: new Map([
-      ["ai-1", buildPlayer("ai-1", { isAi: true, points: 5000, manpower, techIds: new Set(techIds) })],
-      ["enemy", buildPlayer("enemy", { points: 5000, manpower: 1000 })]
+      // Established empires (manpowerUpdatedAt set): no one-time landing reserve.
+      ["ai-1", buildPlayer("ai-1", { isAi: true, points: 5000, manpower, manpowerUpdatedAt: now(), techIds: new Set(techIds) })],
+      ["enemy", buildPlayer("enemy", { points: 5000, manpower: 1000, manpowerUpdatedAt: now() })]
     ]), initialState: { tiles, activeLocks: [] } });
 }
 async function applyPlan(runtime: SimulationRuntime, expectedType: CommandEnvelope["type"], worker = false) {

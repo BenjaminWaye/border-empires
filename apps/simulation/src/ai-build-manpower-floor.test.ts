@@ -14,6 +14,7 @@ const makePlayer = (id: string, isAi: boolean, manpower: number) => ({
   isAi,
   points: 10_000,
   manpower,
+  manpowerUpdatedAt: 1_000, // established empires: no one-time landing reserve
   techIds: new Set<string>(),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },

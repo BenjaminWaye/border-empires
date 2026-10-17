@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NEW_PLAYER_AUTO_SETTLE_PREFS, type AutoSettlePrefs } from "@border-empires/shared";
+import { LANDING_MANPOWER_RESERVE, NEW_PLAYER_AUTO_SETTLE_PREFS, type AutoSettlePrefs } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -124,7 +124,8 @@ describe("join / spawn does not spend manpower on a new human", () => {
     expect(settlementStartedTileKeys(seen)).toEqual([]);
     const player = runtime.exportState().players.find((p) => p.id === "newbie");
     expect(player?.autoSettle).toEqual(NEW_PLAYER_AUTO_SETTLE_PREFS);
-    expect(player?.manpower).toBe(720);
+    // Full starting manpower plus the one-time landing reserve, nothing spent.
+    expect(player?.manpower).toBe(720 + LANDING_MANPOWER_RESERVE);
   });
 
   it("control: the same spawn for an established (legacy) player does auto-settle the farmland", () => {

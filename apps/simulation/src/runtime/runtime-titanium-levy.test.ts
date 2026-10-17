@@ -41,6 +41,7 @@ describe("The Titanium Levy muster ability", () => {
       buildPlayer("player-1", {
         points: 10_000,
         manpower: options.manpower ?? 10_000,
+        manpowerUpdatedAt: 1_000, // established empire: no one-time landing reserve
         techIds: new Set<string>()
       })
     );

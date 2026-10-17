@@ -14,6 +14,7 @@ describe("exportAiPlayerMetricsSnapshot", () => {
     isAi: id.startsWith("ai-"),
     points: id === "ai-1" ? 27_856 : 500,
     manpower: 500,
+    manpowerUpdatedAt: 60_000, // established empires: no one-time landing reserve
     techIds: new Set<string>(),
     domainIds: new Set<string>(),
     mods: { attack: 1, defense: 1, income: 1, vision: 1 },
