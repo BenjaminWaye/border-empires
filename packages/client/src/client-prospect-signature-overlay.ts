@@ -32,17 +32,17 @@ const drawFerrousFlecks = (ctx: CanvasRenderingContext2D, wx: number, wy: number
 
 const drawCrystalShards = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   const count = prospectCluePropCount("REFRACTIVE_GROUND", wx, wy);
-  // Slow twinkle so the ground reads as refracting light, staggered per tile.
-  const glint = 0.55 + 0.45 * Math.sin(Date.now() / 700 + wx * 0.9 + wy * 0.6);
+  // Faint, slow twinkle staggered per tile: a clue, not a crystal deposit, so it stays understated.
+  const glint = 0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.9 + wy * 0.6);
   for (let i = 0; i < count; i += 1) {
     const { ox, oy } = prospectCluePropOffset(wx, wy, i);
-    const s = 0.8 + (prospectClueJitter(wx, wy, 109 + i * 3) + 0.5) * 0.6;
-    const halfW = size * 0.05 * s;
-    const height = size * 0.2 * s;
+    const s = 0.6 + (prospectClueJitter(wx, wy, 109 + i * 3) + 0.5) * 0.3;
+    const halfW = size * 0.04 * s;
+    const height = size * 0.11 * s;
     const lean = prospectClueJitter(wx, wy, 113 + i * 3) * halfW * 1.6;
     const cx = px + size * (0.5 + ox);
     const baseY = py + size * (0.5 + oy) + height * 0.3;
-    ctx.fillStyle = "rgba(63, 200, 230, 0.9)";
+    ctx.fillStyle = "rgba(196, 222, 220, 0.7)";
     ctx.beginPath();
     ctx.moveTo(cx + lean, baseY - height);
     ctx.lineTo(cx + halfW, baseY - height * 0.35);
@@ -50,7 +50,7 @@ const drawCrystalShards = (ctx: CanvasRenderingContext2D, wx: number, wy: number
     ctx.lineTo(cx - halfW, baseY - height * 0.35);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = `rgba(232, 252, 255, ${0.5 + glint * 0.45})`;
+    ctx.fillStyle = `rgba(245, 252, 252, ${0.15 + glint * 0.35})`;
     ctx.beginPath();
     ctx.moveTo(cx + lean, baseY - height);
     ctx.lineTo(cx - halfW * 0.6, baseY - height * 0.4);

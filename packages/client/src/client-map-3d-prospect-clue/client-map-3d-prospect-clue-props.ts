@@ -1,7 +1,7 @@
 // True-3D props for the worldgen prospect clues (client-prospect-clue.ts), so
 // a clue tile shows the thing its name describes (there is no ground tint):
 // gaunt violet-black blackwood trees, rust-red ferrous flecks, and
-// glinting cyan crystal shards. The 2D-canvas twin is
+// a few pale, half-buried crystal glints. The 2D-canvas twin is
 // client-prospect-signature-overlay.ts; keep the two in step (AGENTS.md
 // renderer parity). Blackwood on a tile that already grows forest does not
 // add trees here -- the caller darkens that tile's own trees with
@@ -48,9 +48,10 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
   // Ferrous dust: squat rust pebbles scattered over the ground.
   const fleckGeometry = new IcosahedronGeometry(0.045, 0);
   const fleckMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#b4582c", roughness: 0.7, metalness: 0.35, flatShading: true }));
-  // Refractive ground: small glowing crystal shards poking out of the soil.
-  const shardGeometry = new OctahedronGeometry(0.05, 0);
-  const shardMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#b8f6ff", emissive: "#3fc8e6", emissiveIntensity: 0.55, roughness: 0.15, metalness: 0.05, flatShading: true }));
+  // Refractive ground: a clue, not the deposit -- so only a pale glassy tip
+  // or two catching the light, not bright glowing crystals.
+  const shardGeometry = new OctahedronGeometry(0.035, 0);
+  const shardMaterial = markUnexploredStormClip(new MeshStandardMaterial({ color: "#cfe3e0", emissive: "#7fb8c0", emissiveIntensity: 0.12, roughness: 0.25, metalness: 0.1, flatShading: true }));
 
   const blackwoodCanopyMesh = new InstancedMesh(blackwoodCanopyGeometry, blackwoodCanopyMaterial, maxTiles * prospectCluePropMax("BLACKWOOD_CANOPY"));
   const blackwoodTrunkMesh = new InstancedMesh(blackwoodTrunkGeometry, blackwoodTrunkMaterial, maxTiles * prospectCluePropMax("BLACKWOOD_CANOPY"));
@@ -114,13 +115,14 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
   const addCrystalShards = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
     const shards = prospectCluePropCount("REFRACTIVE_GROUND", worldX, worldZ);
     for (let i = 0; i < shards && shardCount < shardMesh.instanceMatrix.count; i += 1) {
-      const s = 0.8 + (jitter(worldX, worldZ, 109 + i * 3) + 0.5) * 0.6;
+      const s = 0.6 + (jitter(worldX, worldZ, 109 + i * 3) + 0.5) * 0.3;
       // Lean each shard a little off vertical so a cluster doesn't read as a row of pins.
       tiltAxis.set(jitter(worldX, worldZ, 113 + i * 3), 0, jitter(worldX, worldZ, 127 + i * 3)).normalize();
       rotation.setFromAxisAngle(tiltAxis.lengthSq() > 0 ? tiltAxis : tiltAxis.set(1, 0, 0), 0.35);
-      scale.set(s, s * 2.4, s);
+      scale.set(s, s * 1.5, s);
       const { ox, oy: oz } = prospectCluePropOffset(worldX, worldZ, i);
-      position.set(sceneX + ox, surfaceY + 0.05 * s, sceneZ + oz);
+      // Centred at ground level, so the lower half stays buried.
+      position.set(sceneX + ox, surfaceY + 0.005, sceneZ + oz);
       shardMesh.setMatrixAt(shardCount, matrix.compose(position, rotation, scale));
       shardCount += 1;
     }

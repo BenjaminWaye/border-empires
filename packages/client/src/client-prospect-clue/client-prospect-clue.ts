@@ -40,7 +40,7 @@ export const prospectClueOverviewLine = (tile: Tile, treesOnTile: boolean): stri
 const PROP_COUNT_RANGE: Record<ProspectSignature, { min: number; max: number }> = {
   BLACKWOOD_CANOPY: { min: 2, max: 3 },
   FERROUS_DUST: { min: 4, max: 6 },
-  REFRACTIVE_GROUND: { min: 2, max: 3 }
+  REFRACTIVE_GROUND: { min: 1, max: 2 }
 };
 
 export const prospectCluePropMax = (signature: ProspectSignature): number => PROP_COUNT_RANGE[signature].max;
