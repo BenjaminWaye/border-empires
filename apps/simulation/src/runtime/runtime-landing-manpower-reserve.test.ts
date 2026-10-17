@@ -73,4 +73,28 @@ describe("landing manpower reserve", () => {
     const restarted = runtimeWith(() => NOW + MINUTE, [recovered!]);
     expect(manpowerOf(restarted, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
   });
+
+  it("is not granted again to a record rebuilt from existing territory after a restart", () => {
+    // Review finding: a human who joined (and got the reserve) but whose record
+    // missed the last snapshot is rebuilt by the startup repair without
+    // manpowerUpdatedAt -- that must not read as a brand-new empire.
+    const runtime = new SimulationRuntime({
+      now: () => NOW,
+      initialPlayers: new Map(),
+      seedTiles: new Map(),
+      initialState: { tiles: [{ x: 4, y: 4, terrain: "LAND", ownerId: "human-9", ownershipState: "SETTLED" }], activeLocks: [] }
+    });
+    runtime.repairZeroGrossIncomeSettlements(["human-9"]);
+    expect(manpowerOf(runtime, "human-9")).toBeLessThanOrEqual(STARTING_CAPITAL_MANPOWER_CAP);
+  });
+
+  it("persists that the reserve was granted, so losing manpowerUpdatedAt can't grant it twice", () => {
+    const runtime = runtimeWith(() => NOW, [buildPlayer("human-1", { manpower: 720, manpowerCapSnapshot: STARTING_CAPITAL_MANPOWER_CAP })]);
+    runtime.exportState();
+    const recovered = createPlayersFromRecoveredState(runtime.exportSnapshotSections().initialState)?.get("human-1");
+    expect(recovered?.landingReserveGranted).toBe(true);
+    const { manpowerUpdatedAt: _dropped, ...withoutUpdatedAt } = recovered!;
+    const restarted = runtimeWith(() => NOW + MINUTE, [withoutUpdatedAt]);
+    expect(manpowerOf(restarted, "human-1")).toBe(720 + LANDING_MANPOWER_RESERVE);
+  });
 });

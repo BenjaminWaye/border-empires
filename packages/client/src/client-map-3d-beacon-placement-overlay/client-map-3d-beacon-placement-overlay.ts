@@ -20,6 +20,13 @@ export type BeaconPlacementOverlay = {
   readonly hide: () => void;
 };
 
+/** Mean of a tile's four heightfield corners -- where flat tile-sized placement tints sit (shared with the beneficiary highlights). */
+export const tileCornerMeanY = (cornerYAt: PlacementOverlaySyncDeps["cornerYAt"], wx: number, wy: number): number => {
+  const wxNext = wx + 1 >= WORLD_WIDTH ? 0 : wx + 1;
+  const wyNext = wy + 1 >= WORLD_HEIGHT ? 0 : wy + 1;
+  return (cornerYAt(wx, wy) + cornerYAt(wxNext, wy) + cornerYAt(wx, wyNext) + cornerYAt(wxNext, wyNext)) / 4;
+};
+
 export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverlay => {
   const reachGeometry = new PlaneGeometry(0.92, 0.92);
   reachGeometry.rotateX(-Math.PI * 0.5);
@@ -34,16 +41,10 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
   scene.add(reachFill);
   const matrix = new Matrix4();
 
-  const surfaceYAt = (deps: PlacementOverlaySyncDeps, wx: number, wy: number): number => {
-    const wxNext = wx + 1 >= WORLD_WIDTH ? 0 : wx + 1;
-    const wyNext = wy + 1 >= WORLD_HEIGHT ? 0 : wy + 1;
-    return (deps.cornerYAt(wx, wy) + deps.cornerYAt(wxNext, wy) + deps.cornerYAt(wx, wyNext) + deps.cornerYAt(wxNext, wyNext)) / 4;
-  };
-
   const placeAt = (index: number, deps: PlacementOverlaySyncDeps, wx: number, wy: number): void => {
     const localX = toroidDelta(deps.sceneOrigin.camX, wx, WORLD_WIDTH) + 0.5;
     const localZ = toroidDelta(deps.sceneOrigin.camY, wy, WORLD_HEIGHT) + 0.5;
-    matrix.makeTranslation(localX, surfaceYAt(deps, wx, wy) + NEW_REACH_RISE_ABOVE_HEIGHTFIELD, localZ);
+    matrix.makeTranslation(localX, tileCornerMeanY(deps.cornerYAt, wx, wy) + NEW_REACH_RISE_ABOVE_HEIGHTFIELD, localZ);
     reachFill.setMatrixAt(index, matrix);
   };
 
@@ -64,7 +65,7 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
     }
     const reach = resolveMyReachCached(deps.state);
     let count = 0;
-    for (const key of computeOutpostReachPreview(x, y)) {
+    for (const key of computeOutpostReachPreview(x, y, deps.state.tiles)) { // land-gated, same as the 2D preview
       if (count >= MAX_NEW_REACH_TILES) break;
       if (reach.has(key)) continue; // already in reach -- nothing new to show
       const [kx, ky] = key.split(",").map(Number);

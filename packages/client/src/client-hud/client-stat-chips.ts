@@ -25,11 +25,13 @@ export const integrityWarningTipHtml = (show: boolean): string =>
 // Empire Integrity lives in the Economy panel (its summary card opens the
 // breakdown). The top-bar chip only appears once integrity actually costs
 // coin/growth -- below INTEGRITY_PENALTY_PCT -- so new players aren't shown a
-// falling number while it is still a bonus.
-export const integrityChipHtml = (args: { pct: number; defClass: string; showWarning: boolean; mobile: boolean }): string =>
-  args.pct >= INTEGRITY_PENALTY_PCT
-    ? ""
-    : `<div class="stat-chip-def-wrap">
-      <button class="stat-chip stat-chip-def${args.defClass}${args.showWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${args.mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(args.pct)}%</strong></button>
+// falling number while it is still a bonus. Gated on the *displayed*
+// (rounded) value, so 49.6% can't show as "50%" next to "below 50%".
+export const integrityChipHtml = (args: { pct: number; defClass: string; showWarning: boolean; mobile: boolean }): string => {
+  const shownPct = Math.round(args.pct);
+  if (shownPct >= INTEGRITY_PENALTY_PCT) return "";
+  return `<div class="stat-chip-def-wrap">
+      <button class="stat-chip stat-chip-def${args.defClass}${args.showWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${args.mobile ? "Integrity" : "Empire Integrity"}</span><strong>${shownPct}%</strong></button>
       ${integrityWarningTipHtml(args.showWarning)}
     </div>`;
+};

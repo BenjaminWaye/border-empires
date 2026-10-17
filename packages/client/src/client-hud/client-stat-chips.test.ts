@@ -37,6 +37,8 @@ describe("integrityChipHtml", () => {
   it("stays off the top bar while integrity is still a bonus (50% and up)", () => {
     expect(integrityChipHtml({ pct: 94, defClass: "", showWarning: false, mobile: false })).toBe("");
     expect(integrityChipHtml({ pct: 50, defClass: "", showWarning: false, mobile: false })).toBe("");
+    // Would otherwise render "50%" next to "Integrity below 50%".
+    expect(integrityChipHtml({ pct: 49.6, defClass: "", showWarning: true, mobile: false })).toBe("");
   });
   it("appears with the warning once integrity drops into the penalty range", () => {
     const html = integrityChipHtml({ pct: 42, defClass: "", showWarning: true, mobile: false });

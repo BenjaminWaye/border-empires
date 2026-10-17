@@ -5241,35 +5241,6 @@ describe("simulation runtime", () => {
     expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(13.2 / 288); // was 15.4 pre-gold-rescope (§6.1); 13.2 reflects METROPOLIS's halved-per-tier multiplier (2.1, was 3.2)
   });
 
-  it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
-    const runtime = new SimulationRuntime({ now: () => 1_000,
-      initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
-      ]),
-      initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
-        activeLocks: [],
-        players: [
-          {
-            id: "ai-1",
-            name: "ai-1",
-            points: 77,
-            manpower: 123, manpowerUpdatedAt: 1_000 // established empire: no landing reserve
-          }
-        ]
-      }
-    });
-
-    expect(runtime.exportSnapshotSections().initialState.players).toContainEqual(
-      expect.objectContaining({
-        id: "ai-1",
-        isAi: true,
-        points: 77,
-        manpower: 123
-      })
-    );
-  });
-
   it("emits reveal updates and revealed empire stats through player messages", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

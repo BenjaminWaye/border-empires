@@ -117,15 +117,16 @@ export function applyManpowerRegenForPlayer(
 
 // A player's first manpower settle is the start of their empire: a new human
 // just joined, or an AI empire at season start (persisted players already
-// carry manpowerUpdatedAt, so nobody existing gets it -- except a record that
-// repairZeroGrossIncomeSettlements rebuilds from orphaned territory, which
-// also lacks it and so is treated as new). Every new empire lands
+// carry manpowerUpdatedAt, so nobody existing gets it). Every new empire lands
 // with the one-time LANDING_MANPOWER_RESERVE, allowed above the cap like a
-// Waystation grant; barbarians are not empires (their cap is effectively
-// unlimited -- see playerManpowerCap).
+// Waystation grant. landingReserveGranted is persisted and also set on records
+// rebuilt from existing territory (runtime-gross-income-repair.ts), so it can
+// never be granted twice. Barbarians are not empires (their cap is
+// effectively unlimited -- see playerManpowerCap).
 const grantLandingManpowerReserve = (player: RuntimePlayer, cap: number): void => {
-  if (player.id.startsWith("barbarian-")) return;
+  if (player.id.startsWith("barbarian-") || player.landingReserveGranted) return;
   grantOverflowManpower(player, LANDING_MANPOWER_RESERVE, cap);
+  player.landingReserveGranted = true;
 };
 
 /**

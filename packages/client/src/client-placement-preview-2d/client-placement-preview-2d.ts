@@ -81,7 +81,7 @@ const renderOutpostReachGhostPreview = (
   const { x, y, structureType: st } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));
   if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
-  const preview = computeOutpostReachPreview(x, y);
+  const preview = computeOutpostReachPreview(x, y, state.tiles); // land-gated like real reach
   const existingReach = resolveMyReachCached(state); // same source as the true-3D beacon preview
   for (const key of preview) {
     const [kxRaw, kyRaw] = key.split(",");

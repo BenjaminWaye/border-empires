@@ -28,7 +28,7 @@ import {
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { createBeaconPlacementOverlay } from "../client-map-3d-beacon-placement-overlay/client-map-3d-beacon-placement-overlay.js";
+import { createBeaconPlacementOverlay, tileCornerMeanY } from "../client-map-3d-beacon-placement-overlay/client-map-3d-beacon-placement-overlay.js";
 import { REACH_RADIUS_BY_KIND } from "../client-reach-overlay/client-reach-overlay-anchor-disk.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 
@@ -122,11 +122,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
         if (!tileIsPlacementBeneficiary(tile, structureType, deps.state.me)) continue;
         const localX = toroidDelta(deps.sceneOrigin.camX, wx, WORLD_WIDTH) + 0.5;
         const localZ = toroidDelta(deps.sceneOrigin.camY, wy, WORLD_HEIGHT) + 0.5;
-        const wxNext = wx + 1 >= WORLD_WIDTH ? 0 : wx + 1;
-        const wyNext = wy + 1 >= WORLD_HEIGHT ? 0 : wy + 1;
-        const surfaceY =
-          (deps.cornerYAt(wx, wy) + deps.cornerYAt(wxNext, wy) + deps.cornerYAt(wx, wyNext) + deps.cornerYAt(wxNext, wyNext)) / 4;
-        tempMatrix.makeTranslation(localX, surfaceY + BENEFICIARY_RISE_ABOVE_HEIGHTFIELD, localZ);
+        tempMatrix.makeTranslation(localX, tileCornerMeanY(deps.cornerYAt, wx, wy) + BENEFICIARY_RISE_ABOVE_HEIGHTFIELD, localZ);
         benefitFill.setMatrixAt(count, tempMatrix);
         count += 1;
       }

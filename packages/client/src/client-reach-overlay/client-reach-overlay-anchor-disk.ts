@@ -15,7 +15,7 @@ export const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
 /** Is the tile at (x, y) LAND terrain? Used to land-gate a local reach preview. */
 export type LocalLandConnectivityQuery = (x: number, y: number) => boolean;
 
-/** Every wrapped tile key within an anchor's radius. `isLand`, if given, land-gates via shared's `landGatedTileKeysInDisk` (mirrors server); omitted keeps the pure geometric disk (beacon placement ghost preview has no terrain data). */
+/** Every wrapped tile key within an anchor's radius. `isLand`, if given, land-gates via shared's `landGatedTileKeysInDisk` (mirrors server); omitted keeps the pure geometric disk. */
 export const tileKeysAroundAnchor = (anchor: LocalAnchor, isLand?: LocalLandConnectivityQuery): string[] => {
   const radius = REACH_RADIUS_BY_KIND[anchor.kind];
   if (isLand) return landGatedTileKeysInDisk(anchor.x, anchor.y, radius, isLand);

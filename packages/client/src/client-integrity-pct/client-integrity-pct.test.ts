@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defensivenessMultiplier } from "@border-empires/shared";
-import { integrityPctFromSettledCounts } from "./client-integrity-pct.js";
+import { integrityPctFromPlayerUpdate, integrityPctFromSettledCounts } from "./client-integrity-pct.js";
 
 describe("integrityPctFromSettledCounts", () => {
   it("applies the new-empire grace floor like the server, unlike the raw shape score", () => {
@@ -13,5 +13,17 @@ describe("integrityPctFromSettledCounts", () => {
   it("returns the fallback when a count is missing", () => {
     expect(integrityPctFromSettledCounts(undefined, 10, 77)).toBe(77);
     expect(integrityPctFromSettledCounts(10, Number.NaN, 77)).toBe(77);
+  });
+});
+
+describe("integrityPctFromPlayerUpdate", () => {
+  it("leaves integrity alone on a partial update with no integrity data", () => {
+    expect(integrityPctFromPlayerUpdate({}, 92, () => 80)).toBe(92);
+  });
+
+  it("uses the server's integrityPct, clamped, and otherwise recomputes from settled counts", () => {
+    expect(integrityPctFromPlayerUpdate({ integrityPct: 73 }, 92, () => 80)).toBe(73);
+    expect(integrityPctFromPlayerUpdate({ integrityPct: 140 }, 92, () => 80)).toBe(100);
+    expect(integrityPctFromPlayerUpdate({ Ts: 20, Es: 60 }, 92, () => 91)).toBe(91);
   });
 });
