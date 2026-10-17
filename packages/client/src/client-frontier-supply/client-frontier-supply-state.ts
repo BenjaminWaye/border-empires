@@ -33,10 +33,12 @@ const bridgeLinksFor = (state: FrontierSupplyState, nowMs: number): Array<readon
  */
 export const frontierSupplyModelForState = (state: FrontierSupplyState, wallNowMs = Date.now()): FrontierSupplyModel => {
   if (!state.me) return EMPTY_FRONTIER_SUPPLY_MODEL;
+  const cached = cache.get(state);
+  // Inside the throttle window the cached model stands whatever changed, so skip building the key at all (this runs every frame).
+  if (cached && wallNowMs - cached.computedAt < MIN_RECOMPUTE_GAP_MS) return cached.model;
   const extraLinks = bridgeLinksFor(state, wallNowMs);
   const key = `${state.me}|${reachCacheKey(state)}|${extraLinks.map(([a, b]) => `${a}>${b}`).join(";")}`;
-  const cached = cache.get(state);
-  if (cached && (cached.key === key || wallNowMs - cached.computedAt < MIN_RECOMPUTE_GAP_MS)) return cached.model;
+  if (cached?.key === key) { cached.computedAt = wallNowMs; return cached.model; }
   const model = computeFrontierSupplyModel({ tiles: state.tiles.values(), me: state.me, reach: resolveMyReachCached(state), extraLinks });
   cache.set(state, { key, model, computedAt: wallNowMs });
   return model;

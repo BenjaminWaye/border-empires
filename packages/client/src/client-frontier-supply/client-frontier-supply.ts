@@ -181,7 +181,9 @@ export const computeFrontierSupplyModel = (input: FrontierSupplyInput): Frontier
     for (let g = 0; g < group.length; g += 1) {
       const i = group[g]!;
       for (const j of adjacency[i]!) {
-        if (level[j]! > level[i]!) leadsFurther = true;
+        // Only beyond-reach land counts: a deeper in-reach neighbour (a concave
+        // reach border) doesn't make this out-of-reach pocket any less of an edge.
+        if (level[j]! > level[i]! && beyondReach(j)) leadsFurther = true;
         if (level[j] === level[i] && grouped[j] === 0 && beyondReach(j)) {
           grouped[j] = 1;
           group.push(j);

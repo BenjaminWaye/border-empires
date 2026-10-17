@@ -84,6 +84,13 @@ describe("computeFrontierSupplyModel", () => {
     expect(tips(after)).toContain("15,10");
   });
 
+  it("still draws a line to an out-of-reach pocket that sits beside deeper in-reach frontier", () => {
+    // Concave reach: (11,11) is out of reach, next to in-reach (12,10) which is one step further from supply.
+    const tiles = [settled(10, 10), frontier(11, 10), frontier(12, 10), frontier(13, 10), frontier(11, 11)];
+    const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [11, 10], [12, 10], [13, 10]), ...WORLD });
+    expect(tips(model)).toEqual(["11,11"]);
+  });
+
   it("doesn't put an arrowhead where two arms of a loop meet", () => {
     const tiles = [settled(10, 10), frontier(11, 10), frontier(12, 9), frontier(12, 11), frontier(13, 10), frontier(14, 10)];
     const model = computeFrontierSupplyModel({ tiles, me: ME, reach: keys([10, 10], [11, 10]), ...WORLD });

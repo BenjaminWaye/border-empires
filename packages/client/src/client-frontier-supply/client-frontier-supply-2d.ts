@@ -124,6 +124,12 @@ const strokeRun = (ctx: CanvasRenderingContext2D, points: ScreenPoint[], run: Ru
 };
 
 const drawRoute = (ctx: CanvasRenderingContext2D, route: SupplyRoute, deps: FrontierSupply2DDeps): void => {
+  // Cheap reject before mapping every point: the whole route lies within its own length of its first point.
+  const first = route.points[0];
+  if (!first) return;
+  const anchor = deps.tileCenter(first.x, first.y);
+  const reachPx = ((route.points[route.points.length - 1]?.distance ?? 0) - first.distance + CULL_MARGIN_TILES) * deps.size;
+  if (anchor.sx < -reachPx || anchor.sy < -reachPx || anchor.sx > deps.viewportWidth + reachPx || anchor.sy > deps.viewportHeight + reachPx) return;
   const points = toScreen(route, deps);
   if (points.length < 2 || !isOnScreen(points, deps)) return;
   const size = deps.size;
