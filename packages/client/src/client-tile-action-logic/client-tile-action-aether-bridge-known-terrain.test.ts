@@ -88,6 +88,12 @@ describe("Aether Bridge coastal check uses real synced tile terrain", () => {
 
     const { validTargets } = computeCrystalTargets(state, "aether_bridge", { ...baseDeps, selectedTile: () => undefined });
     expect(validTargets.has(keyFor(5, 5))).toBe(true);
+
+    // The same coast held by an enemy whose Aether Tower shields it: the server
+    // rejects the landing, so it isn't offered (and it glows red on the map).
+    state.tiles.set(keyFor(5, 5), { ...targetTile, ownerId: "enemy", ownershipState: "SETTLED" } as Tile);
+    const shielded = computeCrystalTargets(state, "aether_bridge", { ...baseDeps, selectedTile: () => undefined, hostileObservatoryProtectingTile: () => ({ x: 9, y: 9, ownerId: "enemy", relation: "enemy" as const }) });
+    expect(shielded.validTargets.has(keyFor(5, 5))).toBe(false);
   });
 
   it("keeps casting disabled when no real neighbor tile is sea, even though it's otherwise a plausible target", () => {

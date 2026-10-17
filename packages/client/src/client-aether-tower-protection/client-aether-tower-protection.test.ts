@@ -4,8 +4,10 @@ import {
   AETHER_PROTECTION_ENEMY_COLOR,
   AETHER_PROTECTION_FRIENDLY_COLOR,
   aetherProtectionColor,
+  aetherProtectionEdges,
   aetherProtectionField,
   aetherProtectionFieldKey,
+  drawAetherProtectionTile2D,
   hostileAetherProtectionAt,
   isAetherProtectionFieldShown,
   tileAetherProtection
@@ -70,9 +72,14 @@ describe("isAetherProtectionFieldShown", () => {
     expect(isAetherProtectionFieldShown({ ...base, tileActionMenu: { ...menu, visible: false } }, keyFor)).toBe(false);
   });
 
-  it("shows while aiming an Aether ability", () => {
+  it("shows while aiming an Aether ability a shield blocks, but not abilities shields don't stop", () => {
     const base = shownState();
-    expect(isAetherProtectionFieldShown({ ...base, crystalTargeting: { ...base.crystalTargeting, active: true } }, keyFor)).toBe(true);
+    for (const ability of ["siphon", "aether_emp", "aether_bridge"] as const) {
+      expect(isAetherProtectionFieldShown({ ...base, crystalTargeting: { ...base.crystalTargeting, active: true, ability } }, keyFor)).toBe(true);
+    }
+    for (const ability of ["sky_dock_bombard", "imperial_exchange_levy", "sovereign_siege_engine_strike"] as const) {
+      expect(isAetherProtectionFieldShown({ ...base, crystalTargeting: { ...base.crystalTargeting, active: true, ability } }, keyFor)).toBe(false);
+    }
   });
 });
 
@@ -178,5 +185,42 @@ describe("hostileAetherProtectionAt (what targeting greys out)", () => {
     // Allied shields are friendly, not a block.
     expect(hostileAetherProtectionAt(state, land(31, 30, "ally"), NOW)).toBeUndefined();
     expect(hostileAetherProtectionAt(state, land(11, 10, "third"), NOW)).toBeUndefined();
+  });
+});
+
+describe("protection field outline", () => {
+  // Enemy tower at (50,50); its owner holds a 2-wide strip x=50..51, y=49..51.
+  const tiles = [tower(50, 50, "enemy"), land(51, 50, "enemy"), land(50, 49, "enemy"), land(51, 49, "enemy"), land(50, 51, "enemy"), land(51, 51, "enemy"), land(49, 50, "third"), land(52, 50)];
+  const state = fieldState(tiles);
+  const tileAt = (x: number, y: number): Tile | undefined => state.tiles.get(keyFor(x, y));
+
+  it("marks only the sides where the field ends", () => {
+    const field = aetherProtectionField(state, NOW);
+    const centre = tileAetherProtection(tileAt(50, 50), field)!;
+    expect(aetherProtectionEdges(tileAt(50, 50)!, centre, field, tileAt)).toEqual({ north: false, east: false, south: false, west: true });
+    const corner = tileAetherProtection(tileAt(51, 49), field)!;
+    expect(aetherProtectionEdges(tileAt(51, 49)!, corner, field, tileAt)).toEqual({ north: true, east: true, south: false, west: false });
+  });
+
+  it("2D: glows additively (never darkens) and draws a strip on each outer side", () => {
+    const calls: Array<{ op: string; alpha: number; rect: number[] }> = [];
+    const ctx = {
+      globalCompositeOperation: "source-over",
+      globalAlpha: 1,
+      fillStyle: "",
+      save: () => {},
+      restore: () => {},
+      fillRect(this: { globalCompositeOperation: string; globalAlpha: number }, ...rect: number[]) {
+        calls.push({ op: this.globalCompositeOperation, alpha: this.globalAlpha, rect });
+      }
+    } as unknown as CanvasRenderingContext2D;
+    const field = aetherProtectionField(state, NOW);
+    drawAetherProtectionTile2D(ctx, tileAt(50, 50), field, tileAt, 0, 0, 40);
+    expect(calls[0]).toEqual({ op: "lighter", alpha: 0.24, rect: [0, 0, 40, 40] });
+    // One outer side (west) -> one opaque strip.
+    expect(calls.slice(1)).toEqual([{ op: "source-over", alpha: 0.95, rect: [0, 0, 4, 40] }]);
+    calls.length = 0;
+    drawAetherProtectionTile2D(ctx, tileAt(52, 50), field, tileAt, 0, 0, 40);
+    expect(calls).toEqual([]);
   });
 });

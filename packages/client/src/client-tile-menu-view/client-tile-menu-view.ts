@@ -8,6 +8,7 @@ import {
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
+import { observatoryOverviewLines } from "./client-tile-menu-observatory-lines.js";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
@@ -61,7 +62,7 @@ export const menuOverviewForTile = (
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
     dockSupportedByHarborExchangeForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
-    hostileObservatoryProtectingTile: (tile: Tile) => unknown;
+    hostileObservatoryProtectingTile: (tile: Tile) => { readonly x: number; readonly y: number } | undefined;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
@@ -303,27 +304,7 @@ export const menuOverviewForTile = (
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
   }
-  if (tile.observatory) {
-    if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
-      const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
-      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not protecting its owner's nearby tiles from hostile Aether abilities right now." : "Aether Tower is active here and protects its owner's nearby tiles from hostile Aether abilities.");
-      if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
-        const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const clock = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-        pushLine(`Crystal casting recharging — ready in ${clock}.`);
-      }
-    } else if (tile.observatory.status === "under_construction") {
-      pushLine("Aether Tower is under construction on this tile.");
-    } else {
-      pushLine("Aether Tower is inactive here and currently provides no vision or protection.");
-    }
-    if (tile.observatory.status === "active") {
-      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"), deps.observatoryCrystalSlotCountForTile?.(tile));
-      if (dormantLine) pushLine(dormantLine);
-    }
-  }
+  for (const line of observatoryOverviewLines(tile, { me: deps.state.me, nowMs: Date.now(), hostileObservatoryProtectingTile: deps.hostileObservatoryProtectingTile, dormantResourcesForTile: deps.dormantResourcesForTile, observatoryCrystalSlotCountForTile: deps.observatoryCrystalSlotCountForTile })) pushLine(line);
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
   if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {

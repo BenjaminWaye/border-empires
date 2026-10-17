@@ -61,6 +61,8 @@ export const computeCrystalTargets = (
     if (tile.fogged || tile.terrain !== "LAND") continue;
     if (ability === "aether_bridge") {
       if (!hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrain)) continue;
+      // Landing on a hostile owner's shielded coast is rejected server-side (runtime-ability-command-handlers.ts).
+      if (tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile) && deps.hostileObservatoryProtectingTile(tile)) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
     }
@@ -257,7 +259,6 @@ export const executeCrystalTargeting = (
   const targetKey = deps.keyFor(tile.x, tile.y);
   if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
   if (
-    state.crystalTargeting.ability !== "aether_bridge" &&
     state.crystalTargeting.ability !== "sovereign_siege_engine_strike" &&
     state.crystalTargeting.ability !== "sky_dock_bombard" &&
     state.crystalTargeting.ability !== "imperial_exchange_levy" &&

@@ -328,9 +328,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
       ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane."
+        ? "Pick a coastal land tile. The server links the nearest garrisoned coast and opens a temporary sea lane. Enemy land glowing red inside a red outline is shielded by an Aether Tower and can't be landed on."
         : ability === "siphon"
-          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
+          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower. Land glowing red inside a red outline is shielded by an enemy Aether Tower and can't be siphoned."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
