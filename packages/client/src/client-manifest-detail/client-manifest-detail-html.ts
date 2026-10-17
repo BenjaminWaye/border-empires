@@ -141,7 +141,8 @@ export const renderManifestDetailHtml = (context: ManifestDetailContext): string
     ...(context.structureDetail ? { structureDetail: context.structureDetail } : {})
   });
   const fit = status !== "owned" && context.fit ? manifestFit(tech, context.fit) : { goodPickReasons: [] as string[] };
-  const goodPick = fit.goodPickReasons.length > 0;
+  // Like the cards, no band while the unlock is pending; the reasons still show.
+  const goodPick = status !== "pending" && fit.goodPickReasons.length > 0;
   const leadsTo = manifestLeadsTo(tech.id, {
     techCatalog: context.techCatalog,
     ownedTechIds: context.ownedTechIds,

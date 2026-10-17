@@ -31,3 +31,18 @@ for (const render of [renderCompactTechChoiceGridHtml, renderExpandedTechChoiceT
     });
   });
 }
+
+// Review finding: the layout reserved band height for owned nodes that never show the band.
+describe("expanded tree Good pick layout", () => {
+  const minHeight = (html: string) => html.match(/data-tech-card="agriculture"[\s\S]*?min-height:(\d+)px/)?.[1];
+  it("reserves band height only on nodes that show the band", () => {
+    // A long name keeps the estimate above the node's minimum height, where the extra 30px would show.
+    const owned = { ...args, techCatalog: [{ ...tech, name: "Seedstock Of The Long Name Variety" }], effectiveOwnedTechIds: [tech.id] };
+    expect(minHeight(renderExpandedTechChoiceTreeHtml(owned))).toBe(minHeight(renderExpandedTechChoiceTreeHtml({ ...owned, isGoodPick: () => false })));
+  });
+  it("evaluates each Manifest's fit once per render", () => {
+    let calls = 0;
+    renderExpandedTechChoiceTreeHtml({ ...args, techCatalog: [{ ...tech, name: "Seedstock Of The Long Name Variety" }], isGoodPick: () => { calls += 1; return true; } });
+    expect(calls).toBe(1);
+  });
+});

@@ -127,6 +127,23 @@ describe("renderManifestDetailHtml", () => {
     expect(html).not.toContain("Heads-up");
   });
 
+  // Review finding: the cards drop the band while an unlock is pending; the panel kept it.
+  it("drops the Good pick band while the unlock is pending but keeps the reason", () => {
+    const html = renderManifestDetailHtml(
+      context({
+        isPendingTechUnlock: () => true,
+        fit: {
+          manpower: 0, hasBuildSite: () => false, ownsFish: false,
+          resourceSlots: { supply: emptySlots, demand: emptySlots },
+          clueNearTerritory: (signature) => signature === "FERROUS_DUST",
+          surveyReportFor: () => undefined
+        }
+      })
+    );
+    expect(html).not.toContain("manifest-good-pick-band");
+    expect(html).toContain("Signs of Titanium near your land");
+  });
+
   it("calls it 'Not useful yet' when nothing argues for it", () => {
     const html = renderManifestDetailHtml(
       context({ tech: mining, fit: { manpower: 0, hasBuildSite: () => false, ownsFish: false, resourceSlots: { supply: emptySlots, demand: emptySlots }, clueNearTerritory: () => false, surveyReportFor: () => undefined } })

@@ -464,7 +464,7 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1792232600942,
+    createdAt: 1792270895359,
     introducedIn: "2026.10.17.2",
     title: "Good pick Manifests stand out, and mean more",
     why: "The small orange Good pick pill was easy to miss and used the same colour as missing-resource warnings. It also appeared on almost every Manifest, because nearly any unlocked building can be built right away.",

@@ -15,3 +15,28 @@ export const techCardStatusLine = (
 
 export const techCardIsAvailable = (tech: TechInfo, isChoice: boolean, isPending: boolean): boolean =>
   !isPending && (tech.requirements.canResearch || isChoice);
+
+// Owned and pending-unlock Manifests never carry the Good pick band.
+export const techCardShowsGoodPick = (
+  tech: TechInfo,
+  isOwned: boolean,
+  isPending: boolean,
+  isGoodPick: ((tech: TechInfo) => boolean) | undefined
+): boolean => !isOwned && !isPending && Boolean(isGoodPick?.(tech));
+
+// Per-render lookup for the expanded tree, whose layout pass and node render
+// both need the answer: each Manifest's fit is computed once.
+export const createGoodPickLookup = (
+  ownedIds: ReadonlySet<string>,
+  isPending: (techId: string) => boolean,
+  isGoodPick: ((tech: TechInfo) => boolean) | undefined
+): ((tech: TechInfo) => boolean) => {
+  const shownById = new Map<string, boolean>();
+  return (tech) => {
+    const cached = shownById.get(tech.id);
+    if (cached !== undefined) return cached;
+    const shown = techCardShowsGoodPick(tech, ownedIds.has(tech.id), isPending(tech.id), isGoodPick);
+    shownById.set(tech.id, shown);
+    return shown;
+  };
+};

@@ -67,10 +67,10 @@ describe("manifestFit", () => {
     }
   });
 
-  it("does not claim build-right-away when every slot of that resource is in use", () => {
-    const fit = manifestFit(tech({ unlockMine: true }), input({ manpower: 10_000, resourceSlots: { supply: slots({ FOOD: 2 }), demand: slots({ FOOD: 2 }) } }));
-    expect(fit.goodPickReasons).toEqual([]);
-    expect(fit.notUsefulYet).toBeUndefined();
+  it("does not recommend a Hydrogarden for tight Food without the manpower to build it", () => {
+    const tight = { supply: slots({ FOOD: 3 }), demand: slots({ FOOD: 3 }) };
+    expect(manifestFit(tech({ unlockHydrogarden: true }), input({ manpower: 0, resourceSlots: tight })).goodPickReasons).toEqual([]);
+    expect(manifestFit(tech({ unlockHydrogarden: true }), input({ manpower: 100_000, resourceSlots: tight })).goodPickReasons).toHaveLength(1);
   });
 
   it("flags 'not useful yet' when every structure needs a resource you hold none of", () => {
