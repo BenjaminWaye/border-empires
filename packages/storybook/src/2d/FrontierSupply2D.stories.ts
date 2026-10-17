@@ -96,8 +96,8 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Frontier supply lines on the 2D canvas map (the fallback renderer for devices without 3D). Same model and look as the " +
-          "3D overlay: chevrons flow outward from the reach edge into frontier beyond reach, fainter the further out, and amber " +
-          "diamonds pulse on chokepoints."
+          "3D overlay: routes run from the reach edge out to each frontier tip, thicker where more land depends on them, fading " +
+          "further out, with pulses flowing outward."
       }
     }
   },

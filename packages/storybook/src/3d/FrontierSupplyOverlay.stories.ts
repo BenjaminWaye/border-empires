@@ -81,8 +81,8 @@ const meta: Meta<Args> = {
         component:
           "Frontier supply routes on the true-3D map. Land beyond your reach can't be garrisoned and is lost the moment its " +
           "chain back to settled land is cut, so the map draws that chain: smoothed routes, thicker where more land depends on " +
-          "them and fading as they run past reach, with pulses travelling outward and an arrowhead at each frontier tip. Stretches " +
-          "hanging off a single tile turn amber and flicker, and amber wedges close in on the pinch. Real client code throughout: " +
+          "them and fading as they run past reach, with pulses travelling outward and an arrowhead at each frontier tip. Lines run " +
+          "only out to the tips, and redraw along another route when a tile on them is lost. Real client code throughout: " +
           "computeFrontierSupplyModel → buildSupplyRoutes → createFrontierSupplyOverlay, over createOwnershipOverlay."
       }
     }

@@ -100,8 +100,8 @@ export const buildSupplyDemoWorld = (scenario: SupplyScenario, captured: readonl
 };
 
 export const SUPPLY_SCENARIO_DESCRIPTIONS: Record<SupplyScenario, string> = {
-  snake: "A one-tile-wide line pushed 14 tiles past reach (the reported case). The whole line hangs off one pinch, so it runs amber and the wedges close in where it narrows.",
-  corridor: "A two-wide corridor: calm empire-coloured routes, thick near supply, until it narrows to one tile and turns amber past the pinch.",
+  snake: "A one-tile-wide line pushed 14 tiles past reach (the reported case): one route from the reach edge to an arrowhead at the tip.",
+  corridor: "A two-wide corridor: one line down it to the far end (not one per row), thick near supply and thinning toward the tip.",
   branching: "A trunk that forks into two branches. The trunk is thicker because it carries both; each branch ends in an arrowhead.",
-  reroute: "A loop past reach. Every few seconds a rival (red) takes a tile on one arm: supply instantly reroutes down the other arm, which becomes the only route and turns amber. When the tile is retaken, both arms carry supply again."
+  reroute: "A loop past reach. Every few seconds a rival (red) takes a tile on one arm: the line instantly redraws down the other arm. When the tile is retaken it goes back to the shorter route."
 };
