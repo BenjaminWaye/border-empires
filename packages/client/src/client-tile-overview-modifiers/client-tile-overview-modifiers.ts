@@ -344,7 +344,7 @@ export const tileFeatureLeadLines = (
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
   lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
-  const clueLine = prospectClueOverviewLine(tile.prospectSignature);
+  const clueLine = prospectClueOverviewLine(tile);
   if (clueLine) lines.push({ html: clueLine });
   return lines;
 };
