@@ -30,10 +30,17 @@ const BLACKWOOD_TRUNK_HEIGHT = 0.24;
 const BLACKWOOD_CANOPY_HEIGHT = 0.5;
 const BLACKWOOD_CANOPY_Y = 0.14 + BLACKWOOD_CANOPY_HEIGHT / 2;
 
+/** Ground height at a tile-local offset (-0.5..0.5) from the tile centre. */
+export type GroundYAt = (ox: number, oz: number) => number;
+
 export type ProspectClueProps = {
   readonly clear: () => void;
-  /** `treesOnTile`: the tile already draws forest/sapling trees (blackwood then tints those instead of adding its own). */
-  readonly addTile: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number, signature: ProspectSignature, treesOnTile: boolean) => void;
+  /**
+   * `surfaceY`: the tile's highest point, where trees stand (as createForest's do).
+   * `groundYAt`: the actual ground under each fleck/shard, so they don't float on slopes and hills.
+   * `treesOnTile`: the tile already draws forest trees (blackwood then tints those instead of adding its own).
+   */
+  readonly addTile: (sceneX: number, sceneZ: number, surfaceY: number, groundYAt: GroundYAt, worldX: number, worldZ: number, signature: ProspectSignature, treesOnTile: boolean) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -99,20 +106,20 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
     }
   };
 
-  const addFerrousFlecks = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+  const addFerrousFlecks = (sceneX: number, sceneZ: number, groundYAt: GroundYAt, worldX: number, worldZ: number): void => {
     const flecks = prospectCluePropCount("FERROUS_DUST", worldX, worldZ);
     for (let i = 0; i < flecks && fleckCount < fleckMesh.instanceMatrix.count; i += 1) {
       const s = 0.7 + (jitter(worldX, worldZ, 83 + i * 5) + 0.5) * 0.7;
       rotation.setFromAxisAngle(tiltAxis.set(0, 1, 0), (jitter(worldX, worldZ, 89 + i * 5) + 0.5) * Math.PI * 2);
       scale.set(s, s * 0.45, s);
       const { ox, oy: oz } = prospectCluePropOffset(worldX, worldZ, i);
-      position.set(sceneX + ox, surfaceY + 0.01, sceneZ + oz);
+      position.set(sceneX + ox, groundYAt(ox, oz) + 0.01, sceneZ + oz);
       fleckMesh.setMatrixAt(fleckCount, matrix.compose(position, rotation, scale));
       fleckCount += 1;
     }
   };
 
-  const addCrystalShards = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+  const addCrystalShards = (sceneX: number, sceneZ: number, groundYAt: GroundYAt, worldX: number, worldZ: number): void => {
     const shards = prospectCluePropCount("REFRACTIVE_GROUND", worldX, worldZ);
     for (let i = 0; i < shards && shardCount < shardMesh.instanceMatrix.count; i += 1) {
       const s = 0.6 + (jitter(worldX, worldZ, 109 + i * 3) + 0.5) * 0.3;
@@ -122,17 +129,17 @@ export const createProspectClueProps = (scene: Scene, maxTiles: number): Prospec
       scale.set(s, s * 1.5, s);
       const { ox, oy: oz } = prospectCluePropOffset(worldX, worldZ, i);
       // Centred at ground level, so the lower half stays buried.
-      position.set(sceneX + ox, surfaceY + 0.005, sceneZ + oz);
+      position.set(sceneX + ox, groundYAt(ox, oz) + 0.005, sceneZ + oz);
       shardMesh.setMatrixAt(shardCount, matrix.compose(position, rotation, scale));
       shardCount += 1;
     }
   };
 
-  const addTile: ProspectClueProps["addTile"] = (sceneX, sceneZ, surfaceY, worldX, worldZ, signature, treesOnTile) => {
+  const addTile: ProspectClueProps["addTile"] = (sceneX, sceneZ, surfaceY, groundYAt, worldX, worldZ, signature, treesOnTile) => {
     if (signature === "BLACKWOOD_CANOPY") {
       if (!treesOnTile) addBlackwoodTrees(sceneX, sceneZ, surfaceY, worldX, worldZ);
-    } else if (signature === "FERROUS_DUST") addFerrousFlecks(sceneX, sceneZ, surfaceY, worldX, worldZ);
-    else addCrystalShards(sceneX, sceneZ, surfaceY, worldX, worldZ);
+    } else if (signature === "FERROUS_DUST") addFerrousFlecks(sceneX, sceneZ, groundYAt, worldX, worldZ);
+    else addCrystalShards(sceneX, sceneZ, groundYAt, worldX, worldZ);
   };
 
   const commit = (): void => {

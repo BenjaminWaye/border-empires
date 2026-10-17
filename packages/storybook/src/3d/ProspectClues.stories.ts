@@ -49,7 +49,7 @@ const render = (args: Args): HTMLElement => {
         const tile: Tile = clue === "NONE" ? { x: wx, y: wy, terrain: "LAND" } : { x: wx, y: wy, terrain: "LAND", prospectSignature: clue };
         const treesOnTile = dx < BLOCK_W / 2;
         if (treesOnTile) forest.addInstance(x, z, 0, wx, wy, prospectClueTreeTint(tile, "LAND", "visible"));
-        prospectClues.addTile({ tile, terrain: "LAND", visibility: "visible", x, z, wx, wy, surfaceY: 0, treesOnTile });
+        prospectClues.addTile({ tile, terrain: "LAND", visibility: "visible", x, z, wx, wy, wxNext: wx + 1, wyNext: wy + 1, surfaceY: 0, flatOverlayY: 0, cornerYAt: () => 0, treesOnTile });
       }
     }
   });

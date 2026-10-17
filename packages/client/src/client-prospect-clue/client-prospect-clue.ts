@@ -6,6 +6,8 @@
 // marks the deposit tile itself.
 import { prospectSignatureLabel, prospectSignatureResource, type ProspectSignature } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
+import { isForestTile, isLightGrassScatterTile } from "../client-constants.js";
+import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js";
 
 const RESOURCE_DISPLAY: Record<ReturnType<typeof prospectSignatureResource>, string> = {
   TITANIUM: "Titanium",
@@ -15,22 +17,33 @@ const RESOURCE_DISPLAY: Record<ReturnType<typeof prospectSignatureResource>, str
 
 export const prospectClueResourceLabel = (signature: ProspectSignature): string => RESOURCE_DISPLAY[prospectSignatureResource(signature)];
 
-/** A clue prop would clutter a tile that already draws its own feature (town, dock, structure, resource). */
+/** A clue prop would clutter a tile that already draws its own feature (town, dock, structure, resource, site, wonder). */
 export const prospectCluePropsAllowed = (tile: Tile | undefined): boolean =>
-  Boolean(tile) && !tile?.town && !tile?.dockId && !tile?.fort && !tile?.observatory && !tile?.siegeBattery && !tile?.economicStructure && !tile?.resource;
+  Boolean(tile) &&
+  !tile?.town && !tile?.dockId && !tile?.fort && !tile?.observatory && !tile?.siegeBattery && !tile?.economicStructure && !tile?.resource &&
+  !tile?.watchtower && !tile?.waystation && !tile?.naturalWonder && !tile?.shardSite;
 
 /**
  * Whether the map actually shows this tile's clue: its props, or (blackwood)
  * its own trees darkened. There is no ground tint, so a clue tile showing
- * neither looks ordinary and must not get a tile-menu line either.
+ * neither -- or a fogged one, which neither renderer decorates -- looks
+ * ordinary and must not get a tile-menu line or count as a nearby clue.
  * `treesOnTile`: the tile draws forest or sapling trees.
  */
 export const prospectClueShownOnTile = (tile: Tile, treesOnTile: boolean): boolean =>
-  Boolean(tile.prospectSignature) && tile.terrain === "LAND" && (prospectCluePropsAllowed(tile) || (tile.prospectSignature === "BLACKWOOD_CANOPY" && treesOnTile));
+  Boolean(tile.prospectSignature) && tile.terrain === "LAND" && !tile.fogged &&
+  (prospectCluePropsAllowed(tile) || (tile.prospectSignature === "BLACKWOOD_CANOPY" && treesOnTile));
 
-export const prospectClueOverviewLine = (tile: Tile, treesOnTile: boolean): string | undefined => {
+/** prospectClueShownOnTile with the renderers' own tree gates (client-map-3d-forest-structure-gate.ts). */
+export const prospectClueShownAt = (tile: Tile): boolean =>
+  prospectClueShownOnTile(
+    tile,
+    shouldDrawForestInstance(isForestTile(tile.x, tile.y), tile) || shouldDrawLightGrassScatterInstance(isLightGrassScatterTile(tile.x, tile.y), tile)
+  );
+
+export const prospectClueOverviewLine = (tile: Tile): string | undefined => {
   const signature = tile.prospectSignature;
-  if (!signature || !prospectClueShownOnTile(tile, treesOnTile)) return undefined;
+  if (!signature || !prospectClueShownAt(tile)) return undefined;
   return `${prospectSignatureLabel(signature)}: ${prospectClueResourceLabel(signature)} deposits are likely within a few tiles.`;
 };
 
@@ -45,9 +58,15 @@ const PROP_COUNT_RANGE: Record<ProspectSignature, { min: number; max: number }> 
 
 export const prospectCluePropMax = (signature: ProspectSignature): number => PROP_COUNT_RANGE[signature].max;
 
-// Hashed on the world tile so props never reshuffle as the camera pans.
-const clueHash = (wx: number, wy: number, salt: number, mod: number): number =>
-  (((wx * 73856093) ^ (wy * 19349663) ^ (salt * 83492791)) >>> 0) % mod;
+// Hashed on the world tile so props never reshuffle as the camera pans. The
+// avalanche step matters: without it, `% 2` of the multiply-xor reduces to
+// (wx ^ wy) parity and prop counts formed a strict checkerboard.
+const clueHash = (wx: number, wy: number, salt: number, mod: number): number => {
+  let h = (Math.imul(wx, 73856093) ^ Math.imul(wy, 19349663) ^ Math.imul(salt, 83492791)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) % mod;
+};
 
 export const prospectCluePropCount = (signature: ProspectSignature, wx: number, wy: number): number => {
   const { min, max } = PROP_COUNT_RANGE[signature];

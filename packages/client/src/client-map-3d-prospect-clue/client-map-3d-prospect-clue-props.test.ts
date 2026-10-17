@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Scene } from "three";
+import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { createProspectClueProps } from "./client-map-3d-prospect-clue-props.js";
 import { prospectClueTreeTint } from "./client-map-3d-prospect-clue-layer.js";
 import { prospectCluePropCount, prospectCluePropsAllowed } from "../client-prospect-clue/client-prospect-clue.js";
@@ -20,24 +20,43 @@ const countsAfter = (add: (props: ReturnType<typeof createProspectClueProps>) =>
   return counts;
 };
 
+const flat = (): number => 0;
+
 describe("createProspectClueProps", () => {
   it("plants blackwood trees on an open blackwood tile", () => {
     const trees = prospectCluePropCount("BLACKWOOD_CANOPY", 12, 34);
-    expect(countsAfter((p) => p.addTile(0, 0, 0, 12, 34, "BLACKWOOD_CANOPY", false))).toEqual([trees, trees, 0, 0]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", false))).toEqual([trees, trees, 0, 0]);
   });
 
   it("adds no extra trees where the tile already grows forest (that forest is tinted instead)", () => {
-    expect(countsAfter((p) => p.addTile(0, 0, 0, 12, 34, "BLACKWOOD_CANOPY", true))).toEqual([0, 0, 0, 0]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 12, 34, "BLACKWOOD_CANOPY", true))).toEqual([0, 0, 0, 0]);
   });
 
   it("scatters ferrous flecks and crystal shards for the other clues", () => {
-    expect(countsAfter((p) => p.addTile(0, 0, 0, 5, 9, "FERROUS_DUST", false))).toEqual([0, 0, prospectCluePropCount("FERROUS_DUST", 5, 9), 0]);
-    expect(countsAfter((p) => p.addTile(0, 0, 0, 5, 9, "REFRACTIVE_GROUND", false))).toEqual([0, 0, 0, prospectCluePropCount("REFRACTIVE_GROUND", 5, 9)]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "FERROUS_DUST", false))).toEqual([0, 0, prospectCluePropCount("FERROUS_DUST", 5, 9), 0]);
+    expect(countsAfter((p) => p.addTile(0, 0, 0, flat, 5, 9, "REFRACTIVE_GROUND", false))).toEqual([0, 0, 0, prospectCluePropCount("REFRACTIVE_GROUND", 5, 9)]);
+  });
+
+  // Review finding: flecks/shards sat at surfaceY (the tile's highest point) and floated on hills and slopes.
+  it("sits ground props on groundYAt, not on the tile's highest point", () => {
+    const scene = new Scene();
+    const props = createProspectClueProps(scene, 4);
+    props.addTile(0, 0, 5, (ox) => ox, 5, 9, "FERROUS_DUST", false);
+    props.commit();
+    const fleckMesh = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh)[2]!;
+    const matrix = new Matrix4();
+    const position = new Vector3();
+    for (let i = 0; i < fleckMesh.count; i += 1) {
+      fleckMesh.getMatrixAt(i, matrix);
+      position.setFromMatrixPosition(matrix);
+      expect(position.y).toBeCloseTo(position.x + 0.01, 5);
+    }
+    props.dispose();
   });
 
   it("stops at the instance budget instead of overflowing", () => {
     const counts = countsAfter((p) => {
-      for (let i = 0; i < 50; i += 1) p.addTile(0, 0, 0, i, i * 3, "FERROUS_DUST", false);
+      for (let i = 0; i < 50; i += 1) p.addTile(0, 0, 0, flat, i, i * 3, "FERROUS_DUST", false);
     });
     expect(counts[2]).toBe(8 * 6);
   });
@@ -56,6 +75,8 @@ describe("prospect clue tile gating", () => {
     expect(prospectCluePropsAllowed(tile({}))).toBe(true);
     expect(prospectCluePropsAllowed(tile({ resource: "UMBRITE" }))).toBe(false);
     expect(prospectCluePropsAllowed(tile({ dockId: "d1" }))).toBe(false);
+    expect(prospectCluePropsAllowed(tile({ watchtower: { activated: false } }))).toBe(false);
+    expect(prospectCluePropsAllowed(tile({ shardSite: { kind: "CACHE", amount: 3 } }))).toBe(false);
     expect(prospectCluePropsAllowed(undefined)).toBe(false);
   });
 });

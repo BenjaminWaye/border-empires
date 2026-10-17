@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import type { ProspectSignature } from "@border-empires/shared";
 import { drawForestOverlay } from "../../../client/src/client-map-render/client-map-render-forest-overlay.js";
+import { drawProspectSignatureOverlay } from "../../../client/src/client-prospect-signature-overlay.js";
 
 // The worldgen prospect clues in the 2D canvas renderer: each block is half
 // forest (left) and half open ground (right). Twin of 3D Library/ProspectClues.
@@ -45,7 +46,11 @@ const render = (args: Args): HTMLElement => {
           ctx.fillRect(px, py, size, size);
           const forested = dx < BLOCK_W / 2;
           const prospectClue = clue === "NONE" ? undefined : { signature: clue, propsAllowed: true };
-          drawForestOverlay(ctx, 400 + blockIdx * 10 + dx, 200 + dy, px, py, size, prospectClue, () => forested);
+          const wx = 400 + blockIdx * 10 + dx;
+          const wy = 200 + dy;
+          // Same order as the game: trees, then (after hills) the ground props.
+          drawForestOverlay(ctx, wx, wy, px, py, size, prospectClue, () => forested);
+          drawProspectSignatureOverlay(ctx, prospectClue, wx, wy, px, py, size);
         }
       }
       ctx.fillStyle = "#cbd5e1";

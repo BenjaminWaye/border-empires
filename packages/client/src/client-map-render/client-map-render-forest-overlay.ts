@@ -5,7 +5,7 @@
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
 import { isForestTile, isLightGrassScatterTile, isTropicalForestLatitude } from "../client-constants.js";
-import { drawProspectSignatureOverlay, type ProspectClueDraw } from "../client-prospect-signature-overlay.js";
+import type { ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 import { prospectClueJitter, prospectCluePropCount, prospectCluePropOffset } from "../client-prospect-clue/client-prospect-clue.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
@@ -36,17 +36,16 @@ export const drawForestOverlay = (
   // isLightGrassScatterTile's own doc comment (client-constants.ts) and
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
   const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
-  drawProspectSignatureOverlay(ctx, prospectClue, wx, wy, px, py, size);
   // Blackwood canopy (an Umbrite clue) turns a tile's own trees violet-black,
-  // and plants gaunt blackwood conifers on open ground -- same as the true-3D
-  // BLACKWOOD_FOREST_TINT / client-map-3d-prospect-clue-props.ts.
+  // and plants gaunt blackwood conifers on open ground (a lone light-grass
+  // sapling doesn't count as wooded) -- same as the true-3D
+  // BLACKWOOD_FOREST_TINT / client-map-3d-prospect-clue-props.ts. The other
+  // clues' ground props draw after the hills overlay (client-map-facade.ts).
   const blackwood = prospectClue?.signature === "BLACKWOOD_CANOPY";
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
-  if (!isForest && !isScatter) {
-    if (blackwood && prospectClue.propsAllowed) drawBlackwoodGrove(ctx, wx, wy, px, py - canopyYOffset, size, pulse);
-    return;
-  }
+  if (blackwood && prospectClue.propsAllowed && !isForest) drawBlackwoodGrove(ctx, wx, wy, px, py - canopyYOffset, size, pulse);
+  if (!isForest && !isScatter) return;
   // Tropical-latitude forest tiles always render as palm, overriding the
   // ordinary pine/spruce/leaf species roll (worldgen-latitude.ts).
   const tropical = isForest && isTropicalForestLatitude(wy);

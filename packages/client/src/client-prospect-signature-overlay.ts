@@ -1,6 +1,8 @@
 import type { ProspectSignature } from "@border-empires/shared";
 import { prospectClueJitter, prospectCluePropCount, prospectCluePropOffset, prospectCluePropsAllowed } from "./client-prospect-clue/client-prospect-clue.js";
 import type { Tile } from "./client-types.js";
+import { isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render/client-map-render.js";
 
 /** What the 2D forest overlay needs to draw a tile's clue (see client-map-facade.ts). */
 export type ProspectClueDraw = {
@@ -9,8 +11,9 @@ export type ProspectClueDraw = {
   propsAllowed: boolean;
 };
 
-export const prospectClueDrawFor = (tile: Tile | undefined): ProspectClueDraw | undefined =>
-  tile?.prospectSignature ? { signature: tile.prospectSignature, propsAllowed: prospectCluePropsAllowed(tile) } : undefined;
+/** `visible`: false for fogged/remembered tiles, which -- as in true-3D -- show no clue. */
+export const prospectClueDrawFor = (tile: Tile | undefined, visible: boolean): ProspectClueDraw | undefined =>
+  visible && tile?.prospectSignature ? { signature: tile.prospectSignature, propsAllowed: prospectCluePropsAllowed(tile) } : undefined;
 
 const drawFerrousFlecks = (ctx: CanvasRenderingContext2D, wx: number, wy: number, px: number, py: number, size: number): void => {
   const count = prospectCluePropCount("FERROUS_DUST", wx, wy);
@@ -63,12 +66,14 @@ const drawCrystalShards = (ctx: CanvasRenderingContext2D, wx: number, wy: number
 /**
  * The ferrous/refractive props (no ground tint: a coloured wash read as territory and confused players). Blackwood's props are
  * trees, so the forest overlay draws those itself (client-map-render-forest-overlay.ts).
+ * Drawn after the hills overlay so its mounds don't paint over them, lifted by the same relief offset as trees and mounds.
  * 2D twin of the true-3D client-map-3d-prospect-clue/ layer. Never marks the deposit tile.
  */
 export const drawProspectSignatureOverlay = (ctx: CanvasRenderingContext2D, clue: ProspectClueDraw | undefined, wx: number, wy: number, px: number, py: number, size: number): void => {
-  if (!clue?.propsAllowed || size < 10) return;
+  if (!clue?.propsAllowed || isTrue3DRendererActive() || size < 12) return;
+  const reliefY = py - (useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0);
   ctx.save();
-  if (clue.signature === "FERROUS_DUST") drawFerrousFlecks(ctx, wx, wy, px, py, size);
-  else if (clue.signature === "REFRACTIVE_GROUND") drawCrystalShards(ctx, wx, wy, px, py, size);
+  if (clue.signature === "FERROUS_DUST") drawFerrousFlecks(ctx, wx, wy, px, reliefY, size);
+  else if (clue.signature === "REFRACTIVE_GROUND") drawCrystalShards(ctx, wx, wy, px, reliefY, size);
   ctx.restore();
 };

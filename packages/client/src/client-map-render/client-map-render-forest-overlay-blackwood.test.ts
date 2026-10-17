@@ -9,6 +9,7 @@ import type { ProspectClueDraw } from "../client-prospect-signature-overlay.js";
 
 let drawForestOverlay: typeof import("./client-map-render-forest-overlay.js").drawForestOverlay;
 let isLightGrassScatterTile: typeof import("../client-constants.js").isLightGrassScatterTile;
+let prospectClueDrawFor: typeof import("../client-prospect-signature-overlay.js").prospectClueDrawFor;
 
 type Recorder = { ctx: CanvasRenderingContext2D; fillRects: number; filledStyles: string[] };
 
@@ -54,6 +55,7 @@ beforeAll(async () => {
   Object.assign(globalThis, { Image: MockImage });
   ({ drawForestOverlay } = await import("./client-map-render-forest-overlay.js"));
   ({ isLightGrassScatterTile } = await import("../client-constants.js"));
+  ({ prospectClueDrawFor } = await import("../client-prospect-signature-overlay.js"));
 });
 
 const openTile = (): { x: number; y: number } => {
@@ -94,5 +96,27 @@ describe("2D blackwood canopy clue", () => {
     expect(dark.filledStyles).not.toEqual(green.filledStyles);
     expect(green.filledStyles.some((style) => style.startsWith("rgba(14, 41, 18,") || style.startsWith("rgba(74, 115, 46,") || style.startsWith("rgba(58, 122, 58,"))).toBe(true);
     expect(dark.filledStyles.some((style) => style.startsWith("rgba(14, 41, 18,") || style.startsWith("rgba(74, 115, 46,") || style.startsWith("rgba(58, 122, 58,"))).toBe(false);
+  });
+
+  // Review finding: a light-grass sapling counted as "already wooded", so a
+  // blackwood clue there only darkened one tiny sapling.
+  it("still plants the grove beside a light-grass sapling", () => {
+    setWorldSeed(2024);
+    let scatter: { x: number; y: number } | undefined;
+    for (let x = 0; x < 200 && !scatter; x += 1) for (let y = 20; y < 220 && !scatter; y += 1) if (isLightGrassScatterTile(x, y)) scatter = { x, y };
+    expect(scatter).toBeDefined();
+    const clue = createRecorder();
+    drawForestOverlay(clue.ctx, scatter!.x, scatter!.y, 0, 0, 48, BLACKWOOD, () => false);
+    const canopies = clue.filledStyles.filter((style) => BLACKWOOD_CANOPY_FILL.test(style));
+    expect(canopies).toHaveLength(prospectCluePropCount("BLACKWOOD_CANOPY", scatter!.x, scatter!.y));
+  });
+});
+
+// Review finding: 2D drew clues on fogged (remembered) tiles while true-3D draws them only on visible ones.
+describe("prospectClueDrawFor", () => {
+  it("draws no clue on a tile that isn't visible", () => {
+    const tile = { x: 1, y: 1, terrain: "LAND" as const, prospectSignature: "FERROUS_DUST" as const };
+    expect(prospectClueDrawFor(tile, true)).toEqual({ signature: "FERROUS_DUST", propsAllowed: true });
+    expect(prospectClueDrawFor(tile, false)).toBeUndefined();
   });
 });
